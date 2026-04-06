@@ -4,15 +4,18 @@ ID: UI-NFR-015
 Titel: Home Assistant Lovelace Custom Cards — Entwicklungsrichtlinien
 Kategorie: UI-Verhalten
 Unterkategorie: Home Assistant, Lovelace, Custom Cards, Web Components
-Technologie: JavaScript, Lit, Shadow DOM, Home Assistant Frontend
+Technologie: JavaScript, ha-form, Shadow DOM, Home Assistant Frontend
 Status: Entwurf
 Prioritaet: Hoch
-Version: 1.0
+Version: 2.0
 Autor: Business Analyst - Agrotech
-Datum: 2026-03-09
-Tags: [home-assistant, lovelace, custom-card, ha-entity-picker, ha-textfield, shadow-dom, lit, web-components, lazy-loading, firefox, safari, chrome]
+Datum: 2026-03-28
+Tags: [home-assistant, lovelace, custom-card, ha-form, ha-selector, shadow-dom, schema-based, web-components]
 Abhaengigkeiten: [NFR-001, REQ-005, REQ-014, REQ-018]
 Betroffene Module: [HA-Integration]
+Changelog:
+  - v2.0 (2026-03-28): Primaeransatz auf ha-form + Schema-Muster umgestellt (analog offizielle HA-Cards). document.createElement("ha-entity-picker") auf Fallback degradiert.
+  - v1.0 (2026-03-09): Erstversion mit direktem ha-entity-picker Ansatz.
 ---
 
 # UI-NFR-015: Home Assistant Lovelace Custom Cards — Entwicklungsrichtlinien
@@ -26,92 +29,75 @@ Betroffene Module: [HA-Integration]
 **um** alle Informationen an einer zentralen Stelle zu haben, ohne zwischen zwei Anwendungen wechseln zu muessen.
 
 **Als** Grower
-**moechte ich** die Cards ueber den Standard-HA-Editor konfigurieren koennen (Entity-Picker, Textfelder, Checkboxen)
+**moechte ich** die Cards ueber den Standard-HA-Editor konfigurieren koennen — identisch zur Bedienung offizieller HA-Cards (Entity-Picker, Textfelder, Checkboxen)
 **um** die gewohnte HA-Benutzererfahrung beizubehalten und keine YAML-Konfiguration schreiben zu muessen.
 
 **Als** Grower mit Firefox, Safari oder Chrome
 **moechte ich** dass die Cards in jedem Browser zuverlaessig funktionieren
 **um** nicht auf einen bestimmten Browser angewiesen zu sein.
 
-### 1.2 Geschaeftliche Motivation
+### 1.2 Designprinzip: Maximale Annaeherung an offizielle HA-Cards
 
-Home Assistant ist die zentrale Smart-Home-Plattform fuer Kamerplanter-Nutzer. Custom Lovelace Cards muessen sich nahtlos in das HA-Oekosystem einfuegen — sowohl visuell (native HA-Komponenten) als auch technisch (korrekte Lifecycle-Behandlung, Shadow DOM, Lazy Loading). Fehlerhafte Cards fuehren zu leeren Editoren, nicht funktionierenden Dropdowns und Nutzerfrustration.
+Kamerplanter Custom Cards MUESSEN sich so verhalten wie offizielle Lovelace-Cards (z.B. `hui-light-card`, `hui-tile-card`, `hui-thermostat-card`). Das bedeutet:
 
-Die HA-Frontend-Architektur hat spezifische Eigenheiten (Lit Web Components, Lazy Loading, Shadow DOM), die sich grundlegend von Standard-Web-Entwicklung unterscheiden und dedizierte Richtlinien erfordern.
+| Aspekt | Offizieller HA-Standard | Kamerplanter Cards |
+|--------|------------------------|--------------------|
+| Editor-Aufbau | `ha-form` + deklaratives Schema | `ha-form` + deklaratives Schema (identisch) |
+| Entity-Filterung | `selector: { entity: { domain: [...] } }` | `selector: { entity: {} }` mit `entityFilter` |
+| hass-Propagation | An `ha-form` uebergeben, intern verteilt | Identisch |
+| Events | `value-changed` auf `ha-form` | Identisch |
+| config-changed | `fireEvent(this, "config-changed", { config })` | Identisch (CustomEvent) |
+| Element-Erstellung | Lit `html\`\`` Templates | `document.createElement("ha-form")` (Vanilla JS) |
+
+Da unsere Cards **Vanilla JavaScript** (kein Lit Build-Setup) sind, verwenden wir `document.createElement("ha-form")` mit programmatischer Property-Setzung — dies erzeugt denselben Render-Pfad wie offizielle Lit-basierte Editors.
 
 ---
 
 ## 2. Anforderungen
 
-### 2.1 HA-Komponenten Lazy Loading (Kritisch)
+### 2.1 Primaere Implementierungsstrategie: ha-form + Schema
 
-Home Assistant laedt Lit-Komponenten (`ha-entity-picker`, `ha-textfield`, `ha-icon`, etc.) **lazy** — sie sind beim Laden einer Custom Card **nicht** automatisch verfuegbar. Ohne explizites Vorladen bleiben die Elemente als leere HTML-Tags ohne Funktion (kein Rendering, kein Dropdown, kein Input).
-
-| # | Regel | Stufe |
-|---|-------|-------|
-| R-001 | Custom Cards MUESSEN vor dem ersten Render sicherstellen, dass alle benoetigten HA-Lit-Komponenten geladen und bei `customElements` registriert sind. | MUSS |
-| R-002 | Das Laden MUSS ueber `window.loadCardHelpers()` erfolgen — dies ist die offizielle, stabile API die von HACS und der HA-Community empfohlen wird. | MUSS |
-| R-003 | Das Lazy-Loading-Promise MUSS als Modul-Level-Singleton implementiert werden (einmalige Ausfuehrung, Ergebnis wird gecacht). | MUSS |
-| R-004 | Nach `loadCardHelpers()` MUSS `customElements.whenDefined("ha-entity-picker")` abgewartet werden, bevor Elemente erstellt oder Properties gesetzt werden. | MUSS |
-| R-005 | Das Lazy-Loading DARF den Card-Render NICHT blockieren — die Card selbst (nicht der Editor) SOLL auch ohne Editor-Komponenten rendern koennen. | SOLL |
-
-**Referenz-Implementierung:**
-
-```javascript
-/**
- * Modul-Level Singleton — wird einmal ausgefuehrt, Promise wird gecacht.
- * Alle Editoren warten auf dasselbe Promise.
- */
-const _haComponentsReady = (async () => {
-  // Schneller Pfad: bereits geladen (z.B. nach Navigation im Dashboard)
-  if (customElements.get("ha-entity-picker")) return;
-
-  // Warten bis das HA-Frontend grundlegend initialisiert ist
-  await customElements.whenDefined("hui-entities-card");
-
-  // Card Helpers laden — dies triggert den Import der Editor-Komponenten
-  const helpers = await window.loadCardHelpers?.();
-  if (helpers) {
-    const temp = await helpers.createCardElement({
-      type: "entities",
-      entities: [],
-    });
-    if (temp && temp.constructor?.getConfigElement) {
-      await temp.constructor.getConfigElement();
-    }
-  }
-
-  // Sicherstellen dass die Komponente tatsaechlich registriert ist
-  await customElements.whenDefined("ha-entity-picker");
-})();
-```
-
-**Warum `loadCardHelpers()` noetig ist:**
-
-| Ansatz | Ergebnis |
-|--------|----------|
-| `<ha-entity-picker>` via `innerHTML` | Element bleibt leer — Lit-Klasse nicht geladen |
-| `document.createElement("ha-entity-picker")` | Element bleibt leer — Lit-Klasse nicht geladen |
-| `customElements.whenDefined()` allein | Promise resolved nie, wenn kein anderer Code den Import triggert |
-| `window.loadCardHelpers()` + `whenDefined()` | Zuverlaessig in Chrome, Firefox, Safari |
-
-### 2.2 Card Editor Lifecycle (setConfig / set hass)
-
-Home Assistant ruft `setConfig(config)` und `set hass(hass)` in **undefinierter Reihenfolge** auf dem Editor auf. Typisch ist: `setConfig()` zuerst, `set hass()` danach. `ha-entity-picker` benoetigt zwingend ein gueltiges `hass`-Objekt fuer das Entity-Dropdown.
+Der **einzig zulaessige primaere Ansatz** fuer Card-Editoren ist `ha-form` mit einem deklarativen Schema. Direkte Instanziierung von `ha-entity-picker` ohne `ha-form` ist auf Ausnahmefaelle beschraenkt (§2.7).
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-006 | `setConfig()` MUSS die Konfiguration speichern, DARF aber nur rendern wenn `this._hass` bereits gesetzt ist. | MUSS |
-| R-007 | `set hass()` MUSS `this._hass` speichern und einen Render ausloesen. | MUSS |
-| R-008 | Die Render-Methode MUSS als Guard `if (!this._config \|\| !this._hass) return;` beginnen. | MUSS |
-| R-009 | Der Render MUSS ueber eine `async _scheduleRender()` Methode erfolgen, die auf `_haComponentsReady` wartet. | MUSS |
+| R-001 | Card-Editoren MUESSEN `ha-form` als primaeres Editor-Element verwenden. | MUSS |
+| R-002 | Die Konfiguration MUSS als deklaratives Schema-Array definiert werden (analog `hui-light-card-editor`). | MUSS |
+| R-003 | Das Schema MUSS als Modul-Level-Variable oder per Getter definiert werden — nicht inline im Render. | MUSS |
+| R-004 | `ha-form` MUSS `.hass`, `.schema` und `.data` als JavaScript-Properties (nicht HTML-Attribute) erhalten. | MUSS |
+| R-005 | Konfigurationsaenderungen MUESSEN ausschliesslich ueber das `value-changed`-Event von `ha-form` verarbeitet werden. | MUSS |
 
-**Referenz-Implementierung:**
+**Referenz-Implementierung (Vanilla JS):**
 
 ```javascript
-class MyCardEditor extends HTMLElement {
+// Schema auf Modul-Ebene oder als Klassen-Getter definieren
+const TANK_CARD_SCHEMA = [
+  {
+    name: "title",
+    label: "Titel (optional)",
+    selector: { text: {} },
+  },
+  {
+    name: "tank_entity",
+    label: "Tank (Kamerplanter)",
+    required: true,
+    selector: {
+      entity: {
+        // Kamerplanter Tank-Info Sensoren
+        // entityFilter wird per Property gesetzt (siehe R-013)
+      },
+    },
+  },
+  {
+    name: "show_ph",
+    label: "pH anzeigen",
+    selector: { boolean: {} },
+  },
+];
+
+class KamerplanterTankCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = { ...defaults, ...config };
+    this._config = { title: "", tank_entity: "", show_ph: true, ...config };
     if (this._hass) this._scheduleRender();
   }
 
@@ -121,113 +107,282 @@ class MyCardEditor extends HTMLElement {
   }
 
   async _scheduleRender() {
-    await _haComponentsReady;   // Warten auf Lazy Loading (§2.1)
+    await _haFormReady; // Warten auf ha-form (§2.2)
     this._render();
   }
 
   _render() {
     if (!this._config || !this._hass) return;
-    // ... DOM aufbauen ...
+
+    if (!this._form) {
+      this.innerHTML = "";
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+      this.appendChild(this._form);
+    }
+
+    // Properties setzen — identisch zu Lit .property=${value} Binding
+    this._form.hass = this._hass;
+    this._form.schema = TANK_CARD_SCHEMA;
+    this._form.data = this._config;
   }
 }
 ```
 
-### 2.3 Element-Erstellung (document.createElement vs. innerHTML)
+### 2.2 ha-form Lazy Loading
 
-Lit Web Components (`ha-entity-picker`, `ha-textfield`) verarbeiten HTML-Attribute und JavaScript-Properties unterschiedlich. Lit-Template-Syntax (`.value="${x}"`) funktioniert **nur** innerhalb von Lit `html` Templates, **nicht** in `innerHTML`-Strings.
-
-| # | Regel | Stufe |
-|---|-------|-------|
-| R-010 | HA-Lit-Komponenten MUESSEN mit `document.createElement()` erstellt werden, nicht via `innerHTML`. | MUSS |
-| R-011 | Properties (`hass`, `value`, `includeEntities`, `includeDomains`, `allowCustomEntity`) MUESSEN als JavaScript-Properties auf dem Element-Objekt gesetzt werden, nicht als HTML-Attribute. | MUSS |
-| R-012 | Native HTML-Elemente (div, span, input, button, label) DUERFEN weiterhin via `innerHTML` erstellt werden. | KANN |
-| R-013 | Lit-Template-Syntax (`.property="${value}"`, `@event="${handler}"`) DARF NICHT in `innerHTML`-Strings verwendet werden — diese Syntax ist Lit-exklusiv und wird vom Browser-HTML-Parser ignoriert. | MUSS |
-
-**Korrekt:**
-
-```javascript
-const picker = document.createElement("ha-entity-picker");
-picker.hass = this._hass;
-picker.label = "Tank (Kamerplanter)";
-picker.allowCustomEntity = true;
-picker.value = config.tank_entity || "";
-picker.includeEntities = ["sensor.kp_90639_info"];
-container.appendChild(picker);
-```
-
-**Falsch (funktioniert nicht):**
-
-```javascript
-// innerHTML mit Lit-Syntax — Properties werden NICHT gesetzt
-container.innerHTML = `
-  <ha-entity-picker
-    .hass="${this._hass}"
-    .value="${config.tank_entity}"
-    .includeEntities="${entities}"
-  ></ha-entity-picker>
-`;
-
-// innerHTML ohne Lit-Syntax — Attribute statt Properties, unzuverlaessig
-container.innerHTML = `
-  <ha-entity-picker
-    label="Tank"
-    allow-custom-entity
-  ></ha-entity-picker>
-`;
-// Properties nachtraeglich setzen funktioniert NICHT zuverlaessig,
-// da das Element beim Lit-Upgrade seine internen Properties
-// aus den Attributen initialisiert und spaetere Aenderungen ignoriert.
-```
-
-### 2.4 ha-entity-picker — Konfiguration
+`ha-form` wird von Home Assistant ebenfalls lazy geladen. Das Modul-Level-Singleton MUSS auf `ha-form` warten, nicht auf `ha-entity-picker` direkt.
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-014 | Entity-Picker MUESSEN immer `picker.hass = this._hass` gesetzt bekommen — ohne `hass` zeigt der Picker kein Dropdown. | MUSS |
-| R-015 | Zur Filterung auf Kamerplanter-Entities SOLL `includeEntities` mit einem Array von Entity-IDs verwendet werden (z.B. `sensor.kp_*_info`). | SOLL |
-| R-016 | Zur Filterung auf eine Domain SOLL `includeDomains` verwendet werden (z.B. `["sensor"]`). | SOLL |
-| R-017 | `allowCustomEntity = true` SOLL gesetzt werden, damit Nutzer auch Entity-IDs manuell eingeben koennen. | SOLL |
-| R-018 | Value-Aenderungen MUESSEN ueber das `value-changed` Event abgefangen werden: `picker.addEventListener("value-changed", (e) => { ... e.detail.value ... })`. | MUSS |
-| R-019 | Die Filter-Liste (`includeEntities`) MUSS dynamisch aus `this._hass.states` aufgebaut werden, nicht hartcodiert. | MUSS |
+| R-006 | Das Lazy-Loading-Singleton MUSS auf `ha-form` warten (`customElements.whenDefined("ha-form")`). | MUSS |
+| R-007 | Das Singleton MUSS als Modul-Level-Variable definiert sein (einmalig ausgefuehrt, gecacht). | MUSS |
+| R-008 | `_scheduleRender()` MUSS auf das Singleton warten, bevor DOM manipuliert wird. | MUSS |
 
-**Entity-Filter Muster:**
+**Referenz-Implementierung:**
 
 ```javascript
-// Tank-Info Sensoren (sensor.kp_XXXXX_info)
-const tankEntities = Object.keys(this._hass.states)
-  .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_info"));
+/**
+ * Modul-Level Singleton: wartet bis ha-form verfuegbar ist.
+ * ha-form propagiert hass intern zu ha-selector-entity → ha-entity-picker.
+ * Kein manuelles Laden von ha-entity-picker noetig.
+ */
+const _haFormReady = (async () => {
+  if (customElements.get("ha-form")) return;
 
-// Mix-Channel Sensoren (sensor.kp_XXXXX_LABEL_mix)
-const mixEntities = Object.keys(this._hass.states)
-  .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_mix"));
+  // Warten bis HA-Frontend grundlegend initialisiert ist
+  await customElements.whenDefined("hui-entities-card");
+
+  // loadCardHelpers triggert den Import der Form-Komponenten
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) {
+      await temp.constructor.getConfigElement();
+    }
+  }
+
+  await customElements.whenDefined("ha-form");
+})();
 ```
 
-### 2.5 ha-textfield — Konfiguration
+### 2.3 Schema-Definition
+
+Das Schema ist ein Array von Felddefinitionen. Jedes Feld hat `name`, optionales `label`, und einen `selector`.
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-020 | `ha-textfield` MUSS mit `document.createElement("ha-textfield")` erstellt werden. | MUSS |
-| R-021 | `label`, `placeholder` und `value` MUESSEN als JavaScript-Properties gesetzt werden. | MUSS |
-| R-022 | Wertaenderungen MUESSEN ueber das `input` Event abgefangen werden. | MUSS |
+| R-009 | Jedes Schema-Feld MUSS `name` und `selector` enthalten. | MUSS |
+| R-010 | `label` SOLL immer gesetzt sein (sonst zeigt ha-form den Feldnamen roh an). | SOLL |
+| R-011 | Das Schema DARF NICHT bei jedem Render neu erstellt werden — Modul-Konstante oder memoisierten Getter verwenden. | MUSS |
+| R-012 | Fuer dynamische Schemas (entitaetsabhaengige Felder) MUSS Memoisation eingesetzt werden (Funktion mit gecachtem Rueckgabewert). | MUSS |
+
+**Verfuegbare Selector-Typen:**
+
+| Selector | Verwendung | Beispiel |
+|----------|-----------|---------|
+| `entity` | Entity-Auswahl (rendert ha-entity-picker) | `{ entity: { domain: ["sensor"] } }` |
+| `text` | Texteingabe (rendert ha-textfield) | `{ text: {} }` |
+| `boolean` | Checkbox (rendert ha-switch) | `{ boolean: {} }` |
+| `number` | Zahleneingabe mit min/max | `{ number: { min: 0, max: 100, step: 1 } }` |
+| `select` | Dropdown | `{ select: { options: ["a", "b"] } }` |
+| `icon` | Icon-Picker | `{ icon: {} }` |
+| `color_rgb` | Farb-Picker | `{ color_rgb: {} }` |
+
+**Dynamisches Schema-Beispiel:**
+
+```javascript
+// Memoisation: Schema nur neu berechnen wenn sich entity aendert
+let _lastEntity = undefined;
+let _cachedSchema = null;
+
+function getTankCardSchema(entityId) {
+  if (entityId === _lastEntity && _cachedSchema) return _cachedSchema;
+  _lastEntity = entityId;
+  _cachedSchema = [
+    { name: "title", label: "Titel", selector: { text: {} } },
+    { name: "tank_entity", label: "Tank-Entity", required: true, selector: { entity: {} } },
+    // Zeige erweiterte Optionen nur wenn Entity gewaehlt
+    ...(entityId
+      ? [
+          { name: "show_ph", label: "pH anzeigen", selector: { boolean: {} } },
+          { name: "show_ec", label: "EC anzeigen", selector: { boolean: {} } },
+        ]
+      : []),
+  ];
+  return _cachedSchema;
+}
+
+// Im _render():
+this._form.schema = getTankCardSchema(this._config.tank_entity);
+```
+
+### 2.4 Entity-Filterung via Selector und entityFilter
+
+`ha-form` uebergibt den `entity`-Selector intern an `ha-selector-entity`, der wiederum `ha-entity-picker` rendert. Filterung erfolgt deklarativ im Schema oder per `entityFilter`-Function.
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-013 | Domain-Filterung SOLL deklarativ im Schema via `selector: { entity: { domain: [...] } }` erfolgen. | SOLL |
+| R-014 | Kamerplanter-spezifische Filterung (z.B. `sensor.kp_*_info`) MUSS als `entityFilter`-Function via `computedSchema` oder direkt auf dem `ha-form`-Element implementiert werden. | MUSS |
+| R-015 | `includeEntities`-Arrays DUERFEN NICHT hartcodiert sein — immer dynamisch aus `this._hass.states` aufbauen. | MUSS |
+| R-016 | `allowCustomEntity` SOLL im Schema oder als Selector-Property gesetzt werden. | SOLL |
+
+**Entity-Filter ueber ha-form (empfohlen):**
+
+```javascript
+// ha-form unterstuetzt computedSchema fuer dynamische Selector-Properties
+// Alternativ: entityFilter direkt per Property auf ha-selector-entity
+
+// Ansatz 1: include_entities im Schema (wenn Menge klein und bekannt)
+function buildSchema(hass) {
+  const tankEntities = Object.keys(hass.states)
+    .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_info"));
+
+  return [
+    {
+      name: "tank_entity",
+      label: "Tank (Kamerplanter)",
+      required: true,
+      selector: {
+        entity: {
+          include_entities: tankEntities,
+          // Erlaubt manuelle Eingabe falls Filter zu restriktiv
+        },
+      },
+    },
+  ];
+}
+
+// Im _render() — Schema wird mit aktuellem hass aufgebaut:
+this._form.schema = buildSchema(this._hass);
+```
+
+```javascript
+// Ansatz 2: entityFilter-Function (flexibler, fuer Pattern-Matching)
+// Auf das ha-form-Element wird entityFilter-context nicht direkt unterstuetzt.
+// Stattdessen: computedSchema als Function mit hass-Abhaengigkeit.
+
+// Wenn ha-form entityFilter nicht unterstuetzt: schema mit include_entities
+// aus hass.states aufbauen (Ansatz 1 bevorzugen).
+```
+
+### 2.5 Event-Handling: value-changed und config-changed
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-017 | Der Editor MUSS genau einen `value-changed`-Listener auf `ha-form` registrieren. | MUSS |
+| R-018 | Bei jedem `value-changed`-Event MUSS die vollstaendige Konfiguration per `config-changed` CustomEvent propagiert werden. | MUSS |
+| R-019 | Das `config-changed`-Event MUSS `bubbles: true` und `composed: true` setzen. | MUSS |
+| R-020 | Event-Listener DUERFEN NICHT bei jedem `_render()`-Aufruf neu registriert werden (Memory Leak). Listener einmalig im ersten Render registrieren. | MUSS |
+
+**Korrektes Event-Handling-Pattern:**
+
+```javascript
+_render() {
+  if (!this._config || !this._hass) return;
+
+  // Einmalige Initialisierung (kein doppelter Listener)
+  if (!this._form) {
+    this._form = document.createElement("ha-form");
+
+    this._form.addEventListener("value-changed", (e) => {
+      this._config = e.detail.value;
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: this._config },
+        bubbles: true,
+        composed: true,
+      }));
+    });
+
+    this.appendChild(this._form);
+  }
+
+  // Properties bei jedem Render aktualisieren
+  this._form.hass = this._hass;
+  this._form.schema = getSchema(this._config);
+  this._form.data = this._config;
+}
+```
 
 ### 2.6 Shadow DOM — Card vs. Editor
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-023 | Die Card selbst (Darstellungskomponente) MUSS Shadow DOM verwenden (`this.attachShadow({ mode: "open" })`) — dies verhindert CSS-Konflikte mit dem HA-Dashboard. | MUSS |
-| R-024 | Der Card-Editor DARF KEIN Shadow DOM verwenden — HA-Lit-Komponenten im Editor benoetigen Zugriff auf den globalen HA-Theme-Context (CSS Custom Properties). | MUSS |
-| R-025 | `<style>`-Bloecke im Editor MUESSEN HA-CSS-Custom-Properties verwenden (`var(--primary-color)`, `var(--secondary-text-color)`, `var(--card-background-color)`, etc.) fuer konsistentes Theming. | MUSS |
-| R-026 | SVG `<clipPath>`-Elemente in Shadow DOM MUESSEN innerhalb von `<defs>` stehen — ohne `<defs>` rendert Firefox die Clip-Pfade nicht. | MUSS |
+| R-021 | Die Card-Darstellungskomponente MUSS Shadow DOM verwenden (`attachShadow({ mode: "open" })`). | MUSS |
+| R-022 | Der Card-Editor DARF KEIN Shadow DOM verwenden — `ha-form` und HA-Komponenten benoetigen Zugriff auf den globalen HA-Theme-Context. | MUSS |
+| R-023 | `<style>`-Bloecke im Editor MUESSEN HA-CSS-Custom-Properties verwenden (`var(--primary-color)`, `var(--secondary-text-color)`, `var(--card-background-color)`). | MUSS |
+| R-024 | SVG `<clipPath>`-Elemente in Shadow DOM MUESSEN innerhalb von `<defs>` stehen — Firefox rendert sie sonst nicht. | MUSS |
 
-### 2.7 Card-Registrierung
+### 2.7 Mehrfach-Entity-Auswahl via multiple: true
+
+Fuer Use-Cases wo der Nutzer eine beliebig lange Liste von Entities konfigurieren soll (z.B. Mix-Channels, Sensor-Gruppen), MUSS `selector: { entity: { multiple: true } }` verwendet werden. Dies rendert intern `ha-entities-picker` mit nativem Add/Remove — **kein Fallback auf direktes `ha-entity-picker` noetig**.
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-027 | Jede Card MUSS sich ueber `customElements.define()` mit einem eindeutigen Tag-Namen registrieren (Konvention: `kamerplanter-{name}-card`). | MUSS |
-| R-028 | Der Editor MUSS sich separat registrieren (Konvention: `kamerplanter-{name}-card-editor`). | MUSS |
-| R-029 | Die Card-Klasse MUSS `static getConfigElement()` implementieren, das den Editor-Tag-Namen zurueckgibt. | MUSS |
-| R-030 | Die Card-Klasse MUSS `static getStubConfig()` implementieren, das eine Default-Konfiguration zurueckgibt. | MUSS |
-| R-031 | Die Card MUSS sich in `window.customCards` registrieren fuer die HA-Card-Picker-Anzeige. | MUSS |
+| R-025 | Fuer dynamische Entity-Listen MUSS `selector: { entity: { multiple: true } }` verwendet werden — nicht `document.createElement("ha-entity-picker")` mit manueller Listenverwaltung. | MUSS |
+| R-026 | `multiple: true` im Selector rendert `ha-entities-picker` (HA-nativ) mit Add/Remove-Buttons, Drag-to-Reorder und Suche. | INFO |
+| R-027 | Direktes `document.createElement("ha-entity-picker")` DARF NUR verwendet werden wenn weder Single- noch Multi-Selector den Use-Case abdecken koennen — mit Pflicht-Kommentar im Code. | KANN |
+
+**Mix-Card: dynamische Entity-Liste via multiple (korrekt):**
+
+```javascript
+function buildMixCardSchema(hass) {
+  const mixEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_mix")
+      )
+    : [];
+
+  return [
+    {
+      name: "title",
+      label: "Titel",
+      selector: { text: {} },
+    },
+    {
+      name: "entities",
+      label: "Mix-Kanaele",
+      required: true,
+      selector: {
+        entity: {
+          multiple: true,              // rendert ha-entities-picker
+          include_entities: mixEntities,
+        },
+      },
+    },
+  ];
+}
+
+// Im Editor: identisch zum Single-Entity-Ansatz
+this._form.hass = this._hass;
+this._form.schema = buildMixCardSchema(this._hass);
+this._form.data = this._config;  // this._config.entities = ["sensor.kp_...", ...]
+```
+
+**Was `multiple: true` liefert (nativ, ohne eigenen Code):**
+- Chip-Liste der gewaelten Entities mit einzelnem Remove-Button
+- Suchfeld fuer neue Entities (gefiltert via `include_entities`)
+- Reihenfolge per Drag-and-Drop aenderbar
+
+### 2.8 Card-Registrierung
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-030 | Jede Card MUSS sich via `customElements.define()` mit `kamerplanter-{name}-card` registrieren. | MUSS |
+| R-031 | Der Editor MUSS sich als `kamerplanter-{name}-card-editor` registrieren. | MUSS |
+| R-032 | Die Card-Klasse MUSS `static getConfigElement()` implementieren (gibt Editor-Element zurueck). | MUSS |
+| R-033 | Die Card-Klasse MUSS `static getStubConfig()` implementieren (gibt Default-Konfiguration zurueck). | MUSS |
+| R-034 | Die Card MUSS sich in `window.customCards` registrieren. | MUSS |
 
 **Referenz:**
 
@@ -240,9 +395,8 @@ class KamerplanterTankCard extends HTMLElement {
     return document.createElement("kamerplanter-tank-card-editor");
   }
   static getStubConfig() {
-    return { tank_entity: "", title: "Tank" };
+    return { tank_entity: "", title: "", show_ph: true, show_ec: true, show_temp: true };
   }
-  // ...
 }
 
 window.customCards = window.customCards || [];
@@ -250,16 +404,9 @@ window.customCards.push({
   type: "kamerplanter-tank-card",
   name: "Kamerplanter Tank",
   description: "Tankfuellstand mit SVG-Visualisierung",
+  preview: true,
 });
 ```
-
-### 2.8 Event-Propagation (config-changed)
-
-| # | Regel | Stufe |
-|---|-------|-------|
-| R-032 | Konfigurationsaenderungen im Editor MUESSEN ueber ein `config-changed` CustomEvent an HA propagiert werden. | MUSS |
-| R-033 | Das Event MUSS `bubbles: true` und `composed: true` setzen, damit es Shadow-DOM-Grenzen ueberquert. | MUSS |
-| R-034 | Das Event-Detail MUSS die vollstaendige Konfiguration enthalten: `{ detail: { config: this._config } }`. | MUSS |
 
 ### 2.9 Deployment & Caching
 
@@ -268,60 +415,202 @@ window.customCards.push({
 | R-035 | Card-JS-Dateien MUESSEN unter `/config/www/` im HA-Pod abgelegt werden. | MUSS |
 | R-036 | Lovelace-Ressourcen MUESSEN als `type: module` registriert werden. | MUSS |
 | R-037 | Bei jedem Deployment MUSS der Cache-Buster in `/config/.storage/lovelace_resources` aktualisiert werden (`?v={timestamp}`). | MUSS |
-| R-038 | Nach Deployment MUSS der HA-Prozess neu gestartet werden (PID 1 Signal oder Pod-Restart). | MUSS |
-| R-039 | Nutzer MUESSEN nach einem Update einen Hard-Reload (Ctrl+F5) durchfuehren — die Card-Dokumentation SOLL darauf hinweisen. | SOLL |
+| R-038 | Nach Deployment MUSS der HA-Prozess neu gestartet werden (Pod-Restart). | MUSS |
+| R-039 | Nutzer MUESSEN nach einem Update einen Hard-Reload (Ctrl+F5) durchfuehren. | SOLL |
 
 ---
 
-## 3. Wireframe-Beispiele
+## 3. Vollstaendige Referenz-Implementierung
 
-### 3.1 Card Editor mit ha-entity-picker
+### 3.1 Card Editor (ha-form Primaeransatz)
 
-```
-+------------------------------------------+
-|  Titel (optional)                        |
-|  [ha-textfield: "Bewaesserungsfass"   ]  |
-+------------------------------------------+
-|  Tank (Kamerplanter)                     |
-|  [ha-entity-picker ▼                  ]  |
-|    ┌──────────────────────────────────┐  |
-|    │ sensor.kp_90639_info             │  |
-|    │   Bewaesserungsfass Info         │  |
-|    └──────────────────────────────────┘  |
-+------------------------------------------+
-|  ANZEIGE DER MESSWERTE                   |
-|  pH    [x] im Fass    [x] Badge         |
-|  EC    [x] im Fass    [x] Badge         |
-|  Temp  [x] im Fass    [x] Badge         |
-+------------------------------------------+
-|  Sensoren automatisch aus KA.            |
-|  Ueberschreiben optional:               |
-|  HA-SENSOREN (OPTIONAL)                  |
-|  [ha-entity-picker: pH Sensor     ▼  ]  |
-|  [ha-entity-picker: EC Sensor     ▼  ]  |
-|  [ha-entity-picker: Temp Sensor   ▼  ]  |
-+------------------------------------------+
+```javascript
+// ============================================================
+// Modul-Level: Lazy Loading fuer ha-form
+// ============================================================
+const _haFormReady = (async () => {
+  if (customElements.get("ha-form")) return;
+  await customElements.whenDefined("hui-entities-card");
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+  }
+  await customElements.whenDefined("ha-form");
+})();
+
+// ============================================================
+// Schema (Modul-Level — nicht pro Render neu erstellen)
+// ============================================================
+function buildTankCardSchema(hass) {
+  const tankEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_info")
+      )
+    : [];
+
+  return [
+    {
+      name: "title",
+      label: "Titel (optional)",
+      selector: { text: {} },
+    },
+    {
+      name: "tank_entity",
+      label: "Tank (Kamerplanter)",
+      required: true,
+      selector: {
+        entity: {
+          include_entities: tankEntities,
+        },
+      },
+    },
+    {
+      name: "show_ph",
+      label: "pH anzeigen",
+      selector: { boolean: {} },
+    },
+    {
+      name: "show_ec",
+      label: "EC anzeigen",
+      selector: { boolean: {} },
+    },
+    {
+      name: "show_temp",
+      label: "Temperatur anzeigen",
+      selector: { boolean: {} },
+    },
+  ];
+}
+
+// ============================================================
+// Editor-Klasse
+// ============================================================
+class KamerplanterTankCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this._config = null;
+    this._hass = null;
+    this._form = null;
+  }
+
+  setConfig(config) {
+    this._config = {
+      title: "",
+      tank_entity: "",
+      show_ph: true,
+      show_ec: true,
+      show_temp: true,
+      ...config,
+    };
+    if (this._hass) this._scheduleRender();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._scheduleRender();
+  }
+
+  async _scheduleRender() {
+    await _haFormReady;
+    this._render();
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+
+    // ha-form einmalig erstellen
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+
+      this.appendChild(this._form);
+    }
+
+    // Properties bei jedem Render aktuell halten
+    this._form.hass = this._hass;
+    this._form.schema = buildTankCardSchema(this._hass);
+    this._form.data = this._config;
+  }
+}
+
+// ============================================================
+// Card-Klasse (Darstellung mit Shadow DOM)
+// ============================================================
+class KamerplanterTankCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement("kamerplanter-tank-card-editor");
+  }
+
+  static getStubConfig() {
+    return { tank_entity: "", title: "", show_ph: true, show_ec: true, show_temp: true };
+  }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+  }
+
+  setConfig(config) {
+    this._config = config;
+    if (this._hass) this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    // ... Darstellungslogik mit this.shadowRoot ...
+  }
+}
+
+// ============================================================
+// Registrierung
+// ============================================================
+customElements.define("kamerplanter-tank-card-editor", KamerplanterTankCardEditor);
+customElements.define("kamerplanter-tank-card", KamerplanterTankCard);
+
+window.customCards = window.customCards || [];
+window.customCards.push({
+  type: "kamerplanter-tank-card",
+  name: "Kamerplanter Tank",
+  description: "Tankfuellstand und Naehrstoffwerte",
+  preview: true,
+});
 ```
 
 ### 3.2 Lazy-Loading Sequenzdiagramm
 
 ```
-Browser                    HA Frontend              Custom Card JS
+Browser                    HA Frontend              Kamerplanter Card JS
   |                            |                          |
   |--- Dashboard laden ------->|                          |
   |                            |--- <script> laden ------>|
   |                            |                          |
-  |                            |                  _haComponentsReady startet:
-  |                            |                    1. customElements.get("ha-entity-picker")?
-  |                            |                       → nein (lazy, nicht geladen)
+  |                            |                  _haFormReady startet:
+  |                            |                    1. customElements.get("ha-form")?
+  |                            |                       → nein (lazy)
   |                            |                    2. whenDefined("hui-entities-card")
   |                            |<--- HA laed Cards -------|
   |                            |                    3. loadCardHelpers()
   |                            |--- Helpers geladen ----->|
   |                            |                    4. createCardElement({type:"entities"})
-  |                            |                       → HA importiert ha-entity-picker
-  |                            |                    5. whenDefined("ha-entity-picker")
-  |                            |                       → resolved ✓
+  |                            |                       → HA importiert ha-form + ha-selector-entity
+  |                            |                          → ha-selector-entity importiert ha-entity-picker
+  |                            |                    5. whenDefined("ha-form") → resolved ✓
   |                            |                          |
   |                            |--- setConfig(config) --->|
   |                            |                    _config gespeichert
@@ -330,38 +619,111 @@ Browser                    HA Frontend              Custom Card JS
   |                            |--- set hass(hass) ------>|
   |                            |                    _hass gespeichert
   |                            |                    _scheduleRender() → Promise resolved
-  |                            |                    _render() ausfuehren
+  |                            |                    _render():
+  |                            |                      createElement("ha-form")
+  |                            |                      form.hass = hass
+  |                            |                      form.schema = [...]
+  |                            |                      form.data = config
   |                            |                          |
-  |<-- Editor mit Dropdowns ---|<--- DOM komplett --------|
+  |<-- Editor mit ha-form -----|<--- DOM komplett --------|
+  |    (Entity-Picker, Toggle, |
+  |     Textfelder nativ)      |
+```
+
+### 3.3 Vergleich: Vorher (v1.0) vs. Nachher (v2.0)
+
+```
+v1.0 (direktes ha-entity-picker):          v2.0 (ha-form + Schema):
+---------------------------------------    ---------------------------------------
+const picker = createElement("ha-entity-   const form = createElement("ha-form");
+  picker");                                form.hass = this._hass;
+picker.hass = this._hass;                  form.schema = SCHEMA;
+picker.label = "Tank";                     form.data = this._config;
+picker.includeEntities = [...];            form.addEventListener("value-changed",
+picker.addEventListener("value-changed",     (e) => fireConfigChanged(e.detail.value)
+  (e) => { ... update field ... });        );
+picker.addEventListener("value-changed",
+  (e) => { ... update other field ... });
+
+// Jedes Feld manuell verwaltet           // ha-form verwaltet alle Felder zentral
+// Listener-Proliferation                 // Ein einziger value-changed Listener
+// DOM-Aufbau manuell                     // Schema deklarativ, DOM automatisch
 ```
 
 ---
 
-## 4. Akzeptanzkriterien
+## 4. Wireframe-Beispiele
 
-### Definition of Done
+### 4.1 Tank Card Editor (ha-form rendert nativ)
 
-- [ ] `ha-entity-picker` rendert im Card-Editor in **Firefox**, **Chrome** und **Safari** als nativer HA-Dropdown mit Autovervollstaendigung
-- [ ] `ha-textfield` rendert im Card-Editor als nativer HA-Textfeld mit Label und Placeholder
-- [ ] Entity-Filter (`includeEntities`, `includeDomains`) schraenkt die Auswahl korrekt ein
-- [ ] Konfigurationsaenderungen im Editor werden sofort in der Card-Vorschau reflektiert
-- [ ] Die Card funktioniert auch wenn der Editor nie geoeffnet wird (reines YAML)
-- [ ] Keine JavaScript-Fehler in der Browser-Konsole beim Oeffnen des Editors
-- [ ] Kein Flackern oder Doppel-Render beim Oeffnen des Editors
-- [ ] Nach Deployment + Cache-Buster-Update + HA-Restart + Ctrl+F5 zeigt der Editor die aktualisierten Komponenten
+```
++------------------------------------------+
+|  Titel (optional)                        |
+|  [ha-textfield ─────────────────────── ] |  ← von ha-form via selector: { text: {} }
++------------------------------------------+
+|  Tank (Kamerplanter) *                   |
+|  [ha-entity-picker ▼                  ]  |  ← von ha-form via selector: { entity: {} }
+|    ┌──────────────────────────────────┐  |
+|    │ sensor.kp_90639_info             │  |     (include_entities aus hass.states)
+|    │   Bewaesserungsfass Info         │  |
+|    └──────────────────────────────────┘  |
++------------------------------------------+
+|  pH anzeigen      [ha-switch          ]  |  ← von ha-form via selector: { boolean: {} }
+|  EC anzeigen      [ha-switch          ]  |
+|  Temp. anzeigen   [ha-switch          ]  |
++------------------------------------------+
+     ↑ Kompletter Editor = ein ha-form Element mit Schema-Array
+```
+
+### 4.2 Mix Card Editor (ha-form mit multiple: true)
+
+```
++------------------------------------------+
+|  Titel                                   |
+|  [ha-textfield ─────────────────────── ] |  ← selector: { text: {} }
++------------------------------------------+
+|  Mix-Kanaele *                           |
+|  ┌─────────────────────────────────────┐ |
+|  │ [x] sensor.kp_90639_NPK_A_mix       │ |  ← ha-entities-picker (nativ)
+|  │ [x] sensor.kp_90639_CalMag_mix      │ |     via selector: { entity: {
+|  │ [+ Entity hinzufuegen       ▼     ] │ |       multiple: true,
+|  └─────────────────────────────────────┘ |       include_entities: [...]
++------------------------------------------+     } }
+     ↑ Kompletter Editor = ein ha-form Element
+       multiple: true → HA rendert ha-entities-picker
+       Add/Remove/Suche nativ, kein eigener Code
+```
 
 ---
 
-## 5. Risiken bei Nicht-Einhaltung
+## 5. Akzeptanzkriterien
+
+### Definition of Done
+
+- [ ] Card-Editor verwendet `ha-form` als primaeres Element
+- [ ] Schema ist als Modul-Konstante oder memoisierten Getter definiert (kein inline-Schema im Render)
+- [ ] Entity-Filterung erfolgt via `include_entities` im Schema-Selector (dynamisch aus `hass.states`)
+- [ ] Genau ein `value-changed`-Listener auf `ha-form` (kein Listener-Proliferation)
+- [ ] `config-changed`-Event mit `bubbles: true, composed: true`
+- [ ] `ha-form` Lazy Loading via `_haFormReady` Singleton
+- [ ] Card-Editor hat kein Shadow DOM; Card-Darstellung hat Shadow DOM
+- [ ] Editor rendert in **Firefox**, **Chrome** und **Safari** nativ (ha-entity-picker Dropdown funktioniert)
+- [ ] Konfigurationsaenderungen werden sofort in der Card-Vorschau reflektiert
+- [ ] Keine JavaScript-Fehler in der Browser-Konsole beim Oeffnen des Editors
+- [ ] Direktes `document.createElement("ha-entity-picker")` nur mit Kommentar-Begruendung (§2.7)
+
+---
+
+## 6. Risiken bei Nicht-Einhaltung
 
 | Risiko | Auswirkung | Eintrittswahrscheinlichkeit | Mitigation |
 |--------|-----------|---------------------------|------------|
-| Lazy Loading nicht implementiert | Entity-Picker bleibt leer, kein Dropdown — Editor unbenutzbar | **Hoch** (100% in Firefox, variabel in Chrome) | R-001 bis R-005: `loadCardHelpers()` Pattern |
-| innerHTML statt createElement | Properties gehen beim Lit-Upgrade verloren, Element rendert nicht | **Hoch** | R-010, R-011: Programmatische Erstellung |
-| setConfig vor set hass | Erster Render ohne hass-Objekt, Picker zeigt kein Dropdown | **Hoch** (Standard-HA-Verhalten) | R-006 bis R-009: Deferred Render Pattern |
-| Lit-Template-Syntax in innerHTML | `.value`, `.hass` werden als Text-Attribute geparst, nicht als Properties | **Hoch** | R-013: Nur JS-Properties verwenden |
-| Cache-Buster fehlt | Nutzer sehen alte Version trotz Deployment | **Mittel** | R-037: Automatischer Timestamp |
-| Shadow DOM im Editor | HA-Theme-Variables nicht verfuegbar, Styling bricht | **Mittel** | R-024: Kein Shadow DOM im Editor |
+| Schema inline im Render erstellt | Neues Objekt bei jedem Render → ha-form diffed unnoetig, Flackern | **Hoch** | R-011: Modul-Konstante |
+| Listener bei jedem Render registriert | Memory Leak, mehrfache config-changed Events | **Hoch** | R-020: Einmalige Initialisierung |
+| ha-form ohne hass | Entity-Picker zeigt kein Dropdown | **Hoch** | R-004: hass immer setzen |
+| Kein Lazy Loading | ha-form nicht definiert, Editor leer | **Hoch** | R-006: _haFormReady Singleton |
+| Shadow DOM im Editor | HA-Theme-Variables nicht verfuegbar, Styling bricht | **Mittel** | R-022: Kein Shadow DOM im Editor |
+| include_entities hartcodiert | Filter veraltet nach HA-Neustart | **Mittel** | R-015: Dynamisch aus hass.states |
 
 ---
 
@@ -369,8 +731,8 @@ Browser                    HA Frontend              Custom Card JS
 
 | Feld | Wert |
 |------|------|
-| Version | 1.0 |
+| Version | 2.0 |
 | Status | Entwurf |
-| Letzte Aenderung | 2026-03-09 |
-| Naechstes Review | 2026-04-09 |
+| Letzte Aenderung | 2026-03-28 |
+| Naechstes Review | 2026-04-28 |
 | Freigabe | ausstehend |

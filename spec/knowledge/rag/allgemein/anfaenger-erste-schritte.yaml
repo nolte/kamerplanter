@@ -1,0 +1,121 @@
+---
+title: Erste Schritte fuer Anfaenger
+language: de
+category: allgemein
+tags: [anfaenger, beginner, erste-pflanze, grundlagen, licht, wasser, topf, substrat, fehler]
+expertise_level: [beginner]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: erste-pflanze-waehlen
+    title: Die richtige erste Pflanze waehlen
+    content: |
+      Nicht jede Pflanze ist fuer Anfaenger geeignet. Starten Sie mit
+      robusten, pflegeleichten und verzeihenden Arten, die auch wenig
+      Licht und unregelmaessiges Giessen verzeihen:
+      Indoor-Anfaenger (fast unkaputtbar):
+      - Pothos/Efeutute (Epipremnum aureum): Kommt mit wenig Licht aus,
+        selten giessen, waechst in fast jeder Ecke. Ideal fuer dunkle
+        Raeume und Schatten-Standorte.
+      - Sansevieria (Bogenhanf): Extrem robust und trockenheitsresistent,
+        braucht kaum Licht und verzeiht wochenlange Vernachlaessigung.
+        Perfekt fuer Nordfenster und dunkle Ecken.
+      - Zamioculcas (ZZ-Pflanze): Ueberlebt 2-3 Wochen ohne Wasser,
+        braucht wenig Licht, anspruchslos und genuegsam. Eine der
+        widerstandsfaehigsten Zimmerpflanzen ueberhaupt.
+      - Chlorophytum (Gruenlilie): Robust, zeigt Durst deutlich durch
+        leicht haengende Blaetter, bildet dekorative Absenker.
+      - Monstera deliciosa: Schnelles Wachstum, verzeiht Fehler, dekorativ.
+      Outdoor-Anfaenger (schnelle Erfolge):
+      - Radieschen: Ernte in 4 Wochen, fast ueberall
+      - Salat: Einfach, schnelle Ernte, Balkon-tauglich
+      - Tomaten (Busch-Sorte): Sichtbarer Ertrag, motivierend
+      - Basilikum: Schnell, nuetzlich in der Kueche
+      - Sonnenblume: Gross, beeindruckend, Kinder-freundlich
+      Vermeiden Sie als Anfaenger anspruchsvolle Pflanzen, die hohe
+      Luftfeuchtigkeit brauchen oder empfindlich auf Pflegefehler
+      reagieren — diese sind eher etwas fuer Fortgeschrittene.
+    metadata:
+      topic: first_plant_selection
+      difficulty: beginner
+
+  - id: fuenf-grundbeduerfnisse
+    title: Die 5 Grundbeduerfnisse jeder Pflanze
+    content: |
+      Jede Pflanze braucht nur fuenf Dinge:
+      1. LICHT: Der wichtigste Faktor. Ohne genuegend Licht geht nichts.
+         - Fenster-Check: Suedfenster = viel, Nordfenster = wenig
+         - Im Zweifel: Pflanze naeher ans Fenster stellen
+         - Pflanze dreht sich zum Licht? → Braucht mehr!
+      2. WASSER: Zweit-wichtigster Faktor. Zu viel ist schlimmer als zu wenig!
+         - Finger-Test: Erde 2-3cm tief pruefen
+         - Gewicht: Leichter Topf = giessen, schwerer Topf = warten
+         - NICHT nach Zeitplan giessen ("jeden Montag") — nach Bedarf!
+      3. TEMPERATUR: Die meisten Zimmerpflanzen moegen 18-24°C.
+         - Keine Zugluft (offenes Fenster im Winter)
+         - Nicht auf Heizkoerper stellen
+         - Nicht direkt an kalter Fensterscheibe
+      4. LUFTFEUCHTIGKEIT: Tropische Pflanzen moegen >50% RH.
+         - Pflanzen gruppieren erhoht RH natuerlich
+         - Schale mit Wasser und Kiesel neben die Pflanze
+         - Bespruehen hilft kurzfristig, ist aber kein Ersatz
+      5. NAEHRSTOFFE: Braucht jede Pflanze, aber weniger als man denkt.
+         - Waehrend Wachstumsphase (Maerz-Oktober): Alle 2-4 Wochen duengen
+         - Im Winter: NICHT duengen (Pflanze ruht)
+         - Lieber zu wenig als zu viel (halbe empfohlene Dosis zum Start)
+    metadata:
+      topic: five_basic_needs
+      needs: [light, water, temperature, humidity, nutrients]
+
+  - id: topf-und-substrat
+    title: Topf und Substrat richtig waehlen
+    content: |
+      Der richtige Topf:
+      - MUSS Drainage-Loecher haben (absolutes Muss!)
+      - Uebertoepfe (dekorative Toepfe ohne Loecher): Innentopf mit
+        Loechern reinstellen, nach dem Giessen Ueberschuss ausgiessen
+      - Groesse: Nicht zu gross! Max. 2-3cm groesser als der Wurzelballen.
+        Zu grosse Toepfe = Erde bleibt zu lange nass = Wurzelfaeule.
+      - Material: Plastik (haelt Feuchtigkeit laenger, guenstig),
+        Terracotta (atmet, trocknet schneller — gut fuer Vergessliche)
+      Das richtige Substrat:
+      - Universal-Blumenerde: Fuer die meisten Zimmerpflanzen ok
+      - Qualitaet beachten: Markenerde > Billig-Erde (weniger Schaedlinge,
+        bessere Struktur)
+      - Kakteen-/Sukkulenten-Erde: Fuer alle trockenheitsliebenden Pflanzen
+        (draeniert schneller, weniger Faeulnis-Risiko)
+      - Rinden-Substrat (fuer Epiphyten): Rindenstuecke statt normale Erde
+        (epiphytische Wurzeln ersticken in Erde)
+      Einfacher Tipp: Wenn Sie unsicher sind, mischen Sie 20-30% Perlite
+      (weisse Kuegelchen, im Gartencenter erhaeltlich) unter jede Erde.
+      Perlite verbessert Drainage und Belueftung und verhindert
+      Ueberwaesserung. Das hilft bei fast jeder Pflanze.
+    metadata:
+      topic: pot_and_substrate
+      drainage: mandatory
+      perlite_improvement: [20, 30]
+
+  - id: pflege-rhythmus
+    title: Einfacher Pflege-Rhythmus fuer Anfaenger
+    content: |
+      Wöchentliche Routine (5 Minuten):
+      1. SCHAUEN: Pflanze anschauen. Sieht sie gut aus? Neue Blaetter?
+         Verfaerbungen? Schaedlinge? (Blattunterseiten pruefen!)
+      2. FUEHLEN: Finger in die Erde stecken. Trocken? → Giessen.
+         Feucht? → Warten.
+      3. DREHEN: Pflanze eine Vierteldrehung drehen (waechst sonst
+         einseitig zum Licht)
+      4. ENTFERNEN: Gelbe/braune/tote Blaetter abzupfen (normal, nicht
+         beunruhigend — alte Blaetter sterben natuerlich ab)
+      Monatliche Routine:
+      - Duengen (Maerz-Oktober): Fluessigduenger nach Anleitung ins
+        Giesswasser. Halbe empfohlene Dosis.
+      - Blaetter abstauben: Verbessert Lichtaufnahme. Feuchtes Tuch reicht.
+      - Schaedlingskontrolle: Blattunterseiten, Blattachseln, Substrat-
+        Oberflaeche genau anschauen.
+      Wichtigste Anfaenger-Regel: Beobachten ist wichtiger als Handeln.
+      Die meisten Pflanzenprobleme entstehen durch zu viel "Pflege"
+      (zu viel Wasser, zu viel Duenger), nicht durch zu wenig.
+    metadata:
+      topic: care_routine
+      frequency: weekly
+      time_minutes: 5

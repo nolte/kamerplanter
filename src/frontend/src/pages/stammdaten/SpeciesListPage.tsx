@@ -155,6 +155,7 @@ export default function SpeciesListPage() {
 
   // Auto-open filter panel when filters are active
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-open filter panel when filters become active
     if (hasActiveFilters) setFiltersOpen(true);
   }, [hasActiveFilters]);
 

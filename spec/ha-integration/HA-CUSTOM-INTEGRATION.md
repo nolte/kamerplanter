@@ -68,7 +68,7 @@ custom_components/kamerplanter/
     └── en.json
 ```
 
-> **Icon-Assets:** Das Kami-Maskottchen (Happy-Pose) dient als Integration-Icon. Fertige Icons mit transparentem Hintergrund: `docs/img/ha_integration/icon.png` (256×256) und `docs/img/ha_integration/icon@2x.png` (512×512). Generierungs-Prompts: `spec/ref/graphic-prompts/ha-integration-icon-kami.md`.
+> **Icon-Assets:** Das Kami-Maskottchen (Happy-Pose) dient als Integration-Icon. Fertige Icons mit transparentem Hintergrund: `docs/img/ha_integration/icon.png` (256×256) und `docs/img/ha_integration/icon@2x.png` (512×512). Generierungs-Prompts: `spec/design/ha-integration-icon-kami.md`.
 >
 > ![Kami HA Icon](../../docs/img/ha_integration/icon.png)
 
@@ -1013,3 +1013,152 @@ Die HA Custom Integration ist vollständig **optional**. Kamerplanter funktionie
 | Kalender (REQ-015) | Ja | iCal-Export HA-unabhängig |
 | Tankmanagement (REQ-014) | Ja | `source: manual` |
 | Pflegeerinnerungen (REQ-022) | Ja | Serverseitige Generierung |
+
+---
+
+## 8. Custom Lovelace Cards
+
+Die `kamerplanter-ha` Integration liefert Custom Lovelace Cards mit, die in `/local/kamerplanter/` (via HACS) oder `/local/` (manuelle Installation) registriert werden. Alle Cards nutzen Kami-SVG-Illustrationen aus `/local/kami/`.
+
+### 8.1 Verzeichnisstruktur
+
+```
+custom_components/kamerplanter/
+└── www/
+    ├── kamerplanter-plant-card.js     # Pflanzen-Card (Phase + Fortschritt)
+    ├── kamerplanter-tank-card.js      # Tank-Card (geplant)
+    └── kamerplanter-location-card.js  # Standort-Card (geplant)
+```
+
+**Registrierung in HA:** Die Cards registrieren sich via `window.customCards.push()` und sind im Card-Picker unter dem Namen sichtbar. Lovelace-Ressourcen werden automatisch via `async_setup_entry` registriert (`/hacsfiles/kamerplanter/...` bei HACS, `/local/...` bei manueller Installation).
+
+### 8.2 custom:kamerplanter-plant-card
+
+Unified Card für Pflanzeninstanzen und Planting Runs. Zeigt Phasenübergänge, Fortschrittsbalken, Kami-Illustrationen und Phasen-Historie.
+
+**Konfiguration:**
+
+| Feld | Typ | Pflicht | Default | Beschreibung |
+|------|-----|---------|---------|-------------|
+| `device_id` | `string` | Ja | — | HA Device-ID einer Kamerplanter Pflanze / Planting Run |
+| `title` | `string` | Nein | Device-Name | Optionaler Titel |
+| `show_progress` | `boolean` | Nein | `true` | Fortschrittsbalken (Woche/Tag/%) anzeigen |
+| `show_timeline` | `boolean` | Nein | `true` | Phasen-Timeline-Stepper anzeigen |
+| `show_next_hint` | `boolean` | Nein | `true` | Nächste-Phase-Hinweis anzeigen |
+| `show_stats` | `boolean` | Nein | `true` | Wochen- & Ernte-Statistik anzeigen |
+| `show_details` | `boolean` | Nein | `true` | Phasen-Historie-Tabelle anzeigen |
+
+**Konfiguration im Editor:** Device-Picker mit `selector: { device: { integration: "kamerplanter" } }` — zeigt nur Kamerplanter-Devices. Nutzt `ha-form` + Schema-Pattern (UI-NFR-015 §2.1).
+
+**YAML-Beispiel:**
+
+```yaml
+type: custom:kamerplanter-plant-card
+device_id: abc123def456
+title: Northern Lights #3
+# Bereiche ein-/ausblenden (alle default: true)
+show_progress: true
+show_timeline: true
+show_next_hint: true
+show_details: false    # z.B. kompakte Darstellung ohne Historie
+```
+
+**Aufbau der Card (Top → Bottom):**
+
+```
+┌──────────────────────────────────────────┐
+│  [Kami]  Northern Lights #3    [ 42d ]   │  ← Header: Kami-Icon, Name, Days-Badge
+│          Plagron Terra Grow              │  ← Nutrient-Plan-Badge (optional)
+├──────────────────────────────────────────┤
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │    12    │ │     3    │ │   44d    │ │  ← Stats: Gesamtwoche, Phasenwoche,
+│  │Gesamtwoche│ │Phasenwoche│ │bis Ernte │ │     Tage bis Ernte
+│  └──────────┘ └──────────┘ └──────────┘ │
+├──────────────────────────────────────────┤
+│  Blüte                    Tag 12 / 56    │  ← Progress: Phase-Label, Tag/Woche
+│  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░  │  ← Progress-Bar
+│  21%                 44 Tage verbleibend │  ← Prozent + Restzeit
+├──────────────────────────────────────────┤
+│  (●)──(●)──(●)──(◉)──(○)──(○)          │  ← Timeline-Stepper mit Kami-Markern
+│  Keim  Säml  Veg  Blüte Reife Ernte     │  ← Phase-Labels (DE)
+│  01.01 15.01 01.02 15.03               │  ← Start-Daten
+├──────────────────────────────────────────┤
+│  → [Kami] Reife in 6 Wochen             │  ← Next-Phase-Hint mit Countdown
+├──────────────────────────────────────────┤
+│  Phase          Start       Dauer        │  ← Detail-Tabelle
+│  Keimung        01.01.2026  14d          │
+│  Sämling        15.01.2026  17d          │
+│  Vegetativ      01.02.2026  42d          │
+│  ● Blüte        15.03.2026  12d          │  ← Aktuelle Phase markiert
+└──────────────────────────────────────────┘
+```
+
+**Datenquellen (Entities vom Device):**
+
+| Sensor-Suffix | Verwendung | Abschnitt |
+|---------------|-----------|-----------|
+| `phase_timeline` | Phasen-Liste, Timeline-Attribute, Progress-Daten | Timeline, Progress, Details |
+| `phase` / `status` | Aktuelle Phase (Fallback) | Header, Progress |
+| `next_phase` | Nächste Phase (Fallback) | Next-Phase-Hint |
+| `nutrient_plan` | Nährstoffplan-Name | Header Badge |
+| `days_in_phase` | Tage in aktueller Phase (Fallback) | Header Badge |
+
+**Timeline-Attribute (aus `phase_timeline` Sensor):**
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `current_phase_name` | `str` | Name der aktuellen Phase |
+| `days_in_phase` | `int` | Tage in aktueller Phase |
+| `phase_week` | `int` | Aktuelle Woche in der Phase |
+| `phase_planned_weeks` | `int` | Geplante Gesamtwochen der Phase |
+| `phase_remaining_weeks` | `int` | Verbleibende Wochen |
+| `phase_progress_pct` | `int` | Fortschritt in Prozent (0–100) |
+| `typical_duration_days` | `int` | Typische Dauer der Phase in Tagen |
+| `remaining_days` | `int` | Verbleibende Tage |
+| `next_plan_phase` | `str` | Nächste Phase aus Nährstoffplan |
+| `next_plan_phase_weeks` | `int` | Geplante Wochen der nächsten Phase |
+| `weeks_until_next_phase` | `int` | Wochen bis Phasenwechsel |
+| `overall_week` | `int` | Gesamtwoche seit Grow-Start |
+| `overall_days` | `int` | Gesamttage seit Grow-Start |
+| `days_to_harvest` | `int` | Verbleibende Tage bis geplante Ernte (Summe aller Restphasen) |
+| `{phase_name}` | `object` | Pro Phase: `{ status, started, date, days }` |
+
+**Phase-Status-Werte:** `completed`, `current`, `upcoming`
+
+**Kami-SVG-Phasen (14):**
+
+`germination`, `seedling`, `vegetative`, `flowering`, `ripening`, `harvest`, `dormancy`, `juvenile`, `climbing`, `mature`, `senescence`, `flushing`, `leaf_phase`, `short_day_induction`
+
+**Deutsche Phase-Labels:**
+
+| Phase-Key | Label |
+|-----------|-------|
+| `germination` | Keimung |
+| `seedling` | Sämling |
+| `vegetative` | Vegetativ |
+| `flowering` | Blüte |
+| `ripening` | Reife |
+| `harvest` | Ernte |
+| `dormancy` | Ruhephase |
+| `flush` / `flushing` | Spülphase / Spülung |
+| `drying` | Trocknung |
+| `curing` | Curing |
+| `leaf_phase` | Blattphase |
+| `short_day_induction` | Kurztageinleitung |
+| `juvenile` | Juvenil |
+| `climbing` | Kletterphase |
+| `mature` | Reifephase |
+| `senescence` | Seneszenz |
+
+**Bedingte Sichtbarkeit:**
+
+| Abschnitt | Sichtbar wenn |
+|-----------|--------------|
+| Stats-Kacheln | `overall_week`, `phase_week` oder `days_to_harvest` vorhanden |
+| Progress-Bar | `phase_week` + `phase_planned_weeks` vorhanden und > 0 |
+| Days-Badge | `days_in_phase` vorhanden und nicht `unknown` |
+| Nutrient-Plan-Badge | `nutrient_plan` vorhanden und nicht `None`/`unknown` |
+| Next-Phase-Hint | `next_plan_phase` + `weeks_until_next_phase` vorhanden ODER `next_phase` Sensor vorhanden |
+| Detail-Tabelle | Mindestens eine Phase mit Status `completed` oder `current` |
+
+**Grid-Optionen:** `columns: 6, min_columns: 3, rows: 8, min_rows: 4` (Masonry: `getCardSize() = 8`)

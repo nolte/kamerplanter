@@ -23,4 +23,7 @@ export { default as kamiPhaseJuvenile } from './phases/timeline-kami-phase-juven
 export { default as kamiPhaseClimbing } from './phases/timeline-kami-phase-climbing.svg';
 export { default as kamiPhaseMature } from './phases/timeline-kami-phase-mature.svg';
 export { default as kamiPhaseDormancy } from './phases/timeline-kami-phase-dormancy.svg';
+export { default as kamiPhaseFlushing } from './phases/timeline-kami-phase-flushing.svg';
+export { default as kamiPhaseLeafPhase } from './phases/timeline-kami-phase-leaf-phase.svg';
 export { default as kamiPhaseSenescence } from './phases/timeline-kami-phase-senescence.svg';
+export { default as kamiPhaseShortDayInduction } from './phases/timeline-kami-phase-short-day-induction.svg';

@@ -1,0 +1,1622 @@
+# yaml-language-server: $schema=./schemas/fertilizers.schema.yaml
+# Nährstoffpläne für Hydro- und Coco-Substrate.
+#
+# Alle Pläne setzen RO-Wasser (EC ~0.0) voraus. Bei Leitungswasser (EC >0.3)
+# CalMag reduzieren und EC-Ziele um Basis-EC verringern.
+#
+# EC-Werte sind NETTO (nach Abzug Basis-EC). pH-Werte für Hydro/Coco
+# liegen generell bei 5.5–6.3 (tiefer als Erde).
+#
+# CalMag-Regel: IMMER VOR Basisdüngern zugeben (mixing_priority 8).
+# In Coco besonders wichtig wegen Kationenaustausch (Ca/Mg-Bindung).
+#
+# Quellen:
+#   Canna Coco: https://www.canna.com/en/coco-grow-guide
+#   TriPart (GHE): https://www.terraaquatica.com/feeding-schedules/
+#   Allgemeine Hydro-EC-Referenz: Savvas & Adamidis (1999), Resh (2012)
+
+nutrient_plans:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 1. Cannabis Coco — Drain-to-Waste (8 Wochen Blüte)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Cannabis Coco DTW — Canna Coco (8W Blüte)"
+    description: >-
+      Vollständiger Cannabis-Plan für Coco Drain-to-Waste mit Canna Coco A+B.
+      8 Wochen Blüte (photoperiodisch). 20–30% Runoff anstreben.
+      CalMag via Canna CalMag Agent bei RO-Wasser. PK 13/14 Boost
+      in Woche 4–5 der Blüte. Rhizotonic für Wurzelaufbau.
+    recommended_substrate_type: coco
+    reference_substrate_type: coco
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [cannabis, coco, drain-to-waste, canna, photoperiodisch, hydro]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "08:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 2
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 1
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Nur RO-Wasser + CalMag (0.3 EC). Samen in feuchtem Coco keimen lassen.
+          Kein Basisdünger. Coco vorher mit CalMag-Lösung (EC 0.5) buffern.
+        delivery_channels:
+          - channel_id: fertigation-germ
+            label: "Keimung (Coco)"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 3
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.6
+        notes: >-
+          Halbe Dosis Canna Coco A+B (2 ml/L). CalMag 1.0 ml/L.
+          Rhizotonic 2 ml/L für Wurzelaufbau. Leicht feucht halten,
+          1x täglich fertigation mit 10–15% Runoff.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Sämling (Coco)"
+            application_method: fertigation
+            target_ec_ms: 0.6
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 2.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 2.0
+              - product_name: "Canna Rhizotonic"
+                ml_per_liter: 2.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 4
+        week_end: 6
+        npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 1.2
+        notes: >-
+          Volle Dosis Canna Coco A+B (4 ml/L). CalMag 1.5 ml/L.
+          Rhizotonic erste Woche, dann absetzen. 2x täglich fertigation,
+          20–30% Runoff. EC im Runoff messen — bei >2.0 mit reinem
+          Wasser + CalMag durchspülen.
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Vegetativ (Coco)"
+            application_method: fertigation
+            target_ec_ms: 1.2
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 4.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 4.0
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 7
+        week_end: 10
+        npk_ratio: [2.0, 3.0, 4.0]
+        reference_ec_ms: 1.5
+        notes: >-
+          Blüte Woche 1–4: Canna Coco A+B (4 ml/L). CalMag 1.5 ml/L.
+          Ab Woche 3–4 der Blüte: PK 13/14 (0.5–1.0 ml/L) hinzufügen.
+          ACHTUNG: PK 13/14 hat hohen EC-Beitrag — EC überwachen!
+          Runoff-EC sollte nicht über 2.2 liegen.
+        delivery_channels:
+          - channel_id: fertigation-bloom-early
+            label: "Blüte früh (Coco)"
+            application_method: fertigation
+            target_ec_ms: 1.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 4.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 4.0
+
+      - phase_name: flowering
+        sequence_order: 5
+        week_start: 10
+        week_end: 13
+        npk_ratio: [1.0, 5.0, 6.0]
+        reference_ec_ms: 1.8
+        notes: >-
+          Blüte Woche 4–7: PK-Boost Phase. Canna Coco A+B (3.5 ml/L leicht
+          reduziert). PK 13/14 1.0 ml/L in Woche 4–5, danach absetzen.
+          CalMag 1.0 ml/L. Blüten verdicken sich, Trichomproduktion steigt.
+          Ab Woche 6 PK 13/14 absetzen, Basis weiterführen.
+        delivery_channels:
+          - channel_id: fertigation-bloom-pk
+            label: "Blüte PK-Boost (Coco)"
+            application_method: fertigation
+            target_ec_ms: 1.8
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.5
+              - product_name: "Canna PK 13/14"
+                ml_per_liter: 1.0
+
+      - phase_name: harvest
+        sequence_order: 6
+        week_start: 14
+        week_end: 15
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          7–10 Tage Flush mit reinem RO-Wasser + CalMag (0.3 EC).
+          Ziel: Runoff-EC < 0.3. Mehrmals täglich spülen.
+          Trichome kontrollieren: milchig-weiß = Erntezeitpunkt.
+        delivery_channels:
+          - channel_id: flush-coco
+            label: "Flush (Coco)"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 0.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 2. Cannabis DWC — Rezirkulierend (TriPart)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Cannabis DWC Rezirkulierend — TriPart (GHE)"
+    description: >-
+      Cannabis Deep Water Culture (DWC) mit Terra Aquatica TriPart
+      (Micro/Grow/Bloom). Rezirkulierendes System — Lösung komplett
+      wechseln alle 7–10 Tage. pH täglich kontrollieren (driftet in DWC).
+      Wassertemperatur 18–22°C. Luftpumpe 24/7.
+    recommended_substrate_type: dwc
+    reference_substrate_type: dwc
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [cannabis, dwc, rezirkulierend, tripart, ghe, terra-aquatica, hydro]
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 1
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keimung in Steinwolle/Rapidrooter, NICHT direkt in DWC.
+          Nur RO-Wasser + CalMag (EC 0.3). In Propagator bei 24–26°C.
+          Nach Wurzelaustritt (5–7 Tage) in Netpot umsetzen.
+        delivery_channels:
+          - channel_id: propagation
+            label: "Propagation"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 5.5
+            drench_params:
+              volume_per_feeding_liters: 0.02
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 3
+        npk_ratio: [2.0, 0.5, 2.0]
+        reference_ec_ms: 0.5
+        notes: >-
+          Halbe Dosis TriPart. Micro ZUERST (CalMag-Komponente),
+          dann Grow, dann Bloom. Wassertemperatur 20–22°C.
+          pH driftet in DWC schnell — 2x täglich prüfen.
+          Diamond Nectar für verbesserte Nährstoffverfügbarkeit.
+        delivery_channels:
+          - channel_id: dwc-reservoir
+            label: "DWC-Reservoir (Sämling)"
+            application_method: fertigation
+            target_ec_ms: 0.5
+            target_ph: 5.6
+            fertigation_params:
+              volume_per_feeding_liters: 5.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+              - product_name: "Diamond Nectar"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 4
+        week_end: 7
+        npk_ratio: [4.0, 1.0, 5.0]
+        reference_ec_ms: 1.2
+        notes: >-
+          Volle vegetative Dosis. Grow dominiert (3 ml/L), Bloom minimal
+          (1 ml/L als Schwefel/Mg-Quelle). Reservoir alle 7 Tage komplett
+          wechseln. pH 5.5–5.8. EC im Reservoir täglich messen — steigt
+          der EC, trinkt die Pflanze mehr als sie frisst (Wasser nachfüllen).
+        delivery_channels:
+          - channel_id: dwc-reservoir
+            label: "DWC-Reservoir (Vegi)"
+            application_method: fertigation
+            target_ec_ms: 1.2
+            target_ph: 5.7
+            fertigation_params:
+              volume_per_feeding_liters: 10.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 1.0
+              - product_name: "Diamond Nectar"
+                ml_per_liter: 1.5
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 8
+        week_end: 11
+        npk_ratio: [2.0, 4.0, 5.0]
+        reference_ec_ms: 1.5
+        notes: >-
+          Umstellung: Bloom dominiert (3 ml/L), Grow reduziert (1 ml/L).
+          Micro bleibt für CalMag (2.5 ml/L). Reservoir alle 7 Tage wechseln.
+          pH leicht höher (5.8–6.0) für bessere P-Aufnahme.
+        delivery_channels:
+          - channel_id: dwc-reservoir
+            label: "DWC-Reservoir (Blüte früh)"
+            application_method: fertigation
+            target_ec_ms: 1.5
+            target_ph: 5.9
+            fertigation_params:
+              volume_per_feeding_liters: 15.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.0
+              - product_name: "Diamond Nectar"
+                ml_per_liter: 1.5
+
+      - phase_name: flowering
+        sequence_order: 5
+        week_start: 11
+        week_end: 14
+        npk_ratio: [1.0, 5.0, 5.0]
+        reference_ec_ms: 1.7
+        notes: >-
+          Spätblüte: Bloom maximiert (3.5 ml/L), Grow minimal (0.5 ml/L).
+          Ripen in letzter Woche (5 ml/L) ersetzt ALLE Basisdünger.
+          Woche 6–7: Bloom + Ripen parallel. Woche 8: NUR Ripen.
+        delivery_channels:
+          - channel_id: dwc-reservoir
+            label: "DWC-Reservoir (Blüte spät)"
+            application_method: fertigation
+            target_ec_ms: 1.7
+            target_ph: 6.0
+            fertigation_params:
+              volume_per_feeding_liters: 15.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.5
+              - product_name: "Ripen"
+                ml_per_liter: 3.0
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 6
+        week_start: 15
+        week_end: 16
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          5–7 Tage Flush. Reservoir komplett mit RO-Wasser füllen.
+          Minimale CalMag-Gabe (0.3–0.5 ml/L, EC ~0.1–0.2) um osmotischen
+          Stress an den Wurzeln zu vermeiden. pH auf 5.8 einstellen.
+          Luftpumpe weiter 24/7.
+        delivery_channels:
+          - channel_id: dwc-flush
+            label: "DWC Flush"
+            application_method: fertigation
+            target_ec_ms: 0.0
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 20.0
+            fertilizer_dosages: []
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 3. Cannabis Autoflower Coco — Komprimierter Zyklus
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Cannabis Autoflower Coco — Canna Coco (10 Wochen)"
+    description: >-
+      Komprimierter Plan für Autoflower-Sorten in Coco (Drain-to-Waste).
+      Gesamtdauer 10 Wochen. Kein Lichtwechsel nötig (18/6 oder 20/4
+      durchgehend). Autoflower reagieren empfindlich auf Überdüngung —
+      EC konservativ halten! Canna Coco A+B Basis.
+    recommended_substrate_type: coco
+    reference_substrate_type: coco
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [cannabis, autoflower, coco, canna, drain-to-waste, hydro, kompakt]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "08:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 2
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 1
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Nur RO-Wasser + CalMag (EC 0.3). Autoflower NICHT umtopfen —
+          direkt in finales Gefäß (7–11L) keimen lassen.
+        delivery_channels:
+          - channel_id: fertigation-germ
+            label: "Keimung"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 3
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.5
+        notes: >-
+          Sehr niedrige Dosis! Autoflower in Woche 2–3 noch winzig.
+          Canna Coco A+B je 1.5 ml/L. CalMag 1.0 ml/L. Rhizotonic 2 ml/L.
+          Nur 1x täglich fertigation, Coco darf leicht abtrocknen.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Sämling (Auto)"
+            application_method: fertigation
+            target_ec_ms: 0.5
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 1.5
+              - product_name: "Canna Rhizotonic"
+                ml_per_liter: 2.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 3
+        week_end: 5
+        npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.9
+        notes: >-
+          Kurze Vegi-Phase (2–3 Wochen bei Autoflower). Canna Coco A+B
+          je 3 ml/L. CalMag 1.5 ml/L. KEIN Topping/HST bei Autoflower!
+          LST (Low Stress Training) ist OK. 2x täglich fertigation.
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Vegetativ (Auto)"
+            application_method: fertigation
+            target_ec_ms: 0.9
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.0
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 5
+        week_end: 8
+        npk_ratio: [2.0, 3.0, 4.0]
+        reference_ec_ms: 1.2
+        notes: >-
+          Autoflower blüht ab Woche 4–5 automatisch. Canna Coco A+B
+          je 3.5 ml/L. PK 13/14 nur 0.5 ml/L in Woche 6–7 (vorsichtig!).
+          EC nicht über 1.4 — Autoflower sind salzempfindlich.
+        delivery_channels:
+          - channel_id: fertigation-bloom
+            label: "Blüte (Auto)"
+            application_method: fertigation
+            target_ec_ms: 1.2
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.5
+              - product_name: "Canna PK 13/14"
+                ml_per_liter: 0.5
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 9
+        week_end: 10
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          5–7 Tage Flush mit RO-Wasser + CalMag (EC 0.2).
+          Autoflower-Ernte: Trichome prüfen (milchig = Ernte).
+          Gesamt 10 Wochen Samen→Ernte.
+        delivery_channels:
+          - channel_id: flush-auto
+            label: "Flush (Auto)"
+            application_method: fertigation
+            target_ec_ms: 0.2
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 0.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 4. Tomate Hydro — NFT/DWC (TriPart)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Tomate Hydro NFT/DWC — TriPart"
+    description: >-
+      Tomatenplan für NFT oder DWC mit Terra Aquatica TriPart.
+      Tomaten sind Starkzehrer und vertragen hohe EC-Werte (bis 2.5).
+      CalMag essenziell — Blütenendfäule (BER) bei Ca-Mangel!
+      Anpassbar für Fleisch-, Cherry- und Cocktailtomaten.
+    recommended_substrate_type: dwc
+    reference_substrate_type: dwc
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [tomate, hydro, nft, dwc, tripart, gemüse, starkzehrer]
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        npk_ratio: [2.0, 1.0, 3.0]
+        reference_ec_ms: 0.8
+        notes: >-
+          Jungpflanzenphase in Steinwolle oder Propagator.
+          Halbe Dosis TriPart. CalMag 1.0 ml/L. pH 5.5–5.8.
+          Wassertemperatur 20–22°C. Belichtung 16/8.
+        delivery_channels:
+          - channel_id: propagation
+            label: "Propagation (Tomate)"
+            application_method: fertigation
+            target_ec_ms: 0.8
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 4
+        week_end: 8
+        npk_ratio: [4.0, 1.0, 5.0]
+        reference_ec_ms: 1.5
+        notes: >-
+          Vegetatives Wachstum. Grow dominant (3.5 ml/L), Micro 3 ml/L
+          für CalMag. CalMag extra 1.5 ml/L bei RO-Wasser. Bloom minimal
+          (1 ml/L). Starkes Wurzel- und Stängelwachstum anstreben.
+          Diamond Nectar für Mikronährstoff-Chelatierung.
+        delivery_channels:
+          - channel_id: hydro-veg
+            label: "Hydro-Reservoir (Vegi)"
+            application_method: fertigation
+            target_ec_ms: 1.5
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 10.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 3.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 1.0
+              - product_name: "Diamond Nectar"
+                ml_per_liter: 1.5
+
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 9
+        week_end: 14
+        npk_ratio: [3.0, 4.0, 6.0]
+        reference_ec_ms: 2.2
+        notes: >-
+          Blüte und Fruchtansatz. Bloom dominant (3 ml/L), Grow reduziert
+          (1.5 ml/L). CalMag 2.0 ml/L — KRITISCH für Tomaten!
+          Ca-Mangel = Blütenendfäule (BER). EC kann bis 2.5 steigen.
+          Cherry-Tomaten bei höherer EC = konzentrierterer Geschmack.
+        delivery_channels:
+          - channel_id: hydro-bloom
+            label: "Hydro-Reservoir (Fruchtung)"
+            application_method: fertigation
+            target_ec_ms: 2.2
+            target_ph: 5.9
+            fertigation_params:
+              volume_per_feeding_liters: 15.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.0
+              - product_name: "Diamond Nectar"
+                ml_per_liter: 1.5
+
+      - phase_name: harvest
+        sequence_order: 4
+        week_start: 14
+        week_end: 24
+        npk_ratio: [2.0, 4.0, 6.0]
+        reference_ec_ms: 2.0
+        notes: >-
+          Dauerernteperiode. EC leicht senken (2.0). Bloom weiter dominant.
+          CalMag beibehalten (2.0 ml/L). Reife Früchte regelmäßig ernten,
+          fördert Neuansatz. Pflanze produziert 3–6 Monate kontinuierlich.
+          KEIN Flush bei Tomaten — bis zum Ende düngen.
+        delivery_channels:
+          - channel_id: hydro-harvest
+            label: "Hydro-Reservoir (Dauerernte)"
+            application_method: fertigation
+            target_ec_ms: 2.0
+            target_ph: 6.0
+            fertigation_params:
+              volume_per_feeding_liters: 15.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.0
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 5. Paprika Hydro — NFT/DWC (TriPart)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Paprika Hydro — TriPart"
+    description: >-
+      Paprika/Peperoni-Plan für Hydro (NFT/DWC/Ebbe-Flut) mit TriPart.
+      Paprika sind Starkzehrer, ähnlich Tomate aber etwas niedrigere EC.
+      Lange Kulturzeit (16–20 Wochen). CalMag gegen Blütenendfäule.
+    recommended_substrate_type: dwc
+    reference_substrate_type: dwc
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [paprika, peperoni, hydro, nft, dwc, tripart, gemüse, starkzehrer]
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.7
+        notes: >-
+          Lange Keimung (10–14 Tage bei 25–28°C). Halbe Dosis TriPart.
+          CalMag 1.0 ml/L. Paprika wachsen anfangs langsam — Geduld!
+        delivery_channels:
+          - channel_id: propagation
+            label: "Propagation (Paprika)"
+            application_method: fertigation
+            target_ec_ms: 0.7
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 5
+        week_end: 10
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 1.4
+        notes: >-
+          Starkes vegetatives Wachstum. Grow dominant. CalMag 1.5 ml/L.
+          Paprika verzweigen sich natürlich — Königsblüte entfernen
+          für bessere Verzweigung und höheren Gesamtertrag.
+        delivery_channels:
+          - channel_id: hydro-veg
+            label: "Hydro-Reservoir (Vegi)"
+            application_method: fertigation
+            target_ec_ms: 1.4
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 10.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 1.0
+
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 10
+        week_end: 16
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 1.8
+        notes: >-
+          Blüte und Fruchtansatz. Bloom dominant (2.5 ml/L), Grow reduziert
+          (1.5 ml/L). CalMag 2.0 ml/L — wichtig gegen BER!
+          Paprika blühen und fruchten gleichzeitig über Monate.
+        delivery_channels:
+          - channel_id: hydro-bloom
+            label: "Hydro-Reservoir (Fruchtung)"
+            application_method: fertigation
+            target_ec_ms: 1.8
+            target_ph: 6.0
+            fertigation_params:
+              volume_per_feeding_liters: 12.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 2.5
+
+      - phase_name: harvest
+        sequence_order: 4
+        week_start: 16
+        week_end: 24
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 1.6
+        notes: >-
+          Dauerernte 6–10 Wochen. EC leicht senken. CalMag beibehalten.
+          Reife Früchte regelmäßig ernten. Pflanze produziert
+          kontinuierlich bei ausreichender Belichtung (14–16h).
+        delivery_channels:
+          - channel_id: hydro-harvest
+            label: "Hydro-Reservoir (Dauerernte)"
+            application_method: fertigation
+            target_ec_ms: 1.6
+            target_ph: 6.0
+            fertigation_params:
+              volume_per_feeding_liters: 12.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 2.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 6. Salat & Kräuter Hydro — NFT (Niedrige EC)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Salat & Kräuter NFT — TriPart (Low EC)"
+    description: >-
+      Niedrig-EC-Plan für Blattgemüse und Kräuter in NFT-Systemen.
+      Salat, Basilikum, Koriander, Dill, Petersilie, Rucola.
+      Schnelle Kultur (4–6 Wochen nach Transplant). TriPart Basis,
+      Grow-dominant für Blattwachstum. EC nie über 1.2!
+    recommended_substrate_type: nft
+    reference_substrate_type: nft
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [salat, kräuter, basilikum, nft, hydro, tripart, schwachzehrer, blattgemüse]
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.4
+        notes: >-
+          Keimung in Steinwolle-Plugs oder Schwamm. Sehr niedrige EC!
+          Halbe Dosis TriPart. CalMag 0.5 ml/L. Nach Wurzelaustritt
+          (7–10 Tage) in NFT-Kanal umsetzen.
+        delivery_channels:
+          - channel_id: propagation
+            label: "Propagation (Salat)"
+            application_method: fertigation
+            target_ec_ms: 0.4
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.02
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 0.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.3
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 3
+        week_end: 6
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 0.9
+        notes: >-
+          Hauptwachstumsphase. Grow dominant (2 ml/L), Bloom minimal (0.5 ml/L).
+          CalMag 1.0 ml/L. pH 5.5–6.0. Wassertemperatur 18–20°C
+          (höher = Schossen bei Salat). NFT-Flussrate 1–2 L/min.
+          Keine PK-Booster nötig — Blattgemüse braucht N, nicht P.
+        delivery_channels:
+          - channel_id: nft-reservoir
+            label: "NFT-Reservoir (Wachstum)"
+            application_method: fertigation
+            target_ec_ms: 0.9
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 10.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+      - phase_name: harvest
+        sequence_order: 3
+        week_start: 6
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 0.8
+        notes: >-
+          Erntebereit nach 4–6 Wochen. EC leicht senken. Blatt für Blatt
+          oder ganze Pflanze ernten (Cut-and-Come-Again bei Salat).
+          Basilikum vor Blüte ernten (bitter nach Blüte).
+          Kein Flush nötig bei Blattgemüse.
+        delivery_channels:
+          - channel_id: nft-reservoir
+            label: "NFT-Reservoir (Ernte)"
+            application_method: fertigation
+            target_ec_ms: 0.8
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 10.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.8
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 7. Erdbeere Coco — Drain-to-Waste (Canna Coco)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Erdbeere Coco DTW — Canna Coco"
+    description: >-
+      Erdbeerplan für Coco (Drain-to-Waste) mit Canna Coco A+B.
+      Erdbeeren sind Mittelzehrer mit hohem Ca/K-Bedarf.
+      pH 5.5–6.0 für optimale Fe-Aufnahme (Chlorose vermeiden).
+      Dauertragende Sorten produzieren 4–6 Monate in Coco.
+    recommended_substrate_type: coco
+    reference_substrate_type: coco
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [erdbeere, coco, canna, drain-to-waste, obst, mittelzehrer]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "07:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 2
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        npk_ratio: [2.0, 1.0, 3.0]
+        reference_ec_ms: 0.6
+        notes: >-
+          Jungpflanze/Steckling einsetzen. Halbe Dosis Canna Coco A+B.
+          CalMag 1.0 ml/L. Rhizotonic 2 ml/L für schnelles Anwachsen.
+          Erdbeeren aus Ausläufern oder Setzlingen, selten aus Samen.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Jungpflanze (Erdbeere)"
+            application_method: fertigation
+            target_ec_ms: 0.6
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 2.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 2.0
+              - product_name: "Canna Rhizotonic"
+                ml_per_liter: 2.0
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 4
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 1.0
+        notes: >-
+          Blattaufbau und Kronenstärkung. Canna Coco A+B je 3 ml/L.
+          CalMag 1.5 ml/L. Ausläufer entfernen für Fruchtertrag!
+          Erdbeeren sind Kurztagspflanzen — Blühinduktion bei <12h Licht
+          (einmaltragende) oder tagneutral (immertragende).
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Vegetativ (Erdbeere)"
+            application_method: fertigation
+            target_ec_ms: 1.0
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.0
+
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 8
+        week_end: 12
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 1.3
+        notes: >-
+          Blüte und Fruchtansatz. Canna Coco A+B je 3.5 ml/L.
+          CalMag 2.0 ml/L — Ca-Mangel = weiche, faulige Früchte!
+          PK 13/14 NICHT verwenden (zu aggressiv für Erdbeeren).
+          Kalium natürlich über Coco B. pH 5.8–6.0.
+        delivery_channels:
+          - channel_id: fertigation-bloom
+            label: "Blüte/Fruchtung (Erdbeere)"
+            application_method: fertigation
+            target_ec_ms: 1.3
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 2.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.5
+
+      - phase_name: harvest
+        sequence_order: 4
+        week_start: 12
+        week_end: 24
+        npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.1
+        notes: >-
+          Dauerernte 3–4 Monate bei immertragenden Sorten. EC leicht
+          senken. CalMag beibehalten. Reife Früchte täglich pflücken.
+          Höherer EC = süßere Früchte (aber weniger Ertrag).
+          Kein Flush — durchgehend düngen.
+        delivery_channels:
+          - channel_id: fertigation-harvest
+            label: "Dauerernte (Erdbeere)"
+            application_method: fertigation
+            target_ec_ms: 1.1
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.0
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 8. Gurke Hydro — NFT/DWC (TriPart)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Gurke Hydro NFT/DWC — TriPart"
+    description: >-
+      Gurkenplan für Hydro-Systeme (NFT/DWC/Ebbe-Flut) mit TriPart.
+      Gurken sind Starkzehrer mit sehr hohem K-Bedarf und schnellem
+      Wachstum. Wassertemperatur kritisch (20–22°C, nie unter 18°C).
+      Hoher Wasserverbrauch — Reservoir täglich kontrollieren.
+    recommended_substrate_type: dwc
+    reference_substrate_type: dwc
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [gurke, hydro, nft, dwc, tripart, gemüse, starkzehrer]
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [2.0, 1.0, 3.0]
+        reference_ec_ms: 0.7
+        notes: >-
+          Schnelle Keimung (3–5 Tage bei 25–28°C). In Steinwolle vorziehen.
+          Halbe Dosis TriPart. CalMag 1.0 ml/L. Nach 2 Keimblättern
+          ins System umsetzen. ACHTUNG: Gurken hassen kalte Füße!
+        delivery_channels:
+          - channel_id: propagation
+            label: "Propagation (Gurke)"
+            application_method: fertigation
+            target_ec_ms: 0.7
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 3
+        week_end: 5
+        npk_ratio: [3.0, 1.0, 5.0]
+        reference_ec_ms: 1.5
+        notes: >-
+          Explosives Wachstum. Grow dominant (3 ml/L). CalMag 1.5 ml/L.
+          Gurken wachsen bis zu 30 cm/Tag! Rankhilfe ab Woche 2.
+          Reservoir täglich auffüllen — hoher Wasserverbrauch.
+        delivery_channels:
+          - channel_id: hydro-veg
+            label: "Hydro-Reservoir (Vegi)"
+            application_method: fertigation
+            target_ec_ms: 1.5
+            target_ph: 5.8
+            fertigation_params:
+              volume_per_feeding_liters: 15.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 1.0
+
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 5
+        week_end: 8
+        npk_ratio: [2.0, 3.0, 6.0]
+        reference_ec_ms: 2.0
+        notes: >-
+          Blüte und Fruchtansatz. Bloom dominant (3 ml/L). K-Bedarf steigt
+          stark. CalMag 2.0 ml/L. Gurken blühen und fruchten gleichzeitig.
+          Bittere Früchte = Stress (Temperatur, EC-Schwankung, Trockenheit).
+        delivery_channels:
+          - channel_id: hydro-bloom
+            label: "Hydro-Reservoir (Fruchtung)"
+            application_method: fertigation
+            target_ec_ms: 2.0
+            target_ph: 5.9
+            fertigation_params:
+              volume_per_feeding_liters: 20.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.0
+
+      - phase_name: harvest
+        sequence_order: 4
+        week_start: 8
+        week_end: 16
+        npk_ratio: [2.0, 3.0, 6.0]
+        reference_ec_ms: 1.8
+        notes: >-
+          Dauerernte 6–10 Wochen. EC leicht senken. Tägliche Ernte
+          bei Snack-Gurken, alle 2–3 Tage bei Salatgurken.
+          Überreife Früchte sofort entfernen (hemmen Neuansatz).
+          Kein Flush — durchgehend düngen.
+        delivery_channels:
+          - channel_id: hydro-harvest
+            label: "Hydro-Reservoir (Dauerernte)"
+            application_method: fertigation
+            target_ec_ms: 1.8
+            target_ph: 5.9
+            fertigation_params:
+              volume_per_feeding_liters: 20.0
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 2.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 9. Allgemein Coco — Vegetatives Gemüse (Canna Coco)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Allgemein Coco — Vegetatives Gemüse (Canna Coco)"
+    description: >-
+      Universeller Coco-Plan für vegetatives Gemüse ohne spezifischen
+      Fruchtungsplan: Mangold, Spinat, Grünkohl, Pak Choi, Kohlrabi.
+      Mittel- bis Schwachzehrer. N-dominant, niedrige EC.
+      Canna Coco A+B als Basis, Drain-to-Waste.
+    recommended_substrate_type: coco
+    reference_substrate_type: coco
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [gemüse, coco, canna, blattgemüse, allgemein, drain-to-waste, mittelzehrer]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "07:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 2
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.5
+        notes: >-
+          Keimung/Jungpflanze. Halbe Dosis Canna Coco A+B (1.5 ml/L).
+          CalMag 1.0 ml/L. Coco feucht aber nicht nass halten.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Sämling (Gemüse)"
+            application_method: fertigation
+            target_ec_ms: 0.5
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 1.5
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 3
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 1.0
+        notes: >-
+          Hauptwachstum. Canna Coco A+B je 3 ml/L. CalMag 1.5 ml/L.
+          N-dominant für Blattwachstum. EC nicht über 1.2 —
+          Blattgemüse ist salzempfindlich. 2x täglich fertigation.
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Wachstum (Gemüse)"
+            application_method: fertigation
+            target_ec_ms: 1.0
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.0
+
+      - phase_name: harvest
+        sequence_order: 3
+        week_start: 8
+        week_end: 14
+        npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.9
+        notes: >-
+          Erntephase. EC leicht senken. Blatt für Blatt ernten
+          (Cut-and-Come-Again). Weiter düngen — kein Flush nötig.
+          Nachlegen möglich (Sukzession) alle 2–3 Wochen.
+        delivery_channels:
+          - channel_id: fertigation-harvest
+            label: "Ernte (Gemüse)"
+            application_method: fertigation
+            target_ec_ms: 0.9
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 2.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 2.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 10. Allgemein Steinwolle — TriPart
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Allgemein Steinwolle (Rockwool) — TriPart"
+    description: >-
+      Universeller Steinwolle-Plan mit TriPart. Für Tomate, Paprika,
+      Gurke, Erdbeere in Steinwolle-Slabs oder -Würfeln.
+      Steinwolle ist pH-inert nach Konditionierung (pH 5.5 einweichen).
+      Drain-to-Waste mit 20–30% Runoff. CalMag essenziell bei RO-Wasser.
+    recommended_substrate_type: rockwool_slab
+    reference_substrate_type: rockwool_slab
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [steinwolle, rockwool, tripart, allgemein, hydro, drain-to-waste]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "07:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 3
+    phase_entries:
+      - phase_name: seedling
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.7
+        notes: >-
+          Steinwolle-Plugs vorher in pH 5.5 Lösung einweichen (24h).
+          Halbe Dosis TriPart. CalMag 1.0 ml/L.
+          Plug in Propagator bei 22–25°C, 80–90% rH.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Steinwolle-Plug (Sämling)"
+            application_method: fertigation
+            target_ec_ms: 0.7
+            target_ph: 5.5
+            drench_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.5
+
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 4
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 1.4
+        notes: >-
+          Steinwolle-Slab oder -Würfel. Grow dominant. CalMag 1.5 ml/L.
+          3–5x täglich fertigation (kurze Intervalle, Steinwolle trocknet
+          schneller als Coco). 20–30% Runoff. EC-Messung im Slab-Drain.
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Steinwolle-Slab (Vegi)"
+            application_method: fertigation
+            target_ec_ms: 1.4
+            target_ph: 5.5
+            drench_params:
+              volume_per_feeding_liters: 0.15
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 3.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 1.0
+
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 8
+        week_end: 14
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 2.0
+        notes: >-
+          Fruchtung. Bloom dominant. CalMag 2.0 ml/L.
+          EC-Ziel pflanzenabhängig: Tomate 2.0–2.5, Paprika 1.8–2.2,
+          Gurke 1.8–2.0, Erdbeere 1.2–1.5. Werte hier als Mittelwert.
+          Steinwolle-EC im Drain überwachen — bei >3.0 mit reinem Wasser spülen.
+        delivery_channels:
+          - channel_id: fertigation-bloom
+            label: "Steinwolle-Slab (Fruchtung)"
+            application_method: fertigation
+            target_ec_ms: 2.0
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.5
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 3.0
+
+      - phase_name: harvest
+        sequence_order: 4
+        week_start: 14
+        week_end: 24
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 1.8
+        notes: >-
+          Dauerernte. EC leicht senken. CalMag beibehalten.
+          Steinwolle kann 1 Kultur (max. 2 bei Desinfektion) genutzt werden.
+          Nach Kulturende: Steinwolle entsorgen (nicht kompostierbar).
+        delivery_channels:
+          - channel_id: fertigation-harvest
+            label: "Steinwolle-Slab (Dauerernte)"
+            application_method: fertigation
+            target_ec_ms: 1.8
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "TriPart Micro"
+                ml_per_liter: 2.0
+              - product_name: "TriPart Grow"
+                ml_per_liter: 1.0
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 2.5
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 11. Microgreens — Keimung+Ernte (Minimal)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Microgreens — Minimal (TriPart)"
+    description: >-
+      Ultra-kurzer Plan für Microgreens (7–14 Tage). Sonnenblume, Erbse,
+      Radieschen, Brokkoli, Kresse, Senf. Auf Hanfmatte, Kokosmatte
+      oder Steinwolle-Plug. Sehr niedrige EC — die meiste Energie kommt
+      aus dem Samenkorn. Optional ganz ohne Dünger (nur Wasser).
+    recommended_substrate_type: none
+    reference_substrate_type: none
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [microgreens, sprossen, keimung, minimal, tripart, hydro, schnellkultur]
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 1
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Samen auf feuchte Matte/Pad auslegen. Dicht säen (Samen berühren
+          sich). Abdecken für 2–3 Tage (Dunkelkeimer-Phase). Nur RO-Wasser
+          sprühen, KEIN Dünger. 20–25°C. Kein Licht in der Keimphase.
+        delivery_channels:
+          - channel_id: spray-germ
+            label: "Sprühen (Keimung)"
+            application_method: foliar
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.01
+            fertilizer_dosages: []
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 1
+        week_end: 2
+        npk_ratio: [1.0, 0.5, 1.0]
+        reference_ec_ms: 0.3
+        notes: >-
+          Grünen-Phase: Abdeckung entfernen, Licht an (12–16h).
+          Optional minimale Düngung (TriPart 0.3 ml/L je).
+          Viele Microgreens brauchen KEINEN Dünger — die Energie
+          kommt aus dem Samenkorn. Bei >10 Tagen Kultur leicht düngen.
+        delivery_channels:
+          - channel_id: bottom-water
+            label: "Bodenbewässerung"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: "TriPart Micro"
+                ml_per_liter: 0.3
+              - product_name: "TriPart Grow"
+                ml_per_liter: 0.3
+              - product_name: "TriPart Bloom"
+                ml_per_liter: 0.2
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 3
+        week_start: 2
+        week_end: 3
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Ernte bei 5–10 cm Höhe (1–2 echte Blätter). Mit scharfer Schere
+          knapp über Substrat schneiden. Sofort verwenden (kurze Haltbarkeit).
+          Substrat kompostieren oder entsorgen. Kein Nachwachsen.
+        delivery_channels:
+          - channel_id: water-harvest
+            label: "Wasser (Ernte)"
+            application_method: fertigation
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.03
+            fertilizer_dosages: []
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # 12. Chili Coco — Drain-to-Waste (Canna Coco)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - name: "Chili Coco DTW — Canna Coco"
+    description: >-
+      Chili-Plan für Coco (Drain-to-Waste) mit Canna Coco A+B.
+      Chilis sind Starkzehrer mit langer Kulturzeit (20–30 Wochen
+      je nach Sorte). Von Jalapeño (mild) bis Carolina Reaper (extrem).
+      Superhots brauchen höhere EC und mehr Geduld. CalMag-Pflicht.
+    recommended_substrate_type: coco
+    reference_substrate_type: coco
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [chili, peperoni, capsicum, coco, canna, drain-to-waste, starkzehrer]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "08:00"
+      application_method: fertigation
+      reminder_hours_before: 1
+      times_per_day: 2
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Chili-Keimung dauert lange! 7–21 Tage bei 25–30°C.
+          Superhots (Habanero, Reaper) bis 30 Tage. Heizmatte empfohlen.
+          Nur RO-Wasser + CalMag (EC 0.3). In Steinwolle-Plug oder
+          direkt in Coco-Plug keimen. Warm und feucht halten.
+        delivery_channels:
+          - channel_id: fertigation-germ
+            label: "Keimung (Chili)"
+            application_method: fertigation
+            target_ec_ms: 0.3
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.02
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 4
+        week_end: 7
+        npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.6
+        notes: >-
+          Langsames Wachstum in den ersten Wochen — normal bei Chilis!
+          Halbe Dosis Canna Coco A+B (2 ml/L). CalMag 1.0 ml/L.
+          Rhizotonic 2 ml/L für Wurzelaufbau. 22–28°C.
+          Erst 1x, dann 2x täglich fertigation.
+        delivery_channels:
+          - channel_id: fertigation-seedling
+            label: "Sämling (Chili)"
+            application_method: fertigation
+            target_ec_ms: 0.6
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 2.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 2.0
+              - product_name: "Canna Rhizotonic"
+                ml_per_liter: 2.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 8
+        week_end: 14
+        npk_ratio: [3.0, 1.0, 4.0]
+        reference_ec_ms: 1.3
+        notes: >-
+          Hauptwachstumsphase. Canna Coco A+B je 3.5 ml/L. CalMag 1.5 ml/L.
+          Toppen bei 5. Blattpaar für buschiges Wachstum (außer Superhots —
+          die verzweigen natürlich). Chilis werden groß in Coco — 10–20L Töpfe.
+          Stütze/Spalier ab 40 cm Höhe.
+        delivery_channels:
+          - channel_id: fertigation-veg
+            label: "Vegetativ (Chili)"
+            application_method: fertigation
+            target_ec_ms: 1.3
+            target_ph: 5.9
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.5
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.5
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 14
+        week_end: 20
+        npk_ratio: [2.0, 3.0, 5.0]
+        reference_ec_ms: 1.7
+        notes: >-
+          Blüte und Fruchtansatz. Canna Coco A+B je 4 ml/L.
+          PK 13/14 0.5 ml/L in Woche 2–3 der Blüte (vorsichtig dosieren).
+          CalMag 2.0 ml/L. Chilis blühen und fruchten über Monate.
+          Erste Blüte (Königsblüte) bei Annuums entfernen.
+          Superhots: EC bis 2.0 toleriert.
+        delivery_channels:
+          - channel_id: fertigation-bloom
+            label: "Blüte/Fruchtung (Chili)"
+            application_method: fertigation
+            target_ec_ms: 1.7
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 2.0
+              - product_name: "Canna Coco A"
+                ml_per_liter: 4.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 4.0
+              - product_name: "Canna PK 13/14"
+                ml_per_liter: 0.5
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 20
+        week_end: 30
+        npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.5
+        notes: >-
+          Dauerernte 8–12 Wochen. EC leicht senken. CalMag beibehalten.
+          Chilis bei Vollreife ernten (rot/gelb/orange je nach Sorte).
+          Unreife (grüne) Chilis sind essbar aber weniger scharf.
+          Pflanze kann in Coco überwintern (Rückschnitt + EC senken
+          auf 0.5, nur CalMag + minimale Basisdüngung).
+        delivery_channels:
+          - channel_id: fertigation-harvest
+            label: "Dauerernte (Chili)"
+            application_method: fertigation
+            target_ec_ms: 1.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "Canna CalMag Agent"
+                ml_per_liter: 1.5
+              - product_name: "Canna Coco A"
+                ml_per_liter: 3.0
+              - product_name: "Canna Coco B"
+                ml_per_liter: 3.0

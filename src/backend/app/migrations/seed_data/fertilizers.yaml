@@ -10,8 +10,8 @@
 #   https://www.advancednutrients.com/products/voodoo-juice/
 #   https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
 # Sources — Third-Party Supplements:
-#   spec/ref/products/hg-drip-clean.md
-#   spec/ref/products/bn-free-flow.md
+#   spec/knowledge/products/hg-drip-clean.md
+#   spec/knowledge/products/bn-free-flow.md
 
 fertilizers:
   # ── Base Nutrients (GMB 3-Part) ──────────────────────────────────────────────
@@ -20,7 +20,7 @@ fertilizers:
     fertilizer_type: base
     is_organic: false
     tank_safe: true
-    recommended_application: fertigation
+    recommended_application: any
     npk_ratio: [1.0, 0.0, 4.0]
     ec_contribution_per_ml: 0.10
     mixing_priority: 20
@@ -35,7 +35,7 @@ fertilizers:
     fertilizer_type: base
     is_organic: false
     tank_safe: true
-    recommended_application: fertigation
+    recommended_application: any
     npk_ratio: [2.0, 0.0, 0.0]
     ec_contribution_per_ml: 0.15
     mixing_priority: 10
@@ -50,7 +50,7 @@ fertilizers:
     fertilizer_type: base
     is_organic: false
     tank_safe: true
-    recommended_application: fertigation
+    recommended_application: any
     npk_ratio: [1.0, 3.0, 4.0]
     ec_contribution_per_ml: 0.10
     mixing_priority: 30

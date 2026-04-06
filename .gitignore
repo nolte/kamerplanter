@@ -18,9 +18,11 @@ build/
 # Environment
 .env
 .env.local
+.envrc
 
-# Test
-test-reports/
+# Test reports (generated)
+test-reports/e2e/
+test-reports/rag-eval/
 coverage/
 
 # Helm
@@ -35,3 +37,9 @@ site/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# RAG eval results (legacy location — now in test-reports/rag-eval/)
+test-reports/rag-eval/eval_results.json
+
+# Pre-downloaded ONNX models (large binaries)
+docker/embedding-service/models/

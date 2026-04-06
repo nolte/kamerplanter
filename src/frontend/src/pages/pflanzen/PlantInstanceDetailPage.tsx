@@ -47,8 +47,10 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import PlantTagDialog from './PlantTagDialog';
+import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import ProfilesSection from './ProfilesSection';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
@@ -109,6 +111,7 @@ export default function PlantInstanceDetailPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
@@ -265,7 +268,7 @@ export default function PlantInstanceDetailPage() {
       }
       // Load next pending watering task
       try {
-        const tasks = await taskApi.listTasks(0, 50, { plant_key: key, category: 'care_reminder', status: 'pending' });
+        const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
         const wateringTask = tasks.find((t) => t.name.endsWith('\u2014 watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
@@ -331,7 +334,7 @@ export default function PlantInstanceDetailPage() {
   useEffect(() => {
     if (tab === 6 && key && plantTasks.length === 0) {
       setPlantTasksLoading(true);
-      taskApi.listTasks(0, 500, { plant_key: key })
+      taskApi.listTasks(0, 500, { entity_type: 'plant_instance', entity_key: key })
         .then(setPlantTasks)
         .catch(() => setPlantTasks([]))
         .finally(() => setPlantTasksLoading(false));
@@ -399,7 +402,7 @@ export default function PlantInstanceDetailPage() {
       notification.success(t('pages.plantInstances.wateringConfirmed'));
       // Refresh next watering task (confirming creates a new one)
       try {
-        const tasks = await taskApi.listTasks(0, 50, { plant_key: key, category: 'care_reminder', status: 'pending' });
+        const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
         const wt = tasks.find((t) => t.name.endsWith('\u2014 watering'));
         setNextWateringTask(wt ?? null);
       } catch {
@@ -556,15 +559,21 @@ export default function PlantInstanceDetailPage() {
   }, [currentGrowthPhase, assignedCultivar]);
 
   // Estimated harvest date: planted_on + sum(all growth phase durations)
+  // Perennials and plants without harvest phases do not show an estimated harvest date.
   const estimatedHarvest = useMemo(() => {
     if (!plant?.planted_on || growthPhases.length === 0 || plant.removed_on) return null;
+    // Perennials have recurring cycles — no single harvest endpoint
+    if (currentPhase?.cycle_type === 'perennial') return null;
+    // No harvest phase configured — nothing to estimate
+    if (currentPhase?.has_harvest_phase === false) return null;
+    if (!growthPhases.some((gp) => gp.allows_harvest)) return null;
     const totalDays = growthPhases.reduce((sum, gp) => sum + gp.typical_duration_days, 0);
     if (totalDays === 0) return null;
     const planted = new Date(plant.planted_on);
     const harvestDate = new Date(planted.getTime() + totalDays * 86400000);
     const daysRemaining = Math.ceil((harvestDate.getTime() - Date.now()) / 86400000);
     return { date: harvestDate, daysRemaining };
-  }, [plant?.planted_on, plant?.removed_on, growthPhases]);
+  }, [plant?.planted_on, plant?.removed_on, growthPhases, currentPhase?.cycle_type, currentPhase?.has_harvest_phase]);
 
   // Active nutrient plan phase entry for the current week (handles perennial cycle restarts)
   const activePhaseEntry = useMemo(() => {
@@ -801,47 +810,49 @@ export default function PlantInstanceDetailPage() {
   return (
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1,
-          mb: 0.5,
-        }}
-      >
-        <PageTitle title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')} />
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
-          <Button
-            startIcon={<LabelIcon />}
-            onClick={() => setTagDialogOpen(true)}
-            data-testid="tag-button"
-            size="small"
-          >
-            {t('pages.plantInstances.tag.button')}
-          </Button>
-          <Button
-            startIcon={<SwapHorizIcon />}
-            onClick={() => setTransitionOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="transition-button"
-            size="small"
-          >
-            {t('pages.phases.transition')}
-          </Button>
-          <Button
-            color="error"
-            startIcon={<RemoveCircleIcon />}
-            onClick={() => setRemoveOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="remove-button"
-            size="small"
-          >
-            {t('pages.plantInstances.remove')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+            <Button
+              startIcon={<LabelIcon />}
+              onClick={() => setTagDialogOpen(true)}
+              data-testid="tag-button"
+              size="small"
+            >
+              {t('pages.plantInstances.tag.button')}
+            </Button>
+            <Button
+              startIcon={<QrCode2Icon />}
+              onClick={() => setLabelDialogOpen(true)}
+              data-testid="label-button"
+              size="small"
+              aria-label={t('print.printLabels')}
+            >
+              {t('print.printLabelsShort')}
+            </Button>
+            <Button
+              startIcon={<SwapHorizIcon />}
+              onClick={() => setTransitionOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="transition-button"
+              size="small"
+            >
+              {t('pages.phases.transition')}
+            </Button>
+            <Button
+              color="error"
+              startIcon={<RemoveCircleIcon />}
+              onClick={() => setRemoveOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="remove-button"
+              size="small"
+            >
+              {t('pages.plantInstances.remove')}
+            </Button>
+          </Box>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('pages.plantInstances.info')} />
@@ -947,9 +958,17 @@ export default function PlantInstanceDetailPage() {
                     {assignedSlot ? t('entities.slot') : t('entities.location')}
                   </Typography>
                   <Typography variant="body1">
-                    {assignedSlot
-                      ? `${assignedLocation.name} / ${assignedSlot.slot_id}`
-                      : assignedLocation.name}
+                    <Link component={RouterLink} to={`/standorte/locations/${assignedLocation.key}`} underline="hover">
+                      {assignedLocation.name}
+                    </Link>
+                    {assignedSlot && (
+                      <>
+                        {' / '}
+                        <Link component={RouterLink} to={`/standorte/slots/${assignedSlot.key}`} underline="hover">
+                          {assignedSlot.slot_id}
+                        </Link>
+                      </>
+                    )}
                   </Typography>
                 </Box>
               )}
@@ -2248,6 +2267,15 @@ export default function PlantInstanceDetailPage() {
           onClose={() => setTagDialogOpen(false)}
           plantKey={plant.key}
           plantName={plant.plant_name ?? plant.instance_id}
+        />
+      )}
+
+      {plant && (
+        <PlantLabelDialog
+          open={labelDialogOpen}
+          onClose={() => setLabelDialogOpen(false)}
+          plantKeys={[plant.key]}
+          plantNames={{ [plant.key]: plant.plant_name ?? plant.instance_id }}
         />
       )}
 

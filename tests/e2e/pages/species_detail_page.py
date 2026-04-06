@@ -29,7 +29,7 @@ class SpeciesDetailPage(BasePage):
     LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
 
     # Growth phase locators
-    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(text(), 'Phase erstellen')]")
+    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
     PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -42,7 +42,7 @@ class SpeciesDetailPage(BasePage):
         return self
 
     def get_title(self) -> str:
-        return self.wait_for_element(self.PAGE_TITLE).text
+        return self.get_text_stable(self.PAGE_TITLE)
 
     # ── Tabs ───────────────────────────────────────────────────────────
 
@@ -56,12 +56,19 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(tabs[index])
 
     def click_tab_by_label(self, label: str) -> None:
+        import time
+
+        # Wait for at least one tab to render (detail page may still be loading)
+        self.wait_for_element(self.TABS, timeout=15)
+        # Allow tabs to fully render
+        time.sleep(0.5)
         tabs = self.driver.find_elements(*self.TABS)
         for tab in tabs:
             if tab.text.upper() == label.upper():
                 self.scroll_and_click(tab)
                 return
-        raise ValueError(f"Tab '{label}' not found")
+        tab_labels = [t.text for t in tabs]
+        raise ValueError(f"Tab '{label}' not found among {tab_labels}")
 
     # ── Edit tab (tab 0) ──────────────────────────────────────────────
 
@@ -72,9 +79,14 @@ class SpeciesDetailPage(BasePage):
         return el.get_attribute("value") or ""
 
     def set_field(self, field_name: str, value: str) -> None:
-        el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
-        )
+        # Try input first, fall back to textarea (multiline fields)
+        locator_input = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
+        locator_textarea = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])")
+        elements = self.driver.find_elements(*locator_input)
+        if elements:
+            el = self.wait_for_element_clickable(locator_input)
+        else:
+            el = self.wait_for_element_clickable(locator_textarea)
         el.clear()
         el.send_keys(value)
 
@@ -86,6 +98,8 @@ class SpeciesDetailPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def select_option(self, field_name: str, value_text: str) -> None:
+        import time
+
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
         )
@@ -94,6 +108,13 @@ class SpeciesDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def click_save(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()
@@ -225,8 +246,10 @@ class SpeciesDetailPage(BasePage):
                 self.set_field(field, value)
 
     def submit_phase_form(self) -> None:
+        # Target the submit button inside the create-dialog (GrowthPhaseDialog)
+        # to avoid hitting the lifecycle config form's submit button
         self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+            (By.CSS_SELECTOR, "[data-testid='create-dialog'] [data-testid='form-submit-button']")
         ).click()
 
     def click_phase_row(self, index: int) -> None:
@@ -235,8 +258,20 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def delete_phase_at_index(self, index: int) -> None:
+        import time
+
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
         if index < len(rows):
-            delete_btn = rows[index].find_element(By.CSS_SELECTOR, "button[aria-label]")
-            self.scroll_and_click(delete_btn)
-            self.wait_for_element_visible(self.CONFIRM_DIALOG)
+            # The delete button is the MUI IconButton (not the text "Profil" Button).
+            # Use JS click directly to avoid triggering the row's onClick handler.
+            icon_buttons = rows[index].find_elements(
+                By.CSS_SELECTOR, "button.MuiIconButton-root"
+            )
+            if not icon_buttons:
+                raise ValueError(f"No IconButton found in phase row {index}")
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();",
+                icon_buttons[-1],
+            )
+            time.sleep(0.5)  # Allow React state to settle before checking dialog
+            self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)

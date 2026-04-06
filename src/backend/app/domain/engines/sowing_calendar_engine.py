@@ -10,7 +10,7 @@ from app.common.enums import FrostTolerance, PlantTrait
 
 # ── Default frost dates (Central Europe) ──────────────────────────────
 
-DEFAULT_LAST_FROST = date(2026, 5, 15)
+DEFAULT_LAST_FROST = date(2026, 5, 1)
 DEFAULT_EISHEILIGE = date(2026, 5, 15)
 
 

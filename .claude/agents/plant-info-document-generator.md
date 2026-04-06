@@ -102,10 +102,10 @@ Für jede identifizierte Pflanze:
 Erstelle für jede Pflanze ein separates Markdown-Dokument nach der unten definierten Vorlage. Speichere es unter:
 
 ```
-spec/ref/plant-info/<scientific_name_snake_case>.md
+spec/knowledge/plants/<scientific_name_snake_case>.md
 ```
 
-Beispiel: `spec/ref/plant-info/solanum_lycopersicum.md`
+Beispiel: `spec/knowledge/plants/solanum_lycopersicum.md`
 
 ## Phase 4: Zusammenfassung
 

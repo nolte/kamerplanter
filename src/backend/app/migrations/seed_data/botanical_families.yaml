@@ -249,6 +249,39 @@ families:
       Gute Drainage essentiell, Staunaesse vermeiden.
     rotation_category: ornamental
 
+  - name: Urticaceae
+    common_name_de: "Brennnesselgewächse"
+    common_name_en: Nettle family
+    order: Rosales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybug, spider_mites, fungus_gnats]
+    common_diseases: [root_rot, leaf_spot]
+    pollination_type: [wind, insect]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
+    description: "Brennnesselgewächse mit ca. 2600 Arten. Enthält beliebte Zimmerpflanzen wie Pilea und Soleirolia."
+    rotation_category: ornamental
+
+  - name: Nymphaeaceae
+    common_name_de: "Seerosengewaechse"
+    common_name_en: Water Lily family
+    order: Nymphaeales
+    typical_nutrient_demand: heavy
+    frost_tolerance: moderate
+    typical_root_depth: deep
+    typical_growth_forms: [herb]
+    common_pests: [water_lily_aphid, water_lily_leaf_beetle]
+    common_diseases: [leaf_spot, rhizome_rot]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.5, max_ph: 8.5}
+    description: >-
+      Aquatic plants with floating leaves and showy flowers. Includes
+      Nymphaea (water lilies), Nuphar (pond lilies), and Victoria.
+      Rhizomatous perennials rooted in pond substrate.
+    rotation_category: ornamental
+
 rotation_edges:
   - [Fabaceae, Solanaceae, 2, 0.95, nitrogen_fixation]
   - [Fabaceae, Brassicaceae, 2, 0.90, nitrogen_fixation]

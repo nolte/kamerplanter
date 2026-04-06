@@ -68,9 +68,20 @@ class PlantingRunDetailPage(BasePage):
         return el.text
 
     def get_page_title(self) -> str:
-        """Return the page title (run name)."""
-        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
-        return el.text
+        """Return the page title (run name).
+
+        Waits for the detail page container first to avoid reading
+        the list page title during client-side navigation.
+        """
+        self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
+        # The page-title inside the detail page container
+        el = self.wait_for_element(
+            (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] [data-testid='page-title']")
+        )
+        return self.get_text_stable(
+            (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] [data-testid='page-title']")
+        )
 
     # ── Tab navigation ─────────────────────────────────────────────────
 

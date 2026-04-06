@@ -50,7 +50,7 @@ export default function ConfirmDialog({
           disabled={loading}
           data-testid="confirm-dialog-confirm"
         >
-          {confirmLabel ?? t('common.confirm')}
+          {confirmLabel ?? t(destructive ? 'common.delete' : 'common.confirm')}
         </Button>
       </DialogActions>
     </Dialog>

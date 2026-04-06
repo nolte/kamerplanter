@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ plan_name }}</h1>
+    {% if description %}
+    <div class="subtitle">{{ description }}</div>
+    {% endif %}
+    <div class="meta">
+        {% if author %}{{ labels.author }}: {{ author }} | {% endif %}
+        {{ labels.generated }}: {{ generated_date }}
+        {% if substrate_type %} | {{ labels.substrate }}: {{ substrate_type }}{% endif %}
+    </div>
+</div>
+
+{% if water_config %}
+<div class="info-box">
+    <span class="label">{{ labels.water_config }}:</span>
+    {% if water_config.ro_percent is not none %}
+    {{ labels.ro_percent }}: {{ water_config.ro_percent }}%
+    {% endif %}
+    {% if water_config.base_ec_note %}
+    | {{ water_config.base_ec_note }}
+    {% endif %}
+</div>
+{% endif %}
+
+<h2>{{ labels.phase_overview }}</h2>
+<table>
+    <thead>
+        <tr>
+            <th>{{ labels.phase }}</th>
+            <th>{{ labels.weeks }}</th>
+            <th>{{ labels.target_ec }}</th>
+            <th>NPK</th>
+            <th>Ca (ppm)</th>
+            <th>Mg (ppm)</th>
+            <th>S (ppm)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for phase in phases %}
+        <tr>
+            <td><strong>{{ phase.phase_name }}</strong></td>
+            <td>{{ phase.week_start }}–{{ phase.week_end }}</td>
+            <td>{% if phase.target_ec_ms %}{{ phase.target_ec_ms }} mS/cm{% else %}–{% endif %}</td>
+            <td>{{ phase.npk_ratio.0 }}-{{ phase.npk_ratio.1 }}-{{ phase.npk_ratio.2 }}</td>
+            <td>{{ phase.calcium_ppm|default('–', true) }}</td>
+            <td>{{ phase.magnesium_ppm|default('–', true) }}</td>
+            <td>{{ phase.sulfur_ppm|default('–', true) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% for phase in phases %}
+{% if phase.channels %}
+<div class="section-spacer">
+    <h3>{{ phase.phase_name }} ({{ labels.weeks }} {{ phase.week_start }}–{{ phase.week_end }})</h3>
+
+    {% for channel in phase.channels %}
+    <table>
+        <thead>
+            <tr>
+                <th colspan="4">
+                    {{ channel.label|default(channel.channel_id) }}
+                    ({{ channel.application_method }})
+                    {% if channel.target_ec_ms %} — {{ labels.target_ec }}: {{ channel.target_ec_ms }} mS/cm{% endif %}
+                </th>
+            </tr>
+            <tr>
+                <th style="width: 8mm">#</th>
+                <th>{{ labels.product }}</th>
+                <th style="width: 25mm">ml/L</th>
+                <th style="width: 20mm">{{ labels.optional }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dosage in channel.dosages %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ dosage.product_name }}</td>
+                <td>{{ dosage.ml_per_liter }}</td>
+                <td>{% if dosage.optional %}{{ labels.yes }}{% else %}–{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if flushing_notes or calmag_notes %}
+<h2>{{ labels.additional_notes }}</h2>
+{% if flushing_notes %}
+<div class="notes">
+    <strong>{{ labels.flushing }}:</strong> {{ flushing_notes }}
+</div>
+{% endif %}
+{% if calmag_notes %}
+<div class="notes">
+    <strong>CalMag:</strong> {{ calmag_notes }}
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

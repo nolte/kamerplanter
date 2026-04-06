@@ -7,9 +7,9 @@ Kamerplanter manages 80+ structured fields per plant species -- from taxonomy an
 ```mermaid
 flowchart LR
     A["Plant name\n(e.g. 'Basil')"] --> B["plant-info-document-generator"]
-    B --> C["Plant document\nspec/ref/plant-info/*.md"]
+    B --> C["Plant document\nspec/knowledge/plants/*.md"]
     C --> D["agrobiology-requirements-reviewer"]
-    D --> E["Review report\nspec/requirements-analysis/"]
+    D --> E["Review report\nspec/analysis/"]
     E -->|Corrections| C
     C --> F["Seed data / CSV import\n(REQ-012)"]
 ```
@@ -24,7 +24,7 @@ The workflow consists of three steps:
 
 ## Step 1: Generate Plant Document
 
-The `plant-info-document-generator` agent automatically researches all relevant data and creates a structured Markdown document under `spec/ref/plant-info/`.
+The `plant-info-document-generator` agent automatically researches all relevant data and creates a structured Markdown document under `spec/knowledge/plants/`.
 
 ### Invocation in Claude Code
 
@@ -57,10 +57,10 @@ Claude Code recognizes the context and automatically activates the `plant-info-d
 The document is saved as:
 
 ```
-spec/ref/plant-info/<scientific_name_snake_case>.md
+spec/knowledge/plants/<scientific_name_snake_case>.md
 ```
 
-Example: `spec/ref/plant-info/ocimum_basilicum.md`
+Example: `spec/knowledge/plants/ocimum_basilicum.md`
 
 ### Document Structure
 
@@ -88,7 +88,7 @@ The `agrobiology-requirements-reviewer` agent checks the document from an agrobi
 ### Invocation in Claude Code
 
 ```
-Review the plant document spec/ref/plant-info/ocimum_basilicum.md for scientific accuracy
+Review the plant document spec/knowledge/plants/ocimum_basilicum.md for scientific accuracy
 ```
 
 ### What the Review Agent Checks
@@ -106,7 +106,7 @@ Review the plant document spec/ref/plant-info/ocimum_basilicum.md for scientific
 The review report is saved under:
 
 ```
-spec/requirements-analysis/plant-info-agrobiology-review-<batch>.md
+spec/analysis/plant-info-agrobiology-review-<batch>.md
 ```
 
 Findings are classified as:
@@ -139,7 +139,7 @@ Each plant document contains ready-made CSV lines in section 8 that can be uploa
 Currently 32 plants are fully documented:
 
 ```
-spec/ref/plant-info/
+spec/knowledge/plants/
 ```
 
 Including vegetables (tomato, pepper, cucumber, zucchini, ...), herbs (basil, parsley, dill, chives, ...), ornamentals (dahlia, petunia, sunflower, ...), and houseplants (monstera, peace lily, spider plant, guzmania).

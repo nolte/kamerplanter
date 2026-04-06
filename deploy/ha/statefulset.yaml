@@ -28,6 +28,7 @@ spec:
               mountPath: /config-seed
         - name: copy-ha-integration
           image: kamerplanter-ha-integration
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c

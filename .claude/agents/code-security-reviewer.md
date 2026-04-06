@@ -49,6 +49,10 @@ src/backend/app/main.py              — CORS, Middleware, Exception Handlers
 src/backend/app/config/settings.py   — Secret Handling, Konfiguration
 src/backend/app/tasks/*.py           — Celery Tasks
 src/backend/app/migrations/*.py      — Seed Data (Default Credentials)
+src/backend/app/data_access/external/*llm*.py — LLM Adapter (API Key Handling, Prompt Injection)
+src/backend/app/data_access/vectordb/*.py    — VectorDB (SQL Injection in pgvector Queries)
+src/backend/app/domain/services/knowledge_service.py — RAG Pipeline (Prompt Injection)
+src/backend/app/domain/engines/embedding_engine.py   — Embedding Service (SSRF)
 ```
 
 ### Frontend
@@ -268,7 +272,52 @@ Pruefe `main.py` Middleware:
 
 ---
 
-### 2.9 Frontend-spezifische Sicherheit
+### 2.9 KI/AI-Sicherheit (RAG-Pipeline)
+
+#### LLM API Key Management
+- API-Keys (Anthropic, OpenAI) NUR via Environment Variables, nicht im Code
+- Keine API-Keys in Logs, Error-Responses oder Debug-Output
+- Keys nicht in `docker-compose.yml`, `values.yaml` oder Seed-Daten
+
+#### Prompt Injection
+Pruefe `KnowledgeService._build_context()` und den System-Prompt:
+- User-Input wird in `user_message` übergeben, NICHT in `system_prompt`
+- Kontext-Chunks werden nummeriert aber nicht direkt als Instruktionen interpretiert
+- Keine Möglichkeit, via Suchquery den System-Prompt zu ueberschreiben
+- LLM-Antwort wird nicht als Code/Befehle ausgefuehrt
+
+#### SQL Injection in pgvector
+Pruefe `VectorChunkRepository`:
+```python
+# KRITISCH — SQL Injection via f-string:
+sql = f"SELECT * FROM ai_vector_chunks WHERE source_type = '{user_input}'"
+
+# SICHER — Parametrisiert:
+sql = "SELECT * FROM ai_vector_chunks WHERE source_type = %s"
+params = (user_input,)
+```
+- Embedding-Vektoren als `%s::vector` parametrisiert (nicht als f-string)
+- `source_type` Filter parametrisiert
+
+#### SSRF via Embedding Service
+- `EmbeddingEngine.service_url` kommt aus Settings, nicht aus User-Input
+- Kein User-kontrollierbarer URL-Parameter fuer Embedding-Aufrufe
+- Kein User-kontrollierbarer URL-Parameter fuer LLM-Adapter-Aufrufe
+
+#### Information Disclosure via LLM
+- LLM-Fehlermeldungen (API-Errors, Timeouts) werden nicht roh an den User weitergegeben
+- Token-Usage-Daten enthalten keine sensiblen Informationen
+- Model-Name in Response ist akzeptabel (oeffentliche Information)
+
+#### Denial of Service
+- `max_tokens` auf LLM-Aufrufen begrenzt (1024 Default)
+- `top_k` Parameter in Knowledge-API begrenzt (max 50)
+- Query-Laenge in Suchendpunkt begrenzt (max 500 Zeichen)
+- Embedding-Batch-Groesse begrenzt
+
+---
+
+### 2.10 Frontend-spezifische Sicherheit
 
 #### Token-Handling
 - Access Token im Memory (nicht LocalStorage/SessionStorage fuer langlebige Tokens)
@@ -322,7 +371,7 @@ cd src/frontend && npx tsc --noEmit && npx eslint src/
 
 ## Phase 4: Report erstellen
 
-Erstelle `spec/requirements-analysis/code-security-review.md`:
+Erstelle `spec/analysis/code-security-review.md`:
 
 ```markdown
 # Code-Security-Review

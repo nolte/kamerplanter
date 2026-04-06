@@ -1,6 +1,161 @@
 {
-  "extends": [
-    "github>nolte/gh-plumbing//renovate-configs/common#v1.1.12",
-    "group:all"
-  ]
+  extends: [
+    'github>nolte/gh-plumbing//renovate-configs/common#v1.1.12',
+  ],
+  mode: 'full',
+  separateMajorMinor: true,
+  separateMinorPatch: false,
+  packageRules: [
+    {
+      groupName: 'github-actions',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+      ],
+      automerge: true,
+    },
+    {
+      groupName: 'github-actions major',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+    },
+    {
+      groupName: 'python minor/patch',
+      matchManagers: [
+        'pip_requirements',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      matchPackageNames: [
+        '!starlette',
+        '!fastapi',
+        '!pydantic',
+        '!pydantic-core',
+      ],
+    },
+    {
+      groupName: 'python fastapi-stack',
+      matchManagers: [
+        'pip_requirements',
+      ],
+      matchPackageNames: [
+        'fastapi',
+        'starlette',
+        'pydantic',
+        'pydantic-core',
+      ],
+    },
+    {
+      groupName: 'python major',
+      matchManagers: [
+        'pip_requirements',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+    },
+    {
+      groupName: 'frontend eslint',
+      matchManagers: [
+        'npm',
+      ],
+      matchPackageNames: [
+        '/eslint/',
+      ],
+    },
+    {
+      groupName: 'frontend mui',
+      matchManagers: [
+        'npm',
+      ],
+      matchPackageNames: [
+        '/^@mui//',
+      ],
+    },
+    {
+      groupName: 'frontend react',
+      matchManagers: [
+        'npm',
+      ],
+      matchPackageNames: [
+        'react',
+        'react-dom',
+        '@types/react',
+        '@types/react-dom',
+      ],
+    },
+    {
+      groupName: 'frontend typescript',
+      matchManagers: [
+        'npm',
+      ],
+      matchPackageNames: [
+        'typescript',
+      ],
+    },
+    {
+      groupName: 'frontend minor/patch',
+      matchManagers: [
+        'npm',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      matchPackageNames: [
+        '!/eslint/',
+        '!/^@mui//',
+        '!react',
+        '!react-dom',
+        '!@types/react',
+        '!@types/react-dom',
+        '!typescript',
+      ],
+    },
+    {
+      groupName: 'docker databases',
+      matchManagers: [
+        'docker-compose',
+      ],
+      matchPackageNames: [
+        'arangodb',
+        'valkey/valkey',
+        'timescale/timescaledb',
+      ],
+    },
+    {
+      groupName: 'docker selenium',
+      matchManagers: [
+        'docker-compose',
+      ],
+      matchPackageNames: [
+        '/selenium/',
+      ],
+    },
+    {
+      groupName: 'helm charts',
+      matchManagers: [
+        'helmv3',
+      ],
+    },
+    {
+      groupName: 'nodejs',
+      matchManagers: [
+        'asdf',
+      ],
+      matchPackageNames: [
+        'nodejs',
+      ],
+    },
+  ],
 }

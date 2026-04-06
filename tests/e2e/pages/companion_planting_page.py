@@ -44,29 +44,28 @@ class CompanionPlantingPage(BasePage):
 
     def select_species(self, species_name: str) -> None:
         """Select a species from the dropdown."""
-        from selenium.webdriver.common.keys import Keys
-        # Ensure any previously open dropdown is closed first
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        from selenium.webdriver.support.ui import WebDriverWait
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.SPECIES_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
+        self.scroll_and_click(select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{species_name}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
+        WebDriverWait(self.driver, 5).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+        )
         time.sleep(1)  # Wait for companion data to load
 
     def get_species_options(self) -> list[str]:
         """Return available species names in the dropdown."""
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.SPECIES_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
-        time.sleep(0.3)
+        self.scroll_and_click(select)
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options]
-        # Close dropdown by pressing Escape
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        texts = [o.text for o in options if o.text]
+        self.close_mui_dropdown()
         return texts
 
     def get_compatible_species(self) -> list[str]:
@@ -109,11 +108,17 @@ class CompanionPlantingPage(BasePage):
             return False
 
     def click_add_compatible(self) -> None:
-        self.wait_for_element_clickable(self.ADD_COMPATIBLE_BTN).click()
+        self.close_mui_dropdown()
+        time.sleep(0.5)  # Wait for MUI animation to complete before clicking
+        btn = self.wait_for_element_clickable(self.ADD_COMPATIBLE_BTN)
+        self.scroll_and_click(btn)
         self.wait_for_element_visible(self.DIALOG)
 
     def click_add_incompatible(self) -> None:
-        self.wait_for_element_clickable(self.ADD_INCOMPATIBLE_BTN).click()
+        self.close_mui_dropdown()
+        time.sleep(0.5)  # Wait for MUI animation to complete before clicking
+        btn = self.wait_for_element_clickable(self.ADD_INCOMPATIBLE_BTN)
+        self.scroll_and_click(btn)
         self.wait_for_element_visible(self.DIALOG)
 
     def is_dialog_create_button_enabled(self) -> bool:
@@ -121,25 +126,26 @@ class CompanionPlantingPage(BasePage):
         return btn.is_enabled()
 
     def select_dialog_target(self, species_name: str) -> None:
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        from selenium.webdriver.support.ui import WebDriverWait
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
+        self.scroll_and_click(select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{species_name}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
+        WebDriverWait(self.driver, 5).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+        )
 
     def get_dialog_target_options(self) -> list[str]:
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
-        time.sleep(0.3)
+        self.scroll_and_click(select)
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options]
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        texts = [o.text for o in options if o.text]
+        self.close_mui_dropdown()
         return texts
 
     def set_dialog_score(self, score: str) -> None:
@@ -153,7 +159,11 @@ class CompanionPlantingPage(BasePage):
         el.send_keys(reason)
 
     def click_dialog_create(self) -> None:
-        self.wait_for_element_clickable(self.DIALOG_CREATE_BTN).click()
+        self.close_mui_dropdown()
+        btn = self.wait_for_element_clickable(self.DIALOG_CREATE_BTN)
+        self.scroll_and_click(btn)
 
     def click_dialog_cancel(self) -> None:
-        self.wait_for_element_clickable(self.DIALOG_CANCEL_BTN).click()
+        self.close_mui_dropdown()
+        btn = self.wait_for_element_clickable(self.DIALOG_CANCEL_BTN)
+        self.scroll_and_click(btn)

@@ -1,21 +1,21 @@
-"""E2E tests for REQ-006 — Task Detail Page (TC-006-019 to TC-006-033).
+"""E2E tests for REQ-006 — Task Detail Page.
 
-Tests cover:
-- TaskDetailPage: page load, tab navigation, details display
-- Status transitions: start, skip, reopen, clone
-- Tab content: Details, Complete, Comments, History, Edit
-- Action buttons visibility based on task status
-
-NFR-008 ss3.4 screenshot checkpoints at:
-1. Page Load
-2. Before significant actions
-3. After significant actions
-4. Error states
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-006.md):
+  TC-REQ-006-001  ->  TC-006-019  Task-Detailseite aufrufen -- Tab-Navigation
+  TC-REQ-006-002  ->  TC-006-020  Task-Detailseite -- Details-Tab
+  TC-REQ-006-003  ->  TC-006-019  Tabs koennen angeklickt werden und wechseln den Inhalt
+  TC-REQ-006-004  ->  TC-006-020  Details-Tab zeigt Metadaten (Status, Prioritaet, Kategorie)
+  TC-REQ-006-005  ->  TC-006-006  Start-Button ist fuer pending Tasks sichtbar
+  TC-REQ-006-006  ->  TC-006-031  Klonen-Button ist auf der Detailseite sichtbar
+  TC-REQ-006-007  ->  TC-006-006  Task starten von der Detailseite
+  TC-REQ-006-008  ->  TC-006-008  Task ueberspringen von der Detailseite
+  TC-REQ-006-009  ->  TC-006-019  Klick auf Task-Karte navigiert zur Detailseite
 """
 
 from __future__ import annotations
 
-import time
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -24,7 +24,7 @@ from .pages.task_detail_page import TaskDetailPage
 from .pages.task_queue_page import TaskQueuePage
 
 
-# ── Fixtures ───────────────────────────────────────────────────────────────────
+# -- Fixtures ---------------------------------------------------------------
 
 
 @pytest.fixture
@@ -46,133 +46,166 @@ def _get_first_task_key(task_queue: TaskQueuePage) -> str | None:
     return keys[0] if keys else None
 
 
-# ── TC-006-019: Tab Navigation ─────────────────────────────────────────────────
+# -- TC-006-019: Tab Navigation ---------------------------------------------
 
 
 class TestTaskDetailTabNavigation:
-    """TC-006-019: Task detail page tab navigation."""
+    """Task detail page tab navigation (Spec: TC-006-019, TC-006-020)."""
 
+    @pytest.mark.smoke
     def test_detail_page_loads_with_tabs(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-019: Task-Detailseite aufrufen -- Tab-Navigation sichtbar."""
+        """TC-REQ-006-001: Task detail page loads with visible tabs.
+
+        Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test detail page")
 
         task_detail.open(key)
-        screenshot("req006_021_task_detail_loaded", "Task-Detailseite nach dem Laden")
-
-        page_el = task_detail.driver.find_element(*TaskDetailPage.PAGE)
-        assert page_el.is_displayed(), (
-            "Expected [data-testid='task-detail-page'] to be visible"
+        screenshot(
+            "TC-REQ-006-001_task-detail-loaded",
+            "Task detail page after initial load with tabs visible",
         )
 
+        # Verify page marker via page object (page element presence confirmed by open())
         tabs = task_detail.get_tab_labels()
         assert len(tabs) >= 4, (
-            f"Expected at least 4 tabs on task detail page, got {len(tabs)}: {tabs}"
+            f"TC-REQ-006-001 FAIL: Expected at least 4 tabs on task detail page, "
+            f"got {len(tabs)}: {tabs}"
         )
 
+    @pytest.mark.smoke
     def test_detail_page_shows_task_title(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-020: Task-Detailseite zeigt den Task-Namen als Ueberschrift."""
+        """TC-REQ-006-002: Task detail page shows the task name as heading.
+
+        Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test detail title")
 
         task_detail.open(key)
-        screenshot("req006_022_task_detail_title", "Task-Name als Seitenueberschrift")
+        screenshot(
+            "TC-REQ-006-002_task-detail-title",
+            "Task detail page showing task name as heading",
+        )
 
         title = task_detail.get_task_title()
         assert title, (
-            "Expected task title to be non-empty on detail page"
+            "TC-REQ-006-002 FAIL: Expected task title to be non-empty on detail page"
         )
 
+    @pytest.mark.core_crud
     def test_tab_navigation_clicks(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-019: Tabs koennen angeklickt werden und wechseln den Inhalt."""
+        """TC-REQ-006-003: Tabs can be clicked and switch content.
+
+        Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test tab navigation")
 
         task_detail.open(key)
         tabs = task_detail.get_tab_labels()
-        screenshot("req006_023_tab_navigation_start", "Tab-Navigation: Standard-Tab aktiv")
+        screenshot(
+            "TC-REQ-006-003_tab-navigation-start",
+            "Tab navigation: default tab active",
+        )
 
         # Click through each available tab
         for i, label in enumerate(tabs):
             if i == 0:
                 continue  # Skip default tab
             task_detail.click_tab_by_index(i)
-            time.sleep(0.5)
+            task_detail.wait_for_loading_complete()
             screenshot(
-                f"req006_024_tab_{i}_{label.lower().replace(' ', '_')}",
-                f"Tab-Navigation: Tab '{label}' aktiv",
+                f"TC-REQ-006-003_tab-{i}-{label.lower().replace(' ', '_')}",
+                f"Tab navigation: tab '{label}' active",
             )
 
             active = task_detail.get_active_tab_label()
             assert active == label, (
-                f"Expected active tab to be '{label}', got '{active}'"
+                f"TC-REQ-006-003 FAIL: Expected active tab to be '{label}', "
+                f"got '{active}'"
             )
 
 
-# ── TC-006-020, TC-006-027: Detail Content & Edit Tab ─────────────────────────
+# -- TC-006-020, TC-006-027: Detail Content & Edit Tab ----------------------
 
 
 class TestTaskDetailContent:
-    """TC-006-020, TC-006-027: Task detail content and edit operations."""
+    """Task detail content and edit operations (Spec: TC-006-020, TC-006-027)."""
 
+    @pytest.mark.core_crud
     def test_details_tab_shows_metadata(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-020: Details-Tab zeigt Metadaten (Status, Prioritaet, Kategorie)."""
+        """TC-REQ-006-004: Details tab shows metadata (status, priority, category).
+
+        Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test details tab")
 
         task_detail.open(key)
-        screenshot("req006_025_details_tab_content", "Details-Tab Inhalt mit Metadaten")
+        screenshot(
+            "TC-REQ-006-004_details-tab-content",
+            "Details tab showing task metadata",
+        )
 
         # Verify the page content has some visible text content (task metadata)
-        page_text = task_detail.driver.find_element(*TaskDetailPage.PAGE).text
+        page_text = task_detail.get_page_text()
         assert len(page_text) > 10, (
-            "Expected details tab to show meaningful content (metadata)"
+            "TC-REQ-006-004 FAIL: Expected details tab to show meaningful content (metadata)"
         )
 
 
-# ── TC-006-024, TC-006-032: Status Transitions ────────────────────────────────
+# -- TC-006-024, TC-006-032: Status Transitions -----------------------------
 
 
 class TestTaskDetailStatusTransitions:
-    """TC-006-006, TC-006-032: Task status transitions from detail page."""
+    """Task status transitions from detail page (Spec: TC-006-006, TC-006-008, TC-006-031)."""
 
+    @pytest.mark.core_crud
     def test_start_button_visible_for_pending_task(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-006: Start-Button ist fuer pending Tasks sichtbar."""
+        """TC-REQ-006-005: At least one action button is visible on detail page.
+
+        Spec: TC-006-006 -- Task starten (pending -> in_progress).
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test start button")
 
         task_detail.open(key)
-        screenshot("req006_026_action_buttons", "Aktions-Buttons auf der Detailseite")
+        screenshot(
+            "TC-REQ-006-005_action-buttons",
+            "Action buttons visible on task detail page",
+        )
 
         # At least one of start/skip/reopen should be visible depending on status
         has_action = (
@@ -181,34 +214,46 @@ class TestTaskDetailStatusTransitions:
             or task_detail.has_reopen_button()
         )
         assert has_action, (
-            "Expected at least one action button (start/skip/reopen) to be visible"
+            "TC-REQ-006-005 FAIL: Expected at least one action button "
+            "(start/skip/reopen) to be visible"
         )
 
+    @pytest.mark.core_crud
     def test_clone_button_is_visible(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-031: Klonen-Button ist auf der Detailseite sichtbar."""
+        """TC-REQ-006-006: Clone button is visible on the detail page.
+
+        Spec: TC-006-031 -- Klonen-Button sichtbar.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test clone button")
 
         task_detail.open(key)
-        screenshot("req006_027_clone_button", "Klonen-Button sichtbar")
-
-        assert task_detail.has_clone_button(), (
-            "Expected [data-testid='clone-task-button'] to be visible"
+        screenshot(
+            "TC-REQ-006-006_clone-button",
+            "Clone button visible on task detail page",
         )
 
+        assert task_detail.has_clone_button(), (
+            "TC-REQ-006-006 FAIL: Expected [data-testid='clone-task-button'] to be visible"
+        )
+
+    @pytest.mark.core_crud
     def test_start_task_from_detail(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-006: Task starten von der Detailseite."""
+        """TC-REQ-006-007: Start task from the detail page.
+
+        Spec: TC-006-006 -- Task starten (pending -> in_progress).
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test start from detail")
@@ -218,18 +263,28 @@ class TestTaskDetailStatusTransitions:
         if not task_detail.has_start_button():
             pytest.skip("Task is not in pending state -- cannot test start")
 
-        screenshot("req006_028_before_start_detail", "Vor Starten auf der Detailseite")
+        screenshot(
+            "TC-REQ-006-007_before-start",
+            "Task detail page before starting task",
+        )
         task_detail.click_start()
-        time.sleep(1)
-        screenshot("req006_029_after_start_detail", "Nach Starten auf der Detailseite")
+        task_detail.wait_for_loading_complete()
+        screenshot(
+            "TC-REQ-006-007_after-start",
+            "Task detail page after starting task",
+        )
 
+    @pytest.mark.core_crud
     def test_skip_task_from_detail(
         self,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-008: Task ueberspringen von der Detailseite."""
+        """TC-REQ-006-008: Skip task from the detail page.
+
+        Spec: TC-006-008 -- Task ueberspringen.
+        """
         key = _get_first_task_key(task_queue)
         if not key:
             pytest.skip("No tasks in database -- cannot test skip from detail")
@@ -239,24 +294,34 @@ class TestTaskDetailStatusTransitions:
         if not task_detail.has_skip_button():
             pytest.skip("Task does not have skip button visible")
 
-        screenshot("req006_030_before_skip_detail", "Vor Ueberspringen auf der Detailseite")
+        screenshot(
+            "TC-REQ-006-008_before-skip",
+            "Task detail page before skipping task",
+        )
         task_detail.click_skip()
-        time.sleep(1)
-        screenshot("req006_031_after_skip_detail", "Nach Ueberspringen auf der Detailseite")
+        task_detail.wait_for_loading_complete()
+        screenshot(
+            "TC-REQ-006-008_after-skip",
+            "Task detail page after skipping task",
+        )
 
 
-# ── TC-006-019: Navigate from Queue to Detail ─────────────────────────────────
+# -- TC-006-019: Navigate from Queue to Detail ------------------------------
 
 
 class TestTaskQueueToDetailNavigation:
-    """TC-006-019: Navigation from task queue to task detail."""
+    """Navigation from task queue to task detail (Spec: TC-006-019)."""
 
+    @pytest.mark.smoke
     def test_click_task_card_navigates_to_detail(
         self,
         task_queue: TaskQueuePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-006-019: Klick auf Task-Karte navigiert zur Detailseite."""
+        """TC-REQ-006-009: Clicking a task card navigates to the detail page.
+
+        Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation.
+        """
         task_queue.open()
 
         keys = task_queue.get_task_keys()
@@ -264,12 +329,19 @@ class TestTaskQueueToDetailNavigation:
             pytest.skip("No tasks in database -- cannot test navigation")
 
         key = keys[0]
-        screenshot("req006_032_before_card_click", "Vor Klick auf Task-Karte")
+        screenshot(
+            "TC-REQ-006-009_before-card-click",
+            "Task queue before clicking task card",
+        )
 
         task_queue.click_task_card(key)
         task_queue.wait_for_url_contains("/aufgaben/tasks/")
-        screenshot("req006_033_after_card_click", "Nach Navigation zur Detailseite")
+        screenshot(
+            "TC-REQ-006-009_after-card-click",
+            "Task detail page after card click navigation",
+        )
 
         assert "/aufgaben/tasks/" in task_queue.driver.current_url, (
-            f"Expected URL to contain '/aufgaben/tasks/', got: {task_queue.driver.current_url}"
+            f"TC-REQ-006-009 FAIL: Expected URL to contain '/aufgaben/tasks/', "
+            f"got: {task_queue.driver.current_url}"
         )

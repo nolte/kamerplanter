@@ -20,7 +20,7 @@ class WateringEvent(BaseModel):
     application_method: ApplicationMethod = ApplicationMethod.DRENCH
     is_supplemental: bool = False
     volume_liters: float = Field(gt=0)
-    plant_keys: list[str] = Field(min_length=1)
+    plant_keys: list[str] = Field(default_factory=list)
     tank_fill_event_key: str | None = None
     nutrient_plan_key: str | None = None
     fertilizers_used: list[FertilizerSnapshot] = Field(default_factory=list)

@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
@@ -147,35 +148,34 @@ export default function NutrientPlanListPage() {
 
   return (
     <Box data-testid="nutrient-plan-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.nutrientPlans.title')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {hasFavorites && (
-            <Tooltip title={t('pages.nutrientPlans.favFilter')}>
-              <IconButton
-                onClick={() => setFavFilterActive((p) => !p)}
-                color={favFilterActive ? 'warning' : 'default'}
-              >
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.nutrientPlans.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.nutrientPlans.title')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {hasFavorites && (
+              <Tooltip title={t('pages.nutrientPlans.favFilter')}>
+                <IconButton
+                  onClick={() => setFavFilterActive((p) => !p)}
+                  color={favFilterActive ? 'warning' : 'default'}
+                >
+                  <FilterListIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.nutrientPlans.create')}
+            </Button>
+          </Box>
+        }
+      />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.nutrientPlans.listIntro')}
+      </Typography>
       <DataTable
         columns={columns}
         rows={filteredPlans}

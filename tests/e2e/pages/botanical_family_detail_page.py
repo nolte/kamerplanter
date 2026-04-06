@@ -39,7 +39,7 @@ class BotanicalFamilyDetailPage(BasePage):
         return self
 
     def get_title(self) -> str:
-        return self.wait_for_element(self.PAGE_TITLE).text
+        return self.get_text_stable(self.PAGE_TITLE)
 
     # ── Form reads ─────────────────────────────────────────────────────
 

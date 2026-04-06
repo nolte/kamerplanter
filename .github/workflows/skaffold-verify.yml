@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check skaffold.yaml exists
         id: check
@@ -28,7 +28,7 @@ jobs:
 
       - name: Setup Helm
         if: steps.check.outputs.exists == 'true'
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Setup Skaffold
         if: steps.check.outputs.exists == 'true'
@@ -40,6 +40,7 @@ jobs:
         if: steps.check.outputs.exists == 'true'
         run: |
           helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm repo add ollama https://otwld.github.io/ollama-helm/
           helm dependency build helm/kamerplanter
 
       - name: Lint Helm chart
@@ -62,7 +63,7 @@ jobs:
           skaffold render --output rendered-manifests.yaml || true
 
       - name: Upload rendered manifests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always() && steps.check.outputs.exists == 'true'
         with:
           name: rendered-manifests

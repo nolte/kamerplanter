@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
@@ -94,17 +95,22 @@ export default function PlantingRunListPage() {
 
   return (
     <Box data-testid="planting-run-list-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={t('pages.plantingRuns.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.plantingRuns.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.plantingRuns.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.plantingRuns.create')}
+          </Button>
+        }
+      />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.plantingRuns.listIntro')}
+      </Typography>
       <DataTable
         columns={columns}
         rows={runs}

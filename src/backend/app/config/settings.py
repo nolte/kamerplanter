@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # REQ-027 Light-Modus
     kamerplanter_mode: Literal["light", "full"] = "full"
 
+    # REQ-032 Print: base URL for QR codes on plant labels
+    app_base_url: str = "http://localhost:5173"
+
     perenual_api_key: str = ""
     trefle_api_key: str = ""
     enrichment_http_timeout: int = 30
@@ -53,6 +56,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     hibp_enabled: bool = False
     require_email_verification: bool = False  # Set True in production
+    cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
     # Email
     email_adapter: str = "console"  # console | smtp | resend
@@ -70,6 +74,20 @@ class Settings(BaseSettings):
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
     ha_access_token: str = ""  # Long-Lived Access Token
     ha_timeout: int = 10  # HTTP timeout in seconds
+
+    # TimescaleDB (optional — for sensor time-series)
+    timescaledb_enabled: bool = False
+    timescaledb_host: str = "localhost"
+    timescaledb_port: int = 5432
+    timescaledb_database: str = "kamerplanter_sensors"
+    timescaledb_username: str = "postgres"
+    timescaledb_password: str = "changeme"
+    timescaledb_pool_min_size: int = 2
+    timescaledb_pool_max_size: int = 10
+
+    # Knowledge Service (optional — standalone RAG microservice)
+    knowledge_service_enabled: bool = False
+    knowledge_service_url: str = "http://knowledge-service:8000"
 
     # Rate limiting
     rate_limit_auth: str = "20/minute"

@@ -7,7 +7,7 @@ description: Overview of all available Claude Code agents in the Kamerplanter pr
 
 Overview of all available Claude Code agents in the Kamerplanter project for autonomous feature implementation, requirements engineering, code reviews and documentation.
 
-!!! info "As of: 2026-03-23 — 27 agents registered"
+!!! info "As of: 2026-03-31 — 30 agents registered"
     This catalog is automatically generated and updated by the `agent-catalog-generator` agent.
 
 ---
@@ -21,6 +21,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 | `cannabis-indoor-grower-reviewer` | sonnet | Validate cannabis cultivation specifications | Analysis & Review |
 | `casual-houseplant-user-reviewer` | sonnet | Layperson suitability of houseplant features | Analysis & Review |
 | `code-security-reviewer` | sonnet | Code security audit (OWASP Top 10) | Analysis & Review |
+| `docs-freshness-checker` | sonnet | Check documentation freshness and completeness | Documentation |
 | `e2e-testcase-extractor` | sonnet | Derive E2E test cases from specifications | Testing & QA |
 | `frontend-design-reviewer` | sonnet | UI/UX, responsive design, kiosk mode review | Design & Graphics |
 | `frontend-usability-optimizer` | sonnet | Optimize React/MUI components for better UX | Design & Graphics |
@@ -29,12 +30,14 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 | `growing-phase-auditor` | sonnet | Validate and correct plant phase data | Testing & QA |
 | `ha-integration-requirements-engineer` | sonnet | Derive Home Assistant integration requirements | Analysis & Review |
 | `ha-integration-sync` | opus | Synchronize HA integration with backend API | Development |
+| `i18n-completeness-checker` | haiku | Check i18n translations for completeness | Testing & QA |
 | `it-security-requirements-reviewer` | sonnet | Review security & GDPR in requirements | Analysis & Review |
 | `mkdocs-documentation` | sonnet | Create and maintain MkDocs documentation | Documentation |
 | `outdoor-garden-planner-reviewer` | sonnet | Validate outdoor garden requirements | Analysis & Review |
 | `plant-info-document-generator` | sonnet | Research detailed plant profile documents | Documentation |
 | `png-to-transparent-svg` | haiku | PNG with checkerboard background to transparent SVG | Development |
 | `pr-to-develop` | sonnet | Prepare GitHub pull request for develop | Development |
+| `rag-eval-runner` | sonnet | Execute RAG quality benchmark and analyze | Testing & QA |
 | `requirements-contradiction-analyzer` | sonnet | Find contradictions in requirements (RAG) | Analysis & Review |
 | `seed-data-validator` | sonnet | Check YAML seed data quality | Testing & QA |
 | `selenium-test-generator` | opus | Generate NFR-008-compliant Selenium E2E tests | Testing & QA |
@@ -79,6 +82,8 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
     |-------|-------|
     | [`e2e-testcase-extractor`](#e2e-testcase-extractor) | Derive E2E test cases from specifications |
     | [`growing-phase-auditor`](#growing-phase-auditor) | Validate plant phase data |
+    | [`i18n-completeness-checker`](#i18n-completeness-checker) | Check i18n translations for completeness |
+    | [`rag-eval-runner`](#rag-eval-runner) | Execute RAG quality benchmark and analyze |
     | [`seed-data-validator`](#seed-data-validator) | YAML seed data quality |
     | [`selenium-test-generator`](#selenium-test-generator) | Generate Selenium E2E tests |
     | [`selenium-test-reviewer`](#selenium-test-reviewer) | Review Selenium tests |
@@ -97,6 +102,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
     | Agent | Focus |
     |-------|-------|
     | [`agent-catalog-generator`](#agent-catalog-generator) | Generate this catalog |
+    | [`docs-freshness-checker`](#docs-freshness-checker) | Check documentation freshness and completeness |
     | [`mkdocs-documentation`](#mkdocs-documentation) | Create MkDocs documentation |
     | [`plant-info-document-generator`](#plant-info-document-generator) | Research plant profile documents |
 
@@ -144,7 +150,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Evaluate data source availability
 5. Create report with findings (errors/incomplete/inaccurate)
 
-**Output:** `spec/requirements-analysis/agrobiology-review.md` — Detailed report with botanical findings, correction proposals and data sources
+**Output:** `spec/analysis/agrobiology-review.md` — Detailed report with botanical findings, correction proposals and data sources
 
 ---
 
@@ -166,7 +172,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate growing parameters (photoperiod, VPD, EC)
 5. Report with legal checks and best-practice deviations
 
-**Output:** `spec/requirements-analysis/cannabis-grower-review.md` — Legality check, growing parameter validation, risk assessment
+**Output:** `spec/analysis/cannabis-grower-review.md` — Legality check, growing parameter validation, risk assessment
 
 ---
 
@@ -190,7 +196,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 5. Conduct competitor comparison (Planta, Greg)
 6. Report with dealbreakers, optimizations, effort analysis
 
-**Output:** `spec/requirements-analysis/casual-houseplant-user-review.md` — Layperson perspective, dealbreakers, effort analysis, competitor comparison
+**Output:** `spec/analysis/casual-houseplant-user-review.md` — Layperson perspective, dealbreakers, effort analysis, competitor comparison
 
 ---
 
@@ -213,7 +219,32 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Immediately fix critical vulnerabilities (P0/P1)
 5. Security report with resolved and open items
 
-**Output:** `spec/requirements-analysis/code-security-review.md` — Security audit, P0/P1/P2/P3 findings, compliance matrix
+**Output:** `spec/analysis/code-security-review.md` — Security audit, P0/P1/P2/P3 findings, compliance matrix
+
+---
+
+### `docs-freshness-checker`
+
+**Model:** sonnet | **Tools:** Read, Glob, Grep, Bash
+
+**Role:** Documentation Quality Engineer who checks existing documentation (docs/de/, docs/en/) and ADRs for freshness, completeness and consistency with implemented code.
+
+??? example "When to use?"
+    - Check documentation for staleness
+    - Identify missing doc pages for implemented features
+    - Ensure DE/EN parity
+    - Validate documentation quality before release
+
+**Workflow:**
+1. Determine implementation status (API routers, domain models, frontend pages)
+2. Load documentation structure (docs/de, docs/en, ADRs)
+3. Compare API documentation vs. code (implemented/documented)
+4. Check user guide completeness (features have docs?)
+5. Validate DE/EN parity (file and content comparison)
+6. Verify ADR freshness (status, technology references)
+7. Find dead links and code references
+
+**Output:** `spec/analysis/docs-freshness-report.md` — Report with API gaps, user guide errors, parity violations, ADR findings, dead links
 
 ---
 
@@ -259,7 +290,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate mobile on-site scenarios
 5. Report with design findings and wireframe proposals
 
-**Output:** `spec/requirements-analysis/frontend-design-review.md` — Responsive matrix, kiosk detail assessment, touch target audit, wireframes
+**Output:** `spec/analysis/frontend-design-review.md` — Responsive matrix, kiosk detail assessment, touch target audit, wireframes
 
 ---
 
@@ -353,7 +384,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Correct YAML files directly with the Edit tool
 5. Create report with findings and corrections
 
-**Output:** Corrected YAML files + `spec/requirements-analysis/growing-phase-audit.md` with findings and verification
+**Output:** Corrected YAML files + `spec/analysis/growing-phase-audit.md` with findings and verification
 
 ---
 
@@ -402,6 +433,29 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 
 ---
 
+### `i18n-completeness-checker`
+
+**Model:** haiku | **Tools:** Read, Glob, Grep, Bash
+
+**Role:** i18n quality auditor for React/TypeScript applications using react-i18next who checks translation files for completeness and consistency.
+
+??? example "When to use?"
+    - Check translations for gaps
+    - Identify missing language keys
+    - Find unused keys
+    - Detect structural inconsistencies
+
+**Workflow:**
+1. Load both translation files (DE/EN) and extract keys
+2. Perform key comparison (missing in EN/DE, structural differences)
+3. Search frontend code for i18n key usage
+4. Perform quality checks (empty values, identical DE/EN, placeholder consistency)
+5. Output report categorized by severity
+
+**Output:** `spec/analysis/i18n-completeness-report.md` — Missing keys, orphaned keys, identical values, empty entries
+
+---
+
 ### `it-security-requirements-reviewer`
 
 **Model:** sonnet | **Tools:** Read, Write, Glob, Grep
@@ -421,7 +475,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Reconcile OWASP ASVS against specs
 5. Report with security gaps and GDPR recommendations
 
-**Output:** `spec/requirements-analysis/it-security-review.md` — Security assessment, GDPR audit, recommendations
+**Output:** `spec/analysis/it-security-review.md` — Security assessment, GDPR audit, recommendations
 
 ---
 
@@ -467,7 +521,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate crop rotation, overwintering, companion planting features
 5. Report with practical notes and improvement proposals
 
-**Output:** `spec/requirements-analysis/outdoor-garden-planner-review.md` — Hobby gardener perspective, practical feedback
+**Output:** `spec/analysis/outdoor-garden-planner-review.md` — Hobby gardener perspective, practical feedback
 
 ---
 
@@ -539,6 +593,31 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 
 ---
 
+### `rag-eval-runner`
+
+**Model:** sonnet | **Tools:** Read, Write, Edit, Bash, Glob, Grep
+
+**Role:** RAG Quality Engineer with expertise in Information Retrieval, LLM Evaluation and Knowledge Base Optimization who executes the Kamerplanter RAG benchmark and optimizes it.
+
+??? example "When to use?"
+    - Execute RAG evaluations (smoke or full)
+    - Classify errors systematically (retrieval, generation, synonyms, knowledge-gap)
+    - Improve knowledge quality
+    - Identify and fix regressions
+
+**Workflow:**
+1. Infrastructure check (Embedding Service, Ollama, VectorDB)
+2. Archive previous result, execute smoke test
+3. Run full benchmark if needed
+4. Load results and compare trends
+5. Classify errors via decision tree (synonym-gap, generation-miss, retrieval-miss, knowledge-gap)
+6. Suggest prioritized improvements
+7. Optionally apply quick fixes (extend synonyms, adjust questions, create knowledge chunks)
+
+**Output:** `test-reports/rag-eval/eval_report.md` — Error classification, category trends, prioritized improvements
+
+---
+
 ### `requirements-contradiction-analyzer`
 
 **Model:** sonnet | **Tools:** Read, Write, Glob, Grep, Bash
@@ -558,7 +637,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Systematically check for contradictions
 5. Generate report with contradiction findings
 
-**Output:** `spec/requirements-analysis/contradiction-analysis.md` — Contradictions, inconsistencies, recommendations
+**Output:** `spec/analysis/contradiction-analysis.md` — Contradictions, inconsistencies, recommendations
 
 ---
 
@@ -582,7 +661,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 5. Multi-source verification (manufacturer, SDS, retailer)
 6. Report with data quality findings
 
-**Output:** `spec/requirements-analysis/seed-data-validation.md` — Data quality report with findings
+**Output:** `spec/analysis/seed-data-validation.md` — Data quality report with findings
 
 ---
 
@@ -674,7 +753,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Estimate market size and potential
 5. Report with personas and market analysis
 
-**Output:** `spec/requirements-analysis/target-audience-analysis.md` — Target audience analysis, personas, market potential
+**Output:** `spec/analysis/target-audience-analysis.md` — Target audience analysis, personas, market potential
 
 ---
 
@@ -751,9 +830,12 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
     | ...check implemented code for security | `code-security-reviewer` |
     | ...implement features (backend + frontend) | `fullstack-developer` |
     | ...run unit tests and static analysis | `unit-test-runner` |
+    | ...execute RAG evaluations and optimize | `rag-eval-runner` |
     | ...validate plant phase data | `growing-phase-auditor` |
     | ...check seed data quality | `seed-data-validator` |
+    | ...check i18n translations for completeness | `i18n-completeness-checker` |
     | ...research plant profiles | `plant-info-document-generator` |
+    | ...check documentation freshness | `docs-freshness-checker` |
     | ...create MkDocs documentation | `mkdocs-documentation` |
     | ...prepare GitHub PR to develop | `pr-to-develop` |
     | ...create Gemini image generation prompts | `gemini-graphic-prompt-generator` |
@@ -765,7 +847,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 ## Notes for Developers
 
 - **Start an agent:** `/agent <agent-name>` in the Claude Code chat
-- **Reports:** Analysis agents write to `spec/requirements-analysis/`, Selenium reports to `test-reports/`, test cases to `spec/test-cases/`, documentation to `docs/`
+- **Reports:** Analysis agents write to `spec/analysis/`, Selenium reports to `test-reports/`, test cases to `spec/test-cases/`, documentation to `docs/`
 - **Model choice:** `opus` = highest quality (complex features), `sonnet` = best value (review, analysis), `haiku` = fast & cheap (simple tasks)
 - **Tool availability:** Not all agents have all tools — e.g. `png-to-transparent-svg` has no Edit tool
 
@@ -797,7 +879,11 @@ graph LR
     Q -.-> K
     K -.-> R["smart-home-ha-reviewer"]
 
+    E -.-> RAG["rag-eval-runner"]
+    E -.-> I18N["i18n-completeness-checker"]
+
     A -.-> S["mkdocs-documentation"]
+    A -.-> FRESH["docs-freshness-checker"]
     A -.-> T["plant-info-document-generator"]
     A -.-> U["target-audience-analyzer<br/>outdoor-garden-planner-reviewer"]
 
@@ -807,7 +893,7 @@ graph LR
 
 **Legend:**
 - Solid arrows: Standard workflow (spec → implementation → QA → PR)
-- Dotted arrows: Parallel or optional workflows (design, HA, documentation, graphics)
+- Dotted arrows: Parallel or optional workflows (design, HA, documentation, graphics, QA)
 
 ---
 
@@ -817,14 +903,14 @@ graph LR
 
 **Development (4 agents):** Write or optimize productive code and integration code.
 
-**Testing & QA (6 agents):** Generate, validate or run tests. Ensure quality.
+**Testing & QA (8 agents):** Generate, validate or run tests. Ensure quality.
 
 **Design & Graphics (3 agents):** UI/UX optimization and asset generation.
 
-**Documentation (3 agents):** Create and maintain documentation and plant profiles.
+**Documentation (4 agents):** Create and maintain documentation and plant profiles.
 
 ---
 
-**Catalog updated:** 2026-03-23
-**Agents documented:** 27
+**Catalog updated:** 2026-03-31
+**Agents documented:** 30
 **Generated by:** `agent-catalog-generator`

@@ -743,7 +743,7 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": HAS_TASK,
-        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS],
         "to_vertex_collections": [TASKS],
     },
     {
@@ -758,7 +758,7 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": WF_EXECUTING,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS],
         "to_vertex_collections": [WORKFLOW_EXECUTIONS],
     },
     {

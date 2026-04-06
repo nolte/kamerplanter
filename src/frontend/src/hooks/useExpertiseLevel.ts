@@ -1,5 +1,6 @@
-import { useMemo, useState, useCallback } from 'react';
-import { useAppSelector } from '@/store/hooks';
+import { useMemo, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { toggleShowAllFields } from '@/store/slices/uiSlice';
 import type { ExperienceLevel } from '@/api/types';
 
 const LEVEL_ORDER: Record<ExperienceLevel, number> = {
@@ -9,13 +10,14 @@ const LEVEL_ORDER: Record<ExperienceLevel, number> = {
 };
 
 export function useExpertiseLevel() {
+  const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.userPreferences.preferences);
+  const showAllOverride = useAppSelector((state) => state.ui.showAllFieldsOverride);
   const level = preferences?.experience_level ?? 'beginner';
-  const [showAllOverride, setShowAllOverride] = useState(false);
 
   const toggleShowAll = useCallback(() => {
-    setShowAllOverride((prev) => !prev);
-  }, []);
+    dispatch(toggleShowAllFields());
+  }, [dispatch]);
 
   return useMemo(
     () => ({

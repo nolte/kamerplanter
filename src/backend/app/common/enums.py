@@ -339,6 +339,7 @@ class PathogenType(StrEnum):
     VIRAL = "viral"
     PHYSIOLOGICAL = "physiological"
     OOMYCETE = "oomycete"
+    PROTIST = "protist"
 
 
 class PlantPart(StrEnum):
@@ -386,6 +387,7 @@ class HarvestIndicatorType(StrEnum):
     BRIX = "brix"
     SIZE = "size"
     DAYS_SINCE_FLOWERING = "days_since_flowering"
+    DAYS_SINCE_SOWING = "days_since_sowing"
     AROMA = "aroma"
     TEXTURE = "texture"
     FOLIAGE = "foliage"
@@ -399,6 +401,13 @@ class RipenessStage(StrEnum):
 
 
 # ── REQ-006 Tasks ──
+
+
+class WorkflowTargetType(StrEnum):
+    PLANT_INSTANCE = "plant_instance"
+    PLANTING_RUN = "planting_run"
+    LOCATION = "location"
+    TANK = "tank"
 
 
 class TaskStatus(StrEnum):

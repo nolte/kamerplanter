@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -23,6 +23,8 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/feeding-events';
+import * as plantApi from '@/api/endpoints/plantInstances';
+import type { PlantInstance } from '@/api/types';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 
@@ -68,6 +70,8 @@ export default function FeedingEventCreateDialog({
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
+  const [plants, setPlants] = useState<PlantInstance[]>([]);
+  const [loadingPlants, setLoadingPlants] = useState(false);
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -87,6 +91,37 @@ export default function FeedingEventCreateDialog({
       notes: null,
     },
   });
+  useEffect(() => {
+    if (open && !plantKey) {
+      setLoadingPlants(true);
+      plantApi
+        .listPlantInstances()
+        .then(setPlants)
+        .catch(() => setPlants([]))
+        .finally(() => setLoadingPlants(false));
+    }
+  }, [open, plantKey]);
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        plant_key: plantKey ?? '',
+        application_method: 'fertigation',
+        is_supplemental: false,
+        volume_applied_liters: 1,
+        measured_ec_before: null,
+        measured_ec_after: null,
+        measured_ph_before: null,
+        measured_ph_after: null,
+        runoff_ec: null,
+        runoff_ph: null,
+        runoff_volume_liters: null,
+        fertilizers_used: [],
+        notes: null,
+      });
+    }
+  }, [open, plantKey, reset]);
+
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -112,13 +147,27 @@ export default function FeedingEventCreateDialog({
       <DialogTitle>{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField
-            name="plant_key"
-            control={control}
-            label={t('pages.feedingEvents.plantKey')}
-            required
-            disabled={!!plantKey}
-          />
+          {plantKey ? (
+            <FormTextField
+              name="plant_key"
+              control={control}
+              label={t('pages.feedingEvents.plantKey')}
+              disabled
+              required
+            />
+          ) : (
+            <FormSelectField
+              name="plant_key"
+              control={control}
+              label={t('pages.feedingEvents.plantKey')}
+              required
+              disabled={loadingPlants}
+              options={plants.map((p) => ({
+                value: p.key,
+                label: p.plant_name || p.instance_id,
+              }))}
+            />
+          )}
           <FormSelectField
             name="application_method"
             control={control}

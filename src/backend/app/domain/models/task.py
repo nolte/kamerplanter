@@ -37,6 +37,7 @@ class WorkflowTemplate(BaseModel):
     lifecycle_key: str | None = None
     skill_level_filter: str | None = None
     total_duration_days: int = 0
+    target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -90,7 +91,8 @@ class Task(BaseModel):
     instruction: str = ""
     instruction_de: str = ""
     category: TaskCategory = TaskCategory.MAINTENANCE
-    plant_key: str | None = None
+    entity_key: str | None = None
+    entity_type: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     status: TaskStatus = TaskStatus.PENDING
@@ -121,7 +123,6 @@ class Task(BaseModel):
     activity_key: str | None = None
     template_key: str | None = None
     workflow_execution_key: str | None = None
-    planting_run_key: str | None = None
     watering_event_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -156,7 +157,8 @@ class TaskAuditEntry(BaseModel):
 class WorkflowExecution(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     workflow_template_key: str = ""
-    plant_key: str = ""
+    entity_key: str = ""
+    entity_type: str = "plant_instance"
     started_at: datetime | None = None
     completed_at: datetime | None = None
     completion_percentage: float = Field(default=0, ge=0, le=100)

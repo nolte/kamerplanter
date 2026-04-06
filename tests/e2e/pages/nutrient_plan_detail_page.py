@@ -24,7 +24,7 @@ class NutrientPlanDetailPage(BasePage):
     # Tabs (3 tabs: Phase Entries | Validation | Edit)
     TAB_PHASE_ENTRIES = (By.XPATH, "//button[@role='tab'][1]")
     TAB_VALIDATION = (By.XPATH, "//button[@role='tab'][2]")
-    TAB_EDIT = (By.XPATH, "//button[@role='tab'][3]")
+    TAB_EDIT = (By.XPATH, "//button[@role='tab'][4]")
 
     # Tab 0: Phase entries
     ADD_ENTRY_BUTTON = (By.XPATH, "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]")
@@ -53,8 +53,8 @@ class NutrientPlanDetailPage(BasePage):
     def open(self, key: str) -> NutrientPlanDetailPage:
         """Navigate to a nutrient plan detail page and wait for it to load."""
         self.navigate(f"/duengung/plans/{key}")
-        self.wait_for_element(self.PAGE)
-        self.wait_for_loading_complete()
+        self.wait_for_element(self.PAGE, timeout=20)
+        self.wait_for_loading_complete(timeout=20)
         return self
 
     # ── Page info ──────────────────────────────────────────────────────

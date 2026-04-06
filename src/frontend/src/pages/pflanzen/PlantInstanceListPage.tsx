@@ -11,7 +11,9 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PageTitle from '@/components/layout/PageTitle';
+import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
@@ -31,6 +33,7 @@ export default function PlantInstanceListPage() {
   const { items, loading } = useAppSelector((s) => s.plantInstances);
   const [createOpen, setCreateOpen] = useState(false);
   const [duplicateData, setDuplicateData] = useState<PlantInstanceDuplicateData | undefined>();
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [hideRemoved, setHideRemoved] = useState(true);
   const [speciesMap, setSpeciesMap] = useState<Map<string, Species>>(new Map());
   const [cultivarMap, setCultivarMap] = useState<Map<string, Cultivar>>(new Map());
@@ -116,6 +119,16 @@ export default function PlantInstanceListPage() {
     [items, hideRemoved],
   );
 
+  const labelPlantKeys = useMemo(
+    () => filteredItems.map((p) => p.key),
+    [filteredItems],
+  );
+
+  const labelPlantNames = useMemo(
+    () => Object.fromEntries(filteredItems.map((p) => [p.key, p.plant_name ?? p.instance_id])),
+    [filteredItems],
+  );
+
   const columns: Column<PlantInstance>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
     {
@@ -155,27 +168,61 @@ export default function PlantInstanceListPage() {
       id: 'location',
       label: t('entities.location'),
       render: (r) => {
-        if (!r.slot_key) return '\u2014';
-        const slot = slotMap.get(r.slot_key);
-        if (!slot) return '\u2014';
-        const location = locationMap.get(slot.location_key);
-        if (!location) return slot.slot_id;
-        const site = siteMap.get(location.site_key);
-        const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
-        return (
-          <Tooltip arrow title={parts.join(' \u203A ')}>
-            <span>{location.name}</span>
-          </Tooltip>
-        );
+        if (r.slot_key) {
+          const slot = slotMap.get(r.slot_key);
+          if (slot) {
+            const location = locationMap.get(slot.location_key);
+            if (!location) return slot.slot_id;
+            const site = siteMap.get(location.site_key);
+            const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
+            return (
+              <Tooltip arrow title={parts.join(' \u203A ')}>
+                <span>{location.name}</span>
+              </Tooltip>
+            );
+          }
+        }
+        // Fallback: resolve from location_key directly
+        if (r.location_key) {
+          const location = locationMap.get(r.location_key);
+          if (location) {
+            const site = siteMap.get(location.site_key);
+            const parts = [site?.name, location.name].filter(Boolean);
+            return (
+              <Tooltip arrow title={parts.join(' \u203A ')}>
+                <span>{location.name}</span>
+              </Tooltip>
+            );
+          }
+        }
+        if (r.site_key) {
+          const site = siteMap.get(r.site_key);
+          if (site) return site.name;
+        }
+        return '\u2014';
       },
       searchValue: (r) => {
-        if (!r.slot_key) return '';
-        const slot = slotMap.get(r.slot_key);
-        if (!slot) return '';
-        const location = locationMap.get(slot.location_key);
-        if (!location) return '';
-        const site = siteMap.get(location.site_key);
-        return [site?.name, location.name, slot.slot_id].filter(Boolean).join(' ');
+        if (r.slot_key) {
+          const slot = slotMap.get(r.slot_key);
+          if (slot) {
+            const location = locationMap.get(slot.location_key);
+            if (!location) return '';
+            const site = siteMap.get(location.site_key);
+            return [site?.name, location.name, slot.slot_id].filter(Boolean).join(' ');
+          }
+        }
+        if (r.location_key) {
+          const location = locationMap.get(r.location_key);
+          if (location) {
+            const site = siteMap.get(location.site_key);
+            return [site?.name, location.name].filter(Boolean).join(' ');
+          }
+        }
+        if (r.site_key) {
+          const site = siteMap.get(r.site_key);
+          if (site) return site.name;
+        }
+        return '';
       },
     },
     {
@@ -187,6 +234,7 @@ export default function PlantInstanceListPage() {
       id: 'currentPhase',
       label: t('pages.plantInstances.currentPhase'),
       render: (r) => {
+        if (!r.current_phase) return <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>;
         const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
           germination: 'info',
           seedling: 'success',
@@ -202,7 +250,7 @@ export default function PlantInstanceListPage() {
           />
         );
       },
-      searchValue: (r) => t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase }),
+      searchValue: (r) => r.current_phase ? t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase }) : '',
     },
     {
       id: 'plantingRun',
@@ -229,7 +277,8 @@ export default function PlantInstanceListPage() {
     {
       id: 'removedOn',
       label: t('pages.plantInstances.removedOn'),
-      render: (r) => r.removed_on ?? '\u2014',
+      render: (r) =>
+        r.removed_on ? new Date(r.removed_on).toLocaleDateString() : '\u2014',
     },
     {
       id: 'actions',
@@ -266,7 +315,7 @@ export default function PlantInstanceListPage() {
     const species = speciesMap.get(r.species_key);
     const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
     const slot = r.slot_key ? slotMap.get(r.slot_key) : null;
-    const location = slot ? locationMap.get(slot.location_key) : null;
+    const location = slot ? locationMap.get(slot.location_key) : (r.location_key ? locationMap.get(r.location_key) : null);
     const runInfo = plantRunMap.get(r.key);
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
@@ -277,11 +326,13 @@ export default function PlantInstanceListPage() {
         subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` \u2014 ${cultivar.name}` : ''}` : undefined}
         chips={
           <>
-            <Chip
-              label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
-              size="small"
-              color={phaseColorMap[r.current_phase] ?? 'default'}
-            />
+            {r.current_phase ? (
+              <Chip
+                label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+                size="small"
+                color={phaseColorMap[r.current_phase] ?? 'default'}
+              />
+            ) : null}
             {runInfo && (
               <Chip
                 label={runInfo.runName}
@@ -302,18 +353,50 @@ export default function PlantInstanceListPage() {
 
   return (
     <Box data-testid="plant-instance-list-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={t('pages.plantInstances.title')} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <FormControlLabel
-            control={<Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />}
-            label={t('pages.plantInstances.hideRemoved')}
-          />
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDuplicateData(undefined); setCreateOpen(true); }} data-testid="create-button">
-            {t('pages.plantInstances.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.plantInstances.title')}
+        action={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <FormControlLabel
+              control={
+                <Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />
+              }
+              label={t('pages.plantInstances.hideRemoved')}
+              sx={{ mr: 0 }}
+            />
+            <Tooltip title={t('print.printLabels')}>
+              <span>
+                <IconButton
+                  onClick={() => setLabelDialogOpen(true)}
+                  disabled={filteredItems.length === 0}
+                  aria-label={t('print.printLabels')}
+                  data-testid="label-button"
+                >
+                  <QrCode2Icon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setDuplicateData(undefined);
+                setCreateOpen(true);
+              }}
+              data-testid="create-button"
+            >
+              {t('pages.plantInstances.create')}
+            </Button>
+          </Box>
+        }
+      />
+
+      {!loading && filteredItems.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('pages.plantInstances.intro')}
+        </Typography>
+      )}
+
       <DataTable
         columns={columns}
         rows={filteredItems}
@@ -332,6 +415,12 @@ export default function PlantInstanceListPage() {
         onClose={() => { setCreateOpen(false); setDuplicateData(undefined); }}
         onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({})); }}
         duplicateFrom={duplicateData}
+      />
+      <PlantLabelDialog
+        open={labelDialogOpen}
+        onClose={() => setLabelDialogOpen(false)}
+        plantKeys={labelPlantKeys}
+        plantNames={labelPlantNames}
       />
     </Box>
   );

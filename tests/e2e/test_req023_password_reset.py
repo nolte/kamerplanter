@@ -1,18 +1,19 @@
-"""E2E tests for REQ-023 — Password Reset flows (TC-023-020 to TC-023-025).
+"""E2E tests for REQ-023 — Password Reset flows.
 
-Covers:
-  Password reset request: enumeration protection (known + unknown email),
-  success message, back-to-login link
-  Password reset confirm: password mismatch, invalid token
-
-All tests follow NFR-008:
-  - Page-Object-Pattern (no direct find_element calls in tests)
-  - WebDriverWait only — no time.sleep()
-  - Screenshot at: Page Load / before action / after action / error state
-  - Descriptive assertion messages
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-023.md):
+  TC-REQ-023-017  ->  TC-023-020  Passwort-Reset anfordern -- bekannte E-Mail
+  TC-REQ-023-018  ->  TC-023-020  Passwort-Reset-Request Seite rendert
+  TC-REQ-023-019  ->  TC-023-021  Passwort-Reset anfordern -- unbekannte E-Mail (Enumeration-Schutz)
+  TC-REQ-023-020  ->  TC-023-022  Zurueck zur Anmeldung von Passwort-Reset-Seite
+  TC-REQ-023-021  ->  TC-023-023  Neues-Passwort-Seite rendert
+  TC-REQ-023-022  ->  TC-023-024  Neues Passwort -- Passwoerter stimmen nicht ueberein
+  TC-REQ-023-023  ->  TC-023-025  Neues Passwort -- Token ungueltig
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -21,11 +22,11 @@ from .pages import PasswordResetConfirmPage, PasswordResetRequestPage
 
 pytestmark = pytest.mark.requires_auth
 
-# ── Demo credentials ────────────────────────────────────────────────────────
-DEMO_EMAIL = "demo@kamerplanter.local"
+# -- Demo credentials ---------------------------------------------------------
+DEMO_EMAIL = "demo@kamerplanter.example"
 
 
-# ── Fixtures ────────────────────────────────────────────────────────────────
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -46,124 +47,170 @@ def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     browser.get(f"{base_url}/login")
 
 
-# ── TC-023-020: Password reset request with known email ─────────────────────
+# -- TC-023-020: Password reset request with known email -----------------------
 
 
 class TestPasswordResetRequest:
-    """TC-023-020 to TC-023-022: Password reset request page."""
+    """Password reset request page (Spec: TC-023-020 to TC-023-022)."""
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_reset_request_page_renders(
         self,
         reset_request_page: PasswordResetRequestPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-020a: Password-reset-request page renders with heading and form."""
+        """TC-REQ-023-018: Password-reset-request page renders with heading and form.
+
+        Spec: TC-023-020 -- Passwort-Reset anfordern Seitenstruktur.
+        """
         _ensure_logged_out(reset_request_page.driver, reset_request_page.base_url)
         reset_request_page.open()
-        screenshot("req023_030_reset_request_loaded", "Passwort-Reset-Seite nach dem Laden")
+        screenshot(
+            "TC-REQ-023-018_reset-request-loaded",
+            "Password reset request page after load",
+        )
 
         heading = reset_request_page.get_heading_text()
         assert "zurücksetzen" in heading.lower() or "reset" in heading.lower(), (
-            f"Expected heading about password reset, got: '{heading}'"
+            f"TC-REQ-023-018 FAIL: Expected heading about password reset, got: '{heading}'"
         )
         assert reset_request_page.is_email_form_visible(), (
-            "Expected email form to be visible on password-reset page"
+            "TC-REQ-023-018 FAIL: Expected email form to be visible"
         )
         assert reset_request_page.is_back_to_login_visible(), (
-            "Expected 'back to login' link to be visible"
+            "TC-REQ-023-018 FAIL: Expected 'back to login' link to be visible"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_reset_request_known_email_shows_success(
         self,
         reset_request_page: PasswordResetRequestPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-020: Reset request with known email shows success alert (enumeration protection)."""
+        """TC-REQ-023-017: Reset request with known email shows success alert (enumeration protection).
+
+        Spec: TC-023-020 -- Passwort-Reset anfordern -- bekannte E-Mail (Enumeration-Schutz).
+        """
         _ensure_logged_out(reset_request_page.driver, reset_request_page.base_url)
         reset_request_page.open()
-        screenshot("req023_031_reset_before_submit", "Vor Absenden des Reset-Requests")
+        screenshot(
+            "TC-REQ-023-017_before-submit",
+            "Before submitting reset request",
+        )
 
         reset_request_page.request_reset(DEMO_EMAIL)
 
-        # Wait for success alert
         reset_request_page.wait_for_element_visible(PasswordResetRequestPage.SUCCESS_ALERT)
-        screenshot("req023_032_reset_success_known_email", "Erfolgs-Alert nach Reset-Request (bekannte E-Mail)")
+        screenshot(
+            "TC-REQ-023-017_reset-success-known-email",
+            "Success alert after reset request (known email)",
+        )
 
         assert reset_request_page.is_success_alert_visible(), (
-            "Expected success alert after password reset request"
+            "TC-REQ-023-017 FAIL: Expected success alert after password reset request"
         )
         success_text = reset_request_page.get_success_alert_text()
         assert "reset" in success_text.lower() or "link" in success_text.lower() or "konto" in success_text.lower(), (
-            f"Expected success message about reset link, got: '{success_text}'"
+            f"TC-REQ-023-017 FAIL: Expected success message about reset link, got: '{success_text}'"
         )
-        # Form should be replaced by success state
         assert not reset_request_page.is_email_form_visible(), (
-            "Expected email form to be hidden after successful reset request"
+            "TC-REQ-023-017 FAIL: Expected email form to be hidden after successful request"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_reset_request_unknown_email_shows_same_success(
         self,
         reset_request_page: PasswordResetRequestPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-021: Reset request with unknown email shows identical success (enumeration protection)."""
+        """TC-REQ-023-019: Reset request with unknown email shows identical success (enumeration protection).
+
+        Spec: TC-023-021 -- Passwort-Reset anfordern -- unbekannte E-Mail (Enumeration-Schutz).
+        """
         _ensure_logged_out(reset_request_page.driver, reset_request_page.base_url)
         reset_request_page.open()
 
         reset_request_page.request_reset("nicht-vorhanden@example.com")
 
         reset_request_page.wait_for_element_visible(PasswordResetRequestPage.SUCCESS_ALERT)
-        screenshot("req023_033_reset_success_unknown_email", "Erfolgs-Alert nach Reset-Request (unbekannte E-Mail)")
-
-        assert reset_request_page.is_success_alert_visible(), (
-            "Expected same success alert for unknown email (enumeration protection)"
+        screenshot(
+            "TC-REQ-023-019_reset-success-unknown-email",
+            "Success alert after reset request (unknown email)",
         )
 
+        assert reset_request_page.is_success_alert_visible(), (
+            "TC-REQ-023-019 FAIL: Expected same success alert for unknown email (enumeration protection)"
+        )
+
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_back_to_login_link(
         self,
         reset_request_page: PasswordResetRequestPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-022: 'Back to login' link navigates to /login."""
+        """TC-REQ-023-020: 'Back to login' link navigates to /login.
+
+        Spec: TC-023-022 -- Zurueck zur Anmeldung von Passwort-Reset-Seite.
+        """
         _ensure_logged_out(reset_request_page.driver, reset_request_page.base_url)
         reset_request_page.open()
 
         reset_request_page.click_back_to_login()
         reset_request_page.wait_for_url_contains("/login")
-        screenshot("req023_034_reset_back_to_login", "Navigation zurueck zu /login")
+        screenshot(
+            "TC-REQ-023-020_back-to-login",
+            "Navigation back to /login",
+        )
 
         assert "/login" in reset_request_page.driver.current_url, (
-            f"Expected /login, got: {reset_request_page.driver.current_url}"
+            f"TC-REQ-023-020 FAIL: Expected /login, got: {reset_request_page.driver.current_url}"
         )
 
 
-# ── TC-023-024 to TC-023-025: Password reset confirm ───────────────────────
+# -- TC-023-024 to TC-023-025: Password reset confirm -------------------------
 
 
 class TestPasswordResetConfirm:
-    """TC-023-024 to TC-023-025: Password reset confirm page."""
+    """Password reset confirm page (Spec: TC-023-023 to TC-023-025)."""
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_reset_confirm_page_renders(
         self,
         reset_confirm_page: PasswordResetConfirmPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-023a: Password-reset-confirm page renders with heading and form."""
+        """TC-REQ-023-021: Password-reset-confirm page renders with heading and form.
+
+        Spec: TC-023-023 -- Neues Passwort setzen -- Seitenstruktur.
+        """
         _ensure_logged_out(reset_confirm_page.driver, reset_confirm_page.base_url)
         reset_confirm_page.open(token="test-token-placeholder")
-        screenshot("req023_035_reset_confirm_loaded", "Neues-Passwort-Seite nach dem Laden")
+        screenshot(
+            "TC-REQ-023-021_reset-confirm-loaded",
+            "New password page after load",
+        )
 
         heading = reset_confirm_page.get_heading_text()
         assert "passwort" in heading.lower() or "password" in heading.lower(), (
-            f"Expected heading about new password, got: '{heading}'"
+            f"TC-REQ-023-021 FAIL: Expected heading about new password, got: '{heading}'"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_reset_confirm_password_mismatch(
         self,
         reset_confirm_page: PasswordResetConfirmPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-024: Password mismatch on confirm page shows error."""
+        """TC-REQ-023-022: Password mismatch on confirm page shows error.
+
+        Spec: TC-023-024 -- Neues Passwort -- Passwoerter stimmen nicht ueberein.
+        """
         _ensure_logged_out(reset_confirm_page.driver, reset_confirm_page.base_url)
         reset_confirm_page.open(token="test-token-placeholder")
 
@@ -171,33 +218,46 @@ class TestPasswordResetConfirm:
             password="neues-passwort-2024",
             confirm_password="anderes-passwort",
         )
-        screenshot("req023_036_reset_confirm_mismatch", "Passwort-Mismatch bei Passwort-Reset")
+        screenshot(
+            "TC-REQ-023-022_reset-confirm-mismatch",
+            "Password mismatch on reset confirm page",
+        )
 
         assert reset_confirm_page.is_error_alert_visible(), (
-            "Expected error alert when passwords do not match"
+            "TC-REQ-023-022 FAIL: Expected error alert when passwords do not match"
         )
         error_msg = reset_confirm_page.get_error_message()
         assert "stimmen nicht" in error_msg.lower() or "mismatch" in error_msg.lower(), (
-            f"Expected password mismatch error, got: '{error_msg}'"
+            f"TC-REQ-023-022 FAIL: Expected password mismatch error, got: '{error_msg}'"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_reset_confirm_invalid_token(
         self,
         reset_confirm_page: PasswordResetConfirmPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-025: Invalid or expired token shows error after submission."""
+        """TC-REQ-023-023: Invalid or expired token shows error after submission.
+
+        Spec: TC-023-025 -- Neues Passwort -- Token ungueltig.
+        """
         _ensure_logged_out(reset_confirm_page.driver, reset_confirm_page.base_url)
         reset_confirm_page.open(token="invalid-expired-token-abc123")
 
-        screenshot("req023_037_reset_confirm_before_submit", "Vor Absenden mit ungueltigem Token")
+        screenshot(
+            "TC-REQ-023-023_before-submit-invalid-token",
+            "Before submitting with invalid token",
+        )
 
         reset_confirm_page.reset_password(password="neues-sicheres-passwort-2024")
 
-        # Wait for error alert (server rejects invalid token)
         reset_confirm_page.wait_for_element(PasswordResetConfirmPage.ERROR_ALERT)
-        screenshot("req023_038_reset_confirm_invalid_token", "Fehler bei ungueltigem Token")
+        screenshot(
+            "TC-REQ-023-023_invalid-token-error",
+            "Error after submitting with invalid token",
+        )
 
         assert reset_confirm_page.is_error_alert_visible(), (
-            "Expected error alert for invalid/expired token"
+            "TC-REQ-023-023 FAIL: Expected error alert for invalid/expired token"
         )

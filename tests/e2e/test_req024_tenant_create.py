@@ -1,20 +1,19 @@
-"""E2E tests for REQ-024 -- Tenant Creation (TC-024-003 to TC-024-007).
+"""E2E tests for REQ-024 — Tenant Creation.
 
-Covers:
-  - TenantCreatePage: page load, form rendering, intro text
-  - Happy path: create organization tenant with name + description
-  - Validation: empty name, name too short (< 2 chars), submit disabled
-  - Slug generation from German Umlauts
-  - Redirect to dashboard after creation
-
-All tests follow NFR-008:
-  - Page-Object-Pattern (no direct find_element calls in tests)
-  - WebDriverWait only -- no time.sleep()
-  - Screenshot at: Page Load / before action / after action / error state
-  - Descriptive assertion messages
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-024.md):
+  TC-REQ-024-001  ->  TC-024-003  Organisations-Tenant erfolgreich erstellen -- Happy Path
+  TC-REQ-024-002  ->  TC-024-003  TenantCreatePage laedt mit Titel und Formularfeldern
+  TC-REQ-024-003  ->  TC-024-003  Einleitungstext wird angezeigt
+  TC-REQ-024-004  ->  TC-024-004  Tenant erstellen -- Pflichtfeld 'Name' leer
+  TC-REQ-024-005  ->  TC-024-005  Tenant erstellen -- Name zu kurz (1 Zeichen)
+  TC-REQ-024-006  ->  TC-024-005  Tenant erstellen -- Name mit 2 Zeichen (Minimalgrenze)
+  TC-REQ-024-007  ->  TC-024-003  Beschreibung ist optional
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -24,12 +23,12 @@ from .pages import LoginPage, TenantCreatePage, TenantSwitcherPage
 pytestmark = pytest.mark.requires_auth
 
 
-# -- Demo credentials --------------------------------------------------------
-DEMO_EMAIL = "demo@kamerplanter.local"
+# -- Demo credentials ---------------------------------------------------------
+DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 
-# -- Fixtures ----------------------------------------------------------------
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -58,178 +57,212 @@ def _ensure_logged_in(login_page: LoginPage) -> None:
     login_page.wait_for_url_contains("/dashboard")
 
 
-# -- TC-024-003: Create page loads ------------------------------------------
+# -- TC-024-003: Create page loads --------------------------------------------
 
 
 class TestTenantCreatePageLoad:
-    """TC-024-003 (partial): Verify TenantCreatePage renders correctly."""
+    """TenantCreatePage renders correctly (Spec: TC-024-003, TC-024-004)."""
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_create_page_renders_with_title(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-003: TenantCreatePage loads with page title and form fields."""
+        """TC-REQ-024-002: TenantCreatePage loads with page title and form fields.
+
+        Spec: TC-024-003 -- Organisations-Tenant erfolgreich erstellen -- Seitenstruktur.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
         screenshot(
-            "req024_001_tenant_create_loaded",
+            "TC-REQ-024-002_tenant-create-loaded",
             "TenantCreatePage after load",
         )
 
         title = create_page.get_page_title_text()
         assert title, (
-            "Expected page title on TenantCreatePage, got empty string"
+            "TC-REQ-024-002 FAIL: Expected page title on TenantCreatePage"
         )
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_create_page_has_intro_text(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-003: Intro text is displayed below the title."""
+        """TC-REQ-024-003: Intro text is displayed below the title.
+
+        Spec: TC-024-003 -- Organisations-Tenant erstellen -- Einleitungstext.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
 
         intro = create_page.get_intro_text()
         assert intro, (
-            "Expected intro/description text on TenantCreatePage, got empty string"
+            "TC-REQ-024-003 FAIL: Expected intro text on TenantCreatePage"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_submit_button_disabled_when_name_empty(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-004: Submit button is disabled when name field is empty."""
+        """TC-REQ-024-004: Submit button is disabled when name field is empty.
+
+        Spec: TC-024-004 -- Tenant erstellen -- Pflichtfeld 'Name' leer gelassen.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
         screenshot(
-            "req024_002_create_empty_name",
+            "TC-REQ-024-004_create-empty-name",
             "Create page with empty name field",
         )
 
         assert not create_page.is_submit_enabled(), (
-            "Submit button should be disabled when name is empty"
+            "TC-REQ-024-004 FAIL: Submit button should be disabled when name is empty"
         )
 
 
-# -- TC-024-003: Happy path creation ----------------------------------------
+# -- TC-024-003: Happy path creation ------------------------------------------
 
 
 class TestTenantCreateHappyPath:
-    """TC-024-003: Create an organization tenant -- happy path."""
+    """Create an organization tenant -- happy path (Spec: TC-024-003)."""
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_create_organization_happy_path(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
         switcher: TenantSwitcherPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-003: Create organization with name and description redirects to dashboard."""
+        """TC-REQ-024-001: Create organization with name and description redirects to dashboard.
+
+        Spec: TC-024-003 -- Organisations-Tenant erfolgreich erstellen -- Happy Path.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
         screenshot(
-            "req024_003_create_before_fill",
+            "TC-REQ-024-001_create-before-fill",
             "Create page before filling form",
         )
 
         create_page.enter_name("Selenium Test Garten")
         create_page.enter_description("Automatisierter Testgarten fuer E2E-Tests")
         screenshot(
-            "req024_004_create_form_filled",
+            "TC-REQ-024-001_create-form-filled",
             "Create page with filled form",
         )
 
         assert create_page.is_submit_enabled(), (
-            "Submit button should be enabled after entering a valid name (>= 2 chars)"
+            "TC-REQ-024-001 FAIL: Submit button should be enabled after entering a valid name"
         )
 
         create_page.click_submit()
         screenshot(
-            "req024_005_create_submitted",
+            "TC-REQ-024-001_create-submitted",
             "After clicking submit on create form",
         )
 
-        # Expect redirect to dashboard or snackbar confirmation
         create_page.wait_for_url_contains("/dashboard")
         screenshot(
-            "req024_006_create_success_dashboard",
+            "TC-REQ-024-001_create-success-dashboard",
             "Dashboard after successful tenant creation",
         )
 
         current_url = create_page.driver.current_url
         assert "/dashboard" in current_url, (
-            f"Expected redirect to /dashboard after creation, got: {current_url}"
+            f"TC-REQ-024-001 FAIL: Expected redirect to /dashboard, got: {current_url}"
         )
 
 
-# -- TC-024-004 / TC-024-005: Validation ------------------------------------
+# -- TC-024-004 / TC-024-005: Validation --------------------------------------
 
 
 class TestTenantCreateValidation:
-    """TC-024-004 to TC-024-005: Form validation on TenantCreatePage."""
+    """Form validation on TenantCreatePage (Spec: TC-024-004, TC-024-005)."""
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_submit_disabled_for_single_character_name(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-005: Name with only 1 character keeps submit disabled (minLength=2)."""
+        """TC-REQ-024-005: Name with only 1 character keeps submit disabled (minLength=2).
+
+        Spec: TC-024-005 -- Tenant erstellen -- Name zu kurz (1 Zeichen).
+        """
         _ensure_logged_in(login_page)
         create_page.open()
 
         create_page.enter_name("A")
         screenshot(
-            "req024_007_create_name_too_short",
+            "TC-REQ-024-005_create-name-too-short",
             "Create page with 1-char name (too short)",
         )
 
         assert not create_page.is_submit_enabled(), (
-            "Submit button should be disabled when name has less than 2 characters"
+            "TC-REQ-024-005 FAIL: Submit button should be disabled when name < 2 characters"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_submit_enabled_for_two_character_name(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-005 boundary: Name with exactly 2 characters enables submit."""
+        """TC-REQ-024-006: Name with exactly 2 characters enables submit.
+
+        Spec: TC-024-005 -- Tenant erstellen -- Minimalgrenze 2 Zeichen.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
 
         create_page.enter_name("AB")
         screenshot(
-            "req024_008_create_name_min_valid",
+            "TC-REQ-024-006_create-name-min-valid",
             "Create page with 2-char name (minimum valid)",
         )
 
         assert create_page.is_submit_enabled(), (
-            "Submit button should be enabled when name has exactly 2 characters"
+            "TC-REQ-024-006 FAIL: Submit button should be enabled when name has exactly 2 characters"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_description_is_optional(
         self,
         login_page: LoginPage,
         create_page: TenantCreatePage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-024-003: Description field is optional -- submit works without it."""
+        """TC-REQ-024-007: Description field is optional -- submit works without it.
+
+        Spec: TC-024-003 -- Beschreibung ist optional.
+        """
         _ensure_logged_in(login_page)
         create_page.open()
 
         create_page.enter_name("Nur Name Garten")
         screenshot(
-            "req024_009_create_no_description",
+            "TC-REQ-024-007_create-no-description",
             "Create page with name only, no description",
         )
 
         assert create_page.is_submit_enabled(), (
-            "Submit button should be enabled with only name filled (description optional)"
+            "TC-REQ-024-007 FAIL: Submit button should be enabled with only name filled"
         )

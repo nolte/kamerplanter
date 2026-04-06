@@ -1,32 +1,41 @@
-"""E2E tests for REQ-022 -- Pflege Dashboard (TC-022-001 to TC-022-017).
+"""E2E tests for REQ-022 — Pflege Dashboard.
 
-Tests cover:
-- PflegeDashboardPage: page load, urgency sections, card display, empty state
-- ReminderCard: urgency badges, color coding, plant name display
-- Ein-Tap-Bestaetigung: confirm action via dialog, card removal
-- Snooze: snooze action, card state change
-
-NFR-008 ss3.4 screenshot checkpoints at:
-1. Page Load
-2. Before significant actions
-3. After significant actions
-4. Error states
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-022.md):
+  TC-REQ-022-015  ->  TC-022-001  PflegeDashboardPage zeigt alle faelligen Erinnerungen
+  TC-REQ-022-016  ->  TC-022-001  Seitentitel enthaelt Aufgaben-Queue Titel
+  TC-REQ-022-017  ->  TC-022-002  Leerer Zustand zeigt Erfolgsmeldung
+  TC-REQ-022-018  ->  TC-022-001  Dringlichkeitssektionen rendern
+  TC-REQ-022-019  ->  TC-022-009  ReminderCard zeigt Pflanzennamen
+  TC-REQ-022-020  ->  TC-022-009  ReminderCard hat Dringlichkeits-Indikator
+  TC-REQ-022-021  ->  TC-022-009  Overdue-Karten haben error-Farbe
+  TC-REQ-022-022  ->  TC-022-009  Heute-faellige Karten haben warning-Farbe
+  TC-REQ-022-023  ->  TC-022-009  Upcoming-Karten haben info-Farbe
+  TC-REQ-022-024  ->  TC-022-001  Sektions-Zaehler-Chip stimmt mit Kartenanzahl ueberein
+  TC-REQ-022-025  ->  TC-022-012  ReminderCard hat Bestaetigen-Button
+  TC-REQ-022-026  ->  TC-022-016  ReminderCard hat Snooze-Button
+  TC-REQ-022-027  ->  TC-022-018  ReminderCard hat Bearbeiten-Button
+  TC-REQ-022-028  ->  TC-022-012  Bestaetigen-Klick oeffnet Dialog
+  TC-REQ-022-029  ->  TC-022-012  CareConfirmDialog hat Submit und Cancel
+  TC-REQ-022-030  ->  TC-022-012  Abbrechen schliesst Dialog ohne Aktion
+  TC-REQ-022-031  ->  TC-022-012  Absenden entfernt Karte
+  TC-REQ-022-032  ->  TC-022-012  CareConfirmDialog hat Notiz-Feld
+  TC-REQ-022-033  ->  TC-022-016  Snooze-Klick loest Aktion aus
+  TC-REQ-022-034  ->  TC-022-016  Snooze zeigt Erfolgs-Snackbar
 """
 
 from __future__ import annotations
 
-import time
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .pages.pflege_dashboard_page import PflegeDashboardPage
 
 
-# -- Fixtures ----------------------------------------------------------------
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -35,112 +44,144 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
     return PflegeDashboardPage(browser, base_url)
 
 
-# -- TC-022-001 to TC-022-004: Page Load and Navigation ---------------------
+# -- TC-022-001 to TC-022-004: Page Load and Navigation -----------------------
 
 
 class TestPflegeDashboardPageLoad:
-    """TC-022-001 to TC-022-004: Dashboard page load and basic display."""
+    """Dashboard page load and basic display (Spec: TC-022-001, TC-022-002)."""
 
+    @pytest.mark.smoke
     def test_dashboard_page_renders(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-001: Task queue page renders with data-testid='task-queue-page'."""
-        pflege.open()
-        screenshot("req022_001_pflege_dashboard_loaded", "Pflege-Dashboard nach dem Laden")
+        """TC-REQ-022-015: Task queue page renders with data-testid='task-queue-page'.
 
-        assert pflege.is_page_displayed(), (
-            "Expected [data-testid='task-queue-page'] to be visible"
+        Spec: TC-022-001 -- PflegeDashboardPage zeigt alle faelligen Erinnerungen sortiert.
+        """
+        pflege.open()
+        screenshot(
+            "TC-REQ-022-015_pflege-dashboard-loaded",
+            "Pflege dashboard after initial load",
         )
 
+        assert pflege.is_page_displayed(), (
+            "TC-REQ-022-015 FAIL: Expected [data-testid='task-queue-page'] to be visible"
+        )
+
+    @pytest.mark.smoke
     def test_dashboard_shows_page_title(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-001: Page title contains task queue title text."""
+        """TC-REQ-022-016: Page title contains task queue title text.
+
+        Spec: TC-022-001 -- PflegeDashboardPage Seitenheader.
+        """
         pflege.open()
-        screenshot("req022_001b_pflege_title", "Pflege-Dashboard Seitentitel")
+        screenshot(
+            "TC-REQ-022-016_pflege-title",
+            "Pflege dashboard page title",
+        )
 
         title = pflege.get_title_text()
-        assert title, "Expected page title to be non-empty"
+        assert title, "TC-REQ-022-016 FAIL: Expected page title to be non-empty"
 
+    @pytest.mark.core_crud
     def test_dashboard_empty_state_shows_success_message(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-002: Empty state shows 'Alle Pflanzen sind versorgt' when no reminders exist."""
-        pflege.open()
-        screenshot("req022_002_pflege_empty_or_populated", "Pflege-Dashboard Zustand")
+        """TC-REQ-022-017: Empty state shows 'Alle Pflanzen sind versorgt' when no reminders exist.
 
-        # This test verifies the page renders without error in either state.
-        # If empty: the empty state illustration should be shown.
-        # If populated: urgency sections or cards should be shown.
+        Spec: TC-022-002 -- PflegeDashboardPage im leeren Zustand zeigt Erfolgsmeldung.
+        """
+        pflege.open()
+        screenshot(
+            "TC-REQ-022-017_pflege-empty-or-populated",
+            "Pflege dashboard state",
+        )
+
         has_empty = pflege.has_empty_state()
         has_cards = pflege.get_care_card_count() > 0
 
         assert has_empty or has_cards, (
-            "Expected either empty state message or care cards to be displayed"
+            "TC-REQ-022-017 FAIL: Expected either empty state message or care cards"
         )
 
+    @pytest.mark.core_crud
     def test_dashboard_urgency_sections_render_when_populated(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-001: Urgency sections (overdue, due_today, upcoming) render when data exists."""
+        """TC-REQ-022-018: Urgency sections (overdue, due_today, upcoming) render when data exists.
+
+        Spec: TC-022-001 -- PflegeDashboardPage Dringlichkeitsgruppen.
+        """
         pflege.open()
-        screenshot("req022_001c_urgency_sections", "Pflege-Dashboard Dringlichkeitsgruppen")
+        screenshot(
+            "TC-REQ-022-018_urgency-sections",
+            "Pflege dashboard urgency sections",
+        )
 
         card_count = pflege.get_care_card_count()
         if card_count == 0:
             pytest.skip("No care reminders present -- cannot verify urgency sections")
 
-        # At least one section should be visible
         has_any_section = (
             pflege.has_overdue_section()
             or pflege.has_due_today_section()
             or pflege.has_upcoming_section()
         )
         assert has_any_section, (
-            "Expected at least one urgency section when care cards exist"
+            "TC-REQ-022-018 FAIL: Expected at least one urgency section when care cards exist"
         )
 
 
-# -- TC-022-005 to TC-022-011: ReminderCard Display -------------------------
+# -- TC-022-005 to TC-022-011: ReminderCard Display ---------------------------
 
 
 class TestReminderCardDisplay:
-    """TC-022-005 to TC-022-011: ReminderCard content and urgency badges."""
+    """ReminderCard content and urgency badges (Spec: TC-022-009, TC-022-012, TC-022-016, TC-022-018)."""
 
+    @pytest.mark.core_crud
     def test_care_cards_show_plant_name(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-009: Each ReminderCard shows a plant name."""
+        """TC-REQ-022-019: Each ReminderCard shows a plant name.
+
+        Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
+        """
         pflege.open()
         cards = pflege.get_all_care_cards()
 
         if not cards:
             pytest.skip("No care cards present -- cannot verify plant names")
 
-        screenshot("req022_009_card_plant_names", "ReminderCards mit Pflanzennamen")
+        screenshot(
+            "TC-REQ-022-019_card-plant-names",
+            "ReminderCards with plant names",
+        )
 
         for card in cards:
             name = pflege.get_card_plant_name(card)
-            assert name, f"Expected non-empty plant name on care card, got: '{name}'"
+            assert name, f"TC-REQ-022-019 FAIL: Expected non-empty plant name on care card, got: '{name}'"
 
+    @pytest.mark.core_crud
     def test_care_cards_have_urgency_indicator(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-009: Each ReminderCard has an urgency indicator via its section.
+        """TC-REQ-022-020: Each ReminderCard has an urgency indicator via its section.
 
-        TaskQueuePage uses section-based urgency grouping instead of per-card chips.
+        Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge in drei Farben.
         """
         pflege.open()
         cards = pflege.get_all_care_cards()
@@ -148,27 +189,37 @@ class TestReminderCardDisplay:
         if not cards:
             pytest.skip("No care cards present -- cannot verify urgency indicators")
 
-        screenshot("req022_009_urgency_chips", "ReminderCards Dringlichkeits-Indikatoren")
+        screenshot(
+            "TC-REQ-022-020_urgency-chips",
+            "ReminderCards urgency indicators",
+        )
 
         valid_colors = {"error", "warning", "info", "default"}
         for card in cards:
             chip_color = pflege.get_card_urgency_chip_color(card)
             assert chip_color in valid_colors, (
-                f"Expected urgency color in {valid_colors}, got '{chip_color}'"
+                f"TC-REQ-022-020 FAIL: Expected urgency color in {valid_colors}, got '{chip_color}'"
             )
 
+    @pytest.mark.core_crud
     def test_overdue_cards_have_error_color(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-009: Overdue cards show red (error) urgency badge."""
+        """TC-REQ-022-021: Overdue cards show red (error) urgency badge.
+
+        Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
+        """
         pflege.open()
 
         if not pflege.has_overdue_section():
             pytest.skip("No overdue reminders -- cannot verify error color")
 
-        screenshot("req022_009b_overdue_section", "Overdue-Sektion mit roten Badges")
+        screenshot(
+            "TC-REQ-022-021_overdue-section",
+            "Overdue section with red badges",
+        )
 
         section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_OVERDUE)
         cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
@@ -176,21 +227,28 @@ class TestReminderCardDisplay:
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
             assert color == "error", (
-                f"Expected overdue card to have 'error' chip color, got '{color}'"
+                f"TC-REQ-022-021 FAIL: Expected overdue card to have 'error' chip color, got '{color}'"
             )
 
+    @pytest.mark.core_crud
     def test_due_today_cards_have_warning_color(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-009: Due-today cards show yellow/orange (warning) urgency badge."""
+        """TC-REQ-022-022: Due-today cards show yellow/orange (warning) urgency badge.
+
+        Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
+        """
         pflege.open()
 
         if not pflege.has_due_today_section():
             pytest.skip("No due-today reminders -- cannot verify warning color")
 
-        screenshot("req022_009c_due_today_section", "Heute-faellig-Sektion mit gelben Badges")
+        screenshot(
+            "TC-REQ-022-022_due-today-section",
+            "Due-today section with warning badges",
+        )
 
         section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_DUE_TODAY)
         cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
@@ -198,21 +256,28 @@ class TestReminderCardDisplay:
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
             assert color == "warning", (
-                f"Expected due-today card to have 'warning' chip color, got '{color}'"
+                f"TC-REQ-022-022 FAIL: Expected due-today card to have 'warning' chip color, got '{color}'"
             )
 
+    @pytest.mark.core_crud
     def test_upcoming_cards_have_info_color(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-009: Upcoming cards show blue/grey (info) urgency badge."""
+        """TC-REQ-022-023: Upcoming cards show blue/grey (info) urgency badge.
+
+        Spec: TC-022-009 -- ReminderCard zeigt korrekten Dringlichkeits-Badge.
+        """
         pflege.open()
 
         if not pflege.has_upcoming_section():
             pytest.skip("No upcoming reminders -- cannot verify info color")
 
-        screenshot("req022_009d_upcoming_section", "Demnaechst-Sektion mit Info-Badges")
+        screenshot(
+            "TC-REQ-022-023_upcoming-section",
+            "Upcoming section with info badges",
+        )
 
         section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_UPCOMING)
         cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
@@ -220,21 +285,24 @@ class TestReminderCardDisplay:
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
             assert color == "info", (
-                f"Expected upcoming card to have 'info' chip color, got '{color}'"
+                f"TC-REQ-022-023 FAIL: Expected upcoming card to have 'info' chip color, got '{color}'"
             )
 
+    @pytest.mark.core_crud
     def test_section_count_chip_matches_card_count(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-001: Section header count chip matches total items in that section.
+        """TC-REQ-022-024: Section header count chip matches total items in that section.
 
-        TaskQueuePage sections contain both task cards and care-reminder cards.
-        The count chip shows the total number of all items in the section.
+        Spec: TC-022-001 -- PflegeDashboardPage Dringlichkeitsgruppen.
         """
         pflege.open()
-        screenshot("req022_001d_section_counts", "Dringlichkeitssektionen mit Zaehler-Chips")
+        screenshot(
+            "TC-REQ-022-024_section-counts",
+            "Urgency sections with count chips",
+        )
 
         for urgency in ("overdue", "due_today", "upcoming"):
             testid = pflege._urgency_section_testid(urgency)
@@ -243,92 +311,109 @@ class TestReminderCardDisplay:
             )
             if not sections:
                 continue
-            # Count ALL cards in the section (both task and care cards)
             all_cards = sections[0].find_elements(
                 By.CSS_SELECTOR, ".MuiCard-root"
             )
             if all_cards:
                 chip_text = pflege.get_section_count_chip_text(urgency)
                 assert chip_text == str(len(all_cards)), (
-                    f"Expected section '{urgency}' count chip to show '{len(all_cards)}', "
-                    f"got '{chip_text}'"
+                    f"TC-REQ-022-024 FAIL: Expected section '{urgency}' count chip to show "
+                    f"'{len(all_cards)}', got '{chip_text}'"
                 )
 
+    @pytest.mark.core_crud
     def test_care_cards_have_confirm_button(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: Each ReminderCard has a confirm (check) button."""
+        """TC-REQ-022-025: Each ReminderCard has a confirm (check) button.
+
+        Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort.
+        """
         pflege.open()
         cards = pflege.get_all_care_cards()
 
         if not cards:
             pytest.skip("No care cards present -- cannot verify confirm buttons")
 
-        screenshot("req022_012_confirm_buttons", "ReminderCards mit Bestaetigen-Buttons")
+        screenshot(
+            "TC-REQ-022-025_confirm-buttons",
+            "ReminderCards with confirm buttons",
+        )
 
         for card in cards:
-            # TaskQueuePage care cards have 3 IconButtons: edit, confirm (success color), snooze
             action_btns = card.find_elements(
                 By.CSS_SELECTOR, "button.MuiIconButton-root"
             )
             assert len(action_btns) >= 2, (
-                "Expected each care card to have at least 2 action buttons (incl. confirm)"
+                "TC-REQ-022-025 FAIL: Expected each care card to have at least 2 action buttons"
             )
 
+    @pytest.mark.core_crud
     def test_care_cards_have_snooze_button(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-016: Each ReminderCard has a snooze button."""
+        """TC-REQ-022-026: Each ReminderCard has a snooze button.
+
+        Spec: TC-022-016 -- Snooze verschiebt Erinnerungskarte auf 'Demnaechst'.
+        """
         pflege.open()
         cards = pflege.get_all_care_cards()
 
         if not cards:
             pytest.skip("No care cards present -- cannot verify snooze buttons")
 
-        screenshot("req022_016_snooze_buttons", "ReminderCards mit Snooze-Buttons")
+        screenshot(
+            "TC-REQ-022-026_snooze-buttons",
+            "ReminderCards with snooze buttons",
+        )
 
         for card in cards:
-            # TaskQueuePage care cards have 3 IconButtons: edit, confirm, snooze
             action_btns = card.find_elements(
                 By.CSS_SELECTOR, "button.MuiIconButton-root"
             )
             assert len(action_btns) >= 3, (
-                "Expected each care card to have at least 3 action buttons (incl. snooze)"
+                "TC-REQ-022-026 FAIL: Expected each care card to have at least 3 action buttons"
             )
 
+    @pytest.mark.core_crud
     def test_care_cards_have_edit_profile_button(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: Each ReminderCard has an edit-profile (pencil) button."""
+        """TC-REQ-022-027: Each ReminderCard has an edit-profile (pencil) button.
+
+        Spec: TC-022-018 -- CareProfileEditDialog oeffnet sich von der ReminderCard aus.
+        """
         pflege.open()
         cards = pflege.get_all_care_cards()
 
         if not cards:
             pytest.skip("No care cards present -- cannot verify edit buttons")
 
-        screenshot("req022_018_edit_profile_buttons", "ReminderCards mit Bearbeiten-Buttons")
+        screenshot(
+            "TC-REQ-022-027_edit-profile-buttons",
+            "ReminderCards with edit profile buttons",
+        )
 
         for card in cards:
-            # TaskQueuePage care cards have 3 IconButtons: edit (1st), confirm, snooze
             action_btns = card.find_elements(
                 By.CSS_SELECTOR, "button.MuiIconButton-root"
             )
             assert len(action_btns) >= 1, (
-                "Expected each care card to have at least 1 action button (edit-profile)"
+                "TC-REQ-022-027 FAIL: Expected each care card to have at least 1 action button"
             )
 
 
-# -- TC-022-012 to TC-022-015: Confirm Action --------------------------------
+# -- TC-022-012 to TC-022-015: Confirm Action ---------------------------------
 
 
 class TestCareConfirmAction:
-    """TC-022-012 to TC-022-015: Care confirmation flow."""
+    """Care confirmation flow (Spec: TC-022-012)."""
 
     def _get_first_card_ids(self, pflege: PflegeDashboardPage) -> tuple[str, str]:
         """Extract plant_key and reminder_type from the first care card's testid."""
@@ -336,128 +421,163 @@ class TestCareConfirmAction:
         if not cards:
             pytest.skip("No care cards available for confirm action test")
         testid = cards[0].get_attribute("data-testid") or ""
-        # Format: care-card-care-{plant_key}-{reminder_type}
         suffix = testid.replace("care-card-care-", "")
         parts = suffix.rsplit("-", 1)
         if len(parts) < 2:
             pytest.skip(f"Unexpected card testid format: {testid}")
         return parts[0], parts[1]
 
+    @pytest.mark.core_crud
     def test_confirm_click_opens_dialog(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: Clicking confirm on a card opens the CareConfirmDialog."""
+        """TC-REQ-022-028: Clicking confirm on a card opens the CareConfirmDialog.
+
+        Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort.
+        """
         pflege.open()
-        screenshot("req022_012_before_confirm", "Vor Klick auf Bestaetigen")
+        screenshot(
+            "TC-REQ-022-028_before-confirm",
+            "Before clicking confirm",
+        )
 
         plant_key, reminder_type = self._get_first_card_ids(pflege)
-        initial_count = pflege.get_care_card_count()
-
         pflege.click_confirm_on_card(plant_key, reminder_type)
         pflege.wait_for_confirm_dialog()
 
-        screenshot("req022_012_confirm_dialog_open", "CareConfirmDialog geoeffnet")
-
-        assert pflege.is_confirm_dialog_open(), (
-            "Expected CareConfirmDialog to open after clicking confirm"
+        screenshot(
+            "TC-REQ-022-028_confirm-dialog-open",
+            "CareConfirmDialog opened",
         )
 
+        assert pflege.is_confirm_dialog_open(), (
+            "TC-REQ-022-028 FAIL: Expected CareConfirmDialog to open after clicking confirm"
+        )
+
+    @pytest.mark.core_crud
     def test_confirm_dialog_has_submit_and_cancel(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: CareConfirmDialog has submit and cancel buttons."""
+        """TC-REQ-022-029: CareConfirmDialog has submit and cancel buttons.
+
+        Spec: TC-022-012 -- CareConfirmDialog Buttons.
+        """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
         pflege.click_confirm_on_card(plant_key, reminder_type)
         pflege.wait_for_confirm_dialog()
 
-        screenshot("req022_012b_dialog_buttons", "CareConfirmDialog Buttons")
+        screenshot(
+            "TC-REQ-022-029_dialog-buttons",
+            "CareConfirmDialog buttons",
+        )
 
         submit_btns = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_DIALOG_SUBMIT)
         cancel_btns = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_DIALOG_CANCEL)
 
-        assert len(submit_btns) > 0, "Expected submit button in confirm dialog"
-        assert len(cancel_btns) > 0, "Expected cancel button in confirm dialog"
+        assert len(submit_btns) > 0, "TC-REQ-022-029 FAIL: Expected submit button in confirm dialog"
+        assert len(cancel_btns) > 0, "TC-REQ-022-029 FAIL: Expected cancel button in confirm dialog"
 
+    @pytest.mark.core_crud
     def test_confirm_dialog_cancel_closes_without_action(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: Cancelling confirm dialog leaves card in place."""
+        """TC-REQ-022-030: Cancelling confirm dialog leaves card in place.
+
+        Spec: TC-022-012 -- CareConfirmDialog -- Abbrechen.
+        """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
-        initial_count = pflege.get_care_card_count()
 
         pflege.click_confirm_on_card(plant_key, reminder_type)
         pflege.wait_for_confirm_dialog()
         pflege.cancel_confirm_dialog()
         pflege.wait_for_dialog_closed()
 
-        screenshot("req022_012c_after_cancel", "Nach Abbrechen des CareConfirmDialog")
-
-        assert pflege.has_care_card(plant_key, reminder_type), (
-            "Expected care card to remain after cancelling confirm dialog"
+        screenshot(
+            "TC-REQ-022-030_after-cancel",
+            "After cancelling CareConfirmDialog",
         )
 
+        assert pflege.has_care_card(plant_key, reminder_type), (
+            "TC-REQ-022-030 FAIL: Expected care card to remain after cancelling confirm dialog"
+        )
+
+    @pytest.mark.core_crud
     def test_confirm_dialog_submit_removes_card(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: Submitting confirm dialog removes the card from the dashboard."""
+        """TC-REQ-022-031: Submitting confirm dialog removes the card from the dashboard.
+
+        Spec: TC-022-012 -- Giess-Erinnerung bestaetigen entfernt Karte sofort (Optimistic Update).
+        """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
         initial_count = pflege.get_care_card_count()
 
-        screenshot("req022_012d_before_submit", "Vor Bestaetigung absenden")
+        screenshot(
+            "TC-REQ-022-031_before-submit",
+            "Before submitting confirmation",
+        )
 
         pflege.click_confirm_on_card(plant_key, reminder_type)
         pflege.wait_for_confirm_dialog()
         pflege.submit_confirm_dialog()
 
-        # Wait for dialog to close and dashboard to refresh
         pflege.wait_for_dialog_closed()
-        time.sleep(1)  # Brief wait for dashboard refresh after API call
+        pflege.wait_for_loading_complete()
 
-        screenshot("req022_012e_after_submit", "Nach Bestaetigung -- Karte entfernt")
+        screenshot(
+            "TC-REQ-022-031_after-submit",
+            "After confirmation -- card removed",
+        )
 
-        # Card should be removed or dashboard refreshed
         new_count = pflege.get_care_card_count()
         assert new_count < initial_count or not pflege.has_care_card(plant_key, reminder_type), (
-            f"Expected card count to decrease after confirm. "
+            f"TC-REQ-022-031 FAIL: Expected card count to decrease after confirm. "
             f"Before: {initial_count}, After: {new_count}"
         )
 
+    @pytest.mark.core_crud
     def test_confirm_dialog_has_notes_field(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-012: CareConfirmDialog contains a notes text field."""
+        """TC-REQ-022-032: CareConfirmDialog contains a notes text field.
+
+        Spec: TC-022-012 -- CareConfirmDialog Notiz-Feld.
+        """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
 
         pflege.click_confirm_on_card(plant_key, reminder_type)
         pflege.wait_for_confirm_dialog()
 
-        screenshot("req022_012f_notes_field", "CareConfirmDialog Notiz-Feld")
+        screenshot(
+            "TC-REQ-022-032_notes-field",
+            "CareConfirmDialog notes field",
+        )
 
         notes_fields = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_NOTES_FIELD)
         assert len(notes_fields) > 0, (
-            "Expected notes field [data-testid='confirm-notes-field'] in confirm dialog"
+            "TC-REQ-022-032 FAIL: Expected notes field in confirm dialog"
         )
 
 
-# -- TC-022-016 to TC-022-017: Snooze Action ---------------------------------
+# -- TC-022-016 to TC-022-017: Snooze Action ----------------------------------
 
 
 class TestCareSnoozeAction:
-    """TC-022-016 to TC-022-017: Snooze functionality."""
+    """Snooze functionality (Spec: TC-022-016)."""
 
     def _get_first_card_ids(self, pflege: PflegeDashboardPage) -> tuple[str, str]:
         """Extract plant_key and reminder_type from the first care card's testid."""
@@ -465,52 +585,66 @@ class TestCareSnoozeAction:
         if not cards:
             pytest.skip("No care cards available for snooze action test")
         testid = cards[0].get_attribute("data-testid") or ""
-        # Format: care-card-care-{plant_key}-{reminder_type}
         suffix = testid.replace("care-card-care-", "")
         parts = suffix.rsplit("-", 1)
         if len(parts) < 2:
             pytest.skip(f"Unexpected card testid format: {testid}")
         return parts[0], parts[1]
 
+    @pytest.mark.core_crud
     def test_snooze_click_triggers_action(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-016: Clicking snooze on a card triggers the snooze action."""
+        """TC-REQ-022-033: Clicking snooze on a card triggers the snooze action.
+
+        Spec: TC-022-016 -- Snooze verschiebt Erinnerungskarte auf 'Demnaechst' (Grau).
+        """
         pflege.open()
-        screenshot("req022_016_before_snooze", "Vor Klick auf Snooze")
-
-        plant_key, reminder_type = self._get_first_card_ids(pflege)
-        initial_count = pflege.get_care_card_count()
-
-        pflege.click_snooze_on_card(plant_key, reminder_type)
-        time.sleep(1)  # Wait for API call and dashboard refresh
-
-        screenshot("req022_016_after_snooze", "Nach Snooze-Aktion")
-
-        # After snooze, the card may move to a different section or remain
-        # The key assertion is that no error occurred
-        assert not pflege.is_error_displayed(), (
-            "Expected no error after snooze action"
+        screenshot(
+            "TC-REQ-022-033_before-snooze",
+            "Before clicking snooze",
         )
 
+        plant_key, reminder_type = self._get_first_card_ids(pflege)
+
+        pflege.click_snooze_on_card(plant_key, reminder_type)
+        pflege.wait_for_loading_complete()
+
+        screenshot(
+            "TC-REQ-022-033_after-snooze",
+            "After snooze action",
+        )
+
+        assert not pflege.is_error_displayed(), (
+            "TC-REQ-022-033 FAIL: Expected no error after snooze action"
+        )
+
+    @pytest.mark.core_crud
     def test_snooze_shows_success_snackbar(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-016: Snooze action shows a success/info snackbar."""
+        """TC-REQ-022-034: Snooze action shows a success/info snackbar.
+
+        Spec: TC-022-016 -- Snooze Erfolgs-Snackbar.
+        """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
 
         pflege.click_snooze_on_card(plant_key, reminder_type)
 
-        # Wait for snackbar to appear (may or may not appear depending on implementation)
         try:
             snackbar_text = pflege.wait_for_snackbar(timeout=5)
-            screenshot("req022_016b_snooze_snackbar", "Snooze-Snackbar angezeigt")
-            assert snackbar_text, "Expected non-empty snackbar text after snooze"
+            screenshot(
+                "TC-REQ-022-034_snooze-snackbar",
+                "Snooze snackbar displayed",
+            )
+            assert snackbar_text, "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
         except Exception:
-            # Snackbar may not appear if optimistic update is used
-            screenshot("req022_016b_snooze_no_snackbar", "Kein Snackbar nach Snooze")
+            screenshot(
+                "TC-REQ-022-034_snooze-no-snackbar",
+                "No snackbar after snooze (optimistic update)",
+            )

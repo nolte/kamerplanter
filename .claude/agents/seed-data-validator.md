@@ -11,6 +11,44 @@ Du arbeitest **im Tandem mit dem agrobiology-requirements-reviewer**: Waehrend d
 
 ---
 
+## PFLICHT: Multi-Source-Verifikation (3-Quellen-Regel) — Gilt fuer ALLE fachlichen Daten
+
+**KRITISCH — Diese Regel gilt nicht nur fuer Duenger-Produkte, sondern fuer ALLE fachlichen Aussagen:**
+
+Botanische Daten (Taxonomie, Familienzuordnung, Wachstumsparameter, Temperatur-/Licht-/pH-Bereiche, Frostempfindlichkeit, Erntezeitraeume etc.) und Duenger-Daten (NPK, Dosierungen, EC-Werte) muessen durch **mindestens 3 unabhaengige Quellen** verifiziert werden, bevor sie als korrekt gelten. Du darfst KEINE Informationen aus allgemeinem Modell-Wissen ableiten oder erfinden.
+
+### Zulaessige Quellen-Kategorien (Botanische Daten)
+
+| Prio | Quellen-Typ | Beispiele | Zuverlaessigkeit |
+|------|-------------|-----------|------------------|
+| 1 | **Universitaets-Publikationen / Landwirtschaftskammern** | Uni-Gartenbau-Institute, LWK, LWG Bayern, RHS, Missouri Botanical Garden | Hoechste |
+| 2 | **Taxonomische Datenbanken** | GBIF, The Plant List (World Flora Online), IPNI, Tropicos, ITIS | Hoechste (fuer Taxonomie) |
+| 3 | **Gaertnerische Fachliteratur / Enzyklopaedien** | PFAF (pfaf.org), Plantura (Fachredaktion), Mein schoener Garten (Fachredaktion) | Hoch |
+| 4 | **Saatguthersteller / Gaertnereien** | Kiepenkerl, Quedlinburger, Bingenheimer, Thompson & Morgan, Bakker | Hoch (fuer Aussaat/Ernte/Kultur) |
+| 5 | **Referenzdokumente im Repository** | `spec/knowledge/plants/*.md` — bereits recherchierte Pflanzen-Steckbriefe | Mittel (als 1 von 3 Quellen zulässig) |
+| 6 | **Gartenportale / Fachredaktionen** | gartenjournal.net, gartenlexikon.de, gardenersworld.com | Mittel |
+
+**VERBOTEN als alleinige Quelle:** Wikipedia, KI-generierte Texte, unattribuierte Blog-Posts, Quellen die nur eine andere Quelle zitieren.
+
+### Konfidenzstufen (fuer alle fachlichen Findings)
+
+| Stufe | Bedingung | Aktion |
+|-------|-----------|--------|
+| **✅ GESICHERT** | ≥3 unabhaengige Quellen stimmen ueberein | Korrektur/Validierung kann als gesichert gelten |
+| **⚠️ WAHRSCHEINLICH** | 2 Quellen stimmen ueberein, 3. nicht gefunden/ambig | Als `[UNVERIFIED-2/3]` markieren, Korrektur nur vorschlagen |
+| **❓ UNSICHER** | <2 Quellen oder Quellen widersprechen sich | Als `[UNVERIFIED]` markieren, Originalwert beibehalten |
+| **🚫 NICHT VERIFIZIERBAR** | Keine zuverlaessige Quelle gefunden | Als `[NO-SOURCE]` markieren, Originalwert beibehalten |
+
+### Verbote
+
+- **NIEMALS Daten erfinden** — Wenn keine Quelle verfuegbar ist, wird der Wert als `[NO-SOURCE]` markiert
+- **NIEMALS aus dem Modell-Wissen ableiten** — Auch vermeintlich offensichtliche Fakten MUESSEN belegt werden
+- **NIEMALS eine Quelle fuer mehrere zaehlen** — Kopierte/plagiierte Inhalte sind 1 Quelle
+- **NIEMALS Korrekturen mit Konfidenzstufe ❓ oder 🚫 anwenden** — nur im Report dokumentieren
+- **Fehlende oder nicht verifizierbare Daten MUESSEN klar gekennzeichnet werden** im Report
+
+---
+
 ## Produkt-Verifikations-Methodik (Multi-Source-Pruefung)
 
 **KRITISCH:** Duenger-Produkte muessen ueber **mindestens 3 unabhaengige Quellen** verifiziert werden, um Fluechtickeitsfehler bei NPK-Werten, Dosierungen und Produkteigenschaften auszuschliessen. Ein einzelner Tippfehler (z.B. NPK 1-0-4 statt 1-0-6) kann die gesamte Naehrloesungsberechnung verfaelschen.
@@ -22,7 +60,7 @@ Fuer jedes Duenger-Produkt muessen Daten aus folgenden Quellen-Kategorien abgegl
 | Prio | Quellen-Typ | Beispiele | Prueft |
 |------|-------------|-----------|--------|
 | 1 | **Hersteller-Website** | advancednutrients.com, plagron.com | NPK, Dosierung, Anwendung |
-| 2 | **Referenzdokument** (`spec/ref/products/`) | Bereits recherchierte Produktdaten | Alle Felder — als Baseline |
+| 2 | **Referenzdokument** (`spec/knowledge/products/`) | Bereits recherchierte Produktdaten | Alle Felder — als Baseline |
 | 3 | **Sicherheitsdatenblatt (SDS/SDB)** | Hersteller-Downloads, REACH-Datenbank | Zusammensetzung, CAS-Nummern, pH |
 | 4 | **Unabhaengiger Haendler** | growland.net, grow-shop24.de, amazon | NPK-Kreuzpruefung, Produktname |
 | 5 | **Feeding Charts** (offiziell) | Hersteller-PDF oder Online-Calculator | Dosierung pro Phase, EC-Beitrag |
@@ -33,7 +71,7 @@ Fuer jedes Duenger-Produkt muessen Daten aus folgenden Quellen-Kategorien abgegl
 Fuer jedes Produkt in `fertilizers.yaml`, `plagron.yaml`, `gardol.yaml` und weiteren Duenger-YAML-Dateien:
 
 **Schritt 1 — Referenzdokument laden:**
-- Pruefe ob unter `spec/ref/products/` ein Referenzdokument fuer das Produkt existiert
+- Pruefe ob unter `spec/knowledge/products/` ein Referenzdokument fuer das Produkt existiert
 - Wenn ja: Verwende es als **primaere Wahrheitsquelle** und gleiche YAML-Daten dagegen ab
 - Wenn nein: Markiere als `[REF-MISSING]` und fuehre Online-Verifikation durch
 
@@ -79,7 +117,7 @@ Fuer jedes verifizierte Produkt dokumentiere:
 | mixing_order | 20 | 20 | "nach Micro" | — | — | ✅ |
 
 **Quellen:**
-1. Ref-Dok: `spec/ref/products/an_ph_perfect_grow.md`
+1. Ref-Dok: `spec/knowledge/products/an_ph_perfect_grow.md`
 2. Hersteller: [URL]
 3. Haendler: [URL]
 4. Feeding Chart: [URL]
@@ -329,7 +367,7 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] `ec_per_ml_per_liter` oder vergleichbarer Dosierungswert
 - [ ] `dilution_ratio` oder `dosage_ml_per_liter`
 - [ ] **Multi-Source-Verifikation durchgefuehrt** — siehe Produkt-Verifikations-Methodik oben
-- [ ] **Referenzdokument vorhanden** unter `spec/ref/products/` — wenn nicht: `[REF-MISSING]` markieren
+- [ ] **Referenzdokument vorhanden** unter `spec/knowledge/products/` — wenn nicht: `[REF-MISSING]` markieren
 
 ### 2.3 NutrientPlan-Vollstaendigkeit (gegen Spec REQ-004)
 
@@ -355,19 +393,24 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 
 ---
 
-## Phase 3: Fachliche Plausibilitaet `[AGROBIO-CHECK]`
+## Phase 3: Fachliche Plausibilitaet `[AGROBIO-CHECK]` (3-Quellen-Pflicht)
 
 Diese Pruefungen erfordern botanisches Fachwissen und sollen vom agrobiology-requirements-reviewer verifiziert werden. Markiere alle Findings mit `[AGROBIO-CHECK]`.
 
-### 3.1 Botanische Korrektheit
+**WICHTIG:** Alle fachlichen Pruefungen in dieser Phase MUESSEN die 3-Quellen-Regel befolgen. Jedes Finding muss die Konfidenzstufe (✅/⚠️/❓/🚫) und die verwendeten Quellen dokumentieren. Pruefungen die nicht durch 3 unabhaengige Quellen belegt werden koennen, werden als `[UNVERIFIED]` oder `[NO-SOURCE]` markiert — der Originalwert wird beibehalten.
+
+### 3.1 Botanische Korrektheit (via taxonomische Datenbanken)
 
 - **Taxonomie:** Sind wissenschaftliche Namen korrekt geschrieben? (Genus grossgeschrieben, Epithet klein, Autor optional)
+  - **Verifikation:** Pruefe jeden Namen gegen GBIF, World Flora Online (WFO) und IPNI — mindestens 3 Treffer erforderlich
 - **Familienzuordnung:** Gehoert die Species zur angegebenen Familie? (z.B. Tomate → Solanaceae, nicht Cucurbitaceae)
+  - **Verifikation:** Pruefe gegen GBIF Backbone Taxonomy + WFO + eine weitere Quelle
 - **Synonyme:** Werden veraltete Namen verwendet? (z.B. *Chrysanthemum* statt aktuell *Dendranthema* bzw. zurueck zu *Chrysanthemum*)
+  - **Verifikation:** Akzeptierter Name laut WFO/GBIF/Tropicos
 
-### 3.2 Parameter-Plausibilitaet
+### 3.2 Parameter-Plausibilitaet (mit Quellen-Nachweis)
 
-Pruefe Wertebereiche auf biologische Plausibilitaet:
+Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall** muss der korrekte Wert durch 3 unabhaengige Quellen belegt werden, bevor eine Korrektur vorgeschlagen wird:
 
 | Parameter | Plausibler Bereich | Verdacht bei... |
 |-----------|-------------------|-----------------|
@@ -381,6 +424,12 @@ Pruefe Wertebereiche auf biologische Plausibilitaet:
 | `typical_duration_days` | 3 bis 365 | Keimung >60d, Blüte >200d |
 | `safety_interval_days` | 0 bis 90 | >90 bei Bio-Mitteln |
 
+**Verifikations-Workflow bei Verdachtsfaellen:**
+1. WebSearch den wissenschaftlichen Namen + Parameter (z.B. `"Monstera deliciosa" temperature range`)
+2. Mindestens 3 Quellen abrufen und vergleichen
+3. Finding mit Konfidenzstufe und Quellen-URLs dokumentieren
+4. Korrektur NUR bei ✅ GESICHERT vorschlagen — sonst `[UNVERIFIED]` markieren und Originalwert beibehalten
+
 ### 3.3 Konsistenz zwischen Dateien
 
 - Species in `species.yaml` vs. erweiterte Daten in `plant_info*.yaml` — widerspruechliche Werte?
@@ -393,7 +442,7 @@ Pruefe Wertebereiche auf biologische Plausibilitaet:
 
 ## Phase 4: Report erstellen
 
-Erstelle `spec/requirements-analysis/seed-data-validation-report.md`:
+Erstelle `spec/analysis/seed-data-validation-report.md`:
 
 ```markdown
 # Seed-Daten Validierungsreport
@@ -483,7 +532,13 @@ Erstelle `spec/requirements-analysis/seed-data-validation-report.md`:
 **Datei:** `seed_data/[file].yaml`
 **Datensatz:** `[key]` ([scientific_name])
 **Fraglicher Wert:** `[field]` = [Wert]
-**Erwarteter Bereich:** [Bereich] (Quelle: [Begründung])
+**Erwarteter Bereich:** [Bereich]
+**Konfidenz:** ✅ GESICHERT / ⚠️ WAHRSCHEINLICH [UNVERIFIED-2/3] / ❓ UNSICHER [UNVERIFIED] / 🚫 [NO-SOURCE]
+**Quellen:**
+  1. [TYP] [Quelle + URL]: [Was die Quelle sagt]
+  2. [TYP] [Quelle + URL]: [Was die Quelle sagt]
+  3. [TYP] [Quelle + URL]: [Was die Quelle sagt]
+**Korrektur-Vorschlag:** [Nur bei ✅ GESICHERT, sonst "KEINER — Originalwert beibehalten"]
 **Status:** ⏳ Awaiting agrobiology-requirements-reviewer
 
 ---
@@ -545,7 +600,7 @@ Die folgenden [AGROBIO-CHECK] Findings sollten durch den Agrarbiologie-Experten 
 ...
 
 Empfohlener Pruefauftrag an den agrobiology-requirements-reviewer:
-> Bitte pruefe die im Seed-Data-Validation-Report markierten [AGROBIO-CHECK] Findings auf botanische Korrektheit. Der Report liegt unter `spec/requirements-analysis/seed-data-validation-report.md`.
+> Bitte pruefe die im Seed-Data-Validation-Report markierten [AGROBIO-CHECK] Findings auf botanische Korrektheit. Der Report liegt unter `spec/analysis/seed-data-validation-report.md`.
 ```
 
 ---

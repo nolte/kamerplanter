@@ -145,6 +145,9 @@ Das Tageslichtintegral ist die Gesamtlichtmenge über einen Tag. Es wird aus PPF
 
 ## Sensoren für Freiland: Wetter-API einrichten
 
+!!! warning "Noch nicht implementiert"
+    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert (REQ-005 v2.3) aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten. Aktuell werden Freiland-Messwerte nur ueber Home Assistant oder manuelle Eingabe erfasst.
+
 Wenn Sie keinen Sensor im Freien haben, können Sie Klimadaten vom Wetterdienst abrufen.
 
 ### Schritt 1: Standortkoordinaten hinterlegen

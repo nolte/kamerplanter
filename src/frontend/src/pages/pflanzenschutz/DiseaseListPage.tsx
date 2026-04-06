@@ -76,23 +76,19 @@ export default function DiseaseListPage() {
 
   return (
     <Box data-testid="disease-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.ipm.diseasesTitle')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.ipm.createDisease')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.ipm.diseasesTitle')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.ipm.createDisease')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.ipm.diseaseListIntro')}
       </Typography>

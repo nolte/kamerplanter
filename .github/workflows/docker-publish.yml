@@ -7,6 +7,8 @@ on:
     paths:
       - 'src/backend/**'
       - 'src/frontend/**'
+      - 'docker/**'
+      - 'spec/knowledge/rag/**'
       - 'helm/**'
   workflow_dispatch:
 
@@ -26,10 +28,13 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      vectordb: ${{ steps.filter.outputs.vectordb }}
+      knowledge: ${{ steps.filter.outputs.knowledge }}
+      embedding-service: ${{ steps.filter.outputs.embedding-service }}
       helm: ${{ steps.filter.outputs.helm }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -37,6 +42,13 @@ jobs:
               - 'src/backend/**'
             frontend:
               - 'src/frontend/**'
+            vectordb:
+              - 'docker/vectordb/**'
+            knowledge:
+              - 'docker/knowledge/**'
+              - 'spec/knowledge/rag/**'
+            embedding-service:
+              - 'docker/embedding-service/**'
             helm:
               - 'helm/**'
 
@@ -47,13 +59,13 @@ jobs:
       (needs.changes.outputs.backend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -61,7 +73,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-backend
           tags: |
@@ -72,7 +84,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: src/backend
           file: src/backend/Dockerfile
@@ -89,13 +101,13 @@ jobs:
       (needs.changes.outputs.frontend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -103,7 +115,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-frontend
           tags: |
@@ -114,10 +126,136 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: src/frontend
           file: src/frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-vectordb:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.outputs.vectordb == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/kamerplanter-vectordb
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/vectordb
+          file: docker/vectordb/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-knowledge:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.outputs.knowledge == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/knowledge/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-embedding-service:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.outputs.embedding-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/kamerplanter-embedding-service
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/embedding-service
+          file: docker/embedding-service/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -135,10 +273,10 @@ jobs:
         chart:
           - kamerplanter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Determine chart version
         id: version
@@ -168,6 +306,7 @@ jobs:
       - name: Build chart dependencies
         run: |
           helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm repo add ollama https://otwld.github.io/ollama-helm/
           helm dependency build helm/${{ matrix.chart }}
 
       - name: Package chart
@@ -183,7 +322,7 @@ jobs:
         run: gh release upload "${{ github.ref_name }}" ${{ matrix.chart }}-*.tgz --clobber
 
   update-release-assets:
-    needs: [build-backend, build-frontend, publish-helm-charts]
+    needs: [build-backend, build-frontend, build-vectordb, build-knowledge, build-embedding-service, publish-helm-charts]
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/v') &&
@@ -191,7 +330,7 @@ jobs:
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Generate and upload docker-compose
         env:
@@ -218,6 +357,9 @@ jobs:
           ### Container Images
           - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-backend:${VERSION_NUM}\`
           - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-frontend:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-vectordb:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-knowledge:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-embedding-service:${VERSION_NUM}\`
 
           ### Helm Chart
           - \`oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter:${VERSION_NUM}\`

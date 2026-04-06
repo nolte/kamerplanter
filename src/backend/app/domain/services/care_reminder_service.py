@@ -4,6 +4,7 @@ from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, Tas
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
@@ -20,12 +21,14 @@ class CareReminderService:
         task_repo: ITaskRepository | None = None,
         watering_log_repo: IWateringLogRepository | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
+        lifecycle_repo: IPhaseRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
         self._task_repo = task_repo
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
+        self._lifecycle_repo = lifecycle_repo
 
     def get_or_create_profile(
         self,
@@ -136,11 +139,27 @@ class CareReminderService:
                         ),
                     )
 
+        # Auto-complete matching pending task
+        self._complete_pending_care_task(plant_key, reminder_type)
+
         # Auto-create next watering task if opted in
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
-            self.ensure_next_watering_task(profile, created)
+            phase_interval = self._get_phase_watering_interval(plant_key)
+            self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
 
         return created
+
+    def _get_phase_watering_interval(self, plant_key: str) -> int | None:
+        """Look up watering_interval_days from the plant's current growth phase."""
+        if not self._plant_repo or not self._lifecycle_repo:
+            return None
+        plant = self._plant_repo.get_by_key(plant_key)
+        if not plant or not plant.current_phase_key:
+            return None
+        phase = self._lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+        if phase and phase.watering_interval_days:
+            return phase.watering_interval_days
+        return None
 
     def _resolve_slot_keys(self, plant_key: str) -> list[str]:
         """Look up the slot_key for a plant instance."""
@@ -150,6 +169,54 @@ class CareReminderService:
         if plant is not None and plant.slot_key:
             return [plant.slot_key]
         return []
+
+    def _complete_pending_care_task(
+        self,
+        plant_key: str,
+        reminder_type: ReminderType,
+    ) -> None:
+        """Auto-complete the matching pending care task when confirmed via dashboard."""
+        if self._task_repo is None:
+            return
+        name_suffix = f"\u2014 {reminder_type.value}"
+        existing = self._task_repo.find_by_field("entity_key", plant_key)
+        for t in existing:
+            if (
+                t.get("category") == TaskCategory.CARE_REMINDER.value
+                and t.get("name", "").endswith(name_suffix)
+                and t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+            ):
+                task_key = t.get("_key", "")
+                task = self._task_repo.get_task_by_key(task_key)
+                if task is not None:
+                    task.status = TaskStatus.COMPLETED.value
+                    task.completed_at = datetime.now(UTC)
+                    self._task_repo.update_task(task_key, task)
+                break
+
+    def complete_care_task_with_log(
+        self,
+        task_key: str,
+        plant_key: str,
+        reminder_type: ReminderType,
+    ) -> None:
+        """Create a WateringLog when a watering/fertilizing task is completed via task queue."""
+        if self._watering_log_repo is None:
+            return
+        if reminder_type not in (ReminderType.WATERING, ReminderType.FERTILIZING):
+            return
+
+        now = datetime.now(UTC)
+        slot_keys = self._resolve_slot_keys(plant_key)
+        watering_log = WateringLog(
+            logged_at=now,
+            application_method=ApplicationMethod.DRENCH,
+            volume_liters=1.0,
+            slot_keys=slot_keys or ["default"],
+            plant_keys=[plant_key],
+            notes=f"Auto-created from task completion ({task_key}).",
+        )
+        self._watering_log_repo.create(watering_log)
 
     def snooze_reminder(
         self,
@@ -265,6 +332,7 @@ class CareReminderService:
         profile: CareProfile,
         last_confirmation: CareConfirmation | None = None,
         hemisphere: str = "north",
+        phase_watering_interval: int | None = None,
     ) -> Task | None:
         """Ensure exactly one pending watering task exists for this plant.
 
@@ -278,15 +346,21 @@ class CareReminderService:
         rt_value = ReminderType.WATERING.value
         name_suffix = f"\u2014 {rt_value}"
 
-        # Check for existing pending/in_progress watering task
-        existing = self._task_repo.find_by_field("plant_key", plant_key)
-        has_pending = any(
+        # Check for existing pending/in_progress watering task or one completed today
+        existing = self._task_repo.find_by_field("entity_key", plant_key)
+        from datetime import date
+
+        today_str = date.today().isoformat()
+        has_active_or_recent = any(
             t.get("category") == TaskCategory.CARE_REMINDER.value
             and t.get("name", "").endswith(name_suffix)
-            and t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+            and (
+                t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                or (t.get("status") == TaskStatus.COMPLETED.value and str(t.get("completed_at", ""))[:10] >= today_str)
+            )
             for t in existing
         )
-        if has_pending:
+        if has_active_or_recent:
             return None
 
         # Calculate next due date
@@ -301,26 +375,31 @@ class CareReminderService:
             ReminderType.WATERING,
             last_confirmation,
             hemisphere=hemisphere,
+            phase_watering_interval=phase_watering_interval,
         )
         if due_date is None:
             return None
 
         due_dt = datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
 
-        # Resolve plant name for user-friendly display
+        # Resolve plant name and tenant for user-friendly display
         plant_label = plant_key
+        plant_tenant_key = ""
         if self._plant_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
             if plant is not None:
                 plant_label = plant.plant_name or plant.instance_id or plant_key
+                plant_tenant_key = plant.tenant_key
 
-        interval = profile.watering_interval_learned or profile.watering_interval_days
+        interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
 
         task = Task(
             name=f"{plant_label} \u2014 {rt_value}",
             instruction=f"Water {plant_label} (every {interval} days).",
             category=TaskCategory.CARE_REMINDER,
-            plant_key=plant_key,
+            entity_key=plant_key,
+            entity_type="plant_instance",
+            tenant_key=plant_tenant_key,
             due_date=due_dt,
             status=TaskStatus.PENDING,
             priority=TaskPriority.MEDIUM,

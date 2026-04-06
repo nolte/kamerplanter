@@ -80,14 +80,32 @@ const sitesSlice = createSlice({
         state.loading = false;
         state.error = action.error.message ?? 'Failed to load sites';
       })
+      .addCase(fetchSite.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(fetchSite.fulfilled, (state, action) => {
+        state.loading = false;
         state.currentSite = action.payload;
+      })
+      .addCase(fetchSite.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message ?? 'Failed to load site';
       })
       .addCase(fetchLocations.fulfilled, (state, action) => {
         state.locations = action.payload;
       })
+      .addCase(fetchLocation.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(fetchLocation.fulfilled, (state, action) => {
+        state.loading = false;
         state.currentLocation = action.payload;
+      })
+      .addCase(fetchLocation.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message ?? 'Failed to load location';
       })
       .addCase(fetchSlots.fulfilled, (state, action) => {
         state.slots = action.payload;

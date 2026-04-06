@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -16,13 +17,17 @@ import kamiDormancy from '@/assets/brand/illustrations/phases/timeline-kami-phas
 import kamiJuvenile from '@/assets/brand/illustrations/phases/timeline-kami-phase-juvenile.svg';
 import kamiClimbing from '@/assets/brand/illustrations/phases/timeline-kami-phase-climbing.svg';
 import kamiMature from '@/assets/brand/illustrations/phases/timeline-kami-phase-mature.svg';
+import kamiFlushing from '@/assets/brand/illustrations/phases/timeline-kami-phase-flushing.svg';
+import kamiLeafPhase from '@/assets/brand/illustrations/phases/timeline-kami-phase-leaf-phase.svg';
 import kamiSenescence from '@/assets/brand/illustrations/phases/timeline-kami-phase-senescence.svg';
+import kamiShortDayInduction from '@/assets/brand/illustrations/phases/timeline-kami-phase-short-day-induction.svg';
 
 const KAMI_PHASE_IMAGES: Record<string, string> = {
   germination: kamiGermination,
   seedling: kamiSeedling,
   vegetative: kamiVegetative,
   flowering: kamiFlowering,
+  flushing: kamiFlushing,
   ripening: kamiRipening,
   fruiting: kamiRipening,
   harvest: kamiHarvest,
@@ -31,6 +36,32 @@ const KAMI_PHASE_IMAGES: Record<string, string> = {
   climbing: kamiClimbing,
   mature: kamiMature,
   senescence: kamiSenescence,
+  // Mapped aliases — reuse semantically matching icons
+  active_growth: kamiVegetative,
+  spring_growth: kamiVegetative,
+  sprouting: kamiSeedling,
+  establishment: kamiSeedling,
+  bulbil_establishment: kamiSeedling,
+  young_palm: kamiJuvenile,
+  rooting: kamiGermination,
+  sprout_formation: kamiGermination,
+  autumn_growth_bloom: kamiFlowering,
+  growth_bloom: kamiFlowering,
+  bud_formation: kamiFlowering,
+  bract_coloring: kamiFlowering,
+  autumn_ripening: kamiRipening,
+  cool_rest: kamiDormancy,
+  rest: kamiDormancy,
+  rest_phase: kamiDormancy,
+  rest_after_bloom: kamiDormancy,
+  summer_rest: kamiDormancy,
+  summer_dormancy: kamiDormancy,
+  winter_rest: kamiDormancy,
+  winter_dormancy: kamiDormancy,
+  dry_storage: kamiDormancy,
+  winter_hull_change: kamiSenescence,
+  leaf_phase: kamiLeafPhase,
+  short_day_induction: kamiShortDayInduction,
 };
 
 const PHASE_COLORS: Record<string, string> = {
@@ -58,6 +89,29 @@ const PHASE_COLORS: Record<string, string> = {
   budding: '#ce93d8',
   corm_ripening: '#ffcc80',
   tuber_formation: '#ffcc80',
+  active_growth: '#4caf50',
+  spring_growth: '#66bb6a',
+  autumn_growth_bloom: '#f48fb1',
+  growth_bloom: '#f48fb1',
+  bud_formation: '#ce93d8',
+  bract_coloring: '#ce93d8',
+  autumn_ripening: '#ffcc80',
+  bulbil_establishment: '#a5d6a7',
+  rooting: '#a5d6a7',
+  sprout_formation: '#c5e1a5',
+  young_palm: '#c5e1a5',
+  cool_rest: '#b0bec5',
+  rest: '#b0bec5',
+  rest_phase: '#b0bec5',
+  rest_after_bloom: '#b0bec5',
+  summer_rest: '#b0bec5',
+  summer_dormancy: '#b0bec5',
+  winter_rest: '#b0bec5',
+  winter_dormancy: '#b0bec5',
+  dry_storage: '#bcaaa4',
+  winter_hull_change: '#ef9a9a',
+  short_day_induction: '#7e57c2',
+  leaf_phase: '#81c784',
 };
 
 /** Normalize scientific name to i18n slug: "Monstera deliciosa" → "monstera_deliciosa" */
@@ -78,15 +132,27 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
 
   if (phases.length === 0) return null;
 
+  // Grid: phase columns are auto-sized, connector columns fill the gap (capped)
+  const colTemplate = phases
+    .map((_, i) => (i < phases.length - 1 ? 'auto minmax(16px, 100px)' : 'auto'))
+    .join(' ');
+
   return (
-    <Box sx={{
-      display: 'flex',
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-      width: '100%',
-      pb: 1,
-      pt: 1,
-    }}>
+    <Box
+      role="list"
+      aria-label={t('pages.plantingRuns.phaseTimeline')}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: colTemplate,
+        gridTemplateRows: 'auto auto auto auto',
+        justifyContent: 'center',
+        justifyItems: 'center',
+        alignItems: 'center',
+        width: '100%',
+        pb: 1,
+        pt: 1,
+      }}
+    >
       {phases.map((p, idx) => {
         const phaseKey = p.phase_name.toLowerCase();
         const color = PHASE_COLORS[phaseKey] ?? '#e0e0e0';
@@ -94,95 +160,148 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
         const isCurrent = p.status === 'current';
         const isCompleted = p.status === 'completed';
         const isProjected = p.status === 'projected';
-        const durationDays = p.actual_duration_days
-          ?? (p.projected_start && p.projected_end
-            ? Math.round((new Date(p.projected_end).getTime() - new Date(p.projected_start).getTime()) / 86400000)
+        const durationDays =
+          p.actual_duration_days ??
+          (p.projected_start && p.projected_end
+            ? Math.round(
+                (new Date(p.projected_end).getTime() -
+                  new Date(p.projected_start).getTime()) /
+                  86400000,
+              )
             : p.typical_duration_days);
+        const phaseLabel = t(`enums.phaseName.${p.phase_name}`, {
+          defaultValue: p.display_name || p.phase_name,
+        });
+        const phaseDescription =
+          (speciesSlug
+            ? t(`enums.phaseDescriptions.${speciesSlug}.${phaseKey}`, '')
+            : '') || t(`enums.phaseDescription.${phaseKey}`, '');
+        const col = idx * 2 + 1;
+
         return (
-          <Box key={p.phase_key} sx={{ display: 'flex', alignItems: 'flex-end', flex: 1, minWidth: 0 }}>
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              flex: '0 0 auto',
-              opacity: isProjected ? 0.5 : 1,
-              transition: 'opacity 0.2s',
-            }}>
-              {/* Kami illustration */}
-              {kamiImg && (
-                <Box
-                  component="img"
-                  src={kamiImg}
-                  alt={p.display_name || p.phase_name}
-                  sx={{
-                    width: { xs: 56, sm: 72, md: 88 },
-                    height: { xs: 56, sm: 72, md: 88 },
-                    objectFit: 'contain',
-                    mb: 0.75,
-                    filter: isProjected
-                      ? 'grayscale(0.6)'
-                      : isCurrent
-                        ? 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.6))'
-                        : 'none',
-                  }}
-                />
-              )}
-              {/* Timeline dot */}
-              <Box sx={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                bgcolor: isProjected ? 'action.disabled' : color,
-                border: isCurrent ? `2px solid ${theme.palette.primary.main}` : `2px solid ${color}`,
-                zIndex: 1,
-                boxShadow: isCurrent ? `0 0 0 4px ${alpha(color, 0.3)}` : 'none',
-              }} />
-              {/* Phase name with species-specific or generic tooltip */}
+          <Fragment key={p.phase_key}>
+            {/* Row 1: Kami illustration — display:contents keeps semantic wrapper in grid */}
+            <Box
+              role="listitem"
+              sx={{
+                display: 'contents',
+                opacity: isProjected ? 0.5 : 1,
+              }}
+            >
+              <Box
+                sx={{
+                  gridColumn: col,
+                  gridRow: 1,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  opacity: isProjected ? 0.5 : 1,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                {kamiImg && (
+                  <Box
+                    component="img"
+                    src={kamiImg}
+                    alt=""
+                    aria-hidden="true"
+                    sx={{
+                      width: { xs: 56, sm: 72, md: 88 },
+                      height: { xs: 56, sm: 72, md: 88 },
+                      objectFit: 'contain',
+                      mb: 0.75,
+                      filter: isProjected
+                        ? 'grayscale(0.6)'
+                        : isCurrent
+                          ? 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.6))'
+                          : 'none',
+                    }}
+                  />
+                )}
+              </Box>
+
+              {/* Row 2: Timeline dot */}
+              <Box
+                aria-hidden="true"
+                sx={{
+                  gridColumn: col,
+                  gridRow: 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  bgcolor: isProjected ? 'action.disabled' : color,
+                  border: isCurrent
+                    ? `2px solid ${theme.palette.primary.main}`
+                    : `2px solid ${color}`,
+                  zIndex: 1,
+                  boxShadow: isCurrent ? `0 0 0 4px ${alpha(color, 0.3)}` : 'none',
+                }}
+              />
+
+              {/* Row 3: Phase label */}
               <Tooltip
-                title={
-                  (speciesSlug ? t(`enums.phaseDescriptions.${speciesSlug}.${phaseKey}`, '') : '')
-                  || t(`enums.phaseDescription.${phaseKey}`, '')
-                }
+                title={phaseDescription}
                 arrow
                 placement="bottom"
                 slotProps={{
                   tooltip: { sx: { maxWidth: 320, fontSize: '0.75rem', lineHeight: 1.5 } },
                 }}
               >
-                <Typography variant="caption" sx={{
-                  fontWeight: isCurrent ? 700 : 500,
-                  color: isProjected ? 'text.disabled' : 'text.primary',
-                  fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                  textAlign: 'center',
-                  mt: 0.5,
-                  lineHeight: 1.2,
-                  cursor: 'help',
-                  '&:hover': { textDecoration: 'underline dotted' },
-                }}>
-                  {p.display_name || p.phase_name}
+                <Typography
+                  variant="caption"
+                  tabIndex={phaseDescription ? 0 : undefined}
+                  sx={{
+                    gridColumn: col,
+                    gridRow: 3,
+                    fontWeight: isCurrent ? 700 : 500,
+                    color: isProjected ? 'text.disabled' : 'text.primary',
+                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    textAlign: 'center',
+                    mt: 0.5,
+                    lineHeight: 1.2,
+                    cursor: phaseDescription ? 'help' : 'default',
+                    opacity: isProjected ? 0.5 : 1,
+                    '&:hover': phaseDescription
+                      ? { textDecoration: 'underline dotted' }
+                      : undefined,
+                  }}
+                >
+                  {phaseLabel}
                 </Typography>
               </Tooltip>
-              {/* Duration */}
-              <Typography variant="caption" sx={{
-                color: 'text.secondary',
-                fontSize: { xs: '0.6rem', sm: '0.65rem' },
-                fontStyle: isProjected ? 'italic' : 'normal',
-              }}>
-                {durationDays != null ? `${durationDays}d` : ''}
+
+              {/* Row 4: Duration */}
+              <Typography
+                variant="caption"
+                sx={{
+                  gridColumn: col,
+                  gridRow: 4,
+                  color: 'text.secondary',
+                  fontSize: { xs: '0.6rem', sm: '0.65rem' },
+                  fontStyle: isProjected ? 'italic' : 'normal',
+                  opacity: isProjected ? 0.5 : 1,
+                  visibility: durationDays != null ? 'visible' : 'hidden',
+                }}
+              >
+                {durationDays != null
+                  ? `${durationDays}\u00A0${t('common.days')}`
+                  : '\u00A0'}
               </Typography>
             </Box>
-            {/* Connector line — stretches to fill remaining space */}
+
+            {/* Connector line — sits in row 2, naturally aligned with dots */}
             {idx < phases.length - 1 && (
-              <Box sx={{
-                flex: 1,
-                height: 2,
-                bgcolor: isCompleted ? color : 'action.disabled',
-                mb: '37px',
-                mx: 0.5,
-                minWidth: 8,
-              }} />
+              <Box
+                aria-hidden="true"
+                sx={{
+                  gridColumn: col + 1,
+                  gridRow: 2,
+                  width: '100%',
+                  height: 2,
+                  bgcolor: isCompleted ? color : 'action.disabled',
+                }}
+              />
             )}
-          </Box>
+          </Fragment>
         );
       })}
     </Box>

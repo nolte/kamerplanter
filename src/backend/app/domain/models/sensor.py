@@ -10,6 +10,7 @@ class Sensor(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     metric_type: str  # "ec_ms", "ph", "water_temp_celsius", etc.
     ha_entity_id: str | None = None  # e.g. "sensor.tank_ec"
+    unit_of_measurement: str | None = None  # e.g. "mS/cm", "pH", "°C"
     mqtt_topic: str | None = None  # Future: direct MQTT
     tank_key: str | None = None  # Denormalized for fast lookups
     site_key: str | None = None

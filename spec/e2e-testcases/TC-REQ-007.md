@@ -2,7 +2,7 @@
 req_id: REQ-007
 title: "Gattungsspezifisches Erntemanagement & Reifegradprüfung"
 category: Erntezyklus
-test_count: 42
+test_count: 47
 coverage_areas:
   - Ernte-Batch-Listenansicht (HarvestBatchListPage)
   - Ernte-Batch-Erstellen (HarvestCreateDialog)
@@ -13,12 +13,15 @@ coverage_areas:
   - Ertragsmetriken erstellen (Tab Ertrag)
   - Ertragsmetriken anzeigen (Tab Ertrag)
   - Erntereife-Karte (HarvestReadinessCard)
+  - GDD-Erntereife-Prognose (GDDIndicator, Wärmesumme)
+  - Ernte-Fenster-Vorhersage (HarvestWindowPredictor W-007, Konfidenz-Stufen, Trend-Extrapolation)
   - Formularvalidierung (Pflichtfelder, Bereichsgrenzen)
   - Navigationsmuster (Liste -> Detail -> Tabs)
   - Ungespeicherte Änderungen Guard
   - Karenzzeit-Gate (REQ-010 Integration, UI-seitig)
   - Qualitäts-Grading (A+/A/B/C/D, Farbkodierung)
 generated: "2026-03-21"
+updated: "2026-04-02"
 version: "2.3"
 ---
 
@@ -1239,6 +1242,177 @@ Dieser Testfall-Katalog deckt die gesamte Ernte-Funktionalität aus Nutzerperspe
 
 ---
 
+## Gruppe 11: Ernte-Fenster-Vorhersage (HarvestWindowPredictor, W-007)
+
+### TC-007-043: Ernte-Fenster-Banner auf Pflanzen-Detailseite (Basis: nur Cultivar-Daten)
+
+**Anforderung:** REQ-007 §3 W-007 – HarvestWindowPredictor, Konfidenz "Niedrig"; §6 DoD W-007
+**Priorität:** High
+**Kategorie:** Happy Path / Detailansicht
+
+**Vorbedingungen:**
+- Nutzer ist eingeloggt
+- Pflanzen-Instanz "Gorilla Glue #4 / Pflanze-1" existiert
+- Cultivar hat Blütezeit 8–10 Wochen (min_flowering_weeks=8, max_flowering_weeks=10)
+- Blüte-Phase gestartet am 01.01.2026 (Phase-Übergang per REQ-003 dokumentiert)
+- Noch keine Trichom-Beobachtungen vorhanden (Datenbasis: nur Cultivar-Daten)
+
+**Testschritte:**
+1. Nutzer navigiert zur Detailseite der Pflanzen-Instanz "Pflanze-1"
+2. Nutzer betrachtet den Abschnitt mit der Ernte-Fenster-Vorhersage (Banner oder Karte auf der Detailseite)
+
+**Erwartetes Ergebnis:**
+- Ein Ernte-Fenster-Banner ist auf der Detailseite sichtbar
+- Das Banner zeigt einen frühesten und spätesten Ernte-Datums-Bereich, der dem Blüte-Start plus Cultivar-Blütewochen entspricht (Beispiel: "Frühestens 27.02.2026 – Spätestens 12.03.2026")
+- Konfidenz-Anzeige zeigt "Niedrig" (da keine Trichom-Beobachtungen vorhanden sind)
+- Ein Hinweistext erklärt, dass die Vorhersage nur auf Sortenangaben basiert und sich mit jeder Trichom-Beobachtung verfeinert (z. B. "Vorhersage basiert auf Sortenangaben. Füge Trichom-Beobachtungen hinzu für höhere Genauigkeit.")
+- Die Fensterbreite ist groß (Konfidenz "Niedrig" entspricht ±14 Tage Marge)
+
+**Postconditions:**
+- Keine Datenänderung
+
+**Tags:** [REQ-007, harvest-window, predictor, W-007, cultivar-only, konfidenz-niedrig, detailansicht]
+
+---
+
+### TC-007-044: Ernte-Fenster aktualisiert sich nach Trichom-Beobachtungen (GDD-ähnlicher Fortschritt, Konfidenz "Hoch")
+
+**Anforderung:** REQ-007 §3 W-007 – adaptive Verfeinerung, Trend-Extrapolation; §6 Szenario 8
+**Priorität:** Critical
+**Kategorie:** Zustandswechsel / Datenverifikation
+
+**Vorbedingungen:**
+- Nutzer ist eingeloggt
+- Pflanzen-Instanz "Gorilla Glue #4 / Pflanze-1" existiert, Blüte-Start 01.01.2026
+- Cultivar: min_flowering_weeks=8, max_flowering_weeks=10
+- Drei Trichom-Beobachtungen sind bereits im System eingetragen (entsprechend Szenario 8 der Spec):
+  - Tag 42 (11.02.2026): clear 60%, cloudy 35%, amber 5%
+  - Tag 49 (18.02.2026): clear 40%, cloudy 52%, amber 8%
+  - Tag 54 (23.02.2026): clear 20%, cloudy 68%, amber 12%
+
+**Testschritte:**
+1. Nutzer navigiert zur Detailseite der Pflanzen-Instanz "Pflanze-1"
+2. Nutzer betrachtet den Ernte-Fenster-Banner
+
+**Erwartetes Ergebnis:**
+- Das Ernte-Fenster ist deutlich enger als das Basis-Fenster (nicht mehr Tag 56–70)
+- Das angezeigte Fenster liegt nahe an Tag 54–59 ab Blüte-Start (Trend-Extrapolation: Amber erreicht 10–15% in ~0–5 Tagen ab 23.02.2026)
+- Konkrete Datumsangaben: Fenster-Start ca. 23.02.2026, Fenster-Ende ca. 28.02.2026 (±3 Tage Marge)
+- Konfidenz-Anzeige zeigt "Hoch" (3+ Trichom-Beobachtungen mit berechenbarem Amber-Trend)
+- Basis-Beschreibung zeigt "Trend-Extrapolation" oder vergleichbar ("Basiert auf Amber-Zunahme-Rate")
+- Empfehlungstext enthält "Tägliche Trichom-Kontrolle"
+
+**Postconditions:**
+- Keine Datenänderung (die Beobachtungen sind Vorbedingung, die Anzeige wird berechnet)
+
+**Tags:** [REQ-007, harvest-window, predictor, W-007, trend-extrapolation, konfidenz-hoch, trichom, detailansicht]
+
+**Siehe auch:** TC-007-041 (Trichom-Beobachtung erstellen), TC-007-032 (Erntereife-Karte Peak)
+
+---
+
+### TC-007-045: GDD-basiertes "~X Tage bis Ernte"-Banner auf Pflanzen-Detailseite
+
+**Anforderung:** REQ-007 §3 GDDIndicator – GDD-Erntereife-Prognose; §6 DoD "GDD-Erntereife"
+**Priorität:** High
+**Kategorie:** Happy Path / Detailansicht / Visuelle Darstellung
+
+**Vorbedingungen:**
+- Nutzer ist eingeloggt
+- Pflanzen-Instanz "Tomate-Pflanze-1" (Art: Tomate, GDD-Ziel: 1200, Basistemperatur 10 °C) existiert
+- GDD-Indikator ist für die Pflanze konfiguriert (has_harvest_indicator-Edge zur Species)
+- Aktuelle akkumulierte GDD: 1020 (85% von 1200)
+- Durchschnittliche tägliche GDD der letzten 7 Tage: 15 GDD/Tag (= ca. 12 verbleibende Tage)
+- Diese Werte wurden automatisch aus REQ-005 Sensordaten akkumuliert
+
+**Testschritte:**
+1. Nutzer navigiert zur Detailseite der Pflanzen-Instanz "Tomate-Pflanze-1"
+2. Nutzer sieht die Erntereife-Karte oder den GDD-Fortschritts-Abschnitt
+
+**Erwartetes Ergebnis:**
+- Die GDD-Fortschrittsanzeige zeigt "1020 / 1200 GDD (85%)" oder ähnlich
+- Die Zeitschätzung zeigt "~12 Tage bis Ernte" (180 verbleibende GDD ÷ 15 GDD/Tag)
+- Stadium-Chip zeigt "Heranreifend" (approaching: 85–100% GDD) in orange (warning)
+- Indikator-Typ "GDD" ist in der Indikatoren-Tabelle der Erntereife-Karte als eigene Zeile sichtbar
+- Zuverlässigkeits-Angabe des GDD-Indikators ist sichtbar
+
+**Postconditions:**
+- Keine Datenänderung
+
+**Tags:** [REQ-007, gdd, wärmesumme, harvest-window, detailansicht, readiness-card, approaching]
+
+**Siehe auch:** TC-007-032 (Erntereife-Karte Happy Path), TC-007-034 (null estimated_days)
+
+---
+
+### TC-007-046: Kein Ernte-Fenster angezeigt bei unzureichenden GDD-Daten (Fallback-Hinweis)
+
+**Anforderung:** REQ-007 §3 GDDIndicator – Fallback wenn daily_gdd_avg=0; §3 W-007 – Konfidenz "Niedrig" ohne Observations
+**Priorität:** Medium
+**Kategorie:** Edge Case / Fehlermeldung / Empty State
+
+**Vorbedingungen:**
+- Nutzer ist eingeloggt
+- Pflanzen-Instanz "Outdoor-Pflanze-1" existiert
+- GDD-Indikator ist konfiguriert (target_gdd=1200)
+- Keine automatischen Temperaturdaten aus REQ-005 vorhanden (Sensor nicht konfiguriert oder keine Messungen)
+- accumulated_gdd=0, daily_gdd_avg=0 (Ausgabe des GDD-Indikators: days_to_harvest=null, da daily_gdd_avg=0)
+- Keine Trichom-Beobachtungen vorhanden (W-007-Basis: nur Cultivar, aber Cultivar ohne Blütezeit-Angabe)
+
+**Testschritte:**
+1. Nutzer navigiert zur Detailseite der Pflanzen-Instanz "Outdoor-Pflanze-1"
+2. Nutzer betrachtet den Bereich der Erntereife-Karte und den Ernte-Fenster-Abschnitt
+
+**Erwartetes Ergebnis:**
+- Der Abschnitt "Geschätzte Tage bis Ernte" in der Erntereife-Karte ist NICHT sichtbar (conditional rendering, da estimated_days=null)
+- Der GDD-Fortschrittsabschnitt zeigt keinen "~X Tage bis Ernte"-Wert (da GDD-Daten fehlen)
+- Ein Fallback-Hinweis ist sichtbar, der den Nutzer informiert, dass keine ausreichenden Temperaturdaten vorliegen (z. B. "Keine GDD-Daten verfügbar. Bitte Sensor konfigurieren oder Temperaturen manuell eingeben." oder vergleichbarer Hinweistext)
+- Falls ein Ernte-Fenster-Banner vorhanden ist: zeigt er entweder keinen Zeitraum oder erklärt die fehlende Grundlage
+- Kein Absturz der Seite, kein leerer Bereich ohne Erklärung
+
+**Postconditions:**
+- Keine Datenänderung
+
+**Tags:** [REQ-007, gdd, harvest-window, W-007, null, fallback, empty-state, edge-case, conditional-rendering]
+
+**Siehe auch:** TC-007-034 (estimated_days null in ReadinessCard)
+
+---
+
+### TC-007-047: Ernte-Fenster-Konfidenz steigt auf "Sehr hoch" nach Aroma-Observation (W-007)
+
+**Anforderung:** REQ-007 §3 W-007 – Konfidenz-Boost durch Aroma-Observations (stable/peak + Intensität ≥ 7)
+**Priorität:** Medium
+**Kategorie:** Zustandswechsel / Visuelle Darstellung
+
+**Vorbedingungen:**
+- Nutzer ist eingeloggt
+- Pflanzen-Instanz "Gorilla Glue #4 / Pflanze-2" existiert, Blüte-Start 01.01.2026
+- Cultivar: min_flowering_weeks=8, max_flowering_weeks=10
+- Drei Trichom-Beobachtungen sind eingetragen (wie in TC-007-044, Stand Tag 54: amber 12%)
+- Zusätzlich eine Aroma-Beobachtung an Tag 54 eingetragen: intensity=8, consistency='stable', dominant_terpene='myrcene'
+
+**Testschritte:**
+1. Nutzer navigiert zur Detailseite der Pflanzen-Instanz "Pflanze-2"
+2. Nutzer betrachtet den Ernte-Fenster-Banner
+3. Nutzer vergleicht die Konfidenz-Anzeige mit dem Stand nach TC-007-044 (ohne Aroma-Observation: "Hoch")
+
+**Erwartetes Ergebnis:**
+- Konfidenz-Anzeige zeigt nun "Sehr hoch" (Konfidenz-Boost: Trichom-Trend "Hoch" + stabiles Aroma mit Intensität ≥ 7 = "Sehr hoch")
+- Marge-Angabe (margin_days) ist auf ±1–2 Tage verringert (gegenüber ±3 Tagen bei "Hoch")
+- Das Ernte-Fenster-Datumsbanner zeigt ein sehr enges Fenster (1–2 Tage Spanne)
+- Der Hinweis auf "Myrcen"-Terpen oder "Stabiles Aroma-Profil" als Faktor der Konfidenzerhöhung ist optional sichtbar
+- Kein Fehler oder Absturz durch die kombinierte Datengrundlage
+
+**Postconditions:**
+- Keine Datenänderung
+
+**Tags:** [REQ-007, harvest-window, W-007, aroma, konfidenz-sehr-hoch, trichom, detailansicht, trend-extrapolation]
+
+**Siehe auch:** TC-007-044 (Konfidenz "Hoch" ohne Aroma), TC-007-041 (Beobachtung erstellen)
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spezifikations-Abschnitt | Beschreibung | Abgedeckte Testfälle |
@@ -1248,15 +1422,20 @@ Dieser Testfall-Katalog deckt die gesamte Ernte-Funktionalität aus Nutzerperspe
 | §2 – quality_assessments-Collection | Scores (0–100), Defects, Grade-Zuweisung | TC-007-022, TC-007-023, TC-007-024, TC-007-025, TC-007-026 |
 | §2 – yield_metrics-Collection | Yield/Pflanze, Yield/m², Verschnitt | TC-007-028, TC-007-029, TC-007-030, TC-007-031 |
 | §3 – TrichomeIndicator / Reife-Visualisierung | Erntereife-Karte mit Stage-Chips und Score | TC-007-032, TC-007-033, TC-007-034, TC-007-035 |
+| §3 – GDDIndicator / Wärmesumme | GDD-Fortschritt, ~X-Tage-Prognose, Fallback bei fehlenden Daten | TC-007-045, TC-007-046 |
+| §3 – HarvestWindowPredictor (W-007) | Ernte-Fenster-Banner, Konfidenz-Stufen, adaptive Verfeinerung | TC-007-043, TC-007-044, TC-007-047 |
 | §4 – Auth & Tenant (Mitglied-Rechte) | Eingeloggt-Zustand Voraussetzung für alle Tests | Alle Testfälle (Vorbedingung) |
 | §5 – Abhängigkeit REQ-010 Karenz-Gate | Batch-Erstellung blockiert bei offener Karenzzeit | TC-007-013 |
 | §6 DoD – Batch-ID-Generierung | Manuell + automatisch generierte Batch-ID | TC-007-007, TC-007-009 |
 | §6 DoD – Erntegewicht-Tracking | Nassgewicht, geschätztes + tatsächliches Trockengewicht | TC-007-010, TC-007-011, TC-007-018 |
+| §6 DoD – GDD-Erntereife | GDD-basierte Reife-Prognose, artspezifische Schwellenwerte | TC-007-045, TC-007-046 |
+| §6 DoD – Ernte-Fenster-Vorhersage (W-007) | HarvestWindowPredictor, Konfidenz-Stufen, Amber-Trend | TC-007-043, TC-007-044, TC-007-047 |
 | §6 DoD – Listenansicht-Filter (UI-NFR-010) | Such- und Sortier-Funktionalität | TC-007-003, TC-007-004 |
 | §6 DoD – Tablet-Spaltenprioritäten (UI-NFR-010) | Spalten-Responsive-Verhalten | TC-007-038 |
 | §6 DoD – Qualitäts-Grade Distribution | Farbkodierung A+/A/B/C/D | TC-007-005, TC-007-026, TC-007-042 |
 | §6 Testszenarien – Szenario 3 (Batch QR-Code) | Batch-ID im Format PLANT_YYYYMMDD_SEQ | TC-007-007, TC-007-009 |
 | §6 Testszenarien – Szenario 4 (Quality Grading) | Qualitätsscore und Grading sichtbar | TC-007-022, TC-007-026 |
+| §6 Testszenarien – Szenario 8 (W-007 adaptiv) | Ernte-Fenster mit Amber-Rate und Aroma-Konfidenz | TC-007-044, TC-007-047 |
 | Listenansicht-Navigation | List → Detail-Navigation | TC-007-006 |
 | UnsavedChangesGuard | Warnung bei ungespeicherten Änderungen | TC-007-020 |
 | Tab-Persistenz (useTabUrl) | URL-Parameter für aktiven Tab | TC-007-040 |

@@ -16,9 +16,9 @@ import * as runApi from '@/api/endpoints/plantingRuns';
 import type { SpeciesPhaseTimeline, PhaseTimelineEntry } from '@/api/types';
 import {
   kamiPhaseGermination, kamiPhaseSeedling, kamiPhaseVegetative,
-  kamiPhaseFlowering, kamiPhaseHarvest, kamiPhaseRipening,
-  kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature, kamiPhaseDormancy,
-  kamiPhaseSenescence,
+  kamiPhaseFlowering, kamiPhaseFlushing, kamiPhaseHarvest, kamiPhaseLeafPhase,
+  kamiPhaseRipening, kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature,
+  kamiPhaseDormancy, kamiPhaseSenescence, kamiPhaseShortDayInduction,
 } from '@/assets/brand/illustrations';
 
 const PHASE_IMAGES: Record<string, string> = {
@@ -26,6 +26,7 @@ const PHASE_IMAGES: Record<string, string> = {
   seedling: kamiPhaseSeedling,
   vegetative: kamiPhaseVegetative,
   flowering: kamiPhaseFlowering,
+  flushing: kamiPhaseFlushing,
   harvest: kamiPhaseHarvest,
   ripening: kamiPhaseRipening,
   fruiting: kamiPhaseRipening,
@@ -34,6 +35,8 @@ const PHASE_IMAGES: Record<string, string> = {
   mature: kamiPhaseMature,
   dormancy: kamiPhaseDormancy,
   senescence: kamiPhaseSenescence,
+  leaf_phase: kamiPhaseLeafPhase,
+  short_day_induction: kamiPhaseShortDayInduction,
 };
 
 interface Props {
@@ -61,9 +64,11 @@ function PhaseDetail({ phase, t }: { phase: PhaseTimelineEntry; t: (key: string,
     );
   }
   if (phase.status === 'current') {
+    /* eslint-disable react-hooks/purity -- Date.now() during render is intentional for display-only elapsed time */
     const daysIn = phase.actual_entered_at
       ? Math.floor((Date.now() - new Date(phase.actual_entered_at).getTime()) / 86400000)
       : 0;
+    /* eslint-enable react-hooks/purity */
     return (
       <Box>
         <Typography variant="body2" color="primary">
@@ -94,6 +99,7 @@ export default function PhaseTimelineStepper({ runKey }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading before async fetch
     setLoading(true);
     runApi
       .getPhaseTimeline(runKey)

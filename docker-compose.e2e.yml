@@ -5,8 +5,24 @@
 ## in an isolated network. No host ports required — runs in parallel
 ## with Kind/Skaffold without conflicts.
 ##
-## Usage:
+## Usage (light mode — no auth, skips requires_auth tests):
 ##   docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+##
+## Usage (full mode — with auth, runs ALL tests including login/tenant):
+##   docker compose -f docker-compose.e2e.yml --profile full \
+##     up e2e-tests-full --build --abort-on-container-exit
+##
+## Usage (mobile — iPhone 14 Pro viewport, touch emulation):
+##   docker compose -f docker-compose.e2e.yml --profile mobile \
+##     up e2e-tests-mobile --build --abort-on-container-exit
+##
+## Usage (tablet — iPad Air viewport, touch emulation):
+##   docker compose -f docker-compose.e2e.yml --profile tablet \
+##     up e2e-tests-tablet --build --abort-on-container-exit
+##
+## Usage (full + mobile combined):
+##   docker compose -f docker-compose.e2e.yml --profile full-mobile \
+##     up e2e-tests-full-mobile --build --abort-on-container-exit
 ##
 ## Reports are written to ./test-reports/ on the host.
 ##
@@ -14,7 +30,7 @@
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.11
+    image: arangodb:3.12
     environment:
       ARANGO_ROOT_PASSWORD: e2e-test-password
     healthcheck:
@@ -26,12 +42,26 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:8-alpine
+    image: valkey/valkey:9-alpine
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # ── TimescaleDB (optional) ─────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:2.26.1-pg16
+    profiles: ["timescaledb"]
+    environment:
+      POSTGRES_DB: kamerplanter_sensors_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: e2e-test-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # ── Backend (FastAPI) ────────────────────────────────────
   backend:
@@ -97,7 +127,7 @@ services:
 
   # ── Selenium Hub ─────────────────────────────────────────
   selenium-hub:
-    image: selenium/hub:4.25
+    image: selenium/hub:4.41
     environment:
       SE_SESSION_REQUEST_TIMEOUT: "300"
       SE_NODE_SESSION_TIMEOUT: "300"
@@ -105,7 +135,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:4.25
+    image: selenium/node-chrome:145.0
     depends_on:
       - selenium-hub
     environment:
@@ -130,11 +160,306 @@ services:
         condition: service_healthy
       chrome:
         condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./test-reports:/app/test-reports
     entrypoint:
       - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend:80
       - --app-mode=light
+
+  # ── E2E Core CRUD Tests (species, cultivar, sites) ─────
+  e2e-core-crud:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["core-crud"]
+    entrypoint:
+      - pytest
+      - -m
+      - core_crud
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+
+  # ── E2E Smoke Tests (fast ~2min) ────────────────────────
+  e2e-smoke:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["smoke"]
+    entrypoint:
+      - pytest
+      - -m
+      - smoke
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+
+  # ═══════════════════════════════════════════════════════════════
+  #  Full-Auth Profile — runs ALL tests including requires_auth
+  #
+  #  Usage:
+  #    docker compose -f docker-compose.e2e.yml --profile full \
+  #      up e2e-tests-full --build --abort-on-container-exit
+  #
+  #  Uses separate DB (kamerplanter_e2e_full) and Redis DB 1
+  #  so it can coexist with the light-mode services.
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── Backend (full mode) ──────────────────────────────────────
+  backend-full:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: kamerplanter_e2e_full
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: e2e-test-password
+      REDIS_URL: redis://valkey:6379/1
+      CORS_ORIGINS: '["http://frontend-full"]'
+      DEBUG: "false"
+      REQUIRE_EMAIL_VERIFICATION: "false"
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      KAMERPLANTER_MODE: full
+      COOKIE_SECURE: "false"
+      RATE_LIMIT_AUTH: "200/minute"
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    profiles: ["full"]
+
+  # ── Celery Worker (full mode) ────────────────────────────────
+  celery-worker-full:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: kamerplanter_e2e_full
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: e2e-test-password
+      REDIS_URL: redis://valkey:6379/1
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      KAMERPLANTER_MODE: full
+      COOKIE_SECURE: "false"
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    command: celery -A app.tasks worker --loglevel=info
+    profiles: ["full"]
+
+  # ── Frontend (full mode) ─────────────────────────────────────
+  frontend-full:
+    build:
+      context: ./src/frontend
+    environment:
+      KAMERPLANTER_MODE: full
+      BACKEND_HOST: backend-full
+    depends_on:
+      backend-full:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    profiles: ["full"]
+
+  # ── E2E Test Runner (full mode) ──────────────────────────────
+  e2e-tests-full:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend-full:80
+      KAMERPLANTER_MODE: full
+    depends_on:
+      frontend-full:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["full"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend-full:80
+      - --app-mode=full
+
+  # ═══════════════════════════════════════════════════════════════
+  #  Mobile / Tablet Profiles — responsive testing
+  #
+  #  Usage (light mode, mobile):
+  #    docker compose -f docker-compose.e2e.yml --profile mobile \
+  #      up e2e-tests-mobile --build --abort-on-container-exit
+  #
+  #  Usage (light mode, tablet):
+  #    docker compose -f docker-compose.e2e.yml --profile tablet \
+  #      up e2e-tests-tablet --build --abort-on-container-exit
+  #
+  #  Usage (full mode, mobile):
+  #    docker compose -f docker-compose.e2e.yml --profile full-mobile \
+  #      up e2e-tests-full-mobile --build --abort-on-container-exit
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── E2E Mobile (light mode) ─────────────────────────────────
+  e2e-tests-mobile:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      E2E_DEVICE: mobile
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["mobile"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+      - --device=mobile
+
+  # ── E2E Tablet (light mode) ─────────────────────────────────
+  e2e-tests-tablet:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      E2E_DEVICE: tablet
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["tablet"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+      - --device=tablet
+
+  # ── E2E Mobile (full mode) ──────────────────────────────────
+  e2e-tests-full-mobile:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend-full:80
+      E2E_DEVICE: mobile
+      KAMERPLANTER_MODE: full
+    depends_on:
+      frontend-full:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["full-mobile"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend-full:80
+      - --app-mode=full
+      - --device=mobile
+
+  # ── E2E Tablet (full mode) ──────────────────────────────────
+  e2e-tests-full-tablet:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend-full:80
+      E2E_DEVICE: tablet
+      KAMERPLANTER_MODE: full
+    depends_on:
+      frontend-full:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["full-tablet"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend-full:80
+      - --app-mode=full
+      - --device=tablet

@@ -17,6 +17,7 @@ class GrowthPhase(BaseModel):
     sequence_order: int = Field(ge=0)
     is_terminal: bool = False
     allows_harvest: bool = False
+    is_recurring: bool = False
     stress_tolerance: StressTolerance = StressTolerance.MEDIUM
     watering_interval_days: int | None = Field(default=None, ge=1, le=90)
     created_at: datetime | None = None
@@ -35,6 +36,10 @@ class LifecycleConfig(BaseModel):
     vernalization_min_days: int | None = Field(default=None, ge=1)
     photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
     critical_day_length_hours: float | None = Field(default=None, ge=0, le=24)
+    cycle_restart_phase_order: int | None = Field(
+        default=None,
+        description="For perennials: sequence_order at which the cycle restarts after the terminal phase.",
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

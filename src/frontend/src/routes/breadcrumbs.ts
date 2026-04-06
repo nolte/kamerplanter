@@ -49,7 +49,7 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-006 Aufgaben
   '/aufgaben/queue': { label: 'nav.taskQueue', parent: '/dashboard' },
   '/aufgaben/tasks': { label: 'nav.taskQueue', parent: '/dashboard', listPath: '/aufgaben/queue' },
-  '/aufgaben/workflows': { label: 'pages.species.workflows', parent: '/stammdaten/species' },
+  '/aufgaben/workflows': { label: 'nav.workflows', parent: '/aufgaben/queue' },
 
   // REQ-013 Durchläufe
   '/durchlaeufe/planting-runs': { label: 'nav.plantingRuns', parent: '/dashboard' },

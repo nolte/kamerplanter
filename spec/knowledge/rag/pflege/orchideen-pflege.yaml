@@ -1,0 +1,67 @@
+---
+title: Orchideen-Pflege fuer Einsteiger
+language: de
+category: pflege
+tags: [orchideen, phalaenopsis, bluete, temperaturreiz, pflege, zimmerpflanzen, reblooming]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: orchidee-erneut-bluehen
+    title: Orchidee blueht nicht mehr — So bringen Sie sie wieder zum Bluehen
+    content: |
+      Die Phalaenopsis (Schmetterlingsorchidee, haeufigste Zimmerorchidee)
+      blueht normalerweise 2-4 Monate, dann fallen die Blueten ab. Das ist
+      normal! Die Pflanze braucht eine Erholungsphase bevor sie erneut blueht.
+      Was tun damit die Orchidee wieder blueht:
+      1. Temperaturreiz geben: Der wichtigste Ausloeser fuer neue Blueten!
+         Die Orchidee braucht fuer 2-4 Wochen einen deutlichen Temperatur-
+         unterschied zwischen Tag und Nacht. Kuehle Naechte (15-18 Grad)
+         bei warmen Tagen (22-25 Grad) simulieren den natuerlichen Herbst
+         und triggern die Bluetenbildung.
+         Praxis: Im Herbst (September-Oktober) die Orchidee nachts an ein
+         kuehles Fenster stellen (nicht unter 14 Grad!).
+      2. Licht pruefen: Orchideen brauchen helles, indirektes Licht.
+         Zu wenig Licht ist die zweithaeufigste Ursache fuer ausbleibende
+         Bluete. Ideal: Ost- oder Westfenster. Am Nordfenster wird es
+         schwierig. Direkte Mittagssonne vermeiden (Sonnenbrand!).
+      3. Geduld haben: Nach dem Temperaturreiz dauert es 2-4 Monate
+         bis ein neuer Bluetenstiel erscheint. Geduld ist entscheidend —
+         nicht aufgeben! Eine gesunde Orchidee blueht 1-2x pro Jahr.
+      4. Nicht ueberduengen: Orchideen brauchen sehr wenig Duenger.
+         Spezieller Orchideen-Duenger in halber Dosis, alle 2-4 Wochen
+         waehrend der Wachstumsphase. Im Winter gar nicht duengen.
+      Haeufiger Fehler: Mehr Duenger hilft NICHT bei ausbleibender Bluete.
+      Der Temperaturreiz (kuehle Naechte) und ausreichend Licht sind die
+      entscheidenden Faktoren, nicht die Naehrstoffversorgung.
+      Bluetenstiel abschneiden? Bei Phalaenopsis: Gruenen Stiel stehen
+      lassen (kann nochmals Seitentriebe bilden). Braunen, vertrockneten
+      Stiel an der Basis abschneiden.
+    metadata:
+      topic: orchid_reblooming
+      species: Phalaenopsis
+      trigger: temperature_drop
+      difficulty: beginner
+
+  - id: orchidee-grundpflege
+    title: Orchideen-Grundpflege — Die wichtigsten Regeln
+    content: |
+      Orchideen sind anders als normale Zimmerpflanzen:
+      Substrat: KEINE normale Blumenerde! Orchideen wachsen in der Natur
+      auf Baeumen (Epiphyten). Sie brauchen grobes Orchideen-Substrat
+      (Rindenstuecke, Sphagnum-Moos, Blaehton). Die Wurzeln muessen
+      Luft bekommen — in Erde ersticken und verfaulen sie.
+      Giessen: Alle 7-10 Tage den ganzen Topf 10-15 Minuten in lauwarmes
+      Wasser tauchen, dann gut abtropfen lassen. Zwischen den Giess-
+      Durchgaengen muss das Substrat fast austrocknen. Silbrig-gruene
+      Wurzeln = trocken (giessen). Saftig-gruene Wurzeln = feucht (warten).
+      Topf: Durchsichtiger Plastiktopf (Orchideen-Wurzeln betreiben
+      Photosynthese!). Drainage-Loecher zwingend.
+      Licht: Hell aber keine direkte Mittagssonne. Ost- oder Westfenster
+      ideal. Blaetter sollten mittelgruen sein — dunkelgruen = zu wenig
+      Licht, gelbgruen/roetlich = zu viel Licht.
+      Temperatur: 18-25 Grad, keine Zugluft. Fuer Bluetenbildung
+      voruebergehend kuehle Naechte (15-18 Grad) noetig.
+    metadata:
+      topic: orchid_basic_care
+      species: Phalaenopsis
+      difficulty: beginner

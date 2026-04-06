@@ -5,8 +5,11 @@ from app.api.v1.tanks.schemas import (
     ActivePlanFertilizerInfo,
     AlertResponse,
     DueMaintenanceResponse,
+    EcDilutionRequest,
+    EcDilutionResponse,
     FeedsFromRequest,
     FillEventResultResponse,
+    HAEntitySuggestion,
     LiveStateResponse,
     MaintenanceLogCreate,
     MaintenanceLogResponse,
@@ -26,6 +29,7 @@ from app.api.v1.tanks.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_tank_service
+from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.models.sensor import Sensor
 from app.domain.models.tank import (
     FertilizerSnapshot,
@@ -83,6 +87,14 @@ def create_tank(
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_tank(tank)
     return _tank_response(created)
+
+
+@router.get("/ha-entities", response_model=list[HAEntitySuggestion])
+def list_ha_entities(
+    ctx: TenantContext = Depends(get_current_tenant),
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    return sensor_service.get_ha_entities()
 
 
 @router.get("/{key}", response_model=TankResponse)
@@ -391,3 +403,28 @@ def create_sensor(
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
     created = sensor_service.create_sensor(sensor)
     return SensorResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+
+
+@router.post("/{key}/ec-dilution", response_model=EcDilutionResponse)
+def calculate_ec_dilution(
+    key: str,
+    body: EcDilutionRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TankService = Depends(get_tank_service),
+):
+    tank = service.get_tank(key, tenant_key=ctx.tenant_key)
+    volume = body.current_volume_liters if body.current_volume_liters is not None else tank.volume_liters
+    calculator = WaterMixCalculator()
+    result = calculator.calculate_ec_dilution(
+        current_volume_liters=volume,
+        current_ec_ms=body.current_ec_ms,
+        target_ec_ms=body.target_ec_ms,
+        ro_ec_ms=body.ro_ec_ms,
+    )
+    return EcDilutionResponse(
+        **result.model_dump(),
+        current_volume_liters=volume,
+        current_ec_ms=body.current_ec_ms,
+        target_ec_ms=body.target_ec_ms,
+        ro_ec_ms=body.ro_ec_ms,
+    )

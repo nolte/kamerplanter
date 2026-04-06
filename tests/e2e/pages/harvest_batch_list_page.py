@@ -236,15 +236,23 @@ class HarvestBatchListPage(BasePage):
         el.send_keys(notes)
 
     def submit_create_form(self) -> None:
-        """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Click the submit button inside the create dialog.
+
+        Previous implementation dispatched a raw DOM submit event which
+        does not reliably trigger React Hook Form's ``handleSubmit``.
+        """
+        btn = self.wait_for_element_clickable(self.FORM_SUBMIT)
+        self.scroll_and_click(btn)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        btn = self.wait_for_element(self.FORM_CANCEL)
+        self.scroll_and_click(btn)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
+        import time
+
         field = self.wait_for_element_clickable(
             (
                 By.CSS_SELECTOR,
@@ -252,13 +260,26 @@ class HarvestBatchListPage(BasePage):
             )
         )
         self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (
-                By.XPATH,
-                f"//li[@role='option' and contains(text(), '{value_text}')]",
+        # If value_text is empty, pick the first available option
+        if not value_text:
+            option = self.wait_for_element_clickable(
+                (By.CSS_SELECTOR, "li[role='option']")
             )
-        )
+        else:
+            option = self.wait_for_element_clickable(
+                (
+                    By.XPATH,
+                    f"//li[@role='option' and contains(text(), '{value_text}')]",
+                )
+            )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
@@ -277,6 +298,25 @@ class HarvestBatchListPage(BasePage):
         """Return True if a success snackbar is visible."""
         els = self.driver.find_elements(*self.SNACKBAR)
         return any(el.is_displayed() for el in els) if els else False
+
+    def is_page_visible(self) -> bool:
+        """Check whether the harvest list page container is displayed."""
+        els = self.driver.find_elements(*self.PAGE)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def is_create_button_visible(self) -> bool:
+        """Check whether the create button is displayed."""
+        els = self.driver.find_elements(*self.CREATE_BUTTON)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def has_any_dialog_error(self) -> bool:
+        """Check for any MUI error helper text inside the dialog."""
+        from selenium.webdriver.common.by import By
+
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+        )) > 0
 
     def wait_for_dialog_closed(self, timeout: int = 10) -> None:
         """Wait until the create dialog is no longer visible."""

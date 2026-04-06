@@ -1,0 +1,178 @@
+{
+  "timestamp": "2026-04-01T12:05:43.753869+00:00",
+  "method": "topic_match",
+  "total_score": 0.0,
+  "passed": false,
+  "min_pass_score": 0.7,
+  "category_scores": {
+    "pflege": 0.0
+  },
+  "questions_evaluated": 12,
+  "failures": [
+    {
+      "id": "pflege-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "natuerlich_normal",
+        "alte_blaetter",
+        "entfernen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "fruehling",
+        "wurzeln_aus_loechern",
+        "wachstumsperiode"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "blumenerde",
+        "perlit_beimischen",
+        "drainage"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nein",
+        "ruhephase",
+        "wachstum_gestoppt",
+        "fruehling_starten"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "temperaturreiz",
+        "kuehle_nacht",
+        "geduld",
+        "licht_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "radieschen",
+        "salat",
+        "tomaten_busch",
+        "basilikum"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "verholzung",
+        "nicht_ins_alte_holz_schneiden",
+        "regelmaessig_ernten",
+        "licht"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-011",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "woechentlich",
+        "blattunterseiten",
+        "frueherkennung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-012",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "luftfeuchtigkeit",
+        "leitungswasser_chlor",
+        "kalkempfindlich",
+        "regenwasser"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-013",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "basilikum",
+        "schnittlauch",
+        "petersilie",
+        "suedfenster"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-014",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "frostfrei",
+        "kuehler_raum",
+        "wenig_giessen",
+        "kein_duenger",
+        "hell"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-015",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "abhaengig_von_art",
+        "nordfenster_ja",
+        "suedfenster_meist_ok",
+        "winter_kurze_tage"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    }
+  ]
+}

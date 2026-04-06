@@ -126,12 +126,14 @@ export default function ActivityListPage() {
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={t('pages.activities.title')} />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-          {t('pages.activities.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.activities.title')}
+        action={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+            {t('pages.activities.create')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.activities.listIntro')}
       </Typography>

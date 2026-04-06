@@ -69,6 +69,7 @@ export default function StarterKitStep({
                   onSelect(isSelected ? null : kit.kit_id)
                 }
                 data-testid={`kit-${kit.kit_id}`}
+                data-selected={isSelected ? 'true' : 'false'}
                 sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start' }}
               >
                 <Typography variant="subtitle1" fontWeight={isSelected ? 700 : 500} gutterBottom>

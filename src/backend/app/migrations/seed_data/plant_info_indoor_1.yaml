@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
-# Indoor plant seed data batch 1 — from spec/ref/plant-info/*.md (30 documents).
+# Indoor plant seed data batch 1 — from spec/knowledge/plants/*.md (30 documents).
 #
 # Adds 15 new botanical families, 29 new species, enriches 1 existing species
 # (Chlorophytum comosum already has enrichment in plant_info.yaml — skip here),
@@ -58,7 +58,7 @@ new_families:
     common_name_en: Asphodel family
     order: Asparagales
     typical_nutrient_demand: light
-    frost_tolerance: sensitive
+    frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
     common_pests: [mealybugs, scale_insects]
@@ -352,11 +352,11 @@ new_species:
     allows_harvest: false
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
-    min_container_depth_cm: 15
-    mature_height_cm: "30-50"
-    mature_width_cm: "30-60"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-45"
+    mature_width_cm: "20-40"
     indoor_suitable: "yes"
-    balcony_suitable: "no"
+    balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
@@ -387,7 +387,7 @@ new_species:
   - scientific_name: "Aeschynanthus radicans"
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
@@ -430,6 +430,7 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
 
+  # Trade name, not a valid botanical binomial; syn. Alocasia 'Polly'
   - scientific_name: "Alocasia x amazonica"
     common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear]
     genus: Alocasia
@@ -462,7 +463,7 @@ new_species:
     native_habitat: "Arabische Halbinsel (vermutlich Oman, Jemen)"
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
-    allows_harvest: false
+    allows_harvest: true  # W-003: leaf gel harvest
     bloom_months: [2, 3, 4]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
@@ -478,7 +479,7 @@ new_species:
   - scientific_name: "Anthurium andraeanum"
     common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
     genus: Anthurium
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -501,7 +502,7 @@ new_species:
   - scientific_name: "Aphelandra squarrosa"
     common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
     genus: Aphelandra
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -527,7 +528,7 @@ new_species:
     plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b]
     native_habitat: "Ostasien (Japan, China, Korea)"
     allelopathy_score: 0.0
     frost_sensitivity: moderate
@@ -547,7 +548,7 @@ new_species:
   - scientific_name: "Asparagus setaceus"
     common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
     genus: Asparagus
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: tuberous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -570,7 +571,7 @@ new_species:
   - scientific_name: "Aspidistra elatior"
     common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
     genus: Aspidistra
-    plant_category: tropical_foliage
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -794,7 +795,7 @@ new_species:
   - scientific_name: "Coffea arabica"
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
     genus: Coffea
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
@@ -1000,7 +1001,255 @@ new_species:
 # Chlorophytum comosum already enriched in plant_info.yaml — no additional
 # enrichment needed here.
 
-species_enrichment: {}
+species_enrichment:
+  "Begonia semperflorens":
+    sowing_indoor_weeks_before_last_frost: 12
+    sowing_outdoor_after_last_frost_days: 14
+    # Toxicity: Begonia genus — ASPCA-listed toxic (soluble calcium oxalates)
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+      - especially tuber
+    toxin: "Soluble calcium oxalates"
+    toxicity_severity: low
+
+  # ---------------------------------------------------------------------------
+  # Toxicity data — Sources: ASPCA Animal Poison Control, GIZ-Nord, PetMD
+  # Only entries verified from min. 3 concordant sources.
+  # ---------------------------------------------------------------------------
+
+  "Adiantum raddianum":
+    scientific_name: "Adiantum raddianum"
+    is_toxic: false
+    # U-002: Lime-sensitive fern — soft water essential to prevent brown leaf tips
+    water_quality_hint: "Use soft water (<8 dH) or rainwater. Chlorine causes brown leaf tips within weeks."
+
+  "Aechmea fasciata":
+    scientific_name: "Aechmea fasciata"
+    is_toxic: false
+
+  # Toxicity data not verified from 3 sources — research required
+  # "Aeschynanthus radicans":
+  #   scientific_name: "Aeschynanthus radicans"
+
+  "Aglaonema commutatum":
+    scientific_name: "Aglaonema commutatum"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+    toxin: "Calcium oxalate crystals"
+    toxicity_severity: moderate
+
+  "Alocasia x amazonica":
+    scientific_name: "Alocasia x amazonica"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+      - humans
+    toxic_parts:
+      - all
+    toxin: "Calcium oxalate crystals"
+    toxicity_severity: high
+
+  "Aloe vera":
+    scientific_name: "Aloe vera"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - leaves
+      - latex
+    toxin: "Saponins, anthraquinones (aloin)"
+    toxicity_severity: low
+
+  "Anthurium andraeanum":
+    scientific_name: "Anthurium andraeanum"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+    toxin: "Calcium oxalate crystals"
+    toxicity_severity: moderate
+
+  "Aphelandra squarrosa":
+    scientific_name: "Aphelandra squarrosa"
+    # Mildly irritant sap but not ASPCA-listed as toxic
+    is_toxic: false
+
+  # Toxicity data not verified from 3 sources — research required
+  # "Ardisia crenata":
+  #   scientific_name: "Ardisia crenata"
+
+  "Asparagus setaceus":
+    scientific_name: "Asparagus setaceus"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - berries
+    toxin: "Sapogenins"
+    toxicity_severity: low
+
+  "Aspidistra elatior":
+    scientific_name: "Aspidistra elatior"
+    is_toxic: false
+
+  "Asplenium nidus":
+    scientific_name: "Asplenium nidus"
+    is_toxic: false
+
+  "Beaucarnea recurvata":
+    scientific_name: "Beaucarnea recurvata"
+    is_toxic: false
+
+  "Begonia rex-cultorum":
+    scientific_name: "Begonia rex-cultorum"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+      - especially tuber
+    toxin: "Soluble calcium oxalates"
+    toxicity_severity: low
+
+  "Cattleya hybrida":
+    scientific_name: "Cattleya hybrida"
+    is_toxic: false
+
+  "Ceropegia woodii":
+    scientific_name: "Ceropegia woodii"
+    is_toxic: false
+
+  "Chamaedorea elegans":
+    scientific_name: "Chamaedorea elegans"
+    is_toxic: false
+
+  "Clivia miniata":
+    scientific_name: "Clivia miniata"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+      - especially bulb
+    toxin: "Lycorine alkaloids"
+    toxicity_severity: moderate
+
+  "Codiaeum variegatum":
+    scientific_name: "Codiaeum variegatum"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+      - humans
+    toxic_parts:
+      - all
+      - sap
+    toxin: "Diterpenes, 5-deoxyingenol"
+    toxicity_severity: moderate
+
+  "Coffea arabica":
+    scientific_name: "Coffea arabica"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - beans
+      - leaves
+    toxin: "Caffeine (methylxanthine)"
+    toxicity_severity: moderate
+
+  "Crassula ovata":
+    scientific_name: "Crassula ovata"
+    # ASPCA-listed toxic; exact toxin unknown but consistently reported
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - all
+    toxin: "Unknown (suspected saponins)"
+    toxicity_severity: low
+
+  "Ctenanthe burle-marxii":
+    scientific_name: "Ctenanthe burle-marxii"
+    is_toxic: false
+
+  "Curio rowleyanus":
+    scientific_name: "Curio rowleyanus"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+      - humans
+    toxic_parts:
+      - all
+    toxin: "Pyrrolizidine alkaloids"
+    toxicity_severity: moderate
+
+  "Cyclamen persicum":
+    scientific_name: "Cyclamen persicum"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - tuber
+    toxin: "Cyclamin (saponin)"
+    toxicity_severity: high
+
+  "Dendrobium nobile":
+    scientific_name: "Dendrobium nobile"
+    is_toxic: false
+
+  "Dieffenbachia seguine":
+    scientific_name: "Dieffenbachia seguine"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+      - humans
+    toxic_parts:
+      - all
+    toxin: "Calcium oxalate crystals, proteolytic enzymes"
+    toxicity_severity: high
+
+  "Dracaena angolensis":
+    scientific_name: "Dracaena angolensis"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - leaves
+    toxin: "Saponins"
+    toxicity_severity: low
+
+  "Dracaena marginata":
+    scientific_name: "Dracaena marginata"
+    is_toxic: true
+    toxic_to:
+      - cats
+      - dogs
+    toxic_parts:
+      - leaves
+    toxin: "Saponins"
+    toxicity_severity: low
 
 # ==============================================================================
 # S4  LIFECYCLE CONFIGS (29 species)
@@ -1025,14 +1274,15 @@ lifecycle_configs:
     vernalization_min_days: null
     critical_day_length_hours: null
 
+  # Flowering promoted by cooler nights (15-18°C); short-day response unconfirmed
   "Aeschynanthus radicans":
     cycle_type: perennial
-    photoperiod_type: short_day
+    photoperiod_type: day_neutral
     typical_lifespan_years: 10
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: 12.0
+    critical_day_length_hours: null
 
   "Aglaonema commutatum":
     cycle_type: perennial
@@ -1128,7 +1378,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 5
-    dormancy_required: false
+    dormancy_required: true
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null
@@ -1169,13 +1419,14 @@ lifecycle_configs:
     vernalization_min_days: null
     critical_day_length_hours: null
 
+  # Not true vernalization; requires 6-8 weeks cool rest at 8-12°C
   "Clivia miniata":
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 30
     dormancy_required: true
-    vernalization_required: false
-    vernalization_min_days: null
+    vernalization_required: true
+    vernalization_min_days: 42
     critical_day_length_hours: null
 
   "Codiaeum variegatum":
@@ -1196,14 +1447,15 @@ lifecycle_configs:
     vernalization_min_days: null
     critical_day_length_hours: null
 
+  # Facultative short-day; blooming promoted by <12h light but not obligate
   "Crassula ovata":
     cycle_type: perennial
-    photoperiod_type: short_day
+    photoperiod_type: day_neutral
     typical_lifespan_years: 75
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: 12.0
+    critical_day_length_hours: null
 
   "Ctenanthe burle-marxii":
     cycle_type: perennial
@@ -1232,6 +1484,7 @@ lifecycle_configs:
     vernalization_min_days: null
     critical_day_length_hours: null
 
+  # Not true vernalization; requires cool-dry rest at 10-15°C for 8-12 weeks
   "Dendrobium nobile":
     cycle_type: perennial
     photoperiod_type: day_neutral
@@ -1263,7 +1516,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 20
-    dormancy_required: false
+    dormancy_required: false  # Tropical evergreen — no true dormancy
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null
@@ -1593,7 +1846,7 @@ growth_phases:
         temperature_night_c: 15.0
         humidity_day_percent: 30
         humidity_night_percent: 35
-        vpd_target_kpa: 1.5
+        vpd_target_kpa: 1.0  # P-002: Succulent — lower VPD than tropicals, higher than ferns
         co2_ppm: 400
         irrigation_frequency_days: 14.0
         irrigation_volume_ml_per_plant: 200
@@ -1975,7 +2228,7 @@ growth_phases:
         temperature_night_c: 15.0
         humidity_day_percent: 30
         humidity_night_percent: 35
-        vpd_target_kpa: 1.5
+        vpd_target_kpa: 1.2  # P-002: Caudex succulent — tolerates drier air than typical succulents
         co2_ppm: 400
         irrigation_frequency_days: 14.0
         irrigation_volume_ml_per_plant: 300
@@ -2444,10 +2697,35 @@ growth_phases:
         calcium_ppm: 150
         magnesium_ppm: 60
 
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 60
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.0
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
     - name: winter_rest
       display_name: Winterruhe
       duration_days: 150
-      sequence_order: 2
+      sequence_order: 3
       is_terminal: false
       allows_harvest: false
       stress_tolerance: low
@@ -2484,7 +2762,7 @@ growth_phases:
         temperature_night_c: 15.0
         humidity_day_percent: 30
         humidity_night_percent: 35
-        vpd_target_kpa: 1.5
+        vpd_target_kpa: 1.0  # P-002: Succulent — moderate VPD target
         co2_ppm: 400
         irrigation_frequency_days: 18.0
         irrigation_volume_ml_per_plant: 250
@@ -2586,7 +2864,7 @@ growth_phases:
         temperature_night_c: 15.0
         humidity_day_percent: 40
         humidity_night_percent: 45
-        vpd_target_kpa: 1.2
+        vpd_target_kpa: 1.0  # P-002: Succulent — moderate VPD target
         co2_ppm: 400
         irrigation_frequency_days: 12.0
         irrigation_volume_ml_per_plant: 100
@@ -2600,7 +2878,7 @@ growth_phases:
     - name: summer_rest
       display_name: Sommerruhe
       duration_days: 75
-      sequence_order: 2
+      sequence_order: 3
       is_terminal: false
       allows_harvest: false
       stress_tolerance: high
@@ -2625,7 +2903,7 @@ growth_phases:
     - name: flowering
       display_name: Blüte
       duration_days: 45
-      sequence_order: 3
+      sequence_order: 2
       is_terminal: false
       allows_harvest: false
       stress_tolerance: medium
@@ -2778,7 +3056,7 @@ growth_phases:
       display_name: Blüte
       duration_days: 70
       sequence_order: 3
-      is_terminal: true
+      is_terminal: false
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:

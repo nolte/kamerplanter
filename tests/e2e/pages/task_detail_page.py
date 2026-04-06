@@ -54,8 +54,13 @@ class TaskDetailPage(BasePage):
     def get_task_title(self) -> str:
         """Return the page heading (task name) from the Typography h5/h6."""
         el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='task-detail-page'] h5, [data-testid='task-detail-page'] h4")
+            (By.CSS_SELECTOR, "[data-testid='page-title']")
         )
+        return el.text
+
+    def get_page_text(self) -> str:
+        """Return the visible text content of the page container."""
+        el = self.wait_for_element(self.PAGE)
         return el.text
 
     # ── Tabs ───────────────────────────────────────────────────────────

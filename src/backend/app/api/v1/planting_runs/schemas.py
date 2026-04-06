@@ -33,6 +33,7 @@ class SpeciesPhaseTimeline(BaseModel):
     species_key: str
     species_name: str | None = None
     lifecycle_key: str
+    cycle_type: str | None = None
     plant_count: int
     phases: list[PhaseTimelineEntry]
 

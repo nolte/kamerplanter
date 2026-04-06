@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -45,6 +46,38 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=["light", "full"],
         help="Application mode — 'light' skips auth-dependent tests (default: full)",
     )
+    parser.addoption(
+        "--resume",
+        default=None,
+        help="Resume a previous interrupted test run from checkpoint. "
+             "Pass the test-reports/e2e/<timestamp>/ directory path.",
+    )
+    parser.addoption(
+        "--device",
+        default=os.environ.get("E2E_DEVICE", "desktop"),
+        choices=["desktop", "mobile", "tablet"],
+        help="Device profile for viewport/user-agent emulation (default: desktop)",
+    )
+
+
+# Import protocol_plugin — works both in-repo (as package) and in Docker (flat).
+# pytest's conftest loader prevents normal import mechanisms from working
+# reliably, so we use importlib with an explicit path as fallback.
+import importlib.util as _ilu
+import sys as _sys
+
+_pp_path = Path(__file__).parent / "protocol_plugin.py"
+_pp_spec = _ilu.spec_from_file_location("protocol_plugin", _pp_path)
+_pp_mod = _ilu.module_from_spec(_pp_spec)  # type: ignore[arg-type]
+_sys.modules["protocol_plugin"] = _pp_mod
+_pp_spec.loader.exec_module(_pp_mod)  # type: ignore[union-attr]
+ProtocolGenerator = _pp_mod.ProtocolGenerator
+ScreenshotEntry = _pp_mod.ScreenshotEntry
+TestResult = _pp_mod.TestResult
+
+# ── Protocol plugin state ─────────────────────────────────────────────────
+_protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
+_protocol_output_dir: Path | None = None
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -53,15 +86,101 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "requires_auth: mark test as requiring full auth mode (skipped in light mode)",
     )
+    config.addinivalue_line(
+        "markers",
+        "smoke: mark test as part of the smoke test suite (core functionality)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "core_crud: mark test as part of the core CRUD suite (species, cultivar, site CRUD for average users)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "requires_desktop: mark test as requiring desktop viewport (skipped on mobile/tablet)",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Auto-skip tests marked ``requires_auth`` when running in light mode."""
+    """Auto-skip tests based on app mode, device and resume state."""
     if config.getoption("--app-mode") == "light":
         skip_light = pytest.mark.skip(reason="requires full auth mode (running in light mode)")
         for item in items:
             if "requires_auth" in item.keywords:
                 item.add_marker(skip_light)
+
+    if config.getoption("--device") != "desktop":
+        device = config.getoption("--device")
+        skip_mobile = pytest.mark.skip(reason=f"requires desktop viewport (running on {device})")
+        for item in items:
+            if "requires_desktop" in item.keywords:
+                item.add_marker(skip_mobile)
+
+    # Resume mode: skip tests that already passed in a previous run
+    resume_dir = config.getoption("--resume", default=None)
+    if resume_dir:
+        checkpoint = Path(resume_dir) / "checkpoint.jsonl"
+        if checkpoint.exists():
+            passed_nodeids = set()
+            for r in _load_checkpoint(checkpoint):
+                if r.outcome == "passed":
+                    passed_nodeids.add(r.nodeid)
+            if passed_nodeids:
+                skip_resume = pytest.mark.skip(reason="already passed in previous run (--resume)")
+                for item in items:
+                    if item.nodeid in passed_nodeids:
+                        item.add_marker(skip_resume)
+
+
+# ── Device profiles for responsive testing ────────────────────────────────
+# Each profile defines viewport dimensions, device scale factor, touch support,
+# and a user-agent string.  Used by the ``browser`` fixture to configure
+# Chrome DevTools Protocol mobile emulation.
+DEVICE_PROFILES: dict[str, dict] = {
+    "desktop": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": False,
+        "userAgent": "",  # empty = keep default Chrome UA
+    },
+    "mobile": {
+        # iPhone 14 Pro equivalent
+        "width": 393,
+        "height": 852,
+        "deviceScaleFactor": 3,
+        "mobile": True,
+        "userAgent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/17.0 Mobile/15E148 Safari/604.1"
+        ),
+    },
+    "tablet": {
+        # iPad Air equivalent
+        "width": 820,
+        "height": 1180,
+        "deviceScaleFactor": 2,
+        "mobile": True,
+        "userAgent": (
+            "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/17.0 Mobile/15E148 Safari/604.1"
+        ),
+    },
+}
+
+
+@pytest.fixture(scope="session")
+def app_mode(request: pytest.FixtureRequest) -> str:
+    """Return the current app mode ('light' or 'full')."""
+    return request.config.getoption("--app-mode")
+
+
+@pytest.fixture(scope="session")
+def device_profile(request: pytest.FixtureRequest) -> dict:
+    """Return the active device profile dict (viewport, UA, scale, touch)."""
+    name = request.config.getoption("--device")
+    return {**DEVICE_PROFILES[name], "name": name}
 
 
 @pytest.fixture(scope="session")
@@ -73,24 +192,208 @@ def base_url(request: pytest.FixtureRequest) -> str:
     return os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
 
 
+# ── Demo user credentials (shared between seed fixture and auth tests) ────
+# Light mode uses demo@kamerplanter.local (inserted directly into DB, no validation).
+# Full mode registers via API with Pydantic EmailStr which rejects .local domains.
+DEMO_EMAIL_LIGHT = "demo@kamerplanter.local"
+DEMO_EMAIL_FULL = "demo@kamerplanter.example"
+DEMO_PASSWORD = "demo-passwort-2024"
+DEMO_DISPLAY_NAME = "Mein Garten"
+
+
+def _api_helpers(auth_token: str | None = None):
+    """Return (post, get) helper functions with optional Bearer auth."""
+    import json
+    import urllib.request
+    import urllib.error
+
+    def _headers() -> dict[str, str]:
+        h: dict[str, str] = {"Content-Type": "application/json"}
+        if auth_token:
+            h["Authorization"] = f"Bearer {auth_token}"
+        return h
+
+    def _post(url: str, data: dict) -> tuple[int, dict]:
+        body = json.dumps(data).encode()
+        req = urllib.request.Request(url, data=body, headers=_headers())
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = json.loads(e.read())
+            except Exception:
+                err_body = {}
+            return e.code, err_body
+
+    def _get(url: str) -> tuple[int, list | dict]:
+        req = urllib.request.Request(url, headers=_headers())
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = json.loads(e.read())
+            except Exception:
+                err_body = []
+            return e.code, err_body
+
+    return _post, _get
+
+
+def _register_and_login(api_base: str) -> tuple[str, str]:
+    """Register the demo user (idempotent) and login to get a JWT token.
+
+    Returns (access_token, tenant_slug).
+    """
+    _post, _get = _api_helpers()
+
+    # Register — idempotent: returns 201 for new, 201 for existing (SEC-H-009)
+    _post(f"{api_base}/api/v1/auth/register", {
+        "email": DEMO_EMAIL_FULL,
+        "password": DEMO_PASSWORD,
+        "display_name": DEMO_DISPLAY_NAME,
+    })
+
+    # Login to get JWT
+    status, resp = _post(f"{api_base}/api/v1/auth/login", {
+        "email": DEMO_EMAIL_FULL,
+        "password": DEMO_PASSWORD,
+    })
+    if status != 200 or "access_token" not in resp:
+        raise RuntimeError(f"E2E seed login failed: status={status}, resp={resp}")
+
+    token = resp["access_token"]
+
+    # Discover tenant slug from user's tenants
+    _, _get_auth = _api_helpers(token)
+    _, tenants = _get_auth(f"{api_base}/api/v1/tenants/")
+    if not isinstance(tenants, list) or not tenants:
+        raise RuntimeError(f"E2E seed: no tenants found after registration: {tenants}")
+
+    tenant_slug = tenants[0]["slug"]
+    return token, tenant_slug
+
+
+@pytest.fixture(scope="session", autouse=True)
+def e2e_seed_data(base_url: str, app_mode: str) -> dict:
+    """Create seed data (Site + Location) via backend API for E2E tests.
+
+    Runs once per session.
+    - Light mode: uses the system tenant slug 'mein-garten' (no auth needed).
+    - Full mode: registers demo user, logs in to get JWT, discovers tenant slug.
+    """
+    api_base = base_url.rstrip("/")
+    result: dict = {}
+
+    # In full mode, register + login to get auth token and tenant slug
+    if app_mode == "full":
+        token, tenant_slug = _register_and_login(api_base)
+        result["access_token"] = token
+        result["tenant_slug"] = tenant_slug
+        _post, _get = _api_helpers(token)
+    else:
+        tenant_slug = "mein-garten"
+        result["tenant_slug"] = tenant_slug
+        _post, _get = _api_helpers()
+
+    api = f"{api_base}/api/v1/t/{tenant_slug}"
+
+    SITE_NAME = "E2E-Sonnengarten"
+    LOCATION_NAME = "E2E-Wohnzimmer"
+    SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
+
+    try:
+        list_status, sites = _get(f"{api}/sites")
+        existing_site = None
+        if list_status == 200 and isinstance(sites, list):
+            existing_site = next((s for s in sites if s.get("name") == SITE_NAME), None)
+
+        if existing_site:
+            result["site_key"] = existing_site["key"]
+            tree_status, tree = _get(f"{api}/locations/tree?site_key={existing_site['key']}")
+            if tree_status == 200 and isinstance(tree, list) and tree:
+                result["location_key"] = tree[0]["key"]
+        else:
+            status, site = _post(f"{api}/sites", {
+                "name": SITE_NAME,
+                "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
+                "climate_zone": "8a",
+                "total_area_m2": 45,
+                "timezone": "Europe/Berlin",
+            })
+            if status == 201:
+                result["site_key"] = site["key"]
+                loc_status, loc = _post(f"{api}/locations", {
+                    "name": LOCATION_NAME,
+                    "site_key": site["key"],
+                    "location_type_key": "room",
+                    "area_m2": 18,
+                })
+                if loc_status == 201:
+                    result["location_key"] = loc["key"]
+                _post(f"{api}/locations", {
+                    "name": SLOT_LOCATION_NAME,
+                    "site_key": site["key"],
+                    "location_type_key": "greenhouse",
+                    "area_m2": 12,
+                })
+
+        # Skip onboarding wizard so the browser lands on /dashboard
+        _post(f"{api}/onboarding/skip", {})
+    except Exception as exc:
+        result["error"] = str(exc)
+
+    seed_log = Path("test-reports/e2e_seed_data.log")
+    seed_log.parent.mkdir(parents=True, exist_ok=True)
+    seed_log.write_text(f"api={api}\nmode={app_mode}\nresult={result}\n")
+
+    return result
+
+
+def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
+    """Make an authenticated POST to a tenant-scoped API endpoint.
+
+    Helper for test fixtures that need to call the backend API (e.g. resetting
+    onboarding state).  Works in both light and full mode.
+    """
+    token = e2e_seed_data.get("access_token")
+    slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+    _post, _ = _api_helpers(token)
+    url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/{path.lstrip('/')}"
+    return _post(url, data or {})
+
+
 @pytest.fixture(scope="session")
-def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
-    """Create a headless browser session for the entire test run (NFR-008 §3.1).
+def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict) -> webdriver.Remote:
+    """Create a headless browser session per xdist worker (NFR-008 §3.1).
+
+    Depends on ``e2e_seed_data`` to ensure the demo user exists before
+    attempting browser login in full mode.
+
+    With pytest-xdist, ``scope="session"`` means one session per worker
+    process — each of the N workers gets exactly one browser.  Without
+    xdist, all tests share a single browser as before.
 
     When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
     a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
     local browser is started as before.
+
+    The ``--device`` option controls viewport size and mobile emulation
+    via Chrome DevTools Protocol.
     """
     browser_name = request.config.getoption("--browser")
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+    dev = device_profile
+    win_size = f"{dev['width']},{dev['height']}"
 
     if remote_url:
         # ── Remote WebDriver (Selenium Grid / Docker) ──────────
         if browser_name == "firefox":
             options = webdriver.FirefoxOptions()
             options.add_argument("--headless")
-            options.add_argument("--width=1920")
-            options.add_argument("--height=1080")
+            options.add_argument(f"--width={dev['width']}")
+            options.add_argument(f"--height={dev['height']}")
             options.set_preference("intl.accept_languages", "de-DE,de")
         else:
             options = webdriver.ChromeOptions()
@@ -98,18 +401,24 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
-            options.add_argument("--window-size=1920,1080")
+            options.add_argument(f"--window-size={win_size}")
             options.add_argument("--lang=de-DE")
         driver = webdriver.Remote(
             command_executor=remote_url,
             options=options,
         )
+        # Enable local file uploads to remote Selenium Grid nodes.
+        # Without this, send_keys(file_path) on file inputs fails because
+        # the file only exists on the test host, not inside the Grid node.
+        from selenium.webdriver.remote.file_detector import LocalFileDetector
+
+        driver.file_detector = LocalFileDetector()
     elif browser_name == "firefox":
         # ── Local Firefox ──────────────────────────────────────
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        options.add_argument("--width=1920")
-        options.add_argument("--height=1080")
+        options.add_argument(f"--width={dev['width']}")
+        options.add_argument(f"--height={dev['height']}")
         gecko_path = shutil.which("geckodriver")
         if gecko_path:
             service = FirefoxService(gecko_path)
@@ -126,7 +435,7 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--remote-debugging-port=0")
-        options.add_argument("--window-size=1920,1080")
+        options.add_argument(f"--window-size={win_size}")
         # Support snap-installed Chromium (Ubuntu)
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
@@ -143,8 +452,31 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             service = ChromeService()
         driver = webdriver.Chrome(service=service, options=options)
 
-    # Export browser name for the protocol plugin metadata
+    # ── Apply device emulation via CDP (Chrome only) ──────────────────
+    if dev["name"] != "desktop":
+        try:
+            driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
+                "width": dev["width"],
+                "height": dev["height"],
+                "deviceScaleFactor": dev["deviceScaleFactor"],
+                "mobile": dev["mobile"],
+            })
+            if dev["userAgent"]:
+                driver.execute_cdp_cmd("Emulation.setUserAgentOverride", {
+                    "userAgent": dev["userAgent"],
+                })
+            driver.execute_cdp_cmd("Emulation.setTouchEmulationEnabled", {
+                "enabled": True,
+            })
+        except Exception:
+            # CDP not available (Firefox, older grids) — viewport size is
+            # already set via window-size argument, so tests still run at
+            # the correct dimensions, just without touch/UA emulation.
+            pass
+
+    # Export browser + device name for the protocol plugin metadata
     os.environ["E2E_BROWSER"] = browser_name
+    os.environ["E2E_DEVICE"] = dev["name"]
 
     driver.implicitly_wait(10)
 
@@ -157,8 +489,75 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         "window.localStorage.setItem('kamerplanter-lang', 'de');"
     )
 
+    # In full mode, log the browser in so non-auth tests can access the app.
+    # Auth-specific tests manage their own login/logout state.
+    if request.config.getoption("--app-mode") == "full":
+        _browser_login(driver, url)
+
     yield driver
     driver.quit()
+
+
+def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
+    """Log into the app via the browser UI (full mode only).
+
+    Navigates to /login, fills credentials, submits, and waits for
+    redirect to /dashboard or /onboarding.
+    """
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    driver.get(f"{base_url}/login")
+    wait = WebDriverWait(driver, 15)
+
+    email_input = wait.until(EC.presence_of_element_located(
+        (By.CSS_SELECTOR, "input[type='email']")
+    ))
+    email_input.clear()
+    email_input.send_keys(DEMO_EMAIL_FULL)
+
+    password_input = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
+    password_input.clear()
+    password_input.send_keys(DEMO_PASSWORD)
+
+    submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+    submit_btn.click()
+
+    # Wait for successful redirect (dashboard or onboarding)
+    wait.until(lambda d: "/login" not in d.current_url)
+
+
+@pytest.fixture(autouse=True)
+def ensure_authenticated(
+    request: pytest.FixtureRequest,
+    browser: webdriver.Remote,
+    base_url: str,
+) -> None:
+    """Re-login the browser before each test if auth state was lost (full mode only).
+
+    Auth tests (requires_auth) that deliberately log out and test login flows
+    can break the session for subsequent non-auth tests on the same xdist worker.
+    This fixture detects a lost session by checking for the ``kp_refresh`` cookie
+    and re-logs in if needed.
+    """
+    if request.config.getoption("--app-mode") != "full":
+        return
+
+    # Skip for tests that explicitly manage their own auth state
+    if "requires_auth" in request.node.keywords:
+        return
+
+    # Check if the browser ended up on the login page (= session lost).
+    # We cannot reliably check the kp_refresh cookie because it is scoped
+    # to path=/api/v1/auth and Selenium only returns cookies for the
+    # current page's path.
+    current = browser.current_url
+    if "/login" not in current:
+        return
+
+    # Session lost — re-login
+    _browser_login(browser, base_url)
 
 
 @pytest.fixture(scope="session")
@@ -176,9 +575,28 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
         path = protocol_dir / "screenshots"
     else:
         timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        path = Path("test-reports") / timestamp / "screenshots"
+        path = Path("test-reports") / "e2e" / timestamp / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
+    """Capture a full-page screenshot via Chrome DevTools Protocol.
+
+    Falls back to the standard Selenium screenshot if CDP is not available
+    (e.g. Firefox or older drivers).
+    """
+    import base64
+
+    try:
+        result = driver.execute_cdp_cmd(
+            "Page.captureScreenshot",
+            {"captureBeyondViewport": True},
+        )
+        filepath.write_bytes(base64.b64decode(result["data"]))
+    except Exception:
+        # Fallback for non-Chrome browsers or remote grids without CDP
+        driver.save_screenshot(str(filepath))
 
 
 @pytest.fixture(autouse=True)
@@ -205,12 +623,10 @@ def screenshot(
             capture = request.node._screenshot_capture
             capture("req014_001_tank_list")
     """
-    from .protocol_plugin import ScreenshotEntry
-
     def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
-        browser.save_screenshot(str(filepath))
+        _cdp_full_page_screenshot(browser, filepath)
 
         # Register with protocol plugin for report generation
         screenshots_list = getattr(request.node, "_protocol_screenshots", [])
@@ -241,8 +657,138 @@ def screenshot(
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item) -> None:
-    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4)."""
+    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4).
+
+    Also record results for the protocol generator.
+    """
     outcome = yield
     report = outcome.get_result()
     if report.when == "call":
         item._report = report  # type: ignore[attr-defined]
+
+        # ── Protocol recording ────────────────────────────────────
+        if _protocol_generator is not None:
+            outcome_str = "passed" if not report.failed else "failed"
+            if report.skipped:
+                outcome_str = "skipped"
+            message = str(report.longrepr) if report.failed else ""
+            docstring = ""
+            if item.obj and item.obj.__doc__:
+                docstring = item.obj.__doc__.strip().split("\n")[0]
+            screenshots: list[ScreenshotEntry] = getattr(
+                item, "_protocol_screenshots", []
+            )
+            result = TestResult(
+                nodeid=item.nodeid,
+                outcome=outcome_str,
+                duration=report.duration,
+                message=message,
+                docstring=docstring,
+                screenshots=screenshots,
+            )
+            _protocol_generator.add_result(result)
+            # Incremental checkpoint — append to JSONL so partial results
+            # survive interrupts (Ctrl+C, crash, timeout).
+            _write_checkpoint(result)
+
+
+def _write_checkpoint(result: TestResult) -> None:
+    """Append a single test result to the JSONL checkpoint file.
+
+    Each line is a self-contained JSON object.  On interrupt the file
+    contains all results completed so far and can be used to:
+    1. Generate a partial protocol (``--generate-protocol``)
+    2. Resume a test run (``--resume``)
+    """
+    import json
+    if _protocol_output_dir is None:
+        return
+    checkpoint = _protocol_output_dir / "checkpoint.jsonl"
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "nodeid": result.nodeid,
+        "outcome": result.outcome,
+        "duration": result.duration,
+        "message": result.message[:500] if result.message else "",
+        "docstring": result.docstring,
+        "screenshots": [
+            {"filename": s.filename, "description": s.description}
+            for s in result.screenshots
+        ],
+    }
+    with checkpoint.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
+    """Load results from a JSONL checkpoint file."""
+    import json
+    results: list[TestResult] = []
+    if not checkpoint_path.exists():
+        return results
+    for line in checkpoint_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        entry = json.loads(line)
+        results.append(TestResult(
+            nodeid=entry["nodeid"],
+            outcome=entry["outcome"],
+            duration=entry.get("duration", 0.0),
+            message=entry.get("message", ""),
+            docstring=entry.get("docstring", ""),
+            screenshots=[
+                ScreenshotEntry(
+                    filename=s["filename"],
+                    description=s["description"],
+                    test_nodeid=entry["nodeid"],
+                )
+                for s in entry.get("screenshots", [])
+            ],
+        ))
+    return results
+
+
+def _generate_protocol_safe() -> None:
+    """Generate the protocol from whatever results exist — safe to call on interrupt."""
+    if _protocol_generator is not None and _protocol_output_dir is not None:
+        try:
+            path = _protocol_generator.generate(_protocol_output_dir)
+            print(f"\nTestprotokoll geschrieben: {path}")
+        except Exception as exc:
+            print(f"\nWarnung: Protokoll-Generierung fehlgeschlagen: {exc}")
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Initialize protocol generator if --generate-protocol is active."""
+    import atexit
+    global _protocol_generator, _protocol_output_dir
+
+    if session.config.getoption("--generate-protocol", default=False):
+        resume_dir = session.config.getoption("--resume", default=None)
+        if resume_dir:
+            # Resume mode — load checkpoint from a previous interrupted run
+            resume_path = Path(resume_dir)
+            _protocol_output_dir = resume_path
+            _protocol_generator = ProtocolGenerator()
+            checkpoint = resume_path / "checkpoint.jsonl"
+            if checkpoint.exists():
+                loaded = _load_checkpoint(checkpoint)
+                _protocol_generator.results = loaded
+                _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+                print(f"\nFortgesetzt mit {len(loaded)} Ergebnissen aus {checkpoint}")
+        else:
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+            _protocol_output_dir = Path("test-reports") / "e2e" / timestamp
+            _protocol_generator = ProtocolGenerator()
+            _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+
+        session.config._protocol_output_dir = _protocol_output_dir  # type: ignore[attr-defined]
+
+        # Safety net: generate protocol even on unclean exit (Ctrl+C, crash)
+        atexit.register(_generate_protocol_safe)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Write the test protocol at the end of the session."""
+    _generate_protocol_safe()

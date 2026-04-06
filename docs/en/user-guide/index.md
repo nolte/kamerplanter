@@ -19,4 +19,11 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Calendar](calendar.md) | Calendar view and sowing calendar | REQ-015 |
 | [Dashboard](dashboard.md) | Overview and key metrics | REQ-009 |
 | [Onboarding Wizard](onboarding.md) | Guided initial setup with starter kits and favourites | REQ-020 |
+| [Care Reminders](care-reminders.md) | Automatic watering and care schedules | REQ-022 |
+| [Tenant Management](tenants.md) | Manage personal and community gardens | REQ-024 |
+| [AI Assistant](ai-assistant.md) | Query plant knowledge via AI search | — |
+| [AI Providers](ai-providers.md) | Configure AI providers (Ollama, Anthropic, OpenAI) | — |
+| [Actuator Control](actuator-control.md) | Automatic control of fans, lights, pumps | REQ-018 |
+| [Propagation](propagation.md) | Cuttings, seeds, grafting | REQ-017 |
+| [Privacy](privacy.md) | GDPR rights and data export | REQ-025 |
 | [Light Mode](light-mode.md) | Kamerplanter without login for local instances | REQ-027 |

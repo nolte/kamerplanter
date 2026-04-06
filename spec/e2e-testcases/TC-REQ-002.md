@@ -2,12 +2,13 @@
 req_id: REQ-002
 title: "Standortverwaltung — Räumliche Platzierung und Standort-Hierarchie"
 category: Infrastruktur
-test_count: 62
+test_count: 66
 coverage_areas:
   - Site-Listenseite (SiteListPage)
   - Site-Erstellen-Dialog (SiteCreateDialog)
   - Site-Detailseite (SiteDetailPage)
   - Wasserquellen-Konfiguration (WaterSourceSection)
+  - Wasseranalyse-Warnungen (Messalter, RO-Membran, GH-Plausibilität)
   - Location-Baum (LocationTreeSection)
   - Location-Erstellen-Dialog (LocationCreateDialog)
   - Location-Detailseite (LocationDetailPage)
@@ -19,6 +20,7 @@ coverage_areas:
   - Lichtzeiten-Verwaltung
   - Properties-Vererbung
 generated: 2026-03-21
+updated: 2026-04-02
 version: "4.2"
 ---
 
@@ -60,9 +62,9 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 
 ---
 
-### TC-002-002: Site-Liste zeigt vorhandene Sites mit allen Spalten
+### TC-002-002: Site-Liste zeigt vorhandene Sites als Akkordeon-Karten
 
-**Requirement**: REQ-002 § 2 — Site-Properties (name, climate_zone, total_area_m2, timezone)
+**Requirement**: REQ-002 § 2 — Site-Properties (name, climate_zone, total_area_m2, timezone), § 6 — Hierarchische Struktur
 **Priority**: High
 **Category**: Listenansicht
 **Preconditions**:
@@ -71,19 +73,20 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 
 **Testschritte**:
 1. Nutzer navigiert zu `/standorte/sites`
-2. Nutzer betrachtet die DataTable
+2. Nutzer betrachtet die Kartenliste
 
 **Erwartete Ergebnisse**:
-- Tabelle zeigt Spalten: "Name", "Klimazone", "Gesamtfläche (m²)", "Zeitzone"
-- Zeile "Zuhause" zeigt: Name=Zuhause, Klimazone=8a, Gesamtfläche=50 m², Zeitzone=Europe/Berlin
-- Zeile "Gewächshaus" zeigt: Name=Gewächshaus, Klimazone=9b, Gesamtfläche=120 m², Zeitzone=UTC
-- Tabelle ist nach Name aufsteigend vorsortiert
-- Fußzeile zeigt "Zeigt 1–2 von 2 Einträgen"
+- Jeder Site wird als aufklappbare Karte (Card mit Collapse) angezeigt
+- Karten-Header zeigt: Name, Klimazone, Gesamtfläche (m²), Anzahl Bereiche
+- Klick auf den Karten-Header klappt den Inhalt auf/zu
+- Aufgeklappter Inhalt zeigt den Location-Baum (SimpleTreeView) mit verschachtelten Bereichen
+- Jeder Baumknoten zeigt: Icon (Typ), Name, Typ-Chip, Slot-/Pflanzenanzahl
+- Button "Standort erstellen" ist sichtbar
 
 **Nachbedingungen**:
 - Keine Daten verändert
 
-**Tags**: [REQ-002, site, listenansicht, datatable]
+**Tags**: [REQ-002, site, listenansicht, akkordeon, karten]
 
 ---
 
@@ -1683,12 +1686,143 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 
 ---
 
+## 20. Wasseranalyse-Warnungen (WaterSource)
+
+Diese Gruppe deckt die Soft-Warnungen ab, die auf der Site-Detailseite im Abschnitt "Wasserquelle" eingeblendet werden, wenn Wasseranalysedaten veraltet, inkonsistent oder auf Membranverschleiß hinweisend sind.
+
+### TC-002-063: Warnung bei veralteter Wasseranalyse (measurement_date > 6 Monate)
+
+**Requirement**: REQ-002 § 1 — TapWaterProfile: measurement_date; § 6 DoD — Messalter-Warnung (Soft)
+**Priority**: High
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Site "Zuhause" hat eine WaterSource konfiguriert
+- `tap_water_profile.measurement_date` ist auf ein Datum gesetzt, das mehr als 180 Tage (6 Monate) in der Vergangenheit liegt (z. B. vor 200 Tagen)
+- Nutzer navigiert zur Site-Detailseite `/standorte/sites/zuhause`
+
+**Testschritte**:
+1. Nutzer öffnet die Site-Detailseite `/standorte/sites/zuhause`
+2. Nutzer scrollt zum Abschnitt "Wasserquelle" (WaterSourceSection)
+3. Nutzer betrachtet den angezeigten Inhalt oberhalb oder innerhalb des Leitungswasser-Profils
+
+**Erwartete Ergebnisse**:
+- Ein gelber Warn-Banner (MUI Alert, severity="warning") ist sichtbar
+- Der Banner enthält den Text "Wasseranalyse älter als 6 Monate" oder eine inhaltlich gleichwertige Meldung
+- Das angezeigte `measurement_date`-Feld zeigt das korrekte (alte) Datum
+- Der Banner bietet einen Hinweis, die Analyse zu erneuern (z. B. Link oder Hinweistext)
+- Die restlichen Wasserparameter (EC, pH, GH usw.) werden weiterhin angezeigt — der Banner blockiert nicht den Zugriff auf die Daten
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-066 (kein Banner bei frischer Analyse)
+
+**Tags**: [REQ-002, wasserquelle, measurement-date, messalter-warnung, soft-warnung, banner]
+
+---
+
+### TC-002-064: RO-Membran-Warnung bei erhöhtem Rest-EC (ro_water_profile.ec_ms > 0.05 mS)
+
+**Requirement**: REQ-002 § 1 — RoWaterProfile: ec_ms; § 6 DoD — RO-Membran-Warnung (Soft)
+**Priority**: High
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Site "Zuhause" hat eine WaterSource mit `has_ro_system=true` konfiguriert
+- `ro_water_profile.ec_ms` ist auf einen Wert über 0.05 mS gesetzt (z. B. 0.08 mS), was auf Membranverschleiß hindeutet
+- Nutzer navigiert zur Site-Detailseite `/standorte/sites/zuhause`
+
+**Testschritte**:
+1. Nutzer öffnet die Site-Detailseite `/standorte/sites/zuhause`
+2. Nutzer scrollt zum Abschnitt "Wasserquelle"
+3. Nutzer betrachtet den Bereich "Osmosewasser-Profil"
+
+**Erwartete Ergebnisse**:
+- Ein orangener Warn-Banner (MUI Alert, severity="warning" oder severity="error") ist im Bereich des RO-Profils sichtbar
+- Der Banner enthält einen Text zum Thema Membranverschleiß, z. B. "RO-Membran-EC über 0.05 mS — Membranverschleiß prüfen" oder sinngemäß
+- Das Feld "Rest-EC" zeigt den eingetragenen Wert (z. B. 0.08 mS)
+- Der Banner blockiert nicht die Anzeige der übrigen Daten
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-019 (has_ro_system=false blendet RO-Sektion aus), TC-002-020 (RO-Toggle-Sichtbarkeit)
+
+**Tags**: [REQ-002, wasserquelle, ro-membran, ec-warnung, soft-warnung, banner, osmose]
+
+---
+
+### TC-002-065: GH-Plausibilitätsprüfung — sehr weiches Wasser löst Info-Banner aus
+
+**Requirement**: REQ-002 § 1 — TapWaterProfile: gh_ppm, Validierungsregeln — GH-Plausibilitäts-Check; § 6 DoD
+**Priority**: Medium
+**Category**: Fehlermeldung
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Site "Zuhause" hat eine WaterSource konfiguriert
+- `tap_water_profile.gh_ppm` ist auf einen sehr niedrigen Wert (z. B. < 17.8 ppm, entspricht < 1.0 °dH sehr weiches Wasser) gesetzt
+- Alternativ: `calcium_ppm` und `magnesium_ppm` sind gesetzt und der berechnete GH-Wert (Ca × 2.497 + Mg × 4.116) weicht um mehr als 30 % vom eingetragenen `gh_ppm` ab
+
+**Testschritte**:
+1. Nutzer öffnet die Site-Detailseite `/standorte/sites/zuhause`
+2. Nutzer scrollt zum Abschnitt "Wasserquelle"
+3. Nutzer betrachtet das Leitungswasser-Profil
+
+**Erwartete Ergebnisse**:
+- Ein Info-Banner (MUI Alert, severity="info") ist sichtbar
+- Der Banner enthält einen Hinweis auf sehr weiches Wasser, z. B. "Sehr weiches Wasser — CalMag-Korrektur empfohlen" oder "GH-Wert weicht von Ca+Mg-Berechnung ab. Daten prüfen."
+- Der Banner ist informierend, nicht blockierend — der Nutzer kann die Seite normal verwenden
+- Die eingetragenen Wasserparameter werden unverändert angezeigt
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-009 (WaterSource-Formular mit GH-Feld), TC-002-063 (Messalter-Warnung)
+
+**Tags**: [REQ-002, wasserquelle, gh-plausibilität, weiches-wasser, calmag, info-banner, soft-warnung]
+
+---
+
+### TC-002-066: Kein Warn-Banner bei frischer Wasseranalyse (measurement_date < 6 Monate)
+
+**Requirement**: REQ-002 § 1 — TapWaterProfile: measurement_date; § 6 DoD — Messalter-Warnung nur bei Überschreitung
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Site "Zuhause" hat eine WaterSource mit vollständig ausgefülltem TapWaterProfile konfiguriert
+- `tap_water_profile.measurement_date` ist auf ein Datum gesetzt, das weniger als 180 Tage (6 Monate) in der Vergangenheit liegt (z. B. vor 30 Tagen)
+- `ro_water_profile.ec_ms` ist ≤ 0.05 mS (kein Membranverschleiß) oder `has_ro_system=false`
+- `gh_ppm` ist plausibel (Abweichung zum berechneten Wert aus Ca+Mg unter 30 %)
+
+**Testschritte**:
+1. Nutzer öffnet die Site-Detailseite `/standorte/sites/zuhause`
+2. Nutzer scrollt zum Abschnitt "Wasserquelle"
+3. Nutzer betrachtet das Leitungswasser-Profil vollständig
+
+**Erwartete Ergebnisse**:
+- Kein gelber oder orangener Warn-Banner ist sichtbar
+- Kein GH-Plausibilitäts-Info-Banner ist sichtbar
+- Alle Wasserparameter (EC, pH, GH, Ca, Mg, Chlor, Chloramin, Messdatum, Quellnotiz) werden ohne Warnung angezeigt
+- Die Seite vermittelt dem Nutzer, dass die Wasseranalyse aktuell und gültig ist
+
+**Nachbedingungen**:
+- Keine Daten verändert
+
+**Siehe auch**: TC-002-063 (Warnung bei veraltetem Datum), TC-002-064 (RO-Membran-Warnung)
+
+**Tags**: [REQ-002, wasserquelle, measurement-date, kein-banner, frische-analyse, happy-path]
+
+---
+
 ## Coverage-Matrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
 |---|---|---|
 | § 1 Business Case — Site | Site-Grundstruktur | TC-002-001 bis TC-002-013 |
 | § 1 Wasserquellen-Konfiguration | WaterSource, TapWaterProfile, RoWaterProfile | TC-002-008, TC-002-009, TC-002-014 bis TC-002-020 |
+| § 1 Wasseranalyse-Warnungen | Messalter, RO-Membran, GH-Plausibilität, Negativtest | TC-002-063 bis TC-002-066 |
 | § 2 ArangoDB — Location | Location-Properties, Verschachtelung | TC-002-021 bis TC-002-034 |
 | § 2 ArangoDB — Slot | Slot-Properties | TC-002-035 bis TC-002-041 |
 | § 2 Lichtzeiten-Verwaltung | lights_on, lights_off, use_dynamic_sunrise | TC-002-027, TC-002-028, TC-002-029, TC-002-054, TC-002-055 |

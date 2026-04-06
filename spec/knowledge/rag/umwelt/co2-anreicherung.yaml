@@ -1,0 +1,140 @@
+---
+title: CO2-Anreicherung fuer Indoor-Anbau
+language: de
+category: umwelt
+tags: [co2, kohlendioxid, photosynthese, anreicherung, lueftung, sicherheit, indoor]
+expertise_level: [intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: co2-grundlagen
+    title: CO2-Grundlagen und Pflanzenphysiologie
+    content: |
+      Atmosphaerischer CO2-Gehalt: ~420 ppm (2024, steigend).
+      CO2 ist neben Licht und Wasser der dritte Hauptfaktor der Photosynthese:
+      6 CO2 + 6 H2O + Licht → C6H12O6 + 6 O2
+      In geschlossenen Growraeumen kann CO2 schnell abfallen:
+      - Geschlossener Raum ohne Lueftung: CO2 sinkt auf 200-300 ppm
+        innerhalb von Stunden bei aktiver Photosynthese
+      - Bei 200 ppm: Photosynthese nahezu gestoppt, Pflanze "hungert"
+      - Normal-Lueftung bringt ~420 ppm (Aussenluft-Niveau)
+      CO2-Anreicherung auf 800-1200 ppm steigert die Photosynthese-Rate
+      um 20-40% — ABER nur in Kombination mit:
+      - Ausreichend Licht (>600 PPFD, besser >800 PPFD)
+      - Optimaler Temperatur (kann auf 28-32°C erhoeht werden bei hohem CO2)
+      - Ausreichend Naehrstoffen (EC erhoehen bei CO2-Supplementation)
+      Ohne genuegend Licht bringt CO2-Erhoehung NICHTS — Licht ist fast
+      immer der limitierende Faktor, nicht CO2.
+    metadata:
+      topic: co2_basics
+      ambient_ppm: 420
+
+  - id: co2-anreicherung-methoden
+    title: Methoden der CO2-Anreicherung
+    content: |
+      CO2-Flasche mit Druckminderer und Magnetventil:
+      - Praezise Dosierung ueber CO2-Controller moeglich
+      - Sauber, geruchlos, keine Waerme/Feuchtigkeit als Nebenprodukt
+      - Kosten: Flasche ~100-150€, Fuellungen ~20-30€ fuer 10kg
+      - Empfohlen fuer ernsthafte Indoor-Grower
+      CO2-Generator (Propan/Erdgas-Verbrennung):
+      - Verbrennt Gas → CO2 + H2O + Waerme
+      - Guenstig im Betrieb, aber erzeugt Waerme und Feuchtigkeit
+      - Nur in grossen Raeumen mit guter Kuehlung sinnvoll
+      - Sicherheitsrisiko: offene Flamme, CO-Bildung bei unvollstaendiger Verbrennung
+      Fermentation (DIY):
+      - Zucker + Hefe → CO2 + Alkohol
+      - Ungleichmaessig, unkontrollierbar, nur ~50-100 ppm Erhoehung
+      - Fuer kleine Raeume/Growzelte als Anfaenger-Option
+      - Nicht empfohlen fuer ernsthaften Anbau
+      Trockene CO2-Pads/Saecke:
+      - Mycelium-basiert, setzen CO2 langsam frei
+      - Einfache Handhabung, keine Technik
+      - Geringe Menge, fuer 1-2 Pflanzen in kleinem Zelt
+    metadata:
+      topic: co2_methods
+      recommended: bottle_with_regulator
+
+  - id: co2-steuerung
+    title: CO2-Steuerung und Controller-Einstellungen
+    content: |
+      CO2-Controller misst aktuelle Konzentration und steuert Zufuhr:
+      Zielwerte:
+      - Vegetativ: 800-1000 ppm (moderate Erhoehung)
+      - Bluete: 1000-1200 ppm (maximale Anreicherung)
+      - Nacht: CO2-Zufuhr AUS (Pflanze betreibt keine Photosynthese,
+        CO2 wuerde nur verschwendet und erreicht gefaehrliche Level)
+      - Ueber 1500 ppm: Keine weitere Steigerung der Photosynthese,
+        nur Verschwendung und potenziell schaedlich fuer Pflanze
+      Timing:
+      - CO2-Zufuhr NUR waehrend der Lichtphase
+      - Start: 15-30 Minuten nach Licht-An (Stomata muessen offen sein)
+      - Stopp: 30 Minuten vor Licht-Aus
+      - NICHT gleichzeitig mit Abluft betreiben (CO2 wird sofort abgefuehrt)
+      Strategie: Abluft-Intervall-Betrieb → CO2 anreichern → Abluft kurz
+      fuer Temperatur/Feuchtigkeit → CO2 wieder anreichern. Oder: Abluft
+      minimal und Umluft-Kuehlung (Split-Klimaanlage) nutzen.
+      Messtechnik: NDIR-Sensor (Non-Dispersive Infrared) — zuverlaessig,
+      muss nicht kalibriert werden. Guenstige "CO2-Meter" mit MOX-Sensor
+      sind fuer Raumluft ok, aber zu ungenau fuer Grow-Steuerung.
+    metadata:
+      topic: co2_control
+      target_range_ppm: [800, 1200]
+
+  - id: co2-sicherheit
+    title: CO2-Sicherheit und Gesundheitsrisiken
+    content: |
+      CO2 ist unsichtbar und geruchlos — Ueberdosierung wird nicht bemerkt!
+      Gefahrenstufen:
+      - 1000 ppm: Normal in Innenraeumen, keine Gefahr
+      - 2000 ppm: Leichte Kopfschmerzen bei laengerem Aufenthalt
+      - 5000 ppm (0.5%): MAK-Wert (Maximale Arbeitsplatz-Konzentration).
+        Nicht ueberschreiten! Schwindel, Uebelkeit.
+      - 30.000 ppm (3%): Bewusstlosigkeit in Minuten
+      - 100.000 ppm (10%): Tod in Minuten
+      Sicherheitsmassnahmen:
+      - CO2-Melder mit Alarm im Growraum (nicht nur fuer Steuerung!)
+      - Immer lueften bevor man den Raum betritt
+      - CO2-Zufuhr niemals nachts (Pflanze nimmt es nicht auf, es sammelt sich)
+      - CO2-Flasche sicher befestigen (Umkippen = Ventilbruch = unkontrollierte
+        Freisetzung)
+      - Kinder und Haustiere fernhalten
+      - CO2 ist schwerer als Luft → sammelt sich am Boden
+      Hinweis: In einem typischen 1.2×1.2×2m Growzelt (2.88m³) genuegen
+      wenige Gramm CO2 um 1200 ppm zu erreichen. Die Mengen sind gering,
+      aber in geschlossenen Raeumen kumuliert es schnell.
+    metadata:
+      topic: co2_safety
+      mak_ppm: 5000
+      dangerous_ppm: 30000
+
+  - id: co2-kosten-nutzen
+    title: CO2-Anreicherung — Kosten-Nutzen-Analyse
+    content: |
+      Wann lohnt sich CO2-Anreicherung?
+      VORAUSSETZUNG — Licht zuerst optimieren:
+      Ohne ausreichend Licht bringt CO2 nichts. PPFD-Werte muessen ueber
+      600 PPFD liegen, besser ueber 800 PPFD. Daher: PPFD zuerst pruefen
+      und messen, bevor ueberhaupt ueber CO2 nachgedacht wird. Licht ist
+      fast immer der limitierende Faktor, nicht CO2.
+      LOHNT SICH wenn:
+      - PPFD ueber 600 (besser >800) — mit PPFD-Meter pruefen!
+      - Raum ist gut abgedichtet (sonst entweicht CO2 sofort)
+      - Temperatur und VPD sind bereits optimiert
+      - Ertragssteigerung von 20-30% den Aufwand rechtfertigt
+      - Growraum ist gross genug (>1m² Anbauflaeche)
+      LOHNT SICH NICHT wenn:
+      - PPFD unter 600 (Licht ist der limitierende Faktor, nicht CO2)
+      - Raum ist undicht (Zeltstoff, offene Lueftung)
+      - Temperatur/VPD sind nicht kontrolliert
+      - Nur 1-2 Pflanzen auf der Fensterbank
+      - Budget fuer besseres Licht noch nicht ausgeschoepft
+      Kosten-Rechnung (Hobby-Setup mit Flasche):
+      - CO2-Flasche 10kg: ~30€ Fuellung, reicht ~2-4 Monate im 1.2×1.2m Zelt
+      - Druckminderer + Magnetventil: ~80-150€ einmalig
+      - CO2-Controller: ~150-300€ einmalig
+      - Laufende Kosten: ~8-15€/Monat
+      Prioritaetsreihenfolge: Licht > VPD > Naehrstoffe > CO2
+      CO2 ist die LETZTE Optimierung, nicht die erste.
+    metadata:
+      topic: co2_cost_benefit
+      priority: last_optimization

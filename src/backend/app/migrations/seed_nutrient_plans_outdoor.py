@@ -2,7 +2,7 @@
 
 Loads all plan data from seed_data/nutrient_plans_outdoor.yaml.
 
-Auto-generated from spec/ref/nutrient-plans/
+Auto-generated from spec/knowledge/nutrient-plans/
 *_plagron_terra.md JSON blocks.
 """
 

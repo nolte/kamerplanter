@@ -108,16 +108,22 @@ class ImportPage(BasePage):
     # ── Entity type dropdown ────────────────────────────────────────────
 
     def get_entity_type_value(self) -> str:
-        """Return the currently selected entity type value (internal)."""
+        """Return the currently selected entity type value (internal).
+
+        MUI v7 Select renders the value in a ``MuiSelect-nativeInput`` text input
+        (previously ``input[type='hidden']`` in MUI v5/v6).
+        """
         self.wait_for_element(self.ENTITY_TYPE_SELECT)
-        # MUI Select uses a hidden input for the actual value
-        hidden = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='import-entity-type'] input[type='hidden']"
+        native = self.driver.find_element(
+            By.CSS_SELECTOR, "[data-testid='import-entity-type'] input.MuiSelect-nativeInput"
         )
-        return hidden.get_attribute("value") or ""
+        return native.get_attribute("value") or ""
 
     def select_entity_type(self, value_text: str) -> None:
         """Open the entity type dropdown and select an option by visible text."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
         self.scroll_and_click(select_el)
         option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
@@ -126,9 +132,19 @@ class ImportPage(BasePage):
             )
         )
         option.click()
+        # Wait for dropdown to close and dismiss any lingering backdrop
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def get_entity_type_options(self) -> list[str]:
         """Open the entity type dropdown and return all option texts."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
         self.scroll_and_click(select_el)
         options = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
@@ -136,22 +152,27 @@ class ImportPage(BasePage):
         )
         texts = [o.text for o in options]
         # Close dropdown by pressing Escape
-        from selenium.webdriver.common.keys import Keys
-
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.5)  # Wait for backdrop to fully dismiss
         return texts
 
     # ── Duplicate strategy dropdown ─────────────────────────────────────
 
     def get_duplicate_strategy_value(self) -> str:
-        """Return the currently selected duplicate strategy value."""
-        hidden = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='import-duplicate-strategy'] input[type='hidden']"
+        """Return the currently selected duplicate strategy value.
+
+        MUI v7 Select renders the value in a ``MuiSelect-nativeInput`` text input.
+        """
+        native = self.driver.find_element(
+            By.CSS_SELECTOR, "[data-testid='import-duplicate-strategy'] input.MuiSelect-nativeInput"
         )
-        return hidden.get_attribute("value") or ""
+        return native.get_attribute("value") or ""
 
     def select_duplicate_strategy(self, value_text: str) -> None:
         """Open the duplicate strategy dropdown and select an option."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
         self.scroll_and_click(select_el)
         option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
@@ -160,18 +181,27 @@ class ImportPage(BasePage):
             )
         )
         option.click()
+        # Wait for dropdown to close and dismiss any lingering backdrop
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def get_duplicate_strategy_options(self) -> list[str]:
         """Open the duplicate strategy dropdown and return all option texts."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
         self.scroll_and_click(select_el)
         options = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li[role='option']"))
         )
         texts = [o.text for o in options]
-        from selenium.webdriver.common.keys import Keys
-
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.5)  # Wait for backdrop to fully dismiss
         return texts
 
     # ── File selection ──────────────────────────────────────────────────
@@ -179,10 +209,20 @@ class ImportPage(BasePage):
     def select_file(self, file_path: str) -> None:
         """Send a file path to the hidden file input element.
 
-        Selenium can send_keys to a file input even if it is hidden;
-        no need to click the label button first.
+        The MUI ``<input hidden>`` renders as ``display: none``, which some
+        Selenium/WebDriver combinations reject for ``send_keys``.  We
+        temporarily make the input visible via JavaScript before interacting.
         """
         file_input = self.driver.find_element(*self.FILE_INPUT)
+        # Make the hidden input visible so Selenium can interact with it
+        self.driver.execute_script(
+            "arguments[0].style.display = 'block';"
+            "arguments[0].style.visibility = 'visible';"
+            "arguments[0].style.height = '1px';"
+            "arguments[0].style.width = '1px';"
+            "arguments[0].style.opacity = '0.01';",
+            file_input,
+        )
         file_input.send_keys(file_path)
 
     def get_file_button_text(self) -> str:
@@ -199,20 +239,31 @@ class ImportPage(BasePage):
 
     def click_upload(self) -> None:
         """Click the upload button and wait for the preview step to appear."""
-        self.wait_for_element_clickable(self.UPLOAD_BUTTON).click()
+        btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
+        self.scroll_and_click(btn)
 
     def click_upload_and_wait_preview(self, timeout: int = 30) -> None:
         """Click upload and wait until the preview step container appears."""
-        self.wait_for_element_clickable(self.UPLOAD_BUTTON).click()
+        import time
+
+        btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
+        self.scroll_and_click(btn)
         WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located(self.STEP_PREVIEW)
         )
+        # Wait for preview content to render (table rows)
+        time.sleep(0.5)
 
     def click_upload_and_wait_error(self, timeout: int = 30) -> None:
-        """Click upload and wait until the error alert appears."""
-        self.wait_for_element_clickable(self.UPLOAD_BUTTON).click()
+        """Click upload and wait until the error alert or snackbar appears."""
+        btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
+        self.scroll_and_click(btn)
+        # Wait for either in-page error alert or a snackbar error
         WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.ERROR_ALERT)
+            lambda d: (
+                len(d.find_elements(*self.ERROR_ALERT)) > 0
+                or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
+            )
         )
 
     # ── Download template ───────────────────────────────────────────────
@@ -229,14 +280,25 @@ class ImportPage(BasePage):
     # ── Error alert ─────────────────────────────────────────────────────
 
     def is_error_alert_visible(self) -> bool:
-        """Return True if the import error alert is displayed."""
+        """Return True if the import error alert or a snackbar error is displayed."""
         elements = self.driver.find_elements(*self.ERROR_ALERT)
-        return len(elements) > 0 and elements[0].is_displayed()
+        if len(elements) > 0 and elements[0].is_displayed():
+            return True
+        # Fallback: check for snackbar error
+        snackbars = self.driver.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")
+        return any(s.is_displayed() for s in snackbars)
 
     def get_error_alert_text(self) -> str:
-        """Return the text of the error alert."""
-        el = self.wait_for_element(self.ERROR_ALERT)
-        return el.text
+        """Return the text of the error alert or snackbar error."""
+        elements = self.driver.find_elements(*self.ERROR_ALERT)
+        if elements and elements[0].is_displayed():
+            return elements[0].text
+        # Fallback: snackbar text
+        snackbars = self.driver.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")
+        for s in snackbars:
+            if s.is_displayed() and s.text:
+                return s.text
+        return ""
 
     # ── Preview table ───────────────────────────────────────────────────
 
@@ -247,10 +309,17 @@ class ImportPage(BasePage):
 
     def get_preview_file_info(self) -> str:
         """Return the file info text shown above the preview table (filename + row count)."""
-        el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='import-step-preview'] .MuiTypography-subtitle1")
-        )
-        return el.text
+        # Try multiple typography variants that might contain file info
+        for variant in ("subtitle1", "subtitle2", "body1", "body2", "h6"):
+            elements = self.driver.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='import-step-preview'] .MuiTypography-{variant}"
+            )
+            for el in elements:
+                if el.is_displayed() and el.text:
+                    return el.text
+        # Fallback: any text in the preview step
+        step = self.driver.find_element(*self.STEP_PREVIEW)
+        return step.text
 
     def get_preview_row_statuses(self) -> list[str]:
         """Return the status chip text for each preview row."""
@@ -314,7 +383,8 @@ class ImportPage(BasePage):
 
     def click_back(self) -> None:
         """Click the back button to return to step 1."""
-        self.wait_for_element_clickable(self.BACK_BUTTON).click()
+        btn = self.wait_for_element_clickable(self.BACK_BUTTON)
+        self.scroll_and_click(btn)
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
             EC.presence_of_element_located(self.STEP_UPLOAD)
         )
@@ -326,14 +396,19 @@ class ImportPage(BasePage):
 
     def click_confirm(self) -> None:
         """Click the confirm import button."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        btn = self.wait_for_element_clickable(self.CONFIRM_BUTTON)
+        self.scroll_and_click(btn)
 
     def click_confirm_and_wait_result(self, timeout: int = 30) -> None:
         """Click confirm and wait for the result step to appear."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        import time
+
+        btn = self.wait_for_element_clickable(self.CONFIRM_BUTTON)
+        self.scroll_and_click(btn)
         WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located(self.STEP_RESULT)
         )
+        time.sleep(0.5)  # Wait for result content to render
 
     # ── Result step ─────────────────────────────────────────────────────
 
@@ -362,7 +437,8 @@ class ImportPage(BasePage):
 
     def click_new_import(self) -> None:
         """Click 'New Import' button and wait for upload step."""
-        self.wait_for_element_clickable(self.NEW_IMPORT_BUTTON).click()
+        btn = self.wait_for_element_clickable(self.NEW_IMPORT_BUTTON)
+        self.scroll_and_click(btn)
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
             EC.presence_of_element_located(self.STEP_UPLOAD)
         )
@@ -383,7 +459,10 @@ class ImportPage(BasePage):
         The file is placed in a temp directory and will persist until the OS
         cleans up the temp folder (or the caller deletes it).
         """
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        # Use a directory inside $HOME so snap-confined Chromium can access it
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         content = delimiter.join(header.split(",")) + "\n"
         for row in rows:
@@ -397,7 +476,9 @@ class ImportPage(BasePage):
     @staticmethod
     def create_empty_csv(filename: str = "empty.csv") -> str:
         """Create an empty CSV file and return its path."""
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         with open(filepath, "w"):
             pass  # empty file
@@ -406,7 +487,9 @@ class ImportPage(BasePage):
     @staticmethod
     def create_large_csv(filename: str = "large.csv", size_mb: int = 11) -> str:
         """Create a CSV file exceeding *size_mb* megabytes."""
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         header = "scientific_name,common_names,family,genus\n"
         row = "Solanum lycopersicum,Tomate,Solanaceae,Solanum\n"

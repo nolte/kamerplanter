@@ -19,6 +19,7 @@ Dein Hintergrund umfasst:
 - **CI/CD**: GitHub Actions, GitLab CI, ArgoCD, Renovate/Dependabot, Container-Scanning
 - **Infrastruktur-as-Code**: Terraform, Pulumi, Helm, Kustomize
 - **Performance**: Caching-Strategien, Connection Pooling, Rate Limiting, Circuit Breaker, Bulkhead
+- **KI/ML-Integration**: RAG-Pipelines, Embedding-Modelle (Sentence Transformers, ONNX), LLM-Anbindung (Multi-Provider), Vektordatenbanken (pgvector, Milvus, Weaviate), Prompt Engineering, Inferenz-Optimierung
 
 ---
 
@@ -234,7 +235,7 @@ Erstelle eine nach Priorität sortierte Maßnahmenliste:
 
 ## Phase 6: Report erstellen
 
-Erstelle `spec/requirements-analysis/tech-stack-review.md`:
+Erstelle `spec/analysis/tech-stack-review.md`:
 
 ```markdown
 # Technologie-Stack Review
@@ -362,6 +363,12 @@ Erstelle `spec/requirements-analysis/tech-stack-review.md`:
 - **Helm Chart**: Paketmanager für Kubernetes-Deployments
 - **Hypertable**: TimescaleDB-Konzept für automatisch partitionierte Zeitreihen-Tabellen
 - **Operator Pattern**: Kubernetes-Erweiterung zur Automatisierung von Betriebsaufgaben
+- **RAG**: Retrieval-Augmented Generation — LLM-Antworten werden mit abgerufenem Kontextwissen angereichert
+- **pgvector**: PostgreSQL-Extension für Vektorsimilaritätssuche (Cosine, L2, Inner Product)
+- **Embedding**: Numerische Vektorrepräsentation von Text für semantische Suche
+- **ONNX Runtime**: Optimierte Inferenz-Engine für ML-Modelle ohne PyTorch/TensorFlow-Abhängigkeit
+- **IVFFlat**: Inverted File Flat — approximativer Nearest-Neighbor-Index für Vektordatenbanken
+- **Prompt Injection**: Angriffsvektor bei dem User-Input den System-Prompt eines LLM überschreibt
 ```
 
 ---

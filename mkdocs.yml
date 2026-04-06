@@ -102,12 +102,23 @@ plugins:
             Dashboard: Dashboard
             Onboarding-Wizard: Onboarding Wizard
             Light-Modus: Light Mode
+            KI-Assistent: AI Assistant
+            KI-Provider einrichten: AI Provider Setup
+            Umgebungssteuerung: Actuator Control
+            Mandanten & Gaerten: Tenants & Gardens
+            Pflegeerinnerungen: Care Reminders
+            Vermehrung: Propagation
+            Datenschutz (DSGVO): Privacy (GDPR)
+            Druckansichten & Export: Print & Export
+            Gießprotokoll: Watering Log
+            Plattform-Admin: Platform Admin
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
             Frontend: Frontend
             Datenbank: Database
             Infrastruktur: Infrastructure
+            KI-Architektur: AI Architecture
             Entwicklung: Development
             Lokales Setup: Local Setup
             Code-Standards: Code Standards
@@ -117,6 +128,7 @@ plugins:
             API: API
             Authentifizierung: Authentication
             Fehlerbehandlung: Error Handling
+            Betriebsprofile: Deployment Profiles
             Deployment: Deployment
             Kubernetes: Kubernetes
             Helm Charts: Helm Charts
@@ -129,6 +141,11 @@ plugins:
             Fehlerbehebung: Troubleshooting
             Pflanzendaten per AI: AI Plant Data Pipeline
             Home Assistant Integration: Home Assistant Integration
+            RAG-Wissensbasis: RAG Knowledge Base
+            Service Accounts: Service Accounts
+            Datenaufbewahrung: Data Retention
+            Mischkultur: Companion Planting
+            Nachernte: Post-Harvest
             Referenz: Reference
             API-Referenz: API Reference
             Datenbankschema: Database Schema
@@ -217,6 +234,7 @@ nav:
       - Standorte & Substrate: de/user-guide/locations-substrates.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
       - Dünge-Logik: de/user-guide/fertilization.md
+      - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
@@ -227,6 +245,15 @@ nav:
       - Dashboard: de/user-guide/dashboard.md
       - Onboarding-Wizard: de/user-guide/onboarding.md
       - Light-Modus: de/user-guide/light-mode.md
+      - KI-Assistent: de/user-guide/ai-assistant.md
+      - KI-Provider einrichten: de/user-guide/ai-providers.md
+      - Umgebungssteuerung: de/user-guide/actuator-control.md
+      - Mandanten & Gaerten: de/user-guide/tenants.md
+      - Pflegeerinnerungen: de/user-guide/care-reminders.md
+      - Vermehrung: de/user-guide/propagation.md
+      - Datenschutz (DSGVO): de/user-guide/privacy.md
+      - Druckansichten & Export: de/user-guide/print-export.md
+      - Plattform-Admin: de/user-guide/admin.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
@@ -234,6 +261,7 @@ nav:
       - Frontend: de/architecture/frontend.md
       - Datenbank: de/architecture/database.md
       - Infrastruktur: de/architecture/infrastructure.md
+      - KI-Architektur: de/architecture/ai-architecture.md
   - Entwicklung:
       - de/development/index.md
       - Lokales Setup: de/development/local-setup.md
@@ -246,8 +274,10 @@ nav:
       - Überblick: de/api/overview.md
       - Authentifizierung: de/api/authentication.md
       - Fehlerbehandlung: de/api/error-handling.md
+      - Service Accounts: de/api/service-accounts.md
   - Deployment:
       - de/deployment/index.md
+      - Betriebsprofile: de/deployment/betriebsprofile.md
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
       - ArgoCD: de/deployment/argocd.md
@@ -260,6 +290,10 @@ nav:
       - Fehlerbehebung: de/guides/troubleshooting.md
       - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
       - Home Assistant Integration: de/guides/home-assistant-integration.md
+      - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
+      - Datenaufbewahrung: de/guides/data-retention.md
+      - Mischkultur: de/guides/companion-planting.md
+      - Nachernte: de/guides/post-harvest.md
   - Referenz:
       - de/reference/index.md
       - API-Referenz: de/reference/api-reference.md

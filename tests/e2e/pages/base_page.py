@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
-from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -53,6 +58,14 @@ class BasePage:
             EC.element_to_be_clickable(locator)
         )
 
+    def wait_for_element_hidden(
+        self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
+        WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located(locator)
+        )
+
     def wait_for_loading_complete(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until all ``[data-testid='loading-skeleton']`` elements disappear."""
         WebDriverWait(self.driver, timeout).until(
@@ -75,10 +88,21 @@ class BasePage:
         """Return all elements matching the given ``data-testid``."""
         return self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
 
+    def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Return text of *locator*, retrying on StaleElementReferenceException."""
+        deadline = time.time() + timeout
+        while True:
+            try:
+                el = self.wait_for_element_visible(locator, timeout=min(5, max(1, int(deadline - time.time()))))
+                return el.text
+            except StaleElementReferenceException:
+                if time.time() >= deadline:
+                    raise
+                time.sleep(0.2)
+
     def get_page_title(self) -> str:
         """Return the text content of the ``[data-testid='page-title']`` element."""
-        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
-        return el.text
+        return self.get_text_stable((By.CSS_SELECTOR, "[data-testid='page-title']"))
 
     def is_error_displayed(self) -> bool:
         """Check whether ``[data-testid='error-display']`` is visible."""
@@ -89,33 +113,91 @@ class BasePage:
 
     # ── Interactions ─────────────────────────────────────────────────────
 
+    def close_mui_dropdown(self, timeout: int = 5) -> None:
+        """Close any open MUI Select dropdown and wait until it is removed from the DOM."""
+        from selenium.common.exceptions import NoSuchElementException, TimeoutException
+        from selenium.webdriver.common.keys import Keys
+
+        if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
+            return  # Already closed
+
+        # Dropdown is open — close it via Escape
+        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        try:
+            # Wait until ALL option elements are gone from the DOM
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+            )
+        except TimeoutException:
+            pass
+
     def scroll_and_click(self, element: WebElement) -> None:
         """Scroll an element into view and click it, falling back to JS click."""
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
         try:
             element.click()
-        except ElementNotInteractableException:
+        except (ElementNotInteractableException, ElementClickInterceptedException):
             self.driver.execute_script("arguments[0].click();", element)
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
 
         Uses JavaScript to clear the field value and dispatch native input/change
-        events so that React controlled components pick up the change.  This
-        works around ``InvalidElementStateException`` and ``Keys.CONTROL + "a"``
-        failures in headless Chrome via Selenium Grid (Remote WebDriver).
+        events so that React controlled components pick up the change.  After
+        the JS clear, verifies the field is actually empty — if React restored
+        the old value, falls back to Ctrl+A to select all before typing so
+        the new value replaces whatever is in the field.
         """
+        from selenium.webdriver.common.keys import Keys
+
         self.driver.execute_script(
             "var el = arguments[0];"
-            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor("
-            "  window.HTMLInputElement.prototype, 'value').set || "
-            "  Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;"
+            "var proto = el.tagName === 'TEXTAREA'"
+            "  ? window.HTMLTextAreaElement.prototype"
+            "  : window.HTMLInputElement.prototype;"
+            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;"
             "nativeInputValueSetter.call(el, '');"
             "el.dispatchEvent(new Event('input', {bubbles: true}));"
             "el.dispatchEvent(new Event('change', {bubbles: true}));",
             element,
         )
+        time.sleep(0.15)
+
+        # Verify the field was actually cleared — React may have restored the
+        # old value from state before send_keys runs.
+        current = element.get_attribute("value") or ""
+        if current:
+            element.send_keys(Keys.CONTROL + "a")
+            time.sleep(0.05)
+
         element.send_keys(value)
+
+    # ── Sidebar navigation ─────────────────────────────────────────────────
+
+    def navigate_via_sidebar(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Navigate by clicking a sidebar link, simulating real user behavior.
+
+        Falls back to direct URL navigation if the sidebar item is not visible
+        (e.g. hidden by expertise level).
+        """
+        locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
+        items = self.driver.find_elements(*locator)
+        if items and items[0].is_displayed():
+            self.scroll_and_click(items[0])
+            WebDriverWait(self.driver, timeout).until(EC.url_contains(path))
+        else:
+            self.navigate(path)
+
+    # ── Expertise level helpers ─────────────────────────────────────────────
+
+    SHOW_ALL_FIELDS_TOGGLE = (By.CSS_SELECTOR, "[data-testid='show-all-fields-toggle']")
+
+    def expand_all_fields(self, timeout: int = 5) -> None:
+        """Click the 'Show all fields' toggle if present (for beginner mode)."""
+        toggles = self.driver.find_elements(*self.SHOW_ALL_FIELDS_TOGGLE)
+        if toggles and toggles[0].is_displayed():
+            self.scroll_and_click(toggles[0])
+            time.sleep(0.3)
 
     # ── Screenshots ───────────────────────────────────────────────────────
 

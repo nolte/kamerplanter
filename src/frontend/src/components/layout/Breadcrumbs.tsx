@@ -23,7 +23,7 @@ export default function Breadcrumbs() {
         if (isLast || !crumb.path) {
           return (
             <Typography key={index} color="text.primary">
-              {crumb.label.startsWith('nav.') || crumb.label.startsWith('entities.') ? t(crumb.label) : crumb.label}
+              {t(crumb.label, { defaultValue: crumb.label })}
             </Typography>
           );
         }
@@ -35,7 +35,7 @@ export default function Breadcrumbs() {
             underline="hover"
             color="inherit"
           >
-            {crumb.label.startsWith('nav.') || crumb.label.startsWith('entities.') ? t(crumb.label) : crumb.label}
+            {t(crumb.label, { defaultValue: crumb.label })}
           </Link>
         );
       })}

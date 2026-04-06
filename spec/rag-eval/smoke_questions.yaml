@@ -1,0 +1,56 @@
+# RAG Smoke Test — Golden File
+#
+# 3 handverlesene Fragen als schneller Smoke-Test.
+# Wenn diese fehlschlagen, lohnt sich der volle 100-Fragen-Benchmark nicht.
+#
+# Auswahlkriterien:
+#   - Verschiedene Kategorien (diagnostik, duengung, pflege)
+#   - Beginner-Schwierigkeit — jedes funktionierende Setup MUSS diese bestehen
+#   - Eindeutige erwartete Topics ohne Grenzfaelle
+#   - Gut abgedeckt durch Knowledge-Base-Chunks
+
+---
+version: "1.0"
+language: de
+min_pass_score: 0.70
+
+questions:
+
+  # Diagnostik-Klassiker: gelbe untere Blaetter = Stickstoff
+  - id: smoke-diag-001
+    category: diagnostik
+    difficulty: beginner
+    question: "Meine unteren Blaetter werden gelb, die oberen sind noch gruen. Was fehlt?"
+    context:
+      phase: vegetative
+    expected_topics:
+      - stickstoff_mangel
+      - mobile_naehrstoffe
+    expected_NOT:
+      - eisen_mangel
+      - calcium_mangel
+
+  # Duengung-Basics: CalMag vor Sulfaten
+  - id: smoke-dueng-001
+    category: duengung
+    difficulty: beginner
+    question: "In welcher Reihenfolge mische ich meine Duenger zusammen?"
+    context: {}
+    expected_topics:
+      - wasser_zuerst
+      - calmag_vor_part_a
+    expected_NOT: []
+
+  # Pflege-Basics: Ueberwaesserung erkennen
+  - id: smoke-pflege-001
+    category: pflege
+    difficulty: beginner
+    question: "Meine Pflanze welkt obwohl die Erde nass ist. Was ist das Problem?"
+    context:
+      substrate: soil
+    expected_topics:
+      - ueberwaesserung
+      - wurzelfaeule
+    expected_NOT:
+      - mehr_giessen
+      - unterwaesserung

@@ -12,6 +12,7 @@ export function useWateringVolumeSuggestion(plantKey: string | undefined | null)
 
   useEffect(() => {
     if (!plantKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when key is cleared
       setSuggestion(null);
       return;
     }

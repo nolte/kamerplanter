@@ -1,0 +1,333 @@
+---
+title: Mischkultur und Companion Planting in der Praxis
+language: de
+category: outdoor
+tags: [mischkultur, companion-planting, beetplanung, schaedlingsabwehr, symbiose, allelopathie, bluehstreifen, kraeuter]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: mischkultur-grundprinzip
+    title: Grundprinzip der Mischkultur
+    content: |
+      Mischkultur (Companion Planting) nutzt die Wechselwirkungen zwischen Pflanzenarten,
+      um Schaedlinge zu verwirren, Naehrstoffe effizienter zu nutzen und den Gesamtertrag
+      pro Flaeche zu steigern. Die Mechanismen sind wissenschaftlich belegt:
+      1. Dufttarnung: Aromatische Pflanzen (Basilikum, Tagetes, Zwiebel) ueberlagern die
+         Duftstoffe der Wirtspflanze — Schaedlinge finden ihre Zielkultur schwerer.
+      2. Wurzelexsudate: Manche Pflanzen scheiden Stoffe aus, die Nachbarn foerdern
+         (Leguminosen fixieren Stickstoff) oder Schaedlinge abwehren (Tagetes gegen Nematoden).
+      3. Naehrstoff-Komplementaritaet: Tiefwurzler + Flachwurzler konkurrieren nicht um
+         dieselbe Bodenschicht. Starkzehrer neben Schwachzehrern nutzen Naehrstoffe besser.
+      4. Physische Unterstuetzung: Hohe Pflanzen spenden Schatten fuer hitzeempfindliche,
+         kletternde Pflanzen nutzen Nachbarn als Rankhilfe (Mais + Bohne).
+      5. Bestaeubungsfoerderung: Bluehende Beipflanzen locken Insekten an, die auch
+         die Hauptkultur bestaeuben (Erdbeere + Borretsch).
+      Wichtig: Mischkultur ist kein Allheilmittel. Die positiven Effekte sind oft subtil
+      (10-30% weniger Schaderreger, 5-15% mehr Ertrag). Bei starkem Schaedlingsbefall
+      ersetzt Mischkultur keine gezielten Pflanzenschutzmassnahmen.
+    metadata:
+      mechanism: [scent_masking, root_exudates, nutrient_complementarity, physical_support, pollination]
+      evidence_level: moderate
+
+  - id: drei-schwestern-milpa
+    title: Die drei Schwestern (Milpa) — Klassische Mischkultur
+    content: |
+      Die bekannteste Mischkultur weltweit stammt von den indigenen Voelkern Amerikas:
+      Mais, Bohne und Kuerbis bilden ein perfektes Dreiersystem (Milpa).
+      Funktionsprinzip:
+      - Mais: Waechst als senkrechte Rankhilfe fuer die Bohne (2-2.5 m Hoehe)
+      - Stangenbohne: Klettert am Mais hoch, fixiert Luftstickstoff (40-80 kg N/ha pro Saison)
+        und versorgt den stickstoffhungrigen Mais mit Naehrstoffen
+      - Kuerbis: Breitet sich am Boden aus, beschattet diesen (Unkrautunterdrueckung),
+        haelt Feuchtigkeit, stachelige Blaetter schrecken Schnecken ab
+      Anbauanleitung fuer Mitteleuropa:
+      1. Boden: Starkzehrer-Beet, grosszuegig Kompost einarbeiten (5-8 L/m²)
+      2. Pflanzung ab Mitte Mai (nach Eisheiligen):
+         - Mais in Horsten (3-4 Koerner pro Pflanzstelle, 50 cm Abstand)
+         - 2 Wochen spaeter Bohnen saeen (2 pro Maishorst, 10 cm entfernt)
+         - Kuerbis zwischen die Maisreihen (1 Pflanze pro m², braucht viel Platz!)
+      3. Blockpflanzung (mind. 4x4 Maisreihen) fuer zuverlaessige Windbestaeubung
+      4. Giessen: Regelmaessig, vor allem in der Bluete von Mais und Bohne
+      Haeufiger Fehler: Zu dichter Pflanzabstand — die drei Schwestern brauchen VIEL Platz
+      (mindestens 3-4 m² pro Pflanzgruppe). In kleinen Gaerten besser auf Milpa verzichten
+      und stattdessen Mais und Bohne getrennt mit besserem Abstand pflanzen.
+      Ertrag: Nicht maximal pro Einzelkultur, aber hoechster Gesamtertrag pro Flaeche
+      und beste Bodenpflege — ideal fuer nachhaltigen Anbau.
+    metadata:
+      combination: [corn, bean, squash]
+      origin: mesoamerican
+      space_required_m2: 4
+      nitrogen_fixation_kg_ha: [40, 80]
+
+  - id: klassische-kombinationen
+    title: Bewaehrte Mischkultur-Partnerschaften
+    content: |
+      Diese Kombinationen sind durch langjaehrige Gaertnererfahrung und teilweise
+      wissenschaftliche Studien belegt:
+      Tomate + Basilikum + Karotte + Sellerie + Tagetes:
+      Tomaten sind gesellige Pflanzen mit vielen guten Partnern:
+      - Basilikum-Duft irritiert Weisse Fliege und Blattlaeuse. Praktisch: Beide brauchen
+        Waerme, volle Sonne und regelmaessiges Giessen.
+      - Karotten (Moehren) als Nachbarn nutzen eine andere Bodenschicht (Tiefwurzler vs.
+        Flachwurzler Tomate am Stamm), lockern den Boden und konkurrieren nicht.
+      - Sellerie zwischen Tomatenreihen verwirrt mit seinem starken Duft diverse Schaedlinge
+        und ist als Mittelzehrer genuegsam genug neben der Starkzehrer-Tomate.
+      - Tagetes am Beetrand schuetzt Tomaten vor Nematoden und Weisser Fliege.
+      ACHTUNG — Schlechte Nachbarn fuer Tomaten (unbedingt vermeiden!):
+      - Kartoffel NICHT neben Tomate pflanzen! Beide Solanaceae — Phytophthora-Uebertragung.
+      - Fenchel NICHT neben Tomate! Fenchel hemmt Tomatenwachstum durch Allelopathie.
+      Karotte + Zwiebel/Lauch:
+      - Moehrenfliege wird durch Zwiebelduft verwirrt und umgekehrt (Zwiebelfliege)
+      - Alternierend in Reihen pflanzen (15-20 cm Reihenabstand)
+      - Wirksamkeit in Studien bestaetigt (30-50% weniger Fliegenbefall)
+      Erdbeere + Knoblauch:
+      - Knoblauch unterdrueckt Grauschimmel (Botrytis) durch Schwefelverbindungen
+      - 1 Knoblauchzehe zwischen je 3-4 Erdbeerpflanzen stecken (Oktober)
+      - Auch Schnittlauch in Erdbeerbeetumrandung wirkt aehnlich
+      Kohl + Sellerie:
+      - Sellerie-Duft verwirrt den Kohlweissling bei der Eiablage
+      - Sellerie als Untersaat zwischen Kohlreihen (30 cm Reihenabstand)
+      Gurke + Dill:
+      - Dill lockt Schwebfliegen an (natuerliche Blattlausfeinde)
+      - Dill als Untersaat oder am Beetrand, nicht zu dicht (Gurke braucht Luft)
+      Salat + Radieschen (Markierungssaat):
+      - Radieschen keimt in 5 Tagen, Salat in 10-14 — markiert die Saatreihe
+      - Radieschen ist geerntet bevor Salat den Platz braucht (Raum-Zeit-Staffelung)
+    metadata:
+      evidence_level: [high, high, moderate, moderate, moderate, practical]
+      combinations: [tomato_basil, carrot_onion, strawberry_garlic, cabbage_celery, cucumber_dill, lettuce_radish]
+
+  - id: schlechte-nachbarn
+    title: Unvertraegliche Pflanzenkombinationen (Bad Neighbors)
+    content: |
+      Ebenso wichtig wie gute Partner zu kennen ist das Wissen um schaedliche
+      Nachbarschaften. Manche Pflanzen hemmen sich gegenseitig durch Allelopathie
+      (chemische Wuchshemmung), Krankheitsuebertragung oder Ressourcenkonkurrenz.
+      Stark allelopathische Pflanzen — Allelopathie und Wurzelexsudate:
+      - Fenchel: Scheidet durch seine Wurzelexsudate (Wurzelausscheidungen) Hemmstoffe aus,
+        die das Wachstum fast aller Nachbarn hemmen — Fenchel hemmt Wachstum von Tomate,
+        Bohne, Kohl und vielen anderen Gemuesen. Die Wuchshemmung (Allelopathie) wirkt
+        ueber den Boden. Fenchel daher immer isoliert pflanzen oder am Beetrand mit
+        mindestens 50 cm Abstand. Einzige Ausnahme: Fenchel kann mit Dill kreuzbestaeubend
+        sein, aber das ist KEIN Grund fuer die Isolierung — es sind die Wurzelexsudate.
+      - Walnuss (Juglon): Im Wurzelbereich wachsen viele Gemuese schlecht.
+        Beete mindestens 10-15 m entfernt anlegen.
+      Krankheitsuebertragung innerhalb der gleichen Familie:
+      - Kartoffel neben Tomate: Beide gehoeren zur gleichen Familie der Nachtschattengewaechse
+        (Solanaceae). Phytophthora infestans verursacht die gefuerchtete Krautfaeule
+        (auch Kraut- und Knollenfaeule oder Braunfaeule genannt) und befaellt alle
+        Solanaceae-Arten. Mindestens 5 m Abstand! Kartoffel immer WINDABWAERTS von
+        Tomaten pflanzen, da Phytophthora-Sporen windverbreitet sind.
+      - Erdbeere neben Kartoffel: Verticillium-Welke, gegenseitige Ansteckung.
+      - Kohlarten untereinander: Kohlhernie (Plasmodiophora) verbreitet sich.
+        Nicht 3+ Kohlarten nebeneinander im selben Beet.
+      Wuchshemmung durch Konkurrenz:
+      - Bohne + Zwiebel/Lauch/Knoblauch: Allium-Arten hemmen die Knoellchenbakterien
+        der Leguminosen und damit die Stickstofffixierung. Getrennt pflanzen.
+      - Gurke + Tomate im Freiland: Gurke und Tomate haben unterschiedliche Klimaansprueche.
+        Gurke braucht hohe Luftfeuchtigkeit (>70%), Tomate niedrige (<60%). Im Freiland
+        daher getrennt pflanzen. Im Gewaechshaus ist der gemeinsame Anbau moeglich und
+        gaengige Praxis: Unter kontrollierten Bedingungen ist die Kombination Gurke + Tomate
+        kein Problem — man kann die Belueftung steuern und Klimazonen trennen (Gurken hinten
+        feucht, Tomaten vorne trocken). Fazit: Unter kontrollierten Bedingungen im
+        Gewaechshaus funktioniert Gurke neben Tomate problemlos, im Freiland besser trennen.
+      - Erbse + Bohne: Ueberraschend — beide Leguminosen, aber sie konkurrieren um
+        dieselben Knoellchenbakterien. Besser nicht direkt nebeneinander.
+      Bei der Beetplanung sollte man unvertraegliche Nachbarschaften immer vermeiden
+      und den Pflanzplan entsprechend anpassen.
+    metadata:
+      mechanism: [allelopathy, disease_transfer, resource_competition]
+      critical_combinations: [fennel_all, potato_tomato, bean_allium, cucumber_tomato]
+
+  - id: beetplanung-hoehe-tiefe
+    title: Beetplanung nach Hoehe und Wurzeltiefe
+    content: |
+      Eine durchdachte Beetplanung beruecksichtigt die dreidimensionale Raumnutzung:
+      Hoehe ueberirdisch und Wurzeltiefe unterirdisch.
+      Hoehenplanung (Nord-Sued-Ausrichtung der Beete):
+      - Nordseite: Hohe Pflanzen (Mais 2 m, Stangenbohne 2 m, Tomate 1.5-2 m, Sonnenblume)
+      - Mitte: Mittelhohe Pflanzen (Paprika 60-80 cm, Kohlrabi, Mangold, Buschbohne)
+      - Suedseite: Niedrige Pflanzen (Salat, Radieschen, Erdbeere, Kraeuter)
+      So beschatten hohe Pflanzen die niedrigen nicht. Ausnahme: Im Hochsommer profitieren
+      Salat und Spinat von leichter Beschattung durch Tomaten (Schossschutz).
+      Wurzeltiefenkomplementaritaet:
+      - Flachwurzler (0-15 cm): Salat, Radieschen, Zwiebel, Spinat, Erdbeere
+      - Mitteltiefwurzler (15-40 cm): Bohne, Paprika, Kohlrabi, Erbse, Sellerie
+      - Tiefwurzler (40-100+ cm): Moehre, Pastinake, Tomate, Kuerbis, Rote Bete, Luzerne
+      Ideal: Flachwurzler neben Tiefwurzler — sie erschliessen unterschiedliche
+      Bodenschichten und konkurrieren nicht um Wasser und Naehrstoffe.
+      Reihenabstaende in der Mischkultur:
+      - Hauptkultur-Abstand beibehalten (nicht enger pflanzen wegen Mischkultur!)
+      - Zwischenreihen fuer Beipflanzen: 15-20 cm zwischen den Hauptreihen
+      - Randbepflanzung (Kraeuter, Tagetes): 1 Reihe am Beetrand, 20-30 cm zum Beetinneren
+      Zeitliche Staffelung: Schnell wachsende Beipflanzen (Radieschen, Dill) koennen
+      zwischen langsam wachsende Hauptkulturen (Kohl, Tomate) gesaet werden und sind
+      geerntet, bevor die Hauptkultur den Platz braucht.
+    metadata:
+      root_depth_categories: [shallow, medium, deep]
+      bed_orientation: north_south
+      spacing_principle: maintain_main_crop_distance
+
+  - id: naehrstoffbedarfsmischung
+    title: Mischung nach Naehrstoffbedarf — Starkzehrer trifft Leguminose
+    content: |
+      Eine clevere Mischkultur kombiniert Pflanzen mit unterschiedlichem Naehrstoffbedarf,
+      sodass sich die Partner ergaenzen statt zu konkurrieren.
+      Naehrstoffbedarfsgruppen (entspricht Fruchtfolge-Kategorien):
+      - Starkzehrer: Tomate, Kuerbis, Kohl, Mais, Zucchini (N-Bedarf 15-25 g/m²)
+      - Mittelzehrer: Moehre, Zwiebel, Salat, Fenchel (N-Bedarf 8-15 g/m²)
+      - Schwachzehrer: Bohne, Erbse, Kraeuter, Radieschen (N-Bedarf 3-8 g/m²)
+      Optimale Mischung:
+      - Starkzehrer + Leguminose: Mais neben Bohne (Bohne fixiert N, Mais verbraucht ihn)
+      - Starkzehrer + Schwachzehrer: Tomate + Basilikum (Basilikum braucht wenig)
+      - Mittelzehrer + Schwachzehrer: Moehre + Radieschen (beide genuegsam, Platzstaffelung)
+      Vermeiden:
+      - Starkzehrer + Starkzehrer: Kohl neben Kuerbis = beide verhungern oder benoetigen
+        doppelte Duengung. Nur bei sehr guter Kompostversorgung moeglich.
+      Leguminosen als Naehrstoffpumpe:
+      - Buschbohne zwischen Kohlreihen: Fixiert 20-40 kg N/ha, setzt nach Ernte/Einarbeitung
+        Stickstoff fuer den Nachbarn frei
+      - Klee als Untersaat unter Mais: Lebendmulch + N-Fixierung
+      - Lupine am Beetrand: Tiefe Pfahlwurzel lockert Verdichtungen, hohe N-Fixierung
+      Kalium- und Phosphorwettbewerb ist seltener problematisch als Stickstoff,
+      da die meisten Gartenboeden ausreichend P und K enthalten. Bei Mangel laut
+      Bodenanalyse gezielt nachduengen (REQ-004 Duenge-Logik).
+    metadata:
+      nutrient_groups: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+      nitrogen_fixation_range_kg_ha: [20, 80]
+
+  - id: tagetes-ringelblume
+    title: Tagetes und Ringelblume — Universelle Beetbegleiter
+    content: |
+      Tagetes (Studentenblume) und Calendula (Ringelblume) gehoeren in jedes Gemuesebeet.
+      Ihre Wirkung ist wissenschaftlich gut belegt und der Anbau ist denkbar einfach.
+      Tagetes (Tagetes patula, T. erecta):
+      - Nematodenbekaempfung: Wurzeln scheiden Thiophen-Verbindungen aus, die
+        pflanzenschaedliche Nematoden (Wurzelgallennematoden, Pratylenchus) abtoeten
+      - Wirksamkeit: Nachgewiesen in >50 Studien, Effekt am staerksten bei T. patula
+      - Anwendung: Mindestens 3 Monate im Beet stehen lassen fuer volle Wirkung
+      - Zusatznutzen: Lockt Schwebfliegen und Schlupfwespen an (natuerliche Schaedlingsfeinde)
+      - Dosierung: Alle 50 cm eine Tagetes-Pflanze am Beetrand oder zwischen Reihen
+      Calendula (Calendula officinalis):
+      - Lockt Bestaeuber an (besonders Hummeln und Wildbienen)
+      - Aehnliche Wirkung gegen Nematoden wie Tagetes (schwaecher, aber vorhanden)
+      - Blattlaeuse befallen bevorzugt Calendula — Opferpflanze/Ablenkungspflanze
+        (zieht Blattlaeuse von der Hauptkultur ab)
+      - Essbare Bluetenblaetter (Salat-Dekoration, Safranersatz fuer Farbe)
+      - Selbstaussamend: Einmal gesaet, kommt sie jedes Jahr wieder
+      Praxis-Tipp: Tagetes + Calendula als Standard-Randbepflanzung um jedes Beet.
+      Aussaat Direktsaat ab April oder Voranzucht ab Maerz. Beide sind pflegeleicht,
+      selbstreinigend (Tagetes) und bluehen bis zum ersten Frost.
+      Kosten-Nutzen: Eine Tuete Tagetes-Saatgut (ca. 2 EUR) schuetzt ein ganzes Beet
+      eine Saison lang — guenstigster und effektivster biologischer Pflanzenschutz.
+    metadata:
+      species: [tagetes_patula, tagetes_erecta, calendula_officinalis]
+      mechanism: [nematode_control, pollinator_attraction, trap_crop]
+      evidence_level: high
+
+  - id: kraeuterstreifen-schaedlingsbarriere
+    title: Lavendel, Rosmarin, Basilikum und weitere Kraeuter als Schaedlingsbarriere
+    content: |
+      Die drei wirksamsten Kraeuter gegen Schaedlinge im Gemuesebeet sind Lavendel,
+      Rosmarin und Basilikum. Aromatische Kraeuter mit hohem Gehalt an aetherischen Oelen
+      wirken als natuerliche Schaedlingsbarriere. Das Grundprinzip ist Geruchsverwirrung
+      (auch Dufttarnung): Die intensiven aetherischen Oele ueberlagern den Duft der
+      Nutzpflanzen, sodass Schaedlinge ihre Wirtspflanze nicht mehr gezielt finden.
+      Lavendel (Lavandula angustifolia):
+      - Wirkt gegen: Blattlaeuse, Ameisen, Muecken, Kleidermotten
+      - Platzierung: Beetumrandung, zwischen Rosenstoecken, an Sitzplaetzen
+      - Auch als Trockenblueten im Haus wirksam (Kleiderschrank)
+      - Winterhart bis -15°C, durchlaessiger Boden, volle Sonne
+      Rosmarin (Salvia rosmarinus):
+      - Wirkt gegen: Kohlweissling, Moehrenfliege, Schnecken (bedingt)
+      - Platzierung: Am Beetrand neben Kohl, Moehre, Bohne
+      - In Mitteleuropa meist nicht winterhart — im Topf kultivieren und frostfrei ueberwintern
+      Basilikum (Ocimum basilicum):
+      - Wirkt gegen: Weisse Fliege, Blattlaeuse, Muecken, Thripse
+      - Platzierung: Zwischen Tomaten, Paprika und Gurken — ueberall wo Waerme herrscht
+      - Nicht winterhart, aber im Sommer eine der wirksamsten Duftbarrieren
+      - Regelmaessig Triebspitzen ernten foerdert buschigen Wuchs und staerkeren Duft
+      Thymian (Thymus vulgaris):
+      - Wirkt gegen: Kohlschabe, Blattlaeuse, Erdfloh
+      - Platzierung: Niedrige Beetumrandung (15-30 cm Hoehe), zwischen Kohlarten
+      - Winterhart, trockentolerant, idealer Bodendecker am Beetrand
+      Salbei (Salvia officinalis):
+      - Wirkt gegen: Kohlweissling, Schnecken, Moehrenfliege
+      - Platzierung: Neben Kohl und Moehren, als Beeteinfassung
+      - Winterhart, wird mit den Jahren verholzend — regelmaessig zurueckschneiden
+      Praktische Umsetzung:
+      - Kraeuterstreifen mindestens 30 cm breit am Beetrand anlegen
+      - Verschiedene Kraeuter mischen fuer breiteres Wirkspektrum
+      - Regelmaessig ernten/zurueckschneiden — frischer Austrieb duftet am staerksten
+      - Bluehende Kraeuter stehen lassen — locken Nuetzlinge an
+      Zusammenfassung: Lavendel, Rosmarin und Basilikum sind die wichtigsten Kraeuter
+      zur Schaedlingsabwehr im Gemuesegarten. Ergaenzt durch Thymian und Salbei ergibt
+      sich ein breites Wirkspektrum gegen die haeufigsten Schaedlinge.
+      Einschraenkung: Duftbarrieren reduzieren Befall um 20-40%, ersetzen aber keine
+      direkten Massnahmen bei starkem Befall (Netze, Bt, Neem).
+    metadata:
+      herbs: [lavender, rosemary, basil, thyme, sage]
+      mechanism: scent_barrier
+      effectiveness_reduction_percent: [20, 40]
+
+  - id: bluehstreifen-nuetzlinge
+    title: Bluehstreifen und Nuetzlingsfoerderung
+    content: |
+      Bluehstreifen am Beetrand oder zwischen Beeten locken natuerliche Schaedlingsfeinde
+      an und steigern die Bestaeubung. Ein funktionierendes Oekosystem im Garten ist
+      der beste Pflanzenschutz.
+      Wichtige Nuetzlinge und ihre Lieblingsblueten:
+      - Schwebfliegen (Larven fressen 200-700 Blattlaeuse): Dill, Koriander, Fenchelbluete,
+        Schafgarbe, Phacelia, Buchweizen
+      - Schlupfwespen (parasitieren Raupen, Blattlaeuse): Wilde Moehre, Dill, Fenchel,
+        Schafgarbe, Kamille
+      - Marienkaefer (100 Blattlaeuse pro Tag): Ueberwintern in Laub und Totholz —
+        nicht zu aufgeraeumt gaertnern
+      - Laufkaefer (fressen Schneckeneier, Larven): Bodenbedeckung, Steinmauern, Totholz
+      - Florfliegen (Blattlausloewen): Kamille, Schafgarbe, Cosmea
+      Bluehstreifen-Mischung (einfach, effektiv):
+      - Phacelia + Buchweizen + Ringelblume + Kornblume + Dill
+      - Breitwuerfig saeen (April-Mai), 1-2 m breit am Beetrand
+      - Blueht von Juni bis Oktober, lockt alle wichtigen Nuetzlingsgruppen an
+      - Kosten: ca. 5 EUR Saatgut pro 10 m² — amortisiert sich durch weniger Pflanzenschutzmittel
+      Grundsaetze:
+      - Kontinuierliches Bluetenangebot von Maerz bis Oktober (Fruehblueher bis Spaetblueher)
+      - Einheimische Wildblumen bevorzugen (besser an lokale Insekten angepasst)
+      - Nicht mulchen oder maehen waehrend der Bluete — Nuetzlinge brauchen die Blueten!
+      - Abgestorbene Stengel ueber Winter stehen lassen — Ueberwinterungsquartier fuer Insekten
+    metadata:
+      beneficial_insects: [hoverfly, parasitic_wasp, ladybug, ground_beetle, lacewing]
+      flower_mix: [phacelia, buckwheat, calendula, cornflower, dill]
+      bloom_period_months: [3, 10]
+
+  - id: mischkultur-kamerplanter-integration
+    title: Mischkultur in Kamerplanter umsetzen
+    content: |
+      Kamerplanter bildet Mischkultur-Beziehungen als Graph-Kanten in ArangoDB ab.
+      Dies ermoeglicht automatische Empfehlungen und Warnungen bei der Beetplanung.
+      Datenmodell (REQ-028):
+      - compatible_with-Kante: Positive Nachbarschaft zwischen zwei Species-Knoten.
+        Attribute: benefit_type (pest_control, nutrient, physical, pollination),
+        evidence_level (anecdotal, practical, scientific), notes
+      - incompatible_with-Kante: Negative Nachbarschaft. Attribute: reason
+        (allelopathy, disease_transfer, resource_competition), severity (mild, moderate, severe)
+      Nutzung in der Beetplanung:
+      1. Beim Zuweisen von Pflanzen zu einem Beet prueft das System alle bestehenden
+         Belegungen auf Kompatibilitaet
+      2. Warnung bei incompatible_with (severity: severe = Blockierung, moderate/mild = Hinweis)
+      3. Vorschlaege fuer gute Partner basierend auf compatible_with-Kanten
+      4. Randbepflanzung-Empfehlung: Tagetes und Kraeuter als Standard vorschlagen
+      Praxis-Workflow:
+      - Beet anlegen (REQ-002) → Pflanzdurchlauf erstellen (REQ-013) → Arten zuweisen
+      - System zeigt: "Tomate + Basilikum: Gute Nachbarn (Dufttarnung gegen Weisse Fliege)"
+      - System warnt: "Bohne + Zwiebel: Schlechte Nachbarn (Allium hemmt N-Fixierung)"
+      - Kalender (REQ-015) zeigt optimale Pflanztermine unter Beruecksichtigung
+        der Mischkultur-Partner (Sukzessionssaat-Intervalle angepasst)
+      Datenqualitaet: Die Kompatibilitaetsdaten basieren auf gaertnerischer Erfahrungsliteratur
+      (Gertrud Franck, Christa Weinrich, Louise Riotte) und werden durch evidence_level
+      transparent gemacht. Nutzer koennen eigene Erfahrungen im Pflanzentagebuch (PlantDiaryEntry)
+      dokumentieren.
+    metadata:
+      graph_edges: [compatible_with, incompatible_with]
+      related_reqs: [REQ-001, REQ-002, REQ-013, REQ-015, REQ-028]
+      data_sources: [franck, weinrich, riotte, scientific_studies]

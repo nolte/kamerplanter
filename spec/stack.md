@@ -41,8 +41,17 @@ Status: Produktionsreif Priorität: Kritisch
 ┌────────────────────────▼────────────────────────────────────────┐
 │                      DATA LAYER                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │   ArangoDB   │  │ TimescaleDB  │  │    Redis     │         │
+│  │   ArangoDB   │  │ TimescaleDB  │  │    Valkey    │         │
 │  │ Multi-Model  │  │  Time-Series │  │    Cache     │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+└─────────────────────────────────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────────┐
+│                    AI / RAG LAYER (optional)                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │   pgvector   │  │  Embedding   │  │ LLM Adapter  │         │
+│  │ PostgreSQL18 │  │ Service(ONNX)│  │ (Anthropic / │         │
+│  │  VectorDB    │  │   E5-base    │  │ Ollama/vLLM) │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -253,10 +262,10 @@ class PlantResponse(BaseModel):
 
 ### 2.3 Asynchrone Task-Verarbeitung
 
-#### Celery + Redis
+#### Celery + Valkey
 
 - **Celery**: >= 5.4.0
-- **Redis**: >= 5.2.0 (als Broker & Result Backend)
+- **Valkey**: >= 8.0 (Redis-kompatibel, als Broker & Result Backend)
 
 **Use Cases**:
 
@@ -540,11 +549,11 @@ SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 - **Trendanalysen** (Wachstumsverlauf)
 - **Anomalie-Erkennung** (Sensor-Ausfall, Extremwerte)
 
-### 3.3 Redis (Cache & Session Store)
+### 3.3 Valkey (Cache & Session Store)
 
 #### Version & Verwendung
 
-- **Version**: >= 7.2
+- **Version**: >= 8.0 (Redis-kompatibel)
 - **Modi**:
     - Cache (TTL-basiert)
     - Session Store
@@ -587,6 +596,219 @@ class RedisCache:
             await self.redis.expire(key, 60)
         return count <= limit
 ```
+
+### 3.4 KI/AI-Stack (RAG-basierte Wissensdatenbank)
+
+#### Übersicht
+
+Kamerplanter enthält eine optionale KI-Komponente zur Beantwortung von Pflanzenpflege-Fragen. Die Architektur folgt dem **RAG-Pattern** (Retrieval-Augmented Generation): Nutzerfragen werden semantisch in einer Vektor-Datenbank gesucht, relevante Wissens-Chunks als Kontext an ein LLM übergeben, und die Antwort wird mit Quellenangaben zurückgegeben.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        RAG PIPELINE                               │
+│                                                                    │
+│  Nutzer-Frage                                                      │
+│       │                                                            │
+│       ▼                                                            │
+│  ┌────────────────┐    ┌────────────────────┐                     │
+│  │   Embedding    │───▶│   pgvector Search  │                     │
+│  │   Service      │    │   (Cosine Sim.)    │                     │
+│  │   (ONNX RT)    │    │   PostgreSQL 18    │                     │
+│  └────────────────┘    └────────┬───────────┘                     │
+│                                 │ Top-K Chunks                     │
+│                                 ▼                                  │
+│                        ┌────────────────┐                         │
+│                        │  LLM Adapter   │                         │
+│                        │  (Anthropic /  │                         │
+│                        │   Ollama /     │                         │
+│                        │   OpenAI-comp.)│                         │
+│                        └────────┬───────┘                         │
+│                                 │                                  │
+│                                 ▼                                  │
+│                        Antwort + Quellen                           │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Alle KI-Komponenten sind **optional** — das System funktioniert vollständig ohne aktivierte VectorDB/LLM. Die API liefert HTTP 503 wenn der Knowledge Service nicht verfügbar ist.
+
+#### 3.4.1 VectorDB (PostgreSQL + pgvector)
+
+- **Basis**: PostgreSQL >= 18 (Bookworm)
+- **Extension**: pgvector 0.8.2
+- **Embedding-Dimensionen**: 768 (multilingual-e5-base, siehe ADR-006)
+- **Index**: HNSW mit Cosine-Distanz (`vector_cosine_ops`)
+- **Hybrid Search**: Reciprocal Rank Fusion (RRF) — kombiniert Vektor-Similarity (Cosine) mit Full-Text-Search (BM25 via PostgreSQL `tsvector`). Default-Gewichtung: 0.5 Vektor / 0.5 Text
+- **Docker**: Custom Image (`docker/vectordb/Dockerfile`) basierend auf `postgres:18-bookworm`
+- **Docker Compose Profile**: `vectordb` (opt-in)
+
+**Schema**:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE ai_vector_chunks (
+    id          SERIAL PRIMARY KEY,
+    source_key  TEXT NOT NULL UNIQUE,      -- '{category}/{file}#{chunk_id}'
+    source_type TEXT NOT NULL,             -- 'care_rule'
+    title       TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    metadata    JSONB DEFAULT '{}',
+    embedding    vector(768) NOT NULL,
+    search_text  tsvector GENERATED ALWAYS AS (to_tsvector('german', title || ' ' || content)) STORED,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_chunks_embedding
+    ON ai_vector_chunks USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX idx_ai_chunks_search_text
+    ON ai_vector_chunks USING gin (search_text);
+```
+
+**Migrations**: Automatisch via `VectorDbConnection` + `schema.py` (Tracking-Tabelle `schema_migrations`).
+
+#### 3.4.2 Embedding Service
+
+- **Runtime**: ONNX Runtime >= 1.20 (CPU-only, kein PyTorch)
+- **Tokenizer**: HuggingFace Transformers >= 4.46 (nur Tokenizer, kein Torch)
+- **Primärmodell**: `multilingual-e5-base` (768 Dimensionen, multilingual DE/EN, siehe ADR-006)
+- **Fallback-Modell**: `multilingual-e5-small` (384 Dimensionen, multilingual, für ressourcenarme Umgebungen)
+- **E5-Prefix-Konvention**: Queries mit `"query: "` Prefix, Dokumente mit `"passage: "` Prefix
+- **API**: FastAPI-Microservice auf Port 8080 (`/embed`, `/health`, `/ready`)
+- **Pooling**: Mean Pooling + L2-Normalisierung
+- **Max Token Length**: 512 (Truncation)
+- **Docker**: `docker/embedding-service/Dockerfile` (Python 3.14-slim)
+- **Deployment**: Kubernetes via Helm (optional, `embedding-service` Controller)
+
+```python
+# Embedding-Aufruf (Backend → Embedding Service)
+embedding_engine = EmbeddingEngine(
+    service_url="http://kamerplanter-embedding-service:8080",
+    model_name="multilingual-e5-base",
+)
+vector = embedding_engine.embed("query: Stickstoffmangel erkennen")  # → list[float], len=768
+```
+
+**Begründung ONNX statt PyTorch**:
+- ~10x kleineres Docker Image (kein 2 GB PyTorch)
+- Schnellerer Kaltstart (Modell in ~2s geladen)
+- CPU-optimiert, keine GPU erforderlich
+- Ausreichend für Batch-Ingestion und On-Demand-Queries
+
+#### 3.4.3 LLM-Adapter (Multi-Provider)
+
+Das System unterstützt drei LLM-Provider über ein gemeinsames Interface (`ILlmAdapter`). Die Adapter leben in `data_access/external/` gemäß NFR-001 Schichtenarchitektur.
+
+| Adapter | Provider | Modell (Default) | Einsatz |
+|---------|----------|-------------------|---------|
+| `AnthropicLlmAdapter` | Anthropic Messages API | `claude-sonnet-4-20250514` | Cloud, höchste Qualität |
+| `OllamaLlmAdapter` | Ollama (lokal) | `llama3` | Self-hosted, Privacy-First |
+| `OpenAiCompatibleLlmAdapter` | OpenAI / vLLM / LM Studio / llama.cpp | `gpt-4o-mini` | Flexibel, jeder OpenAI-kompatible Endpunkt |
+
+**Interface**:
+
+```python
+class ILlmAdapter(ABC):
+    @abstractmethod
+    def generate(
+        self,
+        system_prompt: str,
+        user_message: str,
+        *,
+        max_tokens: int = 1024,
+        temperature: float = 0.3,
+    ) -> LlmResponse: ...
+```
+
+**Begründung Multi-Provider**:
+- **Privacy**: Ollama-Adapter ermöglicht vollständig lokale Verarbeitung (DSGVO-konform ohne Cloud-Abhängigkeit)
+- **Flexibilität**: OpenAI-kompatibler Adapter unterstützt beliebige Inferenz-Server (vLLM, LM Studio, llama.cpp)
+- **Qualität**: Anthropic-Adapter für höchste Antwortqualität bei Cloud-Einsatz
+- **Keine SDK-Abhängigkeit**: Alle Adapter nutzen `httpx` direkt (kein `anthropic`/`openai` SDK)
+
+#### 3.4.4 Knowledge Base (Wissens-YAML)
+
+Die Wissensdatenbank besteht aus ~30 kuratierten YAML-Dateien unter `spec/knowledge/rag/`, organisiert nach Fachbereichen:
+
+```
+spec/knowledge/rag/
+├── allgemein/          # Anfänger-Tipps, Fehler vermeiden, Ertragsoptimierung
+├── bewaesserung/       # Gießstrategien, Wasserqualität, Überwässerung
+├── diagnostik/         # Nährstoffmangel, pH/EC-Abweichungen, Schädlinge, Pilzkrankheiten
+├── duengung/           # EC-Management, CalMag, PK-Boost, Mischsicherheit, organisch
+├── outdoor/            # Fruchtfolge, Mischkultur, Saisonplanung, Wetter
+├── phasen/             # Keimung, Vegetativ, Blüte, Ernte, Überwintern
+├── umwelt/             # Licht, VPD, CO2, Luftzirkulation, Temperatur, Growzelt
+└── eval/               # Benchmark-Fragen, Topic-Synonyme (RAG-Evaluation)
+```
+
+**YAML-Format** (pre-chunked):
+
+```yaml
+category: diagnostik
+tags: [naehrstoffmangel, blaetter, symptome]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: nitrogen-deficiency
+    title: "Stickstoffmangel (N) erkennen"
+    content: "Symptome: Untere Blätter werden gleichmäßig hellgrün..."
+    metadata:
+      nutrient: nitrogen
+      symbol: "N"
+      deficiency_type: mobile
+```
+
+**Ingestion-Pipeline**:
+1. `KnowledgeIngestor` liest alle YAML-Dateien aus dem Knowledge-Verzeichnis
+2. Chunks werden mit Metadaten-Anreicherung als Embed-Text aufbereitet
+3. Batch-Embedding über den Embedding Service
+4. Batch-Upsert in pgvector (`source_key` als Unique Constraint)
+5. Celery Beat Task (`reindex_vector_chunks`) läuft wöchentlich
+
+#### 3.4.5 RAG-Service (Knowledge Service)
+
+Der `KnowledgeService` orchestriert die gesamte RAG-Pipeline:
+
+1. **Semantic Search** (`/api/v1/knowledge/search`): Query → Embedding → pgvector Cosine Similarity → Top-K Chunks
+2. **RAG Ask** (`/api/v1/knowledge/ask`): Search + LLM-Generierung mit Kontext-Prompt
+
+**System-Prompt-Regeln**:
+- Antwort in der Sprache der Frage (DE/EN)
+- Nur Kontext-basierte Antworten (kein Halluzinieren)
+- Quellenangabe in Klammern
+- Technische Werte mit Einheiten und Bereichen
+
+**API-Endpunkte**:
+
+| Methode | Pfad | Beschreibung |
+|---------|------|--------------|
+| GET | `/api/v1/knowledge/search?q=...&top_k=5` | Semantische Suche (Chunks) |
+| POST | `/api/v1/knowledge/ask` | RAG-Frage-Antwort mit LLM |
+
+Beide Endpunkte sind **öffentlich** (keine JWT-Authentifizierung erforderlich).
+
+#### 3.4.6 RAG Evaluation
+
+Unter `tools/rag-eval/` liegt ein Evaluierungs-Framework:
+
+- **Benchmark-Fragen**: `spec/rag-eval/benchmark_questions.yaml` mit erwarteten Themen/Quellen
+- **Topic-Synonyme**: `spec/rag-eval/topic_synonyms.yaml` für Retrieval-Qualitätsmessung
+- **Eval-Script**: `tools/rag-eval/eval_rag.py` — automatisierte Qualitätsprüfung der RAG-Pipeline
+- **Notebook**: `tools/rag-eval/rag_eval.ipynb` — interaktive Analyse und Visualisierung
+
+#### 3.4.7 Abhängigkeiten (Python)
+
+| Paket | Version | Zweck |
+|-------|---------|-------|
+| `httpx` | >= 0.28 | HTTP-Client für LLM- und Embedding-Aufrufe |
+| `psycopg[binary]` | >= 3.2 | PostgreSQL-Treiber für pgvector |
+| `psycopg_pool` | >= 3.2 | Connection Pooling für VectorDB |
+| `onnxruntime` | >= 1.20 | ONNX-Inferenz (nur Embedding Service) |
+| `transformers` | >= 4.46 | Tokenizer (nur Embedding Service, ohne PyTorch) |
+| `numpy` | latest | Numerische Operationen (Embedding Service) |
+| `sentencepiece` | latest | Tokenizer-Backend für multilinguales Modell |
 
 ---
 
@@ -2045,7 +2267,7 @@ spec:
 | Paket | Version | Zweck |
 |-------|---------|-------|
 | `authlib` | >= 1.3.0 | JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE |
-| `passlib[bcrypt]` | >= 1.7.4 | Passwort-Hashing (Bcrypt, Cost Factor 12) |
+| `bcrypt` | >= 4.0 | Passwort-Hashing (Bcrypt direkt, Cost Factor 12, siehe ADR-004) |
 | `slowapi` | >= 0.1.9 | Rate Limiting (IP-basiert, nutzt Redis) |
 | `cryptography` | >= 42.0 | Fernet/AES-256 für Provider-Secret-Verschlüsselung |
 
@@ -2105,7 +2327,7 @@ prometheus-client>=0.19.0
 
 # Auth & Security (REQ-023)
 authlib>=1.3.0                    # JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE — ersetzt python-jose
-passlib[bcrypt]>=1.7.4            # Passwort-Hashing (Bcrypt, Cost 12)
+bcrypt>=4.0                       # Passwort-Hashing (bcrypt direkt, siehe ADR-004)
 slowapi>=0.1.9                    # Rate Limiting (nutzt Redis als Backend)
 cryptography>=42.0                # Fernet/AES-256 für Provider-Secret-Verschlüsselung
 

@@ -1,0 +1,201 @@
+---
+title: Pilzkrankheiten erkennen und behandeln
+language: de
+category: diagnostik
+tags: [pilzkrankheiten, mehltau, botrytis, grauschimmel, septoria, alternaria, pilz, fungizid, luftzirkulation]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: echter-mehltau
+    title: Echter Mehltau (Erysiphaceae) erkennen und bekaempfen
+    content: |
+      Symptome: Weisser, pudriger Belag auf Blattoberseiten. Sieht aus wie
+      Mehl oder Puderzucker auf den Blaettern. Beginnt als kleine weisse
+      Flecken, breitet sich schnell auf ganze Blaetter, Stengel und
+      Bluetenknospen aus. Befallene Blaetter vergilben, trocknen ein und
+      sterben ab.
+      Erreger: Verschiedene Arten (Erysiphe, Podosphaera, Oidium) — jeweils
+      wirtsspezifisch. Mehltau von Gurke befaellt nicht Tomate und umgekehrt.
+      Beguestigende Bedingungen:
+      - Warme Tage (20-30°C) und kuehle Naechte (hohe Tag-Nacht-Differenz)
+      - TROCKENE Blattoberflaechen bei hoher Umgebungsfeuchte (70-80% RH)
+      - Schlechte Luftzirkulation (Stauluft)
+      - Dichte Bepflanzung
+      - Stickstoff-Ueberduengung (weiches, anfaelliges Gewebe)
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen und im Muell entsorgen
+        (NICHT kompostieren — Sporen ueberleben)
+      - Luftzirkulation verbessern (Ventilator, Pflanzen auslichten)
+      - Pflanzabstaende vergroessern
+      - Milch-Spray: 1 Teil Milch zu 9 Teile Wasser, vorbeugend und bei
+        leichtem Befall (Casein wirkt antimykotisch)
+      - Backpulver-Spray: 1 TL Natron + 1 L Wasser + Tropfen Spuelmittel
+        (Kaliumbicarbonat / Backpulver wirkt gegen Echten Mehltau)
+      - Netzschwefel (bio-konform, vorbeugend, nicht bei >30°C anwenden)
+      - Kaliumbicarbonat-Praeparate (z.B. Vitisan) — bio-zugelassen,
+        KHCO3 als Wirkstoff
+      Vorbeugung:
+      - Gute Luftzirkulation ist die wichtigste Massnahme
+      - Blaetter nicht nass halten — nicht von oben bewaessern,
+        Blaetter trocken halten, morgens giessen
+      - Pflanzen nicht zu dicht setzen, genug Abstand
+      - Resistente Sorten waehlen wenn verfuegbar (Resistenz nutzen)
+      Abgrenzung zu Falschem Mehltau: Echter Mehltau sitzt auf der
+      Blattoberseite (abwischbar). Falscher Mehltau zeigt grau-violetten
+      Belag auf der Blattunterseite und gelbe Flecken oben.
+    metadata:
+      pathogen: powdery_mildew
+      family: Erysiphaceae
+      environment_preference: warm_dry_days_cool_nights
+      difficulty: common
+
+  - id: falscher-mehltau
+    title: Falscher Mehltau (Peronosporaceae) erkennen
+    content: |
+      Symptome: Gelbe bis braune eckige Flecken auf Blattoberseiten,
+      begrenzt durch Blattadern. Auf der Blattunterseite grau-violetter
+      bis weisser Sporenrasen. Befallene Blaetter sterben schnell ab.
+      Haeufig bei: Gurke, Salat, Spinat, Weinrebe, Basilikum, Zwiebel.
+      Beguestigende Bedingungen (GEGENTEIL von Echtem Mehltau!):
+      - Nasse Blaetter (Regen, Beregnung von oben, Spruehnebel)
+      - Kuehle Temperaturen (10-20°C)
+      - Hohe Luftfeuchtigkeit (>80%)
+      - Laengere Blattnaeseperioden (6+ Stunden)
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen
+      - NICHT von oben giessen — nur Boden bewaessern
+      - Luftzirkulation verbessern
+      - Kupferpraeparate (bio-zugelassen, vorbeugend)
+      - Phosphonat-basierte Praeparate (kurativ)
+      Vorbeugung:
+      - Nur von unten bewaessern (Tropfbewaesserung)
+      - Morgens giessen damit Blaetter schnell trocknen
+      - Pflanzen auslichten fuer Luftzirkulation
+      - Resistente Sorten waehlen
+    metadata:
+      pathogen: downy_mildew
+      family: Peronosporaceae
+      environment_preference: cool_wet
+      difficulty: moderate
+
+  - id: grauschimmel-botrytis
+    title: Grauschimmel (Botrytis cinerea) erkennen
+    content: |
+      Symptome: Grauer, pelziger Schimmelrasen auf Bluetenteilen, Fruechten,
+      Blaettern oder Stengeln. Befallenes Gewebe wird weich und matschig.
+      Bei Cannabis: "Bud Rot" — Blueten werden von innen braun und matschig,
+      grauer Schimmel sichtbar wenn man die Bluete oeffnet.
+      Haeufig bei: Cannabis (Bluetenfaeule), Erdbeere, Tomate, Weintraube,
+      Salat, Schnittblumen.
+      Beguestigende Bedingungen:
+      - Hohe Luftfeuchtigkeit (>60% RH) waehrend der Bluete
+      - Schlechte Luftzirkulation in dichten Bestaenden
+      - Grosse, dichte Bluetenstaende (Cannabis Indica-lastige Sorten)
+      - Verletztes oder abstirbendes Gewebe (Eintrittspforte)
+      - Temperatur 15-25°C mit hoher Feuchte
+      Sofortmassnahmen:
+      - Befallene Pflanzenteile SOFORT grosszuegig herausschneiden
+        (2-3 cm ins gesunde Gewebe hinein)
+      - VORSICHTIG arbeiten — befallene Teile nicht schuetteln!
+        Botrytis-Sporen verteilen sich sonst in der Luft auf gesunde Pflanzen.
+      - Schere zwischen Schnitten desinfizieren (Isopropanol)
+      - Bei Cannabis: Befallene Blueten komplett entfernen, NICHT rauchen!
+        (Gesundheitsgefahr durch Mykotoxine)
+      - Luftfeuchtigkeit sofort unter 50% senken — RH senken ist die
+        wichtigste Massnahme (Entfeuchter einsetzen)
+      - Luftzirkulation maximieren (Ventilatoren, Luftbewegung erhoehen)
+      Vorbeugung:
+      - RH unter 50% in der spaeten Bluete (Cannabis)
+      - Ausreichende Luftbewegung
+      - Abgestorbene Blaetter regelmaessig entfernen
+      - Pflanzen nicht verletzen (Eintrittspforte fuer Botrytis)
+    metadata:
+      pathogen: botrytis
+      species: Botrytis cinerea
+      environment_preference: humid_cool
+      difficulty: common
+
+  - id: krautfaeule-kartoffel-tomate
+    title: Kraut- und Braunfaeule (Phytophthora infestans) bei Kartoffeln und Tomaten
+    content: |
+      Die Krautfaeule (auch Braunfaeule genannt) ist eine der
+      gefaehrlichsten Pflanzenkrankheiten im Freiland-Gemuesesanbau.
+      Erreger ist Phytophthora infestans — derselbe Erreger
+      der die irische Kartoffelhungersnot ausloeste.
+      Symptome:
+      - Braune, waessrige Flecken auf Blaettern, oft am Blattrand
+        beginnend, die sich schnell ausbreiten
+      - Auf der Blattunterseite weisslicher Sporenrasen bei feuchter
+        Witterung
+      - Stengel werden braun-schwarz und matschig
+      - Bei Kartoffeln: Knollen bekommen braun-graue, eingesunkene Flecken
+      - Bei Tomaten: braune Flecken an Fruechten, Frucht wird hart und
+        ungeniesbar
+      Beguestigende Bedingungen:
+      - Feucht-warmes Wetter (15-25°C bei hoher Luftfeuchte)
+      - Laengere Blattnaeseperioden (Regen, Beregnung von oben)
+      - Dichte Bestaende mit schlechter Luftzirkulation
+      - Phytophthora breitet sich explosionsartig aus — innerhalb weniger
+        Tage kann ein ganzer Bestand zerstoert sein
+      Sofortmassnahmen:
+      - Befallene Teile sofort grosszuegig entfernen und im Restmuell
+        entsorgen (NICHT kompostieren!)
+      - Kupfer-Praeparat spritzen (Kupferpraeparat wie Kupferhydroxid
+        oder Bordeauxbruehe) — wirkt vorbeugend und bei leichtem Befall
+      - Phosphonat-Praeparate bei staerkerem Befall
+      - Befallene Kartoffelknollen nicht einlagern
+      Vorbeugung:
+      - Resistente Sorten waehlen (z.B. Sarpo Mira bei Kartoffeln)
+      - Nicht von oben bewaessern — Tropfbewaesserung verwenden
+      - Kartoffeln und Tomaten NICHT nebeneinander pflanzen
+        (gleicher Erreger, gegenseitige Ansteckung)
+      - Pflanzen auslichten fuer gute Luftzirkulation
+      - Fruchtfolge: mindestens 3-4 Jahre Anbaupause fuer Nachtschatten
+    metadata:
+      pathogen: late_blight
+      species: Phytophthora infestans
+      host_plants: [Solanum tuberosum, Solanum lycopersicum]
+      environment_preference: warm_wet
+      difficulty: common
+
+  - id: kohlhernie
+    title: Kohlhernie (Plasmodiophora brassicae) bei Kohl und Kreuzbluetlern
+    content: |
+      Kohlhernie ist eine bodenbuertige Krankheit die alle Kreuzbluetler
+      (Brassicaceae) befaellt: Kohl, Brokkoli, Blumenkohl, Rettich,
+      Radieschen, Raps, Senf. Erreger ist Plasmodiophora brassicae — ein
+      Protist (kein Pilz und kein Oomycet!).
+      Symptome:
+      - Verdickte, knollig aufgetriebene Wurzeln (Gallen/Hernien)
+      - Pflanze kuemmert, waechst schlecht, bleibt klein
+      - Blaetter welken bei Sonnenschein obwohl der Boden feucht ist
+      - Bei starkem Befall: Pflanze stirbt vorzeitig ab
+      - Beim Herausziehen: Wurzeln sind keulenfoermig verdickt statt
+        fein verzweigt
+      Plasmodiophora brassicae ist ein Protist (kein Pilz und kein
+      Oomycet!) — klassische Fungizide wirken daher NICHT. Die
+      keulenfoermigen Verdickungen an den Wurzeln sind das eindeutige
+      Erkennungsmerkmal der Kohlhernie.
+      Beguestigende Bedingungen:
+      - Saurer Boden (pH unter 6.5) — der wichtigste Risikofaktor
+      - Nasse, verdichtete Boeden
+      - Dauersporen ueberleben 15-20 Jahre im Boden!
+      Bekaempfung und Vorbeugung:
+      - pH erhoehen: Boden auf pH 7.0-7.5 kalken (Dolomitkalk oder
+        Kalkmergel). Hoher pH hemmt die Sporenkeimung massiv.
+      - Strenge Fruchtfolge einhalten: mindestens 4 Jahre keine
+        Kreuzbluetler auf derselben Flaeche (Fruchtfolge ist essentiell!)
+      - Resistente Sorten verwenden (z.B. Kilaton F1 Weisskohl,
+        Clapton F1 Blumenkohl)
+      - Drainage verbessern, Staunaesse vermeiden
+      - Befallene Pflanzen mit Wurzeln ausgraben und im Restmuell
+        entsorgen — NICHT kompostieren (Sporen ueberleben)
+      - Setzlinge in sauberer Erde vorziehen und erst nach dem
+        Kalken ins Beet pflanzen
+    metadata:
+      pathogen: clubroot
+      species: Plasmodiophora brassicae
+      type: protist
+      host_plants: [Brassica oleracea, Brassica rapa, Raphanus sativus]
+      environment_preference: acidic_wet
+      difficulty: moderate

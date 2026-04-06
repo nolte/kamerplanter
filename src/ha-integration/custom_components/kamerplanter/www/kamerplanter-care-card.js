@@ -17,6 +17,83 @@
 
 const CARD_VERSION = "1.0.0";
 
+/**
+ * ha-form ready singleton (UI-NFR-015 §2.2).
+ */
+const _haFormReadyCare = (async () => {
+  if (customElements.get("ha-form")) return;
+  await customElements.whenDefined("hui-entities-card");
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+  }
+  await customElements.whenDefined("ha-form");
+})();
+
+/**
+ * Care card editor schema — static, no entity filtering needed since
+ * entity_due / entity_overdue are fixed global sensors.
+ */
+const CARE_CARD_SCHEMA = [
+  { name: "title",          label: "Titel",                              selector: { text: {} } },
+  { name: "upcoming_days",  label: "Vorschau Tage",                      selector: { number: { min: 1, max: 14, step: 1 } } },
+  { name: "entity_due",     label: "F\u00e4llig-Heute Sensor (optional)", selector: { entity: { domain: ["sensor"] } } },
+  { name: "entity_overdue", label: "\u00dcberf\u00e4llig Sensor (optional)", selector: { entity: { domain: ["sensor"] } } },
+];
+
+/**
+ * Kamerplanter Care Card Editor
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
+ */
+class KamerplanterCareCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = {
+      title: "Kamerplanter Pflege",
+      upcoming_days: 3,
+      entity_due: "sensor.kp_tasks_due_today",
+      entity_overdue: "sensor.kp_tasks_overdue",
+      ...config,
+    };
+    if (this._hass) this._scheduleRender();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._scheduleRender();
+  }
+
+  async _scheduleRender() {
+    await _haFormReadyCare;
+    this._render();
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
+      });
+      this.appendChild(this._form);
+    }
+
+    this._form.hass = this._hass;
+    this._form.schema = CARE_CARD_SCHEMA;
+    this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
+  }
+}
+customElements.define("kamerplanter-care-card-editor", KamerplanterCareCardEditor);
+
 class KamerplanterCareCard extends HTMLElement {
   static get properties() {
     return {
@@ -26,29 +103,50 @@ class KamerplanterCareCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const oldDue = this._hass?.states[this._config?.entity_due];
+    const newDue = hass.states[this._config?.entity_due];
+    const oldOverdue = this._hass?.states[this._config?.entity_overdue];
+    const newOverdue = hass.states[this._config?.entity_overdue];
     this._hass = hass;
-    this._render();
+
+    if (oldDue !== newDue || oldOverdue !== newOverdue || !this._rendered) {
+      this._render();
+      this._rendered = true;
+    }
   }
 
   setConfig(config) {
+    this._isPreview = !!config.__preview;
     this._config = {
       title: config.title || "Kamerplanter Pflege",
       upcoming_days: config.upcoming_days || 3,
       entity_due: config.entity_due || "sensor.kp_tasks_due_today",
       entity_overdue: config.entity_overdue || "sensor.kp_tasks_overdue",
     };
+    this._rendered = false;
   }
 
   getCardSize() {
     return 3;
   }
 
+  getGridOptions() {
+    return {
+      columns: 6,
+      rows: 4,
+      min_columns: 3,
+      min_rows: 2,
+      max_rows: 8,
+    };
+  }
+
   static getConfigElement() {
-    return undefined;
+    return document.createElement("kamerplanter-care-card-editor");
   }
 
   static getStubConfig() {
     return {
+      __preview: true,
       title: "Kamerplanter Pflege",
       upcoming_days: 3,
     };
@@ -110,11 +208,77 @@ class KamerplanterCareCard extends HTMLElement {
     return String(str).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  _render() {
-    if (!this.shadowRoot || !this._hass || !this._config) return;
+  _renderPreview() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; }
+        ha-card { padding: 16px; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .header-title { font-size: 1.1rem; font-weight: 500; color: var(--primary-text-color); }
+        .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 12px; padding: 0 6px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+        .badge-overdue { background-color: var(--error-color, #f44336); }
+        .badge-due { background-color: var(--warning-color, #ff9800); }
+        .section-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 6px 0; }
+        .section-overdue .section-label { color: var(--error-color, #f44336); }
+        .section-today .section-label { color: var(--warning-color, #ff9800); }
+        .task-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--divider-color, rgba(0,0,0,0.12)); gap: 12px; }
+        .task-row:last-child { border-bottom: none; }
+        .task-icon { --mdc-icon-size: 20px; color: var(--secondary-text-color); flex-shrink: 0; }
+        .overdue .task-icon { color: var(--error-color, #f44336); }
+        .today .task-icon { color: var(--warning-color, #ff9800); }
+        .task-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .plant-name { font-size: 0.9rem; font-weight: 500; color: var(--primary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-type { font-size: 0.75rem; color: var(--secondary-text-color); text-transform: capitalize; }
+        .done-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0; background-color: var(--success-color, #4caf50); color: #fff; }
+        .btn-icon { --mdc-icon-size: 18px; color: #fff; }
+      </style>
+      <ha-card>
+        <div class="header">
+          <span class="header-title">Pflege-Dashboard</span>
+          <span class="badge badge-overdue">3</span>
+        </div>
+        <div class="section-overdue">
+          <div class="section-label">Ueberfaellig (1)</div>
+          <div class="task-row overdue">
+            <ha-icon icon="mdi:watering-can" class="task-icon"></ha-icon>
+            <div class="task-info">
+              <span class="plant-name">Monstera deliciosa</span>
+              <span class="task-type">Giessen</span>
+            </div>
+            <button class="done-btn"><ha-icon icon="mdi:check" class="btn-icon"></ha-icon></button>
+          </div>
+        </div>
+        <div class="section-today">
+          <div class="section-label">Heute faellig (2)</div>
+          <div class="task-row today">
+            <ha-icon icon="mdi:bottle-tonic" class="task-icon"></ha-icon>
+            <div class="task-info">
+              <span class="plant-name">Basil 'Genovese'</span>
+              <span class="task-type">Duengen</span>
+            </div>
+            <button class="done-btn"><ha-icon icon="mdi:check" class="btn-icon"></ha-icon></button>
+          </div>
+          <div class="task-row today">
+            <ha-icon icon="mdi:bug" class="task-icon"></ha-icon>
+            <div class="task-info">
+              <span class="plant-name">Tomate 'San Marzano'</span>
+              <span class="task-type">Schaedlingskontrolle</span>
+            </div>
+            <button class="done-btn"><ha-icon icon="mdi:check" class="btn-icon"></ha-icon></button>
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
 
-    const dueTodayState = this._hass.states[this._config.entity_due];
-    const overdueState = this._hass.states[this._config.entity_overdue];
+  _render() {
+    if (!this.shadowRoot) return;
+    if (this._isPreview) {
+      this._renderPreview();
+      return;
+    }
+    if (!this._hass || !this._config) return;
 
     const overdueTasks =
       overdueState && overdueState.attributes

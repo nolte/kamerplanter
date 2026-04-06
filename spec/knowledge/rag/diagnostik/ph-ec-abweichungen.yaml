@@ -1,0 +1,230 @@
+---
+title: pH- und EC-Abweichungen diagnostizieren und korrigieren
+language: de
+category: diagnostik
+tags: [ph, ec, lockout, drift, kalibrierung, naehrloesung, runoff, substrat]
+expertise_level: [intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: ph-lockout-zonen
+    title: pH-Lockout-Zonen und Naehrstoff-Verfuegbarkeit
+    content: |
+      Jeder Naehrstoff hat einen optimalen pH-Bereich fuer die Aufnahme.
+      Ausserhalb dieses Bereichs ist der Naehrstoff zwar vorhanden, aber
+      fuer die Pflanze nicht verfuegbar ("Lockout").
+      Hydro/Coco (optimaler Bereich 5.5-6.5):
+      - pH <5.0: Ca, Mg und Mo stark eingeschraenkt
+      - pH 5.5-5.8: Optimal fuer Mikros (Fe, Mn, Zn, Cu, B)
+      - pH 5.8-6.2: Bester Kompromiss — alle Naehrstoffe gut verfuegbar
+      - pH 6.2-6.5: Optimal fuer Makros (N, P, K) und Ca
+      - pH >6.5: Fe, Mn, Zn und Cu stark eingeschraenkt
+      Erde (optimaler Bereich 6.0-7.0):
+      - pH <5.5: Aluminium-Toxizitaet moeglich, Mo nicht verfuegbar
+      - pH 6.0-6.5: Optimaler Bereich fuer die meisten Naehrstoffe
+      - pH >7.5: Fe, Mn, Zn, Cu, B stark eingeschraenkt
+      Praxistipp: pH-Wert bewusst im Bereich 5.5-6.5 schwanken lassen
+      (nicht auf einen Fixwert korrigieren), damit ueber die Zeit alle
+      Naehrstoffe ihre optimale Zone durchlaufen.
+    metadata:
+      topic: ph_lockout
+      substrate: [hydro, coco, soil]
+
+  - id: ph-drift-ursachen
+    title: pH-Drift Ursachen und Gegenmassnahmen
+    content: |
+      pH steigt (basisch):
+      - Pflanze nimmt mehr Anionen (NO3-, H2PO4-) auf als Kationen
+        → gibt OH- ab → pH steigt. Normal bei gesundem Wachstum.
+      - Algenbildung im Reservoir (CO2-Verbrauch hebt pH)
+      - Kalkhaltiges Leitungswasser (hohe KH puffert nach oben)
+      - Frisches Steinwolle-Substrat (basisch, erst nach pH-Behandlung neutral)
+      Massnahme: pH-Down (Phosphorsaeure oder Salpetersaeure) tropfenweise
+      pH senkt (sauer):
+      - Pflanze nimmt mehr Kationen (NH4+, K+, Ca2+) auf als Anionen
+        → gibt H+ ab → pH sinkt. Haeufig bei Ammonium-betonter Duengung.
+      - Organische Saeure aus Wurzelexsudaten
+      - Zersetzungsprozesse im Substrat (Torf, Kokos)
+      - Nitrifikation: Bodenbakterien wandeln NH4+ in NO3- um → produziert H+
+      Massnahme: pH-Up (Kaliumhydroxid oder Kaliumsilikat).
+      Hinweis: Kaliumsilikat liefert zusaetzlich Kalium (~50-100 mg/L K pro
+      1 ml/L). Bei haeufiger Verwendung als pH-Up kann Kalium-Anreicherung
+      entstehen und sekundaer Ca/Mg-Mangel ausloesen (K/Mg-Antagonismus).
+      NH4:NO3-Verhaeltnis und pH-Drift:
+      - Ammonium-betonter Duenger (NH4:NO3 > 1:3) → pH sinkt schnell
+      - Nitrat-betonter Duenger (NH4:NO3 < 1:5) → pH steigt langsam
+      - Empfohlen fuer Hydro/Coco: NH4:NO3 = 1:5 bis 1:10
+      - Hoher NH4-Anteil verdraengt zudem Ca und Mg an der Wurzel
+      KH (Karbonathärte) und pH-Pufferung:
+      - Hohe KH (>12°dKH) bedeutet viel Hydrogencarbonat (HCO3-) →
+        puffert den pH nach oben, braucht mehr pH-Down fuer gleiche Senkung
+      - Niedrige KH (<4°dKH): pH instabil, aendert sich leicht
+      - RO-Wasser hat KH nahe 0 → pH extrem instabil (CO2 aus der Luft
+        kann pH auf 5.5-6.0 senken, CalMag hebt ihn wieder leicht)
+      Starker pH-Drift (>0.5 pro Tag in Hydro): Reservoir zu klein,
+      Naehrloesung zu verduennt, oder Wurzelproblem. Normalerweise
+      stabil bei 0.1-0.3 Drift pro Tag.
+    metadata:
+      topic: ph_drift
+      direction: [up, down]
+
+  - id: ec-zielwerte-phasen
+    title: EC-Zielwerte nach Wachstumsphase
+    content: |
+      EC-Zielwerte (Input-EC netto, nach Abzug Basis-Wasser-EC):
+      - Saemling/Steckling: 0.4-0.6 mS/cm (sehr empfindlich!)
+      - Vegetative Phase: 0.8-1.4 mS/cm (steigend mit Pflanzenmasse)
+      - Fruehe Bluete: 1.2-1.6 mS/cm (Stretch-Phase, noch N-betont)
+      - Peak Bluete: 1.4-2.0 mS/cm (PK-betont, maximaler Bedarf)
+      - Spaete Bluete/Abreife: 0.8-1.2 mS/cm (reduzieren)
+      - Flush: 0.0-0.4 mS/cm (nur Wasser oder minimal)
+      EC-Netto berechnen: Ziel-EC minus Basis-Wasser-EC.
+      Beispiel: Leitungswasser hat EC 0.4, Ziel ist 1.4 → Duenger fuer
+      EC 1.0 zusetzen.
+      Sorten-Unterschiede: Leichtzehrer (Salat, Kraeuter) vertragen
+      max EC 1.0-1.2. Starkzehrer (Tomate, Cannabis) vertragen EC 2.0+.
+      Immer mit niedrigerer EC starten und bei guter Reaktion steigern.
+      Zimmerpflanzen: EC 0.5-1.0 waehrend Wachstumsperiode, kein
+      Duenger in Ruhephase (Winter).
+    metadata:
+      topic: ec_targets
+      unit: mS_per_cm
+
+  - id: ec-creep-rezirkulierend
+    title: EC-Creep in rezirkulierenden Systemen
+    content: |
+      Problem: In rezirkulierenden Hydro-Systemen (DWC, NFT, Ebb&Flow)
+      steigt der EC im Reservoir ueber die Zeit, obwohl die Pflanze
+      Naehrstoffe aufnimmt.
+      Ursache: Pflanze nimmt Wasser schneller auf als Naehrstoffe →
+      Loesung wird konzentrierter. Besonders bei hoher Transpiration
+      (hohe Temperatur, niedriger RH, viel Licht, grosse Pflanze).
+      Erkennung: EC steigt taeglich um 0.2+ mS/cm, Wasserstand sinkt
+      schnell, Pflanze zeigt Tip Burn.
+      Massnahmen:
+      - Mit reinem pH-angepasstem Wasser nachfuellen (nicht mit Naehrloesung!)
+      - Reservoir gross genug waehlen (min. 10-20L pro Pflanze)
+      - Reservoir komplett wechseln wenn EC >30% ueber Zielwert
+      - Temperatur senken und RH erhoehen reduziert Transpiration
+      EC sinkt statt zu steigen: Pflanze nimmt mehr Naehrstoffe als Wasser
+      auf → zu niedrige EC oder frisch umgetopft in naehrstofffreies Substrat.
+      Mit Naehrloesung auf Ziel-EC nachfuellen.
+    metadata:
+      topic: ec_creep
+      system: recirculating
+
+  - id: runoff-analyse
+    title: Runoff-Analyse zur Substrat-Diagnose
+    content: |
+      Runoff (Ablaufwasser) gibt Aufschluss ueber Bedingungen in der
+      Wurzelzone. Besonders wichtig bei Coco und Erde.
+      Messung: 10-20% Ueberschuss giessen, Ablaufwasser auffangen,
+      sofort pH und EC messen (nicht stehen lassen — Werte aendern sich).
+      Interpretation Runoff-EC:
+      - Runoff-EC ≈ Input-EC (±0.2): Alles im Gleichgewicht
+      - Runoff-EC deutlich hoeher (>0.5 ueber Input): Salzanreicherung
+        im Substrat. EC NICHT erhoehen! Stattdessen: EC der Naehrloesung
+        reduzieren (EC senken) und/oder Flush durchfuehren. Beispiel:
+        Runoff-EC 3.2 bei Input-EC 1.4 → massive Salzanreicherung, Flush
+        noetig (3x Topfvolumen mit pH-angepasstem Wasser spuelen), danach
+        mit reduzierter EC (50-75%) weiterduengen.
+      - Runoff-EC deutlich niedriger: Substrat bindet Naehrstoffe →
+        bei Bedarf Input-EC leicht anpassen (normal bei neuem Coco)
+      Interpretation Runoff-pH:
+      - Runoff-pH ≈ Input-pH: Substrat puffert nicht
+      - Runoff-pH niedriger: Substrat versauert (organische Zersetzung)
+      - Runoff-pH hoeher: Kalkhaltige Bestandteile im Substrat
+      Messhaeufigkeit: Bei Coco/Hydro 1-2x pro Woche. Bei Erde alle
+      2-4 Wochen. Nach jedem Flush zur Kontrolle.
+    metadata:
+      topic: runoff_analysis
+      substrate: [coco, soil]
+
+  - id: ph-meter-kalibrierung
+    title: pH- und EC-Meter Kalibrierung und Pflege
+    content: |
+      pH-Meter:
+      - 2-Punkt-Kalibrierung: pH 4.0 und pH 7.0 (Minimum monatlich,
+        besser woechentlich bei taeglicher Nutzung)
+      - Lagerung: IMMER in KCl-Aufbewahrungsloesung, NIEMALS trocken oder
+        in destilliertem Wasser (zerstoert die Referenzelektrode)
+      - Lebensdauer der Sonde: 12-24 Monate, danach ungenau
+      - Anzeichen fuer defekte Sonde: Kalibrierung schlaegt fehl,
+        instabile Anzeige, extrem langsame Stabilisierung
+      EC-Meter:
+      - 1-Punkt-Kalibrierung: Typisch 1.413 mS/cm Standardloesung
+      - Sonde mit destilliertem Wasser spuelen nach jeder Messung
+      - Temperaturkompensation: Gute Geraete kompensieren automatisch
+        (EC aendert sich ~2% pro °C)
+      Guenstige pH/EC-Kombigeraete (ab ~30€) sind fuer den Hobbybereich
+      ausreichend. Entscheidend ist regelmaessige Kalibrierung.
+      Bluelab und Apera sind bewaehrte Marken fuer hoehere Praezision.
+      Tropfen-Tests (pH-Kits) als Backup wenn Messgeraet ausfaellt.
+    metadata:
+      topic: meter_calibration
+      equipment: [ph_meter, ec_meter]
+
+  - id: ph-drift-dwc-details
+    title: pH-Drift nach oben in DWC — Ursachen und Loesungen
+    content: |
+      Der pH-Wert driftet in DWC-Systemen (Deep Water Culture) haeufig
+      nach oben. Das hat mehrere spezifische Ursachen:
+      1. Nitrat-Aufnahme durch die Pflanze:
+         Gesunde Pflanzen nehmen Nitrat (NO3-) auf und geben im Austausch
+         OH- oder HCO3- ab → pH steigt. Das ist normal und zeigt an dass
+         die Pflanze aktiv waechst. Staerkerer pH-Anstieg = staerkeres
+         Wachstum. Ein Drift von 0.1-0.3 pro Tag ist normal.
+      2. Algenbildung im Reservoir:
+         Algen verbrauchen CO2 → pH steigt (gleicher Effekt wie in einem
+         See bei Algenblüte). Licht faellt auf das Reservoir oder auf die
+         Schlaeuche. Gruener Belag sichtbar.
+         Loesung: Reservoir und Schlaeuche lichtdicht abdecken. Netcup-
+         Oeffnungen abdecken. Schwarze/weisse Schlaeuche verwenden.
+      3. Reservoir zu klein:
+         Zu wenig Wasser pro Pflanze → pH aendert sich schneller da die
+         Pufferkapazitaet geringer ist. Kleine Mengen Wurzelexsudate
+         haben ueberproportional grossen Einfluss.
+         Loesung: Mindestens 10-20 Liter pro Pflanze. Grosses Reservoir
+         = stabiler pH = weniger Nachregeln.
+      4. Karbonataerte (KH) des Ausgangswassers:
+         Hohe KH (>12°dKH) puffert den pH stark nach oben. Das Wasser
+         "wehrt sich" gegen pH-Senkung, braucht viel mehr pH-Down.
+         Niedrige KH (<4°dKH) macht den pH instabil — kleine Mengen
+         pH-Down/Up haben grossen Effekt.
+         RO-Wasser (KH nahe 0) ist extrem instabil.
+         Loesung: Bei hoher KH mehr pH-Down verwenden (Phosphorsaeure),
+         KH des Leitungswassers messen lassen, ggf. Verschnitt mit
+         RO-Wasser um KH auf 4-8°dKH zu bringen.
+      Normaler Drift: 0.1-0.3 pro Tag → nur nachregeln.
+      Starker Drift: >0.5 pro Tag → Ursache finden (Reservoir, Algen, KH).
+      Wenn der pH SINKT statt zu steigen: Moeglicherweise Wurzelproblem
+      (anaerobe Bakterien produzieren Saeure) oder zu hoher NH4-Anteil
+      im Duenger.
+    metadata:
+      topic: ph_drift_dwc
+      system: dwc
+      direction: up
+
+  - id: substrat-ph-pufferung
+    title: pH-Pufferung verschiedener Substrate
+    content: |
+      Verschiedene Substrate puffern den pH unterschiedlich stark:
+      Starke Pufferung (pH aendert sich langsam):
+      - Erde mit Kompost: Hohe CEC, organische Saeure puffert. pH-Korrektur
+        dauert Tage. Weniger pH-Kontrolle noetig, aber schwerer zu korrigieren.
+      - Torf: Puffert stark sauer (pH 3.5-4.5 unbehandelt). Kalk zugesetzt
+        fuer pH 5.5-6.5.
+      Geringe Pufferung (pH reagiert schnell):
+      - Kokos/Coco: Geringe Pufferung, aber CEC bindet Ca/Mg. Vorpuffern
+        mit CalMag-Loesung vor erster Nutzung. pH folgt Input relativ schnell.
+      - Perlite/Vermiculite: Fast keine Pufferung, pH = Input-pH.
+      - Steinwolle: Leicht basisch aus Produktion (pH 7-8), muss vor Nutzung
+        in pH-5.5-Wasser eingeweicht werden (24h).
+      Keine Pufferung:
+      - Hydroponik (DWC, NFT): pH = direkte Messung der Naehrloesung.
+        Schnelle Aenderungen moeglich, aber auch schneller Drift.
+      - Pon/Seramis: Minimal puffernd, Semi-Hydro. pH wie in Hydro behandeln.
+      Praxisregel: Je weniger das Substrat puffert, desto oefter pH messen
+      und desto weniger pH-Korrektor pro Dosis verwenden.
+    metadata:
+      topic: substrate_ph_buffering
+      substrate: [soil, coco, perlite, rockwool, hydro, pon]

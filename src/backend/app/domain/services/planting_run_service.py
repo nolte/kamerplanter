@@ -215,17 +215,30 @@ class PlantingRunService:
         created_plants = []
         for i, spec in enumerate(plant_specs):
             slot_key = available_slots[i].key if i < len(available_slots) else None
-            # REQ-013 v2.0: Plants do NOT get their own phase — phase lives on the Run
+            species_phase_key, _ = initial_phases.get(spec["species_key"], ("", ""))
             plant = PlantInstance(
                 instance_id=spec["instance_id"],
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
                 slot_key=slot_key,
                 planted_on=date.today(),
+                current_phase_key=species_phase_key or None,
+                current_phase_started_at=now,
             )
             created = self._plant_repo.create(plant)
             if created.key:
                 self._repo.link_run_to_plant(run_key, created.key)
+                # Create initial phase history per plant
+                if self._phase_repo and species_phase_key:
+                    _, sp_name = initial_phases[spec["species_key"]]
+                    hist = PhaseHistory(
+                        plant_instance_key=created.key,
+                        phase_key=species_phase_key,
+                        phase_name=sp_name,
+                        entered_at=now,
+                        transition_reason="initial",
+                    )
+                    self._phase_repo.create_phase_history(hist)
             # Mark slot as occupied
             if slot_key and self._site_repo:
                 slot = available_slots[i]
@@ -241,10 +254,10 @@ class PlantingRunService:
         run.current_phase_started_at = now
         self._repo.update(run_key, run)
 
-        # Create initial phase history on the RUN (not on plants)
+        # Create phase history on the run as well
         if self._phase_repo and phase_key:
             history = PhaseHistory(
-                plant_instance_key=run_key,  # reused field for run_key
+                plant_instance_key=run_key,
                 phase_key=phase_key,
                 phase_name=phase_name,
                 entered_at=now,
@@ -300,13 +313,8 @@ class PlantingRunService:
                 skipped.append({"plant_key": pk, "reason": "Already in an active run"})
                 continue
 
-            # Link plant to run
+            # Link plant to run (plant keeps its current phase)
             self._repo.link_run_to_plant(run_key, pk)
-
-            # Clear plant-level phase (run phase takes over)
-            plant.current_phase_key = None
-            plant.current_phase_started_at = None
-            self._plant_repo.update(pk, plant)
 
             adopted.append(pk)
 
@@ -318,12 +326,12 @@ class PlantingRunService:
                 now = datetime.now(UTC)
                 run.status = PlantingRunStatus.ACTIVE
                 run.started_at = now
-                # Set initial phase from first adopted plant if run has none
-                if not run.current_phase_key:
-                    first_plant = self._plant_repo.get_by_key(adopted[0])
-                    if first_plant and first_plant.current_phase_key:
-                        run.current_phase_key = first_plant.current_phase_key
-                        run.current_phase_started_at = now
+            # Set initial run phase from first adopted plant if run has none
+            if not run.current_phase_key:
+                first_plant = self._plant_repo.get_by_key(adopted[0])
+                if first_plant and first_plant.current_phase_key:
+                    run.current_phase_key = first_plant.current_phase_key
+                    run.current_phase_started_at = first_plant.current_phase_started_at or datetime.now(UTC)
             self._repo.update(run_key, run)
 
         return {
@@ -528,8 +536,10 @@ class PlantingRunService:
             sk = p.get("species_key", "")
             species_plants.setdefault(sk, []).append(p)
 
-        # Unique species from entries
+        # Unique species from entries; fall back to plants when no entries exist
         species_keys = list({e.species_key for e in entries})
+        if not species_keys:
+            species_keys = list({sk for sk in species_plants if sk})
 
         timelines = []
         for species_key in species_keys:
@@ -655,6 +665,7 @@ class PlantingRunService:
                     "species_key": species_key,
                     "species_name": None,
                     "lifecycle_key": lifecycle.key,
+                    "cycle_type": lifecycle.cycle_type.value,
                     "plant_count": len(sp_plants),
                     "phases": phase_entries,
                 }

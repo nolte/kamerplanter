@@ -386,6 +386,7 @@ export default function FertilizerGanttChart({
 
   // Reset viewport when data changes
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- sync viewport position from props */
     if (!needsViewport) {
       setShowAll(true);
       return;
@@ -398,6 +399,7 @@ export default function FertilizerGanttChart({
     } else {
       setViewportStart(1);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [totalWeeks, currentWeek, weekOffset, needsViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleStart = showAll ? 1 : viewportStart;
@@ -849,6 +851,7 @@ function DosageEditPopover({
 
   useEffect(() => {
     if (state) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync popover value from state prop
       setValue(String(state.mlPerLiter));
       // Auto-focus + select after popover opens
       setTimeout(() => inputRef.current?.select(), 50);
@@ -972,6 +975,7 @@ function InlineValuePopover({
 
   useEffect(() => {
     if (state) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync popover value from state prop
       setValue(String(state.value));
       setTimeout(() => inputRef.current?.select(), 50);
     }

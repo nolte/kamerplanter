@@ -18,6 +18,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import EditIcon from '@mui/icons-material/Edit';
 import PageTitle from '@/components/layout/PageTitle';
+import PrintButton from '@/components/common/PrintButton';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -25,13 +26,57 @@ import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice'
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as careApi from '@/api/endpoints/careReminders';
+import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import type { CareDashboardEntry, ReminderType, CareProfile } from '@/api/types';
 import { kamiCare } from '@/assets/brand/illustrations';
 import CareProfileEditDialog from './components/CareProfileEditDialog';
 import CareConfirmDialog from './components/CareConfirmDialog';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
+import type { TFunction } from 'i18next';
 
 type UrgencyLevel = 'overdue' | 'due_today' | 'upcoming';
+
+/**
+ * Formats a due date as a locale-aware date string with a relative indicator
+ * (e.g. "02.04.2026 (gestern)" or "05.04.2026 (in 3 Tagen)").
+ */
+function formatDueDate(
+  dueDateStr: string | null,
+  locale: string,
+  t: TFunction,
+): string | null {
+  if (!dueDateStr) return null;
+
+  const dueDate = new Date(dueDateStr);
+  const now = new Date();
+
+  // Compare calendar days (strip time)
+  const dueDateDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = dueDateDay.getTime() - todayDay.getTime();
+  const diffDays = Math.round(diffMs / 86_400_000);
+
+  const formattedDate = dueDate.toLocaleDateString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  let relative: string;
+  if (diffDays === 0) {
+    relative = t('pages.pflege.today');
+  } else if (diffDays === -1) {
+    relative = t('pages.pflege.yesterday');
+  } else if (diffDays === 1) {
+    relative = t('pages.pflege.tomorrow');
+  } else if (diffDays < -1) {
+    relative = t('pages.pflege.daysOverdue', { count: Math.abs(diffDays) });
+  } else {
+    relative = t('pages.pflege.daysFromNow', { count: diffDays });
+  }
+
+  return t('pages.pflege.dueDateWithRelative', { date: formattedDate, relative });
+}
 
 const URGENCY_ORDER: UrgencyLevel[] = ['overdue', 'due_today', 'upcoming'];
 
@@ -65,8 +110,9 @@ function getReminderIcon(type: ReminderType) {
 }
 
 export default function PflegeDashboardPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
+  const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
   const notification = useNotification();
   const { handleError } = useApiError();
   const { dashboard, loading, currentProfile } = useAppSelector(
@@ -212,14 +258,16 @@ export default function PflegeDashboardPage() {
                 )}
                 <Typography variant="body2" color="text.secondary" display="block">
                   {t(`enums.reminderType.${entry.reminder_type}`)}
-                  {entry.due_date && (
-                    <> &mdash; {new Date(entry.due_date).toLocaleDateString()}</>
-                  )}
                 </Typography>
+                {entry.due_date && (
+                  <Typography variant="body2" color="text.secondary" display="block">
+                    {formatDueDate(entry.due_date, locale, t)}
+                  </Typography>
+                )}
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Chip
                 label={t(`pages.pflege.${entry.urgency === 'due_today' ? 'dueToday' : entry.urgency}`)}
                 size="small"
@@ -227,43 +275,43 @@ export default function PflegeDashboardPage() {
               />
               <Tooltip title={t('pages.pflege.editProfile')}>
                 <IconButton
-                  size="small"
+                  size="medium"
                   onClick={() => handleEditProfile(entry.plant_key)}
                   data-testid={`edit-profile-${entry.plant_key}`}
                 >
-                  <EditIcon fontSize="small" />
+                  <EditIcon />
                 </IconButton>
               </Tooltip>
               <Tooltip title={t('pages.pflege.confirmAction')}>
                 <span>
                   <IconButton
-                    size="small"
+                    size="medium"
                     color="success"
                     onClick={() => handleConfirmClick(entry)}
                     disabled={isLoading}
                     data-testid={`confirm-${id}`}
                   >
                     {isLoading ? (
-                      <CircularProgress size={18} />
+                      <CircularProgress size={22} />
                     ) : (
-                      <CheckCircleIcon fontSize="small" />
+                      <CheckCircleIcon />
                     )}
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title={t('pages.pflege.snoozeAction')}>
+              <Tooltip title={t('pages.pflege.snoozeTooltip')}>
                 <span>
                   <IconButton
-                    size="small"
+                    size="medium"
                     color="default"
                     onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
                     disabled={isLoading}
                     data-testid={`snooze-${id}`}
                   >
                     {isLoading ? (
-                      <CircularProgress size={18} />
+                      <CircularProgress size={22} />
                     ) : (
-                      <SnoozeIcon fontSize="small" />
+                      <SnoozeIcon />
                     )}
                   </IconButton>
                 </span>
@@ -273,7 +321,7 @@ export default function PflegeDashboardPage() {
         </Card>
       );
     },
-    [actionLoading, handleConfirmClick, handleSnooze, handleEditProfile, t],
+    [actionLoading, handleConfirmClick, handleSnooze, handleEditProfile, t, locale],
   );
 
   const renderSection = useCallback(
@@ -308,8 +356,17 @@ export default function PflegeDashboardPage() {
 
   return (
     <Box data-testid="pflege-dashboard-page">
-      <PageTitle title={t('pages.pflege.title')} />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <PageTitle
+        title={t('pages.pflege.title')}
+        action={
+          <PrintButton
+            onPrint={() => downloadCareChecklistPdf()}
+            filename="care-checklist.pdf"
+            label={t('print.careChecklist')}
+          />
+        }
+      />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: 1 }}>
         {t('pages.pflege.subtitle')}
       </Typography>
 

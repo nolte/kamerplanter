@@ -3,8 +3,24 @@ from celery.schedules import crontab
 
 from app.config.settings import settings
 
-celery_app = Celery("kamerplanter", broker=settings.redis_url)
+celery_app = Celery(
+    "kamerplanter",
+    broker=settings.redis_url,
+)
 celery_app.conf.update(
+    include=[
+        "app.tasks.auth_tasks",
+        "app.tasks.care_tasks",
+        "app.tasks.dormancy_checks",
+        "app.tasks.enrichment_tasks",
+        "app.tasks.notification_tasks",
+        "app.tasks.phase_transitions",
+        "app.tasks.sensor_ingestion_tasks",
+        "app.tasks.tank_maintenance_tasks",
+        "app.tasks.tenant_tasks",
+        "app.tasks.vernalization_updates",
+        "app.tasks.watering_tasks",
+    ],
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
@@ -58,6 +74,10 @@ celery_app.conf.update(
             "task": "app.tasks.tank_maintenance_tasks.generate_tank_maintenance_tasks",
             "schedule": 86400,
         },
+        "tank-sync-states-from-ha-5min": {
+            "task": "app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha",
+            "schedule": 300,
+        },
         "tank-check-alerts-hourly": {
             "task": "app.tasks.tank_maintenance_tasks.check_tank_alerts",
             "schedule": 3600,
@@ -86,3 +106,10 @@ celery_app.conf.update(
         },
     },
 )
+
+# TimescaleDB sensor ingestion (conditional)
+if settings.timescaledb_enabled:
+    celery_app.conf.beat_schedule["sensor-ingest-ha-5min"] = {
+        "task": "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
+        "schedule": 300,
+    }

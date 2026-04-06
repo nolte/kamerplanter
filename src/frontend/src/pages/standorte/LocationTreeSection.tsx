@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import ParkIcon from '@mui/icons-material/Park';
@@ -19,9 +20,11 @@ import DeckIcon from '@mui/icons-material/Deck';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LandscapeIcon from '@mui/icons-material/Landscape';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import LocationCreateDialog from './LocationCreateDialog';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
@@ -83,7 +86,9 @@ export default function LocationTreeSection({ siteKey }: Props) {
     }
   }, [siteKey, handleError]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleAddSublocation = (parentKey: string, typeKey?: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,32 +116,83 @@ export default function LocationTreeSection({ siteKey }: Props) {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
+              gap: 0.5,
               py: 0.5,
-              minHeight: 36,
+              minHeight: 44,
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
             }}
           >
-            {icon}
-            <Typography
-              variant="body2"
-              sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/standorte/locations/${node.key}`);
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+              {icon}
+              <Typography
+                variant="body2"
+                component="span"
+                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/standorte/locations/${node.key}`);
+                }}
+              >
+                {node.name}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flexWrap: 'wrap',
+                flex: 1,
+                minWidth: 0,
               }}
             >
-              {node.name}
-            </Typography>
-            {node.slot_count > 0 && (
-              <Chip label={`${node.slot_count} ${t('entities.slots')}`} size="small" variant="outlined" />
-            )}
-            <IconButton
-              size="small"
-              onClick={handleAddSublocation(node.key, node.location_type_key)}
-              title={t('pages.locations.addSublocation')}
-            >
-              <AddIcon fontSize="small" />
-            </IconButton>
+              {ltInfo && (
+                <Chip
+                  label={ltInfo.name}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontSize: '0.7rem', height: 20, maxWidth: 'none' }}
+                />
+              )}
+              {node.slot_count > 0 && (
+                <Chip
+                  label={`${node.slot_count} ${t('entities.slots')}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+              )}
+              {node.active_plant_count > 0 && (
+                <Chip
+                  label={`${node.active_plant_count} ${t('entities.plantInstances')}`}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+              )}
+              {node.tank_name && (
+                <Chip
+                  label={node.tank_name}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                  icon={<WaterDropIcon sx={{ fontSize: '0.85rem !important' }} />}
+                  sx={{ fontSize: '0.7rem', height: 20, maxWidth: 'none' }}
+                />
+              )}
+            </Box>
+            <Tooltip title={t('pages.locations.addSublocation')} placement="top">
+              <IconButton
+                size="small"
+                onClick={handleAddSublocation(node.key, node.location_type_key)}
+                aria-label={t('pages.locations.addSublocation')}
+                data-testid={`add-sublocation-${node.key}`}
+                sx={{ flexShrink: 0, minWidth: 32, minHeight: 32 }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         }
       >
@@ -147,15 +203,33 @@ export default function LocationTreeSection({ siteKey }: Props) {
 
   return (
     <Box sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">{t('pages.locations.title')}</Typography>
-        <Button startIcon={<AddIcon />} onClick={handleAddTopLevel}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 1,
+        }}
+      >
+        <Box>
+          <Typography variant="h6">{t('pages.locations.title')}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.locations.sectionIntro')}
+          </Typography>
+        </Box>
+        <Button
+          startIcon={<AddIcon />}
+          onClick={handleAddTopLevel}
+          data-testid="add-location-button"
+        >
           {t('pages.locations.create')}
         </Button>
       </Box>
 
       {loading ? (
-        <Typography variant="body2" color="text.secondary">{t('common.loading')}</Typography>
+        <LoadingSkeleton rows={3} />
       ) : tree.length === 0 ? (
         <EmptyState
           message={t('pages.locations.noSublocations')}
@@ -174,7 +248,10 @@ export default function LocationTreeSection({ siteKey }: Props) {
         parentLocationTypeKey={createParentTypeKey}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => { setCreateOpen(false); load(); }}
+        onCreated={() => {
+          setCreateOpen(false);
+          load();
+        }}
       />
     </Box>
   );

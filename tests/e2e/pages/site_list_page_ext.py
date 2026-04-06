@@ -31,9 +31,10 @@ class SiteListPageExt(BasePage):
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
-    # ── DataTable locators (from DataTable.tsx) ────────────────────────
+    # ── Content locators (Site cards or DataTable rows) ─────────────────
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    SITE_CARDS = (By.CSS_SELECTOR, "[data-testid^='site-card-']")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -58,24 +59,31 @@ class SiteListPageExt(BasePage):
 
     # ── Navigation ─────────────────────────────────────────────────────
 
-    def open(self) -> SiteListPageExt:
-        self.navigate(self.PATH)
+    def open(self, via_sidebar: bool = False) -> SiteListPageExt:
+        if via_sidebar:
+            self.navigate_via_sidebar(self.PATH)
+        else:
+            self.navigate(self.PATH)
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
-        # Wait for data table to render (either rows or empty state)
-        import time
-        for _ in range(20):
-            if (self.driver.find_elements(*self.TABLE_ROWS)
-                    or self.driver.find_elements(*self.EMPTY_STATE)):
-                break
-            time.sleep(0.25)
+        # Wait for content to render (DataTable rows, site cards, or empty state)
+        from selenium.webdriver.support.ui import WebDriverWait
+        WebDriverWait(self.driver, 10).until(
+            lambda d: (d.find_elements(*self.TABLE_ROWS)
+                       or d.find_elements(*self.SITE_CARDS)
+                       or d.find_elements(*self.EMPTY_STATE))
+        )
         return self
 
     # ── Table queries ──────────────────────────────────────────────────
 
     def get_row_count(self) -> int:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        return len(rows)
+        if rows:
+            return len(rows)
+        # Fallback: card-based layout
+        cards = self.driver.find_elements(*self.SITE_CARDS)
+        return len(cards)
 
     def get_first_column_texts(self) -> list[str]:
         """Return the text of the first column (Name) for each visible row."""
@@ -106,8 +114,14 @@ class SiteListPageExt(BasePage):
 
     def click_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
+        if rows and index < len(rows):
             self.scroll_and_click(rows[index])
+            return
+        # Fallback: card-based layout — click the site name link inside the card
+        cards = self.driver.find_elements(*self.SITE_CARDS)
+        if cards and index < len(cards):
+            name_el = cards[index].find_element(By.CSS_SELECTOR, "[data-testid^='site-name-']")
+            self.scroll_and_click(name_el)
 
     def click_row_by_name(self, name: str) -> None:
         """Click the table row whose first cell matches *name*."""
@@ -183,6 +197,8 @@ class SiteListPageExt(BasePage):
 
     def select_type(self, value_text: str) -> None:
         """Open MUI Select for 'type' and pick option by visible text."""
+        import time
+
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
         )
@@ -191,6 +207,13 @@ class SiteListPageExt(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def submit_create_form(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()

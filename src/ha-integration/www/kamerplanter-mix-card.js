@@ -1,20 +1,40 @@
 /**
- * Ensure HA Lit components (ha-entity-picker, ha-textfield) are loaded.
+ * ha-form ready singleton (UI-NFR-015 §2.2).
  */
-const _haComponentsReadyMix = (async () => {
-  if (customElements.get("ha-entity-picker")) return;
+const _haFormReadyMix = (async () => {
+  if (customElements.get("ha-form")) return;
   await customElements.whenDefined("hui-entities-card");
   const helpers = await window.loadCardHelpers?.();
   if (helpers) {
     const temp = await helpers.createCardElement({ type: "entities", entities: [] });
-    if (temp && temp.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
   }
-  await customElements.whenDefined("ha-entity-picker");
+  await customElements.whenDefined("ha-form");
 })();
 
 /**
+ * Build mix card editor schema.
+ * Uses selector: { entity: { multiple: true } } — renders ha-entities-picker
+ * with native Add/Remove/Reorder, no manual list management needed
+ * (UI-NFR-015 §2.7).
+ */
+function _buildMixSchema(hass) {
+  const mixEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_mix")
+      )
+    : [];
+  return [
+    { name: "title",    label: "Titel",          selector: { text: {} } },
+    { name: "entities", label: "Mix-Kan\u00e4le", required: true,
+      selector: { entity: { multiple: true, include_entities: mixEntities } } },
+  ];
+}
+
+/**
  * Kamerplanter Mix Card Editor
- * Uses ha-entity-picker and ha-textfield for native HA look & feel.
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
  */
 class KamerplanterMixCardEditor extends HTMLElement {
   setConfig(config) {
@@ -28,125 +48,31 @@ class KamerplanterMixCardEditor extends HTMLElement {
   }
 
   async _scheduleRender() {
-    await _haComponentsReadyMix;
+    await _haFormReadyMix;
     this._render();
-  }
-
-  _getMixEntityFilter() {
-    if (!this._hass) return [];
-    const selected = new Set(this._config.entities || []);
-    return Object.keys(this._hass.states)
-      .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_mix"))
-      .filter((id) => !selected.has(id));
   }
 
   _render() {
     if (!this._config || !this._hass) return;
 
-    // Clear previous content
-    this.innerHTML = "";
-
-    // Style
-    const style = document.createElement("style");
-    style.textContent = `
-      .editor-row { margin-bottom: 16px; }
-      .entity-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-      .entity-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px; }
-      .entity-item ha-icon { color: var(--secondary-text-color); flex-shrink: 0; --mdc-icon-size: 20px; }
-      .entity-item span { flex: 1; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .entity-item button { border: none; background: none; cursor: pointer; color: var(--error-color, #db4437); font-size: 1.1em; padding: 4px 6px; border-radius: 4px; }
-      .entity-item button:hover { background: rgba(219,68,55,0.08); }
-      .add-row { display: flex; gap: 8px; align-items: center; }
-      .add-row ha-entity-picker { flex: 1; }
-      button.add-btn { padding: 8px 16px; border: 1px solid var(--primary-color, #03a9f4); background: var(--primary-color, #03a9f4); color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
-      button.add-btn:hover { opacity: 0.9; }
-      .section-label { font-size: 0.8em; font-weight: 600; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px; }
-      .hint { font-size: 0.75em; color: var(--secondary-text-color); font-style: italic; margin-top: 8px; }
-      ha-textfield { display: block; width: 100%; }
-      ha-entity-picker { display: block; }
-    `;
-    this.appendChild(style);
-
-    // Title field
-    const titleRow = document.createElement("div");
-    titleRow.className = "editor-row";
-    const titleEl = document.createElement("ha-textfield");
-    titleEl.label = "Titel";
-    titleEl.placeholder = "Mix Rezept";
-    titleEl.value = this._config.title || "";
-    titleRow.appendChild(titleEl);
-    this.appendChild(titleRow);
-
-    // Entity section
-    const entityRow = document.createElement("div");
-    entityRow.className = "editor-row";
-
-    const sectionLabel = document.createElement("div");
-    sectionLabel.className = "section-label";
-    sectionLabel.textContent = "Channel Sensoren";
-    entityRow.appendChild(sectionLabel);
-
-    // Build selected entity list
-    const listEl = document.createElement("div");
-    listEl.className = "entity-list";
-    for (const entityId of this._config.entities || []) {
-      const friendly = this._hass?.states[entityId]?.attributes?.friendly_name || entityId;
-      const item = document.createElement("div");
-      item.className = "entity-item";
-      item.innerHTML = `<ha-icon icon="mdi:flask-outline"></ha-icon><span>${friendly}</span><button data-entity="${entityId}">\u2715</button>`;
-      listEl.appendChild(item);
-    }
-    entityRow.appendChild(listEl);
-
-    // Add picker row
-    const addRow = document.createElement("div");
-    addRow.className = "add-row";
-    const addPicker = document.createElement("ha-entity-picker");
-    addPicker.hass = this._hass;
-    addPicker.label = "Sensor hinzuf\u00fcgen";
-    addPicker.allowCustomEntity = true;
-    addPicker.includeEntities = this._getMixEntityFilter();
-    addRow.appendChild(addPicker);
-    const addBtn = document.createElement("button");
-    addBtn.className = "add-btn";
-    addBtn.textContent = "+";
-    addRow.appendChild(addBtn);
-    entityRow.appendChild(addRow);
-
-    const hint = document.createElement("div");
-    hint.className = "hint";
-    hint.textContent = "Volumen wird direkt aus KA geladen (Tank/Gie\u00dfkanne). Freie Eingabe in der Card m\u00f6glich.";
-    entityRow.appendChild(hint);
-    this.appendChild(entityRow);
-
-    // Bind title
-    titleEl.addEventListener("input", (e) => {
-      this._config = { ...this._config, title: e.target.value };
-      this._fireChanged();
-    });
-
-    // Bind add button
-    addBtn.addEventListener("click", () => {
-      const val = addPicker.value;
-      if (val && !(this._config.entities || []).includes(val)) {
-        this._config = { ...this._config, entities: [...(this._config.entities || []), val] };
-        this._fireChanged();
-        this._render();
-      }
-    });
-
-    // Bind remove buttons
-    listEl.querySelectorAll("button[data-entity]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._config = { ...this._config, entities: (this._config.entities || []).filter((e) => e !== btn.dataset.entity) };
-        this._fireChanged();
-        this._render();
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
       });
-    });
-  }
+      this.appendChild(this._form);
+    }
 
-  _fireChanged() {
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+    this._form.hass = this._hass;
+    this._form.schema = _buildMixSchema(this._hass);
+    this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 customElements.define("kamerplanter-mix-card-editor", KamerplanterMixCardEditor);
@@ -168,13 +94,17 @@ class KamerplanterMixCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const entities = (this._config?.entities || []).filter(Boolean);
+    const changed = !this._hass || entities.some(
+      id => this._hass.states[id] !== hass.states[id]
+    );
     this._hass = hass;
-    if (this._config) this._render();
+    if (changed && this._config) this._render();
   }
 
   setConfig(config) {
-    if (!config.entities || !config.entities.length) throw new Error("Please define at least one entity");
     this._config = config;
+    this._isStub = !config.entities || !config.entities.length;
   }
 
   getCardSize() { return 3; }
@@ -211,8 +141,76 @@ class KamerplanterMixCard extends HTMLElement {
     return v && v > 0 ? v : null;
   }
 
+  _renderPreview() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; overflow: hidden; box-sizing: border-box; }
+        ha-card { padding: 0; overflow: hidden; }
+        .card-header { padding: 12px 16px 0; display: flex; align-items: center; justify-content: space-between; }
+        .card-title { font-size: 1.1em; font-weight: 500; }
+        .card-content { padding: 8px 16px 16px; }
+        .mode-bar { display: flex; border: 1px solid #bdbdbd; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+        .seg-btn { flex: 1; padding: 6px 0; border: none; background: transparent; font-size: 0.8em; font-weight: 500; color: #757575; cursor: default; border-right: 1px solid #bdbdbd; }
+        .seg-btn:last-child { border-right: none; }
+        .seg-btn.active { background: #1976d2; color: #fff; font-weight: 600; }
+        .channel { margin-bottom: 16px; }
+        .channel:last-child { margin-bottom: 0; }
+        .channel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+        .channel-name { font-weight: 500; font-size: 0.95em; }
+        .channel-badges { display: flex; gap: 4px; }
+        .badge { font-size: 0.72em; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+        .badge.week { background: #03a9f4; color: #fff; }
+        .badge.vol { background: #e8f5e9; color: #2e7d32; }
+        .dosage-list { display: flex; flex-direction: column; gap: 4px; }
+        .dosage-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+        .dosage-row:last-child { border-bottom: none; }
+        .product-name { font-size: 0.9em; }
+        .dosage-values { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+        .ml-value { font-size: 0.9em; font-weight: 600; }
+        .ml-sub { font-size: 0.72em; color: #9e9e9e; }
+      </style>
+      <ha-card>
+        <div class="card-header"><span class="card-title">Mix Rezept</span></div>
+        <div class="card-content">
+          <div class="mode-bar">
+            <button class="seg-btn">ml/L</button>
+            <button class="seg-btn active">Tank/Kanne</button>
+            <button class="seg-btn">Frei</button>
+          </div>
+          <div class="channel">
+            <div class="channel-header">
+              <span class="channel-name">Bluehdaengung Woche 4</span>
+              <span class="channel-badges">
+                <span class="badge week">W4</span>
+                <span class="badge vol">20 L</span>
+              </span>
+            </div>
+            <div class="dosage-list">
+              <div class="dosage-row">
+                <span class="product-name">Flora Micro</span>
+                <span class="dosage-values"><span class="ml-value">30.0 ml</span><span class="ml-sub">1.5 ml/L</span></span>
+              </div>
+              <div class="dosage-row">
+                <span class="product-name">Flora Bloom</span>
+                <span class="dosage-values"><span class="ml-value">50.0 ml</span><span class="ml-sub">2.5 ml/L</span></span>
+              </div>
+              <div class="dosage-row">
+                <span class="product-name">CalMag</span>
+                <span class="dosage-values"><span class="ml-value">20.0 ml</span><span class="ml-sub">1.0 ml/L</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ha-card>`;
+  }
+
   _render() {
-    if (!this._hass || !this._config) return;
+    if (!this._config) return;
+    if (this._isStub || !this._hass) {
+      this._renderPreview();
+      return;
+    }
     const title = this._config.title || "Mix Rezept";
     const mode = this._mode;
 
@@ -328,4 +326,4 @@ class KamerplanterMixCard extends HTMLElement {
 
 customElements.define("kamerplanter-mix-card", KamerplanterMixCard);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "kamerplanter-mix-card", name: "Kamerplanter Mix Rezept", description: "D\u00fcnger-Dosierungen mit ml/L, Tank/Kanne oder freier Menge" });
+window.customCards.push({ type: "kamerplanter-mix-card", name: "Kamerplanter Mix Rezept", description: "D\u00fcnger-Dosierungen mit ml/L, Tank/Kanne oder freier Menge", preview: true });

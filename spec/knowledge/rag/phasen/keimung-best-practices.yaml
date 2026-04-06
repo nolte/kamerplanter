@@ -1,0 +1,165 @@
+---
+title: Keimung — Best Practices
+language: de
+category: phasen
+tags: [keimung, samen, aussaat, temperatur, feuchtigkeit, licht, stratifikation, scarification, vorbehandlung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination]
+chunks:
+  - id: keimung-papiertuech
+    title: Papiertuch-Methode (Paper Towel Method) — zuverlaessigste Keimmethode
+    content: |
+      Die Papiertuch-Methode ist die zuverlaessigste Methode fuer die Keimung
+      wertvoller Samen. Wichtigste Regel: Das Papiertuch muss feucht, nicht nass
+      sein — feucht, nicht triefend nass. Zu nass fuehrt zu Schimmel und Faeulnis.
+      Schritt-fuer-Schritt Papiertuch-Methode:
+      1. Kuechenpapier (ungebleicht, ohne Muster) anfeuchten — feucht, nicht nass.
+         Wasser ausdruecken bis es nicht mehr tropft.
+      2. Samen auf eine Haelfte legen, andere Haelfte umklappen
+      3. In Zip-Lock-Beutel oder zwischen zwei Teller legen (Feuchtigkeit halten)
+      4. An warmen Ort stellen: 24-28 Grad (auf Router, Kuehlschrank-Oberseite,
+         Heizmatte). Dunkel aufbewahren — KEIN direktes Licht.
+      5. Taeglich pruefen: Schimmel? → mehr Luft. Austrocknung? → Nachfeuchten,
+         dabei wieder nur feucht, nicht nass machen.
+      6. Keimwurzel (Radicle) erscheint nach 1-5 Tagen (artenabhaengig)
+      7. Umsetzen wenn Keimwurzel 1-2 cm lang ist — vorsichtig mit Pinzette!
+         Keimwurzel nach UNTEN in vorbereitetes Loch (5mm tief) stecken.
+      Vorteile der Papiertuch-Methode: Sichtbare Keimung, fruehe Erkennung
+      tauber Samen, kontrollierte Bedingungen.
+      Nachteile: Empfindliche Keimwurzeln koennen beim Umsetzen brechen.
+      Sehr vorsichtig handhaben, Keimwurzel nicht beruehren.
+    metadata:
+      topic: paper_towel_method
+      temperature_celsius: [24, 28]
+      germination_days: [1, 5]
+
+  - id: keimung-direktsaat
+    title: Direktsaat in Substrat
+    content: |
+      Einfachste Methode, aber weniger Kontrolle:
+      Tiefe: Faustregel = 2-3× Samen-Durchmesser
+      - Feine Samen (Basilikum, Salat, Erdbeere): Nur auf Substrat druecken,
+        nicht bedecken (Lichtkeimer!)
+      - Mittlere Samen (Tomate, Paprika): 5-10mm tief
+      - Grosse Samen (Bohne, Kuerbis, Cannabis): 10-20mm tief
+      Substrat vorfeuchten: IMMER Substrat VOR der Aussaat durchfeuchten,
+      nicht danach (Samen wird sonst weggespuelt oder zu tief gedrueckt).
+      Feuchtigkeit halten: Transparente Abdeckung (Klarsichtfolie,
+      Plastikdeckel, Humidity Dome). Taeglich 5 Minuten lueften
+      (Kondenswasser abtropfen, frische Luft).
+      Abdeckung entfernen: Sobald der Keimling die Oberflaeche durchbricht.
+      Temperatur: 24-28°C Substrattemperatur (Heizmatte falls noetig).
+      Oberflaechentemperatur-Thermometer direkt am Substrat.
+      Direkt-Saat Outdoor: Bodentemperatur messen (Einstich-Thermometer).
+      Mindestens 8-10°C fuer kalttolerante Arten (Erbse, Spinat),
+      12-15°C fuer waermeliebende (Bohne, Kuerbis, Mais).
+    metadata:
+      topic: direct_sowing
+      depth_rule: 2_to_3_times_diameter
+
+  - id: keimung-steinwolle-jiffy
+    title: Keimung in Steinwolle und Jiffy-Pellets
+    content: |
+      Steinwolle-Wuerfel (Rockwool Cubes):
+      - Vor Nutzung: 24h in pH 5.5-Wasser einweichen (Steinwolle ist
+        basisch ab Werk, pH 7-8). Ohne pH-Behandlung: Keimung gehemmt.
+      - Samen in vorgefertigtes Loch (5mm tief), nicht bedecken
+      - Humidity Dome bis Keimling erscheint
+      - Nicht zu nass halten! Steinwolle haelt extrem viel Wasser.
+        Nur nachfeuchten wenn Wuerfel deutlich leichter wird.
+      - Vorteil: Wurzeln wachsen direkt in hydroponisches System
+      - Nachteil: Nicht biologisch abbaubar
+      Jiffy-Pellets (Torfquelltoepfe):
+      - In Wasser quellen lassen (5-10 Minuten)
+      - Samen oben einsetzen, leicht bedecken
+      - Humidity Dome verwenden
+      - Vorteil: Biologisch abbaubar, einfach in groesseren Topf einpflanzen
+        (Netz aufreissen oder offen lassen, Wurzeln wachsen durch)
+      - Nachteil: pH kann schwanken (Torf ist sauer)
+      Kokos-Quelltabletten:
+      - Wie Jiffy, aber aus Kokos statt Torf (nachhaltiger)
+      - pH stabiler als Torf
+      - Gleiche Handhabung
+    metadata:
+      topic: rockwool_jiffy
+      rockwool_ph_soak: 5.5
+      soak_hours: 24
+
+  - id: keimung-vorbehandlung
+    title: Samen-Vorbehandlung — Stratifikation und Scarifikation
+    content: |
+      Manche Samen keimen nicht ohne Vorbehandlung:
+      Stratifikation (Kaeltekeimung):
+      - Samen brauchen eine Kaelteperiode um Keimhemmung zu brechen
+      - Methode: Samen in feuchtem Sand/Vermiculite, 4-6 Wochen bei
+        2-5°C im Kuehlschrank (Gemuese-Fach)
+      - Betroffene Arten: Lavendel, Baerlauch, Feldsalat, viele Wildkraeuter,
+        Hagebutte, Schlehe, Christrose, einige Primelarten
+      - Outdoor: Aussaat im Herbst (Oktober-Dezember), Winter uebernimmt
+        die Stratifikation natuerlich
+      Scarifikation (mechanische Samenhuelle-Behandlung):
+      - Harte Samenschale wird aufgeritzt/angeraut fuer Wasseraufnahme
+      - Methode: Mit Sandpapier (P80-P120) vorsichtig anschleifen,
+        oder mit Messer anritzen (nicht zu tief — Embryo nicht verletzen!)
+      - Betroffene Arten: Lupine, Prunkwinde, Wicke, Feuerbohne,
+        Jungfernrebe, Passionsblume
+      Einweichen (Vorquellen):
+      - 12-24 Stunden in Wasser bei Raumtemperatur
+      - Grosse/harte Samen: Bohne, Erbse, Kuerbis, Cannabis
+      - Beschleunigt Quellung und Keimung um 1-3 Tage
+      - Nicht laenger als 24h (Sauerstoffmangel, Samen kann "ertrinken")
+    metadata:
+      topic: seed_pretreatment
+      types: [stratification, scarification, soaking]
+
+  - id: keimung-licht
+    title: Lichtbedarf bei der Keimung
+    content: |
+      Lichtkeimer (brauchen Licht zur Keimung):
+      - Samen NICHT mit Substrat bedecken, nur andruecken
+      - Basilikum, Salat, Erdbeere, Kamille, Thymian, Primel,
+        Begonie, Fingerhut, Glockenblume, Mohn, Tabak
+      - Licht: Indirektes Licht oder schwache Pflanzenlampe (100-200 PPFD)
+      Dunkelkeimer (brauchen Dunkelheit):
+      - Samen mit Substrat bedecken (2-3× Durchmesser)
+      - Die meisten Gemuese: Tomate, Paprika, Gurke, Kuerbis, Bohne,
+        Erbse, Mais, Ruebe, Karotte
+      - Cannabis, Sonnenblume, Ringelblume
+      - Abdecken mit Substrat oder lichtundurchlaessiger Folie
+      Lichtkeimer oder Dunkelkeimer? Im Zweifelsfall:
+      - Feine Samen (<1mm): Meist Lichtkeimer → nicht bedecken
+      - Grosse Samen (>3mm): Meist Dunkelkeimer → bedecken
+      - Mittlere Samen: Saatgut-Packung pruefen oder leicht bedecken
+      Nach der Keimung (Keimling sichtbar): ALLE Pflanzen brauchen Licht.
+      Sofort unter Pflanzenlampe oder ans hellste Fenster stellen.
+      Zu wenig Licht → Vergeilen (Etiolation): Langer, duenner, blasser
+      Stengel der nach Licht sucht und umkippt.
+    metadata:
+      topic: germination_light
+      types: [light_germinators, dark_germinators]
+
+  - id: keimung-fehler
+    title: Haeufige Keimungs-Fehler und Loesungen
+    content: |
+      Samen keimt nicht (nach erwarteter Keimzeit + 50%):
+      - Zu kalt: Heizmatte oder waermeren Standort waehlen (24-28°C)
+      - Zu nass: Samen fault. Substrat feucht, nicht nass. Belueftung pruefen.
+      - Zu trocken: Samen trocknet aus bevor Keimwurzel Substrat erreicht.
+        Humidity Dome verwenden.
+      - Zu tief: Keimling schafft es nicht an die Oberflaeche. Feinsamen
+        nur oberflaechlich. Maximal 2-3× Durchmesser.
+      - Samen zu alt: Keimrate sinkt nach 1-3 Jahren je nach Art.
+        Keimtest: 10 Samen auf feuchtes Papier, 7 Tage warten, zaehlen.
+      - Saatgut-Qualitaet: Billige "No-Name"-Samen oft schlecht.
+        Zertifiziertes Saatgut von seriösen Anbietern verwenden.
+      Keimling kippt um (Damping Off / Umfallkrankheit):
+      - Pilzerkrankung (Pythium, Rhizoctonia) an der Stengelbasis
+      - Ursache: Zu nass, zu wenig Belueftung, nicht steriles Substrat
+      - Vorbeugung: Steriles Substrat, nicht uebergiessen, Luft zirkulieren
+        lassen, Zimtpulver duenn auf Oberflaeche streuen (natuerlich antifungal)
+      Keimling vergeilt (lang, duenn, blass):
+      - Zu wenig Licht → naeher an Fenster oder unter Pflanzenlampe
+      - Leichter Luftzug (Ventilator) staerkt den Stengel
+    metadata:
+      topic: germination_troubleshooting
+      common_problems: [too_cold, too_wet, too_dry, too_deep, old_seeds, damping_off, etiolation]

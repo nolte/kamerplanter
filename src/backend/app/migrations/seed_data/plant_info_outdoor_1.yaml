@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
-# Plant-info seed data from spec/ref/plant-info/*.md — Outdoor batch 1.
+# Plant-info seed data from spec/knowledge/plants/*.md — Outdoor batch 1.
 #
 # Covers 30 plant-info documents (allium_cepa through foeniculum_vulgare).
 # Adds 5 new botanical families, 12 new species, enriches 18 existing species,
@@ -122,6 +122,7 @@ new_species:
   - scientific_name: "Allium cepa"
     common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
     genus: Allium
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: bulbous
     native_habitat: "Zentralasien"
@@ -161,6 +162,7 @@ new_species:
   - scientific_name: "Allium sativum"
     common_names: ["Knoblauch", "Garlic"]
     genus: Allium
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: bulbous
     native_habitat: "Zentralasien"
@@ -199,6 +201,7 @@ new_species:
   - scientific_name: "Anemone hupehensis"
     common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
     genus: Anemone
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "China"
@@ -235,6 +238,7 @@ new_species:
   - scientific_name: "Asparagus officinalis"
     common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
     genus: Asparagus
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Europa, Westasien, Nordafrika"
@@ -272,6 +276,7 @@ new_species:
   - scientific_name: "Astilbe chinensis"
     common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
     genus: Astilbe
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "China, Korea, Japan"
@@ -306,6 +311,7 @@ new_species:
   - scientific_name: "Brassica oleracea var. sabellica"
     common_names: ["Gruenkohl", "Kale", "Borecole"]
     genus: Brassica
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Mittelmeerraum, Westeuropa"
@@ -342,6 +348,7 @@ new_species:
   - scientific_name: "Buxus sempervirens"
     common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
     genus: Buxus
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     native_habitat: "Suedwesteuropa, Nordafrika, Westasien"
@@ -377,6 +384,7 @@ new_species:
   - scientific_name: "Calendula officinalis"
     common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
     genus: Calendula
+    plant_category: herb
     growth_habit: herb
     root_type: taproot
     native_habitat: "Mittelmeerraum"
@@ -414,6 +422,7 @@ new_species:
   - scientific_name: "Clematis spp."
     common_names: ["Waldrebe", "Clematis"]
     genus: Clematis
+    plant_category: outdoor_ornamental
     growth_habit: vine
     root_type: fibrous
     native_habitat: "Nordhalbkugel, temperierte Zonen"
@@ -450,6 +459,7 @@ new_species:
   - scientific_name: "Cornus mas"
     common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
     genus: Cornus
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     native_habitat: "Suedeuropa, Westasien"
@@ -485,6 +495,7 @@ new_species:
   - scientific_name: "Delphinium elatum"
     common_names: ["Rittersporn", "Delphinium", "Larkspur"]
     genus: Delphinium
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Europa, Zentralasien"
@@ -512,7 +523,7 @@ new_species:
       is_toxic_dogs: true
       is_toxic_children: true
       toxic_parts: [leaf, stem, seed, root]
-      toxic_compounds: ["Delphinoidin", "Methyllycaconitin"]
+      toxic_compounds: ["Methyllycaconitine", "Deltaline", "Delpheline"]
       severity: severe
     allergen_info:
       contact_allergen: true
@@ -521,6 +532,7 @@ new_species:
   - scientific_name: "Echinacea purpurea"
     common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
     genus: Echinacea
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Nordamerika (oestliches USA)"
@@ -874,7 +886,7 @@ species_enrichment:
     harvest_months: [8, 9, 10]
     bloom_months: [7, 8, 9]
     pruning_type: none
-    allelopathy_score: -0.5
+    allelopathy_score: 0.0
 
 # ==============================================================================
 # S5  LIFECYCLE CONFIGS
@@ -972,11 +984,10 @@ lifecycle_configs:
 growth_phases:
   "Capsicum annuum":
     - name: germination
-      order: 1
+      sequence_order: 1
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 10
-      duration_days_max: 21
+      allows_harvest: false
+      duration_days: 10
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 0
@@ -998,11 +1009,10 @@ growth_phases:
         ph_max: 6.5
 
     - name: seedling
-      order: 2
+      sequence_order: 2
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 28
-      duration_days_max: 42
+      allows_harvest: false
+      duration_days: 28
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 200
@@ -1028,11 +1038,10 @@ growth_phases:
         fe_ppm: 2
 
     - name: vegetative
-      order: 3
+      sequence_order: 3
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 35
-      duration_days_max: 56
+      allows_harvest: false
+      duration_days: 35
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 400
@@ -1058,11 +1067,10 @@ growth_phases:
         fe_ppm: 3
 
     - name: flowering
-      order: 4
+      sequence_order: 4
       is_terminal: false
-      is_harvest_allowed: true
-      duration_days_min: 21
-      duration_days_max: 42
+      allows_harvest: true
+      duration_days: 21
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 500
@@ -1088,11 +1096,10 @@ growth_phases:
         fe_ppm: 3
 
     - name: harvest
-      order: 5
+      sequence_order: 5
       is_terminal: true
-      is_harvest_allowed: true
-      duration_days_min: 42
-      duration_days_max: 84
+      allows_harvest: true
+      duration_days: 42
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 500
@@ -1119,11 +1126,10 @@ growth_phases:
 
   "Cucumis sativus":
     - name: germination
-      order: 1
+      sequence_order: 1
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 3
-      duration_days_max: 7
+      allows_harvest: false
+      duration_days: 3
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 0
@@ -1145,11 +1151,10 @@ growth_phases:
         ph_max: 6.5
 
     - name: seedling
-      order: 2
+      sequence_order: 2
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 14
-      duration_days_max: 21
+      allows_harvest: false
+      duration_days: 14
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 200
@@ -1175,11 +1180,10 @@ growth_phases:
         fe_ppm: 2
 
     - name: vegetative
-      order: 3
+      sequence_order: 3
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 21
-      duration_days_max: 35
+      allows_harvest: false
+      duration_days: 21
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 400
@@ -1205,11 +1209,10 @@ growth_phases:
         fe_ppm: 3
 
     - name: flowering
-      order: 4
+      sequence_order: 4
       is_terminal: false
-      is_harvest_allowed: true
-      duration_days_min: 7
-      duration_days_max: 14
+      allows_harvest: true
+      duration_days: 7
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 400
@@ -1235,11 +1238,10 @@ growth_phases:
         fe_ppm: 3
 
     - name: harvest
-      order: 5
+      sequence_order: 5
       is_terminal: true
-      is_harvest_allowed: true
-      duration_days_min: 42
-      duration_days_max: 84
+      allows_harvest: true
+      duration_days: 42
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 400
@@ -1266,11 +1268,10 @@ growth_phases:
 
   "Cucurbita pepo":
     - name: germination
-      order: 1
+      sequence_order: 1
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 5
-      duration_days_max: 14
+      allows_harvest: false
+      duration_days: 5
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 0
@@ -1292,11 +1293,10 @@ growth_phases:
         ph_max: 6.5
 
     - name: seedling
-      order: 2
+      sequence_order: 2
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 14
-      duration_days_max: 21
+      allows_harvest: false
+      duration_days: 14
       stress_tolerance: low
       requirement_profile:
         light_ppfd_target: 225
@@ -1322,11 +1322,10 @@ growth_phases:
         fe_ppm: 2
 
     - name: vegetative
-      order: 3
+      sequence_order: 3
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 21
-      duration_days_max: 35
+      allows_harvest: false
+      duration_days: 21
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 450
@@ -1352,11 +1351,10 @@ growth_phases:
         fe_ppm: 4
 
     - name: flowering
-      order: 4
+      sequence_order: 4
       is_terminal: false
-      is_harvest_allowed: true
-      duration_days_min: 60
-      duration_days_max: 90
+      allows_harvest: true
+      duration_days: 60
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 450
@@ -1383,11 +1381,10 @@ growth_phases:
 
   "Daucus carota":
     - name: germination
-      order: 1
+      sequence_order: 1
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 10
-      duration_days_max: 21
+      allows_harvest: false
+      duration_days: 10
       stress_tolerance: low
       requirement_profile:
         temperature_day_c: 15.0
@@ -1405,11 +1402,10 @@ growth_phases:
         ph_max: 7.0
 
     - name: seedling
-      order: 2
+      sequence_order: 2
       is_terminal: false
-      is_harvest_allowed: false
-      duration_days_min: 14
-      duration_days_max: 21
+      allows_harvest: false
+      duration_days: 14
       stress_tolerance: low
       requirement_profile:
         temperature_day_c: 18.0
@@ -1431,11 +1427,10 @@ growth_phases:
         fe_ppm: 2
 
     - name: vegetative
-      order: 3
+      sequence_order: 3
       is_terminal: false
-      is_harvest_allowed: true
-      duration_days_min: 50
-      duration_days_max: 80
+      allows_harvest: true
+      duration_days: 50
       stress_tolerance: medium
       requirement_profile:
         temperature_day_c: 20.0
@@ -1457,11 +1452,10 @@ growth_phases:
         fe_ppm: 3
 
     - name: harvest
-      order: 4
+      sequence_order: 4
       is_terminal: true
-      is_harvest_allowed: true
-      duration_days_min: 14
-      duration_days_max: 42
+      allows_harvest: true
+      duration_days: 14
       stress_tolerance: high
       requirement_profile:
         temperature_day_c: 15.0
@@ -1903,7 +1897,7 @@ companion_planting:
 # S9  IPM DATA — PESTS, DISEASES, TREATMENTS
 # ==============================================================================
 
-pests:
+new_pests:
   - scientific_name: "Psila rosae"
     common_name_de: "Moehrenfliege"
     common_name_en: "Carrot Fly"
@@ -1945,12 +1939,12 @@ pests:
     pest_type: insect
     affected_parts: [root, stem]
     symptoms: "Larvenbefall an Wurzeln, Welke, Kuemmerwuchs"
-    detection_difficulty: difficult
+    detection_difficulty: hard
     affected_species:
       - "Brassica oleracea var. gongylodes"
       - "Brassica oleracea var. italica"
 
-  - scientific_name: "Cydia pomonella"
+  - scientific_name: "Cydalima perspectalis"
     common_name_de: "Buchsbaumzuensler"
     common_name_en: "Box Tree Moth"
     pest_type: insect
@@ -1959,10 +1953,10 @@ pests:
     detection_difficulty: medium
     affected_species: ["Buxus sempervirens"]
 
-diseases:
+new_diseases:
   - name: "Kohlhernie"
     scientific_name: "Plasmodiophora brassicae"
-    disease_type: protist
+    pathogen_type: protist
     symptoms: "Knollenartige Wurzelwucherungen, Welke"
     triggers: ["saurer Boden (pH < 6.5)", "Staunaesse"]
     incubation_days_min: 14
@@ -1976,7 +1970,7 @@ diseases:
 
   - name: "Alternaria-Blattflecken"
     scientific_name: "Alternaria dauci"
-    disease_type: fungal
+    pathogen_type: fungal
     symptoms: "Braun-schwarze Laesionen an Blattrandern"
     triggers: ["warm_humid", "rain_splash"]
     incubation_days_min: 5
@@ -1984,32 +1978,32 @@ diseases:
     affected_species: ["Daucus carota"]
 
   - name: "Buchsbaumtriebsterben"
-    scientific_name: "Cylindrocladium buxicola"
-    disease_type: fungal
+    scientific_name: "Calonectria pseudonaviculata"  # Synonym: Cylindrocladium buxicola
+    pathogen_type: fungal
     symptoms: "Braune Blattflecken, Triebsterben, Blattverlust"
     triggers: ["Feuchtigkeit", "dichte Pflanzung"]
     incubation_days_min: 5
     incubation_days_max: 10
     affected_species: ["Buxus sempervirens"]
 
-treatments:
+new_treatments:
   - name: "Kulturschutznetz"
     treatment_type: cultural
     active_ingredient: null
     application: "Feinmaschiges Netz (0.8 mm) ueber Beet ab Aussaat/Pflanzung"
-    waiting_period_days: 0
+    safety_interval_days: 0
     effective_against: ["Psila rosae", "Pieris brassicae", "Delia radicum"]
 
   - name: "Bacillus thuringiensis (Bt)"
     treatment_type: biological
     active_ingredient: "Bt-Toxin"
     application: "Spruehanwendung 0.5-1%, abends (Raupen aktiv)"
-    waiting_period_days: 0
+    safety_interval_days: 0
     effective_against: ["Pieris brassicae"]
 
   - name: "Kalkung (Kohlhernie-Prophylaxe)"
     treatment_type: cultural
     active_ingredient: "Algenkalk / CaCO3"
     application: "100 g/m2, Boden-pH auf 7.0-7.5 anheben vor Pflanzung"
-    waiting_period_days: 0
+    safety_interval_days: 0
     effective_against: ["Plasmodiophora brassicae"]

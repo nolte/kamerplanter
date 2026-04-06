@@ -19,6 +19,7 @@ class ITaskRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         species_key: str | None = None,
+        target_entity_type: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]: ...
 
     @abstractmethod
@@ -72,6 +73,15 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]: ...
+
+    @abstractmethod
+    def get_tasks_for_entity(
+        self,
+        entity_type: str,
+        entity_key: str,
+        tenant_key: str,
+        status: str | None = None,
+    ) -> list[Task]: ...
 
     @abstractmethod
     def get_pending_tasks(self, offset: int = 0, limit: int = 50) -> tuple[list[Task], int]: ...
@@ -139,6 +149,9 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]: ...
+
+    @abstractmethod
+    def get_executions_for_template(self, template_key: str) -> list[dict]: ...
 
     # ── Batch ──
     @abstractmethod

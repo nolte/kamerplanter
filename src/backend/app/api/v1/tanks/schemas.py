@@ -159,6 +159,11 @@ class AlertResponse(BaseModel):
     severity: str
     message: str
     value: float
+    limit: float | None = None
+    limit_min: float | None = None
+    limit_max: float | None = None
+    factors: list[str] | None = None
+    temp: float | None = None
 
 
 class DueMaintenanceResponse(BaseModel):
@@ -264,6 +269,7 @@ class SensorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     metric_type: str
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     tank_key: str | None = None
 
@@ -272,6 +278,7 @@ class SensorUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     metric_type: str | None = None
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     is_active: bool | None = None
 
@@ -281,6 +288,7 @@ class SensorResponse(BaseModel):
     name: str
     metric_type: str
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     tank_key: str | None = None
     site_key: str | None = None
@@ -310,6 +318,39 @@ class LiveStateResponse(BaseModel):
     errors: list[dict] = Field(default_factory=list)
     source: str
     message: str | None = None
+
+
+# ── Active Nutrient Plan schemas ──────────────────────────────────
+
+
+# ── EC Dilution schemas ──────────────────────────────────────────
+
+
+class EcDilutionRequest(BaseModel):
+    current_ec_ms: float = Field(gt=0, description="Current EC of the tank solution (mS/cm)")
+    target_ec_ms: float = Field(gt=0, description="Desired target EC (mS/cm)")
+    current_volume_liters: float | None = Field(
+        default=None,
+        gt=0,
+        description="Current volume in the tank (L). Defaults to tank's nominal volume.",
+    )
+    ro_ec_ms: float = Field(
+        default=0.02,
+        ge=0,
+        description="EC of the RO/dilution water (mS/cm). Default 0.02.",
+    )
+
+
+class EcDilutionResponse(BaseModel):
+    ro_volume_liters: float
+    final_volume_liters: float
+    dilution_factor: float
+    feasible: bool
+    reason: str
+    current_volume_liters: float
+    current_ec_ms: float
+    target_ec_ms: float
+    ro_ec_ms: float
 
 
 # ── Active Nutrient Plan schemas ──────────────────────────────────

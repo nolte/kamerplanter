@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Adventskalender 2025 (Historische Sorten) — Seed Data
-# Sources: spec/ref/plant-info/*.md (18 plant-info documents)
+# Sources: spec/knowledge/plants/*.md (18 plant-info documents)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §1 New Botanical Families (2)
@@ -159,7 +159,7 @@ new_species:
     sowing_outdoor_after_last_frost_days: 0
     direct_sow_months: [4, 5]
     harvest_months: [10, 11, 12, 1, 2, 3]
-    bloom_months: []
+    bloom_months: [4, 5]  # VOLL-002b: biennial, blooms in 2nd year April-May
     container_suitable: limited
     recommended_container_volume_l: "20-30"
     min_container_depth_cm: 30
@@ -356,7 +356,7 @@ lifecycle_configs:
   "Capsicum annuum":
     cycle_type: annual
     photoperiod_type: day_neutral
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -365,7 +365,7 @@ lifecycle_configs:
   "Cucumis sativus":
     cycle_type: annual
     photoperiod_type: day_neutral
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -374,7 +374,7 @@ lifecycle_configs:
   "Phaseolus vulgaris":
     cycle_type: annual
     photoperiod_type: day_neutral
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -383,7 +383,7 @@ lifecycle_configs:
   "Pisum sativum":
     cycle_type: annual
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -392,7 +392,7 @@ lifecycle_configs:
   "Cucurbita pepo":
     cycle_type: annual
     photoperiod_type: day_neutral
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -401,7 +401,7 @@ lifecycle_configs:
   "Solanum lycopersicum":
     cycle_type: annual
     photoperiod_type: day_neutral
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -409,17 +409,17 @@ lifecycle_configs:
 
   "Ocimum basilicum":
     cycle_type: annual
-    photoperiod_type: short_day
-    lifespan_years: null
+    photoperiod_type: day_neutral  # BOT: basil is day-neutral for vegetative growth
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: 12.0
+    critical_day_length_hours: null
 
   "Lactuca sativa":
     cycle_type: annual
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -427,17 +427,17 @@ lifecycle_configs:
 
   "Raphanus sativus":
     cycle_type: annual
-    photoperiod_type: long_day
-    lifespan_years: null
+    photoperiod_type: day_neutral  # BOT: radish tuber formation is day-neutral
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: 14.0
+    critical_day_length_hours: null
 
   "Anethum graveolens":
     cycle_type: annual
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -447,7 +447,7 @@ lifecycle_configs:
   "Allium porrum":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -456,7 +456,7 @@ lifecycle_configs:
   "Beta vulgaris subsp. vulgaris":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -465,7 +465,7 @@ lifecycle_configs:
   "Brassica oleracea var. gemmifera":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -474,7 +474,7 @@ lifecycle_configs:
   "Daucus carota":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -483,7 +483,7 @@ lifecycle_configs:
   "Petroselinum crispum":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -492,7 +492,7 @@ lifecycle_configs:
   "Apium graveolens":
     cycle_type: biennial
     photoperiod_type: long_day
-    lifespan_years: null
+    typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: true
     vernalization_min_days: 42
@@ -502,7 +502,7 @@ lifecycle_configs:
   "Allium schoenoprasum":
     cycle_type: perennial
     photoperiod_type: long_day
-    lifespan_years: 10
+    typical_lifespan_years: 10
     dormancy_required: true
     vernalization_required: true
     vernalization_min_days: 42
@@ -511,7 +511,7 @@ lifecycle_configs:
   "Cichorium intybus":
     cycle_type: perennial
     photoperiod_type: long_day
-    lifespan_years: 5
+    typical_lifespan_years: 5
     dormancy_required: true
     vernalization_required: true
     vernalization_min_days: 42
@@ -1052,35 +1052,35 @@ companion_planting:
 
   incompatible:
     # Allium hemmt Leguminosen
-    - [Allium porrum, Phaseolus vulgaris, "Allicin-Verbindungen hemmen Knöllchenbakterien"]
-    - [Allium porrum, Pisum sativum, "Allicin hemmt Rhizobien-Symbiose"]
-    - [Allium schoenoprasum, Phaseolus vulgaris, "Allicin hemmt Knöllchenbakterien"]
-    - [Allium schoenoprasum, Pisum sativum, "Allicin hemmt Rhizobien-Symbiose"]
+    - {species_a: Allium porrum, species_b: Phaseolus vulgaris, reason: "Allicin-Verbindungen hemmen Knöllchenbakterien"}
+    - {species_a: Allium porrum, species_b: Pisum sativum, reason: "Allicin hemmt Rhizobien-Symbiose"}
+    - {species_a: Allium schoenoprasum, species_b: Phaseolus vulgaris, reason: "Allicin hemmt Knöllchenbakterien"}
+    - {species_a: Allium schoenoprasum, species_b: Pisum sativum, reason: "Allicin hemmt Rhizobien-Symbiose"}
     # Apiaceae untereinander: gleiche Schaedlinge (Moehrenfliege)
-    - [Anethum graveolens, Daucus carota, "Gleiche Familie, Möhrenfliegen-Anziehung"]
-    - [Anethum graveolens, Petroselinum crispum, "Gleiche Familie, Schädlingsübertragung"]
-    - [Anethum graveolens, Apium graveolens, "Gleiche Familie, Schädlingsübertragung"]
-    - [Daucus carota, Apium graveolens, "Gleiche Familie, Möhrenfliegen-Risiko"]
+    - {species_a: Anethum graveolens, species_b: Daucus carota, reason: "Gleiche Familie, Möhrenfliegen-Anziehung"}
+    - {species_a: Anethum graveolens, species_b: Petroselinum crispum, reason: "Gleiche Familie, Schädlingsübertragung"}
+    - {species_a: Anethum graveolens, species_b: Apium graveolens, reason: "Gleiche Familie, Schädlingsübertragung"}
+    - {species_a: Daucus carota, species_b: Apium graveolens, reason: "Gleiche Familie, Möhrenfliegen-Risiko"}
     # Cucurbitaceae + Solanaceae: Krankheitsuebertragung
-    - [Cucumis sativus, Solanum lycopersicum, "Virusübertragung über gemeinsame Vektoren"]
-    - [Cucurbita pepo, Solanum lycopersicum, "Wurzelkonkurrenz, Krankheitsübertragung"]
-    - [Cucurbita pepo, Capsicum annuum, "Wurzelkonkurrenz, Nährstoffwettbewerb"]
+    - {species_a: Cucumis sativus, species_b: Solanum lycopersicum, reason: "Virusübertragung über gemeinsame Vektoren"}
+    - {species_a: Cucurbita pepo, species_b: Solanum lycopersicum, reason: "Wurzelkonkurrenz, Krankheitsübertragung"}
+    - {species_a: Cucurbita pepo, species_b: Capsicum annuum, reason: "Wurzelkonkurrenz, Nährstoffwettbewerb"}
     # Brassicaceae + Solanaceae
-    - ["Brassica oleracea var. gemmifera", Solanum lycopersicum, "Nährstoffkonkurrenz"]
+    - {species_a: "Brassica oleracea var. gemmifera", species_b: Solanum lycopersicum, reason: "Nährstoffkonkurrenz"}
     # Beta + Phaseolus
-    - ["Beta vulgaris subsp. vulgaris", Phaseolus vulgaris, "Wuchshemmung dokumentiert"]
+    - {species_a: "Beta vulgaris subsp. vulgaris", species_b: Phaseolus vulgaris, reason: "Wuchshemmung dokumentiert"}
     # Foeniculum (existing species) ist Einzelgaenger
-    - [Foeniculum vulgare, Solanum lycopersicum, "Fenchel hemmt Tomatenwachstum"]
-    - [Foeniculum vulgare, Phaseolus vulgaris, "Fenchel hemmt Bohnenwachstum"]
-    - [Foeniculum vulgare, Pisum sativum, "Fenchel hemmt Erbsenwachstum"]
+    - {species_a: Foeniculum vulgare, species_b: Solanum lycopersicum, reason: "Fenchel hemmt Tomatenwachstum"}
+    - {species_a: Foeniculum vulgare, species_b: Phaseolus vulgaris, reason: "Fenchel hemmt Bohnenwachstum"}
+    - {species_a: Foeniculum vulgare, species_b: Pisum sativum, reason: "Fenchel hemmt Erbsenwachstum"}
     # Salat + Petersilie (umstritten, aber in manchen Quellen)
-    - [Lactuca sativa, Petroselinum crispum, "Wuchshemmung bei engem Stand"]
+    - {species_a: Lactuca sativa, species_b: Petroselinum crispum, reason: "Wuchshemmung bei engem Stand"}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §8 IPM Data (new pests, diseases, treatments for Allium/Beta/Brassica)
 # ══════════════════════════════════════════════════════════════════════════════
 
-pests:
+new_pests:
   - scientific_name: "Acrolepiopsis assectella"
     common_name: "Leek Moth"
     pest_type: insect
@@ -1135,40 +1135,40 @@ pests:
     detection_difficulty: hard
     description: "Möhrenfliege. Maden fressen Gänge in Karotten und andere Apiaceae-Wurzeln."
 
-diseases:
-  - scientific_name: "Puccinia allii"
-    common_name: "Leek Rust"
+new_diseases:
+  - scientific_name: "Puccinia porri"  # Taxonomie-Fix: aktueller Name nach Index Fungorum
+    name: "Leek Rust"
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [warm_humid_conditions, poor_airflow]
-    affected_plant_parts: [leaf]
+    affected_parts: [leaf]
     description: "Porreerost. Orangerote Pusteln auf Blättern von Allium-Arten."
 
   - scientific_name: "Alternaria dauci"
-    common_name: "Alternaria Leaf Blight"
+    name: "Alternaria Leaf Blight"
     pathogen_type: fungal
     incubation_period_days: 8
     environmental_triggers: [warm_humid_conditions, rain_splash]
-    affected_plant_parts: [leaf]
+    affected_parts: [leaf]
     description: "Alternaria-Blattfleckenkrankheit. Braune Flecken mit konzentrischen Ringen auf Blättern."
 
   - scientific_name: "Sclerotium cepivorum"
-    common_name: "White Rot"
+    name: "White Rot"
     pathogen_type: fungal
     incubation_period_days: 21
     environmental_triggers: [cool_wet_soil, soil_contamination]
-    affected_plant_parts: [root, stem]
+    affected_parts: [root, stem]
     description: "Weißfäule. Weißer Mycelbelag an Zwiebelbasis, Pflanze vergilbt und stirbt ab."
 
   - scientific_name: "Cercospora beticola"
-    common_name: "Cercospora Leaf Spot"
+    name: "Cercospora Leaf Spot"
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [warm_humid_conditions, rain_splash]
-    affected_plant_parts: [leaf]
+    affected_parts: [leaf]
     description: "Cercospora-Blattfleckenkrankheit an Beta vulgaris. Runde graue Flecken mit rotem Rand."
 
-treatments:
+new_treatments:
   - name: "Insect Protection Net"
     treatment_type: mechanical
     application_method: cultural
@@ -1196,14 +1196,14 @@ treatments:
   - name: "Ferramol"
     treatment_type: biological
     active_ingredient: "iron(III) phosphate"
-    application_method: cultural
+    application_method: granular
     safety_interval_days: 0
     dosage_per_liter: null
     description: "Schneckenkorn auf Basis Eisen-III-Phosphat. Gegen Nacktschnecken."
     protective_equipment: [gloves]
 
 # Treatment -> Pest targeting edges
-pest_treatments:
+treatment_pest_edges:
   - [Insect Protection Net, Leek Moth]
   - [Insect Protection Net, Allium Leafminer]
   - [Insect Protection Net, Cabbage White Butterfly]
@@ -1218,7 +1218,7 @@ pest_treatments:
   - [Ferramol, Slug]
 
 # Treatment -> Disease targeting edges
-disease_treatments:
+treatment_disease_edges:
   - [Potassium Bicarbonate, Leek Rust]
   - [Potassium Bicarbonate, Powdery Mildew]
   - [Environmental Control, Leek Rust]
@@ -1227,11 +1227,12 @@ disease_treatments:
   - [Sanitation, Alternaria Leaf Blight]
 
 # Existing families needed for species creation (loaded at runtime)
-existing_families_needed:
-  - Brassicaceae
-  - Solanaceae
-  - Apiaceae
-  - Fabaceae
-  - Cucurbitaceae
-  - Asteraceae
+# NOTE: Not a schema key — kept as documentation comment only.
+# existing_families_needed:
+#   - Brassicaceae
+#   - Solanaceae
+#   - Apiaceae
+#   - Fabaceae
+#   - Cucurbitaceae
+#   - Asteraceae
   - Lamiaceae

@@ -97,7 +97,6 @@ Die Health-Endpunkte erfordern keine Authentifizierung und sind für Kubernetes-
 ```
 GET /api/v1/health/live    → {"status": "alive"}
 GET /api/v1/health/ready   → {"status": "ready", "database": true}
-GET /api/health            → {"status": "healthy", "version": "...", "mode": "..."}
 ```
 
 ---
@@ -106,38 +105,73 @@ GET /api/health            → {"status": "healthy", "version": "...", "mode": "
 
 Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind `auth`-, `oidc-providers`- und `platform-admin`-Routen zusätzlich aktiv.
 
+### Globale Endpunkte
+
 | Gruppe | Pfad-Präfix | Beschreibung | REQ |
 |--------|------------|--------------|-----|
 | Authentifizierung | `/auth` | Login, Registrierung, Token, OAuth (nur full) | REQ-023 |
-| Nutzer | `/users` | Eigenes Profil, Passwort ändern | REQ-023 |
-| Mandanten | `/tenants` | Mandanten-CRUD, Mitgliedschaften | REQ-024 |
-| Mandanten-Scope | `/t/{slug}/...` | Alle mandantengebundenen Ressourcen | REQ-024 |
+| Nutzer | `/users` | Eigenes Profil, Passwort ändern, Sessions | REQ-023 |
+| Mandanten | `/tenants` | Mandanten-CRUD, Mitgliedschaften, Einladungen | REQ-024 |
 | Botanische Familien | `/botanical-families` | Pflanzenfamilien-Stammdaten | REQ-001 |
 | Arten | `/species` | Pflanzenarten-Stammdaten | REQ-001 |
-| Sorten | `/cultivars` | Kultursorten | REQ-001 |
-| Standorte | `/sites`, `/locations`, `/slots` | Standort- und Slothierarchie | REQ-002 |
+| Sorten | `/species/{key}/cultivars` | Kultursorten (unterhalb einer Art) | REQ-001 |
+| Lebenszyklen | `/species/{key}/lifecycle` | Lebenszyklus-Konfigurationen pro Art | REQ-003 |
+| Wachstumsphasen | `/growth-phases` | Globale Phasendefinitionen | REQ-003 |
+| Pflanzenphasen | `/plant-instances/{key}/phases` | Phasenübergänge einer Einzelpflanze | REQ-003 |
+| Profile | `/profiles` | Anforderungs- und Nährstoffprofile | REQ-004 |
+| Standorttypen | `/location-types` | Standorttyp-Stammdaten | REQ-002 |
 | Substrate | `/substrates` | Substrattypen und -chargen | REQ-019 |
-| Pflanzeninstanzen | `/plant-instances` | Einzelpflanzen-Tracking | REQ-001 |
-| Phasensteuerung | `/phases`, `/growth-phases` | Wachstumsphasen und Übergänge | REQ-003 |
-| Pflanzdurchläufe | `/planting-runs` | Batch-Verwaltung | REQ-013 |
-| Tanks | `/tanks` | Tankzustände und Füllungen | REQ-014 |
-| Düngemittel | `/fertilizers` | Düngemittel-Stammdaten | REQ-004 |
-| Nährstoffpläne | `/nutrient-plans` | EC-basierte Nahrungspläne | REQ-004 |
-| Gießereignisse | `/watering-events` | Bewässerungsprotokoll | REQ-004 |
-| IPM | `/ipm` | Schädlings- und Krankheitsverwaltung | REQ-010 |
-| Ernte | `/harvest` | Erntedokumentation und Karenz-Gate | REQ-007 |
-| Aufgaben | `/tasks` | Aufgabenplanung und Workflows | REQ-006 |
-| Pflegeerinnerungen | `/care-reminders` | Automatische Pflegepläne | REQ-022 |
-| Kalender | `/calendar` | iCal-Feeds und Kalenderevents | REQ-015 |
-| Onboarding | `/onboarding` | Einrichtungsassistent | REQ-020 |
-| Starter-Kits | `/starter-kits` | Vorkonfigurierte Pakete | REQ-020 |
-| Nutzerpräferenzen | `/user-preferences` | Erfahrungsstufe, Sprache | REQ-021 |
-| Berechnung | `/calculations` | EC/VPD-Berechnungen | REQ-004 |
 | Anreicherung | `/enrichment` | GBIF/Perenual-Datenanreicherung | REQ-011 |
-| Import | `/imports` | CSV-Import für Stammdaten | REQ-012 |
+| Familienbeziehungen | `/family-relationships` | Schädlingsrisiken und Kompatibilität pro Pflanzenfamilie | REQ-001 |
 | Companion-Planting | `/companion-planting` | Mischkultur-Empfehlungen | REQ-028 |
 | Fruchtfolge | `/crop-rotation` | Rotationsvalidierung | REQ-002 |
+| IPM (global) | `/ipm` | Schädlinge, Krankheiten, Behandlungen — Stammdaten | REQ-010 |
+| Berechnungen | `/calculations` | EC/VPD/Sonnenstands-Berechnungen, Vernalisierung, Slot-Kapazität | REQ-004 |
+| Pflegeerinnerungen | `/care-reminders` | Automatische Pflegepläne | REQ-022 |
+| Starter-Kits | `/starter-kits` | Vorkonfigurierte Pakete | REQ-020 |
+| Import | `/import` | CSV-Import für Stammdaten | REQ-012 |
+| Aktivitäten | `/activities` | Aktivitätsdefinitionen (Gießen, Düngen, etc.) | REQ-006 |
+| Aktivitätspläne | `/activity-plans` | Generierung und Anwendung von Aktivitätsplänen | REQ-006 |
+| Wissensdatenbank | `/knowledge` | RAG-basierte Suche und KI-Antworten (optional) | — |
+| Beobachtungen | `/observations` | TimescaleDB-Status | REQ-005 |
 | Health | `/health` | Liveness und Readiness | — |
+| Modus | `/mode` | Aktueller Deployment-Modus (full/light) | REQ-027 |
+
+### Mandantengebundene Endpunkte (`/t/{slug}/...`)
+
+| Gruppe | Pfad-Präfix | Beschreibung | REQ |
+|--------|------------|--------------|-----|
+| Standorte | `/sites` | Standort-CRUD, Standorthierarchie, Sensoren | REQ-002 |
+| Bereiche | `/locations` | Bereiche und Unter-Standorte | REQ-002 |
+| Stellplätze | `/slots` | Slot-Verwaltung innerhalb von Bereichen | REQ-002 |
+| Pflanzeninstanzen | `/plant-instances` | Einzelpflanzen-Tracking | REQ-001 |
+| Pflanzdurchläufe | `/planting-runs` | Batch-Verwaltung, Phasen, Tagebuch | REQ-013 |
+| Tanks | `/tanks` | Tankzustände, Befüllungen, Wartung, Sensoren | REQ-014 |
+| Düngemittel | `/fertilizers` | Düngemittel, Bestände, Unverträglichkeiten | REQ-004 |
+| Nährstoffpläne | `/nutrient-plans` | EC-basierte Nahrungspläne, Kanäle, Dosierungen | REQ-004 |
+| Düngeereignisse | `/feeding-events` | Dokumentation von Düngegaben | REQ-004 |
+| Gießereignisse | `/watering-events` | Bewässerungsprotokoll mit Bestätigung | REQ-004 |
+| Gießprotokoll | `/watering-logs` | Detailliertes Bewässerungsprotokoll | REQ-004 |
+| IPM (Mandant) | `/ipm` | Mandantenspezifische Inspektionen und Behandlungen | REQ-010 |
+| Ernte | `/harvest` | Erntedokumentation und Karenz-Gate | REQ-007 |
+| Aufgaben | `/tasks` | Aufgabenplanung, Workflows, Queue | REQ-006 |
+| Kalender | `/calendar` | iCal-Feeds, Aussaatkalender, Saisonübersicht | REQ-015 |
+| Onboarding | `/onboarding` | Einrichtungsassistent | REQ-020 |
+| Starter-Kits | `/starter-kits` | Kit-Anwendung für Mandanten | REQ-020 |
+| Nutzerpräferenzen | `/user-preferences` | Erfahrungsstufe, Sprache | REQ-021 |
+| Favoriten | `/favorites` | Pflanzen-Favoriten und Nährstoffplan-Matching | — |
+| Nährstoffberechnungen | `/nutrient-calculations` | Mischprotokoll, Spülung, Runoff, Mischsicherheit, Wassermischung, EC-Budget | REQ-004 |
+| Benachrichtigungen | `/notifications` | Benachrichtigungen, Präferenzen, Test-Versand | REQ-022 |
+| Beobachtungen | `/observations` | Sensordaten-CRUD (TimescaleDB) | REQ-005 |
+| Druckansichten | `/print` | PDF-Export für Nährstoffpläne, Pflegelisten, Pflanzschilder | REQ-032 |
+
+### Admin-Endpunkte
+
+| Gruppe | Pfad-Präfix | Beschreibung | REQ |
+|--------|------------|--------------|-----|
+| Plattform-Admin | `/admin/platform` | Statistiken, Mandanten-, Nutzerverwaltung | REQ-024 |
+| OIDC-Provider | `/admin/oidc-providers` | Föderierte Authentifizierungs-Provider | REQ-023 |
+| Einstellungen | `/admin/settings` | Home-Assistant-Konfiguration | REQ-018 |
 
 ---
 
@@ -208,4 +242,5 @@ Jede API-Antwort enthält folgende Sicherheits-Header:
 
 - [Authentifizierung](authentication.md) — Token-Workflow und API-Keys
 - [Fehlerbehandlung](error-handling.md) — Fehlerstruktur und Fehlercodes
+- [Service Accounts](service-accounts.md) — M2M-Zugriff (geplant, noch nicht implementiert)
 - [Lokale Entwicklungsumgebung](../development/local-setup.md) — Backend lokal starten

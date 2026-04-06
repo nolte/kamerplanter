@@ -19,18 +19,30 @@ properties:
     type: array
     items:
       $ref: "#/$defs/species"
-  enrich_species:
-    type: array
-    items:
+  species_enrichment:
+    type: object
+    description: "Dictionary of scientific_name -> patch fields for existing species"
+    additionalProperties:
       $ref: "#/$defs/species_enrichment"
   cultivars:
-    type: array
-    items:
-      $ref: "#/$defs/cultivar"
+    type: object
+    description: "Dictionary of species_name -> list of cultivar objects"
+    additionalProperties:
+      type: array
+      items:
+        $ref: "#/$defs/cultivar"
   growth_phases:
-    type: array
-    items:
-      $ref: "#/$defs/species_phases"
+    type: object
+    description: "Dictionary of species_name -> list of phase objects"
+    additionalProperties:
+      type: array
+      items:
+        $ref: "#/$defs/phase_entry"
+  lifecycle_configs:
+    type: object
+    description: "Dictionary of species_name -> lifecycle configuration"
+    additionalProperties:
+      $ref: "#/$defs/lifecycle_config"
   companion_planting:
     $ref: "#/$defs/companion_planting_data"
   new_pests:
@@ -134,7 +146,8 @@ $defs:
       description: { type: string }
       rotation_category:
         type: string
-        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+               brassica, composite, cucurbit, grain, permanent, vegetable]
     required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
                frost_tolerance, typical_root_depth, typical_growth_forms,
                pollination_type, soil_ph_preference, description, rotation_category]
@@ -159,11 +172,11 @@ $defs:
         type: array
         items:
           type: string
-          pattern: "^\\d{1,2}[ab]$"
+          pattern: "^\\d{1,2}[ab]?$"
       native_habitat: { type: string }
       allelopathy_score:
         type: number
-        minimum: 0
+        minimum: -1
         maximum: 1
       base_temp:
         type: number
@@ -205,6 +218,11 @@ $defs:
       nutrient_demand_level:
         type: string
         enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+      plant_category:
+        type: string
+        enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
+               succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
+        description: "Broad category for UI grouping"
     required: [scientific_name, common_names, genus, growth_habit, root_type]
     additionalProperties: true
 
@@ -231,7 +249,13 @@ $defs:
           type: string
           enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
                  cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
-                 heirloom, hybrid, f1]
+                 heirloom, hybrid, f1,
+                 variegated, cut_flower, fragrant, winter_hardy, late_season,
+                 edible_flower, ground_cover, shade_tolerant, native, bee_friendly]
+      seed_type:
+        type: string
+        enum: [clone, seed, cutting, division, grafted]
+        description: "Propagation type of the cultivar"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
@@ -252,47 +276,60 @@ $defs:
       tags:
         type: array
         items: { type: string }
-    required: [name, species_name]
+    required: [name]
     additionalProperties: true
 
-  species_phases:
+  lifecycle_config:
     type: object
     properties:
-      species_name:
-        type: string
-        description: "Scientific name of the species"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
       typical_lifespan_years:
         type: [integer, "null"]
       dormancy_required: { type: boolean }
       vernalization_required: { type: boolean }
-      photoperiod_type:
+      vernalization_min_days:
+        type: [integer, "null"]
+      critical_day_length_hours:
+        type: [number, "null"]
+    required: [cycle_type, photoperiod_type]
+    additionalProperties: false
+
+  phase_entry:
+    type: object
+    properties:
+      name:
         type: string
-        enum: [short_day, long_day, day_neutral]
-      phases:
-        type: array
-        items:
-          type: object
-          properties:
-            name:
-              type: string
-              enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
-                     harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
-            display_name: { type: string }
-            typical_duration_days: { type: integer, minimum: 1 }
-            sequence_order: { type: integer, minimum: 1 }
-            stress_tolerance:
-              type: string
-              enum: [low, medium, high]
-            allows_harvest: { type: boolean }
-            is_terminal: { type: boolean }
-          required: [name, display_name, typical_duration_days, sequence_order,
-                     stress_tolerance, allows_harvest, is_terminal]
-          additionalProperties: false
-        minItems: 1
-    required: [species_name, phases]
+        enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening,
+               active_growth, winter_rest, cool_rest, summer_rest,
+               shaft_growth, sprout_formation, flowering_fruit, tuber_formation,
+               establishment, pup_establishment, pre_bloom, juvenile, climbing,
+               mature, hardening_off, recovery, bract_coloring, short_day_induction,
+               leaf_phase, dry_storage, growth_bloom, young_palm, winter_dormancy,
+               summer_dormancy, bulbil_establishment, spring_growth, autumn_growth_bloom,
+               winter_hull_change, rest_phase, rest_after_bloom, bud_formation,
+               autumn_ripening, rooting, rest]
+      display_name: { type: string }
+      duration_days: { type: integer, minimum: 1 }
+      sequence_order: { type: integer, minimum: 1 }
+      stress_tolerance:
+        type: string
+        enum: [low, medium, high]
+      allows_harvest: { type: boolean }
+      is_terminal: { type: boolean }
+      requirement_profile:
+        type: object
+        additionalProperties: true
+      nutrient_profile:
+        type: object
+        additionalProperties: true
+    required: [name, display_name, duration_days, sequence_order,
+               stress_tolerance, allows_harvest, is_terminal]
     additionalProperties: false
 
   companion_planting_data:
@@ -301,15 +338,22 @@ $defs:
       compatible:
         type: array
         items:
-          type: array
-          prefixItems:
-            - type: string
-            - type: string
-            - type: number
-              minimum: 0
-              maximum: 1
-          minItems: 3
-          maxItems: 3
+          oneOf:
+            - type: array
+              prefixItems:
+                - type: string
+                - type: string
+                - type: number
+                  minimum: 0
+                  maximum: 1
+              minItems: 3
+              maxItems: 3
+            - type: object
+              properties:
+                species_a: { type: string }
+                species_b: { type: string }
+                score: { type: number, minimum: 0, maximum: 1 }
+              required: [species_a, species_b, score]
       incompatible:
         type: array
         items:
@@ -335,6 +379,7 @@ $defs:
       detection_difficulty:
         type: string
         enum: [easy, medium, hard]
+      description: { type: string }
     required: [scientific_name, common_name, pest_type]
     additionalProperties: false
 
@@ -344,7 +389,7 @@ $defs:
       name: { type: string }
       pathogen_type:
         type: string
-        enum: [fungal, bacterial, viral, physiological, oomycete]
+        enum: [fungal, bacterial, viral, physiological, oomycete, protist]
       symptoms:
         type: array
         items: { type: string }

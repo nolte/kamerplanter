@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,6 +16,8 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useAppDispatch } from '@/store/hooks';
+import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
@@ -42,8 +45,14 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const dispatch = useAppDispatch();
   const [saving, setSaving] = useState(false);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
+
+  const handleClose = useCallback(() => {
+    dispatch(resetShowAllFields());
+    onClose();
+  }, [dispatch, onClose]);
   const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
     has_ro_system: false,
     tap_water_profile: { ...TAP_WATER_DEFAULTS },
@@ -54,6 +63,12 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
     resolver: zodResolver(schema),
     defaultValues: { name: '', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
   });
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open, reset]);
+
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -76,15 +91,18 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const fc = siteFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.sites.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* beginner */}
-          <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
+          <FormTextField name="name" control={control} label={t('pages.sites.name')} helperText={t('pages.sites.nameHelper')} required autoFocus />
           {/* intermediate */}
           <ExpertiseFieldWrapper minLevel={fc.climate_zone.level}>
-            <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
+            <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.total_area_m2.level}>
             <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
@@ -100,7 +118,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
           {level !== 'expert' && (
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
-          <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
+          <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>
     </Dialog>

@@ -124,6 +124,25 @@ GBIF wird ohne API-Key verwendet (öffentliche API). Perenual und Tréflé erfor
 
 ---
 
+## Knowledge Service — Re-Ranking (optional)
+
+Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowledge Service. Ist `RERANKER_URL` leer, arbeitet der Knowledge Service im Hybrid-Search-only-Modus (Graceful Degradation). Siehe [ADR-007](../adr/007-cross-encoder-reranking.md).
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `RERANKER_URL` | `` (leer) | Nein | HTTP-URL des Reranker-Microservice, z. B. `http://reranker-service:8081`. Leer = Re-Ranking deaktiviert. |
+| `RERANKER_INITIAL_K` | `20` | Nein | Anzahl der Chunks, die aus dem Hybrid-Search-Schritt abgerufen werden (Over-Retrieval). |
+| `RERANKER_TOP_K` | `5` | Nein | Anzahl der Chunks, die nach dem Re-Ranking an den LLM-Kontext übergeben werden. |
+| `RERANKER_MODEL` | `bge-reranker-v2-m3` | Nein | ONNX-Modellname im Reranker-Service-Container (Verzeichnis unter `/app/models/onnx/`). |
+
+!!! note "RERANKER_MODEL gehört zum Reranker-Service, nicht zum Knowledge Service"
+    `RERANKER_MODEL` wird als Umgebungsvariable am `reranker-service`-Container gesetzt — nicht am `knowledge-service`. Die anderen drei Variablen (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) gehören zum Knowledge Service.
+
+!!! tip "Ressourcenbedarf"
+    Der Reranker-Service benötigt 1,5–4 GB RAM (je nach Modell) und addiert ~500ms Latenz pro Anfrage. Für Raspberry Pi und ressourcenarme Umgebungen empfiehlt sich, `RERANKER_URL` leer zu lassen.
+
+---
+
 ## Home Assistant Integration (REQ-005)
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -197,6 +216,11 @@ EMAIL_ADAPTER=console
 PERENUAL_API_KEY=
 HA_URL=
 HA_ACCESS_TOKEN=
+
+# Knowledge Service — Re-Ranking (leer = deaktiviert)
+RERANKER_URL=
+RERANKER_INITIAL_K=20
+RERANKER_TOP_K=5
 ```
 
 ---

@@ -4,7 +4,7 @@ Adds 2 new botanical families, 4 new species, enriches 14 existing species,
 replaces generic phases with art-specific growth phases (18 species),
 adds ~120 cultivars, companion planting edges, and IPM data.
 
-Sources: spec/ref/plant-info/*.md (18 plant-info documents)
+Sources: spec/knowledge/plants/*.md (18 plant-info documents)
 Data loaded from seed_data/adventskalender.yaml.
 """
 
@@ -203,7 +203,11 @@ def _build_companion_planting(
     cp_data = data.get("companion_planting", {})
 
     compatible: list[tuple[str, str, float]] = [(e[0], e[1], float(e[2])) for e in cp_data.get("compatible", [])]
-    incompatible: list[tuple[str, str, str]] = [(e[0], e[1], str(e[2])) for e in cp_data.get("incompatible", [])]
+    raw_incomp = cp_data.get("incompatible", [])
+    incompatible: list[tuple[str, str, str]] = [
+        (e["species_a"], e["species_b"], str(e.get("reason", ""))) if isinstance(e, dict) else (e[0], e[1], str(e[2]))
+        for e in raw_incomp
+    ]
     return compatible, incompatible
 
 

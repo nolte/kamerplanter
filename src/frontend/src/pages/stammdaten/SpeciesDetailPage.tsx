@@ -7,14 +7,30 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import StarIcon from '@mui/icons-material/Star';
@@ -24,6 +40,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
@@ -47,8 +64,18 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpecies, clearCurrent } from '@/store/slices/speciesSlice';
 import * as api from '@/api/endpoints/species';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
+import * as companionApi from '@/api/endpoints/companionPlanting';
+import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as planApi from '@/api/endpoints/nutrient-plans';
-import type { BotanicalFamily, NutrientPlan } from '@/api/types';
+import type {
+  BotanicalFamily,
+  CompatibleSpecies,
+  IncompatibleSpecies,
+  NutrientPlan,
+  RotationSuccessor,
+  Species,
+} from '@/api/types';
+import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 const schema = z.object({
   scientific_name: z.string().min(1),
@@ -91,12 +118,34 @@ export default function SpeciesDetailPage() {
   const notification = useNotification();
   const { handleError } = useApiError();
   const { current, loading, error } = useAppSelector((s) => s.species);
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [createPlantOpen, setCreatePlantOpen] = useState(false);
-  const [tab, setTab] = useTabUrl(['edit', 'growing-periods', 'cultivars', 'lifecycle', 'workflows']);
+  const [tab, setTab] = useTabUrl(['edit', 'growing-periods', 'cultivars', 'lifecycle', 'workflows', 'companion-planting', 'crop-rotation']);
   const [families, setFamilies] = useState<BotanicalFamily[]>([]);
   const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
+
+  // Companion planting state (tab 5)
+  const [companionSpeciesList, setCompanionSpeciesList] = useState<Species[]>([]);
+  const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
+  const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
+  const [companionLoading, setCompanionLoading] = useState(false);
+  const [companionDialogType, setCompanionDialogType] = useState<'compatible' | 'incompatible' | null>(null);
+  const [companionTargetKey, setCompanionTargetKey] = useState('');
+  const [companionScore, setCompanionScore] = useState(1);
+  const [companionReason, setCompanionReason] = useState('');
+
+  // Crop rotation state (tab 6)
+  const [currentFamily, setCurrentFamily] = useState<BotanicalFamily | null>(null);
+  const [rotationSuccessors, setRotationSuccessors] = useState<RotationSuccessor[]>([]);
+  const [rotationLoading, setRotationLoading] = useState(false);
+  const [rotationDialogOpen, setRotationDialogOpen] = useState(false);
+  const [rotationFamilies, setRotationFamilies] = useState<BotanicalFamily[]>([]);
+  const [rotationFamiliesLoaded, setRotationFamiliesLoaded] = useState(false);
+  const [rotationTargetKey, setRotationTargetKey] = useState('');
+  const [rotationWaitYears, setRotationWaitYears] = useState(3);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
 
   const {
@@ -137,10 +186,41 @@ export default function SpeciesDetailPage() {
 
   useEffect(() => {
     if (key) dispatch(fetchSpecies(key));
-    familiesApi.listBotanicalFamilies().then(setFamilies).catch(() => {});
+    familiesApi.listBotanicalFamilies(0, 200).then(setFamilies).catch(() => {});
     planApi.fetchNutrientPlans(0, 200).then(setNutrientPlans).catch(() => {});
     return () => { dispatch(clearCurrent()); };
   }, [key, dispatch]);
+
+  // Load companion planting data when tab 5 is selected
+  useEffect(() => {
+    if (tab === 5 && key) {
+      setCompanionLoading(true);
+      api.listSpecies(0, 200).then((r) => setCompanionSpeciesList(r.items)).catch(() => {});
+      Promise.all([
+        companionApi.getCompatibleSpecies(key),
+        companionApi.getIncompatibleSpecies(key),
+      ])
+        .then(([comp, incomp]) => {
+          setCompatible(comp);
+          setIncompatible(incomp);
+        })
+        .catch((err) => handleError(err))
+        .finally(() => setCompanionLoading(false));
+    }
+  }, [tab, key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load crop rotation data when tab 6 is selected
+  useEffect(() => {
+    if (tab === 6 && current?.family_key) {
+      setRotationLoading(true);
+      familiesApi.getBotanicalFamily(current.family_key).then(setCurrentFamily).catch(() => {});
+      rotationApi
+        .getSuccessors(current.family_key)
+        .then(setRotationSuccessors)
+        .catch((err) => handleError(err))
+        .finally(() => setRotationLoading(false));
+    }
+  }, [tab, current?.family_key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (current) {
@@ -207,41 +287,94 @@ export default function SpeciesDetailPage() {
     setDeleteOpen(false);
   };
 
+  const reloadCompanionRelations = async () => {
+    if (!key) return;
+    try {
+      const [comp, incomp] = await Promise.all([
+        companionApi.getCompatibleSpecies(key),
+        companionApi.getIncompatibleSpecies(key),
+      ]);
+      setCompatible(comp);
+      setIncompatible(incomp);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const handleAddCompanion = async () => {
+    if (!key || !companionTargetKey) return;
+    try {
+      if (companionDialogType === 'compatible') {
+        await companionApi.setCompatible({ from_species_key: key, to_species_key: companionTargetKey, score: companionScore });
+      } else {
+        await companionApi.setIncompatible({ from_species_key: key, to_species_key: companionTargetKey, reason: companionReason });
+      }
+      notification.success(t('common.create'));
+      reloadCompanionRelations();
+    } catch (err) {
+      handleError(err);
+    }
+    setCompanionDialogType(null);
+    setCompanionTargetKey('');
+  };
+
+  const handleAddRotationSuccessor = async () => {
+    if (!current?.family_key || !rotationTargetKey) return;
+    try {
+      await rotationApi.setSuccessor({
+        from_family_key: current.family_key,
+        to_family_key: rotationTargetKey,
+        wait_years: rotationWaitYears,
+      });
+      notification.success(t('common.create'));
+      const updated = await rotationApi.getSuccessors(current.family_key);
+      setRotationSuccessors(updated);
+    } catch (err) {
+      handleError(err);
+    }
+    setRotationDialogOpen(false);
+    setRotationTargetKey('');
+  };
+
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   return (
     <>
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={current?.scientific_name ?? t('entities.species')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {key && (
-            <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
-              <IconButton
-                onClick={() => toggleFavorite(key)}
-                color={isFavorite(key) ? 'warning' : 'default'}
-                data-testid="species-favorite-toggle"
-              >
-                {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
-            {t('pages.species.createPlantInstance')}
-          </Button>
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={current?.scientific_name ?? t('entities.species')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {key && (
+              <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
+                <IconButton
+                  onClick={() => toggleFavorite(key)}
+                  color={isFavorite(key) ? 'warning' : 'default'}
+                  data-testid="species-favorite-toggle"
+                >
+                  {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
+              {t('pages.species.createPlantInstance')}
+            </Button>
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+              {t('common.delete')}
+            </Button>
+          </Box>
+        }
+      />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('common.edit')} />
         <Tab label={t('pages.species.growingPeriodsTab')} />
         <Tab label={t('pages.cultivars.title')} />
         <Tab label={t('pages.lifecycle.title')} />
         <Tab label={t('pages.species.workflows')} />
+        <Tab label={t('pages.companionPlanting.title')} />
+        <Tab label={t('pages.cropRotation.title')} />
       </Tabs>
 
       {tab === 0 && (
@@ -614,6 +747,371 @@ export default function SpeciesDetailPage() {
       {tab === 2 && key && <CultivarListSection speciesKey={key} />}
       {tab === 3 && key && <LifecycleConfigSection speciesKey={key} />}
       {tab === 4 && key && <SpeciesWorkflowsSection speciesKey={key} />}
+
+      {/* ── Tab 5: Companion Planting (Mischkultur) ── */}
+      {tab === 5 && key && current && (
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {t('pages.species.companionPlantingIntro', { name: current.scientific_name })}
+          </Typography>
+
+          {companionLoading && <LoadingSkeleton variant="card" />}
+
+          {!companionLoading && (
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              {/* Compatible species */}
+              <Card sx={{ flex: 1, minWidth: 300 }} variant="outlined">
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckCircleIcon fontSize="small" color="success" />
+                      <Typography variant="subtitle1">
+                        {t('pages.companionPlanting.compatible')}
+                      </Typography>
+                      {compatible.length > 0 && (
+                        <Chip label={compatible.length} size="small" color="success" variant="outlined" />
+                      )}
+                    </Box>
+                  }
+                  action={
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => setCompanionDialogType('compatible')}
+                      data-testid="add-compatible-button"
+                    >
+                      {t('pages.companionPlanting.addCompatible')}
+                    </Button>
+                  }
+                  sx={{ pb: 0 }}
+                />
+                <CardContent>
+                  {compatible.length === 0 ? (
+                    <EmptyState
+                      illustration={kamiMasterdata}
+                      message={t('pages.companionPlanting.noCompatible')}
+                    />
+                  ) : (
+                    <List dense disablePadding>
+                      {compatible.map((c) => (
+                        <ListItem key={c.species_key} divider>
+                          <ListItemText
+                            primary={
+                              <Link component={RouterLink} to={`/stammdaten/species/${c.species_key}`} variant="body2" underline="hover">
+                                {c.scientific_name ?? c.species_key}
+                              </Link>
+                            }
+                          />
+                          <Chip
+                            label={`${t('pages.companionPlanting.score')}: ${c.score}`}
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Incompatible species */}
+              <Card sx={{ flex: 1, minWidth: 300 }} variant="outlined">
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CancelIcon fontSize="small" color="error" />
+                      <Typography variant="subtitle1">
+                        {t('pages.companionPlanting.incompatible')}
+                      </Typography>
+                      {incompatible.length > 0 && (
+                        <Chip label={incompatible.length} size="small" color="error" variant="outlined" />
+                      )}
+                    </Box>
+                  }
+                  action={
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => setCompanionDialogType('incompatible')}
+                      data-testid="add-incompatible-button"
+                    >
+                      {t('pages.companionPlanting.addIncompatible')}
+                    </Button>
+                  }
+                  sx={{ pb: 0 }}
+                />
+                <CardContent>
+                  {incompatible.length === 0 ? (
+                    <EmptyState
+                      illustration={kamiMasterdata}
+                      message={t('pages.companionPlanting.noIncompatible')}
+                    />
+                  ) : (
+                    <List dense disablePadding>
+                      {incompatible.map((c) => (
+                        <ListItem key={c.species_key} divider>
+                          <ListItemText
+                            primary={
+                              <Link component={RouterLink} to={`/stammdaten/species/${c.species_key}`} variant="body2" underline="hover">
+                                {c.scientific_name ?? c.species_key}
+                              </Link>
+                            }
+                            secondary={c.reason || undefined}
+                            secondaryTypographyProps={{ variant: 'caption' }}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </CardContent>
+              </Card>
+            </Box>
+          )}
+
+          {/* Companion planting dialog */}
+          <Dialog fullScreen={fullScreen} open={!!companionDialogType} onClose={() => setCompanionDialogType(null)} maxWidth="sm" fullWidth>
+            <DialogTitle>
+              {companionDialogType === 'compatible'
+                ? t('pages.companionPlanting.addCompatible')
+                : t('pages.companionPlanting.addIncompatible')}
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText sx={{ mb: 2 }}>
+                {companionDialogType === 'compatible'
+                  ? t('pages.companionPlanting.addCompatibleHint')
+                  : t('pages.companionPlanting.addIncompatibleHint')}
+              </DialogContentText>
+              <TextField
+                select
+                fullWidth
+                label={t('pages.companionPlanting.selectSpecies')}
+                value={companionTargetKey}
+                onChange={(e) => setCompanionTargetKey(e.target.value)}
+                helperText={t('pages.companionPlanting.targetSpeciesHelper')}
+                sx={{ mt: 1, mb: 2 }}
+                data-testid="target-species-select"
+              >
+                {companionSpeciesList.filter((s) => s.key !== key).map((s) => (
+                  <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
+                ))}
+              </TextField>
+              {companionDialogType === 'compatible' && (
+                <TextField
+                  type="number"
+                  label={t('pages.companionPlanting.score')}
+                  value={companionScore}
+                  onChange={(e) => setCompanionScore(Number(e.target.value))}
+                  fullWidth
+                  helperText={t('pages.companionPlanting.scoreHelper')}
+                  inputProps={{ min: 0, max: 1, step: 0.1 }}
+                  data-testid="score-input"
+                />
+              )}
+              {companionDialogType === 'incompatible' && (
+                <TextField
+                  label={t('pages.companionPlanting.reason')}
+                  value={companionReason}
+                  onChange={(e) => setCompanionReason(e.target.value)}
+                  fullWidth
+                  helperText={t('pages.companionPlanting.reasonHelper')}
+                  multiline
+                  rows={2}
+                  data-testid="reason-input"
+                />
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setCompanionDialogType(null)}>{t('common.cancel')}</Button>
+              <Button variant="contained" onClick={handleAddCompanion} disabled={!companionTargetKey}>
+                {t('common.create')}
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </>
+      )}
+
+      {/* ── Tab 6: Crop Rotation (Fruchtfolge) ── */}
+      {tab === 6 && key && current && (
+        <Box sx={{ maxWidth: 800 }}>
+          {!current.family_key ? (
+            <Alert severity="info" data-testid="no-family-alert">
+              {t('pages.species.noFamilyForCropRotation')}
+            </Alert>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {t('pages.species.cropRotationIntro')}
+              </Typography>
+
+              {/* Current family card — clickable */}
+              <Card
+                variant="outlined"
+                component={RouterLink}
+                to={`/stammdaten/botanical-families/${current.family_key}`}
+                sx={{
+                  mb: 3,
+                  display: 'block',
+                  textDecoration: 'none',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                  '&:hover': { borderColor: 'primary.main', boxShadow: 1 },
+                }}
+                data-testid="family-card-link"
+              >
+                <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                      {t('pages.species.family')}
+                    </Typography>
+                    <Typography variant="h6" color="text.primary" sx={{ mt: 0.25, lineHeight: 1.3 }}>
+                      {currentFamily?.name ?? '…'}
+                    </Typography>
+                    {currentFamily?.common_name_de && (
+                      <Typography variant="body2" color="text.secondary">
+                        {currentFamily.common_name_de}
+                      </Typography>
+                    )}
+                    {currentFamily?.rotation_category && (
+                      <Chip label={currentFamily.rotation_category} size="small" variant="outlined" sx={{ mt: 0.75 }} />
+                    )}
+                  </Box>
+                  <ArrowForwardIcon color="action" />
+                </CardContent>
+              </Card>
+
+              {rotationLoading && <LoadingSkeleton variant="card" />}
+
+              {!rotationLoading && (
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {t('pages.cropRotation.successorsTitle')}
+                      </Typography>
+                      {rotationSuccessors.length > 0 && (
+                        <Chip label={rotationSuccessors.length} size="small" variant="outlined" />
+                      )}
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => {
+                        if (!rotationFamiliesLoaded) {
+                          familiesApi.listBotanicalFamilies(0, 500).then((f) => {
+                            setRotationFamilies(f);
+                            setRotationFamiliesLoaded(true);
+                          }).catch(() => {});
+                        }
+                        setRotationDialogOpen(true);
+                      }}
+                      data-testid="add-successor-button"
+                    >
+                      {t('pages.cropRotation.addSuccessor')}
+                    </Button>
+                  </Box>
+
+                  {rotationSuccessors.length === 0 ? (
+                    <EmptyState
+                      illustration={kamiMasterdata}
+                      message={t('pages.cropRotation.noSuccessors')}
+                      actionLabel={t('pages.cropRotation.addSuccessor')}
+                      onAction={() => {
+                        if (!rotationFamiliesLoaded) {
+                          familiesApi.listBotanicalFamilies(0, 500).then((f) => {
+                            setRotationFamilies(f);
+                            setRotationFamiliesLoaded(true);
+                          }).catch(() => {});
+                        }
+                        setRotationDialogOpen(true);
+                      }}
+                    />
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {rotationSuccessors.map((s) => (
+                        <Card
+                          key={s.family_key}
+                          variant="outlined"
+                          component={RouterLink}
+                          to={`/stammdaten/botanical-families/${s.family_key}`}
+                          sx={{
+                            display: 'block',
+                            textDecoration: 'none',
+                            transition: 'border-color 0.15s, box-shadow 0.15s',
+                            '&:hover': { borderColor: 'primary.main', boxShadow: 1 },
+                          }}
+                        >
+                          <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body1" color="text.primary" fontWeight={500}>
+                                {s.name ?? s.family_key}
+                              </Typography>
+                              {s.benefit_reason && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                  {s.benefit_reason}
+                                </Typography>
+                              )}
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2, flexShrink: 0 }}>
+                              <Chip
+                                label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
+                                size="small"
+                                color={s.wait_years <= 1 ? 'success' : s.wait_years <= 3 ? 'warning' : 'error'}
+                                variant="outlined"
+                              />
+                              <ArrowForwardIcon fontSize="small" color="action" />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* Crop rotation dialog */}
+              <Dialog fullScreen={fullScreen} open={rotationDialogOpen} onClose={() => setRotationDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
+                <DialogContent>
+                  <DialogContentText sx={{ mb: 2 }}>
+                    {t('pages.cropRotation.addSuccessorHint')}
+                  </DialogContentText>
+                  <TextField
+                    select
+                    fullWidth
+                    label={t('pages.cropRotation.toFamily')}
+                    value={rotationTargetKey}
+                    onChange={(e) => setRotationTargetKey(e.target.value)}
+                    helperText={t('pages.cropRotation.toFamilyHelper')}
+                    sx={{ mt: 1, mb: 2 }}
+                    data-testid="to-family-select"
+                  >
+                    {rotationFamilies.filter((f) => f.key !== current.family_key).map((f) => (
+                      <MenuItem key={f.key} value={f.key}>{f.name}</MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    type="number"
+                    label={t('pages.cropRotation.waitYears')}
+                    value={rotationWaitYears}
+                    onChange={(e) => setRotationWaitYears(Number(e.target.value))}
+                    fullWidth
+                    helperText={t('pages.cropRotation.waitYearsHelper')}
+                    inputProps={{ min: 1, max: 10 }}
+                    data-testid="wait-years-input"
+                  />
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setRotationDialogOpen(false)}>{t('common.cancel')}</Button>
+                  <Button variant="contained" onClick={handleAddRotationSuccessor} disabled={!rotationTargetKey}>
+                    {t('common.create')}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
+        </Box>
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

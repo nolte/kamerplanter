@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -61,6 +61,12 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
       description: null,
     },
   });
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open, reset]);
+
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -98,6 +104,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
             control={control}
             label={t('pages.ipm.treatmentName')}
             required
+            autoFocus
             helperText={t('pages.ipm.treatmentNameHelper')}
           />
           <FormSelectField

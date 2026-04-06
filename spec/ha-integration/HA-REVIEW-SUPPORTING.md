@@ -2,7 +2,7 @@
 
 > Erstellt: 2026-02-28
 > Referenz: HA-CUSTOM-INTEGRATION.md v1.1
-> Vorgaenger: spec/requirements-analysis/smart-home-ha-integration-review.md v2.0
+> Vorgaenger: spec/analysis/smart-home-ha-integration-review.md v2.0
 > Methodik: Drei-Seiten-Modell (A=KP→HA Export, B=HA→KP Import, C=KP→HA Aktorik)
 
 ## Zusammenfassung

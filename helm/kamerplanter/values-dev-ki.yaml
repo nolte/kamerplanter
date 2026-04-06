@@ -1,0 +1,466 @@
+# -- KI (Knowledge/AI Stack) dev overrides
+# Helm release: kamerplanter-ki
+# Contains: knowledge-service, embedding-service, vectordb
+# KP core (backend, frontend, celery, arangodb, timescaledb) is in values-dev.yaml
+#
+# Service names (determined by release name kamerplanter-ki):
+#   kamerplanter-ki-knowledge-service
+#   kamerplanter-ki-embedding-service
+#   kamerplanter-ki-vectordb
+
+# -- Dev overrides: relax readOnlyRootFilesystem for hot-reload (SEC-M-004)
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: false
+
+# -- Disable KP controllers from base values.yaml
+# bjw-s common chart: enabled=false prevents resource creation
+controllers:
+  backend:
+    enabled: false
+  frontend:
+    enabled: false
+  arangodb:
+    enabled: false
+  celery-worker:
+    enabled: false
+  celery-beat:
+    enabled: false
+
+  knowledge-service:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    initContainers:
+      knowledge:
+        image:
+          repository: kamerplanter-knowledge
+          tag: latest
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c", "cp -r /knowledge/* /target/"]
+    containers:
+      main:
+        image:
+          repository: kamerplanter-knowledge-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          VECTORDB_HOST: kamerplanter-ki-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
+          EMBEDDING_SERVICE_URL: "http://kamerplanter-ki-embedding-service:8080"
+          EMBEDDING_MODEL: "multilingual-e5-large"
+          LLM_PROVIDER: "ollama"
+          LLM_API_URL: "http://192.168.178.130:31434"
+          LLM_MODEL: "gemma3:12b"
+          LLM_MAX_TOKENS: "2048"
+          LLM_TEMPERATURE: "0.1"
+          RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
+          RERANKER_INITIAL_K: "20"
+          RERANKER_TOP_K: "5"
+          ANSWER_VERIFICATION: "true"
+          KNOWLEDGE_PATH: "/app/knowledge"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
+
+  reranker-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-reranker-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          RERANKER_MODEL: "bge-reranker-v2-m3"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8081
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8081
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1536Mi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+
+  embedding-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-embedding-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          EMBEDDING_MODEL: "multilingual-e5-large"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8080
+              initialDelaySeconds: 10
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8080
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1536Mi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+
+  vectordb:
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+    containers:
+      main:
+        image:
+          repository: kamerplanter-vectordb
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          POSTGRES_DB: kamerplanter_vectors
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: devpassword
+          PGDATA: /var/lib/postgresql/data/pgdata
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 1Gi
+          annotations:
+            helm.sh/resource-policy: keep
+          globalMounts:
+            - path: /var/lib/postgresql/data
+
+# -- Disable KP services from base values.yaml
+service:
+  backend:
+    enabled: false
+  frontend:
+    enabled: false
+  arangodb:
+    enabled: false
+  knowledge-service:
+    controller: knowledge-service
+    ports:
+      http:
+        port: 8000
+  reranker-service:
+    controller: reranker-service
+    ports:
+      http:
+        port: 8081
+  embedding-service:
+    controller: embedding-service
+    ports:
+      http:
+        port: 8080
+  vectordb:
+    controller: vectordb
+    ports:
+      postgresql:
+        port: 5432
+
+# -- Disable KP persistence from base values.yaml
+persistence:
+  nginx-config:
+    enabled: false
+  nginx-cache:
+    enabled: false
+  nginx-run:
+    enabled: false
+  nginx-tmp:
+    enabled: false
+  backend-tmp:
+    enabled: false
+  celery-worker-tmp:
+    enabled: false
+  celery-beat-tmp:
+    enabled: false
+
+  knowledge:
+    enabled: true
+    type: emptyDir
+    sizeLimit: 10Mi
+    advancedMounts:
+      knowledge-service:
+        knowledge:
+          - path: /target
+        main:
+          - path: /app/knowledge
+            readOnly: true
+
+# -- Disable KP networkpolicies from base values.yaml
+networkpolicies:
+  frontend:
+    enabled: false
+  backend:
+    enabled: false
+  celery-worker:
+    enabled: false
+  celery-beat:
+    enabled: false
+  arangodb:
+    enabled: false
+
+  knowledge-service:
+    controller: knowledge-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        # From KP backend (cross-release, matched by controller label)
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+          ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # VectorDB (same release)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # Embedding Service (same release)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: embedding-service
+          ports:
+            - protocol: TCP
+              port: 8080
+        # Reranker Service (same release)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: reranker-service
+          ports:
+            - protocol: TCP
+              port: 8081
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # Local Ollama instance (LAN, NodePort)
+        - to:
+            - ipBlock:
+                cidr: 192.168.178.130/32
+          ports:
+            - protocol: TCP
+              port: 31434
+        # External LLM APIs (Anthropic, OpenAI-compatible)
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+
+  reranker-service:
+    controller: reranker-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: knowledge-service
+          ports:
+            - protocol: TCP
+              port: 8081
+      egress:
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  embedding-service:
+    controller: embedding-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: knowledge-service
+          ports:
+            - protocol: TCP
+              port: 8080
+      egress:
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+# -- Disable KP configMaps and ingress from base values.yaml
+configMaps:
+  frontend-nginx:
+    enabled: false
+
+ingress: {}
+
+# -- Disable subcharts not needed by KI stack
+valkey:
+  enabled: false
+
+ollama:
+  enabled: false

@@ -9,7 +9,7 @@ from app.api.v1.admin.settings.schemas import (
     SystemSettingsResponse,
 )
 from app.common.auth import get_current_user
-from app.common.dependencies import get_system_settings_service
+from app.common.dependencies import get_ha_client, get_system_settings_service
 from app.domain.models.user import User
 from app.domain.services.system_settings_service import SystemSettingsService
 
@@ -49,6 +49,7 @@ def update_ha_settings(
         ha_access_token=body.ha_access_token,
         ha_timeout=body.ha_timeout,
     )
+    _sync_ha_notification_channel()
     return _build_response(service)
 
 
@@ -97,3 +98,17 @@ def delete_ha_settings(
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
     service.delete_ha_settings()
+    _sync_ha_notification_channel()
+
+
+def _sync_ha_notification_channel() -> None:
+    """Re-register or remove the HA notification channel after settings change."""
+    from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
+    from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
+
+    ha_client = get_ha_client()
+    if ha_client is not None:
+        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+    else:
+        # Remove stale channel if HA was unconfigured
+        NotificationChannelRegistry.unregister("home_assistant")

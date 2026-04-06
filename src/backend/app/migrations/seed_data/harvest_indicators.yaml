@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./schemas/harvest_indicators.schema.yaml
 harvest_indicators:
-  # Cannabis
+  # ──────────────────────────────────────────────
+  # Cannabis sativa
+  # ──────────────────────────────────────────────
   - indicator_type: trichome
     measurement_unit: percentage_milky
     measurement_method: magnification_60x
@@ -22,7 +24,9 @@ harvest_indicators:
     reliability_score: 0.5
     species_name: Cannabis sativa
 
-  # Solanaceae
+  # ──────────────────────────────────────────────
+  # Solanum lycopersicum (Tomate)
+  # ──────────────────────────────────────────────
   - indicator_type: color
     measurement_unit: color_change_percent
     measurement_method: visual
@@ -51,7 +55,9 @@ harvest_indicators:
     reliability_score: 0.6
     species_name: Solanum lycopersicum
 
-  # Brassicaceae
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. italica (Brokkoli)
+  # ──────────────────────────────────────────────
   - indicator_type: size
     measurement_unit: head_diameter_cm
     measurement_method: caliper
@@ -73,7 +79,9 @@ harvest_indicators:
     reliability_score: 0.7
     species_name: Brassica oleracea var. italica
 
-  # Asteraceae
+  # ──────────────────────────────────────────────
+  # Lactuca sativa (Salat)
+  # ──────────────────────────────────────────────
   - indicator_type: texture
     measurement_unit: leaf_crispness
     measurement_method: manual
@@ -94,3 +102,1291 @@ harvest_indicators:
     observation_frequency: daily
     reliability_score: 0.6
     species_name: Lactuca sativa
+
+  # New: bolting indicator
+  - indicator_type: foliage
+    measurement_unit: stem_elongation_cm
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Lactuca sativa
+
+  # ──────────────────────────────────────────────
+  # Capsicum annuum (Paprika / Chili)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Capsicum annuum
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Capsicum annuum
+
+  - indicator_type: size
+    measurement_unit: length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Capsicum annuum
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.5
+    species_name: Capsicum annuum
+
+  # ──────────────────────────────────────────────
+  # Cucumis sativus (Gurke)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Cucumis sativus
+
+  - indicator_type: color
+    measurement_unit: green_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Cucumis sativus
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: daily
+    reliability_score: 0.75
+    species_name: Cucumis sativus
+
+  # ──────────────────────────────────────────────
+  # Cucurbita pepo (Zucchini)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Cucurbita pepo
+
+  - indicator_type: color
+    measurement_unit: skin_gloss_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Cucurbita pepo
+
+  - indicator_type: texture
+    measurement_unit: skin_tenderness
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.65
+    species_name: Cucurbita pepo
+
+  # ──────────────────────────────────────────────
+  # Cucurbita maxima (Kuerbis)
+  # ──────────────────────────────────────────────
+  - indicator_type: texture
+    measurement_unit: hollow_sound_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Cucurbita maxima
+
+  - indicator_type: texture
+    measurement_unit: stem_woodiness_score
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Cucurbita maxima
+
+  - indicator_type: color
+    measurement_unit: skin_color_score
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Cucurbita maxima
+
+  - indicator_type: texture
+    measurement_unit: skin_hardness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Cucurbita maxima
+
+  # ──────────────────────────────────────────────
+  # Solanum tuberosum (Kartoffel)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: dieback_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Solanum tuberosum
+
+  - indicator_type: texture
+    measurement_unit: skin_set_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Solanum tuberosum
+
+  - indicator_type: size
+    measurement_unit: tuber_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.65
+    species_name: Solanum tuberosum
+
+  # ──────────────────────────────────────────────
+  # Phaseolus vulgaris (Bohne)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: pod_length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Phaseolus vulgaris
+
+  - indicator_type: texture
+    measurement_unit: snap_test_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Phaseolus vulgaris
+
+  - indicator_type: color
+    measurement_unit: seed_visibility_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Phaseolus vulgaris
+
+  # ──────────────────────────────────────────────
+  # Pisum sativum (Erbse)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: pod_fill_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Pisum sativum
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Pisum sativum
+
+  - indicator_type: texture
+    measurement_unit: pod_tenderness
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Pisum sativum
+
+  # ──────────────────────────────────────────────
+  # Spinacia oleracea (Spinat)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Spinacia oleracea
+
+  - indicator_type: foliage
+    measurement_unit: stem_elongation_cm
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Spinacia oleracea
+
+  - indicator_type: color
+    measurement_unit: green_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.65
+    species_name: Spinacia oleracea
+
+  # ──────────────────────────────────────────────
+  # Daucus carota (Karotte)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: shoulder_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Daucus carota
+
+  - indicator_type: color
+    measurement_unit: orange_intensity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Daucus carota
+
+  - indicator_type: days_since_sowing  # Carrots are biennial — no flowering in harvest year
+    measurement_unit: days
+    measurement_method: calendar
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Daucus carota
+
+  # ──────────────────────────────────────────────
+  # Raphanus sativus (Radieschen)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: diameter_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Raphanus sativus
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Raphanus sativus
+
+  - indicator_type: color
+    measurement_unit: red_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.65
+    species_name: Raphanus sativus
+
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. gongylodes (Kohlrabi)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: bulb_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.9
+    species_name: Brassica oleracea var. gongylodes
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Brassica oleracea var. gongylodes
+
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. gemmifera (Rosenkohl)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: sprout_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Brassica oleracea var. gemmifera
+
+  - indicator_type: texture
+    measurement_unit: compactness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Brassica oleracea var. gemmifera
+
+  - indicator_type: color
+    measurement_unit: green_intensity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.6
+    species_name: Brassica oleracea var. gemmifera
+
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. botrytis (Blumenkohl)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: head_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Brassica oleracea var. botrytis
+
+  - indicator_type: color
+    measurement_unit: white_uniformity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Brassica oleracea var. botrytis
+
+  - indicator_type: texture
+    measurement_unit: compactness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Brassica oleracea var. botrytis
+
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. sabellica (Gruenkohl)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Brassica oleracea var. sabellica
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Brassica oleracea var. sabellica
+
+  - indicator_type: color
+    measurement_unit: green_intensity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.6
+    species_name: Brassica oleracea var. sabellica
+
+  # ──────────────────────────────────────────────
+  # Brassica oleracea var. capitata (Weisskohl)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: head_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Brassica oleracea var. capitata
+
+  - indicator_type: texture
+    measurement_unit: compactness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Brassica oleracea var. capitata
+
+  # ──────────────────────────────────────────────
+  # Allium porrum (Lauch)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: shaft_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Allium porrum
+
+  - indicator_type: size
+    measurement_unit: shaft_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Allium porrum
+
+  # ──────────────────────────────────────────────
+  # Allium cepa (Zwiebel)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: top_fall_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Allium cepa
+
+  - indicator_type: texture
+    measurement_unit: skin_papery_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Allium cepa
+
+  - indicator_type: size
+    measurement_unit: bulb_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Allium cepa
+
+  # ──────────────────────────────────────────────
+  # Allium sativum (Knoblauch)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: yellowing_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Allium sativum
+
+  - indicator_type: texture
+    measurement_unit: wrapper_integrity_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Allium sativum
+
+  - indicator_type: size
+    measurement_unit: bulb_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.65
+    species_name: Allium sativum
+
+  # ──────────────────────────────────────────────
+  # Apium graveolens var. rapaceum (Knollensellerie)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: bulb_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Apium graveolens var. rapaceum
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Apium graveolens var. rapaceum
+
+  # ──────────────────────────────────────────────
+  # Zea mays (Mais)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: silk_brown_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Zea mays
+
+  - indicator_type: texture
+    measurement_unit: kernel_milk_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Zea mays
+
+  - indicator_type: days_since_flowering
+    measurement_unit: days
+    measurement_method: calendar
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Zea mays
+
+  # ──────────────────────────────────────────────
+  # Solanum melongena (Aubergine)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: skin_gloss_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Solanum melongena
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Solanum melongena
+
+  - indicator_type: size
+    measurement_unit: length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Solanum melongena
+
+  # ──────────────────────────────────────────────
+  # Vicia faba (Dicke Bohne / Ackerbohne)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: pod_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Vicia faba
+
+  - indicator_type: texture
+    measurement_unit: seed_firmness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Vicia faba
+
+  # ──────────────────────────────────────────────
+  # Cucumis melo (Melone)
+  # ──────────────────────────────────────────────
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Cucumis melo
+
+  - indicator_type: color
+    measurement_unit: skin_color_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.75
+    species_name: Cucumis melo
+
+  - indicator_type: texture
+    measurement_unit: stem_slip_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Cucumis melo
+
+  # ──────────────────────────────────────────────
+  # Citrullus lanatus (Wassermelone)
+  # ──────────────────────────────────────────────
+  - indicator_type: texture
+    measurement_unit: hollow_sound_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Citrullus lanatus
+
+  - indicator_type: color
+    measurement_unit: ground_spot_yellow
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Citrullus lanatus
+
+  - indicator_type: foliage
+    measurement_unit: tendril_dry_score
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Citrullus lanatus
+
+  # ──────────────────────────────────────────────
+  # Beta vulgaris subsp. vulgaris (Mangold / Rote Bete)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: root_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Beta vulgaris subsp. vulgaris
+
+  - indicator_type: color
+    measurement_unit: red_intensity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.65
+    species_name: Beta vulgaris subsp. vulgaris
+
+  # ──────────────────────────────────────────────
+  # Pastinaca sativa (Pastinake)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: shoulder_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Pastinaca sativa
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: biweekly
+    reliability_score: 0.75
+    species_name: Pastinaca sativa
+
+  # ──────────────────────────────────────────────
+  # Asparagus officinalis (Spargel)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: spear_length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Asparagus officinalis
+
+  - indicator_type: texture
+    measurement_unit: tip_tightness_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Asparagus officinalis
+
+  # ──────────────────────────────────────────────
+  # Rheum rhabarbarum (Rhabarber)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: stalk_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Rheum rhabarbarum
+
+  - indicator_type: color
+    measurement_unit: red_intensity
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.65
+    species_name: Rheum rhabarbarum
+
+  # ──────────────────────────────────────────────
+  # Physalis peruviana (Kapstachelbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: husk_dry_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Physalis peruviana
+
+  - indicator_type: color
+    measurement_unit: fruit_orange_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Physalis peruviana
+
+  # ──────────────────────────────────────────────
+  # Eruca vesicaria (Rucola)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Eruca vesicaria
+
+  - indicator_type: foliage
+    measurement_unit: stem_elongation_cm
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Eruca vesicaria
+
+  # ──────────────────────────────────────────────
+  # Cichorium intybus (Chicoree / Radicchio)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: head_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Cichorium intybus
+
+  - indicator_type: texture
+    measurement_unit: compactness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Cichorium intybus
+
+  # ──────────────────────────────────────────────
+  # KRAEUTER
+  # ──────────────────────────────────────────────
+
+  # Ocimum basilicum (Basilikum)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Ocimum basilicum
+
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Ocimum basilicum
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Ocimum basilicum
+
+  # Petroselinum crispum (Petersilie)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: stem_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Petroselinum crispum
+
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Petroselinum crispum
+
+  # Anethum graveolens (Dill)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: umbel_opening_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Anethum graveolens
+
+  - indicator_type: color
+    measurement_unit: seed_brown_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Anethum graveolens
+
+  - indicator_type: size
+    measurement_unit: frond_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Anethum graveolens
+
+  # Coriandrum sativum (Koriander)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Coriandrum sativum
+
+  - indicator_type: color
+    measurement_unit: seed_brown_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Coriandrum sativum
+
+  # Mentha piperita (Pfefferminze)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Mentha piperita
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Mentha piperita
+
+  - indicator_type: size
+    measurement_unit: shoot_tip_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Mentha piperita
+
+  # Salvia officinalis (Salbei)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Salvia officinalis
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Salvia officinalis
+
+  # Salvia rosmarinus (Rosmarin)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: shoot_tip_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Salvia rosmarinus
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Salvia rosmarinus
+
+  # Thymus vulgaris (Thymian)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Thymus vulgaris
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Thymus vulgaris
+
+  # Lavandula angustifolia (Lavendel)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: flower_color_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Lavandula angustifolia
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Lavandula angustifolia
+
+  # Origanum vulgare (Oregano)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Origanum vulgare
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Origanum vulgare
+
+  # Melissa officinalis (Zitronenmelisse)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Melissa officinalis
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Melissa officinalis
+
+  # Allium schoenoprasum (Schnittlauch)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Allium schoenoprasum
+
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Allium schoenoprasum
+
+  # Levisticum officinale (Liebstoeckel)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: leaf_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Levisticum officinale
+
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Levisticum officinale
+
+  # Matricaria chamomilla (Kamille)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: petal_reflex_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Matricaria chamomilla
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Matricaria chamomilla
+
+  # Artemisia dracunculus (Estragon)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: shoot_tip_length_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Artemisia dracunculus
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Artemisia dracunculus
+
+  # Foeniculum vulgare (Fenchel)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: bulb_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Foeniculum vulgare
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Foeniculum vulgare
+
+  # Satureja hortensis (Bohnenkraut)
+  # ──────────────────────────────────────────────
+  - indicator_type: foliage
+    measurement_unit: flower_bud_presence
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Satureja hortensis
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Satureja hortensis
+
+  # ──────────────────────────────────────────────
+  # OBST
+  # ──────────────────────────────────────────────
+
+  # Fragaria x ananassa (Erdbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: red_coverage_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Fragaria x ananassa
+
+  - indicator_type: aroma
+    measurement_unit: aroma_intensity
+    measurement_method: olfactory
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Fragaria x ananassa
+
+  - indicator_type: texture
+    measurement_unit: calyx_separation_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Fragaria x ananassa
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Fragaria x ananassa
+
+  # Rubus idaeus (Himbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Rubus idaeus
+
+  - indicator_type: texture
+    measurement_unit: detach_ease_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Rubus idaeus
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Rubus idaeus
+
+  # Rubus fruticosus agg. (Brombeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: black_coverage_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Rubus fruticosus agg.
+
+  - indicator_type: texture
+    measurement_unit: detach_ease_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Rubus fruticosus agg.
+
+  # Vaccinium corymbosum (Kulturheidelbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: blue_coverage_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Vaccinium corymbosum
+
+  - indicator_type: texture
+    measurement_unit: bloom_wax_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Vaccinium corymbosum
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Vaccinium corymbosum
+
+  # Ribes rubrum (Johannisbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Ribes rubrum
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Ribes rubrum
+
+  # Ribes uva-crispa (Stachelbeere)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Ribes uva-crispa
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Ribes uva-crispa
+
+  # Malus domestica (Apfel)
+  # ──────────────────────────────────────────────
+  - indicator_type: texture
+    measurement_unit: stem_detach_ease
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Malus domestica
+
+  - indicator_type: color
+    measurement_unit: seed_brown_percent
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Malus domestica
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.85
+    species_name: Malus domestica
+
+  - indicator_type: color
+    measurement_unit: skin_color_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Malus domestica
+
+  # Prunus avium (Suesskirsche)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Prunus avium
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: daily
+    reliability_score: 0.75
+    species_name: Prunus avium
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Prunus avium
+
+  - indicator_type: foliage
+    measurement_unit: stem_green_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.65
+    species_name: Prunus avium
+
+  # Prunus domestica (Pflaume / Zwetschge)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Prunus domestica
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Prunus domestica
+
+  - indicator_type: texture
+    measurement_unit: bloom_wax_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.65
+    species_name: Prunus domestica
+
+  # Pyrus communis (Birne)
+  # ──────────────────────────────────────────────
+  - indicator_type: texture
+    measurement_unit: stem_detach_ease
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Pyrus communis
+
+  - indicator_type: color
+    measurement_unit: skin_color_score
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Pyrus communis
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Pyrus communis
+
+  # Vitis vinifera (Weinrebe)
+  # ──────────────────────────────────────────────
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.9
+    species_name: Vitis vinifera
+
+  - indicator_type: color
+    measurement_unit: seed_brown_percent
+    measurement_method: visual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Vitis vinifera
+
+  - indicator_type: texture
+    measurement_unit: berry_softness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Vitis vinifera
+
+  # Sambucus nigra (Holunder)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: black_coverage_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Sambucus nigra
+
+  - indicator_type: texture
+    measurement_unit: berry_softness_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Sambucus nigra
+
+  # Cornus mas (Kornelkirsche)
+  # ──────────────────────────────────────────────
+  - indicator_type: color
+    measurement_unit: red_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Cornus mas
+
+  - indicator_type: texture
+    measurement_unit: detach_ease_score
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Cornus mas
+
+  # ──────────────────────────────────────────────
+  # WEITERE GEMUESE
+  # ──────────────────────────────────────────────
+
+  # Luffa aegyptiaca (Schwammkuerbis)
+  # ──────────────────────────────────────────────
+  - indicator_type: size
+    measurement_unit: length_cm
+    measurement_method: caliper
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Luffa aegyptiaca
+
+  - indicator_type: texture
+    measurement_unit: skin_tenderness
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.75
+    species_name: Luffa aegyptiaca

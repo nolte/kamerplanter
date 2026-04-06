@@ -16,6 +16,7 @@ import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
+import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -261,13 +262,13 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}
-          <FormSelectField
+          <SpeciesAutocompleteField
             name="species_key"
             control={control}
             label={t('entities.species')}
             required
             disabled={!!initialSpeciesKey || !!duplicateFrom}
-            options={speciesList.map((s) => ({ value: s.key, label: s.scientific_name }))}
+            species={speciesList}
           />
           <FormRow>
             <FormSelectField

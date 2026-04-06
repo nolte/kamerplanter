@@ -1,0 +1,194 @@
+---
+title: Wurzelgesundheit beurteilen und wiederherstellen
+language: de
+category: diagnostik
+tags: [wurzeln, wurzelfaeule, pythium, fusarium, sauerstoff, sauerstoffmangel, ueberwaesserung, mykorrhiza, wurzelzone, temperatur, welkt-trotz-nass, drainage]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: gesunde-wurzeln
+    title: Gesunde Wurzeln erkennen
+    content: |
+      Merkmale gesunder Wurzeln:
+      - Farbe: Weiss bis cremefarben (bei Erde leicht braun durch Humus, das ist normal)
+      - Textur: Fest, elastisch, nicht matschig
+      - Geruch: Frisch, erdig, kein fauliger Geruch
+      - Verzweigung: Dichte Feinwurzeln (Wurzelhaare) an den Spitzen
+      - Wachstum: Aktive weisse Wurzelspitzen sichtbar (Wachstumszonen)
+      Bei Hydro: Wurzeln sollen dicht, buschig und strahlend weiss sein.
+      Leichte Verfaerbung durch Naehrloesung (z.B. braun durch Fulvinsaeure
+      oder organische Zusaetze) ist kein Problem — Textur ist entscheidend.
+      Wurzelmasse im Verhaeltnis zur Pflanze: Wurzelvolumen sollte ca.
+      30-50% des Topfvolumens einnehmen. Zu wenig Wurzeln = Pflanze zu
+      gross fuer den Topf oder Wurzelschaden. Zu viel = topfgebunden (wurzelgebunden).
+    metadata:
+      topic: healthy_roots
+      assessment: visual
+
+  - id: wurzelfaeule-erkennung
+    title: Pflanze welkt obwohl Erde nass ist — Wurzelfaeule erkennen
+    content: |
+      LEITSYMPTOM: Die Pflanze welkt obwohl die Erde nass ist.
+      Wenn eine Pflanze welkt trotz feuchtem/nassem Substrat, ist
+      Wurzelfaeule (Root Rot) die wahrscheinlichste Ursache.
+      Die Wurzeln sind geschaedigt und koennen kein Wasser mehr aufnehmen,
+      obwohl genuegend Feuchtigkeit vorhanden ist.
+      Fruehe Anzeichen:
+      - Pflanze welkt trotz feuchtem Substrat (Schluesselsymptom!)
+      - Wachstum stoppt ploetzlich
+      - Blaetter werden schlapp, haengend, fahlgruen
+      Fortgeschritten:
+      - Fauler, modriger Geruch aus dem Substrat/Reservoir
+      - Wurzeln braun bis schwarz, schleimig, lassen sich abziehen
+      - Stengelbasis wird weich und braun
+      Haupterreger:
+      - Pythium spp.: Haeufigster Erreger in Hydro/Coco. P. aphanidermatum
+        bevorzugt warmes Wasser >24°C; P. ultimum (Erde, Keimlinge) ist auch
+        bei kuehlen 15-20°C aktiv. Gemeinsam: Sauerstoffmangel foerdert Befall.
+        Schleimige braune Wurzeln.
+      - Phytophthora spp.: "Wurzelhalsfaeule". Befaellt Basis des Stengels
+        und Wurzeln. Haeufig bei Ueberwaesserung in Erde.
+      - Fusarium spp.: Dringt ueber Wurzeln ein, blockiert Leitgewebe.
+        Einseitiges Welken (erst eine Seite, dann die andere).
+      Risikoumgebung: Warmes, sauerstoffarmes Wasser, stehende Feuchtigkeit,
+      schlechte Drainage, keine Luftzirkulation am Substrat.
+    metadata:
+      topic: root_rot
+      pathogens: [pythium, phytophthora, fusarium]
+
+  - id: wurzelfaeule-behandlung
+    title: Wurzelfaeule behandeln und Pflanze retten
+    content: |
+      Notfall-Protokoll bei Wurzelfaeule:
+      1. Pflanze aus Topf/System nehmen, Substrat vorsichtig entfernen
+      2. Alle braunen/schwarzen/schleimigen Wurzeln mit sterilisierter
+         Schere abschneiden (Schere zwischen Schnitten mit Isopropanol
+         desinfizieren)
+      3. Gesunde weisse Wurzeln behalten — auch wenn nur wenige uebrig
+      4. Wurzeln in Wasserstoffperoxid-Loesung tauchen: 3% H2O2, 10 Minuten.
+         Toetet Pathogene, liefert Sauerstoff.
+      5. In frisches, steriles Substrat umtopfen. Kleineren Topf waehlen
+         (weniger Wurzeln = kleinerer Topf noetig).
+      6. Trichoderma harzianum als Substrat-Drench (biologischer Schutz,
+         besiedelt Wurzeln und verdraengt Pathogene)
+      7. Sparsam giessen! Nur wenn Substrat angetrocknet ist.
+      8. Kein Duenger fuer 1-2 Wochen (gestresste Wurzeln nicht belasten)
+      In Hydro: Reservoir komplett reinigen und desinfizieren. Wassertemperatur
+      unter 22°C halten. Luftsteine aufruesten fuer mehr Sauerstoff.
+      Enzyme-Produkte (Hygrozyme, Cannazyme) helfen tote Wurzeln abzubauen.
+      Prognose: Bei fruehzeitiger Erkennung (>50% gesunde Wurzeln) gut.
+      Bei >80% befallenen Wurzeln: Pflanze oft nicht mehr zu retten.
+    metadata:
+      topic: root_rot_treatment
+      urgency: emergency
+
+  - id: sauerstoff-wurzelzone
+    title: Sauerstoffversorgung der Wurzelzone
+    content: |
+      Wurzeln brauchen Sauerstoff fuer Naehrstoffaufnahme und Wachstum.
+      Sauerstoffmangel ist die haeufigste Ursache fuer Wurzelprobleme.
+      Sauerstoffmangel entsteht durch:
+      - Ueberwaesserung (Wasser verdraengt Luft aus dem Substrat)
+      - Verdichtetes Substrat (keine Luftporen)
+      - Warmes Wasser in Hydro (>24°C — warmes Wasser haelt weniger O2)
+      - Fehlende Luftsteine in DWC
+      - Biofilm im Reservoir (Sauerstoff-zehrende Bakterien)
+      Symptome: Pflanze welkt trotz Feuchtigkeit, Wachstum stoppt, Wurzeln
+      werden braun (Vorstadium von Wurzelfaeule).
+      WICHTIG — Drainage pruefen! Schlechte Drainage ist die haeufigste
+      Ursache fuer Sauerstoffmangel und damit fuer Wurzelfaeule.
+      Drainage verbessern und sicherstellen ist die erste Massnahme.
+      Loesungen:
+      - Drainage pruefen und verbessern: Abflussloecher offen?
+      - Substrat: Perlit beimischen (20-30%) fuer Luftporen
+      - Toepfe mit Drainage-Loechern, erhoehte Aufstellung fuer Ablauf
+      - Hydro: Luftsteine (mind. 1W Pumpe pro 5L Reservoir)
+      - Wassertemperatur unter 22°C halten (Wasserchiller bei Bedarf)
+      - Zwischen Giess-Durchgaengen antrocknen lassen (Wet/Dry-Zyklus)
+      - Stofftoepfe (Fabric Pots): natuerliche Belueftung durch die Waende,
+        Air-Pruning der Wurzeln verhindert Ringeln
+      Dissolved Oxygen (DO): Zielwert >6 mg/L im Hydro-Reservoir.
+      Unter 4 mg/L beginnen aerobe Prozesse zu versagen.
+    metadata:
+      topic: root_zone_oxygen
+      critical_factor: dissolved_oxygen
+
+  - id: wurzelgebunden
+    title: Wurzelgebundene Pflanzen (Pot-Bound/Root-Bound)
+    content: |
+      Anzeichen fuer wurzelgebundene Pflanzen:
+      - Wurzeln wachsen aus den Drainage-Loechern
+      - Beim Austopfen: dichtes Wurzelknaeuel, kein Substrat mehr sichtbar
+      - Wurzeln ringeln sich am Topfboden (Ringwurzeln)
+      - Pflanze trocknet extrem schnell aus (Substrat hat keinen Raum mehr)
+      - Wasser laeuft sofort durch (entlang der Topfwand, nicht ins Substrat)
+      - Wachstum stagniert trotz guter Pflege
+      - Obere Wurzeln draengen aus dem Substrat nach oben
+      Massnahmen:
+      - Umtopfen in 2-3 cm groesseren Topf (nicht zu gross springen!)
+      - Wurzelballen vorsichtig aufbrechen/auflockern (Handgabel, Messer)
+      - Ringwurzeln abschneiden oder aufreissen (sie werden sonst nie
+        horizontal wachsen und erdrossen sich selbst)
+      - In frisches Substrat pflanzen, gut angiessen
+      Ausnahmen: Manche Pflanzen bluehen besser wenn leicht wurzelgebunden
+      (Clivia, Hippeastrum, Strelitzia, viele Orchideen). Hier nur umtopfen
+      wenn die Pflanze den Topf buchstaeblich sprengt.
+      Vorbeugung: Jaehrliche Kontrolle waehrend der Wachstumsperiode.
+    metadata:
+      topic: root_bound
+      solution: repotting
+
+  - id: mykorrhiza-nutzen
+    title: Mykorrhiza-Pilze fuer gesunde Wurzeln
+    content: |
+      Mykorrhiza sind symbiotische Pilze die mit Pflanzenwurzeln eine
+      Lebensgemeinschaft eingehen. Die Pflanze liefert Zucker, der Pilz
+      erschliesst ein viel groesseres Bodenvolumen fuer Wasser und
+      Naehrstoffe (besonders Phosphor).
+      Vorteile:
+      - Naehrstoff-Aufnahme vervielfacht (besonders P, Zn, Cu)
+      - Trockenheitsresistenz erhoeht
+      - Schutz vor bodenbürtigen Pathogenen (Pythium, Fusarium)
+      - Bodenstruktur verbessert (Glomalin-Bildung)
+      Anwendung:
+      - Mykorrhiza-Pulver oder -Granulat beim Umtopfen direkt an die Wurzeln
+      - Am effektivsten bei Jungpflanzen (fruehe Besiedelung)
+      - In Erde und Coco wirksam, in reiner Hydroponik nicht (kein Substrat)
+      Einschraenkungen:
+      - Hohe Phosphor-Duengung unterdrueckt Mykorrhiza (Pilz wird "faul")
+      - Fungizide toeten Mykorrhiza ab — NICHT kombinieren!
+      - Brassicaceae (Kohl-Familie) und Chenopodiaceae (Spinat, Mangold)
+        bilden KEINE Mykorrhiza-Symbiose — bei diesen Familien wirkungslos
+      - H2O2 im Substrat ist mit Mykorrhiza inkompatibel
+    metadata:
+      topic: mycorrhiza
+      type: symbiotic_fungi
+      incompatible_families: [Brassicaceae, Chenopodiaceae]
+
+  - id: wurzeltemperatur
+    title: Wurzelzonen-Temperatur und ihre Auswirkungen
+    content: |
+      Die Temperatur der Wurzelzone beeinflusst die gesamte Pflanzengesundheit
+      staerker als die Lufttemperatur:
+      Optimaler Bereich: 18-22°C (fuer die meisten Arten)
+      Zu kalt (<15°C):
+      - Naehrstoffaufnahme stark reduziert (besonders P, Ca, Mg)
+      - Wurzelwachstum stoppt
+      - Symbiontische Pilze (Mykorrhiza) inaktiv
+      - Erhoehte Anfaelligkeit fuer Wurzelfaeule (Pythium liebt kalte, nasse Wurzeln)
+      - Pflanze zeigt Mangelsymptome obwohl Naehrstoffe vorhanden sind
+      Zu warm (>25°C):
+      - Geloester Sauerstoff im Wasser sinkt (26°C: ~8mg/L vs 20°C: ~9.2mg/L)
+      - Pythium und andere Pathogene vermehren sich exponentiell
+      - Wurzeln "verbrennen" Zucker schneller → weniger Energie fuer Wachstum
+      Massnahmen fuer konstante Wurzeltemperatur:
+      - Toepfe nicht auf kalten Betonboden stellen (Styropor-Unterlage)
+      - In Hydro: Wasserchiller bei >22°C, Heizstab bei <18°C
+      - Mulchschicht isoliert Boden (Outdoor)
+      - Schwarze Toepfe in der Sonne vermeiden (heizen sich auf)
+      - Heizkabel/Heizmatte fuer Saemlings-Anzucht (25-28°C optimal)
+    metadata:
+      topic: root_zone_temperature
+      optimal_range_celsius: [18, 22]
+      critical_low: 15
+      critical_high: 25

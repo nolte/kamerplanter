@@ -389,6 +389,8 @@ export interface LocationTreeNode {
   depth: number;
   parent_location_key: string | null;
   slot_count: number;
+  active_plant_count: number;
+  tank_name: string | null;
   children: LocationTreeNode[];
 }
 
@@ -562,6 +564,9 @@ export interface CurrentPhaseResponse {
   phase_key: string | null;
   days_in_phase: number;
   next_phase: string | null;
+  cycle_type: CycleType | null;
+  cycle_number: number;
+  has_harvest_phase: boolean;
 }
 
 export interface PhaseHistoryEntry {
@@ -925,6 +930,7 @@ export interface SpeciesPhaseTimeline {
   species_key: string;
   species_name: string | null;
   lifecycle_key: string;
+  cycle_type: CycleType | null;
   plant_count: number;
   phases: PhaseTimelineEntry[];
 }
@@ -1196,6 +1202,11 @@ export interface TankAlert {
   severity: string;
   message: string;
   value: number;
+  limit?: number;
+  limit_min?: number;
+  limit_max?: number;
+  factors?: string[];
+  temp?: number;
 }
 
 // ── TankFillEvent types ──────────────────────────────────────────────
@@ -1288,6 +1299,7 @@ export interface Sensor {
   name: string;
   metric_type: string;
   ha_entity_id: string | null;
+  unit_of_measurement: string | null;
   mqtt_topic: string | null;
   tank_key: string | null;
   site_key: string | null;
@@ -1299,6 +1311,7 @@ export interface SensorCreate {
   name: string;
   metric_type: string;
   ha_entity_id?: string | null;
+  unit_of_measurement?: string | null;
   mqtt_topic?: string | null;
   tank_key?: string | null;
 }
@@ -1307,6 +1320,7 @@ export interface SensorUpdate {
   name?: string;
   metric_type?: string;
   ha_entity_id?: string | null;
+  unit_of_measurement?: string | null;
   mqtt_topic?: string | null;
   is_active?: boolean;
 }
@@ -1323,6 +1337,42 @@ export interface LiveStateResponse {
   errors: Array<{ entity_id: string; error: string }>;
   source: string;
   message?: string | null;
+}
+
+// ── Observations / Sensor Readings (TimescaleDB) ───────────────────
+
+export interface SensorReadingResponse {
+  time: string;
+  sensor_key: string;
+  sensor_type: string;
+  value: number;
+  unit: string | null;
+  source: string;
+  quality_score: number | null;
+  raw_value: number | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AggregatedReadingResponse {
+  bucket: string;
+  sensor_key: string;
+  sensor_type: string;
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+  sample_count: number;
+}
+
+export type SensorReadingItem = SensorReadingResponse | AggregatedReadingResponse;
+
+export interface ReadingsListResponse {
+  items: SensorReadingItem[];
+  total: number;
+  resolution: string;
+}
+
+export interface TimeseriesStatusResponse {
+  available: boolean;
 }
 
 // ── REQ-004 Fertilizer types ────────────────────────────────────────
@@ -1549,7 +1599,7 @@ export interface ChannelValidation {
   channel_id: string;
   label: string;
   issues: string[];
-  ec_budget: { target: number; calculated: number; delta: number } | null;
+  ec_budget: { target: number; calculated: number; delta: number; tolerance: number } | null;
 }
 
 export interface NutrientPlanPhaseEntry {
@@ -2007,15 +2057,6 @@ export interface EcBudgetResponse {
 
 export interface PlanValidationResult {
   completeness: { complete: boolean; issues: string[] };
-  ec_budgets: Array<{
-    entry_key: string;
-    phase_name: string;
-    valid: boolean;
-    target_ec: number;
-    calculated_ec: number;
-    delta: number;
-    message: string;
-  }>;
   channel_validations: Array<{
     entry_key: string;
     phase_name: string;
@@ -2390,6 +2431,7 @@ export type TaskCategory =
 export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+export type WorkflowTargetType = 'plant_instance' | 'planting_run' | 'location' | 'tank';
 
 export interface WorkflowTemplate {
   key: string;
@@ -2407,7 +2449,8 @@ export interface WorkflowTemplate {
   species_key: string | null;
   species_name: string;
   total_duration_days: number;
-  assigned_plant_count: number;
+  assigned_entity_count: number;
+  target_entity_types: WorkflowTargetType[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2424,6 +2467,7 @@ export interface WorkflowTemplateCreate {
   category?: string;
   tags?: string[];
   is_system?: boolean;
+  target_entity_types?: WorkflowTargetType[];
 }
 
 export interface WorkflowTemplateUpdate {
@@ -2435,6 +2479,7 @@ export interface WorkflowTemplateUpdate {
   difficulty_level?: string;
   category?: string;
   tags?: string[];
+  target_entity_types?: WorkflowTargetType[];
 }
 
 export interface ChecklistItem {
@@ -2528,7 +2573,8 @@ export interface TaskItem {
   instruction: string;
   instruction_de: string;
   category: string;
-  plant_key: string | null;
+  entity_key: string | null;
+  entity_type: string | null;
   due_date: string | null;
   scheduled_time: string | null;
   status: string;
@@ -2559,7 +2605,6 @@ export interface TaskItem {
   activity_key: string | null;
   template_key: string | null;
   workflow_execution_key: string | null;
-  planting_run_key: string | null;
   watering_event_key: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -2571,7 +2616,8 @@ export interface TaskItemCreate {
   instruction?: string;
   instruction_de?: string;
   category?: string;
-  plant_key?: string | null;
+  entity_key?: string | null;
+  entity_type?: string | null;
   due_date?: string | null;
   scheduled_time?: string | null;
   priority?: string;
@@ -2593,7 +2639,6 @@ export interface TaskItemUpdate {
   name?: string;
   instruction?: string;
   category?: string;
-  plant_key?: string | null;
   due_date?: string | null;
   scheduled_time?: string | null;
   priority?: string;
@@ -2626,7 +2671,8 @@ export interface TaskCompleteRequest {
 }
 
 export interface TaskCloneRequest {
-  target_plant_key?: string | null;
+  target_entity_key?: string | null;
+  target_entity_type?: string | null;
   due_date_offset_days?: number | null;
 }
 
@@ -2670,7 +2716,8 @@ export interface WorkflowAddTaskRequest {
 export interface WorkflowExecution {
   key: string;
   workflow_template_key: string;
-  plant_key: string;
+  entity_key: string;
+  entity_type: string;
   started_at: string | null;
   completed_at: string | null;
   completion_percentage: number;
@@ -2680,7 +2727,8 @@ export interface WorkflowExecution {
 }
 
 export interface WorkflowInstantiateRequest {
-  plant_key: string;
+  entity_key: string;
+  entity_type: WorkflowTargetType;
 }
 
 export interface HSTValidationResult {

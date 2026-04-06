@@ -14,6 +14,7 @@ Kubernetes lohnt sich, wenn du bereits einen Cluster betreibst oder mehrere Dien
 
 ## In diesem Abschnitt
 
+- [Betriebsprofile](betriebsprofile.md) — Welche Komponenten brauche ich? Vergleich von Minimal bis SaaS
 - [Kubernetes](kubernetes.md) — Cluster-Voraussetzungen und Kamerplanter deployen
 - [Helm Charts](helm.md) — Chart-Struktur, Konfiguration und Anpassung
 - [CI/CD](ci-cd.md) — Automatische Builds und Deployments mit GitHub Actions

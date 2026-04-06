@@ -1,6 +1,6 @@
 # Database Architecture
 
-Kamerplanter uses polyglot persistence: three database types with clearly separated responsibilities. ArangoDB is the primary database handling both document and graph workloads. TimescaleDB is intended for time-series data (sensor data) and will be activated in a future version. Valkey (Redis-compatible) serves as Celery broker and cache.
+Kamerplanter uses polyglot persistence: three database types with clearly separated responsibilities. ArangoDB is the primary database handling both document and graph workloads. TimescaleDB is intended for time-series data (sensor data) and is **optionally** activatable. Valkey (Redis-compatible) serves as Celery broker and cache.
 
 ---
 
@@ -15,7 +15,7 @@ graph LR
 
     subgraph "Persistence"
         ARANGO[("ArangoDB 3.11+\nDocuments + Graph\nPrimary database")]
-        TSDB[("TimescaleDB 2.13+\nTime-series data\nSensor data — future")]
+        TSDB[("TimescaleDB 2.13+\nTime-series data\nSensor data — optional")]
         VK[("Valkey 8\nRedis-compatible\nBroker + Cache")]
     end
 
@@ -23,13 +23,13 @@ graph LR
     API --> VK
     WRK --> ARANGO
     WRK --> VK
-    API -.->|"future"| TSDB
+    API -.->|"optional"| TSDB
 ```
 
 | Database | Version | Usage |
 |----------|---------|-------|
 | ArangoDB | 3.11+ | Master data, plants, runs, auth, tenants, graph relationships |
-| TimescaleDB | 2.13+ | Sensor data with automatic downsampling (future) |
+| TimescaleDB | 2.13+ | Sensor data with automatic downsampling (optional) |
 | Valkey | 8 | Celery task broker, session cache |
 
 ---
@@ -44,7 +44,7 @@ The entire graph is called `kamerplanter_graph` and contains all edge collection
 
 ### Document Collections
 
-The database contains **44 document collections**. Selected collections by domain:
+The database contains **54 document collections** and **75 edge collections**. Selected collections by domain:
 
 **Master Data (REQ-001)**
 
@@ -190,9 +190,12 @@ FOR slot IN 1..5 OUTBOUND 'locations/greenhouse-east' contains, has_slot
 
 ---
 
-## TimescaleDB — Time-Series Data (future)
+## TimescaleDB — Time-Series Data (optional)
 
 TimescaleDB is a PostgreSQL extension that provides automatic partitioning and downsampling for time-series data. It is intended for REQ-005 (Hybrid Sensor Data) but not yet activated.
+
+!!! note "PostgreSQL/TimescaleDB — two usage paths"
+    PostgreSQL with the `pgvector` extension is **already active**: the Knowledge Service (AI Assistant, RAG pipeline) stores embedding vectors in the `ai_vector_chunks` table. This usage path is independent of the sensor data path. The sensor data hypertables (REQ-005) are optional and not yet activated.
 
 ### Planned Downsampling Schema
 

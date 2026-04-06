@@ -86,18 +86,33 @@ skaffold debug --port-forward
 
 Das `debug`-Profil aktiviert `DEBUGPY_ENABLED=true` als Build-Argument im Backend-Container. Der debugpy-Port `5678` ist dann erreichbar (siehe [Debugging](debugging.md)).
 
+### Mit KI-Stack (RAG / Knowledge-Service)
+
+```bash
+# Hauptapp + KI-Stack gleichzeitig
+skaffold dev --trigger=manual --port-forward -m kamerplanter,ki
+
+# Nur KI-Stack (fuer RAG-Entwicklung)
+skaffold dev --trigger=manual --port-forward -m ki
+```
+
+Das KI-Modul (`-m ki`) ist eine eigenstaendige Skaffold-Konfiguration im selben `skaffold.yaml`. Es deployt Knowledge-Service (Port `8090`), Embedding-Service (Port `8080`) und VectorDB/TimescaleDB (Port `5433`) unabhaengig von der Hauptapplikation. Weitere Details unter [Infrastruktur — KI-Modul](../architecture/infrastructure.md#ki-modul).
+
 ---
 
 ## Port-Weiterleitungen
 
 Skaffold leitet folgende Ports automatisch weiter, sobald `--port-forward` gesetzt ist:
 
-| Service | Lokaler Port | Ziel im Cluster |
-|---------|-------------|-----------------|
-| Frontend | `3000` | Vite-Dev-Server auf `5173` |
-| Backend API | `8000` | FastAPI auf `8000` |
-| ArangoDB Web-UI | `8529` | ArangoDB auf `8529` |
-| Home Assistant | `8123` | Home Assistant auf `8123` |
+| Service | Lokaler Port | Ziel im Cluster | Modul |
+|---------|-------------|-----------------|-------|
+| Frontend | `3000` | Vite-Dev-Server auf `5173` | kamerplanter |
+| Backend API | `8000` | FastAPI auf `8000` | kamerplanter |
+| ArangoDB Web-UI | `8529` | ArangoDB auf `8529` | kamerplanter |
+| Home Assistant | `8123` | Home Assistant auf `8123` | kamerplanter |
+| VectorDB (TimescaleDB) | `5433` | TimescaleDB auf `5432` | ki |
+| Knowledge-Service | `8090` | Knowledge-Service auf `8000` | ki |
+| Embedding-Service | `8080` | Embedding-Service auf `8080` | ki |
 
 !!! tip "API-Dokumentation"
     Nach dem Start ist die automatisch generierte Swagger-UI unter [http://localhost:8000/docs](http://localhost:8000/docs) erreichbar. ReDoc ist unter [http://localhost:8000/redoc](http://localhost:8000/redoc) verfügbar.
@@ -178,8 +193,10 @@ kubectl cp src/ha-integration/custom_components/kamerplanter/ \
 kubectl exec default/homeassistant-0 -- \
   rm -rf /config/custom_components/kamerplanter/__pycache__
 
-# Pod neu starten (PVC bleibt erhalten, Dateien überleben den Restart)
-kubectl delete pod homeassistant-0 -n default
+# HA-Prozess neustarten (NICHT kubectl delete pod!)
+# kill 1 startet nur den Container neu — InitContainers laufen NICHT erneut,
+# d.h. die per kubectl cp kopierten Dateien bleiben erhalten.
+kubectl exec homeassistant-0 -n default -- kill 1
 ```
 
 ---

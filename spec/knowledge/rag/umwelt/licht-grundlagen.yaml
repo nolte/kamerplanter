@@ -1,0 +1,201 @@
+---
+title: Licht-Grundlagen fuer Pflanzenanbau
+language: de
+category: umwelt
+tags: [licht, ppfd, dli, spektrum, photoperiode, led, hps, lichtabstand, par, photosynthese]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering]
+chunks:
+  - id: ppfd-dli-erklaerung
+    title: PPFD und DLI verstehen
+    content: |
+      PPFD (Photosynthetic Photon Flux Density):
+      Anzahl der photosynthetisch aktiven Photonen (400-700nm) die pro
+      Sekunde auf eine Flaeche von 1m² treffen. Einheit: µmol/m²/s.
+      PPFD ist die "Momentan-Helligkeit" fuer Pflanzen.
+      DLI (Daily Light Integral):
+      Gesamtmenge an photosynthetisch aktivem Licht pro Tag und m².
+      Einheit: mol/m²/d. DLI ist die "Tages-Lichtdosis".
+      Umrechnung: DLI = PPFD × Beleuchtungsstunden × 3600 / 1.000.000
+      Oder vereinfacht: DLI ≈ PPFD × Stunden × 0.0036
+      Beispiel: 500 PPFD × 18h Beleuchtung × 0.0036 = 32.4 mol/m²/d
+      DLI ist der bessere Vergleichswert als PPFD allein, weil er
+      Lichtintensitaet UND Beleuchtungsdauer beruecksichtigt. Eine Pflanze
+      mit 400 PPFD fuer 18h bekommt mehr Licht (DLI 25.9) als eine mit
+      600 PPFD fuer 12h (DLI 25.9) — in diesem Fall sogar gleich viel.
+    metadata:
+      topic: ppfd_dli
+      units: [umol_m2_s, mol_m2_d]
+
+  - id: lichtbedarf-pflanzen
+    title: Lichtbedarf verschiedener Pflanzengruppen
+    content: |
+      PPFD-Richtwerte nach Pflanzengruppe und Phase:
+      Zimmerpflanzen (Schatten-tolerant):
+      - Schattig (Minimum fuer dauerhaftes Ueberleben): 50-100 PPFD (Farn, Sansevieria, ZZ-Pflanze)
+      - Hell ohne direkte Sonne (Wachstumsoptimum): 200-400 PPFD (Monstera, Philodendron, Pothos)
+      - Hell mit etwas Sonne: 200-600 PPFD (Ficus, Strelitzia, Alocasia)
+      Kraeuter und Salat: 200-400 PPFD, DLI 12-17 mol/m²/d
+      Gemuese (Tomate, Paprika, Gurke): 400-600 PPFD, DLI 20-30 mol/m²/d
+      Cannabis:
+      - Saemling: 200-400 PPFD, DLI 13-26 mol/m²/d
+      - Vegetativ: 400-600 PPFD, DLI 26-39 mol/m²/d (18h)
+      - Bluete: 600-1000 PPFD, DLI 26-43 mol/m²/d (12h)
+      - Mit CO2-Anreicherung: bis 1500 PPFD moeglich, DLI 65+ mol/m²/d
+      WICHTIG: Neben PPFD immer auch DLI (Tageslichtsumme) beruecksichtigen.
+      DLI = PPFD × Beleuchtungsstunden × 0.0036. DLI ist der bessere Vergleichswert
+      weil er Intensitaet UND Dauer zusammenfasst. Ziel-DLI Cannabis Bluete:
+      35-45 mol/m²/d bei 12h. Den Abstand zur Lampe so waehlen, dass der
+      gewuenschte PPFD-Wert erreicht wird. Richtwert Lichtabstand LED Bluete:
+      30-45 cm bei 100% Leistung. PPFD messen (z.B. mit Photone-App) und
+      Abstand entsprechend anpassen.
+      Grenze der Licht-Saettigung: Ab ~1000 PPFD (ohne CO2) flacht die
+      Photosynthese-Kurve ab. Mehr Licht bringt kaum mehr Wachstum, aber
+      Licht-Stress-Risiko steigt. Mit CO2 verschiebt sich die Saettigung
+      nach oben (bis ~1500 PPFD bei 1200 ppm CO2).
+    metadata:
+      topic: light_requirements
+      unit: umol_m2_s
+
+  - id: lichtspektrum
+    title: Lichtspektrum und Pflanzenwachstum
+    content: |
+      Photosynthetisch aktive Strahlung (PAR): 400-700nm.
+      Neuerdings wird auch 350-400nm (UV) und 700-750nm (Far-Red) als
+      relevant betrachtet (ePAR / Extended PAR).
+      Blau (400-500nm):
+      - Foerdert kompaktes, buschiges Wachstum
+      - Dickere Blaetter, kuerzere Internodien
+      - Wichtig in der vegetativen Phase
+      - Steuert Phototropismus (Wachstum zum Licht)
+      Gruen (500-600nm):
+      - Dringt tiefer ins Blatt und durch das Canopy
+      - Wird oft unterschaetzt — traegt signifikant zur Photosynthese bei
+      - Besonders wichtig fuer untere Pflanzenteile
+      Rot (600-700nm):
+      - Effizienteste Wellenlaenge fuer Photosynthese (Peak bei 660nm)
+      - Foerdert Streckungswachstum und Bluete
+      - Dominiert bei HPS-Lampen
+      Far-Red (700-750nm):
+      - Loest Schattenfluchreaktion aus (Pflanzen strecken sich)
+      - Beschleunigt Bluehinduktion bei Kurztagspflanzen
+      - In kleiner Dosis nuetzlich, zu viel = instabiles Streckungswachstum
+      UV-A/B (315-400nm):
+      - Steigert Sekundaermetabolite (Terpene, Flavonoide, THC bei Cannabis)
+      - Schutzreaktion der Pflanze → haertere, resistentere Pflanzen
+      - Nur in niedriger Dosis zusetzen (Sonnenbrand-Risiko)
+    metadata:
+      topic: light_spectrum
+      wavelengths_nm: [400, 500, 600, 700, 750]
+
+  - id: photoperiode
+    title: Photoperiode — Kurztagspflanzen, Langtagspflanzen, tagneutrale Pflanzen
+    content: |
+      Die Photoperiode (Verhaeltnis Licht:Dunkelheit) steuert bei vielen
+      Pflanzen die Bluete:
+      Kurztagspflanzen (bluehen bei kurzen Tagen / langer Nacht):
+      - Cannabis (photoperiodisch): Bluete bei ununterbrochener Dunkelphase >10-12h
+        (Indoor typisch 12/12-Timer). Trigger ist die Nachtlaenge, nicht die Taglaenge.
+      - Weihnachtsstern, Chrysantheme, Reis, Sojabohne
+      - UNKRITISCH unterbrechungsfreie Dunkelphase — selbst kurze
+        Licht-Unterbrechung (Taschenlampe!) kann Bluete stoeren
+      Langtagspflanzen (bluehen bei langen Tagen):
+      - Spinat, Dill, Salat (Schossen bei >14h Licht im Sommer)
+      - Getreide (Weizen, Gerste): braucht lange Tage fuer Bluete
+      Tagneutrale Pflanzen (bluehen unabhaengig von Taglaenge):
+      - Tomate, Paprika, Gurke, Bohne
+      - Cannabis Autoflower (bluehen nach Alter, nicht Taglaenge)
+      - Die meisten Zimmerpflanzen
+      Indoor: Photoperiode ist frei waehlbar (Timer!).
+      - Vegetativ: 18/6 oder 20/4 (Licht/Dunkel)
+      - Bluete: 12/12 fuer photoperiodische Kurztagspflanzen
+      - Autoflower: 18/6 oder 20/4 durchgehend (mehr Licht = mehr Ertrag)
+    metadata:
+      topic: photoperiod
+      types: [short_day, long_day, day_neutral]
+
+  - id: lichtabstand-intensitaet
+    title: Lichtabstand und Intensitaetsverteilung
+    content: |
+      Umgekehrtes Quadratgesetz: Verdopplung des Abstands = Viertlung
+      der Intensitaet. Daher ist der Abstand zur Lampe entscheidend.
+      Empfohlene Abstande (Richtwerte, lampenabhaengig):
+      - Saemling: 60-80cm (reduzierte Intensitaet, dimmen auf 40-60%)
+      - Vegetativ: 40-60cm (75-100% Leistung)
+      - Bluete: 30-45cm (100% Leistung)
+      PPFD-Messung ist besser als Abstand allein:
+      - Guenstige PPFD-Meter (ab ~40€) oder Smartphone-Apps (Photone)
+        geben ausreichend genaue Werte fuer den Hobbybereich
+      - An mehreren Punkten messen (Mitte, Ecken, Raender)
+      - Ziel: Gleichmaessige Ausleuchtung (+/- 20% ueber die Flaeche)
+      Lichtverteilung verbessern:
+      - Reflektierende Waende: Mylar, weisse Farbe (Reflexion ~90%)
+      - KEINE Alufolie (ungleichmaessige Reflexion, Hotspots)
+      - Pflanzenhöhe anpassen statt Lampe fuer alle Pflanzen gleich
+      - Bar-style LED-Lampen haben gleichmaessigere Verteilung als COB
+      Licht-Burn erkennen: Bleiche/weisse Flecken auf den obersten
+      Blaettern (direkt unter der Lampe), waehrend untere Blaetter normal
+      aussehen. Abstand sofort erhoehen oder dimmen.
+    metadata:
+      topic: light_distance
+      law: inverse_square
+
+  - id: beleuchtungsarten
+    title: Indoor-Beleuchtungsarten im Vergleich
+    content: |
+      LED Full-Spectrum (Stand der Technik):
+      - Effizienz: 2.5-3.0+ µmol/J (beste: bis 3.5 µmol/J)
+      - Lebensdauer: 50.000+ Stunden
+      - Wenig Abwaerme, daher naeher an Pflanzen moeglich
+      - Blaetter oft 2-4°C kuehler als Luft (weniger IR)
+      - Samsung LM301B/H Dioden sind Industriestandard
+      - Dimm-Funktion fuer Phasen-Anpassung
+      HPS (Natriumdampf-Hochdruck):
+      - Effizienz: 1.5-1.7 µmol/J (deutlich weniger effizient als LED)
+      - Bewaehrte Technik mit guenstiger Anschaffung — HPS-Komplettsysteme
+        kosten 50-150€, waehrend vergleichbare LED-Panels 200-500€ kosten.
+        HPS ist bei den Anschaffungskosten guenstiger, dafuer bei den
+        laufenden Stromkosten teurer.
+      - Hohe Abwaerme → hoehere Stromkosten und Kuehlung noetig
+      - Rot-lastiges Spektrum, gut fuer Bluete
+      - Blaetter waermer (mehr IR-Strahlung) → VPD-Berechnung anpassen
+      CMH/LEC (Keramik-Metallhalogenid):
+      - Effizienz: 1.8-2.0 µmol/J
+      - Breiteres Spektrum als HPS (inkl. UV)
+      - Guter Kompromiss aus Preis und Qualitaet
+      Leuchtstoff/CFL (veraltet):
+      - Nur noch fuer Saemling-Anzucht oder Ueberwinterung sinnvoll
+      - Geringe PPFD-Leistung pro Watt
+      Empfehlung: LED fuer Neuanschaffung. Energiekosten-Ersparnis
+      amortisiert hoeheren Kaufpreis innerhalb 1-2 Anbausaisons.
+    metadata:
+      topic: light_types
+      recommended: LED
+      efficiency_unit: umol_per_joule
+
+  - id: fensterlicht-zimmerpflanzen
+    title: Natuerliches Licht fuer Zimmerpflanzen beurteilen
+    content: |
+      Fenster-Ausrichtung und Lichtverhaeltnisse (Nordhalbkugel):
+      Suedfenster: Direktes Sonnenlicht, staerkste Einstrahlung.
+      - Direkt am Fenster: 400-800+ PPFD (Mittagssonne, Sommer)
+      - 1m entfernt: ~200-400 PPFD
+      - Geeignet fuer: Kakteen, Sukkulenten, Strelitzia, Citrus, Kraeuter
+      Ostfenster: Sanfte Morgensonne, 3-5 Stunden direkt.
+      - Direkt: 200-500 PPFD (Morgen)
+      - Ideal fuer: Die meisten Zimmerpflanzen (Monstera, Ficus, Calathea)
+      Westfenster: Nachmittagssonne, intensiver und waermer als Ost.
+      - Direkt: 300-600 PPFD (Nachmittag)
+      - Vorsicht: Heisse Nachmittagssonne kann empfindliche Pflanzen verbrennen
+      Nordfenster: Kein direktes Sonnenlicht, nur diffuses Licht.
+      - 50-150 PPFD
+      - Nur fuer Schattenspezialisten: Farn, Sansevieria, ZZ-Pflanze, Pothos
+      Wichtig: Jeder Meter Abstand vom Fenster reduziert die Intensitaet
+      dramatisch. 2m vom Suedfenster kann dunkler sein als 30cm vom Nordfenster.
+      Gardinen/Vorhänge reduzieren um 30-70%.
+      Im Winter (Nov-Feb) sinkt die natuerliche Beleuchtung auf 30-50% des
+      Sommerwertes. Pflanzen naeher ans Fenster ruecken oder mit LED ergaenzen.
+    metadata:
+      topic: window_light
+      context: houseplants
+      hemisphere: north

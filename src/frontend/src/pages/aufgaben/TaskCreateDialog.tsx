@@ -45,7 +45,7 @@ const schema = z.object({
   name: z.string().min(1).max(200),
   instruction: z.string(),
   category: z.enum(categories),
-  plant_key: z.string().nullable(),
+  entity_key: z.string().nullable(),
   due_date: z.string().nullable(),
   priority: z.enum(priorities),
   skill_level: z.enum(skillLevels),
@@ -82,7 +82,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
       name: '',
       instruction: '',
       category: 'maintenance',
-      plant_key: null,
+      entity_key: null,
       due_date: null,
       priority: 'medium',
       skill_level: 'beginner',
@@ -121,7 +121,8 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
         name: data.name,
         instruction: data.instruction || undefined,
         category: data.category,
-        plant_key: data.plant_key,
+        entity_key: data.entity_key,
+        entity_type: data.entity_key ? 'plant_instance' : undefined,
         due_date: data.due_date,
         priority: data.priority,
         skill_level: data.skill_level,
@@ -226,18 +227,25 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
             suffix="min"
           />
           <ExpertiseFieldWrapper minLevel="intermediate">
-            <FormTextField
+            <FormSelectField
               name="recurrence_rule"
               control={control}
               label={t('pages.tasks.recurrenceRule')}
               helperText={t('pages.tasks.recurrenceRuleHelper')}
+              options={[
+                { value: '', label: t('pages.tasks.recurrenceNone') },
+                { value: 'FREQ=DAILY', label: t('pages.tasks.recurrenceDaily') },
+                { value: 'FREQ=WEEKLY', label: t('pages.tasks.recurrenceWeekly') },
+                { value: 'FREQ=WEEKLY;INTERVAL=2', label: t('pages.tasks.recurrenceBiweekly') },
+                { value: 'FREQ=MONTHLY', label: t('pages.tasks.recurrenceMonthly') },
+              ]}
             />
           </ExpertiseFieldWrapper>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.tasks.sectionAssignment')}
           </Typography>
           <Controller
-            name="plant_key"
+            name="entity_key"
             control={control}
             render={({ field }) => (
               <Autocomplete
@@ -266,7 +274,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                         ),
                       },
                     }}
-                    data-testid="form-field-plant_key"
+                    data-testid="form-field-entity_key"
                   />
                 )}
               />

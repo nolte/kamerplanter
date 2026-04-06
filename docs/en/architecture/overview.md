@@ -57,7 +57,7 @@ graph TB
 | Celery Worker | Celery >= 5.4 | Background tasks (enrichment, reminders) |
 | Celery Beat | Celery Beat | Scheduled tasks (daily, hourly) |
 | ArangoDB | ArangoDB 3.11+ | Primary database — documents and graph |
-| TimescaleDB | TimescaleDB 2.13+ | Sensor data (time-series, future) |
+| TimescaleDB | TimescaleDB 2.13+ | Sensor data (time-series, optional) |
 | Valkey | Valkey 8 (Redis-compatible) | Celery broker + cache |
 | Traefik | Traefik Ingress | TLS termination, routing |
 

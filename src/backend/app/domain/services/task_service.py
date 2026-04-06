@@ -35,8 +35,15 @@ class TaskService:
         limit: int = 50,
         species_key: str | None = None,
         tenant_key: str = "",
+        target_entity_type: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
-        return self._repo.get_all_workflow_templates(offset, limit, species_key=species_key, tenant_key=tenant_key)
+        return self._repo.get_all_workflow_templates(
+            offset,
+            limit,
+            species_key=species_key,
+            tenant_key=tenant_key,
+            target_entity_type=target_entity_type,
+        )
 
     def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
         """Return species_name and assigned plant count per workflow key."""
@@ -81,6 +88,7 @@ class TaskService:
             auto_generated=False,
             total_duration_days=source.total_duration_days,
             skill_level_filter=source.skill_level_filter,
+            target_entity_types=list(source.target_entity_types),
         )
         created_wf = self._repo.create_workflow_template(clone)
 
@@ -120,11 +128,17 @@ class TaskService:
 
     # ── Workflow Instantiation ──
 
-    def instantiate_workflow(self, template_key: str, plant_key: str) -> WorkflowExecution:
-        """Generate tasks from a workflow template for a specific plant.
+    def instantiate_workflow(
+        self,
+        template_key: str,
+        entity_key: str,
+        entity_type: str,
+    ) -> WorkflowExecution:
+        """Generate tasks from a workflow template for a specific entity.
 
         Tasks whose trigger_phase does not match the current phase are created
-        with status 'dormant' and activated later via activate_dormant_tasks_for_phase().
+        with status 'dormant' for plant_instance entities and 'pending' for
+        all other entity types (which have no phase concept).
         """
         wt = self.get_workflow_template(template_key)
         templates = self._repo.get_task_templates_for_workflow(template_key)
@@ -134,30 +148,34 @@ class TaskService:
 
         execution = WorkflowExecution(
             workflow_template_key=template_key,
-            plant_key=plant_key,
+            entity_key=entity_key,
+            entity_type=entity_type,
         )
         execution = self._repo.create_workflow_execution(execution)
 
         now = datetime.now(UTC)
         for tt in templates:
-            # Propagate checklist from template
             checklist = [ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist]
 
-            # Determine if task should be dormant (phase not yet active)
             status = "pending"
             due_date = now + timedelta(days=tt.days_offset) if tt.days_offset else None
-            if tt.trigger_phase and tt.trigger_type in ("phase_entry", "days_after_phase"):
-                # We don't know the current phase here — mark as dormant
-                # and let activate_dormant_tasks_for_phase handle it.
-                # For simplicity: if trigger_phase is set, start dormant.
+            # Only plant_instance entities support phase-based dormant tasks
+            if (
+                entity_type == "plant_instance"
+                and tt.trigger_phase
+                and tt.trigger_type in ("phase_entry", "days_after_phase")
+            ):
                 status = "dormant"
                 due_date = None
 
             task = Task(
                 name=tt.name,
+                name_de=tt.name_de,
                 instruction=tt.instruction,
+                instruction_de=tt.instruction_de,
                 category=tt.category,
-                plant_key=plant_key,
+                entity_key=entity_key,
+                entity_type=entity_type,
                 due_date=due_date,
                 status=status,
                 priority="medium",
@@ -175,7 +193,6 @@ class TaskService:
             )
             created_task = self._repo.create_task(task)
 
-            # Ansatz A: Link task to activity if template has activity_key
             if tt.activity_key and created_task.key:
                 self._repo.create_task_activity_edge(
                     created_task.key,
@@ -272,7 +289,14 @@ class TaskService:
         return updated
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
-        all_tasks = self._repo.get_tasks_for_plant(task.plant_key or "")
+        if task.entity_key and task.entity_type:
+            all_tasks = self._repo.get_tasks_for_entity(
+                task.entity_type,
+                task.entity_key,
+                task.tenant_key,
+            )
+        else:
+            all_tasks = []
         deps = self._repo.get_blocking_tasks(key)
         task_dicts = [
             {"key": t.key, "status": t.status, "priority": t.priority, "due_date": t.due_date} for t in all_tasks
@@ -312,9 +336,12 @@ class TaskService:
         new_task = Task(
             tenant_key=completed_task.tenant_key,
             name=completed_task.name,
+            name_de=completed_task.name_de,
             instruction=completed_task.instruction,
+            instruction_de=completed_task.instruction_de,
             category=completed_task.category,
-            plant_key=completed_task.plant_key,
+            entity_key=completed_task.entity_key,
+            entity_type=completed_task.entity_type,
             due_date=next_dt,
             scheduled_time=completed_task.scheduled_time,
             status="pending",
@@ -349,20 +376,27 @@ class TaskService:
     def clone_task(
         self,
         key: str,
-        target_plant_key: str | None = None,
         due_date_offset_days: int | None = None,
+        target_entity_key: str | None = None,
+        target_entity_type: str | None = None,
     ) -> Task:
         source = self.get_task(key)
         due_date = None
         if due_date_offset_days is not None:
             due_date = datetime.now(UTC) + timedelta(days=due_date_offset_days)
 
+        entity_key = target_entity_key or source.entity_key
+        entity_type = target_entity_type or source.entity_type
+
         new_task = Task(
             tenant_key=source.tenant_key,
             name=source.name,
+            name_de=source.name_de,
             instruction=source.instruction,
+            instruction_de=source.instruction_de,
             category=source.category,
-            plant_key=target_plant_key or source.plant_key,
+            entity_key=entity_key,
+            entity_type=entity_type,
             due_date=due_date,
             status="pending",
             priority=source.priority,
@@ -539,7 +573,8 @@ class TaskService:
     def add_task_to_workflow_execution(self, execution_key: str, task: Task) -> Task:
         execution = self.get_workflow_execution(execution_key)
         task.workflow_execution_key = execution_key
-        task.plant_key = task.plant_key or execution.plant_key
+        task.entity_key = task.entity_key or execution.entity_key
+        task.entity_type = task.entity_type or execution.entity_type
         return self._repo.create_task(task)
 
     # ── Task Queue ──
@@ -549,6 +584,9 @@ class TaskService:
             tasks = self._repo.get_tasks_for_plant(plant_key, "pending")
         else:
             tasks, _ = self._repo.get_pending_tasks(0, 200)
+
+        # Deduplicate care_reminder tasks: keep only the newest per entity_key + name suffix
+        tasks = self._deduplicate_care_tasks(tasks)
 
         task_dicts = [
             {
@@ -569,11 +607,58 @@ class TaskService:
         ready_keys = {d["key"] for d in ready_dicts}
         return [t for t in tasks if t.key in ready_keys]
 
+    @staticmethod
+    def _deduplicate_care_tasks(tasks: list[Task]) -> list[Task]:
+        """Remove duplicate care_reminder tasks for the same plant + reminder type.
+
+        Groups by full task name (e.g. "CANNA-0320-X90 — watering") which is
+        unique per plant+type. Within each group, prefers tasks with entity_key
+        set (newer format) over those without (legacy data), then by newest
+        due_date/created_at.
+        """
+        result: list[Task] = []
+        care_groups: dict[str, list[Task]] = {}
+
+        for task in tasks:
+            if task.category == "care_reminder":
+                # Group by full name — covers both entity_key and legacy tasks
+                care_groups.setdefault(task.name, []).append(task)
+            else:
+                result.append(task)
+
+        for group in care_groups.values():
+            if len(group) == 1:
+                result.append(group[0])
+            else:
+                # Prefer tasks with entity_key, then newest by due_date/created_at
+                def _sort_key(t):  # noqa: E501
+                    return (
+                        1 if t.entity_key else 0,
+                        t.due_date or datetime.min.replace(tzinfo=UTC),
+                        t.created_at or datetime.min.replace(tzinfo=UTC),
+                    )
+
+                best = max(group, key=_sort_key)
+                result.append(best)
+
+        return result
+
     def get_overdue_tasks(self) -> list[Task]:
-        return self._repo.get_overdue_tasks()
+        tasks = self._repo.get_overdue_tasks()
+        return self._deduplicate_care_tasks(tasks)
 
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
+        """Convenience method for plant-specific task queries."""
         return self._repo.get_tasks_for_plant(plant_key, status)
+
+    def get_tasks_for_entity(
+        self,
+        entity_type: str,
+        entity_key: str,
+        tenant_key: str,
+        status: str | None = None,
+    ) -> list[Task]:
+        return self._repo.get_tasks_for_entity(entity_type, entity_key, tenant_key, status)
 
     # ── HST Validation ──
 
@@ -598,3 +683,6 @@ class TaskService:
         if not we:
             raise NotFoundError("WorkflowExecution", key)
         return we
+
+    def get_executions_for_template(self, template_key: str) -> list[dict]:
+        return self._repo.get_executions_for_template(template_key)

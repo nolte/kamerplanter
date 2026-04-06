@@ -14,7 +14,7 @@ import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
 import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
 from app.api.v1.auth.router import limiter
 from app.api.v1.router import api_router
-from app.common.dependencies import close_connection, get_connection
+from app.common.dependencies import close_connection, get_connection, get_ha_client
 from app.common.error_handlers import (
     app_error_handler,
     unhandled_error_handler,
@@ -41,6 +41,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _insecure.append("jwt_secret_key")
         if settings.arangodb_password == "rootpassword":
             _insecure.append("arangodb_password")
+        if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
+            _insecure.append("timescaledb_password")
         if _insecure:
             msg = (
                 "FATAL: Default secrets detected for: "
@@ -120,6 +122,34 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     backfill_tenant_key(db)
 
+    # Register notification channels
+    from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
+
+    ha_client = get_ha_client()
+    if ha_client is not None:
+        from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
+
+        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+        logger.info("notification_channel_registered", channel="home_assistant")
+
+    from app.data_access.external.apprise_notification_channel import AppriseNotificationChannel
+
+    NotificationChannelRegistry.register(AppriseNotificationChannel())
+    logger.info("notification_channel_registered", channel="apprise")
+
+    # TimescaleDB init (optional)
+    if settings.timescaledb_enabled:
+        from app.common.dependencies import get_timescale_connection
+        from app.data_access.timescale.schema import ensure_timescale_schema
+
+        ts_conn = get_timescale_connection()
+        if ts_conn:
+            ts_conn.connect()
+            ensure_timescale_schema(ts_conn.pool)
+            logger.info("timescaledb_ready")
+        else:
+            logger.warning("timescaledb_enabled_but_connection_failed")
+
     yield
 
     close_connection()
@@ -130,6 +160,9 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     lifespan=lifespan,
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json",
 )
 
 # Rate limiting
@@ -168,13 +201,23 @@ app.include_router(api_router)
 
 
 @app.get("/api/health", tags=["health"])
-def root_health() -> dict[str, str]:
+def root_health() -> dict:
     """Root-level health endpoint for M2M consumers (HA integration)."""
-    return {
+    result: dict = {
         "status": "healthy",
         "version": settings.app_version,
         "mode": settings.kamerplanter_mode,
     }
+    if settings.timescaledb_enabled:
+        from app.common.dependencies import get_observation_repo
+
+        result["timescaledb"] = "available" if get_observation_repo().is_available() else "unavailable"
+    if settings.knowledge_service_enabled:
+        from app.common.dependencies import get_knowledge_client
+
+        client = get_knowledge_client()
+        result["knowledge_service"] = "available" if client and client.health() else "unavailable"
+    return result
 
 
 # Static file serving for task photo uploads

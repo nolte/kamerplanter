@@ -44,7 +44,7 @@ class WorkflowDetailPage(BasePage):
     def get_workflow_title(self) -> str:
         """Return the page heading (workflow name)."""
         el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='workflow-detail-page'] h5, [data-testid='workflow-detail-page'] h4")
+            (By.CSS_SELECTOR, "[data-testid='page-title']")
         )
         return el.text
 
@@ -109,3 +109,8 @@ class WorkflowDetailPage(BasePage):
     def is_dialog_open(self) -> bool:
         """Check whether any MUI dialog is open."""
         return len(self.driver.find_elements(*self.DIALOG)) > 0
+
+    def is_page_visible(self) -> bool:
+        """Check whether the workflow detail page container is displayed."""
+        els = self.driver.find_elements(*self.PAGE)
+        return len(els) > 0 and els[0].is_displayed()

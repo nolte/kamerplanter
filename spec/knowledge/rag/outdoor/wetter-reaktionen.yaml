@@ -1,0 +1,327 @@
+---
+title: Wetter-Reaktionen und Notfallmassnahmen im Freiland
+language: de
+category: outdoor
+tags: [frost, hitze, sturm, hagel, starkregen, trockenheit, wetterschutz, notfall, schadensbegrenzung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: frost-warnsignale
+    title: Frost erkennen und vorbeugen — Warnsignale und Prognose
+    content: |
+      Spaetfrost (April-Mai) und Fruehfrost (September-Oktober) sind die haeufigste
+      Schadensursache im Freilandanbau. Wer die Warnsignale kennt, kann rechtzeitig handeln.
+      Warnsignale fuer Nachtfrost:
+      - Klarer, wolkenloser Himmel am Abend (Abstrahlung!)
+      - Windstille oder sehr schwacher Wind (keine Durchmischung der Luftschichten)
+      - Hoher Luftdruck (Hochdruckgebiete = kalte, klare Naechte)
+      - Sinkende Temperatur nach Sonnenuntergang (< 5°C um 22 Uhr = Frostgefahr)
+      - Bodenfrost tritt oft 2-3°C frueher auf als Luftfrost (Thermometer in 2 m Hoehe!)
+      Risikostandorte — Kaltluftsenken:
+      Kalte Luft ist schwerer als warme und fliesst hangabwaerts. In Mulden, Tälern und
+      am Fuss von Haengen kann es 3-5°C kaelter sein als am Hang. Empfindliche Kulturen
+      NIE in Senken pflanzen, sondern an Haengen oder suedexponierten Mauern.
+      Vorbeugende Massnahmen:
+      - Vlies, Folientunnel, Zeitungspapier IMMER griffbereit haben (April-Mai)
+      - Toepfe und Kuebelpflanzen an die Hauswand stellen (Waermeabstrahlung vom Gebaeude)
+      - Frostkerzen/Grablichter: 1 pro 2 m² im Obstgarten (erhoet Temperatur um 1-2°C)
+      - Mulch um frostempfindliche Pflanzen (isoliert den Boden, haelt Waerme)
+      In Kamerplanter: Bei konfiguriertem Wetter-API (REQ-005) wird bei Frostwarnung
+      eine automatische Benachrichtigung ausgeloest und ein Schutz-Task generiert.
+    metadata:
+      temperature_threshold_celsius: 0
+      risk_months: [3, 4, 5, 9, 10]
+      notification_type: frost_warning
+
+  - id: frost-sofortmassnahmen
+    title: Frost — Sofortmassnahmen und Schadensbegrenzung
+    content: |
+      Wenn Frost droht oder bereits eingetreten ist, zaehlt schnelles Handeln.
+      VOR dem Frost (am Nachmittag/Abend):
+      - Vliesabdeckung (17-30 g/m²): Direkt ueber Pflanzen legen oder auf Boegen spannen.
+        Schuetzt bis -3°C (einfach) oder -5°C (doppelt). Raender mit Erde oder Steinen
+        beschweren — Wind darf das Vlies nicht wegwehen!
+      - Boden giessen: Feuchter Boden speichert mehr Waerme als trockener (hohe Waermekapazitaet
+        von Wasser). Am Nachmittag gruendlich giessen, die gespeicherte Waerme strahlt nachts ab.
+      - Zeitungspapier/Pappe: Notloesung fuer einzelne Pflanzen (ueber Nacht drueberlegen)
+      - Eimer/Glashauben: Ueber einzelne empfindliche Pflanzen stuelpden (Setzlinge)
+      - Beregnung (Paradox-Methode): Kontinuierliche Beregnung bildet eine Eisschicht,
+        die bei exakt 0°C die Pflanze isoliert. Nur fuer Profis (Obstbau) — bei Fehlanwendung
+        schlimmer als ohne Schutz! Nicht fuer Hobbygaertner empfohlen.
+      NACH dem Frost — Schadensbehandlung:
+      - Gefrorene Pflanzen NICHT beruehren — Zellwaende brechen bei Beruehrung!
+      - Langsam auftauen lassen (im Schatten, nicht in der Sonne)
+      - Erst nach vollstaendigem Auftauen (nachmittags) Schaden bewerten
+      - Erfrorenes Gewebe wird braun-matschig — mit sauberem Schnitt entfernen
+      - Nicht sofort entsorgen: Manche Pflanzen treiben aus der Basis neu aus
+        (Kartoffel, viele Stauden). 1-2 Wochen abwarten.
+      - Geschwuechte Pflanzen NICHT duengen — erst nach sichtbarem Neuaustrieb
+      Totalverlust bei Frostschaden? Nachsaat/-pflanzung planen, ggf. Sorten mit
+      kuerzerer Reifezeit waehlen fuer die verspaetete Pflanzung.
+    metadata:
+      timing: emergency
+      protection_methods: [fleece, watering, newspaper, glass_cloches, sprinkler]
+      temperature_protection_celsius: [-3, -5]
+
+  - id: hitze-ueber-30-grad
+    title: Hitze ueber 30°C — Schutz und Anpassung
+    content: |
+      Hitzewellen (>30°C ueber mehrere Tage) nehmen in Mitteleuropa zu. Die meisten
+      Gemuese leiden ab 30°C, viele stellen Wachstum oder Fruchtbildung ein.
+      Sofortmassnahmen bei Hitze:
+      - Schattiernetze: 30-50% Beschattung ueber hitzeempfindliche Kulturen spannen.
+        Nicht zu dunkel (>60%) — Pflanzen brauchen weiterhin Licht fuer Photosynthese.
+      - Giessen: MORGENS (6-9 Uhr), nicht mittags/abends. Morgendliches Giessen laesst
+        die Blaetter tagsuebers abtrocknen (Pilzpraevention). Abendgiessen bei >30°C
+        ist akzeptabel, wenn der Boden abgekuehlt ist (nach 19 Uhr).
+      - Mulch: 5-10 cm Strohmulch reduziert Bodenverdunstung um 50-70% und haelt die
+        Bodentemperatur 5-8°C kuehler als unbemulchter Boden.
+      - NICHT duengen bei Hitze — Salzstress + Hitzestress = Totalschaden moeglich.
+        Duengung auf kuehle Perioden verschieben.
+      Kulturspezifische Reaktionen:
+      - Tomate: Stoppt Fruchtansatz ab 35°C (Pollen steril). Abendbeschattung hilft.
+      - Salat/Spinat: Schosst (geht in Bluete) bei Hitze. Schossfeste Sorten waehlen,
+        Beschattung mit 30% Netz. Im Hochsommer Anbaupause fuer Salat.
+      - Paprika: Sonnenbrand an Fruechten bei >35°C. Blaetter schuetzen die Fruechte —
+        nicht zu stark ausgeizen!
+      - Bohne: Bluetenfall ab 32°C. Morgengiessen direkt an die Blueten hilft (Kuehlung).
+      - Kartoffel: Stellt Knollenbildung ein ab 30°C Bodentemperatur. Mulch essenziell.
+      Kuebelpflanzen: Doppeltopf-Methode (Topf im Topf, Zwischenraum mit feuchtem
+      Sand/Moos). Unbedingt in den Schatten stellen. Untersetzer mit Wasser fuer
+      Verdunstungskuehlung (aber Staunaesse-Gefahr bei kleinen Toepfen beachten).
+    metadata:
+      temperature_threshold_celsius: 30
+      critical_threshold_celsius: 35
+      evaporation_reduction_mulch_percent: [50, 70]
+
+  - id: sturm-hagel-praevention
+    title: Sturm und Hagel — Praevention und Soforthilfe
+    content: |
+      Gewitter mit Sturm und Hagel koennen einen Garten in Minuten verwuesten.
+      Praevention ist entscheidend, da Soforthilfe nur Schadensbegrenzung bedeutet.
+      Praevention — sturmfest gaertnern:
+      - Tomaten: Stabile Stuetzen (Spiralstaebe, Bambus min. 12 mm, Tomatenkaefer).
+        NICHT nur an einem Punkt anbinden — alle 30 cm ein Band. Stuetzen 30 cm tief
+        einschlagen, nicht nur 10 cm!
+      - Stangenbohne/Mais: Pyramidengeruest stabiler als Einzelstaebe.
+        Bei Sturmwarnung zusaetzlich Querverbindungen spannen.
+      - Hagelnetze: Maschenweite 5-8 mm, ueber empfindliche Kulturen (Tomate, Paprika,
+        Salat, Beeren). Kosten ca. 3-5 EUR/m², haelt mehrere Jahre.
+      - Windschutzhecken: Reduzieren Windgeschwindigkeit um 50% auf einer Strecke
+        von 10× Heckenhoehe. Ideal: 1.5-2 m hohe Hecke (Liguster, Hainbuche).
+      Nach Sturmschaden:
+      - Abgebrochene Aeste: Mit sauberer Schere/Saege glatt nachschneiden (kein Reissen).
+        Wundverschluss bei Obstbaeumen (umstritten, aber bei grossen Wunden sinnvoll).
+      - Umgeknickte Stengel: Vorsichtig aufrichten, mit weichem Band fixieren.
+        Pflanze kann oft reparieren, wenn Leitbuendel nicht vollstaendig durchtrennt.
+      - Ausgerissene Pflanzen: Sofort wieder einsetzen, angießen, Schatten geben.
+        Ueberlebensrate 50-70% wenn innerhalb 1 Stunde behandelt.
+      Nach Hagelschaden:
+      - Beschaedigte Blaetter und Fruechte NICHT sofort entfernen — erst Ausmass abwarten
+      - Pilzbefall-Prophylaxe: Verletzte Stellen sind Eintrittspforten. Bei feuchtem Wetter
+        Schachtelhalmbruehe spritzen (vorbeugend, staerkt Zellwaende).
+      - Obstbaeume: Verletzte Fruechte zeitnah ernten und verarbeiten (nicht lagerfaehig)
+    metadata:
+      timing: prevention_and_emergency
+      protection_methods: [stakes, hail_net, wind_hedge]
+      hail_net_cost_eur_m2: [3, 5]
+
+  - id: starkregen-ueberflutung
+    title: Starkregen und Ueberflutung — Drainage und Nachsorge
+    content: |
+      Starkregenereignisse (>25 mm/h) nehmen durch den Klimawandel zu. Schlecht
+      drainierte Boeden und Senken sind besonders gefaehrdet.
+      Praevention — Drainage und Bodenmanagement:
+      - Hochbeete: Natuerlicher Vorteil — ueberschuessiges Wasser laeuft seitlich ab.
+        Bei Starkregen fast nie ein Problem (ausser Substrat wird ausgewaschen).
+      - Drainagegraeben: An Hangseite des Gartens 30-50 cm tiefer Graben mit Kies,
+        leitet Oberflaechenwasser ab bevor es die Beete erreicht.
+      - Bodenverdichtung vermeiden: Nie auf nassen Boden treten! Beete nur von
+        permanenten Wegen aus bearbeiten. Verdichteter Boden = keine Drainage.
+      - Mulch und Gruenduengung: Bedeckter Boden nimmt 3-5× mehr Wasser auf als
+        nackter Boden. Mulch verhindert Verschlaemmung der Bodenporen.
+      Waehrend Starkregen:
+      - Erosion: Mulch haelt Boden an Ort und Stelle. Ohne Mulch schwemmt Feinerde weg
+        und verschlaemmt die Oberflaeche (Krustenbildung nach Trocknung).
+      - Spritzwasser: Bodenbuertige Pilzsporen (Phytophthora, Septoria) werden durch
+        aufspritzende Regentropfen auf die Blaetter geschleudert. Mulch reduziert
+        Spritzwasser um 80-90%.
+      Nach Ueberflutung / Staunaesse:
+      - Boden NICHT betreten bis er abgetrocknet ist (Verdichtung!)
+      - Vorsichtig lockern wenn oberflaechlich abgetrocknet (Kruste aufbrechen)
+      - Wurzelschaden pruefen: Pflanzen die welken obwohl der Boden nass ist =
+        Wurzelfaeule durch Sauerstoffmangel. Betroffene Pflanzen oft nicht mehr zu retten.
+      - Pilzkrankheiten beobachten: 7-14 Tage nach Starkregen Blattflecken, Mehltau,
+        Faeulnis kontrollieren. Vorbeugend: Pflanzenstarkungsmittel (Schachtelhalmbruehe,
+        Backpulver-Loesung 1%, Neemoel).
+      - Salat und Erdbeeren: Verschmutzte Fruechte/Blaetter entfernen (Kolibakterien aus Boden!)
+    metadata:
+      rainfall_threshold_mm_h: 25
+      prevention: [raised_beds, drainage, mulch, no_compaction]
+      disease_watch_days_after: [7, 14]
+
+  - id: trockenheit-priorisierung
+    title: Trockenheit — Wasser sparen und Priorisieren
+    content: |
+      Bei laengerer Trockenheit (>10 Tage ohne Regen bei >25°C) wird Wasser zur
+      knappen Ressource. Strategisches Giessen ist entscheidend.
+      Priorisierung der Bewaesserung (bei Wassermangel):
+      1. Hoechste Prioritaet: Frisch gepflanzte Setzlinge und Jungpflanzen (sterben ohne
+         Wasser in 2-3 Tagen). Saaten die gerade keimen.
+      2. Hohe Prioritaet: Fruchttragende Kulturen (Tomate, Gurke, Paprika, Bohne) —
+         Fruchtfall und Bitterkeit bei Wassermangel.
+      3. Mittlere Prioritaet: Blattgemuese (Salat, Mangold) — werden bitter, schiessen.
+      4. Niedrige Prioritaet: Wurzelgemuese (Moehre, Rote Bete) — tiefe Wurzeln,
+         ueberlebenfaehiger. Aber: Ungleichmaessiges Giessen = Risse in Wurzeln!
+      5. Niedrigste Prioritaet: Etablierte Stauden, Kraeuter, Beerensträucher —
+         ueberleben wochenlange Trockenheit, reduzieren nur den Ertrag.
+      Giess-Strategien bei Trockenheit:
+      - TIEF und SELTEN giessen: 2-3× pro Woche 20 L/m² ist besser als taeglich 5 L/m².
+        Tiefes Giessen foerdert tiefe Wurzelbildung. Oberflaechliches Giessen haelt
+        Wurzeln flach und macht Pflanzen trockenheitsanfaelliger.
+      - Tropfbewaesserung: 90% Wassereffizienz (vs. 50-60% bei Spruehberegnung).
+        Wasser kommt direkt an die Wurzel ohne Verdunstungsverlust.
+      - Giessmulden: 5-10 cm tiefe Mulde um den Stamm — Wasser versickert gezielt an der Wurzel.
+      - Morgendliches Giessen (6-9 Uhr): Weniger Verdunstung als mittags, Blaetter
+        trocknen tagsuebers ab (vs. Abendgiessen wo Blaetter nass ueber Nacht bleiben).
+      Mulch ist der wichtigste Verbundete bei Trockenheit:
+      5-10 cm Stroh- oder Rasenschnittmulch reduziert Verdunstung um 50-70%,
+      haelt den Boden 5-8°C kuehler und unterdrueckt Unkraut (das Wasser stiehlt).
+    metadata:
+      drought_days_threshold: 10
+      watering_priority_levels: 5
+      mulch_evaporation_reduction_percent: [50, 70]
+      drip_efficiency_percent: 90
+
+  - id: trockenheit-anpassung
+    title: Klimaanpassung bei zunehmender Trockenheit
+    content: |
+      Der Klimawandel bringt laengere Trockenphasen nach Mitteleuropa. Langfristige
+      Anpassungsstrategien machen den Garten widerstandsfaehiger.
+      Sortenwahl:
+      - Trockenheitsresistente Sorten bevorzugen (in Samenkatalogen gekennzeichnet)
+      - Alte/regionale Sorten sind oft robuster als Hochleistungshybriden
+      - Beispiele: 'De Berao' (Tomate, extrem robust), 'Marketmore' (Gurke, hitzetolerant),
+        'Forellenschluss' (Salat, schossresistent)
+      Boden verbessern:
+      - Humusaufbau ist die beste Trockenheitsvorsorge: 1% mehr Humus = 16 L/m² mehr
+        Wasserspeicherkapazitaet. Kompost, Gruenduengung, Mulch = Humusaufbau.
+      - Tonminerale (Bentonit): 1-2 kg/m² in leichte Sandboeden einarbeiten — verbessert
+        Wasserhaltevermögen deutlich.
+      - Nicht umgraben: Minimale Bodenbearbeitung erhaelt Kapillarstrukturen, die Wasser
+        aus tieferen Schichten nach oben transportieren.
+      Anbaustrategien:
+      - Pflanzen enger setzen als empfohlen: Beschattung des Bodens durch Blaetter
+        reduziert Verdunstung (aber: Luftzirkulation beachten — Pilzrisiko steigt).
+      - Kuerbis/Zucchini als Bodenbedeckung zwischen hohen Kulturen (wie bei Milpa)
+      - Fruehkulturen bevorzugen: Ernte vor der Sommerhitze abschliessen (Erbse, Salat,
+        Fruehkartoffel). Hauptkulturen auf Herbsternte verschieben (Spaetaussaat August).
+      Regenwasser sammeln:
+      - 1 m² Dachflaeche liefert ca. 600 L Regenwasser pro Jahr (Mitteleuropa)
+      - 200 L Regentonne: Reicht fuer 1 Woche intensive Bewaesserung (10 m² Beet)
+      - Zisterne (1000-5000 L): Fuer ernsthafte Selbstversorgung empfohlen
+      - Regenwasser hat pH 5.5-6.5, kein Chlor, kein Kalk — ideal fuer alle Pflanzen
+    metadata:
+      adaptation_timeframe: long_term
+      humus_water_capacity_l_m2_per_percent: 16
+      rainwater_yield_l_per_m2_roof_per_year: 600
+
+  - id: wetter-api-integration
+    title: Wetter-API-Integration in Kamerplanter
+    content: |
+      Kamerplanter unterstuetzt die automatische Wetter-Integration als vierte Datenquelle
+      im Hybrid-Sensorik-Modell (REQ-005 v2.3). Dies ermoeglicht proaktive Warnungen
+      und automatische Aufgabengenerierung basierend auf Wettervorhersagen.
+      Unterstuetzte Wetter-APIs (Fallback-Kette):
+      1. DWD (Deutscher Wetterdienst): Kostenlos, Open Data, hoechste Aufloesung fuer DE
+      2. Open-Meteo: Kostenlos, global, gute Vorhersagequalitaet, kein API-Key noetig
+      3. OpenWeatherMap: Kostenloser Tier (1000 Calls/Tag), global, API-Key noetig
+      Automatische Benachrichtigungen bei:
+      - Frostwarnung: Temperatur < 2°C in den naechsten 24h → Schutz-Task generieren
+      - Hitzewarnung: Temperatur > 32°C → Schattierung und Extra-Bewaesserung vorschlagen
+      - Starkregenwaming: > 20 mm/h erwartet → Abdeckung/Drainage-Check vorschlagen
+      - Hagelwarnung: → Hagelnetze spannen, empfindliche Pflanzen abdecken
+      - Sturmwarnung: > 60 km/h → Stuetzen prüfen, lose Gegenstaende sichern
+      - Trockenheitswarnung: > 7 Tage ohne Regen + > 25°C → Bewaesserungsplan anpassen
+      Celery-Tasks (REQ-005):
+      - fetch_weather_forecast: Stuendlich, speichert WeatherForecast-Knoten
+      - evaluate_weather_alerts: Alle 6h, prueft Schwellenwerte gegen Vorhersage
+      - generate_weather_tasks: Taeglich, erstellt Schutz-/Bewaesserungsaufgaben
+      Konfiguration im Standort-Profil:
+      - Laengen-/Breitengrad (automatische Erkennung oder manuelle Eingabe)
+      - Hoehenangabe (relevant fuer Frost-Schwellenwerte)
+      - Klimazone (USDA oder Koppen-Geiger) fuer laengerfristige Empfehlungen
+      Die Wetter-Integration ist optional — ohne konfigurierte API funktioniert
+      Kamerplanter vollstaendig ueber manuelle Eingaben und Pflegeerinnerungen (REQ-022).
+    metadata:
+      apis: [dwd, open_meteo, openweathermap]
+      alert_types: [frost, heat, heavy_rain, hail, storm, drought]
+      related_reqs: [REQ-005, REQ-006, REQ-022]
+      celery_tasks: [fetch_weather_forecast, evaluate_weather_alerts, generate_weather_tasks]
+
+  - id: mikroklimazonen
+    title: Mikroklimazonen im Garten erkennen und nutzen
+    content: |
+      Jeder Garten hat unterschiedliche Mikroklimazonen mit Temperaturdifferenzen
+      von bis zu 5-8°C. Wer diese kennt und nutzt, kann empfindlichere Kulturen anbauen
+      und Frostschaeden vermeiden.
+      Warme Zonen (2-5°C waermer als Durchschnitt):
+      - Suedwand von Gebaeuden: Waermeabstrahlung vom Mauerwerk, Windschutz, Reflexion.
+        Ideal fuer: Pfirsich, Feige, Wein, Paprika, Aubergine.
+      - Pflasterflaechen/Steinmauern: Speichern Tageswaerme, strahlen nachts ab.
+      - Hochbeete an Suedwand: Doppelter Vorteil (erhoehte Position + Waermereflexion)
+      - Gewaechshaus/Folientunnel: 5-15°C waermer als Freiland (je nach Sonneneinstrahlung)
+      Kalte Zonen (2-5°C kaelter als Durchschnitt):
+      - Kaltluftsenken: Tal, Mulde, Nordseite von Hecken/Mauern. KEINE empfindlichen
+        Kulturen hier pflanzen. Gut fuer: Kuehles Gemuese (Salat, Spinat im Sommer).
+      - Nordseite von Gebaeuden: Schattig, kuehler, feuchter. Ideal fuer Baerlauch,
+        Walderdbeere, Farne, Schnittlauch.
+      - Unter grossen Baeumen: Wurzelkonkurrenz + Schatten + Traufe (Wasserentzug).
+        Nur robuste Pflanzen (Waldstauden, Topinambur).
+      Windexponierte Zonen:
+      - Kuppen, offene Flaechen, Schneisen zwischen Gebaeuden.
+      - Wind erhoeht Verdunstung um 30-50% und kuehlt um 2-4°C.
+      - Windschutz durch Hecke (halbdurchlaessig, besser als Mauer — Mauer erzeugt
+        Verwirbelungen auf der Leeseite).
+      Kartierung: Im ersten Gartenjahr mehrere Thermometer aufstellen und Minimum-/
+      Maximumtemperaturen an verschiedenen Stellen vergleichen. In Kamerplanter
+      koennen Location-Knoten mit Microclimate-Attributen versehen werden
+      (sun_exposure, wind_exposure, frost_pocket).
+    metadata:
+      temperature_difference_celsius: [5, 8]
+      warm_zones: [south_wall, paving, raised_bed_south, greenhouse]
+      cold_zones: [frost_pocket, north_side, under_trees]
+      wind_evaporation_increase_percent: [30, 50]
+
+  - id: jahreszeitlicher-ueberblick
+    title: Wetter-Risiken im Jahresverlauf — Ueberblick
+    content: |
+      Jede Jahreszeit bringt spezifische Wetter-Risiken. Ein vorbereiteter Gaertner
+      hat die passenden Massnahmen griffbereit.
+      Fruehling (Maerz-Mai):
+      - Hauptrisiko: Spaetfrost (besonders April-Mai). 30% Wahrscheinlichkeit fuer
+        Nachtfrost bis Mitte Mai in Sueddeutschland.
+      - Sekundaer: Nasskaelte (kalte Regenphasen verzoegern Bodenaufwaermung).
+        Schwarze Mulchfolie beschleunigt Bodenerwärmung um 2-4 Wochen.
+      - Massnahmen: Vlies bereithalten, Fruehbeet nutzen, Bodenthermometer verwenden.
+      Sommer (Juni-August):
+      - Hauptrisiko: Hitzewellen (>30°C, zunehmend >35°C). Sommertrockenheit.
+      - Sekundaer: Gewitterstuerme mit Hagel (Juni-Juli Spitze), Starkregen.
+      - Massnahmen: Schattiernetze, Mulch, Tropfbewaesserung, Hagelnetze, Regentonne.
+      Herbst (September-November):
+      - Hauptrisiko: Fruehfrost (ab Oktober, regional ab September). Erster Frost
+        beendet die Saison fuer alle frostempfindlichen Kulturen schlagartig.
+      - Sekundaer: Dauerregen, Sturmtiefs. Pilzkrankheiten durch feucht-milde Bedingungen.
+      - Massnahmen: Frostempfindliche Fruechte rechtzeitig ernten (Tomate notreife
+        auf Fensterbank). Vlies ueber Spaetgemuese. Obstbaeume: Leimringe gegen Frostspanner.
+      Winter (Dezember-Februar):
+      - Hauptrisiko: Kahlfrost (Frost ohne schuetzende Schneedecke — Wurzeln erfrieren).
+      - Sekundaer: Barfrost + Wind = Austrocknung immergruener Pflanzen.
+      - Massnahmen: Mulchschicht 10-15 cm auf empfindliche Stauden, Wintervlies um
+        immergruene Kuebelpflanzen, Giessen bei frostfreiem Wetter (Immergruene!).
+      Klimawandel-Trend: Frueherer Vegetationsbeginn (+2 Wochen seit 1970), laengere
+      Hitzeperioden, haeufigere Extremniederschlaege, mildere Winter mit Kahlfrost-Risiko.
+    metadata:
+      seasons: [spring, summer, autumn, winter]
+      primary_risks: [late_frost, heat_drought, early_frost, bare_frost]
+      climate_trend: warming

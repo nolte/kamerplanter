@@ -57,7 +57,7 @@ describe('ConfirmDialog', () => {
 
   it('renders contained button for confirm action', () => {
     renderDialog({ destructive: true });
-    const confirmBtn = screen.getByRole('button', { name: /bestätigen|confirm/i });
+    const confirmBtn = screen.getByRole('button', { name: /löschen|delete/i });
     expect(confirmBtn.classList.toString()).toContain('contained');
   });
 

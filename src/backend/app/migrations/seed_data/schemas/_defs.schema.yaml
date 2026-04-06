@@ -66,7 +66,15 @@ $defs:
   phase_name:
     type: string
     enum: [germination, seedling, vegetative, flowering, flushing, dormancy, harvest,
-           sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+           sprouting, budding, fruiting, ripening, senescence, corm_ripening,
+           active_growth, winter_rest, cool_rest, summer_rest,
+           shaft_growth, sprout_formation, flowering_fruit, tuber_formation,
+           establishment, pup_establishment, pre_bloom, juvenile, climbing,
+           mature, hardening_off, recovery, bract_coloring, short_day_induction,
+           leaf_phase, dry_storage, growth_bloom, young_palm, winter_dormancy,
+           summer_dormancy, bulbil_establishment, spring_growth, autumn_growth_bloom,
+           winter_hull_change, rest_phase, rest_after_bloom, bud_formation,
+           autumn_ripening, rooting, rest]
 
   substrate_type:
     type: string
@@ -119,17 +127,20 @@ $defs:
 
   rotation_category:
     type: string
-    enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+    enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+           brassica, composite, cucurbit, grain, permanent, vegetable]
 
   plant_trait:
     type: string
     enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
            cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
-           heirloom, hybrid, f1]
+           heirloom, hybrid, f1,
+           variegated, cut_flower, fragrant, winter_hardy, late_season,
+           edible_flower, ground_cover, shade_tolerant, native, bee_friendly]
 
   pathogen_type:
     type: string
-    enum: [fungal, bacterial, viral, physiological, oomycete]
+    enum: [fungal, bacterial, viral, physiological, oomycete, protist]
 
   treatment_type:
     type: string
@@ -152,7 +163,7 @@ $defs:
 
   hardiness_zone:
     type: string
-    pattern: "^\\d{1,2}[ab]$"
+    pattern: "^\\d{1,2}[ab]?$"
 
   npk_ratio:
     type: array
@@ -191,7 +202,7 @@ $defs:
         $ref: "#/$defs/schedule_mode"
       interval_days:
         type: integer
-        minimum: 1
+        minimum: 0
       weekdays:
         type: array
         items:

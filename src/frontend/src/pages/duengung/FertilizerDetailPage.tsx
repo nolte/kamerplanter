@@ -51,6 +51,8 @@ import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAppDispatch } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
@@ -187,6 +189,7 @@ export default function FertilizerDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -292,6 +295,19 @@ export default function FertilizerDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Dynamic breadcrumbs
+  useEffect(() => {
+    if (!fertilizer) return;
+    dispatch(setBreadcrumbs([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.fertilizers', path: '/duengung/fertilizers' },
+      { label: fertilizer.product_name },
+    ]));
+  }, [fertilizer, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
   const onSave = async (data: EditFormData) => {
     if (!key) return;

@@ -50,7 +50,7 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [phaseKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [phaseKey]); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
   const generateDefaults = async () => {
     try {

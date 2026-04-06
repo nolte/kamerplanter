@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ labels.care_checklist_title }}</h1>
+    <div class="subtitle">
+        {% if target_date %}{{ labels.date }}: {{ target_date }}{% else %}{{ labels.generated }}: {{ generated_date }}{% endif %}
+    </div>
+</div>
+
+{% if not entries %}
+<div class="info-box">
+    {{ labels.no_entries }}
+</div>
+{% endif %}
+
+{% for group in urgency_groups %}
+{% if group.entries %}
+<h2 class="urgency-{{ group.urgency }}">
+    {{ group.label }} ({{ group.entries|length }})
+</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 8mm"></th>
+            <th>{{ labels.plant }}</th>
+            <th>{{ labels.species }}</th>
+            <th>{{ labels.reminder_type }}</th>
+            <th>{{ labels.due_date }}</th>
+            <th>{{ labels.location }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in group.entries %}
+        <tr>
+            <td><span class="checkbox"></span></td>
+            <td><strong>{{ entry.plant_name }}</strong></td>
+            <td><em>{{ entry.species_name|default('–', true) }}</em></td>
+            <td>{{ reminder_type_labels.get(entry.reminder_type, entry.reminder_type) }}</td>
+            <td>{{ entry.due_date|default('–', true) }}</td>
+            <td>{{ entry.location|default('–', true) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endfor %}
+
+<div class="section-spacer">
+    <h2>{{ labels.notes_section }}</h2>
+    <div class="handwritten-area">
+        <span class="label">{{ labels.handwritten_notes_hint }}</span>
+    </div>
+</div>
+
+{% endblock %}

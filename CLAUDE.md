@@ -11,9 +11,22 @@ Documentation is written in **German**; source code must be in **English only** 
 ## Repository Structure
 
 - `spec/` — Specification documents
-  - `spec/req/` — 25 functional requirements (REQ-001 through REQ-025)
-  - `spec/nfr/` — 11 non-functional requirements (NFR-001 through NFR-011)
+  - `spec/req/` — Functional requirements (REQ-001 through REQ-032)
+  - `spec/nfr/` — Non-functional requirements (NFR-001 through NFR-012)
+  - `spec/ui-nfr/` — UI non-functional requirements
   - `spec/stack.md` — Complete technology stack specification
+  - `spec/style-guides/` — Code style guides (Backend, Frontend, Helm, HA)
+  - `spec/knowledge/` — Plant & domain knowledge base
+    - `spec/knowledge/rag/` — RAG-optimized YAML chunks (8 categories)
+    - `spec/knowledge/plants/` — Plant info documents (210 species)
+    - `spec/knowledge/products/` — Fertilizer product data
+    - `spec/knowledge/nutrient-plans/` — Nutrient plan documents
+  - `spec/rag-eval/` — RAG benchmark questions & topic synonyms
+  - `spec/design/` — KAMI graphic prompts
+  - `spec/analysis/` — Review & analysis reports
+  - `spec/ha-integration/` — Home Assistant integration specs
+  - `spec/target-audiences/` — Target audience personas
+  - `spec/e2e-testcases/` — E2E test case specifications
 - `src/backend/` — Python/FastAPI backend (implemented)
 - `src/frontend/` — React/TypeScript frontend (implemented)
 
@@ -48,6 +61,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
 | REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
 | REQ-028 | Mischkultur & Companion Planting | Pflanzenplanung |
+| REQ-032 | Druckansichten & Export | Ausgabe & Dokumentation |
 
 ## Verbindliche Style Guides
 
