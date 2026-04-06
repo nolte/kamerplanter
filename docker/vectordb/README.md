@@ -1,6 +1,6 @@
 # VectorDB
 
-PostgreSQL 17 with pgvector extension for vector similarity search in the Kamerplanter Knowledge API.
+PostgreSQL 18 with pgvector extension for vector similarity search in the Kamerplanter Knowledge API.
 
 ## Purpose
 
@@ -8,8 +8,8 @@ Provides the vector store for RAG (Retrieval-Augmented Generation). The embeddin
 
 ## What's Included
 
-- PostgreSQL 17 (Debian Bookworm)
-- [pgvector](https://github.com/pgvector/pgvector) v0.8.0 — compiled from source, build tools purged after install
+- PostgreSQL 18 (Debian Bookworm)
+- [pgvector](https://github.com/pgvector/pgvector) v0.8.2 — compiled from source, build tools purged after install
 
 ## Usage
 
