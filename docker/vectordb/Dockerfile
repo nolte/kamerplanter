@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.title="kamerplanter-vectordb" \
       org.opencontainers.image.licenses="MIT"
 
 # Install pgvector extension from source — build tools are purged after install
-# hadolint ignore=DL3003,DL3008
+# hadolint ignore=DL3003,DL3008,SC2086
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
