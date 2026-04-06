@@ -18,7 +18,7 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
-import type { TaskTemplate } from '@/api/types';
+import type { TaskTemplate, WorkflowPhase } from '@/api/types';
 
 const categories = [
   'maintenance', 'watering', 'feeding', 'training', 'pest_control',
@@ -27,6 +27,10 @@ const categories = [
 
 const triggerTypes = ['manual', 'phase_change', 'time_based', 'event_based'] as const;
 const stressLevels = ['none', 'low', 'medium', 'high'] as const;
+const lifecyclePhases = [
+  'germination', 'seedling', 'vegetative', 'flowering',
+  'flushing', 'dormancy', 'harvest',
+] as const;
 const skillLevels = ['beginner', 'intermediate', 'expert'] as const;
 const timesOfDay = ['morning', 'afternoon', 'evening', 'night'] as const;
 
@@ -36,6 +40,7 @@ const schema = z.object({
   category: z.enum(categories),
   trigger_type: z.enum(triggerTypes),
   trigger_phase: z.string().nullable(),
+  workflow_phase_key: z.string().nullable(),
   days_offset: z.number().int().min(0),
   stress_level: z.enum(stressLevels),
   skill_level: z.enum(skillLevels),
@@ -55,10 +60,11 @@ interface Props {
   onClose: () => void;
   workflowKey: string;
   template?: TaskTemplate;
+  phases: WorkflowPhase[];
   onSaved: () => void;
 }
 
-export default function TaskTemplateDialog({ open, onClose, workflowKey, template, onSaved }: Props) {
+export default function TaskTemplateDialog({ open, onClose, workflowKey, template, phases, onSaved }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
@@ -71,9 +77,10 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
     resolver: zodResolver(schema),
     defaultValues: {
       name: '', instruction: '', category: 'maintenance', trigger_type: 'manual',
-      trigger_phase: null, days_offset: 0, stress_level: 'none', skill_level: 'beginner',
-      optimal_time_of_day: null, estimated_duration_minutes: null, requires_photo: false,
-      sequence_order: 0, tools_required: '', timer_duration_seconds: null, timer_label: null,
+      trigger_phase: null, workflow_phase_key: null, days_offset: 0, stress_level: 'none',
+      skill_level: 'beginner', optimal_time_of_day: null, estimated_duration_minutes: null,
+      requires_photo: false, sequence_order: 0, tools_required: '',
+      timer_duration_seconds: null, timer_label: null,
     },
   });
 
@@ -83,7 +90,9 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
         name: template.name, instruction: template.instruction,
         category: template.category as FormData['category'],
         trigger_type: template.trigger_type as FormData['trigger_type'],
-        trigger_phase: template.trigger_phase, days_offset: template.days_offset,
+        trigger_phase: template.trigger_phase,
+        workflow_phase_key: template.workflow_phase_key,
+        days_offset: template.days_offset,
         stress_level: template.stress_level as FormData['stress_level'],
         skill_level: template.skill_level as FormData['skill_level'],
         optimal_time_of_day: template.optimal_time_of_day,
@@ -96,9 +105,10 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
     } else if (open) {
       reset({
         name: '', instruction: '', category: 'maintenance', trigger_type: 'manual',
-        trigger_phase: null, days_offset: 0, stress_level: 'none', skill_level: 'beginner',
-        optimal_time_of_day: null, estimated_duration_minutes: null, requires_photo: false,
-        sequence_order: 0, tools_required: '', timer_duration_seconds: null, timer_label: null,
+        trigger_phase: null, workflow_phase_key: null, days_offset: 0, stress_level: 'none',
+        skill_level: 'beginner', optimal_time_of_day: null, estimated_duration_minutes: null,
+        requires_photo: false, sequence_order: 0, tools_required: '',
+        timer_duration_seconds: null, timer_label: null,
       });
     }
   }, [open, template, reset]);
@@ -111,6 +121,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
         await taskApi.updateTaskTemplate(template.key, {
           name: data.name, instruction: data.instruction, category: data.category,
           trigger_type: data.trigger_type, trigger_phase: data.trigger_phase,
+          workflow_phase_key: data.workflow_phase_key || null,
           days_offset: data.days_offset, stress_level: data.stress_level,
           skill_level: data.skill_level, optimal_time_of_day: data.optimal_time_of_day,
           estimated_duration_minutes: data.estimated_duration_minutes,
@@ -123,6 +134,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
         await taskApi.createTaskTemplate({
           name: data.name, instruction: data.instruction, category: data.category,
           trigger_type: data.trigger_type, trigger_phase: data.trigger_phase,
+          workflow_phase_key: data.workflow_phase_key || null,
           days_offset: data.days_offset, stress_level: data.stress_level,
           skill_level: data.skill_level, optimal_time_of_day: data.optimal_time_of_day,
           estimated_duration_minutes: data.estimated_duration_minutes,
@@ -142,8 +154,8 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEdit ? t('pages.tasks.editTaskTemplate') : t('pages.tasks.addTaskTemplate')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title">
+      <DialogTitle id="task-template-dialog-title">{isEdit ? t('pages.tasks.editTaskTemplate') : t('pages.tasks.addTaskTemplate')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
@@ -156,27 +168,44 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
             {t('pages.tasks.sectionScheduling')}
           </Typography>
           <FormSelectField name="trigger_type" control={control} label={t('pages.tasks.triggerType')} options={triggerTypes.map((v) => ({ value: v, label: t(`enums.triggerType.${v}`) }))} />
-          <FormTextField name="trigger_phase" control={control} label={t('pages.tasks.triggerPhase')} />
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormNumberField name="days_offset" control={control} label={t('pages.tasks.daysOffset')} min={0} step={1} helperText={t('pages.tasks.daysOffsetHelper')} suffix={t('common.days')} />
-            <FormNumberField name="sequence_order" control={control} label={t('pages.tasks.sequenceOrder')} min={0} step={1} helperText={t('pages.tasks.sequenceOrderHelper')} />
+          <FormSelectField name="workflow_phase_key" control={control} label={t('pages.tasks.phaseSelector')} helperText={t('pages.tasks.phaseSelectorHelper')} options={[{ value: '', label: '—' }, ...phases.map((p) => ({ value: p.key, label: p.name }))]} />
+          <FormSelectField name="trigger_phase" control={control} label={t('pages.tasks.triggerPhase')} helperText={t('pages.tasks.triggerPhaseHelper')} options={[{ value: '', label: '—' }, ...lifecyclePhases.map((v) => ({ value: v, label: t(`enums.phaseName.${v}`) }))]} />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormNumberField name="days_offset" control={control} label={t('pages.tasks.daysOffset')} min={0} step={1} helperText={t('pages.tasks.daysOffsetHelper')} suffix={t('common.days')} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormNumberField name="sequence_order" control={control} label={t('pages.tasks.sequenceOrder')} min={0} step={1} helperText={t('pages.tasks.sequenceOrderHelper')} />
+            </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormNumberField name="estimated_duration_minutes" control={control} label={t('pages.tasks.estimatedDuration')} min={1} step={1} helperText={t('pages.tasks.estimatedDurationHelper')} />
-            <FormSelectField name="optimal_time_of_day" control={control} label={t('pages.tasks.optimalTimeOfDay')} options={[{ value: '', label: '\u2014' }, ...timesOfDay.map((v) => ({ value: v, label: t(`enums.timeOfDay.${v}`) }))]} />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormNumberField name="estimated_duration_minutes" control={control} label={t('pages.tasks.estimatedDuration')} min={1} step={1} helperText={t('pages.tasks.estimatedDurationHelper')} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormSelectField name="optimal_time_of_day" control={control} label={t('pages.tasks.optimalTimeOfDay')} options={[{ value: '', label: '—' }, ...timesOfDay.map((v) => ({ value: v, label: t(`enums.timeOfDay.${v}`) }))]} />
+            </Box>
           </Box>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.tasks.sectionRequirements')}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormSelectField name="stress_level" control={control} label={t('pages.tasks.stressLevel')} options={stressLevels.map((v) => ({ value: v, label: t(`enums.stressLevel.${v}`) }))} />
-            <FormSelectField name="skill_level" control={control} label={t('pages.tasks.skillLevel')} options={skillLevels.map((v) => ({ value: v, label: t(`enums.difficultyLevel.${v}`) }))} />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormSelectField name="stress_level" control={control} label={t('pages.tasks.stressLevel')} options={stressLevels.map((v) => ({ value: v, label: t(`enums.stressLevel.${v}`) }))} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormSelectField name="skill_level" control={control} label={t('pages.tasks.skillLevel')} options={skillLevels.map((v) => ({ value: v, label: t(`enums.difficultyLevel.${v}`) }))} />
+            </Box>
           </Box>
           <FormSwitchField name="requires_photo" control={control} label={t('pages.tasks.requiresPhoto')} />
           <FormTextField name="tools_required" control={control} label={t('pages.tasks.toolsRequired')} helperText={t('pages.tasks.tagsHelper')} />
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormNumberField name="timer_duration_seconds" control={control} label={t('pages.tasks.timerDuration')} min={1} step={1} helperText={t('pages.tasks.timerDurationHelper')} />
-            <FormTextField name="timer_label" control={control} label={t('pages.tasks.timerLabel')} />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormNumberField name="timer_duration_seconds" control={control} label={t('pages.tasks.timerDuration')} min={1} step={1} helperText={t('pages.tasks.timerDurationHelper')} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 180 }}>
+              <FormTextField name="timer_label" control={control} label={t('pages.tasks.timerLabel')} />
+            </Box>
           </Box>
           <FormActions onCancel={onClose} loading={saving} saveLabel={isEdit ? t('common.save') : t('common.create')} />
         </form>

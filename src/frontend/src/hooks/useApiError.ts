@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import { isApiError, getFieldErrors, parseApiError } from '@/api/errors';
 import { useNotification } from './useNotification';
 
@@ -9,6 +10,7 @@ export function useApiError() {
 
   const handleError = useCallback(
     (error: unknown, setFieldError?: (name: string, message: string) => void) => {
+      // 1. Structured API errors (backend returned our error envelope)
       if (isApiError(error)) {
         // Map field errors to form
         if (setFieldError) {
@@ -31,22 +33,93 @@ export function useApiError() {
             notification.error(t('errors.duplicate'));
             break;
           case 'VALIDATION_ERROR':
-            notification.error(t('errors.validation'));
+            notification.error(
+              error.message
+                ? t('errors.validationWithDetail', { detail: error.message })
+                : t('errors.validation'),
+            );
             break;
           case 'INTERNAL_ERROR':
             notification.error(t('errors.server'));
             break;
           default:
-            notification.error(parseApiError(error));
+            // Use status code for unmapped error codes
+            switch (error.statusCode) {
+              case 403:
+                notification.error(t('errors.forbidden'));
+                break;
+              case 409:
+                notification.error(t('errors.conflict'));
+                break;
+              case 413:
+                notification.error(t('errors.tooLarge'));
+                break;
+              default:
+                notification.error(parseApiError(error));
+            }
         }
-      } else if (error instanceof Error && error.message === 'Network Error') {
-        notification.error(t('errors.network'));
-      } else {
-        notification.error(t('errors.unknown'));
+        return;
       }
+
+      // 2. Axios errors without structured body (e.g. 500 without JSON, CORS, timeout)
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED' || error.code === 'ERR_CANCELED') {
+          notification.error(t('errors.networkTimeout'));
+          return;
+        }
+        if (error.response) {
+          // Server responded but not with our error envelope
+          const status = error.response.status;
+          if (status === 403) {
+            notification.error(t('errors.forbidden'));
+          } else if (status === 404) {
+            notification.error(t('errors.notFound'));
+          } else if (status === 409) {
+            notification.error(t('errors.conflict'));
+          } else if (status === 413) {
+            notification.error(t('errors.tooLarge'));
+          } else if (status === 422) {
+            const detail = extractDetail(error.response.data);
+            notification.error(
+              detail
+                ? t('errors.validationWithDetail', { detail })
+                : t('errors.validation'),
+            );
+          } else if (status >= 500) {
+            notification.error(t('errors.server'));
+          } else {
+            notification.error(t('errors.unknown'));
+          }
+          return;
+        }
+        // No response at all — true network error
+        notification.error(t('errors.network'));
+        return;
+      }
+
+      // 3. Plain Error with "Network Error" message (legacy axios pattern)
+      if (error instanceof Error && error.message === 'Network Error') {
+        notification.error(t('errors.network'));
+        return;
+      }
+
+      notification.error(t('errors.unknown'));
     },
     [t, notification],
   );
 
   return { handleError };
+}
+
+/** Extract a human-readable detail string from an unstructured error response body. */
+function extractDetail(data: unknown): string | null {
+  if (typeof data === 'string' && data.length > 0 && data.length < 200) {
+    return data;
+  }
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.detail === 'string') return obj.detail;
+    if (typeof obj.message === 'string') return obj.message;
+  }
+  return null;
 }

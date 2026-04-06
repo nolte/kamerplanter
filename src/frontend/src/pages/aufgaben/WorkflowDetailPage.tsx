@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -34,6 +34,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Collapse from '@mui/material/Collapse';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -63,9 +64,12 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as activityApi from '@/api/endpoints/activities';
 import * as speciesApi from '@/api/endpoints/species';
-import type { WorkflowTemplate, TaskTemplate, Activity } from '@/api/types';
+import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase } from '@/api/types';
 import type { WorkflowExecutionEnriched } from '@/api/endpoints/tasks';
 import TaskTemplateDialog from './TaskTemplateDialog';
+import WorkflowPhaseDialog from './WorkflowPhaseDialog';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import Autocomplete from '@mui/material/Autocomplete';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -113,12 +117,19 @@ export default function WorkflowDetailPage() {
   const [executions, setExecutions] = useState<WorkflowExecutionEnriched[]>([]);
   const [hideInactive, setHideInactive] = useState(true);
 
+  // Workflow phases
+  const [phases, setPhases] = useState<WorkflowPhase[]>([]);
+  const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const [editPhase, setEditPhase] = useState<WorkflowPhase | undefined>(undefined);
+  const [deletePhaseKey, setDeletePhaseKey] = useState<string | null>(null);
+
   // Add-from-catalog dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addTargetPhase, setAddTargetPhase] = useState<string>('');
   const [addTargetPhaseDisplay, setAddTargetPhaseDisplay] = useState('');
   const [addTargetPhaseDays, setAddTargetPhaseDays] = useState(0);
   const [addTargetPhaseStress, setAddTargetPhaseStress] = useState('');
+  const [addTargetPhaseKey, setAddTargetPhaseKey] = useState<string>('');
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -153,14 +164,16 @@ export default function WorkflowDetailPage() {
     if (!key) return;
     setLoading(true);
     try {
-      const [wf, tts, execs] = await Promise.all([
+      const [wf, tts, execs, phs] = await Promise.all([
         taskApi.getWorkflow(key),
         taskApi.listTaskTemplates(key),
         taskApi.listWorkflowExecutions(key),
+        taskApi.listWorkflowPhases(key),
       ]);
       setWorkflow(wf);
       setTemplates(tts);
       setExecutions(execs);
+      setPhases(phs);
       reset({
         name: wf.name,
         description: wf.description,
@@ -263,31 +276,36 @@ export default function WorkflowDetailPage() {
     }
   };
 
-  // Group templates by phase for the accordion view
+  // Group templates by workflow phase
   const phaseGroups = useMemo(() => {
-    const groups: { phase: string; displayName: string; durationDays: number; stressTolerance: string; templates: TaskTemplate[] }[] = [];
-    const phaseMap = new Map<string, typeof groups[0]>();
-    for (const tt of templates) {
-      const phase = tt.trigger_phase ?? '_unassigned';
-      if (!phaseMap.has(phase)) {
-        const group = {
-          phase,
-          displayName: tt.phase_display_name || (phase === '_unassigned' ? t('pages.tasks.unassignedPhase') : phase),
-          durationDays: tt.phase_duration_days || 0,
-          stressTolerance: tt.phase_stress_tolerance || '',
-          templates: [] as TaskTemplate[],
-        };
-        phaseMap.set(phase, group);
-        groups.push(group);
-      }
-      phaseMap.get(phase)!.templates.push(tt);
+    const groups = phases
+      .sort((a, b) => a.phase_order - b.phase_order)
+      .map((phase) => ({
+        phaseKey: phase.key,
+        phase: phase.trigger_phase ?? phase.key,
+        displayName: phase.name,
+        durationDays: phase.duration_days,
+        stressTolerance: phase.stress_tolerance,
+        templates: templates.filter((tt) => tt.workflow_phase_key === phase.key),
+      }));
+    // Add unassigned group for templates without a phase
+    const unassigned = templates.filter((tt) => !tt.workflow_phase_key);
+    if (unassigned.length > 0 || phases.length === 0) {
+      groups.push({
+        phaseKey: '_unassigned',
+        phase: '_unassigned',
+        displayName: t('pages.tasks.unassignedPhase'),
+        durationDays: 0,
+        stressTolerance: '',
+        templates: unassigned,
+      });
     }
     // Sort templates within each group by days_offset
     for (const g of groups) {
       g.templates.sort((a, b) => a.days_offset - b.days_offset);
     }
     return groups;
-  }, [templates, t]);
+  }, [phases, templates, t]);
 
   // Filtered species options based on active filter
   const filteredSpeciesOptions = useMemo(() => {
@@ -354,11 +372,44 @@ export default function WorkflowDetailPage() {
     }
   }, [allActivities.length, handleError]);
 
-  const handleOpenAddFromCatalog = useCallback((phase: string, phaseDisplay: string, phaseDays: number, phaseStress: string) => {
-    setAddTargetPhase(phase);
-    setAddTargetPhaseDisplay(phaseDisplay);
-    setAddTargetPhaseDays(phaseDays);
-    setAddTargetPhaseStress(phaseStress);
+  const handleMovePhase = useCallback(async (phaseKey: string, direction: number) => {
+    const sorted = [...phases].sort((a, b) => a.phase_order - b.phase_order);
+    const idx = sorted.findIndex((p) => p.key === phaseKey);
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+    // Swap phase_order values
+    const reordered = sorted.map((p, i) => {
+      if (i === idx) return { key: p.key, phase_order: sorted[targetIdx].phase_order };
+      if (i === targetIdx) return { key: p.key, phase_order: sorted[idx].phase_order };
+      return { key: p.key, phase_order: p.phase_order };
+    });
+    try {
+      const updated = await taskApi.reorderPhases(reordered);
+      setPhases(updated);
+    } catch (err) {
+      handleError(err);
+    }
+  }, [phases, handleError]);
+
+  const handleDeletePhase = useCallback(async () => {
+    if (!deletePhaseKey) return;
+    try {
+      await taskApi.deleteWorkflowPhase(deletePhaseKey);
+      notification.success(t('pages.tasks.phaseDeleted'));
+      setDeletePhaseKey(null);
+      load();
+    } catch (err) {
+      handleError(err);
+    }
+  }, [deletePhaseKey, load, handleError, notification, t]);
+
+  const handleOpenAddFromCatalog = useCallback((phaseKey: string) => {
+    const phase = phases.find((p) => p.key === phaseKey);
+    setAddTargetPhaseKey(phaseKey);
+    setAddTargetPhase(phase?.trigger_phase ?? phaseKey);
+    setAddTargetPhaseDisplay(phase?.name ?? t('pages.tasks.unassignedPhase'));
+    setAddTargetPhaseDays(phase?.duration_days ?? 0);
+    setAddTargetPhaseStress(phase?.stress_tolerance ?? '');
     setSelectedActivity(null);
     setAddDayOffset(0);
     setActivityFilter('');
@@ -366,7 +417,7 @@ export default function WorkflowDetailPage() {
     setExpandedDesc(null);
     setAddDialogOpen(true);
     loadActivities();
-  }, [loadActivities]);
+  }, [phases, loadActivities, t]);
 
   const handleAddFromCatalog = useCallback(async () => {
     if (!selectedActivity || !key) return;
@@ -386,6 +437,7 @@ export default function WorkflowDetailPage() {
         phase_display_name: addTargetPhaseDisplay,
         phase_duration_days: addTargetPhaseDays,
         phase_stress_tolerance: addTargetPhaseStress,
+        workflow_phase_key: addTargetPhaseKey !== '_unassigned' ? addTargetPhaseKey : null,
         days_offset: addDayOffset,
         stress_level: act.stress_level,
         skill_level: act.skill_level,
@@ -402,7 +454,7 @@ export default function WorkflowDetailPage() {
     } catch (err) {
       handleError(err);
     }
-  }, [selectedActivity, key, addTargetPhase, addTargetPhaseDisplay, addTargetPhaseDays, addTargetPhaseStress, addDayOffset, templates, load, handleError, notification, t]);
+  }, [selectedActivity, key, addTargetPhase, addTargetPhaseDisplay, addTargetPhaseDays, addTargetPhaseStress, addTargetPhaseKey, addDayOffset, templates, load, handleError, notification, t]);
 
   // Filter activities for the dialog
   const filteredActivities = useMemo(() => {
@@ -554,6 +606,21 @@ export default function WorkflowDetailPage() {
                     </TableRow>
                   )}
                   <TableRow><TableCell component="th">{t('pages.tasks.taskTemplates')}</TableCell><TableCell>{templates.length}</TableCell></TableRow>
+                  {workflow.phase_sequence_key && (
+                    <TableRow>
+                      <TableCell component="th">{t('pages.phaseSequences.phaseSequence')}</TableCell>
+                      <TableCell>
+                        <Button
+                          component={RouterLink}
+                          to={`/phasen/ablaeufe/${workflow.phase_sequence_key}`}
+                          size="small"
+                          startIcon={<AccountTreeIcon />}
+                        >
+                          {t('pages.phaseSequences.viewPhaseSequence')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -681,6 +748,14 @@ export default function WorkflowDetailPage() {
             <Button
               variant="outlined"
               size="small"
+              startIcon={<AddIcon />}
+              onClick={() => { setEditPhase(undefined); setPhaseDialogOpen(true); }}
+            >
+              {t('pages.tasks.createPhase')}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
               startIcon={<BuildOutlinedIcon />}
               onClick={() => { setEditTemplate(undefined); setTemplateDialogOpen(true); }}
             >
@@ -691,11 +766,7 @@ export default function WorkflowDetailPage() {
               startIcon={<AddIcon />}
               onClick={() => {
                 const first = phaseGroups[0];
-                if (first) {
-                  handleOpenAddFromCatalog(first.phase, first.displayName, first.durationDays, first.stressTolerance);
-                } else {
-                  handleOpenAddFromCatalog('_unassigned', t('pages.tasks.unassignedPhase'), 0, '');
-                }
+                handleOpenAddFromCatalog(first?.phaseKey ?? '_unassigned');
               }}
             >
               {t('pages.tasks.addActivityFromCatalog')}
@@ -711,7 +782,7 @@ export default function WorkflowDetailPage() {
           {phaseGroups.map((group) => {
             const enabledCount = group.templates.filter((tt) => tt.enabled).length;
             return (
-              <Accordion key={group.phase} defaultExpanded>
+              <Accordion key={group.phaseKey} defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -732,6 +803,30 @@ export default function WorkflowDetailPage() {
                         variant="outlined"
                         color={stressColors[group.stressTolerance] ?? 'default'}
                       />
+                    )}
+                    {group.phaseKey !== '_unassigned' && (
+                      <Box sx={{ ml: 'auto', display: 'flex', gap: 0 }}>
+                        <Tooltip title={t('pages.tasks.movePhaseUp')}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMovePhase(group.phaseKey, -1); }}>
+                            <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('pages.tasks.movePhaseDown')}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMovePhase(group.phaseKey, 1); }}>
+                            <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('pages.tasks.editPhase')}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditPhase(phases.find((p) => p.key === group.phaseKey)); setPhaseDialogOpen(true); }}>
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('pages.tasks.deletePhase')}>
+                          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeletePhaseKey(group.phaseKey); }}>
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     )}
                   </Box>
                 </AccordionSummary>
@@ -855,7 +950,7 @@ export default function WorkflowDetailPage() {
                     <Button
                       size="small"
                       startIcon={<AddIcon />}
-                      onClick={() => handleOpenAddFromCatalog(group.phase, group.displayName, group.durationDays, group.stressTolerance)}
+                      onClick={() => handleOpenAddFromCatalog(group.phaseKey)}
                     >
                       {t('pages.tasks.addActivityFromCatalog')}
                     </Button>
@@ -1187,6 +1282,7 @@ export default function WorkflowDetailPage() {
         onClose={() => { setTemplateDialogOpen(false); setEditTemplate(undefined); }}
         workflowKey={key ?? ''}
         template={editTemplate}
+        phases={phases}
         onSaved={() => { setTemplateDialogOpen(false); setEditTemplate(undefined); load(); }}
       />
 
@@ -1205,6 +1301,25 @@ export default function WorkflowDetailPage() {
         message={t('common.deleteConfirm', { name: templates.find((t) => t.key === deleteTemplateKey)?.name ?? '' })}
         onConfirm={onDeleteTemplate}
         onCancel={() => setDeleteTemplateKey(null)}
+        destructive
+      />
+
+      {/* Phase Dialog */}
+      <WorkflowPhaseDialog
+        open={phaseDialogOpen}
+        onClose={() => setPhaseDialogOpen(false)}
+        workflowKey={key ?? ''}
+        phase={editPhase}
+        onSaved={() => { setPhaseDialogOpen(false); load(); }}
+      />
+
+      {/* Delete Phase Confirm */}
+      <ConfirmDialog
+        open={!!deletePhaseKey}
+        title={t('pages.tasks.deletePhase')}
+        message={t('pages.tasks.deletePhaseConfirm', { name: phases.find((p) => p.key === deletePhaseKey)?.name ?? '' })}
+        onConfirm={handleDeletePhase}
+        onCancel={() => setDeletePhaseKey(null)}
         destructive
       />
     </Box>
