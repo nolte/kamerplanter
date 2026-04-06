@@ -50,7 +50,7 @@ Status: Produktionsreif Priorität: Kritisch
 │                    AI / RAG LAYER (optional)                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
 │  │   pgvector   │  │  Embedding   │  │ LLM Adapter  │         │
-│  │ PostgreSQL17 │  │ Service(ONNX)│  │ (Anthropic / │         │
+│  │ PostgreSQL18 │  │ Service(ONNX)│  │ (Anthropic / │         │
 │  │  VectorDB    │  │   E5-base    │  │ Ollama/vLLM) │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
@@ -613,7 +613,7 @@ Kamerplanter enthält eine optionale KI-Komponente zur Beantwortung von Pflanzen
 │  ┌────────────────┐    ┌────────────────────┐                     │
 │  │   Embedding    │───▶│   pgvector Search  │                     │
 │  │   Service      │    │   (Cosine Sim.)    │                     │
-│  │   (ONNX RT)    │    │   PostgreSQL 17    │                     │
+│  │   (ONNX RT)    │    │   PostgreSQL 18    │                     │
 │  └────────────────┘    └────────┬───────────┘                     │
 │                                 │ Top-K Chunks                     │
 │                                 ▼                                  │
@@ -633,12 +633,12 @@ Alle KI-Komponenten sind **optional** — das System funktioniert vollständig o
 
 #### 3.4.1 VectorDB (PostgreSQL + pgvector)
 
-- **Basis**: PostgreSQL >= 17 (Bookworm)
-- **Extension**: pgvector 0.8.0
+- **Basis**: PostgreSQL >= 18 (Bookworm)
+- **Extension**: pgvector 0.8.2
 - **Embedding-Dimensionen**: 768 (multilingual-e5-base, siehe ADR-006)
 - **Index**: HNSW mit Cosine-Distanz (`vector_cosine_ops`)
 - **Hybrid Search**: Reciprocal Rank Fusion (RRF) — kombiniert Vektor-Similarity (Cosine) mit Full-Text-Search (BM25 via PostgreSQL `tsvector`). Default-Gewichtung: 0.5 Vektor / 0.5 Text
-- **Docker**: Custom Image (`docker/vectordb/Dockerfile`) basierend auf `postgres:17-bookworm`
+- **Docker**: Custom Image (`docker/vectordb/Dockerfile`) basierend auf `postgres:18-bookworm`
 - **Docker Compose Profile**: `vectordb` (opt-in)
 
 **Schema**:

@@ -37,7 +37,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 | Frontend | React 19, TypeScript 5.9, MUI 7, Redux Toolkit, Vite 6 |
 | Knowledge Service | FastAPI, pgvector, ONNX embeddings, cross-encoder reranking |
 | Primary DB | ArangoDB 3.11+ (documents + graph) |
-| Vector DB | PostgreSQL 17 + pgvector |
+| Vector DB | PostgreSQL 18 + pgvector |
 | Time-Series DB | TimescaleDB 2.13+ |
 | Cache / Queue | Redis 7.2+ (Valkey) |
 | Smart Home | Home Assistant custom integration |
