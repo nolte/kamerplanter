@@ -25,6 +25,7 @@ import type { GrowthPhase, PhaseSequenceEntry } from '@/api/types';
 interface Props {
   lifecycleKey: string;
   phaseSequenceKey?: string | null;
+  phaseSequenceName?: string | null;
 }
 
 /** Unified row type for both legacy GrowthPhase and new PhaseSequenceEntry. */
@@ -79,7 +80,7 @@ function fromSequenceEntry(entry: PhaseSequenceEntry, lang: string): PhaseRow {
   };
 }
 
-export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey }: Props) {
+export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey, phaseSequenceName }: Props) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const notification = useNotification();
@@ -193,17 +194,18 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey 
   return (
     <Box sx={{ mt: 3 }}>
       {isManaged && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <AlertTitle>{t('pages.phaseSequences.phaseSequence')}</AlertTitle>
-          {t('pages.phases.managedBySequence')}
+        <Alert severity="info" sx={{ mb: 2 }} action={
           <Button
             component={RouterLink}
             to={`/phasen/ablaeufe/${phaseSequenceKey}`}
             size="small"
-            sx={{ ml: 1 }}
+            color="inherit"
           >
             {t('common.open')}
           </Button>
+        }>
+          <AlertTitle>{phaseSequenceName || t('pages.phaseSequences.phaseSequence')}</AlertTitle>
+          {t('pages.phases.managedBySequence')}
         </Alert>
       )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -241,6 +243,36 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey 
           />
         )}
       />
+
+      {/* Legend */}
+      {rows.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.5, px: 1 }}>
+          {rows.some((r) => r.isTerminal) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" />
+              <Typography variant="caption" color="text.secondary">
+                {t('pages.growthPhases.isTerminalHelper')}
+              </Typography>
+            </Box>
+          )}
+          {rows.some((r) => r.allowsHarvest) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Chip label={t('pages.growthPhases.allowsHarvest')} size="small" color="success" />
+              <Typography variant="caption" color="text.secondary">
+                {t('pages.growthPhases.allowsHarvestHelper')}
+              </Typography>
+            </Box>
+          )}
+          {rows.some((r) => r.isOverridden) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Chip label={t('pages.phaseSequences.overrideIndicator')} size="small" variant="outlined" color="info" />
+              <Typography variant="caption" color="text.secondary">
+                {t('pages.growthPhases.overriddenHelper')}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
 
       {!isManaged && (
         <>

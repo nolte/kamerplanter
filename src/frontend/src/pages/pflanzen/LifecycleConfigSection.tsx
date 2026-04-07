@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -223,25 +220,11 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
         />
       </Box>
 
-      {/* Phase Sequence Link */}
-      {phaseSequence && (
-        <Box sx={{ mt: 2 }}>
-          <Button
-            component={RouterLink}
-            to={`/phasen/ablaeufe/${phaseSequence.key}`}
-            variant="outlined"
-            size="small"
-            startIcon={<AccountTreeIcon />}
-          >
-            {t('pages.phaseSequences.phaseSequence')}: {phaseSequence.display_name || phaseSequence.name}
-          </Button>
-        </Box>
-      )}
-
       {lifecycle && (
         <GrowthPhaseListSection
           lifecycleKey={lifecycle.key}
           phaseSequenceKey={lifecycle.phase_sequence_key ?? phaseSequence?.key}
+          phaseSequenceName={phaseSequence?.display_name || phaseSequence?.name}
         />
       )}
     </Box>
