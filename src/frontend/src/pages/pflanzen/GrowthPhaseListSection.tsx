@@ -4,6 +4,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -194,17 +195,12 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
   return (
     <Box sx={{ mt: 3 }}>
       {isManaged && (
-        <Alert severity="info" sx={{ mb: 2 }} action={
-          <Button
-            component={RouterLink}
-            to={`/phasen/ablaeufe/${phaseSequenceKey}`}
-            size="small"
-            color="inherit"
-          >
-            {t('common.open')}
-          </Button>
-        }>
-          <AlertTitle>{phaseSequenceName || t('pages.phaseSequences.phaseSequence')}</AlertTitle>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <AlertTitle>
+            <Link component={RouterLink} to={`/phasen/ablaeufe/${phaseSequenceKey}`} underline="hover" color="inherit">
+              {phaseSequenceName || t('pages.phaseSequences.phaseSequence')}
+            </Link>
+          </AlertTitle>
           {t('pages.phases.managedBySequence')}
         </Alert>
       )}
