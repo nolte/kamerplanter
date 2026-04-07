@@ -59,7 +59,8 @@ export default function FormNumberField<T extends FieldValues>({
           helperText={error?.message ?? helperText}
           fullWidth
           autoFocus={autoFocus}
-          sx={{ mb: 2 }}
+          margin="dense"
+          sx={{ mb: 1.5 }}
           inputProps={{ min, max, step: step ?? 'any', inputMode: inputMode ?? 'decimal' }}
           InputProps={adornment ? { endAdornment: adornment } : undefined}
           data-testid={`form-field-${name}`}
