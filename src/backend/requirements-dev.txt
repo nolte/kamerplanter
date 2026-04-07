@@ -126,7 +126,7 @@ pygments==2.20.0
     # via pytest
 pyjwt==2.12.1
     # via python-arango
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   kamerplanter-backend (pyproject.toml)
     #   pytest-asyncio
@@ -193,7 +193,7 @@ urllib3==2.6.3
     # via
     #   python-arango
     #   requests
-uvicorn==0.43.0
+uvicorn==0.44.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
