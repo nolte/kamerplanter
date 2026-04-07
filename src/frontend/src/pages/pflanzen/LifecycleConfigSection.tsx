@@ -66,13 +66,12 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    // Load PhaseSequence in parallel (non-blocking)
-    phaseSequenceApi
+    const psPromise = phaseSequenceApi
       .getSpeciesPhaseSequence(speciesKey)
-      .then(setPhaseSequence)
-      .catch(() => setPhaseSequence(null));
+      .then((ps) => { setPhaseSequence(ps); return ps; })
+      .catch(() => { setPhaseSequence(null); return null; });
 
-    phasesApi
+    const lcPromise = phasesApi
       .getLifecycleConfig(speciesKey)
       .then((lc) => {
         setLifecycle(lc);
@@ -87,8 +86,9 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           critical_day_length_hours: lc.critical_day_length_hours,
         });
       })
-      .catch(() => setExists(false))
-      .finally(() => setLoading(false));
+      .catch(() => setExists(false));
+
+    Promise.all([psPromise, lcPromise]).finally(() => setLoading(false));
   }, [speciesKey, reset]);
 
   const onSubmit = async (data: FormData) => {
