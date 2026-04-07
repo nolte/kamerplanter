@@ -1,0 +1,489 @@
+---
+title: Weitere Pilzkrankheiten erkennen und behandeln
+language: de
+category: diagnostik
+tags: [pilzkrankheiten, rost, septoria, alternaria, verticillium, fusarium, kraeusels, sternrussutau, cercospora, schwarzfaeule, monilia, pilz, fungizid, bodenpilz, welkekrankheit, freiland, gemuese, obstbau, weinbau, rosen, zierpflanzen]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: rost-pilz
+    title: Rost (Puccinia und verwandte Gattungen) erkennen und bekaempfen
+    content: |
+      Rost ist eine der weltweit verbreitetsten Pilzkrankheiten und
+      befallt Rosen, Malven, Bohnen, Lauch, Knoblauch, Getreide und
+      viele weitere Pflanzen. Jede Rostart ist wirtsspezifisch —
+      Bohnenrost befaellt keine Rosen und umgekehrt.
+      Symptome:
+      - Auf der Blattoberseite: kleine gelbliche bis orange-braune
+        Flecken oder Punkte
+      - Auf der Blattunterseite: orangefarbene, rostbraune bis
+        dunkelbraune Sporenpusteln (Uredosporen) — das ist das
+        eindeutige Erkennungsmerkmal
+      - Im Krankheitsverlauf verfaerben sich befallene Blaetter
+        gelb, trocknen ein und fallen vorzeitig ab
+      - Lauch und Knoblauch: gelb-orange Streifen auf Blattflaechen,
+        spaeter orange Pusteln
+      - Bohnen: orangefarbene Pusteln auf Blatt- und Stengelflaechen
+      Erreger: Puccinia spp., Uromyces spp., Phragmidium spp. (Rosen),
+      Uromyces appendiculatus (Bohnen). Viele Rostpilze benoetigen zwei
+      verschiedene Wirtspflanzen (Wirtswechsel) um ihren Lebenszyklus
+      zu vollenden.
+      Beguenstigende Bedingungen:
+      - Wechselfeuchtes Wetter mit feuchten Naechten und warmen Tagen
+      - Temperaturen 15-22°C bei hoher Luftfeuchtigkeit
+      - Blattnaesse durch Tau, Regen oder Beregnung von oben
+      - Dichter Pflanzenstand mit schlechter Luftzirkulation
+      - Geschwaechtete Pflanzen durch Naehrstoffmangel
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen und im Restmuell entsorgen
+        (NICHT kompostieren — Sporen ueberleben)
+      - Pflanzflaeche unter den Pflanzen gruendlich reinigen
+      - Schwefelhaltige Fungizide (Netzschwefel, bio-zugelassen) —
+        wirkt vorbeugend und bei leichtem Befall, nicht bei >28°C
+      - Kupferpraeparate als Alternative (bio-zugelassen)
+      - Bei starkem Befall: zugelassene Fungizide auf Trifloxystrobin-
+        oder Tebuconazol-Basis (konventionell)
+      Vorbeugung:
+      - Nur von unten bewaessern (Tropfbewaesserung), nie von oben
+      - Morgens giessen damit Blaetter schnell abtrocknen
+      - Pflanzenabstaende einhalten fuer gute Luftzirkulation
+      - Resistente Sorten waehlen (z.B. rostresistente Rosensorten)
+      - Wirtswechsel-Hosts entfernen: bei Getreiderost den Berberitze-
+        Strauch aus der Naehe entfernen (Zwischenwirt)
+      - Befallenes Pflanzenmaterial nicht kompostieren
+    metadata:
+      pathogen: rust
+      genus: Puccinia
+      environment_preference: warm_moist_nights
+      host_plants: [Rosa spp., Phaseolus vulgaris, Allium porrum, Allium sativum, Malva spp., Getreide]
+      difficulty: moderate
+
+  - id: septoria-blattflecken-tomate
+    title: Septoria-Blattflecken (Septoria lycopersici) bei Tomaten erkennen
+    content: |
+      Septoria-Blattflecken sind nach der Kraut- und Braunfaeule die
+      haeufigste Pilzkrankheit an Tomaten im Freiland und Gewachshaus.
+      Die Krankheit beginnt an den aeltesten, unteren Blaettern und
+      arbeitet sich nach oben vor.
+      Symptome:
+      - Kleine, runde bis ovale Flecken (2-4 mm) auf Blaettern
+      - Typisch: dunkler brauner Rand mit hellem, cremefarbenem bis
+        grauem Zentrum — wie ein Zielscheibenmuster im Kleinen
+      - Im hellen Zentrum oft kleine schwarze Pyknidie (Sporengefaesse)
+        mit Lupe erkennbar
+      - Befallene Blaetter vergilben und sterben ab — Pflanze
+        "kahlkoepft" von unten nach oben
+      - Stengel und Bluetenstiele koennen ebenfalls befallen werden
+      - Fruechte bleiben in der Regel frei
+      Erreger: Septoria lycopersici — wirtsspezifisch fuer Tomate und
+      verwandte Nachtschatten.
+      Beguenstigende Bedingungen:
+      - Warmes, feuchtes Wetter (20-25°C bei hoher Luftfeuchte)
+      - Blattnaesse durch Regen oder Beregnung von oben
+      - Dichter Bestand, schlechte Luftzirkulation
+      - Erreger ueberwintert auf Pflanzenresten und Unkraeutern
+        (z.B. Schwarzem Nachtschatten)
+      Sofortmassnahmen:
+      - Befallene Blaetter entfernen — regelmaessig ausgeizen und
+        untere Blaetter weit zurueckschneiden fuer Luftzirkulation
+      - Pflanzenstuecke sofort vom Boden entfernen
+      - Kupferpraeparate (bio-zugelassen, vorbeugend bei naessem Wetter)
+      - Azoxystrobin- oder Mancozeb-haltige Mittel bei starkem Befall
+      Vorbeugung:
+      - Mulch unter den Pflanzen verhindert Sporenaufspritzung vom Boden
+      - Nicht von oben bewaessern — Tropfbewaesserung verwenden
+      - Untere Blaetter regelmaessig entfernen (Luft unten verbessern)
+      - Fruchtfolge einhalten: mindestens 2-3 Jahre Pause fuer Nachtschatten
+      - Pflanzreste im Herbst gruendlich entfernen, nicht kompostieren
+      - Resistente oder tolerante Tomatensorten bevorzugen
+    metadata:
+      pathogen: septoria_leaf_spot
+      species: Septoria lycopersici
+      environment_preference: warm_wet
+      host_plants: [Solanum lycopersicum]
+      difficulty: moderate
+
+  - id: alternaria-blattflecken
+    title: Alternaria-Blattflecken (Duerre-Fleckenkrankheit) bei Tomate, Kartoffel und Moehre
+    content: |
+      Alternaria (auch Duerre-Fleckenkrankheit oder "Early Blight") ist
+      eine haeufige Pilzkrankheit die vor allem Tomaten, Kartoffeln und
+      Moehren befaellt. Das charakteristische Merkmal sind konzentrische
+      Ringe in den Flecken — auch als "Target Spot" oder Zielscheibenmuster
+      bekannt.
+      Symptome:
+      - Braune bis schwarze Flecken mit konzentrischen Ringen (Zielscheibe)
+      - Flecken von gelbem Hof umgeben
+      - Beginnt an aelteren, unteren Blaettern und breitet sich nach oben aus
+      - Tomate: Flecken auch auf Stengeln und Fruechten, eingesunkene
+        schwarze Flecken am Stielansatz der Frucht ("Stielansatzfaeule")
+      - Kartoffel: aehnliche Blattsymptome, Knollen mit trockenen dunklen
+        Stellen (Alternaria solani)
+      - Moehre: Alternaria dauci verursacht schwarze Flecken an
+        Blattspitzen und -raendern, Blaetter sterben vorzeitig ab
+      Erreger: Alternaria solani (Tomate, Kartoffel), Alternaria dauci
+      (Moehre), Alternaria alternata (viele Wirtspflanzen). Schwaeche-
+      Erreger — befaellt bevorzugt gestresste oder naehrstoffgeschwaechtze
+      Pflanzen.
+      Beguenstigende Bedingungen:
+      - Warmes, feuchtes Wetter (24-29°C optimal)
+      - Blattnaesse von Regen oder Taufall
+      - Pflanzen mit Naehrstoffmangel (besonders Kalium, Calcium)
+      - Sporen ueberleben auf Pflanzresten und im Boden
+      Sofortmassnahmen:
+      - Befallene Blaetter und Stengel entfernen
+      - Duengung ueberpruefen: ausreichend Kalium und Calcium sicherstellen
+      - Kupferpraeparate oder Azoxystrobin-Fungizide anwenden
+      - Boden-Mulch verhindert Sporenaufspritzung
+      Vorbeugung:
+      - Fruchtfolge: 2-3 Jahre Abstand fuer die jeweilige Wirtspflanze
+      - Pflanzen gut ernaehren (Kali-Mangel foerdert Alternaria-Befall)
+      - Nicht von oben bewaessern
+      - Pflanzreste vollstaendig entfernen im Herbst
+      - Resistente Tomatensorten waehlen
+    metadata:
+      pathogen: alternaria_blight
+      species: [Alternaria solani, Alternaria dauci]
+      environment_preference: warm_wet
+      host_plants: [Solanum lycopersicum, Solanum tuberosum, Daucus carota]
+      difficulty: moderate
+
+  - id: verticillium-welke
+    title: Verticillium-Welke erkennen — einseitiges Welken bei Tomate, Erdbeere, Ahorn
+    content: |
+      Die Verticillium-Welke ist eine bodenbuertige Pilzkrankheit die
+      ueber die Wurzeln eindringt und die Leitgefaesse der Pflanze
+      (Xylem) verstopft. Das charakteristischste Merkmal ist das
+      einseitige oder abschnittsweise Welken ganzer Triebe.
+      Symptome:
+      - Einseitiges Welken: ein Ast oder eine Seite der Pflanze welkt,
+        waehrend der Rest noch gesund aussieht
+      - Welke bei feuchtwarmen Tagen, Erholung nachts — spaeter kein
+        Erholen mehr moeglich
+      - Blaetter vergilben und sterben ab, oft sektorfoermig
+      - Beim Laengsschnitt durch den Stengel: braune Verfaerbung der
+        Leitgefaesse (Gefaessbuendel) sichtbar — wichtiges Unterscheidungs-
+        merkmal zu anderen Ursachen
+      - Tomate und Paprika: V-foermige gelbe Flecken auf Blaettern, oft
+        an einer Blattseite beginnend
+      - Erdbeere: Blaetter welken und roeten sich, Pflanze kuemmert
+      - Ahorn und Zierpflanzen: ganze Aeste sterben ab ("Zweigsterben")
+      Erreger: Verticillium dahliae, Verticillium albo-atrum.
+      Verticillium befaellt sehr viele Pflanzenarten: Tomate, Paprika,
+      Aubergine, Erdbeere, Kartoffel, Gurke, Sonnenblume, Ahorn,
+      Rosen, Chrysantheme, viele Zimmer- und Gartenstauden.
+      Verticillium ist KEIN Wasserstressproblem — auch gleichmaessig
+      gewaesserte Pflanzen koennen befallen sein.
+      Beguenstigende Bedingungen:
+      - Kuehl-feuchte Boeden (15-25°C Bodentemperatur)
+      - Verdichtete, schlecht drainierte Boeden
+      - Vorschaedigungen an den Wurzeln (Nematoden, Verletzungen)
+      - Verticillium-Dauersporen (Mikrosklerotien) ueberleben jahrelang
+        im Boden, auch ohne Wirtspflanze
+      Massnahmen:
+      - Befallene Pflanzen entfernen und entsorgen (NICHT kompostieren)
+      - Bodenaustausch oder Bodenentseuchung bei starkem Befall
+      - Fruchtfolge mit nicht empfaenglichen Pflanzen (Getreide, Zwiebeln)
+      - Resistente Sorten verwenden (z.B. VF-Tomatensorten — V steht
+        fuer Verticillium-Resistenz)
+      - Pfropfen auf Verticillium-resistente Unterlagen bei Tomate
+      - Boden warmhalten — Verticillium ist ein Kuehl-Pilz
+      Vorbeugung: Fruchtfolge ist die effektivste Massnahme. Einmal
+      stark befallene Beete mindestens 5-7 Jahre frei von empfaenglichen
+      Pflanzen lassen.
+    metadata:
+      pathogen: verticillium_wilt
+      species: [Verticillium dahliae, Verticillium albo-atrum]
+      environment_preference: cool_moist_soil
+      host_plants: [Solanum lycopersicum, Capsicum annuum, Fragaria x ananassa, Acer spp., Rosa spp.]
+      vascular_disease: true
+      difficulty: advanced
+
+  - id: fusarium-welke
+    title: Fusarium-Welke erkennen — braune Leitbuendel und rasches Welken
+    content: |
+      Fusarium-Welke ist eine der gefaehrlichsten bodenbuertigten
+      Pilzkrankheiten und befaellt Tomaten, Gurken, Basilikum, Cannabis,
+      Bananen und viele weitere Pflanzen. Der Erreger dringt ueber die
+      Wurzeln ein und verstopft die Wasserleitgefaesse.
+      Symptome:
+      - Plotzliches, rasches Welken ganzer Pflanzen oder Aeste —
+        haeufig starker als bei Verticillium
+      - Typisch: Welken beginnt oft auf einer Seite oder an unteren Blaettern
+      - Beim Laengsschnitt durch den Stengel: braune bis rotbraune
+        Verfaerbung der Leitgefaesse (Gefaessbuendel) — eindeutiges Zeichen
+      - Stengelbasis oft rotbraun verfaerbt und eingeschnuert
+      - Blaetter vergilben und vertrocknen, ohne abzufallen
+      - Cannabis: Welke einzelner Aeste, braune Stengel, Blaetter koennen
+        sich spiralartig verdrehen (seltenes Zeichen)
+      - Basilikum: plotzlicher Totalausfall ganzer Toepfe oder Beete
+      Erreger: Fusarium oxysporum mit wirtsspezifischen Formen
+      (Formae speciales): Fusarium oxysporum f. sp. lycopersici (Tomate),
+      Fusarium oxysporum f. sp. cucumerinum (Gurke), Fusarium oxysporum
+      f. sp. basilicum (Basilikum). Jede Form befaellt nur ihren spezifischen
+      Wirt.
+      Beguenstigende Bedingungen:
+      - Warme Boeden (25-30°C foerdern Fusarium stark)
+      - Saure Boeden (pH unter 6.0)
+      - Verletzte oder durch Nematoden vorgeschaedigte Wurzeln
+      - Fusarium-Dauersporen (Chlamydosporen) ueberleben jahrzehntelang
+        im Boden — einmal befallene Beete sind dauerhaft kontaminiert
+      Sofortmassnahmen:
+      - Befallene Pflanzen mit Wurzeln sofort entfernen, Erde aus dem
+        direkten Bereich mitentfernen
+      - Werkzeuge desinfizieren (Isopropanol oder 10% Bleichloessung)
+      - Boden NICHT umgraben — verteilt die Sporen weiter
+      Vorbeugung und Langzeitmanagement:
+      - Resistente Sorten verwenden — bei Tomaten sind FOL-resistente
+        Sorten (Fusarium oxysporum lycopersici) weitverbreitet
+      - Pfropfen auf resistente Unterlagen (besonders bei Tomate und Gurke)
+      - Fruchtfolge: mindestens 4-6 Jahre frei von der empfaenglichen Pflanze
+      - pH-Wert auf 6.5-7.0 anheben durch Kalkung (hemmt Fusarium)
+      - Bodengesundheit foerdern durch Kompost und Mykorrhiza-Inokulation
+      - Bei Basilikum: nur kaufen was gesund aussieht, Toepfe nicht teilen
+      Abgrenzung: Bei Fusarium ist die Verfaerbung der Leitgefaesse
+      (braune/rote Linien im Stengel-Laengsschnitt) ein sicheres Zeichen.
+      Bei reinem Trockenstress fehlt diese Verfaerbung.
+    metadata:
+      pathogen: fusarium_wilt
+      species: Fusarium oxysporum
+      environment_preference: warm_soil
+      host_plants: [Solanum lycopersicum, Cucumis sativus, Ocimum basilicum, Cannabis sativa, Musa spp.]
+      vascular_disease: true
+      difficulty: advanced
+
+  - id: kraeusels-pfirsich
+    title: Kraeusels (Taphrina deformans) an Pfirsich und Nektarine erkennen
+    content: |
+      Die Kraeusels (Kraeusels-Krankheit) ist eine der auffaelligsten
+      Pilzkrankheiten an Pfirsich und Nektarine. Der Name ist Programm:
+      die Blaetter kraeusen und verformen sich stark, die Pflanze kann
+      erheblich geschwaecht werden.
+      Symptome:
+      - Blaetter kraeusen und wellen sich blasig auf — Blasen sind zuerst
+        roetlich-gruenlich, spaeter dunkelrot bis violett, schliesslich
+        braun
+      - Befallene Blaetter sind verdickt, runzelig und verformt, koennen
+        nicht normal ausgebreitet werden
+      - Spaeter bildet sich auf der Blattoberflaeche ein weisslich-gruner
+        Puderbelag (Ascosporen)
+      - Befallene Blaetter fallen fruehzeitig ab — starker Befall kann
+        zur Entlaubung fuehren
+      - Jungtriebe koennen ebenfalls verkrueppeln und absterben
+      - Fruechte sind in der Regel weniger betroffen, koennen aber
+        Wucherungen entwickeln
+      Erreger: Taphrina deformans — ein Schlauchpilz. Infiziert
+      ausschliesslich Pfirsich und Nektarine (nicht Pflaume oder Kirsche).
+      Beguenstigende Bedingungen:
+      - Feuchte, kuehle Fruehjahrswette waehrend des Austriebs
+        (unter 16°C mit Naesse)
+      - Infektion erfolgt nur in einem kurzen Zeitfenster: vom
+        Knospenschwellen bis kurz nach dem Blattaustrieb
+      - Ist diese Zeitspanne trocken, findet keine Infektion statt
+      Sofortmassnahmen:
+      - Befallene Blaetter und Triebe entfernen, entsorgen (nicht kompostieren)
+      - Im Jahr des Befalls kann kaum noch direkt behandelt werden —
+        vorbeugend handeln fuer das naechste Jahr
+      Vorbeugung (muss im Herbst/Fruehjahr erfolgen!):
+      - Kupferpraeparate spritzen: einmal im Herbst nach dem Laubfall
+        (Ende Oktober/November) und einmal im Fruehjahr vor dem
+        Knospenschwellen (Ende Februar/Anfang Maerz)
+      - Wichtig: Timing ist entscheidend — Behandlung MUSS VOR dem
+        Austrieb abgeschlossen sein
+      - Regengeschuetzter Standort oder Folie ueber dem Baum waehrend
+        des Austriebs reduziert das Infektionsrisiko erheblich
+      - Pflanze gut duengen um Austrieb zu staerken — gesunde Pflanzen
+        erholen sich schneller
+    metadata:
+      pathogen: peach_leaf_curl
+      species: Taphrina deformans
+      environment_preference: cool_wet_spring
+      host_plants: [Prunus persica, Prunus nectarina]
+      treatment_timing: preventive_only
+      difficulty: moderate
+
+  - id: sternrussutau-rosen
+    title: Sternrussutau (Diplocarpon rosae) — die haeufigste Rosenkrankheit
+    content: |
+      Sternrussutau ist die weitverbreitetste und schaedlichste
+      Pilzkrankheit an Rosen im Garten. Fast alle Rosen sind
+      grundsaetzlich empfaenglich, die Anfalligkeitsstufen variieren
+      aber stark zwischen Sorten.
+      Symptome:
+      - Schwarze, sternfoermig gezackte Flecken auf Blattoberseiten —
+        der sternfoermige Rand ist das typische Erkennungsmerkmal
+      - Um die schwarzen Flecken bildet sich ein gelblicher Hof
+      - Befallene Blaetter vergilben zunehmend und fallen fruehzeitig ab
+      - Bei starkem Befall: vollstaendige Entlaubung ab Juli/August
+      - Entlaubte Rosen treiben erneut aus, sind aber stark geschwaecht
+        und bilden schlechte Bluetenknospen
+      - Stengel koennen schwarze Flecken und Laesionen entwickeln
+      Erreger: Diplocarpon rosae — wirtsspezifisch, befaellt nur Rosen.
+      Ueberwintert auf Blaettern am Boden und auf Stengeln.
+      Beguenstigende Bedingungen:
+      - Regenreiche Sommer mit hoher Luftfeuchtigkeit
+      - Blattnaesse durch Regen oder Beregnung von oben
+      - Sporen werden durch aufgespritzte Wasserspritzer verbreitet
+      - Warme Temperaturen 18-24°C beschleunigen die Verbreitung
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen — am Boden liegende
+        Blaetter ebenfalls aufsammeln und entsorgen (nicht kompostieren)
+      - Schwefelfungizide oder Kupferpraeparate (bio-zugelassen)
+      - Specialfungizide fuer Rosen (Trifloxystrobin, Tebuconazol) —
+        konventionell, wirken gut bei regelmaessiger Anwendung
+      Vorbeugung:
+      - Rosensorten mit ADR-Praedikat waehlen — ADR-geprueft bedeutet
+        hohe Pilzresistenz ohne intensive Behandlung
+      - Nicht von oben bewaessern — nur den Boden befeuchten
+      - Morgens giessen damit Blaetter schnell abtrocknen
+      - Befallene Blaetter nach dem Herbstlaubfall vollstaendig entfernen
+        (Ueberwinterungsquellen vernichten)
+      - Pflanzabstaende einhalten fuer Luftzirkulation
+      - Mulch verhindert Sporenaufspritzung vom Boden
+    metadata:
+      pathogen: black_spot
+      species: Diplocarpon rosae
+      environment_preference: warm_wet
+      host_plants: [Rosa spp.]
+      difficulty: common
+
+  - id: cercospora-grauflecken
+    title: Graufleckenkrankheit (Cercospora beticola) bei Mangold, Roter Bete und Spinat
+    content: |
+      Die Graufleckenkrankheit (Cercospora-Blattfleckenkrankheit) ist
+      die bedeutendste Blattkrankheit bei Mangold, Roter Bete und
+      Zuckerruebe. Bei starkem Befall kann die Assimilationsflaeche
+      erheblich reduziert werden, was den Ertrag mindert.
+      Symptome:
+      - Runde bis ovale Blattflecken, 2-5 mm gross
+      - Typisch: grau-braunes bis helles Zentrum mit braunem oder
+        rotbraunem Rand — gibt der Krankheit den Namen "Grauflecken"
+      - Auf aelteren Flecken koennen mit Lupe kleine schwarze Punkte
+        (Sporenlager) erkennbar sein
+      - Befallene Blaetter koennen vorzeitig absterben
+      - Bei Spinat: aehnliche Symptome, oft mit Cercospora chenopodii
+      Erreger: Cercospora beticola — befaellt bevorzugt die Chenopodiaceae/
+      Amaranthaceae: Rote Bete, Mangold, Zuckerruebe, Spinat.
+      Beguenstigende Bedingungen:
+      - Warme, feuchte Witterung im Sommer (25-35°C optimal fuer Sporulation)
+      - Hohe Luftfeuchtigkeit und laengere Blattnaesse
+      - Sporenverbreitung durch Wind und Regenspritzer
+      - Befallene Pflanzreste sind Hauptinfektionsquelle im Folgejahr
+      Sofortmassnahmen:
+      - Stark befallene Blaetter entfernen und entsorgen
+      - Kupferpraeparate oder Azoxystrobin-Fungizide anwenden
+      - Pflanzen ausreichend mit Kalium duengen (Kalium staerkt Zellwaende)
+      Vorbeugung:
+      - Fruchtfolge einhalten: mindestens 3-4 Jahre keine Chenopodiaceen
+        auf derselben Flaeche
+      - Nicht von oben bewaessern
+      - Pflanzreste nach der Ernte gruendlich einarbeiten oder entfernen
+      - Blaetter regelmaessig ernten und alte Blaetter entfernen
+        (bei Mangold: Stiele bodennah schneiden bei Befall)
+      - Luftzirkulation verbessern durch ausreichende Pflanzenabstaende
+    metadata:
+      pathogen: cercospora_leaf_spot
+      species: Cercospora beticola
+      environment_preference: warm_humid
+      host_plants: [Beta vulgaris, Beta vulgaris var. cicla, Spinacia oleracea]
+      difficulty: moderate
+
+  - id: schwarzfaeule-weinrebe
+    title: Schwarzfaeule (Guignardia bidwellii) an Weinreben erkennen
+    content: |
+      Die Schwarzfaeule ist eine gefaehrliche Pilzkrankheit an
+      Weinreben, die vor allem Beeren befaellt und zu totalem
+      Ernteverlust fuehren kann. Der Erreger stammt urspruenglich aus
+      Nordamerika und wurde im 19. Jahrhundert nach Europa eingeschleppt.
+      Symptome:
+      - Blaetter: kleine, roetlich-braune Flecken mit dunklem Rand,
+        spaeter grau-brauner Nekrose — mit schwarzem Sporenlager in der
+        Fleckenmitte (mit Lupe erkennbar)
+      - Triebe: braune, eingesunkene Laesionen mit schwarzen Sporenpunkten
+      - Beeren: zunaechst hellbraune Flecken auf der Beerenhaut,
+        innerhalb weniger Tage schrumpft die Beere zu einer schwarzen,
+        harten, verschrumpelten "Mumie" — das ist das eindeutige Zeichen
+      - Befallene Beeren bleiben an der Traube haengen (Trauben-Mumien)
+      Erreger: Guignardia bidwellii (Teleomorph),
+      Phyllosticta ampelicida (Anamorph). Befaellt ausschliesslich
+      Weinreben (Vitis spp.).
+      Beguenstigende Bedingungen:
+      - Feuchtes, warmes Wetter zur Bluete und Fruchtentwicklung
+      - Temperaturen 24-26°C mit Niederschlaegen
+      - Infektionen erfolgen vor allem kurz nach der Bluetenschicht
+        bis Beerenerbsengroe (BBCH 65-75)
+      - Sporenquelle: ueberwinterte Mumienbeeren und befallene Triebe
+      Massnahmen:
+      - Mumienbeeren und befallene Triebe im Winter entfernen
+        (Quelle der Primaerinfektionen beseitigen)
+      - Kupferpraeparate ab Augenaufbruch bis Erbsengroesse
+        praeventiv spritzen (bio-zugelassen)
+      - Systemische Fungizide (Difenoconazol, Tebuconazol) bei
+        Hochdruckjahren (konventionell)
+      Vorbeugung:
+      - Rebschnitt fuer gute Luftzirkulation im Bestand
+      - Laubarbeit (Entblaettern im Bereich der Traubenzone) verbessert
+        Luftbewegung und Abtrocknung
+      - Amerikanische Wildreben (Vitis labrusca, Vitis riparia) sind
+        resistent und koennen als Unterlagen genutzt werden
+      - Resistente neue Rebsorten (PIWI-Sorten) bevorzugen
+    metadata:
+      pathogen: black_rot
+      species: Guignardia bidwellii
+      environment_preference: warm_wet_flowering
+      host_plants: [Vitis vinifera, Vitis spp.]
+      difficulty: advanced
+
+  - id: monilia-obstfaeule
+    title: Monilia-Fruchtfaeule und Spitzenduerr (Monilinia fructigena/laxa) an Steinobst und Kernobst
+    content: |
+      Monilia umfasst zwei Krankheitsbilder: die Fruchtfaeule an
+      reifen Fruechten (haeufig Monilinia fructigena) und die
+      Spitzenduerr bzw. Bluetenduerr an Trieben und Blueten
+      (haeufig Monilinia laxa). Beide Formen koennen denselben Baum
+      betreffen.
+      Symptome — Fruchtfaeule:
+      - Braune, sich schnell ausbreitende Faeulnis an reifen oder
+        halbeifen Fruechten — beginnend oft an einer Verletzung oder
+        Schorfstelle
+      - Auf der Faulflaeche: konzentrische Kreise mit cremefarbenen bis
+        gelblich-weissen Sporenpolstern (Pilzwaerzen) — das Leitsymptom
+      - Befallene Fruechte verbleiben oft als schwarze, mumifizierte
+        Fruechte an den Aesten haengen ("Frucht-Mumien")
+      - Betroffen: Kirsche, Pflaume, Pfirsich, Aprikose, Apfel, Birne
+      Symptome — Spitzenduerr und Bluetenduerr:
+      - Bluetenbueschel und junge Triebspitzen welken plotzlich, als ob
+        sie verbrannt worden waeren (Feuerbrand-aehnliches Bild)
+      - Braune, tote Triebe verbleiben am Baum haengen
+      - Unter der Rinde braunliche Verfaerbung erkennbar
+      Erreger: Monilinia fructigena (Haupterreger Fruchtfaeule bei
+      Kernobst), Monilinia laxa (Haupt-erreger Spitzenduerr und
+      Steinobst-Fruchtfaeule).
+      Beguenstigende Bedingungen:
+      - Feuchtes Wetter zur Bluetzeit (Spitzenduerr)
+      - Verletzungen an Fruechten durch Insekten, Hagel oder Reibung
+        (Eintrittspforten fuer Fruchtfaeule)
+      - Dichter Baumschnitt hemmt Luftzirkulation
+      - Mumien-Fruechte am Baum sind Hauptinfektionsquelle
+      Sofortmassnahmen:
+      - Mumien-Fruechte sofort entfernen — ALLE mumifizierten Fruechte
+        am Baum und am Boden aufsammeln und im Restmuell entsorgen
+      - Faulende Fruechte sofort ernten und entfernen
+      - Befallene Triebe zurueckschneiden bis ins gesunde Holz
+      - Kupferpraeparate (bio-zugelassen) vor der Bluete bei anfaelligen
+        Sorten anwenden
+      Vorbeugung:
+      - Mumienfruchte sind die wichtigste Infektionsquelle: konsequent
+        entfernen, auch aus dem Baumbereich am Boden
+      - Fruechte nicht durch enge Traubenstellung reiben lassen
+      - Baum gut schneiden fuer Luftzirkulation
+      - Insektenschaeden minimieren (Kafer, Fruchtwespen als Eintrittspforten)
+      - Robuste, weniger anfaellige Sorten waehlen
+      - Beim Pfirsich Kombination mit Kraeusels-Bekaempfung planen
+        (gleiche Kupfer-Behandlung)
+    metadata:
+      pathogen: monilia_fruit_rot
+      species: [Monilinia fructigena, Monilinia laxa]
+      environment_preference: warm_wet
+      host_plants: [Prunus avium, Prunus domestica, Prunus persica, Prunus armeniaca, Malus domestica, Pyrus communis]
+      difficulty: moderate

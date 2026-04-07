@@ -1,0 +1,347 @@
+---
+title: Pflanzen-Training-Techniken
+language: de
+category: phasen
+tags: [training, lst, hst, topping, fim, scrog, sog, supercropping, defoliation, lollipopping, mainlining, manifolding, kronendach, canopy, ausgeizen, geiztriebe, autoflower, vegetativ, ertrag, cannabis, tomaten]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: training-uebersicht-lst-hst
+    title: Pflanzentraining — was ist LST und HST, und warum trainieren?
+    content: |
+      Pflanzentraining bedeutet, den natuerlichen Wuchs der Pflanze gezielt zu
+      lenken, um ein gleichmaessiges Kronendach (Canopy) zu erzeugen. Alle
+      Triebspitzen kommen auf gleiche Hoehe — jede bekommt gleich viel Licht.
+      Das Ergebnis: mehr Blueten- oder Fruchtansaetze, bessere Lichtausnutzung
+      und deutlich hoehere Ertraege.
+
+      Grundprinzip: Untrainierte Pflanzen wachsen wie ein Weihnachtsbaum —
+      eine dominante Hauptspitze, alles andere wird durch Auxin-Dominanz
+      unterdrueckt. Training bricht diese Dominanz auf.
+
+      Low Stress Training (LST) — sanft, ohne Gewebeschaden:
+      Triebe werden gebogen und fixiert, ohne das Pflanzengewebe zu brechen.
+      Kein Stress, keine Erholungszeit noetig. Fuer Anfaenger und Autoflower
+      ideal geeignet.
+
+      High Stress Training (HST) — Gewebe wird absichtlich verletzt:
+      Bei HST (Topping, FIM, Supercropping) wird Pflanzengewebe beschaedigt.
+      Die Pflanze reagiert mit staerkerem lateralen Wachstum — mehr Triebe,
+      mehr Fruechte. Nachteil: Erholungszeit von mehreren Tagen bis Wochen.
+      WICHTIG: HST ist nur in der vegetativen Phase erlaubt! In der Bluete
+      fehlt der Pflanze die Erholungszeit, der Ertrag sinkt, und bei Cannabis
+      droht Zwitter-Bildung (Hermaphroditen). Waehrend der vegetativen
+      Wachstumsphase hingegen vertraegt die Pflanze den Eingriff problemlos.
+
+      Faustregel fuer Einsteiger: Mit LST starten (kein Fehler moeglich),
+      HST erst wenn Erfahrung mit dem Pflanzenverhalten vorhanden ist.
+    metadata:
+      topic: training_overview
+      difficulty: beginner
+      techniques_covered: [lst, hst, topping, fim, supercropping]
+
+  - id: training-topping
+    title: Topping (Kappen) — Haupttrieb abschneiden fuer mehr Spitzen
+    content: |
+      Topping ist die bekannteste HST-Methode: Der Haupttrieb wird oberhalb
+      des 4.-5. Nodenpaares sauber abgeschnitten. Aus den beiden darunter
+      liegenden Seitenaugen wachsen zwei neue Haupttriebe — die Pflanze
+      wird buschiger statt nach oben zu wachsen.
+
+      Voraussetzung: Die Pflanze muss mindestens 4-5 Nodenpaare (Blattknoten)
+      haben, damit genuegend Reserven fuer die Heilung vorhanden sind. Zu
+      fruehes Toppen bei zu kleinen Pflanzen kann sie dauerhaft schwaechen.
+
+      Nur vegetativ anwenden — Topping in der Bluete ist verboten! In der
+      Bluetephase fehlt der Zeit zur Erholung; Ertrag und Qualitaet sinken
+      drastisch. Nur waehrend der vegetativen Wachstumsphase toppen.
+
+      Anleitung:
+      1. Schere oder Skalpell mit Isopropanol 70% desinfizieren
+      2. Sauberen Schnitt direkt ueber dem 4.-5. Nodenpaar setzen
+      3. Abgeschnittene Triebspitze entfernen
+      4. Wundstelle nicht behandeln (Pflanze heilt selbst)
+      5. Erholungszeit: 3-7 Tage (Cannabis). Waehrend der Heilung
+         kein Wachstum — das ist normal.
+
+      Mehrfaches Topping (Mainlining / Manifolding):
+      Jedes Topping verdoppelt theoretisch die Haupttriebe:
+      1x Toppen = 2 Haupttriebe, 2x = 4, 3x = 8 Triebe.
+      Mainlining baut symmetrisch auf einem definierten Stamm-Node auf
+      (meist Node 3) und erzeugt eine strukturierte, gleichmaessige Krone.
+
+      Bei Autoflower kein Topping empfohlen: Autoflowering-Sorten
+      haben eine fixe Lebenszeit. Die Erholungszeit nach dem Toppen
+      reduziert die produktive Wachstumsphase ueberproportional. Fuer
+      Autoflower ist LST die bessere Wahl.
+    metadata:
+      topic: topping
+      difficulty: intermediate
+      recovery_days: [3, 7]
+      phase_restriction: vegetative_only
+      species_focus: [cannabis, tomate, paprika]
+
+  - id: training-fim
+    title: FIM (F*ck I Missed) — mehr Triebe als beim Topping, weniger praezise
+    content: |
+      FIM ist eine Variante des Toppings, bei der nur 75-80% der neuen
+      Wachstumsspitze entfernt werden — nicht 100% wie beim klassischen
+      Topping. Das Ergebnis: statt zwei entstehen potenziell 3-8 neue
+      Triebe, weil mehrere Axillar-Knospen gleichzeitig aktiviert werden.
+
+      Technik:
+      1. Neue Wachstumsspitze (den juengsten, noch nicht entfalteten Trieb)
+         identifizieren
+      2. Mit Finger und Daumen oder einer kleinen Schere die oberen 80%
+         des neuen Wachstums abkneifen — der Rest bleibt stehen
+      3. Erholungszeit: 3-7 Tage (aehnlich wie Topping)
+
+      Unterschied zum Topping:
+      - Topping (sauber, 100%): Zuverlaessig 2 neue Haupttriebe
+      - FIM (ungenau, 80%): 3-8 neue Triebe, aber unberechenbarer
+
+      FIM-Ergebnis ist weniger vorhersagbar: Manchmal entstehen nur 2
+      Triebe (wie beim Topping), manchmal 4 oder mehr. Wer strukturiertes
+      Mainlining plant, greift besser zum Topping. Wer schnell viele
+      Triebe will und etwas Unberechenbarkeit akzeptiert, probiert FIM.
+
+      Wie Topping gilt: Nur in der vegetativen Phase anwenden, nicht in
+      der Bluete! Werkzeug vorher desinfizieren. Bei Autoflower nicht
+      empfohlen.
+    metadata:
+      topic: fim
+      difficulty: intermediate
+      recovery_days: [3, 7]
+      phase_restriction: vegetative_only
+
+  - id: training-lst-details
+    title: LST — Low Stress Training, sicher und ohne Erholungszeit
+    content: |
+      LST ist die sicherste Trainingsmethode fuer alle Erfahrungsstufen:
+      Triebe werden sanft gebogen und mit Draht, Clips oder Kabelbindern
+      fixiert, ohne das Pflanzengewebe zu verletzen. Das Ziel ist ein
+      flaches, gleichmaessiges Kronendach — alle Triebspitzen auf gleicher
+      Hoehe, alle gleichmaessig beleuchtet.
+
+      LST eignet sich auch fuer Autoflowering-Sorten (kein Wachstumsstopp
+      durch Stress) und kann begleitend zur gesamten vegetativen Phase
+      angewendet werden. In der Bluete sind noch leichte Anpassungen
+      moeglich, solange die Triebe noch nicht vollstaendig verholzt sind.
+
+      Anleitung:
+      1. Weiches, beschichtetes Material verwenden (kein duenner Blumentopf-
+         Draht — schneidet in den Stengel!)
+      2. Haupttrieb sanft zur Seite biegen (45-90°), am Topfrand oder
+         an Stuetzen fixieren
+      3. Seitentriebe in verschiedene Richtungen leiten
+      4. Alle 2-3 Tage kontrollieren und anpassen — Triebe wachsen
+         immer wieder nach oben (negatives Gravitropismus)
+      5. Ziel: Alle Triebspitzen auf gleicher Hoehe halten
+
+      Beginn: Ab dem 3.-4. Nodenpaar, sobald die Triebe lang genug sind
+      um gebogen zu werden, ohne zu brechen.
+
+      Auch fuer Zimmerpflanzen anwendbar: Monstera und Ficus klettern in
+      der Natur — am Moosstab oder Rankgitter fixieren entspricht dem
+      LST-Prinzip und foerdert kompakten, strukturierten Wuchs.
+    metadata:
+      topic: low_stress_training
+      difficulty: beginner
+      recovery_days: 0
+      applicable_to: [cannabis, autoflower, zimmerpflanzen, tomaten]
+
+  - id: training-scrog-details
+    title: SCROG (Screen of Green) — Netz fuer maximale Lichtausnutzung
+    content: |
+      SCROG kombiniert LST mit einem horizontalen Netz/Gitter, das auf
+      40-50 cm Hoehe ueber dem Substrat gespannt wird. Triebe werden durch
+      die Maschen gefaedelt und so zu einem dichten, gleichmaessigen
+      Kronendach (Canopy) trainiert.
+
+      Aufbau und Methode:
+      1. Netz mit 5-10 cm Maschenweite auf 30-50 cm ueber Substrat spannen
+         (Rankgitter, Nylonnetz oder Drahtgitter — alle Materialien geeignet)
+      2. Pflanzen wachsen nach oben durch das Netz
+      3. Triebe die ueber das Netz ragen werden sanft unter das Netz
+         zurueckgebogen und durch die naechste Masche gefuehrt (Tucking)
+      4. Wiederholen bis 70-80% der Netzflaeche gefuellt ist
+      5. Dann Bluete einleiten (bei photoperiodischen Pflanzen: 12/12)
+      6. Waehrend der Stretch-Phase: letzte freie Maschenbereiche fuellen
+      7. Ab Woche 2-3 der Bluete nicht mehr einflechten (Triebe verholzen)
+
+      Kombination mit Topping: Topping (4-8 Haupttriebe erzeugen) plus
+      SCROG (gleichmaessig verteilen) ist das klassische Optimum fuer
+      Cannabis Indoor.
+
+      Vorteile von SCROG:
+      - Perfekt gleichmaessiges Canopy → maximale Lichtnutzung
+      - Ertragssteigerung 20-40% gegenueber untrainierter Pflanze
+      - 1-4 Pflanzen fuellen einen m² vollstaendig aus
+      - Ideal fuer kleine Growzelte mit begrenzter Hoehe
+
+      Planungshinweis: Vor dem Aufstellen des Netzes pruefen, ob die
+      Pflanzen danach noch umgetopft werden muessen — nach dem SCROG-Aufbau
+      ist das kaum noch moeglich.
+    metadata:
+      topic: scrog
+      difficulty: intermediate
+      mesh_size_cm: [5, 10]
+      net_height_cm: [30, 50]
+      plants_per_sqm: [1, 4]
+
+  - id: training-sog
+    title: SOG (Sea of Green) — viele kleine Pflanzen, schneller Zyklus
+    content: |
+      SOG ist das Gegenteil von SCROG: Statt wenige Pflanzen aufwendig zu
+      trainieren, werden viele kleine Pflanzen (meist Klone) dicht gepflanzt
+      und nach kurzer vegetativer Phase (1-2 Wochen) fruehzeitig in die
+      Bluete geschickt. Jede Pflanze entwickelt nur einen starken Haupttrieb.
+
+      Kennzahlen SOG:
+      - 9-16 Pflanzen pro m² (je nach Sorte und Topfgroesse)
+      - Vegetative Phase: nur 1-2 Wochen (Klone) oder 2-3 Wochen (Samen)
+      - Kleine Toepfe (3-7 Liter) — Pflanze bleibt kompakt
+      - Topfhoehe der Pflanzen: 30-50 cm bei Ernte
+
+      Vorteile SOG:
+      - Kuerzerer Gesamtzyklus (weniger Veg-Zeit spart Wochen)
+      - Einfacher fuer niedrige Growzelte (1,5-2 m Deckenhöhe)
+      - Gleichmaessige Genetik durch Klone sichert homogenes Canopy
+      - Weniger Training-Aufwand pro Pflanze
+
+      Nachteile SOG:
+      - Mehr Pflanzen bedeuten mehr Verwaltungsaufwand
+      - Luft-Zirkulation kritisch bei hoher Dichte (Schimmelrisiko!)
+      - Klonbeschaffung oder eigene Mutterpflanze noetig
+
+      Ideale Einsatzbereiche: Kleine Growzelte mit niedriger Deckenhöhe,
+      erfahrene Grower die einen schnellen Klonbetrieb aufbauen wollen.
+      Kein HST noetig — die Canopy-Gleichmaessigkeit entsteht durch
+      Genetik-Selektion und Pflanzdichte.
+    metadata:
+      topic: sog
+      difficulty: intermediate
+      plants_per_sqm: [9, 16]
+      veg_weeks: [1, 3]
+
+  - id: training-supercropping
+    title: Supercropping — Stengel quetschen fuer Hoehenkon­trolle und Staerke
+    content: |
+      Supercropping ist eine HST-Methode, bei der ein Stengel-Abschnitt
+      so gequetscht und gebogen wird, dass das Innengewebe bricht, die
+      Aussenhuellt (Epidermis) aber intakt bleibt. Die Pflanze bildet an
+      der gequetschten Stelle einen Kallus-Knoechel, der verholzt und
+      den Trieb am Ende staerker macht als zuvor.
+
+      Wann und warum:
+      - Um einzelne ueberhohe Triebe auf Canopy-Niveau zu ziehen
+      - Um an einer bestimmten Stelle einen Knick zu erzwingen ohne
+        Schere (kein Schnitt, kein Infektionsrisiko)
+      - Supercropping auch im Stretch (Early Flowering) noch moeglich —
+        anders als Topping/FIM ist es in der fruehen Blütephase noch
+        erlaubt. In der mittleren und spaeten Bluete nicht mehr anwenden.
+
+      Technik:
+      1. Stengel an der gewuenschten Stelle zwischen Daumen und
+         Zeigefinger nehmen
+      2. Sanft aber bestimmt quetschen und gleichzeitig biegen — das
+         Innengewebe muss nachgeben (man spuert ein leichtes Knirschen)
+      3. Stengel in der gebogenen Position halten oder mit Draht fixieren
+      4. Falls der Stengel bricht: mit Klebeband oder Pfropfband
+         stabilisieren — Pflanze heilt trotzdem
+
+      Erholungszeit: Der Knöchel bildet sich in 5-7 Tagen.
+      Sichtbares Zeichen der Erholung: Kleines, verholztes Verdickung
+      an der gequetschten Stelle. Dieser Knoechel ist staerker als
+      das urspruengliche Gewebe und traegt spaeter schwere Bluetenstaende.
+
+      Wichtig: Nur in vegetativer Phase anwenden (oder fruehes Flowering
+      im Stretch). Werkzeug ist nicht noetig — nur die Finger.
+    metadata:
+      topic: supercropping
+      difficulty: expert
+      recovery_days: [5, 7]
+      phase_restriction: vegetative_and_early_flower
+
+  - id: training-defoliation-lollipopping
+    title: Defoliation und Lollipopping — Blatter entfernen fuer mehr Ertrag
+    content: |
+      Defoliation bedeutet das gezielte, selektive Entfernen von Blaettern,
+      um Licht tiefer in das Canopy zu leiten und die Luftzirkulation zu
+      verbessern. Lollipopping bezeichnet das Entfernen aller Triebe und
+      Blaetter im unteren Drittel der Pflanze.
+
+      Defoliation bei Cannabis:
+      Zwei empfohlene Zeitpunkte waehrend der Bluetephase:
+      - Tag 1 der Bluete: Leichte Entblatterung (grosse, den Lichteinfall
+        blockierende Blaetter entfernen)
+      - Tag 21 der Bluete: Zweite staerkere Defoliation (Licht bis in die
+        mittlere Canopy-Zone bringen)
+      Danach nicht mehr stark entblaettern — spaete Blaetter speichern
+      Naehrstoffe fuer die Reifung.
+
+      Defoliation nur bei kraeftigen, gesunden Pflanzen. Gestresste,
+      kranke oder kleine Pflanzen erhalten keinen Vorteil — sie leiden
+      nur zusaetzlich.
+
+      Lollipopping:
+      Das untere Drittel der Pflanze (die Zone kleiner "Popcorn-Buds"
+      und beschatteter Triebe) wird komplett entfernt. Diese Zone
+      produziert ohnehin nur kleine, lockere Bluetenstaende mit wenig
+      Harzgehalt. Die Energie fliesst stattdessen in die oberen,
+      gut beleuchteten Hauptblueten.
+
+      Zeitpunkt Lollipopping: Kurz vor oder zu Beginn der Bluetephase.
+      Danach keine groesseren Schnitte mehr.
+
+      Fuer Autoflowering-Sorten gilt: Keine starke Defoliation!
+      Autoflower haben eine fixe Lebenszeit und brauchen jedes Blatt
+      fuer die Photosynthese. Hoechstens einzelne wirklich abgestorbene
+      oder vollstaendig blockierende Blaetter entfernen.
+    metadata:
+      topic: defoliation_lollipopping
+      difficulty: expert
+      timing_cannabis: [day_1_flower, day_21_flower]
+      not_for: autoflower
+
+  - id: training-ausgeizen-tomaten
+    title: Tomaten ausgeizen — Geiztriebe richtig entfernen
+    content: |
+      Ausgeizen bezeichnet das regelmaessige Entfernen der Geiztriebe
+      bei Tomaten. Geiztriebe sind Seitentriebe, die in den Blattachseln
+      (dem Winkel zwischen Hauptstengel und Blattansatz) wachsen. Sie
+      entwickeln sich zu vollstaendigen Nebentrieben und kosten die Pflanze
+      viel Energie, die sonst in Fruechte gehen wuerde.
+
+      Wichtige Unterscheidung — Ausgeizen gilt NUR fuer Stabtomaten:
+      - Stabtomaten (indeterminate Sorten, z.B. 'Harzfeuer', 'Roma',
+        klassische Fleischtomaten): Ausgeizen ist Pflicht! Diese Sorten
+        wachsen unbegrenzt weiter und brauchen Fuehrung auf 1-2 Haupttriebe.
+      - Buschtomaten (determinate Sorten, z.B. 'Balkonstar', 'Tiny Tim',
+        'Red Cherry'): NICHT ausgeizen! Diese Sorten haben eine genetisch
+        begrenzte Hoehe und bilden ihre Bluetrauben an den Seitentrieben.
+        Ausgeizen wuerde den Ertrag drastisch reduzieren.
+
+      Technik und Zeitpunkt:
+      - Geiztriebe regelmaessig kontrollieren (2x pro Woche)
+      - Kleine Geiztriebe (unter 5 cm): Mit Fingern abkneifen
+        (saenber, kein Werkzeug noetig, weniger Infektionsrisiko)
+      - Groessere Geiztriebe (ueber 5 cm): Mit desinfizierter Schere
+        abschneiden — Wundflaeche ist groesser, Infektionsrisiko steigt
+      - 1-2 Haupttriebe stehen lassen (am besten den Hauptstengel plus
+        einen kraeftigen Seitentrieb fuer V-Form)
+
+      Spitze kappen ab August:
+      Ab Mitte August die Wachstumsspitze (Terminaltrieb) der Stabtomaten
+      kappen — noch 2-3 Blattpaare ueber der obersten Bluetraube stehen
+      lassen. So reifen die vorhandenen Fruechte noch vollstaendig nach,
+      statt dass die Pflanze weiter in neue Bluetrauben investiert.
+
+      Ausgeizen ist KEINE HST-Technik im Cannabis-Sinne — es ist eine
+      eigene Pflegekategorie fuer Solanaceae (Tomate, Aubergine, Paprika).
+    metadata:
+      topic: ausgeizen_tomaten
+      difficulty: beginner
+      species: [Solanum lycopersicum]
+      applicable_to: [stabtomaten, determinate_nein, indeterminate_ja]
+      not_for: buschtomaten

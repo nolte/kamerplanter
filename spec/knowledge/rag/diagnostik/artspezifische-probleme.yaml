@@ -1,0 +1,1011 @@
+---
+title: Artspezifische Krankheiten und Schaedlinge nach Pflanzengruppe
+language: de
+category: diagnostik
+tags:
+  - artspezifisch
+  - tomate
+  - nachtschatten
+  - kueurbis
+  - kohl
+  - salat
+  - kraeuter
+  - cannabis
+  - orchidee
+  - zimmerpflanzen
+  - sukkulenten
+  - rosen
+  - obstgehoelze
+  - allium
+  - wurzelgemuese
+  - huelsenfruechte
+  - krankheiten
+  - schaedlinge
+  - pflanzenschutz
+  - diagnostik
+  - gemuese
+  - freiland
+  - indoor
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+
+  # ---------------------------------------------------------------------------
+  # 1. Tomaten & Nachtschatten
+  # ---------------------------------------------------------------------------
+  - id: artspez-nachtschatten
+    title: Tomaten und Nachtschatten — haeufigste Krankheiten und Schaedlinge
+    content: |
+      Tomaten (Solanum lycopersicum), Paprika (Capsicum annuum), Aubergine
+      (S. melongena) und Kartoffel (S. tuberosum) teilen viele Erreger, weil
+      sie alle Nachtschattengewaechse (Solanaceae) sind. Nie auf derselben
+      Flaeche nacheinander anbauen — Fruchtfolge mindestens 3-4 Jahre.
+
+      Die 5 haeufigsten Probleme (nach Praxisrelevanz):
+
+      1. Kraut- und Braunfaeule (Phytophthora infestans) — Hauptgefahr im Freiland.
+         Braune, waessrige Blattflecken, weisslicher Sporenrasen auf der Unterseite,
+         Fruechte bekommen harte braune Stellen. Bricht explosionsartig bei feucht-
+         warmem Wetter (15-25 Grad, Regen) aus. Tomaten und Kartoffeln NICHT
+         nebeneinander pflanzen — gleicher Erreger, gegenseitige Ansteckung.
+         Vorbeugung: von unten giessen, Kupferpraeparat vorbeugend.
+         Saison: Hauptsaison Juli-September.
+         Verweis: Detail-Chunk "krautfaeule-kartoffel-tomate".
+
+      2. Bluetenendfaeule (Blossom End Rot, BER) — kein Erreger, sondern
+         Calcium-Transportproblem. Braune, eingesunkene Flecken am Fruchtboden.
+         Ursache: Ungleichmaessige Bewaesserung verhindert Ca-Transport, NICHT
+         unbedingt Ca-Mangel im Boden. Calcium ist ein immobiler Naehrstoff der
+         staendig mit dem Wasserstrom aufgenommen werden muss. Loesung: gleichmaessig
+         giessen, nie austrocknen lassen, CalMag-Duengung pruefen. Bei Aubergine und
+         Paprika ebenfalls moeglich.
+         Saison: Ganze Fruchtphase, haeufiger bei Hitzestress.
+
+      3. Thrips und Weisse Fliege — Hauptschaedlinge besonders unter Glas.
+         Thrips: silbrige Streifen und schwarze Kotpunkte auf Blaettern, uebertragen
+         Tomatenbronzfleckenvirus (TSWV). Weisse Fliege: winzige weisse Insekten,
+         Honigtau, Russstaupilz auf Blaettern. Beide Arten bevorzugen die Blattunterseite.
+         Massnahmen: Blaue Klebefallen fuer Thrips, gelbe fuer Weisse Fliege;
+         Spinosad gegen Thrips; Encarsia formosa (Schlupfwespe) gegen Weisse Fliege.
+         Verweis: Detail-Chunks "thrips-erkennung", "weisse-fliege-erkennung".
+
+      4. Septoria-Blattfleckenkrankheit (Septoria lycopersici) — kleine runde
+         Flecken mit hellem Zentrum und dunklem Rand, beginnt an den unteren
+         Blaettern. Foerdernd: Blattnaeseperioden, schlechte Luftzirkulation.
+         Massnahmen: Befallene Blaetter entfernen, von unten giessen, Kupferpraeparat.
+         Saison: Sommer, besonders bei nassem Wetter.
+
+      5. Tomatenminiermotte (Tuta absoluta) — Minierfrasse in Blaettern und
+         Fruechten, Larven bohren Galerien ins Blattgewebe. Hauptproblem in
+         Gewaechshaeusern und im Sueden. Massnahmen: Pheromonfallen zum Monitoring,
+         Trichogramma-Schlupfwespen, Spinosad.
+
+      Weitere relevante Probleme: Alternaria-Schwarzfleckenkrankheit (groessere
+      braune Flecken, konzentrische Ringe), Fusarium-Welke und Verticillium-Welke
+      (einseitiges Welken, Leitgewebe braun gefaerbt — nicht heilbar, betroffene
+      Pflanzen entfernen), Blattlaeuse an Triebspitzen (Honigtau, eingerollte Blaetter),
+      Kartoffelkaefer bei Kartoffeln (gefressen Blaetter, orange-schwarz gestreifte
+      Larven und Kaefer).
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: nachtschatten
+      species_list:
+        - Solanum lycopersicum
+        - Capsicum annuum
+        - Solanum melongena
+        - Solanum tuberosum
+      common_problems:
+        - krautfaeule
+        - bluetenendfaeule
+        - thrips
+        - weisse_fliege
+        - septoria
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 2. Kueurbisgewaechse
+  # ---------------------------------------------------------------------------
+  - id: artspez-kueurbis
+    title: Kueurbisgewaechse (Gurke, Zucchini, Kuerbis, Melone) — haeufigste Probleme
+    content: |
+      Alle Kueurbisgewaechse (Cucurbitaceae) — Gurke (Cucumis sativus),
+      Zucchini und Kuerbis (Cucurbita pepo, maxima, moschata), Melone
+      (Citrullus lanatus, Cucumis melo) — teilen eine enge Verwandtschaft
+      und aehnliche Probleme. Fruchtfolge 3-4 Jahre auf derselben Flaeche.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Echter Mehltau an Kueurbisgewaechsen — sehr haeufig, besonders ab
+         Hochsommer. Weisser pudriger Belag auf Blattoberseiten, beginnt als
+         kleine Flecken. Erreger: Sphaerotheca fuliginea / Podosphaera xanthii.
+         Foerdernd: warme Tage + kuehle Naechte, TROCKENE Blattoberflaechen.
+         Massnahmen: Milch-Spray (1:9), Backpulver-Spray, Netzschwefel.
+         Befallene Pflanzen koennen noch einige Wochen produzieren.
+         Saison: Juli-Oktober (nimmt mit Alter zu).
+         Verweis: Detail-Chunk "echter-mehltau".
+
+      2. Falscher Mehltau an Gurke (Pseudoperonospora cubensis) — gelbe eckige
+         Flecken oben, grau-violetter Sporenrasen unten. Sehr schnell fortschreitend.
+         Foerdernd: kuehle, feuchte Bedingungen, Blattnaeseperioden.
+         Massnahmen: Von unten giessen, Luftzirkulation verbessern, Kupferpraeparat.
+         Saison: Fruehsommer bis Herbst bei kuehl-nassem Wetter.
+         Verweis: Detail-Chunk "falscher-mehltau".
+
+      3. Gurkenmosaikvirus (Cucumber Mosaic Virus, CMV) — Mosaikmuster aus hell-
+         und dunkelgruenen Flecken auf Blaettern, deformierte Fruechte, Pflanze
+         wuechst verkuemmert. Uebertragen durch Blattlaeuse. Kein Mittel gegen
+         das Virus selbst — Blattlaeuse konsequent bekaempfen, befallene Pflanzen
+         entfernen. Pflanzenwerkzeug desinfizieren.
+         Saison: Ganze Vegetationsperiode.
+
+      4. Blattlaeuse an Triebspitzen — besonders gruene Blattlaus (Myzus persicae),
+         uebertraegt CMV und andere Viren. Kolonien an jungen Trieben, eingerollte
+         Blaetter, Honigtau. Massnahmen: Kaliseife-Spray, Marienkaefer,
+         Florfliegenlarven.
+         Verweis: Detail-Chunk "blattlaeuse-erkennung".
+
+      5. Spinnmilben bei Gurke — haeufig bei Hitzestress und trockener Luft.
+         Stippling auf Blattoberseiten, feine Gespinste, Blattunterseiten pruefen.
+         Gurken reagieren empfindlich und koennen schnell stark geschaedigt werden.
+         Massnahmen: Luftfeuchtigkeit erhoehen, Pflanze abduschen, Raubmilben
+         (Phytoseiulus persimilis).
+         Verweis: Detail-Chunk "spinnmilben-erkennung".
+
+      Besondere Anfaelligkeit: Jungpflanzen sind extrem schneckengefaehrdet —
+      Schnecken fressen Keimlinge nachts ab, oft sind morgens nur noch Stiele
+      uebrig. Bierfallen und Schneckenkorn (metaldehyd- oder eisenphosphatbasiert)
+      um Jungpflanzen legen.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: kueurbisgewaechse
+      species_list:
+        - Cucumis sativus
+        - Cucurbita pepo
+        - Cucurbita maxima
+        - Cucurbita moschata
+        - Citrullus lanatus
+      common_problems:
+        - echter_mehltau
+        - falscher_mehltau
+        - cmv
+        - blattlaeuse
+        - spinnmilben
+        - schnecken
+      difficulty: beginner
+
+  # ---------------------------------------------------------------------------
+  # 3. Kohlgewaechse / Brassicaceae
+  # ---------------------------------------------------------------------------
+  - id: artspez-brassicaceae
+    title: Kohl und Kreuzbluetengewaechse — Kohlhernie, Weisstlinge und Co.
+    content: |
+      Alle Brassicaceae — Weisskohl, Rotkohl, Blumenkohl, Brokkoli, Rosenkohl,
+      Kohlrabi (alle Brassica oleracea Varietaeten), Chinakohl (B. rapa),
+      Rettich (Raphanus sativus), Rucola (Eruca vesicaria) — sind von
+      denselben wirtsspezifischen Erregern und Schaedlingen bedroht.
+      Strenge Fruchtfolge: mindestens 4 Jahre Anbaupause fuer Brassicaceae.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Kohlhernie (Plasmodiophora brassicae) — die gefaehrlichste Krankheit
+         der Brassicaceae. Knollig verdickte Wurzeln, Pflanze kuemmert und welkt
+         tagsuebers obwohl Boden feucht ist. Dauersporen ueberleben 15-20 Jahre im
+         Boden. Kein Fungizid wirkt — Plasmodiophora ist ein Protist, kein Pilz.
+         Vorbeugung: pH auf 7.0-7.5 anpassen (Dolomitkalk), strenge Fruchtfolge
+         4 Jahre, resistente Sorten (z.B. Kilaton F1, Clapton F1).
+         Saison: Befallsrisiko ganzjaehrig, sichtbar ab Halbzeit des Wachstums.
+         Verweis: Detail-Chunk "kohlhernie".
+
+      2. Kohlweissling (Pieris brassicae, P. rapae) und Kohleule (Mamestra
+         brassicae) — Raupen fressen grossflaechig Blattoberseite und
+         Herzblatt. Kohlweissling-Raupen sind gruenlich, in Gruppen; Kohleule-
+         Raupen sind dicker, gruenbraun, nachtaktiv. Massnahmen: Handauflesen,
+         Bacillus thuringiensis (Bt) Spray (biologisch, sehr wirksam gegen Raupen),
+         Trichogramma-Schlupfwespen vorbeugend aussetzen ab Mai.
+         Saison: Mai-September (mehrere Generationen).
+
+      3. Erdfloeche (Phyllotreta spp.) — kleine schwarze Kaefer (2-3mm) die
+         viele kleine Loecher in die Blaetter fressen ("Schrotschuss-Muster").
+         Hauptgefahr fuer Jungpflanzen und Keimlinge — koennen schnell abtoeten.
+         Grosse Pflanzen vertragen Schaden besser. Massnahmen: Kulturschutznetze
+         (beste Loesung), Pflanzenkohle oder Feldspat auf den Boden, Bewaesserung
+         erhoehen (Erdfloeche meiden feuchte Bedingungen).
+         Saison: April-Mai besonders gefaehrlich fuer Jungpflanzen.
+
+      4. Falscher Mehltau an Kohl (Peronospora brassicae) — gelbe Flecken oben,
+         grau-weisser Sporenrasen unten. Besonders an Jungpflanzen und Keimlingen
+         gefaehrlich. Foerdernd: Naesse, kuehle Temperaturen, Enge.
+         Massnahmen: Kupferpraeparat, Pflanzabstand erhoehen, nicht von oben giessen.
+         Saison: Fruehjahr und Herbst.
+
+      5. Kohlschabe (Plutella xylostella) — kleine Raupe (10mm), friert gruenlich,
+         frisst Blattoberflaeche weg und hinterlaesst zarten Blatthautfilm
+         ("Fensterscheiben"). Massnahmen: Bt-Spray, Diamid-Insektizide bei
+         starkem Befall, Kulturschutznetze.
+         Saison: Mehrere Generationen, Mai-Oktober.
+
+      Besondere Anfaelligkeit: Brassicaceae bilden KEINE Mykorrhiza-Symbiose,
+      daher ist Mykorrhiza-Praeparat hier verschwendet. Stattdessen Trichoderma
+      fuer Wurzelschutz verwenden.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: brassicaceae
+      species_list:
+        - Brassica oleracea
+        - Brassica rapa
+        - Raphanus sativus
+        - Eruca vesicaria
+      common_problems:
+        - kohlhernie
+        - kohlweissling
+        - erdfloeche
+        - falscher_mehltau
+        - kohlschabe
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 4. Salat & Blattgemuese
+  # ---------------------------------------------------------------------------
+  - id: artspez-salat-blattgemuese
+    title: Salat und Blattgemuese — Schnecken, Falscher Mehltau und Botrytis
+    content: |
+      Kopfsalat (Lactuca sativa), Spinat (Spinacia oleracea), Mangold
+      (Beta vulgaris var. cicla), Feldsalat (Valerianella locusta) und
+      verwandte Blattgemuese sind kurzlebige, weichgewebige Pflanzen mit
+      hoher Anfaelligkeit fuer Feuchtigkeitsprobleme und saugende Schaedlinge.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Schnecken — das Hauptproblem schlechthin fuer Salat!
+         Braune Nacktschnecken (Arion spp.) und graue Ackerschnecken
+         (Deroceras reticulatum) fressen nachts ganze Salatpflanzen ab. Typisch:
+         morgens sind Jungpflanzen oder ganze Koepfe verschwunden oder stark
+         zerfressen. Schleimspur als Indiz. Massnahmen: Schneckenkorn mit
+         Eisen-III-Phosphat (Ferramol — biovertraeglich, fuer Haus- und Wildtiere
+         ungefaehrlich), Bierfallen, Schneckenbarrieren (Kupfer, Granulat), abends
+         Schnecken absammeln (am effektivsten direkt nach Regen).
+         Saison: Hauptsaison Fruehjahr und Herbst, bei Regen und Feuchte.
+
+      2. Falscher Mehltau am Salat (Bremia lactucae) — gelbe eckige Flecken
+         auf Blattoberseiten, weisslicher Sporenrasen auf Blattunterseiten.
+         Befallene Blaetter sterben schnell ab. Rassevielfalt des Erregers macht
+         Resistenzsorten schwierig. Foerdernd: Feuchte, kuehle Temperaturen, Enge.
+         Massnahmen: Pflanzabstand (Luftzirkulation!), Kupferpraeparat, abends
+         NICHT sprengen.
+         Saison: Herbst und Fruehjahr besonders gefaehrlich.
+
+      3. Blattlaeuse am Salat — besonders gruene Salatblattlaus (Nasonovia
+         ribisnigri) kriechen in den Kopf und sind im Salat kaum zu entfernen.
+         Roetliche oder gruenliche Laeuse zwischen den Blaettern.
+         Massnahmen: Kein wirksames Mittel wenn im Kopf — betroffene Pflanzen
+         entsorgen. Vorbeugung: Gelbfallen, offene Sorten bevorzugen, Reihenfolge
+         mit Neem-Drench vor der Kopfbildung.
+         Saison: Ganzjaehrig im Gewaechshaus, Fruehjahr-Sommer im Freiland.
+
+      4. Grauschimmel / Botrytis (Botrytis cinerea) — grauer, pelziger Schimmel
+         an Blaettern, Stengel und Kopf, besonders bei Lagerungs-Salat und unter
+         Glas. Befallenes Gewebe wird matschig. Foerdernd: hohe Feuchte, Verwundungen,
+         abgestorbene Blaetter als Eintrittspforte.
+         Massnahmen: Abgestorbene Blaetter regelmaessig entfernen, Luftzirkulation,
+         Pflanzabstand erhoehen, keine Bewaesserung ueber Blaetter.
+         Verweis: Detail-Chunk "grauschimmel-botrytis".
+         Saison: Herbst bis Fruehjahr, Gewaechshaus.
+
+      5. Nematoden als Bodenproblem — parasitaere Wurzelgallennematoden (Meloidogyne)
+         verursachen Knoetchen an Salat-Wurzeln, Pflanze kuemmert. Haeufig nach
+         Monokultur. Massnahmen: Bodenbewohnte Nutz-Nematoden (Steinernema
+         gegen Trauermucken), Fruchtfolge, Tagetes als Zwischenfrucht
+         (exudiert nematizide Substanzen).
+         Saison: Sommer (Nematoden aktiver bei Waerme).
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: salat_blattgemuese
+      species_list:
+        - Lactuca sativa
+        - Spinacia oleracea
+        - Beta vulgaris var. cicla
+        - Valerianella locusta
+      common_problems:
+        - schnecken
+        - falscher_mehltau
+        - blattlaeuse
+        - botrytis
+        - nematoden
+      difficulty: beginner
+
+  # ---------------------------------------------------------------------------
+  # 5. Kraeuter
+  # ---------------------------------------------------------------------------
+  - id: artspez-kraeuter
+    title: Kraeuter (Basilikum, Petersilie, Minze, Thymian) — artspezifische Probleme
+    content: |
+      Kraeuter umfassen sehr unterschiedliche Familien mit je eigenen Schwachstellen.
+      Basilikum (Ocimum basilicum) — Lippenbluetengewaechs;
+      Petersilie, Dill, Fenchel (Apiaceae); Minze (Mentha spp.);
+      Thymian, Rosmarin (mediterrane Lippenbluetengewaechse).
+
+      Die haeufigsten Probleme nach Kraeuter-Art:
+
+      BASILIKUM — haeufigste Probleme:
+      1. Fusarium-Welke (Fusarium oxysporum f.sp. basilici) — Hauptgefahr
+         fuer Basilikum! Pflanze welkt ploetzlich, Stengel wird an der Basis
+         braun, faellt um. Kein Mittel bekannt — befallene Pflanzen sofort
+         entsorgen (NICHT kompostieren!). Bodenpathogen das lange im Boden
+         ueberlebt. Vorbeugung: frische Anzuchterde, gute Drainage, nicht zu
+         nass halten. Saatgut aus sicherer Quelle.
+         Saison: Ganzjaehrig, besonders bei nasskalten Bedingungen.
+
+      2. Falscher Mehltau (Peronospora belbahrii) an Basilikum — gelbe
+         Flecken oben, grauer Sporenrasen unten. Junge Pflanzen besonders
+         anfaellig. Foerdernd: kuehle feuchte Bedingungen, Blattnaeseperioden.
+         Massnahmen: Luftzirkulation stark verbessern, nicht von oben giessen,
+         ggf. Kupferpraeparat. Verweis: Detail-Chunk "falscher-mehltau".
+         Saison: Fruehjahr und kuehlere Perioden.
+
+      MINZE — haeufigste Probleme:
+      3. Rost an Minze (Puccinia menthae) — orangerote bis braunrote Pusteln
+         auf Blattunterseiten, Blattoberseite zeigt gelbliche Flecken. Befallene
+         Pflanzen stark zurueckschneiden (auf 5cm), Schnittgut entsorgen.
+         Massnahmen: Befallene Teile entfernen, Netzschwefel, Sorten mit
+         Resistenz waehlen.
+         Saison: Sommer bis Herbst, besonders feucht-warm.
+
+      KRAEUTER ALLGEMEIN — Schaedlinge:
+      4. Blattlaeuse an Petersilie, Dill, Fenchel — Gruene und schwarze
+         Blattlaeuse (oft Aphis spp.) an Triebspitzen und Blattunterseiten,
+         klebrige Ablagerungen. Massnahmen: Kaliseife-Spray, Abspruehen
+         mit Wasserstrahl. Bei Kraeuter: Neem-Oel erst nah an der Ernte
+         NICHT anwenden (Geschmack!).
+         Verweis: Detail-Chunk "blattlaeuse-erkennung".
+
+      5. Spinnmilben bei trockenen Kraeuten (Thymian, Rosmarin) — mediterrane
+         Kraeuter werden unter trocken-heissen Bedingungen (Topf in der Sonne,
+         Heizungsnaehe) haeufig von Spinnmilben befallen. Feine Stippling auf
+         Blattoberseiten, Gespinste. Massnahmen: Luftfeuchtigkeit leicht
+         erhoehen, Pflanze abduschen, Raubmilben.
+         Verweis: Detail-Chunk "spinnmilben-erkennung".
+
+      Besonderheit: Bei Kraeuter die kurz vor der Ernte stehen, keine Mittel
+      mit langer Karenzzeit einsetzen. Hausmittel (Kaliseife, Backpulver,
+      Milch-Spray) bevorzugen. Thymian und Rosmarin sind robuster als
+      Basilikum und Petersilie.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: kraeuter
+      species_list:
+        - Ocimum basilicum
+        - Petroselinum crispum
+        - Mentha spp.
+        - Rosmarinus officinalis
+        - Thymus vulgaris
+      common_problems:
+        - fusarium_welke
+        - falscher_mehltau
+        - rost
+        - blattlaeuse
+        - spinnmilben
+      difficulty: beginner
+
+  # ---------------------------------------------------------------------------
+  # 6. Cannabis
+  # ---------------------------------------------------------------------------
+  - id: artspez-cannabis
+    title: Cannabis — Botrytis, Echter Mehltau und die haeufigsten Schaedlinge (Indoor)
+    content: |
+      Cannabis (Cannabis sativa) hat im Indoor-Anbau spezifische Risikoprofile
+      die stark von der Wachstumsphase abhaengen. Kontrolle von Luftfeuchtigkeit
+      und Luftzirkulation ist die wichtigste Praevention.
+
+      Die 5 wichtigsten Probleme:
+
+      1. Botrytis / Bud Rot (Botrytis cinerea) — die Hauptgefahr in der
+         Bluetephase. Blueten werden von innen braun und matschig, grauer
+         Schimmelrasen sichtbar wenn man die Bluete oeffnet. Besonders bei
+         dichten Indica-lastigen Bluetenstaenden mit schlechter Luftzirkulation.
+         VORSICHT: Befallene Bluetenteile NICHT rauchen — Mykotoxine sind
+         gesundheitsschaedlich. Sofort grosszuegig herausschneiden.
+         Massnahmen: RH in spaeter Bluete unter 45-50% halten, Luftbewegung
+         maximieren, Entfeuchter einsetzen.
+         Saison/Phase: Bluete (Woche 5-10), besonders spaete Bluete.
+         Verweis: Detail-Chunk "grauschimmel-botrytis".
+
+      2. Echter Mehltau (White Powdery Mildew, WPM) — weisser pudriger Belag
+         auf Blattoberseiten, typischer Mehltau-Look. Seltener als Botrytis aber
+         haeufig in der vegetativen Phase oder fruehen Bluete. Foerdernd: warme
+         Tage, kuehle Naechte, schlechte Luftzirkulation.
+         Massnahmen: Milch-Spray (1:9), Kaliumbicarbonat (Vitisan), Netzschwefel
+         (NICHT an Blueten spritzen!), Luftzirkulation verbessern.
+         Verweis: Detail-Chunk "echter-mehltau".
+
+      3. Spinnmilben (Tetranychidae) — sehr haeufig Indoor, besonders wenn
+         Temperatur hoch und Luftfeuchtigkeit niedrig. Feine helle Punkte auf
+         Blattoberseiten, Gespinste bei starkem Befall. Spinnmilben vermehren
+         sich unter trockenen, warmen Bedingungen extrem schnell.
+         Massnahmen: Luftfeuchtigkeit auf 50-60% erhoehen, Raubmilben
+         (Phytoseiulus persimilis), Neem-Oel als Spray (nicht in Bluete!).
+         Verweis: Detail-Chunk "spinnmilben-erkennung".
+
+      4. Thrips — silbrige Streifen und schwarze Kotpunkte auf Blaettern.
+         Indoor ein haeufiger Neueinschleppung durch kontaminierte Erde oder
+         neue Pflanzen. Blaue Klebefallen fuer Monitoring.
+         Massnahmen: Spinosad (sehr effektiv, abends anwenden), Amblyseius
+         cucumeris (Raubmilbe gegen Thrips-Larven), blaue Klebefallen.
+         In der Bluete: Spinosad nur an Blaettern, NICHT an Blueten.
+         Verweis: Detail-Chunk "thrips-erkennung".
+
+      5. Trauermucken (Sciaridae) — besonders bei ueberwaessertem Substrat
+         in Erde-Anzucht. Larven fressen Feinwurzeln und schwaecht Jungpflanzen.
+         Massnahmen: Substrat abtrocknen lassen, BTi giessen (Mosquito Bits),
+         Nematoden (Steinernema feltiae), gelbe Klebefallen.
+         Verweis: Detail-Chunk "trauermucken-erkennung".
+
+      Weitere bekannte Probleme: Fusarium und Pythium (Wurzelfaeule, besonders
+      Hydro), Blattlaeuse an Triebspitzen, Hopfenmosaikvirus (HpMV) und
+      Tabakmosaikvirus (TMV) durch kontaminierte Werkzeuge und Haende (Desinfek-
+      tion mit Isopropanol ist Pflicht). Pythium bevorzugt Wassertemperaturen
+      ueber 22 Grad — Hydro-Reservoir kuehl halten.
+      Verweis Wurzelfaeule: Detail-Chunks "wurzelfaeule-erkennung", "wurzelfaeule-behandlung".
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: cannabis
+      species_list:
+        - Cannabis sativa
+      common_problems:
+        - botrytis
+        - echter_mehltau
+        - spinnmilben
+        - thrips
+        - trauermucken
+        - fusarium
+        - pythium
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 7. Orchideen
+  # ---------------------------------------------------------------------------
+  - id: artspez-orchideen
+    title: Orchideen (Phalaenopsis, Dendrobium, Cattleya) — haeufigste Probleme
+    content: |
+      Orchideen sind robuster als ihr Ruf — die meisten Probleme entstehen
+      durch Pflegefehler, nicht durch unabwendbare Krankheiten. Haeufigste
+      Arten: Phalaenopsis (Schmetterlingsorchidee), Dendrobium, Cattleya,
+      Oncidium, Vanda.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Nassfaeule / Bakterielle Herzfaeule — das gefaehrlichste Problem.
+         Braune, waeessrige, weiche Stellen an Blaettern oder Herzpunkt der
+         Pflanze, oft uebel riechend. Ursache: Wasser bleibt im Blatttrichter
+         oder Triebzentrum stehen. Bakterien (Erwinia) besiedeln nasses Gewebe.
+         Massnahmen: Befallenes Gewebe sauber herausschneiden (desinfizierte
+         Schere), Schnittstelle mit Zimt oder Aktivkohle bestauben (anti-
+         bakteriell). Orchideen IMMER von unten giessen oder Wasser aus dem
+         Blatttrichter herausschuetteln.
+         Saison: Ganzjaehrig, besonders im Herbst/Winter bei schlechter Luefte.
+
+      2. Schildlaeuse (Coccoidea) — haeufigster Schaedling an Orchideen.
+         Braune oder weissliche Schuppen an Blaettern, Stengeln und Luftwurzeln.
+         Schildlaeuse sind klein und werden oft verwechselt mit natuerlichen
+         Pflanzenstrukturen. Klebrige Ablagerungen (Honigtau) als weiteres Indiz.
+         Massnahmen: Einzelne Tiere mit Isopropanol-Wattestaechen abtupfen,
+         Oelbasierte Sprays (Paraffinoel), Neem-Oel.
+         Verweis: Detail-Chunk "schildlaeuse-erkennung".
+
+      3. Woll- und Schmierlaeuse (Pseudococcidae) — weisse wattige Klumpen
+         in Blattachseln, an Luftwurzeln und in Blattscheiden. Besonders schwer
+         zu entdecken und zu bekaempfen weil sie sich in Schutzraeume zurueckziehen.
+         Wurzel-Wolllaeuse sind erst beim Umtopfen sichtbar.
+         Massnahmen: Isopropanol-Wattestaechen, Kaliseife-Spray, Neem-Oel als
+         Giessloesung (gegen Wurzel-Wolllaeuse). Behandlung wochenlang wiederholen.
+         Verweis: Detail-Chunk "wolllaeuse-erkennung".
+
+      4. Schwarzfleckenkrankheit (Colletotrichum gloeosporioides) — dunkle,
+         eingesunkene Flecken auf Blaettern, die sich ausbreiten. Foerdernd:
+         hohe Feuchte und schlechte Luftzirkulation. Massnahmen: Befallene
+         Blaetter entfernen, Schnittflaechen desinfizieren, Luftzirkulation
+         verbessern, Kupferpraeparat vorsichtig (Orchideen reagieren empfindlich).
+
+      5. Thrips an Orchideen — Schadbild an Bluetenblaettern (silbrige,
+         verwischte Muster), Blueten oeffnen sich missgebildet. Thrips verstecken
+         sich in Bluetenknospen.
+         Massnahmen: Blaue Klebefallen, Spinosad (vor der Bluete anwenden),
+         Amblyseius cucumeris.
+         Verweis: Detail-Chunk "thrips-erkennung".
+
+      Besonderheit Orchideen: Orchideen brauchen transparente Toepfe (Wurzeln
+      benoetigen Licht fuer Photosynthese) und ein sehr gut durchlueftetes
+      Substrat (Rinden-Substrat, nicht Erde). Staunaeese toetet Orchideen-
+      Wurzeln schnell. Abgestorbene oder welke Wurzeln (silbergrau, hohl) sind
+      normal — nicht abschneiden solange sie noch lebendig sind (gruen nach Giessen).
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: orchideen
+      species_list:
+        - Phalaenopsis spp.
+        - Dendrobium spp.
+        - Cattleya spp.
+        - Oncidium spp.
+        - Vanda spp.
+      common_problems:
+        - nassfaeule
+        - schildlaeuse
+        - wolllaeuse
+        - schwarzfleckenkrankheit
+        - thrips
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 8. Tropische Zimmerpflanzen
+  # ---------------------------------------------------------------------------
+  - id: artspez-tropische-zimmerpflanzen
+    title: Tropische Zimmerpflanzen (Monstera, Calathea, Ficus, Philodendron) — Probleme
+    content: |
+      Tropische Zimmerpflanzen — Monstera deliciosa, Philodendron spp.,
+      Alocasia spp., Calathea spp., Ficus benjamina, Epipremnum aureum
+      (Efeutute), Spathiphyllum (Einblatt) — stammen aus feuchten Tropen
+      und haben dort wenige natuerliche Schaedlinge. Im trockenen Wohnraum
+      entstehen aber charakteristische Pflegeprobleme.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Wurzelfaeule durch Ueberwaesserung — die haeufigste Todesursache
+         fuer Zimmerpflanzen! Pflanze welkt trotz nasser Erde, Substrat riecht
+         modrig, Wurzeln braun und schleimig. Erreger: Pythium, Phytophthora.
+         Ursache: zu haeufiges Giessen ohne die Substrat-Oberflaechenpruefung,
+         fehlende Drainage-Loecher, Untersetzer permanent mit Wasser.
+         Massnahmen: Fingerprobe vor jedem Giessen (erst giessen wenn obere
+         2-3 cm trocken), umtopfen mit Wurzelbeschnitt, frisches Substrat.
+         Verweis: Detail-Chunks "wurzelfaeule-erkennung", "zimmerpflanze-blaetter-haengen".
+
+      2. Spinnmilben durch Heizungsluft — im Winter, wenn Heizung laeuft
+         und Luftfeuchtigkeit auf 20-30% sinkt, explodiert Spinnmilben-
+         Population. Kleine helle Punkte auf Blattoberseiten, Gespinste.
+         Ficus, Monstera, Alocasia und Calathea besonders gefaehrdet.
+         Massnahmen: Luftfeuchtigkeit auf 50-60% erhoehen (Luftbefeuchter),
+         Pflanze abduschen, Raubmilben bei starkem Befall.
+         Verweis: Detail-Chunk "spinnmilben-erkennung".
+
+      3. Schildlaeuse und Wolllaeuse — Ficus, Efeutute und Orchideen sind
+         Hauptwirte. Schildlaeuse sitzen als braune Schuppen an Stengeln;
+         Wolllaeuse bilden weisse Watteklumpen in Blattachseln. Beide
+         produzieren Honigtau (klebrige Blaetter) als fruehes Warnsignal.
+         Massnahmen: Isopropanol-Wattestaechen, Kaliseife-Spray, Neem-Oel.
+         Verweis: Detail-Chunks "schildlaeuse-erkennung", "wolllaeuse-erkennung",
+         "honigtau-diagnose".
+
+      4. Thrips an Monstera und Alocasia — silbrige verwischte Spuren und
+         schwarze Kotpunkte auf Blattoberseiten. Thrips sind Indoor besonders
+         hartnackig, da natuerliche Feinde fehlen. Schnelle Ausbreitung auf
+         Nachbarpflanzen — befallene Pflanze sofort isolieren!
+         Massnahmen: Blaue Klebefallen, Spinosad-Spray, Amblyseius cucumeris.
+         Verweis: Detail-Chunk "thrips-erkennung".
+
+      5. Trauermucken (Sciaridae) — kleine schwarze Fliegen aus feuchter Erde.
+         Larven schaden Wurzeln von Jungpflanzen und Stecklingen, bei grossen
+         Pflanzen eher laestig. Substrat zwischen Giess-Gaengen antrocknen
+         lassen ist die wichtigste Massnahme.
+         Verweis: Detail-Chunk "trauermucken-erkennung".
+
+      Besondere Anfaelligkeit Calathea: extrem empfindlich auf Leitungswasser
+      (Kalk, Chlor, Fluorid) und trockene Luft. Calathea-spezifische Symptome
+      (braune Blattspitzen) sind fast immer auf Wasserqualitaet und
+      Luftfeuchtigkeit zurueckzufuehren, nicht auf Schaedlinge.
+      Verweis: Detail-Chunk "braune-blattspitzen-zimmerpflanze".
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: tropische_zimmerpflanzen
+      species_list:
+        - Monstera deliciosa
+        - Philodendron spp.
+        - Alocasia spp.
+        - Calathea spp.
+        - Ficus benjamina
+        - Epipremnum aureum
+        - Spathiphyllum wallisii
+      common_problems:
+        - wurzelfaeule
+        - spinnmilben
+        - schildlaeuse
+        - wolllaeuse
+        - thrips
+        - trauermucken
+      difficulty: beginner
+
+  # ---------------------------------------------------------------------------
+  # 9. Sukkulenten & Kakteen
+  # ---------------------------------------------------------------------------
+  - id: artspez-sukkulenten-kakteen
+    title: Sukkulenten und Kakteen — wenige aber ernste Probleme
+    content: |
+      Sukkulenten (Aloe vera, Echeveria, Crassula, Haworthia) und Kakteen
+      (Familie Cactaceae) sind sehr trockenheitstolerant und haben wenige
+      Krankheiten — aber die Probleme die auftreten sind oft fatal wenn
+      sie zu spaet erkannt werden.
+
+      Die 4 haeufigsten Probleme:
+
+      1. Wurzelfaeule durch zu nasses Substrat — mit Abstand das haeufigste
+         Problem und haeufigste Todesursache. Sukkulenten und Kakteen speichern
+         Wasser im Gewebe und brauchen sehr selten Wasser. Das Substrat muss
+         zwischen den Giess-Gaengen vollstaendig austrocknen. Symptome: Stengel
+         oder Blattbasis wird weich und glasig, Pflanze kippt um, Wurzeln
+         braun-schwarz und faul. Kein Wiederherstellen wenn der Stengel von
+         unten faul ist.
+         Massnahmen: Pruefen: Topf hochheben — wenn er noch schwer ist, NICHT
+         giessen. Kakteen im Winter (Oktober-Maerz) gar nicht giessen.
+         Staunaeesse und geschlossene Untersetzer vermeiden.
+         Verweis: Detail-Chunk "wurzelfaeule-erkennung".
+
+      2. Woll- und Schmierlaeuse in Ritzen und Rippen — der haeufigste
+         Schaedling an Kakteen und Sukkulenten. Weisse Watteklumpen zwischen
+         Kakteenrippen, unter Dornen und in Blattachseln von Sukkulenten.
+         Besonders tief in Ritzen versteckt, daher hartnackig.
+         Massnahmen: Isopropanol-Wattestaechen in alle Ritzen, Neem-Oel als
+         Bespruehed und Giessanwendung, Wattestaechen jeden 5-7 Tage wiederholen.
+         Verweis: Detail-Chunk "wolllaeuse-erkennung".
+
+      3. Schildlaeuse an Stamm und Blattoberseiten — besonders bei Aloe vera,
+         Crassula und stammbildenden Kakteen. Braungraue Schuppen an Stengeln,
+         Honigtau. Massnahmen: wie Schildlaeuse allgemein, Oel-Sprays besonders
+         effektiv fuer den Schild.
+         Verweis: Detail-Chunk "schildlaeuse-erkennung".
+
+      4. Pilzbefall bei Staunaeesse (Fusarium, Pythium) — bei nassen
+         Bedingungen koennen Pilze Wunden (Beschnitt, Umtopf-Schaden) besiedeln.
+         Vorbeugen: Wunden vor dem Einpflanzen antrocknen lassen (24-48 Stunden
+         an der Luft), kein Wasser auf frische Wunden, mineralisches Substrat
+         (wenig Torf, hoher Mineral- und Sandanteil).
+         Verweis: Detail-Chunk "wurzelfaeule-behandlung".
+
+      Besonderheit Saisonalitaet: Kakteen und viele Sukkulenten haben eine
+      echte Winterruhe. Im Winter (wenig Licht, kuehler Standort, kein Giessen)
+      sind sie kaum anfaellig fuer Krankheiten. Die meisten Probleme entstehen
+      wenn im Winter zu warm und zu nass gehalten wird.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: sukkulenten_kakteen
+      species_list:
+        - Aloe vera
+        - Echeveria spp.
+        - Crassula ovata
+        - Haworthia spp.
+        - Cactaceae (diverse)
+      common_problems:
+        - wurzelfaeule
+        - wolllaeuse
+        - schildlaeuse
+        - pilzbefall
+      difficulty: beginner
+
+  # ---------------------------------------------------------------------------
+  # 10. Rosen
+  # ---------------------------------------------------------------------------
+  - id: artspez-rosen
+    title: Rosen — Sternrussstaub, Mehltau, Rost und die typischen Schaedlinge
+    content: |
+      Rosen (Rosa spp.) gehoeren zu den anspruchsvollsten Gartengehoelzen
+      in Bezug auf Pflanzenschutz. Drei pilzliche Haupterkrankungen plus
+      einige charakteristische Schaedlinge bestimmen den Pflanzenschutz
+      im Rosenbeet.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Sternrussstaub (Diplocarpon rosae) — haeufigste Pilzkrankheit an
+         Rosen. Schwarze Flecken mit gefransten, sternfoermigen Raendern auf
+         Blattoberseiten, befallene Blaetter werden gelb und fallen vorzeitig ab.
+         Bei starkem Befall kahl werdende Straeucher. Foerdernd: Blattnaeseperioden,
+         warme feuchte Sommer.
+         Massnahmen: Laubfall sofort entfernen (Sporen ueberwintern in abgefallenen
+         Blaettern!), nicht von oben giessen, resistente Sorten waehlen
+         (z.B. ADR-geprueft), Netzschwefel oder Kupfer vorbeugennd.
+         Saison: Sommer bis Herbst, Hauptbefall Juli-September.
+
+      2. Echter Mehltau an Rosen (Podosphaera pannosa) — weisslicher pudriger
+         Belag auf jungen Trieben, Knospen und Blattunterseiten. Junge
+         Blaetter kringeln sich ein. Foerdernd: warme Tage, kuehle Naechte,
+         trockene Blattoberflaechen.
+         Massnahmen: Milch-Spray (1:9), Netzschwefel, Kaliumbicarbonat,
+         kranke Triebe abschneiden. Verweis: Detail-Chunk "echter-mehltau".
+         Saison: Mai-September.
+
+      3. Rost an Rosen (Phragmidium mucronatum) — orangerote Pusteln auf
+         Blattunterseiten, gelbe Flecken oben. Befallene Blaetter fallen ab.
+         Foerdernd: feuchte Bedingungen, besonders im Fruehsommer.
+         Massnahmen: Befallene Blaetter entfernen, Netzschwefel, Kupferpraeparat.
+         Saison: Fruehsommer, nach Regen.
+
+      4. Blattlaeuse (Macrosiphum rosae) — gruenliche bis roetliche Laeuse an
+         Triebspitzen und Knospen, Honigtau, verkrueppelte Knospen.
+         Blattlaeuse sind bei Rosen fast unvermeidlich, aber gut kontrollierbar.
+         Massnahmen: Stark befallene Triebspitzen abschneiden, Marienkaefer
+         foerdern (biologisch), Kaliseife-Spray, Neem-Oel.
+         Saison: April-September.
+
+      5. Rosenblattwespe (Blennocampa phyllocolpa) — Blaetter rollen sich
+         laengsseits zusammen, Larven sitzen innen. Typisch im Fruehsommer.
+         Massnahmen: Befallene Blaetter einzeln absammeln und entsorgen,
+         bei starkem Befall Spinosad.
+         Verweis allgemein Schaedlinge: Detail-Chunk "biologische-schaedlingsbekaempfung-nuetzlinge".
+         Saison: Mai-Juni.
+
+      Botrytis an Rosenknospen (Botrytis cinerea) — bei feuchtem Wetter
+      und in Hochlagen. Knospen oeffnen sich nicht, werden braun-matschig.
+      Massnahmen: Luftzirkulation verbessern, abgestorbene Bluetenteile
+      regelmaessig entfernen.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: rosen
+      species_list:
+        - Rosa spp.
+      common_problems:
+        - sternrussstaub
+        - echter_mehltau
+        - rost
+        - blattlaeuse
+        - rosenblattwespe
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 11. Obstgehoelze
+  # ---------------------------------------------------------------------------
+  - id: artspez-obstgehoelze
+    title: Obstgehoelze (Apfel, Kirsche, Pflaume, Erdbeere, Johannisbeere) — Probleme
+    content: |
+      Obstgehoelze umfassen sehr unterschiedliche Familien. Kernobst (Malus,
+      Pyrus), Steinobst (Prunus), Beerenobst (Ribes, Rubus, Fragaria) haben
+      je eigene Schwachstellen.
+
+      Die wichtigsten Probleme nach Gruppe:
+
+      KERNOBST (Apfel, Birne):
+      1. Apfelschorf (Venturia inaequalis) — haeufigste Apfelkrankheit.
+         Olivbraune bis schwarze, korkige Flecken auf Fruechten und Blaettern.
+         Fruechte rissig, lagert schlecht. Foerdernd: feuchtes Fruehjahr.
+         Massnahmen: Laubfall vergraben oder kompostieren, Kupfer oder Schwefel
+         vorbeugennd, schorfresistente Sorten (z.B. Topaz, Rebella).
+         Saison: Fruehjahr (Erstinfektionen), Sommer.
+
+      2. Feuerbrand (Erwinia amylovora) — meldepflichtige Bakterienkrankheit
+         an Kernobst und Quitten. Bluetenstaende, Triebe und Aeste vertrocknen
+         blitzartig — "Kaeltebrand-Optik". Befallene Teile werden braun-schwarz,
+         biegen sich hakenfoermig. KEIN Gegenmittel. Befallene Teile sofort und
+         grosszuegig (mind. 50 cm ins gesunde Holz) herausschneiden, Werkzeug
+         desinfizieren. Meldepflicht in manchen Bundeslaendern pruefen!
+         Saison: Bluete (Hauptinfektionszeit), heisses feuchtes Wetter.
+
+      STEINOBST (Kirsche, Pflaume, Pfirsich):
+      3. Kräuselkrankheit des Pfirsichs (Taphrina deformans) — Blaetter
+         kraeuseln und deformieren sich und faerben sich rot-gelblich. Frueher
+         Blattfall geschwaeicht die Pflanze. Nur ein Behandlungszeitpunkt: nach
+         dem Laubfall im Herbst oder kurz vor der Knospenentfaltung im Fruehjahr
+         (Kupferpraeparat). Saison: Fruehsommer (sichtbar); Infektion: Fruehsommer.
+
+      4. Kirschessigfliege (Drosophila suzukii) — legt Eier in reife und
+         halbreife Fruechte (Kirschen, Heidelbeeren, Himbeeren, Erdbeeren, Trauben).
+         Fruechte fallen fruehzeitig ab, verderben schnell. Massnahmen: Engmaschige
+         Netze (1-2mm Maschenweite), Fallensysteme, Fruchte schnell ernten.
+         Saison: Sommer-Herbst (Spaetsorten besonders betroffen).
+
+      BEERENOBST:
+      5. Monilia-Fruchtfaeule (Monilinia fructigena) — braune, sich aus-
+         breitende Faeulnis an Fruechten mit konzentrischen Sporenpusteln.
+         Fruechte mumifizieren und bleiben am Baum haengen (Infektionsquelle!).
+         Massnahmen: Mumifizierte Fruechte entfernen, befallene Fruechte nie
+         kompostieren, Luftzirkulation durch Schnitt verbessern.
+         Verweis: Detail-Chunk "grauschimmel-botrytis" (Botrytis an Erdbeere).
+
+      Blattlaeuse und Apfelwickler sind weitere haeufige Probleme bei Kernobst.
+      Apfelwickler-Kontrolle: Pheromonfallen zum Monitoring, Codling Moth
+      Granulovirus (biologisch, sehr effektiv).
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: obstgehoelze
+      species_list:
+        - Malus domestica
+        - Pyrus communis
+        - Prunus avium
+        - Prunus persica
+        - Ribes spp.
+        - Rubus spp.
+        - Fragaria x ananassa
+      common_problems:
+        - apfelschorf
+        - feuerbrand
+        - kraeusselkrankheit
+        - kirschessigfliege
+        - monilia
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 12. Zwiebelgewaechse / Allium
+  # ---------------------------------------------------------------------------
+  - id: artspez-allium
+    title: Zwiebeln, Knoblauch, Lauch, Schnittlauch — haeufigste Probleme
+    content: |
+      Alliumgewaechse — Zwiebel (Allium cepa), Knoblauch (A. sativum),
+      Lauch/Porree (A. porrum), Schnittlauch (A. schoenoprasum) — haben eine
+      enge Verwandtschaft und teilen viele Krankheitserreger. Fruchtfolge
+      3 Jahre Anbaupause fuer alle Allium-Arten.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Falscher Mehltau an Zwiebel und Lauch (Peronospora destructor,
+         P. parasitica) — gelbliche Flecken auf Blaettern mit grau-violettem
+         Sporenrasen. Befallene Blaetter kippen um. Foerdernd: kuehle, feuchte
+         Perioden im Fruehjahr und Herbst.
+         Massnahmen: Kupferpraeparat (vorbeugend!), Pflanzabstand, nicht von oben
+         bewaessern, Fruchtfolge einhalten.
+         Saison: Fruehjahr und Herbst, nach Regenperioden.
+         Verweis: Detail-Chunk "falscher-mehltau".
+
+      2. Rost an Lauch und Knoblauch (Puccinia allii) — orangerote Pusteln auf
+         Blaettern, geschwaeicht das Gewebe. Knoblauch besonders anfaellig im
+         Fruehjahr. Massnahmen: Befallene Blaetter entfernen, Netzschwefel.
+         Bei Lauch: Sorten mit Rostresistenz waehlen.
+         Saison: Fruehjahr bis Sommer.
+
+      3. Lauchminierfliege (Phytomyza gymnostoma) — weissliche Minen
+         (Frass-Galerien) in den Blaettern von Lauch, Schnittlauch, Schalotten.
+         Typisch: Larven fressen in der Blattspreite, hinterlassen weissliche
+         Linien oder Flecken. Massnahmen: Kulturschutznetze als beste Vorbeugung,
+         befallene Blaetter entfernen, gelbe Klebefallen zum Monitoring.
+         Saison: Fruehjahr und Herbst (zwei Generationen).
+
+      4. Zwiebelfliege (Delia antiqua) — Larven fressen in der Zwiebelbasis,
+         Pflanzen welken und sterben ab. Besonders bei Jungpflanzen und
+         Steckzwiebeln gefaehrlich. Massnahmen: Kulturschutznetze, Fruchtfolge,
+         nicht zu frueh stecken (kalte Boeden bevorzugt von Zwiebelfliege).
+         Saison: April-Juni (erste Generation), August-September (zweite).
+
+      5. Fusarium-Halsfaeule (Fusarium oxysporum) — Basis der Zwiebel wird
+         weich und faul, Blaetter sterben von unten ab. Boden-Pathogen das
+         sich durch kontaminierte Steckzwiebeln und Boden verbreitet.
+         Massnahmen: Gesundes Pflanzgut verwenden, gute Drainage, weite
+         Fruchtfolge (4 Jahre), befallene Pflanzen entfernen.
+         Saison: Ganzjaehrig, sichtbar vor der Ernte und bei Lagerung.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: allium
+      species_list:
+        - Allium cepa
+        - Allium sativum
+        - Allium porrum
+        - Allium schoenoprasum
+      common_problems:
+        - falscher_mehltau
+        - rost
+        - lauchminierfliege
+        - zwiebelfliege
+        - fusarium
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 13. Wurzelgemuese
+  # ---------------------------------------------------------------------------
+  - id: artspez-wurzelgemuese
+    title: Wurzelgemuese (Moehre, Pastinake, Sellerie, Rote Bete) — typische Probleme
+    content: |
+      Wurzelgemuese — Moehre (Daucus carota), Pastinake (Pastinaca sativa),
+      Knollensellerie (Apium graveolens var. rapaceum), Rote Bete und Mangold
+      (Beta vulgaris) — haben ein geschuetzteres Erntegut unter der Erde, aber
+      typische ober- und unterirdische Schaedlinge.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Moehrenfliege (Psila rosae) — ein Hauptschaedling der Moehre. Larven
+         fressen rostbraune Gaenge (Frass) in die Moehrenwurzel, die dann fault.
+         Charakteristisch: rotorangene Rostfaerbung um die Frass-Gaenge, unange-
+         nehmer Geruch bei starkem Befall. Massnahmen: Kulturschutznetze (engmaschig,
+         1mm) sind die wirksamste Methode, Saatzeit verspaeten (nach Ende des ersten
+         Flugs, Ende Juni), Karotten und Lauch als Mischkultur (Lauch-Geruch verwirrt
+         Moehrenfliege).
+         Saison: Zwei Flugepochen: Mai-Juni und August-September.
+
+      2. Alternaria an Moehre (Alternaria dauci) — braune bis schwarze Flecken auf
+         Blaettern mit gelben Raendern, spaeter absterbende Blaetter. Foerdernd:
+         warme feuchte Witterung. Massnahmen: weite Fruchtfolge (3-4 Jahre keine
+         Apiaceae), befallenes Laub entfernen, Fungizid nur bei Starkbefall.
+         Saison: Sommer.
+
+      3. Cercospora-Blattflecken (Cercospora beticola) an Rote Bete und Mangold —
+         runde Flecken mit hellgrauem Zentrum und dunkelrotem bis braunem Rand.
+         Bei Massenbefall starkes Absterben der Blattmasse, was die Rueben-
+         Entwicklung bremst. Massnahmen: weite Fruchtfolge, Kupferpraeparat.
+         Saison: Sommer, besonders bei Waerme und Feuchte.
+
+      4. Wuehlmaeuse (Arvicola terrestris, Microtus arvalis) — graben Gaenge
+         unter Moehren, Pastinaken, Rote Bete und fressen die Wurzeln von unten.
+         Ernte bricht zusammen oder Pflanze faellt plotzlich um (wurzellos).
+         Massnahmen: Fallen (Maulwurffallen umgebaut fuer Wuehlmaus), Drahtkoerbe
+         beim Pflanzen, Katzen als biologische Kontrolle.
+         Saison: Ganzjaehrig, besonders Herbst-Winter.
+
+      5. Nematoden (Meloidogyne-Gallennematoden) — Gallen (Verdickungen) an
+         Moehren und Pastinaken, missgebildete Wurzeln. Haeufig nach Monokultur
+         auf leichten Sandboeden.
+         Massnahmen: Fruchtfolge mit Tagetes als Zwischenfrucht (nematizide Wirkung),
+         resistente Sorten, Bodenbewaesserung optimieren.
+         Saison: Sommer (Nematoden bei Waerme aktiver).
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: wurzelgemuese
+      species_list:
+        - Daucus carota
+        - Pastinaca sativa
+        - Apium graveolens var. rapaceum
+        - Beta vulgaris
+      common_problems:
+        - moehrenfliege
+        - alternaria
+        - cercospora
+        - wuehlmaeuse
+        - nematoden
+      difficulty: intermediate
+
+  # ---------------------------------------------------------------------------
+  # 14. Huelsenfruechte
+  # ---------------------------------------------------------------------------
+  - id: artspez-huelsenfruechte
+    title: Huelsenfruechte (Bohnen, Erbsen, Ackerbohne) — haeufigste Probleme
+    content: |
+      Huelsenfruechte — Buschbohne und Stangenbohne (Phaseolus vulgaris),
+      Erbse (Pisum sativum), Ackerbohne (Vicia faba) — sind wichtige
+      Stickstoff-Fixierer (Wurzelbakterien, Rhizobien!) und bereichern den
+      Boden. Sie haben aber charakteristische Pilz- und Schaedlingsprobleme.
+      Fruchtfolge: 3 Jahre Pause fuer alle Leguminosen auf derselben Flaeche.
+
+      Die 5 haeufigsten Probleme:
+
+      1. Schwarze Bohnenlaus (Aphis fabae) — massenhaftes Auftreten an
+         Triebspitzen von Ackerbohne und Bohnen. Grosse schwarze Laeusekolonien
+         an Triebspitzen die zusammenrollen und kuemmern. Honigtau, Russtaupilz.
+         Massnahmen: Triebspitzen abknipsen (mit Laeuse, verringert Population
+         deutlich!), Marienkaefer foerdern, Kaliseife-Spray. Vorbeugend:
+         frueh saeen damit Pflanzen stark sind bevor Lausdruck beginnt.
+         Saison: Mai-Juli.
+
+      2. Rost an Bohnen (Uromyces appendiculatus) und Erbsen (Uromyces pisi) —
+         orangerote Pusteln auf Blattoberseiten und -unterseiten, befallene
+         Blaetter sterben ab. Foerdernd: feuchte, warme Bedingungen.
+         Massnahmen: Befallene Blaetter entfernen (nicht kompostieren), Netzschwefel,
+         weite Reihenabstaende fuer Luftzirkulation. Schwere Faelle koennen
+         die Ernte stark mindern.
+         Saison: Sommer, besonders nach Regen.
+
+      3. Echter Mehltau an Erbsen (Erysiphe pisi) — weisslicher Belag auf
+         Blaettern und Huelsen, typisch im Hochsommer bei Hitze und Trockenheit.
+         Massnahmen: Kurzfruchtige Sorten frueh saeen (vor Mehltau-Saison),
+         Backpulver-Spray, Milch-Spray.
+         Saison: Juli-September.
+
+      4. Botrytis an Ackerbohnen und Bohnen (Botrytis fabae, B. cinerea) —
+         grauer Schimmel an Stengeln, Blaettern und Huelsen bei feuchtem Wetter.
+         Pflanze kann schnell zusammenbrechen. Massnahmen: Pflanzabstand
+         erhoehen, nicht von oben bewaessern, abgestorbene Pflanzenteile
+         regelmaessig entfernen.
+         Verweis: Detail-Chunk "grauschimmel-botrytis".
+         Saison: Fruehjahr und feuchter Sommer.
+
+      5. Schnecken an Bohnen-Jungpflanzen — Schnecken fressen Keimblatter
+         und junge Blaetter, besonders in feuchten Fruehjahren. Massnahmen:
+         Eisenphosphat-Schneckenkorn (Ferramol), Schneckenbarrieren, abends
+         absammeln.
+         Saison: Fruehjahr, nach Regen.
+
+      Erbsenwickler (Cydia nigricana) — Larven fressen Erbsensamen in der
+      Huelse. Keine aeusseren Anzeichen bis zur Ernte. Massnahmen:
+      Pheromonfallen zum Monitoring, Spinosad, Netz.
+    metadata:
+      topic: artspezifische_probleme
+      plant_group: huelsenfruechte
+      species_list:
+        - Phaseolus vulgaris
+        - Pisum sativum
+        - Vicia faba
+      common_problems:
+        - schwarze_bohnenlaus
+        - rost
+        - echter_mehltau
+        - botrytis
+        - schnecken
+      difficulty: beginner

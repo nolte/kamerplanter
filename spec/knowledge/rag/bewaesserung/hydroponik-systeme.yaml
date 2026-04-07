@@ -1,0 +1,333 @@
+---
+title: Hydroponik-Systeme — Aufbau, Vergleich und Betrieb
+language: de
+category: bewaesserung
+tags: [hydroponik, hydro, dwc, nft, ebb flow, flut ebbe, kratky, aeroponik, drip, tropfsystem, reservoir, wurzelfaeule, pythium, anfaenger, salat, cannabis, kein boden, ohne erde, wasserkultur, naehrloesung, luftstein, luftpumpe, passive hydroponik]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: hydroponik-systeme-vergleich
+    title: Welches Hydroponik-System passt zu mir? Vergleich DWC, NFT, Ebb&Flow, Kratky
+    content: |
+      Hydroponik bedeutet: Pflanzen wachsen ohne Erde in Naehrloesung. Es gibt
+      mehrere Systeme — jedes hat andere Anforderungen, Kosten und Staerken.
+      Hier ein schneller Ueberblick:
+
+      DWC (Deep Water Culture) — Eimer mit belüfteter Naehrloesung:
+      Schwierigkeit: Mittel. Kosten: Gering (20-60 EUR). Ertrag: Sehr hoch.
+      Pflanzen: Cannabis, Tomaten, Paprika. Anfaengergeeignet: Ja.
+
+      Kratky-Methode — passiv, kein Strom:
+      Schwierigkeit: Sehr gering. Kosten: Minimal (Einmachglas). Ertrag: Mittel.
+      Pflanzen: Salat, Kraeuter, Microgreens. Anfaengergeeignet: Ja, ideal zum Einstieg.
+
+      Ebb & Flow (Flut und Ebbe) — timergesteuerte Flutung:
+      Schwierigkeit: Mittel. Kosten: Mittel (100-300 EUR). Ertrag: Hoch.
+      Pflanzen: Cannabis, Gemuese, Kraeuter. Anfaengergeeignet: Bedingt.
+
+      NFT (Nutrient Film Technique) — Film aus Naehrloesung:
+      Schwierigkeit: Mittel-Hoch. Kosten: Mittel. Ertrag: Hoch.
+      Pflanzen: Salat, Kraeuter, Erdbeeren. Anfaengergeeignet: Nein (kein Puffer).
+
+      Drip/Tropfsystem — Tropfer an jede Pflanze:
+      Schwierigkeit: Mittel. Kosten: Variabel. Ertrag: Hoch.
+      Pflanzen: Fast alles. Anfaengergeeignet: Bedingt.
+
+      Aeroponik — Wurzeln werden mit Nebel besprueht:
+      Schwierigkeit: Hoch. Kosten: Hoch. Ertrag: Maximal.
+      Pflanzen: Fast alles. Anfaengergeeignet: Nein.
+
+      Anfaenger-Empfehlung: Kratky fuer Salat und Kraeuter (kein Strom, kein Aufwand),
+      DWC als naechster Schritt fuer Gemuese und Cannabis. NFT und Aeroponik erst
+      wenn Erfahrung mit pH- und EC-Management vorhanden.
+    metadata:
+      topic: hydro_system_comparison
+      systems: [dwc, kratky, ebb_flow, nft, drip, aeroponik]
+      beginner_recommendation: [kratky, dwc]
+      difficulty: beginner
+
+  - id: dwc-deep-water-culture
+    title: DWC (Deep Water Culture) — Aufbau und Betrieb
+    content: |
+      DWC ist das beliebteste aktive Hydroponik-System fuer Einsteiger und Profis.
+      Prinzip: Wurzeln haengen permanent in sauerstoffreicher Naehrloesung.
+
+      Aufbau:
+      - Lichtdichter Behaelter (Eimer 15-20L, Tonne, Wanne)
+      - Netzbecher (5-10cm) in Deckelausschnitt — haelt das Substrat (Hydroton/Blahton)
+      - Luftstein am Eimerboden, verbunden mit Luftpumpe (mindestens 1 Watt pro 5L)
+      - Naehrloesung: Wasserstand so dass Netzbecher-Unterseite 1-2 cm ins Wasser reicht
+
+      Sauerstoff ist alles in DWC: Ohne geloesten Sauerstoff sterben Wurzeln ab.
+      Mindestens 1 Watt Luftpumpenleistung pro 5 Liter Reservoir — besser mehr.
+      Geloester Sauerstoff (DO) sollte ueber 6 mg/L liegen.
+
+      Wassertemperatur unter 22°C halten — das ist die wichtigste Regel.
+      Ueber 22°C sinkt der Sauerstoffgehalt drastisch, Pythium-Risiko steigt stark.
+      Bei Sommertemperaturen: Aquarium-Chiller oder Reservoir im Kuehlschrank.
+
+      Wasserwechsel:
+      - Woechentlicher Vollwechsel (alle 7 Tage): Komplette Naehrloesung
+        ablassen, Reservoir saeubern, frisch ansetzen. Das ist der Standard.
+      - Top-Off (zwischen den Wechseln): Verdunstetes Wasser mit reinem Wasser
+        nachfuellen (NICHT mit Naehrloesung — EC steigt sonst). Taeglich EC pruefen.
+
+      RDWC (Recirculating DWC): Mehrere Eimer ueber Rohrverbindungen mit einem
+      zentralen Reservoir verbunden. Vorteil: Stabile EC und pH durch groesseres
+      Volumen, weniger Drift. Aufwand: Hoeher (Umwaelzpumpe, Rohre, Gefaelle).
+
+      Haeufigste Problem: Wurzelfaeule (Pythium) durch zu warmes Wasser. Weisse
+      Wurzeln werden braun und schleimig. Ursache ist fast immer Wassertemperatur
+      ueber 22-24°C.
+    metadata:
+      topic: dwc_setup
+      min_air_pump_watts_per_5l: 1
+      water_temp_max_c: 22
+      do_min_mg_l: 6
+      change_interval_days: 7
+      difficulty: intermediate
+
+  - id: nft-nutrient-film-technique
+    title: NFT (Nutrient Film Technique) — duenner Naehrloesungsfilm
+    content: |
+      NFT laesst einen hauchuennen Naehrstoff-Film (2-3 mm) permanent durch geneigte
+      Kanaele ueber die Wurzeln fliessen. Die Wurzeln liegen halb in der Loesung,
+      die Oberseite der Wurzel bekommt Luft (Sauerstoff).
+
+      Aufbau:
+      - Geneigte PVC-Rinnen oder Rohre (Durchmesser 7-10 cm fuer Kraeuter,
+        10-15 cm fuer schwerere Pflanzen)
+      - Gefaelle: 1-2% (1-2 cm Hoehenunterschied pro Meter Laenge) — nicht mehr!
+        Zu steil = Film wird zu schnell, Wurzeln trocknen aus.
+      - Pumpe im Reservoir foerdert Loesung in die Kanaele, laeuft durch Schwerkraft
+        zurueck ins Reservoir
+      - Pumpe laeuft 24/7 — niemals abschalten
+
+      Groesster Nachteil: Pumpenausfall = Katastrophe. Die Wurzeln trocknen bei
+      Pumpenausfall innerhalb von 30-60 Minuten aus. Backup-Pumpe oder Alarm
+      (Schwimmschalter mit Benachrichtigung) ist Pflicht.
+
+      Geeignete Pflanzen: Salat (optimal), Basilikum, Schnittlauch, Petersilie,
+      Spinat, Erdbeeren. NFT ist das professionelle Salat-System in Gewächshaeusern.
+
+      NICHT geeignet fuer: Grosse Fruchtpflanzen (Tomate, Paprika) ohne zusaetzliche
+      Stuetzen und breite Kanaele. Tomaten koennen NFT ueberleben, brauchen aber
+      stabile Stutzen und groessere Kanaele (15 cm+).
+
+      Vorteil: Sehr effizient im Wasserverbrauch, sauber, skalierbar. Profi-Systeme
+      fuer Gewächshaeuser bauen auf NFT (kommerzielle Salatproduktion).
+    metadata:
+      topic: nft_setup
+      channel_slope_percent: [1, 2]
+      pump_runtime: "24/7"
+      best_for: [lettuce, herbs, strawberries]
+      not_for: [large_fruiting_plants]
+      difficulty: intermediate
+
+  - id: ebb-flow-flut-ebbe
+    title: Ebb & Flow (Flut und Ebbe) — timergesteuerte Bewaesserung
+    content: |
+      Beim Ebb & Flow (auch Flut und Ebbe) wird eine Wanne oder ein Tisch
+      zyklisch mit Naehrloesung geflutet und anschliessend wieder entleert.
+      Das Substrat bekommt abwechselnd Wasser und Luft — ideal fuer die Wurzeln.
+
+      Prinzip:
+      - Timer schaltet Pumpe ein → Reservoir pumpt Loesung in die Wanne
+      - Wanne fuellt sich bis zum Ueberlaufschutz (Flut, 15-20 Minuten)
+      - Timer schaltet Pumpe aus → Loesung laeuft durch Schwerkraft zurueck ins Reservoir
+      - Wanne ist leer, Substrat trocknet leicht an (Ebbe)
+
+      Timer-Einstellungen:
+      - Waehrend der Lichtphase: Alle 2-4 Stunden fluten
+      - Nachts: 1-2 Mal oder komplett pausieren (Pflanze transpiriert nicht)
+      - Saemlinge brauchen haeufigere, kuerze Fluten (Substrat nicht zu lange trocken)
+
+      Substrate fuer Ebb & Flow:
+      - Hydroton/Blahton: Klassisch, wiederverwertbar, keine Naehrstoffe
+      - Steinwolle-Platten/-Wuerfel: Gut fuer Jungpflanzen, dann in Blahton
+      - Perlit: Guenstig, gute Drainage, schwimmt jedoch leicht
+
+      Vorteile: Robust, einfacher Aufbau, gute Sauerstoffversorgung durch
+      den Nassphase/Trockenphase-Wechsel, pumpenausfall nicht sofort kritisch
+      (anders als bei NFT — das Substrat haelt Restfeuchtigkeit).
+
+      Geeignet fuer: Cannabis (beliebt), Tomaten, Paprika, Gurken, Kraeuter.
+      Gut skalierbar von klein (30x30 cm Wanne) bis Profi-Tisch (mehrere m²).
+    metadata:
+      topic: ebb_flow_setup
+      flood_interval_hours: [2, 4]
+      flood_duration_minutes: [15, 20]
+      substrates: [hydroton, rockwool, perlite]
+      difficulty: intermediate
+
+  - id: reservoir-hygiene-algen
+    title: Reservoir-Hygiene, Algenpraevention und Beneficial Bacteria
+    content: |
+      Das Reservoir ist das Herz jedes Hydroponiksystems. Sauberkeit und Lichtausschluss
+      sind die wichtigsten Punkte fuer gesunden Betrieb.
+
+      Algenpraevention — lichtdichtes Reservoir ist Pflicht:
+      Algen wachsen wo Licht auf Naehrloesung trifft. Algenbildung macht das
+      Reservoir gruenlich, verbraucht Sauerstoff und Naehrstoffe, und kann
+      den pH nach oben treiben. Loesung: Absolut lichtdichtes Reservoir
+      (schwarze Eimer, weisse Abdeckung, keine klaren Rohre oder Behaelter).
+      Lichtdicht bedeutet KEIN Lichtspalt, auch am Deckel und an den Anschluessen.
+
+      pH-Drift nach oben im DWC — Ursachen:
+      Bei aktiv wachsenden Pflanzen steigt der pH-Wert, weil aktives Wachstum
+      und Nitrat-Aufnahme Hand in Hand gehen: Die Pflanze nimmt Nitrat (NO3-)
+      auf und gibt Hydroxid-Ionen ab, was den pH hebt. Nitrat-Aufnahme ist also
+      ein Zeichen, dass die Pflanze gut waechst. Daneben kann Algenbildung den
+      pH weiter erhoehen (Algen verbrauchen CO2, pH steigt). Bei starker pH-Drift:
+      Karbonathaerte (KH) des Wassers pruefen — hohe Pufferkapazitaet (KH)
+      laesst pH nur langsam sinken und treibt ihn hoch. Groesseres Reservoir
+      stabilisiert pH-Schwankungen. Ein Reservoir mit mindestens 10-20 Liter
+      pro Pflanze puffert besser als ein kleines Reservoir.
+
+      Reinigung zwischen Zyklen:
+      1. Naehrloesung vollstaendig ablassen
+      2. Reservoir mit klarem Wasser ausspuelen
+      3. 3% H2O2-Loesung (Wasserstoffperoxid, 3 ml/L) einlassen, 1 Stunde einwirken
+      4. Komplett ausspuelen, neu befuellen
+
+      Beneficial Bacteria vs. Steriles Reservoir:
+      - Steriler Ansatz (H2O2): Einfacher zu handhaben, kein Biofilm, weniger
+        Pythium-Risiko. H2O2 (3 ml/L der 3%-Loesung) dem Reservoir zugeben.
+      - Beneficial Bacteria (z.B. Hydroguard, Tarantula): Besiedelung mit
+        nuetzlichen Bakterien (Bacillus subtilis) die Pythium verdraengen.
+        Vorteil: Schutz vor Wurzelfaeule ohne Chemie. Nachteil: Beides
+        gleichzeitig (H2O2 + Bacteria) ist sinnlos — H2O2 toetet die Bakterien.
+
+      Reservoir-Groesse: Mindestens 5 Liter pro Pflanze, besser 10-20 Liter.
+      Groessere Reservoirs puffern EC- und pH-Schwankungen deutlich besser.
+    metadata:
+      topic: reservoir_hygiene
+      algae_prevention: lightproof_container
+      h2o2_dosage_ml_per_l: 3
+      min_volume_per_plant_l: [10, 20]
+      ph_drift_up_cause: [nitrat_aufnahme, algenbildung, karbonataerte]
+      difficulty: intermediate
+
+  - id: dwc-wurzelfaeule-pythium
+    title: Wurzelfaeule in DWC — Pythium erkennen und bekaempfen
+    content: |
+      Braune, schleimige Wurzeln im DWC sind das Symptom Nummer eins und fast
+      immer Pythium (Wurzelfaeule). Pythium ist ein Wasserschimmelpilz der bei
+      warmem, sauerstoffarmem Wasser explodiert.
+
+      Ursache: Fast immer Wassertemperatur ueber 22-24°C. Warmes Wasser haelt
+      weniger Sauerstoff, Pythium liebt diese Bedingungen. Wenn das Reservoir
+      26°C warm ist, sind Bedingungen fuer Pythium ideal.
+
+      Sofortmassnahmen bei Wurzelfaeule:
+      1. Wassertemperatur senken — unter 22°C kuehlen (Aquarium-Chiller,
+         Eisflaschen, Reservoir in kuehlem Raum). Das ist die wichtigste
+         Massnahme. Wasserchiller sind in DWC fast obligatorisch.
+      2. Belueftung maximieren — groessere Luftsteine, staerkere Luftpumpe,
+         Sauerstoff (O2/Luftstein) ist die wichtigste Waffe gegen Pythium
+      3. H2O2 zugeben: 3 ml Wasserstoffperoxid (3%-Loesung) pro Liter
+         Reservoir-Wasser. Toetet Pythium, schadet Wurzeln kurzfristig nicht.
+      4. Reservoir komplett wechseln — alte Loesung ablassen, Reservoir mit
+         H2O2-Loesung reinigen, frische Naehrloesung ansetzen
+      5. Befallene Wurzeln entfernen — braune, schleimige Wurzeln abschneiden
+
+      Praevention:
+      - Reservoirtemperatur dauerhaft unter 22°C (ideal 18-20°C)
+      - Starke Belueftung (Sauerstoff/Luftstein 24/7)
+      - Lichtdichtes Reservoir (kein Algenwachstum)
+      - Beneficial Bacteria (Hydroguard) als Praeventivbehandlung
+      - Reservoir woechentlich wechseln — kein altes Wasser stehenlassen
+
+      Diese Massnahmen sind NICHT ueberduengungsbedingt — Wurzelfaeule entsteht
+      durch Pythium, nicht durch falsche EC oder pH-Probleme.
+    metadata:
+      topic: dwc_root_rot
+      cause: pythium_warm_water
+      critical_temp_c: 22
+      treatment: [wassertemperatur_senken, h2o2, belueftung, reservoir_wechsel]
+      difficulty: expert
+
+  - id: kratky-passive-hydroponik
+    title: Kratky-Methode — Hydroponik ohne Strom
+    content: |
+      Die Kratky-Methode ist passive Hydroponik: keine Pumpe, kein Strom, kein
+      Timer. Ideal fuer Einsteiger und kleine Anbauflaechen.
+
+      Prinzip:
+      Ein Behaelter wird mit Naehrloesung befuellt, ein Netzbecher mit Substrat
+      (Hydroton, Steinwolle) wird oben eingehaengt. Die Unterseite des Netzbechers
+      beruehrt die Naehrloesung. Die Pflanze trinkt die Loesung — der Wasserspiegel
+      sinkt. Dabei entsteht ein wachsender Luftspalt zwischen Wasseroberflaeche und
+      Netzbecher-Unterseite. In diesem Luftspalt bilden sich Luft-Wurzeln die
+      Sauerstoff aufnehmen. Die Wasser-Wurzeln tauchen tiefer ins sinkende Wasser.
+
+      Setup fuer Anfaenger:
+      - Einmachglas (1L fuer Kraeuter, 3-5L fuer Salat)
+      - Netzbecher 5cm in Deckelausschnitt
+      - Naehrloesung ansetzen (pH 5.5-6.5, EC 0.8-1.2 fuer Salat)
+      - Saemling einsetzen, fertig
+
+      Naehrloesung einmal ansetzen — nicht nachfuellen:
+      Im klassischen Kratky-Ansatz wird die Naehrloesung nur einmal befuellt und
+      nicht ergaenzt. Die Pflanze wachst durch die gesamte Loesung. Das Volumen
+      reicht fuer die komplette Kulturzeit.
+
+      Geeignet fuer:
+      - Salat (optimal — 3-5 Wochen bis Ernte)
+      - Kraeuter (Basilikum, Petersilie, Schnittlauch)
+      - Spinat, Pak Choi, Mangold
+      - Microgreens (angepasste Version)
+
+      Grenzen der Kratky-Methode:
+      - Nur kleine bis mittelgrosse Pflanzen (kein Langzeitanbau, keine Tomaten)
+      - Kein automatischer pH/EC-Ausgleich (manuell pruefen und korrigieren)
+      - Nicht geeignet fuer Cannabis oder grosse Fruchtgemuese
+    metadata:
+      topic: kratky_passive
+      power_required: false
+      pump_required: false
+      best_for: [lettuce, herbs, spinach]
+      ph_range: [5.5, 6.5]
+      ec_range: [0.8, 1.2]
+      difficulty: beginner
+
+  - id: aeroponik-grundlagen
+    title: Aeroponik — Wurzeln im Nebel
+    content: |
+      Aeroponik ist die intensivste Hydroponik-Methode: Wurzeln haengen frei in
+      der Luft und werden zyklisch mit feinstem Naehrstoff-Nebel besprueht.
+      Kein Substrat, keine stehende Naehrloesung.
+
+      Prinzip:
+      Hochdruck-Duesen (oder Niederdruckduesen bei einfacheren Systemen) spruehen
+      einen feinen Nebel direkt auf die freistehenden Wurzeln. Kurze Spruehintervalle
+      (z.B. 30 Sekunden alle 3-5 Minuten) halten die Wurzeln feucht ohne sie zu
+      sauerstoffarm zu haelten.
+
+      Vorteile:
+      - Maximale Sauerstoffversorgung der Wurzeln
+      - Groesstes Wachstumspotenzial aller Hydro-Systeme
+      - Geringster Wasserverbrauch
+      - Ideale Wahl fuer Aeroponische Stecklingsboxen (Kloner)
+
+      Aeroponische Kloner: Die verbreitetste Anwendung im Hobby-Bereich.
+      Stecklinge haengen in Schaumstoffhalterungen, Duesen bespruejen die
+      Stiel-Unterseite. Wurzeln bilden sich in 5-10 Tagen — schneller als in
+      Steinwolle oder Erde.
+
+      Nachteile und Risiken:
+      - Verstopfte Duesen = keine Bewaesserung = Wurzeln trocknen schnell aus
+      - Systemausfall ist kritischer als bei anderen Systemen
+      - Hoher Anschaffungspreis fuer Hochdruck-Systeme
+      - Regelmaessige Reinigung der Duesen noetig (Kalkablagerungen)
+      - Fuer Profis und erfahrene Grower — nicht fuer Einsteiger
+
+      Fazit: Aeroponik empfiehlt sich fuer Stecklingsboxen (Kloner) auch fuer
+      Fortgeschrittene. Fuer den Hauptanbau nur bei vorhandener Erfahrung und
+      Backup-Systemen.
+    metadata:
+      topic: aeroponik_grundlagen
+      spray_interval_seconds: 30
+      spray_pause_minutes: [3, 5]
+      common_use: [cloner, high_performance]
+      difficulty: expert

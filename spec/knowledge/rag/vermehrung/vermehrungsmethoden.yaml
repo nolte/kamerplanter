@@ -1,0 +1,466 @@
+---
+title: Pflanzenvermehrung — Methoden, Anleitungen und Troubleshooting
+language: de
+category: vermehrung
+tags:
+  - steckling
+  - klon
+  - ableger
+  - aussaat
+  - pikieren
+  - teilung
+  - veredelung
+  - pfropfung
+  - bewurzelung
+  - rhizom
+  - mutterpflanze
+  - kindel
+  - samen
+  - keimung
+  - monstera
+  - pothos
+  - cannabis
+  - tomate
+  - zimmerpflanze
+  - freiland
+  - hydroponik
+  - steinwolle
+  - jiffy
+  - perlite
+  - bewurzelungshormon
+  - clonex
+  - aloe-vera
+  - weidenwasser
+  - humidity-dome
+  - schimmel-steckling
+  - saatgut-aufbewahren
+  - blattsteckling
+  - begonie
+  - pilea
+  - sansevieria
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative]
+chunks:
+
+  - id: stecklinge-klone-schneiden
+    title: Stecklinge und Klone schneiden — Schritt-fuer-Schritt
+    content: |
+      Stecklinge sind die zuverlaessigste vegetative Vermehrungsmethode:
+      genetisch identische Kopien der Mutterpflanze, in kurzer Zeit bereit.
+
+      Wann Stecklinge nehmen:
+      Immer aus der vegetativen Phase — niemals aus bluehenden Pflanzen
+      (Hormone passen nicht zur Bewurzelung, Stress zu hoch). Ideal:
+      gesunde Triebspitzen von 8-15 cm Laenge. Mutterpflanze sollte
+      mindestens 4 Wochen keine chemischen Pflanzenschutzmittel
+      bekommen haben.
+
+      So schneidet man richtig:
+      1. Werkzeug sterilisieren — Skalpell oder scharfe Schere mit
+         Alkohol 70% abwischen. Keine saubere Scherenklinge uebertraegt
+         Pathogene auf den frischen Schnitt.
+      2. Schnitt: 45-Grad-Winkel direkt unterhalb eines Knotens (Nodium).
+         Schraegeschnitt vergroessert die Aufnahmeflaeche fuer Wasser
+         und Bewurzelungshormon.
+      3. Untere Blaetter entfernen: Alle Blaetter die ins Substrat oder
+         Wasser eintauchen wuerden — sie faulen und foerdern Schimmel.
+         Obere 2-3 Blaetterpaare behalten. Grosse Blaetter zur Haelfte
+         kuerzen (reduziert Transpiration bei noch wurzellosen Stecklingen).
+      4. Bewurzelungshormon anwenden (foerdert Wurzelbildung deutlich):
+         - Clonex-Gel (IBA-Gel): Schnittflaeche eintauchen, Ueberschuss
+           abstreifen. Empfehlenswert fuer Cannabis, Tomaten, Kräuter.
+         - Aloe-Vera-Gel: Frisches Gel direkt aus dem Blatt — natuerliche
+           Alternative mit Auxinen und Antiseptika. Funkioniert gut fuer
+           Zimmerpflanzen und Kräuter.
+         - Weidenwasser: Junge Weidenäste 24 Stunden in Wasser einlegen,
+           Stecklinge im Weidenwasser anwurzeln. Enthält natuerliches
+           IBA (Indolbuttersaeure).
+         - Honig (duenn aufgetragen): Antiseptisch, minimale Auxinwirkung.
+           Fuer unkritische Arten ausreichend.
+
+      Bewurzelungsmedien im Vergleich:
+      - Steinwolle-Wuerfel (Rockwool): Ideal fuer Cannabis und Tomaten.
+        Vorher 24h in pH-5.5-Wasser einweichen. Hohe Bewurzelungsrate,
+        direkter Uebergang in Hydroponik oder Coco.
+      - Perlite (100% oder mit Kokos gemischt): Ausgezeichnete Drainage,
+        gute Sauerstoffversorgung an der Wurzelzone. Bewurzelungsrate
+        hoch, guenstig.
+      - Wasser (Wasserbewurzelung): Einfachste Methode fuer Einsteiger.
+        Pothos, Philodendron, Tradescantia, Monstera-Nodien, Basilikum
+        bewurzeln sehr gut in Wasser. Uebergang zu Erde langsam und
+        stufenweise — direkt in Erde setzen stresst Wasserwurzeln stark.
+      - Jiffy-Pellets / Kokos-Quelltabletten: Biologisch abbaubar,
+        direkt ins Substrat einpflanzen. Guenstig fuer Kräuter.
+
+      Umgebungsbedingungen:
+      - Luftfeuchtigkeit: 80-90% unter Humidity-Dome oder Klarsichtfolie.
+        Wurzellose Stecklinge koennen kein Wasser aus dem Boden ziehen,
+        muessen Wasser ueber die Blaetter aufnehmen.
+      - Temperatur: 22-25 Grad Luft. Heizmatte unter dem Medium:
+        ideale Substrattemperatur liegt 2-5 Grad ueber der Lufttemperatur
+        (wärmeres Substrat foerdert Wurzelwachstum).
+      - Licht: KEIN Direktlicht, keine volle Lampenstaerke. 50-150 PPFD,
+        18/6-Rhythmus. Zu viel Licht stresst wurzellose Stecklinge
+        (Photoinhibition).
+
+      Arten:
+      - Kopfsteckling (apikal): Triebspitze mit Vegetationspunkt — hoechste
+        Auxin-Konzentration, schnellste Bewurzelung. Standard fuer Cannabis.
+      - Nodal-Steckling: Stammabschnitt mit Knoten — fuer Monstera,
+        Philodendron, Pothos. Kein Vegetationspunkt noetig, ein Nodium
+        genuegt. Besonders einfach fuer Zimmerpflanzen-Einsteiger.
+      - Blattsteckling: Ganzes Blatt oder Blattsegment (Begonie, Sansevieria,
+        Peperomia, Sukkulenten). Blattstiel in feuchtes Substrat stecken,
+        neue Pflanzen wachsen an der Schnittkante.
+    metadata:
+      topic: cutting_propagation
+      methods: [apical, nodal, leaf_cutting]
+      rooting_media: [rockwool, perlite, water, jiffy]
+      rooting_hormones: [clonex, aloe_vera, willow_water]
+      humidity_percent: [80, 90]
+      air_temperature_celsius: [22, 25]
+      light_ppfd_max: 150
+      difficulty: beginner
+
+  - id: aussaat-und-keimung-grundlagen
+    title: Aussaat und Keimung — Saatgut, Tiefe und Keimbedingungen
+    content: |
+      Erfolgreich saeen beginnt mit guter Saatgut-Qualitaet und dem
+      Verstaendnis einfacher Grundregeln.
+
+      Saatgut-Qualitaet und Alter:
+      Alte Samen keimen schlechter. Faustregel Keimfaehigkeitsdauer:
+      Zwiebeln/Schnittlauch: 1-2 Jahre. Paprika, Petersilie: 2-3 Jahre.
+      Tomate, Salat, Gurke: 3-5 Jahre. Bohne, Erbse, Kuerbis: 4-6 Jahre.
+      Keimtest: 10 Samen auf feuchtem Papier 7-10 Tage bei Raumtemperatur
+      liegen lassen. Keimen weniger als 5: Saatgut erneuern.
+      Vorquellen (fuer grosse, harte Samen): Bohne, Erbse, Kuerbis, Cannabis
+      12-24 Stunden in Wasser einlegen — beschleunigt Keimung um 1-3 Tage.
+      Nicht laenger als 24 Stunden (Sauerstoffmangel).
+
+      Saattiefe:
+      Faustregel: 2x Samendurchmesser tief saeen.
+      - Lichtkeimer (feine Samen) — Basilikum, Salat, Erdbeere, Kamille,
+        Begonie: NUR auf Substrat druecken, NICHT bedecken. Licht loest
+        Keimung aus.
+      - Mittlere Samen — Tomate, Paprika, Aubergine: 5-10 mm tief.
+      - Grosse Samen — Bohne, Kuerbis, Mais, Cannabis: 10-20 mm tief.
+
+      Substrat:
+      Anzuchterde oder Keimsubstrat verwenden — feinkruemelig, wenig
+      Naehrstoffe (zu viele Naehrstoffe verbrennen zarte Keimwurzeln),
+      gute Feuchtigkeitsspeicherung. KEINE normale Gartenerde
+      (zu schwer, Krankheitskeime, verkrustet).
+      Alternativ: Jiffy-Pellets oder Steinwolle-Wuerfel (pH 5.5 einweichen).
+      Steinwolle ist ideal fuer spaetere Hydroponik-Systeme.
+
+      Direkte Aussaat vs. Vorkultur:
+      - Vorkultur (Anzucht innen): Fuer waermeliebende Arten (Tomate,
+        Paprika, Aubergine, Kuerbis) 4-8 Wochen vor letztem Frost starten.
+        Kontrollierte Bedingungen, hoehere Keimrate.
+      - Direkte Aussaat (Outdoor): Fuer kalttolerante Arten die keinen
+        Umstress vertragen: Karotte, Radieschen, Erbse, Spinat, Ruebe.
+        Boden muss mindestens 8-10 Grad warm sein.
+
+      Keimbedingungen:
+      - Temperatur: Die meisten Gemuese- und Kraeuter-Samen keimen optimal
+        bei 20-25 Grad. Paprika/Aubergine: 25-28 Grad (Heizmatte!).
+        Salat/Spinat: 10-20 Grad (kein Hitzekeimer).
+      - Feuchtigkeit: Substrat gleichmaessig feucht halten, nie nass.
+        Klarsichtfolie oder Humidity-Dome verhindert Austrocknung.
+        Taeglich kurz lueften (5 Minuten) gegen Schimmelbildung.
+      - Licht: Erst NACH Keimung noetig. Sobald Keimlinge die Erde
+        durchbrechen: sofort unter Pflanzenlampe oder ans hellste Fenster.
+        Zu wenig Licht = Vergeilen (langer, duenner, blasser Stengel).
+    metadata:
+      topic: sowing_germination
+      seed_depth_rule: 2x_diameter
+      germination_temperature_celsius: [20, 25]
+      types: [light_germinators, dark_germinators, direct_sowing, indoor_start]
+      difficulty: beginner
+
+  - id: pikieren-richtig
+    title: Pikieren — Keimlinge vereinzeln ohne Wurzelschaden
+    content: |
+      Pikieren bedeutet: Keimlinge aus der Aussaatschale einzeln in
+      eigene Toepfe oder groessere Abstaende umpflanzen, sobald sie
+      beengt werden. Wer zu spaet pikiert riskiert verdraengte, verknotete
+      Wurzeln und etiolierte (vergeile) Pflanzen.
+
+      Wann pikieren?
+      Der richtige Zeitpunkt ist das 1. echte Blattpaar — NICHT schon
+      bei den Keimblaettern (Kotyledonen). Die Keimblaetter sind runde,
+      einfache Blaetter die als Erste erscheinen. Das 1. echte Blattpaar
+      sieht aus wie ein Miniatur-Abbild der Erwachsenenpflanze.
+      Bei Tomaten: 2-3 Wochen nach Keimung. Bei Paprika: 3-4 Wochen.
+      Bei Cannabis: 1-2 Wochen (waechst schnell).
+      Richtlinie: Mindest-Staemmlingsgroesse 3-5 cm, Wurzeln sollten
+      sichtbar, aber noch nicht verwirrt sein.
+
+      Wie pikieren ohne Wurzelschaden:
+      1. Substrat im Zielcontainer vorfeuchten (leicht feucht,
+         nicht tropfend nass). Loch mit Pikierstab oder Bleistift
+         vorbohren — mindestens so tief wie die Wurzeln lang sind.
+      2. Keimling nie am Stengel anfassen! Der Stengel ist empfindlich,
+         Druckschaden faehrt leicht in die Leitungsbahnen. Immer an
+         den Keimblaettern (Kotyledonen) anfassen — die sind weniger
+         kritisch.
+      3. Pikierstab unter die Wurzeln schieben und den ganzen Erdklumpen
+         heben, nicht den Stengel ziehen. Wurzeln moeglichst unverletzt
+         lassen.
+      4. In vorbereitetes Loch setzen. Keimblatt-Ansatz sollte auf
+         Substratniveau oder leicht darunter sein (Tomate kann tiefer
+         gepflanzt werden — bildet Adventivwurzeln am Stengel).
+      5. Substrat sachte andruecken, dann angießen. Keinen Duenger
+         in der ersten Woche nach dem Pikieren — Stress reduzieren.
+      6. Fuer 2-3 Tage aus direktem Licht und Wind halten (Eingewoehnung).
+
+      Schock vermeiden:
+      - Immer mit temperierten Wasser angiessen (Kaltwasser-Schock
+        bremst Wachstum deutlich).
+      - Pikieren bei bewolktem Wetter oder abends (weniger Stress).
+      - Grosse Keimlinge: Blaetter vor dem Pikieren leicht besprühen
+        (Transpiration sinkt, Keim verliert weniger Wasser).
+      Substrat fuer pikierte Keimlinge: Leichtes, naehrstoffarmes
+      Anzuchtsubstrat oder eine Mischung aus Anzuchterde und 20% Perlit.
+      Noch keine volle Blumenerde — zu viele Naehrstoffe fuer junge Wurzeln.
+    metadata:
+      topic: pricking_out
+      timing: first_true_leaf_pair
+      handle_by: cotyledon_not_stem
+      difficulty: beginner
+
+  - id: teilung-und-ableger
+    title: Teilung, Kindel und Ableger — Zimmerpflanzen und Stauden vermehren
+    content: |
+      Teilung und Ableger sind die einfachsten Vermehrungsmethoden mit
+      der hoechsten Erfolgsrate — die neuen Pflanzen haben bereits ein
+      eigenes Wurzelsystem.
+
+      Rhizom-Teilung (Stauden, Gräser, Zimmerpflanzen):
+      Funktioniert bei Pflanzen die bueschelartig oder horstartig wachsen:
+      Calathea, Spathiphyllum, Strelitzia, Agapanthus, Gräser, Iris,
+      Hostas, Maranta.
+      Wann teilen: Im Fruehjahr (Maerz-Mai) kurz vor oder am Beginn
+      der Wachstumsperiode — beste Erholungschancen. Oder im Frueherbst
+      (August-September) nach der Hauptwachstumsphase.
+      Wie teilen:
+      1. Pflanze aus dem Topf nehmen oder ausgraben.
+      2. Wurzelballen vorsichtig mit Haenden, Pikierstab oder sauberen
+         Haenden auseinanderfuehren. Wenn noetig: scharfes, steriles
+         Messer einsetzen — jeden Schnitt desinfizieren.
+      3. Jeder Teil braucht mindestens 2-3 gesunde Triebe UND ein
+         eigenes Wurzelsystem. Stuecke ohne Wurzeln ueberleben meist nicht.
+      4. Schnittflaechen mit Zimtpulver oder Holzkohlepulver behandeln
+         (verhindert Pilzbefall).
+      5. Sofort in frisches Substrat setzen und angiessen.
+
+      Kindel und Ableger (natuerliche Tochterpflanzen):
+      Viele Zimmerpflanzen bilden selbststaendig Tochterpflanzen:
+      - Aloe vera, Haworthia, Agave: Kindel (kleine Pflanzen am Fuss
+        der Mutterpflanze). Warten bis Kindel mindestens 5-8 cm gross
+        und mit eigenen Wurzeln versehen sind. Dann mit scharfem Messer
+        abtrennen und separat einpflanzen.
+      - Pilea peperomioides (Chinesisches Geldbaeuemchen): Kindel wachsen
+        direkt aus der Erde rund um die Mutterpflanze. Einfach herausnehmen
+        und einpflanzen — einfachste Zimmerpflanzen-Vermehrung.
+      - Chlorophytum comosum (Grünlilie): Lange Auslaeufertriebe mit
+        fertigen Jungpflanzen. Jungpflanze in kleinen Topf mit Substrat
+        setzen, Auslaeufertrieb erst trennen wenn neue Pflanze eingewurzelt.
+      - Bromeliaceae (Bromelien): Nach der Bluete stirbt die Mutterpflanze,
+        bildet aber Kindel (Ableger) aus der Basis. Warten bis Kindel
+        1/3 der Mutterpflanzengroesse erreicht, dann abtrennen.
+
+      Auslaeufer (Freiland und Zimmerpflanzen):
+      Erdbeeren bilden lange Auslaeufertriebe mit Jungpflanzen (Stolonen).
+      Jungpflanze in kleinen Topf mit Erde drücken (ohne Auslaeufertrieb zu
+      trennen). Nach 3-4 Wochen hat die Jungpflanze eigene Wurzeln —
+      dann Auslaeufertrieb durchtrennen.
+
+      Bulbillen (Brutzwiebeln):
+      Knoblauch bildet Bulbillen im Bluetenstand. Lilien bilden kleine
+      Brutzwiebeln an den Blattachseln. Im Herbst abnehmen und einpflanzen
+      wie Saatgut — erste Ernte nach 1-2 Jahren.
+    metadata:
+      topic: division_offsets
+      methods: [rhizome_division, offset, stolon, bulbil]
+      best_season: [spring, early_autumn]
+      species_examples: [Calathea, Aloe, Pilea, Chlorophytum, Bromeliaceae, Iris]
+      difficulty: beginner
+
+  - id: veredelung-und-pfropfung
+    title: Veredelung und Pfropfung — Warum, Wann und Wie
+    content: |
+      Veredelung (Pfropfung) verbindet zwei Pflanzen: das Edelreis
+      (Sorte, Frucht oder Genetik die man haben will) mit der Unterlage
+      (Wurzelsystem das Resistenz oder Staerke liefert).
+
+      Warum veredeln?
+      - Resistenz: Tomaten auf Beaufort-Unterlage sind resistent gegen
+        Fusarium und Nematoden. Obstbaeume auf bestimmten Unterlagen
+        tolerieren Naesse oder Kalk.
+      - Wuchsstaerke und Ertrag: Unterlagen koennen das Wachstum
+        foerdern oder begrenzen (Zwergunterlage fuer kleine Gaerten).
+      - Sortenerhalt: Alte Obstbaumsorten lassen sich durch Veredelung
+        erhalten wenn Saatgut nicht sortenecht waere (F1-Hybriden).
+
+      Haeufige Veredelungsmethoden:
+      - Kopulation (Geradschnitt): Edelreis und Unterlage haben gleichen
+        Durchmesser. Beide schraeg anschneiden, zusammenstecken, verbinden.
+        Einfachste Methode fuer Tomaten, Gurken.
+      - Okulation (Schildchenpfropfung): Einzelnes Auge (Knospe) des
+        Edelreises unter die Rinde der Unterlage schieben. Standard fuer
+        Rosen und Obstbaeume. Erfordert Uebung.
+      - Approach Grafting (Annaeherungspfropfung): Beide Pflanzen sind noch
+        verwurzelt. Seitlich anschneiden und zusammenbinden bis verwachsen,
+        dann Edelreis von Mutterpflanze trennen. Sicher fuer empfindliche Arten.
+
+      Tomaten-Veredelung (Praxis-Tipp):
+      Jungpflanzen von Sorte und Unterlage gleichzeitig aussaeen. Wenn
+      Stengeldurchmesser 2-4 mm: Veredelungsclip anlegen, beide diagonal
+      anschneiden, clip fixiert die Verbindung. 7-14 Tage unter
+      Humidity-Dome bei 90% Luftfeuchtigkeit und 22-24 Grad. Nach
+      Verwachsung langsam an Normalbedingungen gewoehnen.
+
+      Obstbaum-Veredelung:
+      Im Fruehjahr (Februar-April) wenn der Saft steigt, aber die Knospen
+      noch nicht ganz offen sind. Edelreis aus dem Vorjahrestrieb schneiden
+      (als Holz eingelagert kuehl und feucht). Kompatibel innerhalb
+      derselben Gattung (Apfel auf Apfelunterlage, Birne auf Quitten-
+      unterlage moeglich). Verschiedene Familien sind inkompatibel —
+      Tomate auf Kartoffelunterlage zum Beispiel nur begrenzt moeglich.
+
+      Cannabis-Pfropfung (experimentell):
+      Technisch moeglich innerhalb der Gattung Cannabis (gleiche Art).
+      In der Praxis selten wegen hohem Aufwand und unsicherer Anwuchsrate.
+      Ziel: Resistente Unterlage + Elite-Genetik kombinieren. Noch nicht
+      praxisbewahrt im groesseren Massstab — als Experiment zu betrachten.
+
+      Graft-Kompatibilitaet:
+      Innerhalb derselben Gattung: in der Regel kompatibel.
+      Innerhalb derselben Familie: moeglicherweise kompatibel (pruefen).
+      Verschiedene Familien: fast immer inkompatibel.
+      Im Zweifelsfall: explizite Praxis-Erfahrungen und Literatur pruefen —
+      taxonomische Naehe ist ein Hinweis, aber keine Garantie.
+    metadata:
+      topic: grafting_propagation
+      methods: [copulation, budding, approach_grafting]
+      species_examples: [Tomato, Obstbaum, Cannabis]
+      compatibility: family_genus_level
+      difficulty: intermediate
+
+  - id: samen-ernten-und-aufbewahren
+    title: Samen ernten, trocknen und aufbewahren — Saatgutgewinnung
+    content: |
+      Eigenes Saatgut zu gewinnen spart Geld, erhaelt seltene Sorten
+      und schliesst den Kreislauf der Gartenarbeit.
+
+      Nur samenfeste Sorten verwenden:
+      F1-Hybriden produzieren Nachkommen die nicht sortenecht sind —
+      die Kinder zeigen zumeist andere Eigenschaften als die Elternpflanze.
+      Fuer eigene Saatgutgewinnung nur samenfeste (OP-Sorten, open-
+      pollinated) Sorten waehlen. Auf der Saatgut-Packung steht oft
+      „samenfest" oder „OP-Sorte".
+
+      Reife erkennen:
+      - Tomate: Frucht vollreif (weich, volle Farbe). Samen aus ueberreifen
+        Fruechten keimen oft schlechter.
+      - Paprika/Chilies: Frucht voll ausgefaerbt und leicht runzelig.
+      - Bohne/Erbse: Schote vollstaendig trocken und braun an der Pflanze.
+      - Kuerbis/Zucchini: Frucht voll ausgereift lassen (laenger als fuer Ernte).
+      - Salat/Kamille: Bluetenstand abschneiden wenn erste Samen braun
+        werden — in Beutel kopfueber trocknen.
+      - Tomate Fermentation: Fruchfleisch und Samen 2-4 Tage bei
+        Raumtemperatur fermentieren lassen. Gute Samen sinken ab,
+        schlechte schwimmen. Abschwemmen, spaeheln und trocknen.
+
+      Trocknung und Lagerung:
+      Samen duenn auf Loeschpapier oder Zeitungspapier ausbreiten.
+      2-4 Wochen bei Raumtemperatur (20-25 Grad) an luftigem, schattigen
+      Ort trocknen. Vollstaendig trockene Samen lassen sich nicht mehr
+      biegen ohne zu brechen.
+      Lagerung: Kuehl (5-10 Grad — Kuehlschrank-Gemuese-Fach), dunkel,
+      trocken. In Papiertuetenchen oder Glasgefaessen mit Silikat-Trockenmittel.
+      Plastikbeutel nur wenn voellig trocken (sonst Schimmelgefahr).
+      Keimfaehigkeitsdauer je nach Art:
+      - 1-2 Jahre: Schnittlauch, Zwiebeln, Pastinake
+      - 2-3 Jahre: Paprika, Petersilie, Sellerie
+      - 3-5 Jahre: Tomate, Salat, Gurke, Kohlrabi
+      - 4-6 Jahre: Bohne, Erbse, Kuerbis, Melone
+
+      Saatgut-Tausch:
+      Samenfeste Sorten koennen mit anderen Gaertnerinnen getauscht werden.
+      Saatgut-Tauschboersen gibt es regional und online. Eigenes Saatgut
+      aus mehreren Jahren erzeugt Sorten die an den eigenen Garten
+      adaptiert sind (lokale Selektion).
+    metadata:
+      topic: seed_harvesting_storage
+      suitable_varieties: open_pollinated
+      not_suitable: F1_hybrids
+      storage_temperature_celsius: [5, 10]
+      storage_conditions: [cool, dark, dry]
+      difficulty: beginner
+
+  - id: bewurzelung-troubleshooting
+    title: Steckling bewurzelt nicht — Diagnose und Loesungen
+    content: |
+      Stecklinge die nach 2-3 Wochen noch keine Wurzeln zeigen oder
+      faulen und schimmeln sind das haeufigste Problem bei der
+      vegetativen Vermehrung.
+
+      Steckling fault statt zu wurzeln:
+      Ursache: Zu viel Naesse, Werkzeug nicht sterilisiert, Faeulnis-
+      erreger aus dem Mutterpflanzen-Substrat. Faulen beginnt immer an
+      der Schnittflaeche.
+      Loesung: Faulen Teil sauber abschneiden (frischer, gruener Stengel
+      muss sichtbar sein), Werkzeug sterilisieren, in frisches steriles
+      Medium umsetzen. Bewurzelungsmedium sollte FEUCHT aber nicht NASS sein.
+      Perlite bietet den besten Kompromiss aus Feuchte und Sauerstoff.
+
+      Schimmel am Steckling oder im Medium:
+      Ursache: Zu wenig Belueftung unter dem Dome, stehendes Wasser,
+      organische Rueckstaende (entfernte Blaetter nicht vollstaendig
+      abgeschnitten).
+      Loesung: Dome 2x taeglich fuer 10-15 Minuten lueften. Schimmelflecken
+      mit 3%igem Wasserstoffperoxid abtupfen. Befallene Stecklinge entfernen
+      bevor Sporen andere befallen. Zimtpulver duenn auf Substrat-
+      oberflaeche verhindert Schimmelwachstum (natuerlich antifungal).
+
+      Luftfeuchtigkeit zu niedrig — Steckling welkt trotz feuchtem Substrat:
+      Ohne Wurzeln kann ein Steckling kein Wasser aus dem Substrat
+      aufnehmen. Er ist auf die Wasseraufnahme ueber die Blaetter
+      angewiesen. Luftfeuchtigkeit muss 80-90% betragen.
+      Loesung: Humidity-Dome oder Plastiktuete ueber den Steckling
+      stuelpen. Grosse Blaetter zur Haelfte kuerzen (weniger Transpiration).
+
+      Zu lange Bewurzelungsdauer (keine Wurzeln nach 3 Wochen):
+      - Temperatur zu niedrig: Substrattemperatur unter 20 Grad hemmt
+        Wurzelwachstum stark. Heizmatte unter den Stecklingen verwenden.
+        Ideal 22-24 Grad Substrat, 2-5 Grad ueber der Lufttemperatur.
+      - Kein Bewurzelungshormon: Clonex-Gel oder Weidenwasser beschleunigen
+        Bewurzelung erheblich. Ohne Hormon bewurzeln empfindliche Arten
+        oft gar nicht.
+      - Falscher pH im Medium: Steinwolle muss auf pH 5.5 eingeweicht sein
+        (ab Werk pH 7-8). Wasser-Bewurzelung: pH 6.0-6.5 verwenden.
+      - Zu viel Licht: Photoinhibition bei wurzellosen Stecklingen.
+        Licht auf 50-100 PPFD reduzieren, keinen Direktstrahler.
+
+      Uebergang von Wasser- zu Erdbewurzelung:
+      Wasserwurzeln haben keine Wurzelhaare und keine Anpassung an
+      Trockenheit. Direktes Umsetzen in Erde stresst die Pflanze stark.
+      Schrittweise Akklimatisierung: Erst in feuchtes Perlit-Substrat
+      (95% Feuchtigkeit halten), nach 1 Woche auf 80% reduzieren, dann
+      normales Giessen. Alternativ: Fuer Zimmerpflanzen die immer in
+      Wasser bleiben koennen (Pothos, Philodendron in Vasen-Kultur).
+
+      Haeufige Gesamtfehler:
+      - Steckling aus blüehender Pflanze genommen (Hormone falsch)
+      - Werkzeug nicht sterilisiert (Pilzeintrag)
+      - Zu tief gepflanzt (Stengel fault)
+      - Dome nicht belueftet (Schimmel)
+      - Wasserstress durch zu wenig Luftfeuchtigkeit
+    metadata:
+      topic: rooting_troubleshooting
+      problems: [rot, mold, wilting, slow_rooting, water_to_soil_transition]
+      key_factors: [temperature, humidity, sterility, hormone, light]
+      difficulty: beginner

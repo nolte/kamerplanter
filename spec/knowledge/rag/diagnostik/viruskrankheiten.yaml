@@ -1,0 +1,384 @@
+---
+title: Pflanzenviren erkennen und richtig reagieren
+language: de
+category: diagnostik
+tags:
+  - virus
+  - pflanzenvirus
+  - viruskrankheit
+  - mosaikflecken
+  - mosaik
+  - mosaikkrankheit
+  - mosaik-muster
+  - TMV
+  - tabakmosaikvirus
+  - CMV
+  - gurkenmosaikvirus
+  - TSWV
+  - tomatenbronzefleckenvirus
+  - TYLCV
+  - tomato yellow leaf curl
+  - PVY
+  - kartoffelvirus
+  - ZYMV
+  - zucchini yellow mosaic
+  - TRV
+  - tobacco rattle virus
+  - thrips
+  - blattlaeuse
+  - weisse fliege
+  - nematoden
+  - vektor
+  - unheilbar
+  - entfernen
+  - praeventiv
+  - hygienic
+  - resistente sorten
+  - infektionskrankheit
+  - virose
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+
+  - id: tabakmosaikvirus-tmv
+    title: Tabakmosaikvirus (TMV) — Mosaik-Muster auf Tomate, Paprika und Zierpflanzen
+    content: |
+      Das Tabakmosaikvirus (TMV) ist eines der widerstandsfaehigsten und
+      am weitesten verbreiteten Pflanzenviren weltweit. Es befaellt vor allem
+      Tomate, Paprika, Tabak und eine Vielzahl von Zierpflanzen. Bei Cannabis
+      ist ein nah verwandtes Virus bekannt (Hemp Mosaic Virus, HpMV) das
+      aehnliche Symptome verursacht.
+      Symptome:
+      - Mosaikartiges Muster aus hell- und dunkelgruenen Flecken auf den
+        Blaettern — charakteristisches "Landkarten-Mosaik"
+      - Blaetter verkraemmen, wellen oder kueseln sich
+      - Junge Triebe zeigen Wachstumsstauchung (Pflanze bleibt kleiner)
+      - Fruechte bei Tomate zeigen gelb-gruen gefleckte Faerbung
+      - Symptome sind an jungen Blaettern oft staerker als an alten
+      Abgrenzung zu Naehrstoffmangel: Mosaik-Muster ist unregelmaessig
+      gefleckt und NICHT gleichmaessig verteilt wie bei Chlorose durch
+      Eisenmangel oder Magnesiummangel. Der Uebergang zwischen hell und
+      dunkel ist beim Virus abrupt, beim Naehrstoffmangel eher fliessend.
+      Uebertragung: TMV wird NICHT durch Insekten uebertragen — es ist
+      hauptsaechlich kontaktinfektioes. Uebertragungswege:
+      - Haende beim Gaertnern (Tabakrauch auf Fingern, Erde mit Viruspartikeln)
+      - Werkzeug (Schere, Messer) ohne Desinfektion
+      - Saatgut (bei manchen Staemmen)
+      - Aufgekauftes Pflanzenmaterial mit latenter Infektion
+      Wichtig: Virus = KEINE Heilung moeglich. Eine infizierte Pflanze
+      bleibt infiziert bis zum Tod. Massnahmen:
+      - Infizierte Pflanzen sofort entfernen und im Restmuell entsorgen
+        (NICHT kompostieren — TMV ueberlebt Kompostierung!)
+      - Haende nach Kontakt mit Tabakprodukten GRUENDLICH waschen bevor
+        man Pflanzen beruehrt (Zigarettenrauch uebertraegt TMV!)
+      - Werkzeug mit 10% Bleichloesung oder 70% Isopropanol desinfizieren
+      - Resistente Sorten waehlen (Zuchtlinie "Tm-2" bei Tomate)
+    metadata:
+      pathogen: TMV
+      pathogen_full: Tobacco Mosaic Virus
+      vector: contact_mechanical
+      host_plants: [Solanum lycopersicum, Capsicum annuum, Nicotiana tabacum, Cannabis sativa]
+      difficulty: common
+      topic: virus_tmv
+
+  - id: gurkenmosaikvirus-cmv
+    title: Gurkenmosaikvirus (CMV) — Mosaik und Kueseln bei Kuerbisgewaechsen und Salat
+    content: |
+      Das Gurkenmosaikvirus (CMV) hat das breiteste Wirtsspektrum aller
+      bekannten Pflanzenviren — es befaellt ueber 1200 Pflanzenarten. Besonders
+      betroffen sind Gurke, Zucchini, Kuerbis, Melone, Salat, Paprika und
+      zahlreiche Zierpflanzen (Petunien, Calibrachoa, Begonien).
+      Symptome:
+      - Mosaikflecken: ungleichmaessige hell- und dunkelgruene Faerbung der
+        Blaetter (namensgebend fuer "Mosaik"-Krankheiten)
+      - Blaetter kueseln sich, werden kleiner und formen sich abnormal
+      - "Schuhsohlen-Blaetter" — lang gezogene, schmale, deformierte Blaetter
+        bei Gurke und Zucchini
+      - Fruechte: Mosaikmuster auf Schale, Wachstum gestoppt oder deformiert
+      - Wachstumsstauchung — Pflanze bleibt deutlich kleiner als gesunde
+        Exemplare
+      Abgrenzung zu Naehrstoffmangel: Mosaikflecken unterscheiden sich von
+      Chlorose. Chlorose durch Eisenmangel ist interkostal (zwischen den
+      Blattadern gleichmaessig hell), Mosaikflecken sind unregelmaessig.
+      Kueseln der Blaetter ist ein starkes Virus-Indiz — Mangelsymptome
+      kueseln nicht.
+      Uebertragung: Hauptvektor sind Blattlaeuse (Myzus persicae, Aphis
+      gossypii und viele weitere Arten). Blattlaeuse nehmen das Virus in
+      Sekunden auf und geben es sofort weiter — auch wenn sie nur kurz
+      probesaugen. Mechanische Uebertragung durch Werkzeug ebenfalls moeglich.
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Befallene Pflanzen sofort entfernen (im Restmuell, NICHT kompostieren)
+      - Blattlaus-Kontrolle ist die wichtigste Praevention:
+        Gelbklebetafeln aufhaengen, Nuetzlinge einsetzen (Schluepfwespen,
+        Florfliegenlarven, Marienkaefer), Pflanzenschutzmittel gegen Blattlaeuse
+      - Reflektierende Mulchfolien im Freiland — Blattlaeuse meiden helle
+        Flaechen und landen seltener
+      - Resistente Sorten bevorzugen (CMV-Resistenz bei Salatorten vorhanden)
+      - Unkraeuter entfernen — dienen als Virusspeicher fuer Blattlaeuse
+    metadata:
+      pathogen: CMV
+      pathogen_full: Cucumber Mosaic Virus
+      vector: aphids_blattlaeuse
+      host_plants: [Cucumis sativus, Cucurbita pepo, Cucurbita maxima, Lactuca sativa, Capsicum annuum]
+      difficulty: common
+      topic: virus_cmv
+
+  - id: tomatenbronzefleckenvirus-tswv
+    title: Tomatenbronzefleckenvirus (TSWV) — Ringflecken und Bronzefarbe durch Thrips uebertragen
+    content: |
+      Das Tomatenbronzefleckenvirus (TSWV, Tomato Spotted Wilt Virus) wird
+      ausschliesslich durch Thrips uebertragen — vor allem durch Westlichen
+      Blumentrips (Frankliniella occidentalis). Es befaellt Tomate, Paprika,
+      Salat, Tabak und hunderte Zierpflanzen. TSWV ist eine der
+      wirtschaftlich schaedlichsten Viroskrankheiten im Gewaechshaus.
+      Symptome:
+      - Bronzefarbene Verfaerbung junger Triebe und Blaetter (namensgebend)
+      - Ringfoermige oder kreisfoermige Flecken (Ringflecken) — hellbraun,
+        gelblich oder nekrotisch, oft mit konzentrischen Ringen
+      - Stengelnekrosen (dunkelbraune Streifen am Stengel)
+      - Wachstumsstauchung, Blaetter deformiert oder einseitig verrueckelt
+      - Bei Tomate: Fruechte zeigen gelb-gruene Ringflecken oder bleiben
+        unreif
+      - Salat: gesamte Pflanze kann zusammenbrechen (Rotfaeule-Symptome)
+      Abgrenzung: Ringflecken bei TSWV sind konzentrisch und kreisrund —
+      das ist unverwechselbar. Calciummangelflecken sind eher eckig und
+      befinden sich an Triebspitzen (Stippigkeit). Uebertragung NUR durch
+      Thrips — Larven nehmen Virus auf, geben es als Adulte weiter.
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Infizierte Pflanzen SOFORT entfernen — vorsichtig, um Thrips nicht
+        aufzuscheuchen und das Virus weiterzuverbreiten
+      - Thrips-Kontrolle ist entscheidend: Blaue Klebetafeln aufhaengen
+        (Thrips werden von Blau angezogen), Raubmilben einsetzen
+        (Amblyseius cucumeris, A. swirskii), Spinosad-Praeparate
+      - Insektenschutznetze im Gewaechshaus (Maschenweite max. 0.8 mm fuer
+        Thrips — sehr feinmaschig erforderlich!)
+      - Unkraeuter in Gewaechshausnaehe entfernen (Thrips-Reservoir)
+      - Resistente Sorten bei Tomate: Sw-5-Gen vermittelt Resistenz gegen
+        TSWV (in Saatgutkatalogen als "TSWV" oder "Sw5" markiert)
+    metadata:
+      pathogen: TSWV
+      pathogen_full: Tomato Spotted Wilt Virus
+      vector: thrips_frankliniella
+      host_plants: [Solanum lycopersicum, Capsicum annuum, Lactuca sativa, Nicotiana tabacum]
+      difficulty: intermediate
+      topic: virus_tswv
+
+  - id: tomato-yellow-leaf-curl-tylcv
+    title: Tomato Yellow Leaf Curl Virus (TYLCV) — Gerollte gelbe Blaetter durch Weisse Fliege
+    content: |
+      Das Tomato Yellow Leaf Curl Virus (TYLCV) ist ein Begomovirus das
+      ausschliesslich durch die Silbrige Weisse Fliege (Bemisia tabaci)
+      uebertragen wird — NICHT durch die in Mitteleuropa haeufigere
+      Gewoehliche Weisse Fliege (Trialeurodes vaporariorum). Es befaellt
+      praktisch ausschliesslich Tomate und kann ganze Bestaende vernichten.
+      Symptome:
+      - Blaetter rollen sich nach oben und innen ein (charakteristisches
+        "Tassen-Blatt")
+      - Starke Vergilbung der Blattadern und Blattraender
+      - Massiver Kuemmer-Wuchs — Pflanze bleibt sehr klein, Internodien
+        stauchen zusammen
+      - Keine oder kaum Fruchtsetzung bei starkem Befall
+      - Symptome beginnen an den juengsten Blaettern (Triebspitzen zuerst)
+      Abgrenzung: Blatteinrollen bei Hitze oder Wasserstress ist
+      gleichmaessig und reversibel — die Pflanze erholt sich nach dem
+      Giessen. Bei TYLCV bleibt das Einrollen permanent und die Vergilbung
+      breitet sich aus. Magnesium- oder Kaliummangelflecken sitzen an
+      ALTEN Blaettern, nicht an jungen Triebspitzen.
+      Uebertragung: Ausschliesslich Bemisia tabaci (persistente Uebertragung
+      — Weisse Fliege muss 20-30 Minuten saugen zum Erwerb, gibt Virus
+      lebenslang weiter). In Mitteleuropa hauptsaechlich durch infiziertes
+      Jungpflanzenmaterial eingeschleppt.
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Infizierte Pflanzen sofort entfernen
+      - Jungpflanzen nur aus zertifizierten, virusfreien Betrieben kaufen
+      - Gelbe Klebetafeln gegen Weisse Fliege aufhaengen
+      - Nuetzlinge: Encarsia formosa (Schluepfwespe gegen Weisse Fliege)
+      - Im Freiland: Insektenschutznetze (50-mesh Maschenweite gegen
+        Bemisia tabaci)
+      - Resistente Tomatensorten: Ty-1 oder Ty-3-Gen in Saatgutkatalogen
+        als "TYLCV" oder "Ty" markiert
+    metadata:
+      pathogen: TYLCV
+      pathogen_full: Tomato Yellow Leaf Curl Virus
+      vector: whitefly_bemisia_tabaci
+      host_plants: [Solanum lycopersicum]
+      difficulty: intermediate
+      topic: virus_tylcv
+
+  - id: kartoffelvirus-y-pvy
+    title: Kartoffelvirus Y (PVY) — Mosaik und Nekrose bei Kartoffel, Tomate und Paprika
+    content: |
+      Das Kartoffelvirus Y (PVY, Potato Virus Y) ist das wichtigste Virus
+      im Kartoffelanbau und befaellt ausserdem Tomate und Paprika. Es
+      gehoert zur Potyvirus-Gruppe und wird in verschiedenen Staemmen
+      gefunden die unterschiedlich starke Schaeden verursachen.
+      Symptome:
+      - An Kartoffel: Mosaik-Muster auf Blaettern, Blaetter welken und
+        sterben bei nekrotischen Staemmen (PVY-N, NTN) vorzeitig ab.
+        Knollen zeigen interne Nekrosen ("Ringfaeule")
+      - An Tomate: Mosaikflecken, Blaetter werden runzlig und deformiert,
+        Wachstumsstauchung, Fruechte kleiner und geringer Ertrag
+      - An Paprika: Mosaikflecken, Nekrosen (dunkle Adern), Blaetter fallen
+        vorzeitig ab bei starkem Befall
+      Abgrenzung: Wilt-Symptome (Welken) koennen mit Fusarium- oder
+      Verticillium-Befall verwechselt werden. Fusarium/Verticillium zeigen
+      aber Verbraeunungen im Stengel (Laengsschnitt!) — PVY zeigt dagegen
+      keine Stengelverbraeunung innen, aber Mosaikflecken auf Blaettern.
+      Uebertragung: Blattlaeuse (vor allem Myzus persicae) uebertragen
+      PVY nicht-persistent — schon ein kurzes Probesaugen von Sekunden
+      genuegt zum Viruserwerb und zur Weitergabe. Das macht Blattlaus-
+      kontrolle besonders dringend. Mechanische Uebertragung durch Werkzeug
+      und infiziertes Pflanzgut (Kartoffelknollen).
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Nur zertifiziertes, PVY-freies Pflanzkartoffel-Saatgut verwenden
+        (amtlich anerkannte Klassen E, A, B)
+      - Infizierte Pflanzen entfernen und im Restmuell entsorgen
+      - Blattlaus-Kontrolle: Gelbklebetafeln, Nuetzlinge, mineraloelbasierte
+        Spritzmittel (Oel bildet Schutzfilm und verhindert Probesaugen)
+      - Fruchtfolge einhalten: Keine Nachtschattengewaechse (Tomate, Paprika,
+        Kartoffel) nacheinander auf derselben Flaeche
+      - Resistente Kartoffelsorten bevorzugen (PVY-Toleranz in Katalogen
+        vermerkt)
+    metadata:
+      pathogen: PVY
+      pathogen_full: Potato Virus Y
+      vector: aphids_blattlaeuse
+      host_plants: [Solanum tuberosum, Solanum lycopersicum, Capsicum annuum]
+      difficulty: intermediate
+      topic: virus_pvy
+
+  - id: zucchini-yellow-mosaic-virus-zymv
+    title: Zucchini Yellow Mosaic Virus (ZYMV) — Starkes Mosaik und Deformation bei Kuerbisgewaechsen
+    content: |
+      Das Zucchini Yellow Mosaic Virus (ZYMV) befaellt fast alle
+      Kuerbisgewaechse (Cucurbitaceae): Zucchini, Gurke, Kuerbis, Melone
+      und Wassermelone. Es ist eines der schadlichsten Viren in dieser
+      Pflanzenfamilie da es zu massivem Ertragsausfall fuehrt.
+      Symptome (oft deutlicher als bei CMV):
+      - Intensives leuchtend gelbes Mosaik auf Blaettern — die gelben
+        Felder sind groesser und auffaelliger als bei CMV
+      - Extreme Blattdeformation: Blaetter sind stark wellig, blasig
+        aufgetrieben, verdreht und zeigen "Schrottschuss-Loecher"
+      - Fruechte stark deformiert: klumpenartig buckelig, gefleckt,
+        gelblich und ungeniessbar
+      - Wachstumsstauchung: Ranken kurz, Internodien gestaucht
+      - Junge Pflanzen (unter 4 Wochen) sterben bei Befall oft vollstaendig
+        ab ohne Erntechance
+      Abgrenzung: ZYMV und CMV befallen die gleichen Pflanzen. ZYMV
+      verursacht staerkere Symptome und intensivere Gelbfaerbung als CMV.
+      Beide zeigen Mosaik-Muster — im Feld sind sie kaum zu unterscheiden
+      ohne Labortest. Eisenmangel-Chlorose ist gleichmaessig zwischen den
+      Adern (interkosal), Mosaik ist ungleichmaessig und irregulaer.
+      Uebertragung: Blattlaeuse sind der Hauptvektor (nicht-persistent,
+      schon Probesaugen genuegt). Auch mechanische Uebertragung durch
+      Gartengeraete ist moeglich.
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Infizierte Pflanzen sofort entfernen (im Restmuell)
+      - Blattlaus-Kontrolle hat oberste Prioritaet (Gelbklebetafeln,
+        Nuetzlinge, Mineraloel-Spritzungen)
+      - Reflektierende Silber-Mulchfolie im Freiland senkt Blattlaus-
+        Landedruck deutlich
+      - Resistente Zucchini-Sorten verwenden (in Katalogen als ZYMV-R
+        oder CMV-R markiert)
+      - Kein Saatgut von infizierten Pflanzen gewinnen
+    metadata:
+      pathogen: ZYMV
+      pathogen_full: Zucchini Yellow Mosaic Virus
+      vector: aphids_blattlaeuse
+      host_plants: [Cucurbita pepo, Cucumis sativus, Cucurbita maxima, Cucumis melo]
+      difficulty: intermediate
+      topic: virus_zymv
+
+  - id: tobacco-rattle-virus-trv
+    title: Tobacco Rattle Virus (TRV) — Ringflecken und Ratteln durch Nematoden uebertragen
+    content: |
+      Das Tobacco Rattle Virus (TRV) hat ein ungewoehnlich breites
+      Wirtsspektrum — es befaellt Kartoffel, Tomate, Salat, Tabak,
+      Spinat, Zwiebel und viele Zierpflanzen (Tulpen, Narzissen). In
+      Kartoffeln verursacht es "Pfeffernekrose" oder "Sternrissigkeit"
+      der Knollen.
+      Besonderheit: TRV wird NICHT durch Insekten uebertragen, sondern
+      durch freilebende Nematoden der Gattungen Trichodorus und Paratrichodorus
+      im Boden. Das macht TRV besonders hartnaekkig — die Nematoden ueberleben
+      Jahre im Boden.
+      Symptome:
+      - Ringflecken auf Blaettern: blasse oder nekrotische kreisfoermige
+        Muster (aehnlich wie TSWV, aber ohne Bronzefarbe)
+      - Mosaik-Muster und Blattkraeuselung (bei manchen Wirtspflanzen)
+      - Bei Kartoffel: Knollen mit dunkelbraunen Ringen und Flecken im
+        Innern (Querschnitt zeigt konzentrische Ringe), unverkaeuflich
+      - Triebstauchung und schlechtes Wachstum
+      - Bei Zwiebeln: gelbe Streifen auf den Blaettern ("Rattle-Symptome")
+      Abgrenzung: Ringflecken koennen mit TSWV oder pilzlichen Blattflecken
+      verwechselt werden. TRV-typisch ist das Auftreten in Herden (fleckig
+      im Bestand, dort wo Nematoden vorkommen). TSWV-Ringflecken zeigen
+      Bronzefarbe — TRV-Ringflecken sind eher hellbraun bis nekrotisch ohne
+      Bronzeton.
+      Uebertragung: Nematoden im Boden (Trichodorus, Paratrichodorus)
+      uebertragen TRV beim Saugen an Wurzeln. Auch mechanische Uebertragung
+      und Saatgut (selten) moeglich.
+      Wichtig: Virus = KEINE Heilung moeglich. Massnahmen:
+      - Befallene Pflanzen entfernen
+      - Bodenverbesserung: organische Mulchschichten foerdern natuerliche
+        Nematodengegner (Raubpilze, Raubnematoden)
+      - Tagetes-Reihen als Nematodenabwehr (Tagetes-Wurzeln geben Thiophen
+        ab das Nematoden abstoessl) — bewiesene Wirkung bei Wurzelnematoden
+      - Fruchtfolge: Getreide und Graeser sind keine TRV-Wirte und
+        reduzieren Nematodendichte ueber mehrere Saisons
+      - Resistentes Kartoffel-Pflanzgut verwenden
+      - Boden-Nematodenanalyse zur Bestandsaufnahme empfehlenswert
+    metadata:
+      pathogen: TRV
+      pathogen_full: Tobacco Rattle Virus
+      vector: nematodes_trichodorus
+      host_plants: [Solanum tuberosum, Solanum lycopersicum, Lactuca sativa, Tulipa, Narcissus]
+      difficulty: expert
+      topic: virus_trv
+
+  - id: virus-diagnose-und-praeventionsstrategie
+    title: Pflanzenvirus erkennen — Diagnose, Praeventionsstrategie und haeufige Verwechslungen
+    content: |
+      Pflanzenviren sind unheilbar — eine infizierte Pflanze bleibt
+      infiziert. Das Wissen darum ist die wichtigste Regel im Umgang
+      mit Viruserkrankungen. Kein Fungizid, kein Duenger und kein
+      Hausmittel heilt eine Virusinfektion.
+      Wie erkenne ich einen Virus-Verdacht?
+      Das Mosaik-Muster ist das haeufigste Virus-Erkennungszeichen:
+      ungleichmaessige, fleckige Faerbung aus hell- und dunkelgruenen
+      Bereichen auf dem Blatt. Wer ein solches Muster sieht, sollte
+      sofort an Virus denken — insbesondere wenn:
+      - Die Faerbung irreguleer verteilt ist (nicht gleichmaessig)
+      - Blaetter deformiert, gekuesselt oder eingerollt sind
+      - Duenger und pH stimmen und trotzdem Chlorose auftritt
+      - Junge Blaetter staerker betroffen als alte (oder umgekehrt je
+        nach Virus)
+      Haeufige Verwechslungen mit Naehrstoffmangel:
+      - Chlorose durch Eisenmangel: gleichmaessig hell zwischen den
+        Blattadern (interkosal), beginnend an jungen Blaettern. Kein
+        Mosaik, kein Deformieren.
+      - Magnesiummangel: gleichmaessig gelblich beginnend an ALTEN
+        Blaettern, Blattadern bleiben gruener (interkosal an aelteren
+        Blaettern). Kein Mosaik.
+      - Kaliummangel: Blattrand verbrennt (Randbrand), kein Mosaik.
+      Faustregeln fuer den Praktiker:
+      - Mosaikflecken + Blattdeformation = Virus-Verdacht
+      - Ringflecken (konzentrische Kreise) = TSWV oder TRV pruefen
+      - Gerollte gelbe Blaetter an Triebspitzen bei Tomate = TYLCV pruefen
+      - Virus-Verdacht + Thrips-Befall = TSWV sehr wahrscheinlich
+      - Virus-Verdacht + Blattlaeuse = CMV, ZYMV oder PVY wahrscheinlich
+      Praevention ist alles — Strategie in drei Ebenen:
+      1. Vektorkontrolle: Insekten-Monitoring mit Klebetafeln, Nuetzlinge
+         einsetzen, Insektenschutznetze im Gewaechshaus, Blattlaeuse und
+         Thrips wochentlich kontrollieren
+      2. Hygiene: Werkzeug desinfizieren (Isopropanol 70%), Haende waschen
+         vor dem Gaertnern, kein Tabakrauchen im Gewaechshaus (TMV-Gefahr),
+         Jungpflanzen nur aus gesunden Bestaenden
+      3. Sorten: Resistente Sorten mit bekannten Resistenzgenen bevorzugen
+         (Saatgutkataloge geben Virusresistenzen an)
+      Bei Virus-Diagnose: Pflanze sofort in Muellbeutel einhuellen
+      (nicht durch das Gewaechshaus tragen) und im Restmuell entsorgen.
+      NICHT kompostieren — viele Viren ueberleben Kompostierung.
+    metadata:
+      topic: virus_praeventionsstrategie
+      difficulty: beginner
+      covers_viruses: [TMV, CMV, TSWV, TYLCV, PVY, ZYMV, TRV]
