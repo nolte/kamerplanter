@@ -48,7 +48,7 @@ click-repl==0.3.0
     # via celery
 coverage==7.13.5
     # via pytest-cov
-cryptography==46.0.6
+cryptography==46.0.7
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
