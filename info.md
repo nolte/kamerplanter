@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/images/banner-ha-integration.png" alt="Kamerplanter Home Assistant Integration" />
+  <img src="https://raw.githubusercontent.com/nolte/kamerplanter/main/docs/assets/images/banner-ha-integration.png" alt="Kamerplanter Home Assistant Integration" />
 </p>
 
 # Kamerplanter Home Assistant Integration
