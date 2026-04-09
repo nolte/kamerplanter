@@ -1,0 +1,173 @@
+---
+title: Kuebelpflege vertieft — Duengung, Hitze, Bewaesserung und Substrat
+language: de
+category: outdoor
+tags: [kuebel, duengung, hitze, bewaesserung, substrat, tropfsystem, langzeitduenger, balkon, terrasse, topfpflanze]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: duengung-kuebel
+    title: Duengung im Kuebel — hoeher als im Beet
+    content: |
+      Warum muessen Kuebelpflanzen staerker geduengt werden als Pflanzen
+      im Beet? Im Beet haben Wurzeln Zugang zu einem grossen Erdvolumen
+      mit natuerlichem Naehrstoff-Nachschub (Bodenlebewesen, Kompost,
+      Verwitterung). Im Kuebel ist das Substratvolumen begrenzt, und
+      jedes Giessen schwemmt Naehrstoffe durch die Ablaufloecher aus.
+      Grundregel: Kuebelpflanzen brauchen 30-50 Prozent mehr Duenger
+      als die gleiche Pflanze im Beet.
+      Langzeitduenger (beim Einpflanzen):
+      - Duengerkoerner, die ueber 3-6 Monate langsam Naehrstoffe
+        abgeben (Osmocote, organische Langzeit-Pellets).
+      - Bei der Pflanzung ins Substrat einarbeiten — Grundversorgung
+        fuer die Saison.
+      - Vorteil: Gleichmaessige Versorgung, weniger Aufwand.
+      - Nachteil: Nicht steuerbar — wenn die Pflanze mehr braucht
+        (Bluete, Frucht), reicht es oft nicht.
+      Fluessigduenger (ergaenzend):
+      - Ab 6-8 Wochen nach Pflanzung (dann ist der Langzeitduenger
+        allein nicht mehr ausreichend) woechentlich mit dem Giesswasser
+        geben.
+      - Starkzehrer (Tomate, Paprika, Geranien): Woechentlich.
+      - Mittelzehrer (Kraeuter, Salat): Alle 2 Wochen.
+      - Schwachzehrer (Sukkulenten, Graeser): Monatlich oder gar nicht.
+      Organischer Duenger im Kuebel:
+      - Komposttee, Wurmhumus-Extrakt, Brennnesseljauche funktionieren
+        gut als Fluessigduenger.
+      - Hornspäne: Langsam wirkend, guter Stickstoff-Lieferant.
+        1-2 Essloeffel pro 10 Liter Kuebel einharken.
+      - Kaffeesatz: Leicht sauer, Stickstoff-haltig. In Massen nuetzlich,
+        nicht uebermaessig (Schimmelgefahr).
+      Haeufiger Fehler: Zu viel Duenger auf einmal. Lieber haeufig
+      und schwach dosiert als selten und konzentriert. Ueberduengung
+      verbrennt Wurzeln und zeigt sich an braunen Blattspitzen.
+    metadata:
+      topic: container_fertilization
+      difficulty: moderate
+      methods: [slow_release, liquid, organic]
+
+  - id: hitze-management
+    title: Hitze-Management — Wenn Kuebel ueberhitzen
+    content: |
+      Warum ueberhitzen Kuebel im Sommer und was kann ich dagegen tun?
+      Schwarze oder dunkle Toepfe in der Sonne koennen sich auf ueber
+      50 Grad aufheizen. Bei solchen Temperaturen sterben Feinwurzeln
+      ab, die Pflanze kann kein Wasser mehr aufnehmen und welkt trotz
+      feuchter Erde. Ein Problem besonders auf Suedbalkonen und
+      Dachterrassen.
+      Anzeichen fuer ueberhitztes Substrat:
+      - Pflanze welkt trotz feuchter Erde.
+      - Blaetter werden schlaff in der Mittagshitze, erholen sich
+        abends kaum.
+      - Giesswasser ist beim Austritt aus dem Topf warm.
+      Gegenmassnahmen:
+      - Helle Toepfe verwenden: Weiss, Beige, Terrakotta reflektieren
+        Sonnenlicht. Schwarze Plastiktoepfe sind die schlimmsten
+        Hitze-Sammler.
+      - Topf-in-Topf: Kuebel in einen groesseren Ueertopf stellen,
+        Zwischenraum mit Blaehton oder Kies fuellen. Die Luftschicht
+        isoliert wie eine Thermoskanne.
+      - Beschattung des Topfes: Niedrige Pflanzen oder Mulch um den
+        Topf stellen. Jutesack oder Kokos-Manschette umwickeln.
+      - Zusammenruecken: Mehrere Toepfe eng zusammenstellen — sie
+        beschatten sich gegenseitig.
+      - Morgens giessen: Dann ist das Substrat kuehler und nimmt
+        Wasser besser auf. Mittags oder nachmittags gegossenes Wasser
+        verdunstet zu schnell und die heisse Erde kocht die Wurzeln.
+      - Doppelt giessen: Im Hochsommer morgens UND abends giessen.
+        Kuebelpflanzen brauchen bei 35 Grad teils das doppelte Wasser.
+      - Wasserreservoir-Toepfe: Halten Feuchtigkeit laenger und
+        kuehlen durch Verdunstung.
+      Im Extremfall: Pflanzen waehrend Hitzewellen (ueber 38 Grad)
+      voruebergehend in den Schatten ziehen oder mit Schattiergewebe
+      abdecken. Lieber ein paar Tage weniger Sonne als verbrannte
+      Wurzeln.
+    metadata:
+      topic: heat_management_containers
+      difficulty: moderate
+      critical_temp_celsius: 50
+
+  - id: automatische-bewaesserung
+    title: Automatische Bewaesserung auf dem Balkon
+    content: |
+      Wie bewaessere ich meine Balkonpflanzen automatisch, besonders
+      im Urlaub? Kuebelpflanzen trocknen im Sommer schnell aus — schon
+      ein Tag ohne Wasser kann bei kleinen Toepfen reichen. Automatische
+      Bewaesserung loest das Problem fuer den Alltag und den Urlaub.
+      Einfache Loesungen (kein Wasseranschluss noetig):
+      - Bewaesserungskegel (Tonkegel/Blumat): Tonkegel in die Erde
+        stecken, Wasserflasche umgedreht draufsetzen. Durch die poroese
+        Keramik sickert Wasser nach Bedarf. Guenstig, einfach, ideal
+        fuer einzelne Toepfe und kurze Abwesenheit (5-7 Tage).
+      - Ollas: Unglasierte Tontöpfe, die in die Erde eingegraben werden.
+        Wasser sickert langsam durch die Keramik. Fuer groessere Kuebel
+        und Hochbeete. Sehr gleichmaessige Bewaesserung.
+      - Faden-Docht: Baumwollfaden von einem Wasser-Reservoir in den
+        Topf leiten (Kapillarwirkung). Funktioniert bei kleinen Toepfen
+        erstaunlich gut. Faden muss vorher nass sein.
+      Tropfbewaesserung (mit Wasseranschluss oder Pumpe):
+      - Tropfschlauch/Micro-Drip-System: Duenner Schlauch mit Tropfern
+        an jedem Topf. Anschluss an Wasserhahn + Zeitschaltuhr.
+        Gardena Micro-Drip oder Blumat Tropfsystem sind beliebte Marken.
+      - Vorteile: Praezise Wassermenge pro Topf einstellbar, laeuft
+        vollautomatisch, auch fuer 50+ Toepfe skalierbar.
+      - Zeitschaltuhr: Morgens 5-10 Minuten bewaessern reicht meist.
+        Im Hochsommer zusaetzlich abends.
+      Smarte Loesungen:
+      - Feuchtigkeitssensoren im Substrat, die Bewaesserung nur
+        ausloesen, wenn die Erde trocken ist. Vermeidet Ueberwaesserung
+        bei Regen.
+      - Bewässerungscomputer mit Wettersensor (z.B. Gardena smart
+        system): Passt Wassermenge an Temperatur und Niederschlag an.
+      Urlaubstipp: Vor dem Urlaub alle Pflanzen aus der prallen Sonne
+      in den Halbschatten ruecken — das halbiert den Wasserbedarf.
+      Automatik-System mindestens eine Woche vor dem Urlaub testen.
+    metadata:
+      topic: automatic_irrigation_balcony
+      difficulty: moderate
+      methods: [clay_cone, olla, drip_system, moisture_sensor]
+
+  - id: substrat-wechsel
+    title: Substrat-Wechsel im Kuebel — Wann und Wie
+    content: |
+      Wann muss ich die Erde in meinen Kuebeln wechseln? Substrat im
+      Kuebel hat eine begrenzte Lebensdauer. Nach 1-2 Jahren ist es
+      verdichtet, naehrstoffarm, versalzen (Duengerreste) und strukturlos.
+      Die Pflanze kuemmert trotz Duengung und Giessen — dann ist ein
+      Substratwechsel faellig.
+      Anzeichen, dass die Erde ausgetauscht werden muss:
+      - Wasser laeuft beim Giessen sofort durch oder steht oben und
+        versickert kaum (hydrophob gewordenes Substrat).
+      - Weisser Belag auf der Oberflaeche (Kalkablagerungen, Salze).
+      - Substrat ist zusammengesackt und hart geworden.
+      - Pflanze waechst trotz Duengung kaum noch.
+      - Wurzeln fuellen den Topf komplett aus (topfgebunden/rootbound).
+      Kompletter Substratwechsel:
+      1. Pflanze vorsichtig aus dem Topf nehmen.
+      2. Alte Erde von den Wurzeln schuetteln/abspuelen.
+      3. Abgestorbene oder faulige Wurzeln mit sauberer Schere
+         entfernen.
+      4. Falls Topf gleich gross bleibt: Wurzelballen um ein Drittel
+         zurueckschneiden (bei den meisten Pflanzen unproblematisch).
+      5. Frisches Substrat einfuellen, Pflanze einsetzen, angiessen.
+      Teilwechsel (schneller, weniger Stress):
+      - Obere 5-10 cm altes Substrat entfernen und durch frisches
+        ersetzen. Ideal fuer grosse, schwere Kuebel, die man nicht
+        kippen will.
+      - Alle 6-12 Monate moeglich, verlaengert den Zeitraum bis zum
+        naechsten Komplettwechsel.
+      Bester Zeitpunkt: Fruehling, wenn die Pflanzen sowieso in die
+      Wachstumsphase starten. Im Winter oder waehrend der Bluete
+      moeglichst nicht umtopfen (Stress).
+      Wie oft komplett wechseln?
+      - Einjahrige Pflanzen: Jedes Jahr neues Substrat (alte Erde
+        kompostieren).
+      - Starkzehrer (Tomate, Paprika): Jedes Jahr.
+      - Dauerbepflanzung (Buchsbaum, Graeser): Alle 2-3 Jahre komplett,
+        jaehrlich Teilwechsel.
+      - Sukkulenten, Kakteen: Alle 3-4 Jahre reicht.
+    metadata:
+      topic: substrate_replacement
+      difficulty: easy
+      methods: [complete_change, partial_change]
+      timing: spring

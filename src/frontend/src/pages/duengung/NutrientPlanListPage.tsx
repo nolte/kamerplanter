@@ -118,13 +118,23 @@ export default function NutrientPlanListPage() {
     {
       id: 'tags',
       label: t('pages.nutrientPlans.tags'),
-      render: (r) => (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {r.tags.map((tag) => (
-            <Chip key={tag} label={tag} size="small" variant="outlined" />
-          ))}
-        </Box>
-      ),
+      render: (r) => {
+        const MAX_VISIBLE = 3;
+        const visible = r.tags.slice(0, MAX_VISIBLE);
+        const remaining = r.tags.length - MAX_VISIBLE;
+        return (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {visible.map((tag) => (
+              <Chip key={tag} label={tag} size="small" variant="outlined" />
+            ))}
+            {remaining > 0 && (
+              <Tooltip title={r.tags.slice(MAX_VISIBLE).join(', ')}>
+                <Chip label={`+${remaining}`} size="small" variant="outlined" color="default" />
+              </Tooltip>
+            )}
+          </Box>
+        );
+      },
       searchValue: (r) => r.tags.join(' '),
     },
     {
@@ -194,7 +204,8 @@ export default function NutrientPlanListPage() {
             chips={
               <>
                 {r.is_template && <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />}
-                {r.tags.map((tag) => <Chip key={tag} label={tag} size="small" variant="outlined" />)}
+                {r.tags.slice(0, 3).map((tag) => <Chip key={tag} label={tag} size="small" variant="outlined" />)}
+                {r.tags.length > 3 && <Chip label={`+${r.tags.length - 3}`} size="small" variant="outlined" />}
               </>
             }
             fields={[

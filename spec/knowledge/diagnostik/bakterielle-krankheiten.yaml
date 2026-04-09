@@ -1,0 +1,224 @@
+---
+title: Bakterielle Pflanzenkrankheiten erkennen und behandeln
+language: de
+category: diagnostik
+tags: [bakterien, feuerbrand, weichfaeule, bakterienbrand, pseudomonas, xanthomonas, pflanzenkrankheit]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: feuerbrand
+    title: Feuerbrand (Erwinia amylovora) erkennen und handeln
+    content: |
+      Symptome: Blueten, Triebspitzen und Blaetter sehen aus wie
+      "verbrannt" — sie werden braun bis schwarz, trocknen ein und
+      bleiben an der Pflanze haengen. Befallene Triebspitzen kruemmen
+      sich hakenfoermig nach unten (typischer "Hirtenstab"). Bei
+      feuchter Witterung tritt an befallenen Stellen ein gelblich-
+      weisser, klebriger Schleim aus (Bakterienschleim mit Milliarden
+      Erregern). Die Rinde befallener Aeste sinkt ein und verfaerbt
+      sich dunkel.
+      Erreger: Erwinia amylovora — ein hochinfektioeses Bakterium
+      das sich ueber Insekten (Bienen!), Regen, Wind und kontaminiertes
+      Werkzeug verbreitet. Meldepflichtige Quarantaenekrankheit in
+      Deutschland und der EU!
+      Betroffene Pflanzen: Ausschliesslich Rosengewaechse (Rosaceae),
+      besonders Kernobst: Apfel, Birne (am anfaelligsten!), Quitte,
+      Mispel, Weissdorn, Feuerdorn, Cotoneaster, Vogelbeere. Steinobst
+      (Kirsche, Pflaume) ist NICHT betroffen.
+      Sofortmassnahmen:
+      - MELDEPFLICHT: Verdacht dem zustaendigen Pflanzenschutzamt melden!
+      - Befallene Triebe mindestens 30 cm ins gesunde Holz zurueckschneiden
+      - Schnitt NUR bei trockener Witterung durchfuehren
+      - Schere nach JEDEM Schnitt mit 70% Alkohol desinfizieren
+      - Schnittgut verbrennen oder im Restmuell entsorgen
+      - Keinesfalls kompostieren!
+      Vorbeugung:
+      - Feuerbrand-tolerante Sorten waehlen (z.B. Apfel 'Rewena',
+        'Remo', Birne 'Harrow Sweet')
+      - Weissdorn und Cotoneaster in der Naehe von Obstbaeumen meiden
+        (Wirtspflanzen des Erregers)
+      - Stickstoff-Duengung reduzieren (uebermaessiges Wachstum
+        macht anfaelliger)
+      - Regelmaessig kontrollieren, besonders waehrend der Bluete bei
+        feucht-warmem Wetter (>18°C + Regen = hohe Infektionsgefahr)
+      Abgrenzung: Monilia-Spitzenduerren sieht aehnlich aus (vertrocknete
+      Triebspitzen), ist aber ein Pilz und zeigt graue Sporenpolster.
+      Feuerbrand zeigt Bakterienschleim und den typischen "Hirtenstab".
+    metadata:
+      pathogen: fire_blight
+      species: Erwinia amylovora
+      disease_type: bacterial
+      host_plants: [Malus, Pyrus, Cydonia, Crataegus]
+      difficulty: intermediate
+
+  - id: bakterielle-weichfaeule
+    title: Bakterielle Weichfaeule (Pectobacterium) erkennen
+    content: |
+      Symptome: Pflanzenstengel, Knollen oder Fruechte werden weich,
+      matschig und waessrig. Das Gewebe zerfaellt von innen — drueckt
+      man auf die befallene Stelle, gibt sie nach wie nasser Schwamm.
+      Oft begleitet von einem unangenehmen, fauligen Geruch (riecht
+      nach faulen Eiern oder verdorbenem Gemuese). Bei Kartoffeln:
+      Knollen werden innen glitschig und braun ("Nassfaeule"). Bei
+      Zimmerpflanzen: Stengel wird am Boden matschig und knickt um.
+      Erreger: Pectobacterium carotovorum (frueher Erwinia carotovora),
+      Pectobacterium atrosepticum und Dickeya-Arten. Die Bakterien
+      produzieren Enzyme die Zellwaende aufloesen — daher das
+      matschige Erscheinungsbild.
+      Betroffene Pflanzen: Kartoffel (Nassfaeule, Schwarzbeinigkeit),
+      Kohl, Salat, Moehre, Sellerie, Zwiebel, Orchideen, Kakteen,
+      Sukkulenten, viele Zimmerpflanzen — praktisch alle Pflanzen
+      koennen befallen werden.
+      Sofortmassnahmen:
+      - Befallene Pflanzenteile sofort grosszuegig entfernen
+      - Bei Topfpflanzen: Pflanze austopfen, faule Wurzeln/Stengel
+        abschneiden, frisches Substrat verwenden
+      - Befallene Kartoffeln sofort aussortieren (Faeule breitet sich
+        im Lager schnell auf Nachbarn aus!)
+      - Bewaesserung reduzieren — Naesse foerdert Weichfaeule
+      Vorbeugung:
+      - Ueberwaesserung vermeiden — das ist der wichtigste Faktor
+      - Gute Drainage sicherstellen (Substrat, Abflussloecher)
+      - Verletzungen vermeiden (Eintrittspforten fuer Bakterien)
+      - Kartoffeln vorsichtig ernten und vor Einlagerung abtrocknen
+      - Werkzeug sauber halten
+      - Bei Zimmerpflanzen: Substrat zwischen den Wassergaben
+        antrocknen lassen
+      Abgrenzung: Pilzliche Stengelfaeule (Fusarium, Pythium) ist
+      fester und faseriger — bakterielle Weichfaeule ist matschig-
+      waessrig und riecht deutlich unangenehm.
+    metadata:
+      pathogen: soft_rot
+      genus: Pectobacterium
+      disease_type: bacterial
+      difficulty: beginner
+
+  - id: bakterienbrand-pseudomonas
+    title: Bakterienbrand (Pseudomonas syringae) erkennen
+    content: |
+      Symptome: Scharf abgegrenzte, braune bis schwarze nekrotische
+      Flecken auf Blaettern, oft umgeben von einem gelben Hof
+      (Chlorose-Rand). Bei Steinobst: Rindenbrand an Aesten mit
+      eingesunkener, dunkel verfaerbter Rinde und Gummifluss. Bei
+      Bohnen: braune, wassergetraenkte Flecken auf Huelsen und
+      Blaettern. An Triebspitzen: Absterben der Knospen im Fruehjahr.
+      Erreger: Pseudomonas syringae — ein Bakterium mit vielen
+      Pathovaren (Unterformen) die jeweils verschiedene Pflanzen
+      befallen. P. syringae pv. syringae ist der haeufigste
+      Verursacher. Das Bakterium kann als "Eiskeim" fungieren und
+      Frost auf Pflanzenoberflaechen bei Temperaturen um -2°C
+      ausloesen (Frostschaden + Bakterieninfektion = doppelter Schaden).
+      Betroffene Pflanzen: Steinobst (Kirsche, Pflaume, Pfirsich),
+      Bohne, Erbse, Tomate, Gurke, Flieder (Fliederbrand),
+      Oleander, Olive, viele Zierpflanzen und Gehoelze.
+      Sofortmassnahmen:
+      - Befallene Aeste und Triebe ins gesunde Holz zurueckschneiden
+      - Schnitt NUR bei trockener Witterung (Bakterien verbreiten
+        sich ueber Wasserfilm)
+      - Schere desinfizieren (70% Alkohol)
+      - Kupfer-Praeparat spritzen (Kupfer wirkt bakterizid)
+      - Befallenes Material entfernen und entsorgen
+      Vorbeugung:
+      - Kupfer-Spritzung im Herbst (Blattfall) und Fruehjahr
+        (Knospenschwellen) bei Steinobst
+      - Schnittmassnahmen bei trockenem Wetter durchfuehren
+      - Frostschutz: Stammschutzanstrich bei Obstbaeumen (weisse
+        Kalkfarbe reflektiert Sonne und verhindert Frostrisse)
+      - Nicht von oben bewaessern
+      - Stickstoff-Duengung nicht uebertreiben
+      Abgrenzung: Pilzliche Blattflecken (z.B. Alternaria) zeigen
+      konzentrische Ringe. Bakterielle Flecken sind eher gleichmaessig
+      braun/schwarz mit gelbem Hof und ohne Ringmuster.
+    metadata:
+      pathogen: bacterial_blight
+      species: Pseudomonas syringae
+      disease_type: bacterial
+      difficulty: intermediate
+
+  - id: pseudomonas-blattflecken
+    title: Pseudomonas-Blattflecken (oelfleckenartig) erkennen
+    content: |
+      Symptome: Wassergetraenkte, durchscheinende Flecken auf den
+      Blaettern — halten Sie das Blatt gegen das Licht, dann sehen
+      die Flecken aus wie Oelflecken (durchscheinend, dunkelgruen bis
+      braun). Die Flecken werden mit der Zeit braun-schwarz und
+      trocknen ein. Bei feuchter Witterung kann an der Blattunterseite
+      ein glitzernder Bakterienfilm sichtbar sein. Bei Gurke und
+      Zucchini: eckige, wassergetraenkte Flecken die durch Blattadern
+      begrenzt werden.
+      Erreger: Pseudomonas syringae und verwandte Arten. Die Bakterien
+      dringen ueber Spaltöffnungen (Stomata) und kleine Wunden in das
+      Blatt ein. Verbreitung erfolgt ueber Spritzwasser, Wind und
+      kontaminiertes Saatgut.
+      Betroffene Pflanzen: Gurke, Zucchini, Kuerbis (eckige
+      Blattflecken), Basilikum (braune Flecken), Salat, Tomate,
+      Pelargonie, Begonie, viele Zierpflanzen und Gemuese.
+      Sofortmassnahmen:
+      - Befallene Blaetter entfernen und im Restmuell entsorgen
+      - Pflanze trocken halten — nicht von oben bewaessern
+      - Kupfer-Praeparat spritzen (Kupferhydroxid, vorbeugend auf
+        noch gesunde Blaetter)
+      - Pflanzen nicht bei Naesse anfassen (Kontakt-Uebertragung)
+      Vorbeugung:
+      - Nur von unten bewaessern (Tropfbewaesserung ideal)
+      - Morgens giessen damit Blaetter schnell abtrocknen
+      - Gute Luftzirkulation sicherstellen
+      - Resistente Sorten waehlen wenn moeglich
+      - Zertifiziertes Saatgut verwenden (Pseudomonas kann ueber
+        kontaminiertes Saatgut uebertragen werden!)
+      - Werkzeuge sauber halten
+      Abgrenzung: Pilzliche Blattflecken (Septoria, Alternaria) zeigen
+      keine "oelfleck-artige" Durchscheinung gegen das Licht. Das
+      Gegen-das-Licht-Halten ist ein einfacher Schnelltest: durchscheinende,
+      waessrige Flecken deuten auf Bakterien hin, trockene braune
+      Flecken eher auf Pilze.
+    metadata:
+      pathogen: bacterial_leaf_spot
+      genus: Pseudomonas
+      disease_type: bacterial
+      difficulty: intermediate
+
+  - id: xanthomonas-blattflecken
+    title: Xanthomonas-Blattflecken erkennen
+    content: |
+      Symptome: Eckige, braune bis schwarze Blattflecken die durch
+      die Blattadern begrenzt werden — die Flecken sind nicht rund wie
+      bei Pilzkrankheiten, sondern winklig/eckig weil sich die
+      Bakterien entlang der Blattadern ausbreiten. An den Raendern
+      der Flecken oft ein schmaler gelber Saum. Bei Paprika und Tomate:
+      auch Fruchtflecken (erhabene, korkige Flecken auf den Fruechten).
+      Bei Kohlgewaechsen: Adernschwarzaefaule (Blattadern werden
+      schwarz, V-foermige gelbe Nekrosen vom Blattrand her).
+      Erreger: Xanthomonas campestris (viele Pathovare: X. c. pv.
+      vesicatoria bei Tomate/Paprika, X. c. pv. campestris bei Kohl).
+      Die Bakterien werden haeufig ueber kontaminiertes Saatgut und
+      infizierte Setzlinge eingeschleppt.
+      Betroffene Pflanzen: Tomate, Paprika (Bakterielle Blattflecken-
+      krankheit), Kohl, Brokkoli, Blumenkohl (Adernschwarzfaeule),
+      Salat, Erdbeere, Pelargonie, Begonie.
+      Sofortmassnahmen:
+      - Befallene Blaetter und Pflanzenteile entfernen
+      - Befallene Fruechte ernten und verwerten (bei leichtem Befall
+        sind Fruechte noch essbar, nur Flecken wegschneiden) oder
+        bei starkem Befall entsorgen
+      - Kupfer-Spritzung (Kupferhydroxid oder Kupferoxychlorid)
+      - Pflanze trocken halten
+      Vorbeugung:
+      - Zertifiziertes, pathogenfreies Saatgut verwenden — das ist
+        die wichtigste Massnahme (Xanthomonas kommt haeufig ueber
+        kontaminiertes Saatgut in den Garten)
+      - Saatgut-Heisswasserbehandlung: Tomatensaatgut 25 Min bei
+        50°C in Wasser einlegen (toetet Bakterien auf der Samenoberflaeche)
+      - Nicht von oben bewaessern
+      - Fruchtfolge: 2-3 Jahre keine verwandten Kulturen
+      - Bei Kohl: Strenge Fruchtfolge und Saatgut-Hygiene
+      - Pflanzen bei Naesse nicht anfassen oder bearbeiten
+      Abgrenzung: Pilzliche Blattflecken sind meist rund mit
+      konzentrischen Ringen (Alternaria) oder hellen Zentren (Septoria).
+      Xanthomonas-Flecken sind immer ECKIG, begrenzt durch die
+      Blattadern — das ist das wichtigste Unterscheidungsmerkmal.
+    metadata:
+      pathogen: bacterial_leaf_spot
+      genus: Xanthomonas
+      disease_type: bacterial
+      difficulty: intermediate

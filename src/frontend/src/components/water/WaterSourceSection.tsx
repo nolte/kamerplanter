@@ -79,8 +79,7 @@ export default function WaterSourceSection({
           type="number"
           value={tap.ec_ms}
           onChange={(e) => updateTap('ec_ms', parseFloat(e.target.value) || 0)}
-          inputProps={{ step: 0.01, min: 0, max: 2.0, inputMode: 'decimal' }}
-          InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, whiteSpace: 'nowrap', color: 'text.secondary' }}>mS/cm</Typography> }}
+          slotProps={{ htmlInput: { step: 0.01, min: 0, max: 2.0, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, whiteSpace: 'nowrap', color: 'text.secondary' }}>mS/cm</Typography> } }}
           size="small"
           helperText="0.0 – 2.0 mS/cm"
           data-testid="tap-ec"
@@ -90,7 +89,7 @@ export default function WaterSourceSection({
           type="number"
           value={tap.ph}
           onChange={(e) => updateTap('ph', parseFloat(e.target.value) || 0)}
-          inputProps={{ step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' }}
+          slotProps={{ htmlInput: { step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' } }}
           size="small"
           helperText="3.0 – 10.0"
           data-testid="tap-ph"
@@ -105,8 +104,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.alkalinity_ppm}
             onChange={(e) => updateTap('alkalinity_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 500, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 500, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
           <TextField
@@ -114,8 +112,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.gh_ppm}
             onChange={(e) => updateTap('gh_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 1000, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 1000, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
           <TextField
@@ -123,8 +120,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.calcium_ppm}
             onChange={(e) => updateTap('calcium_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 500, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 500, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
           <TextField
@@ -132,8 +128,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.magnesium_ppm}
             onChange={(e) => updateTap('magnesium_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 200, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 200, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
           <TextField
@@ -141,8 +136,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.chlorine_ppm}
             onChange={(e) => updateTap('chlorine_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 5, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 5, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
           <TextField
@@ -150,8 +144,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.chloramine_ppm}
             onChange={(e) => updateTap('chloramine_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 0.1, min: 0, max: 5, inputMode: 'decimal' }}
-            InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
+            slotProps={{ htmlInput: { step: 0.1, min: 0, max: 5, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> } }}
             size="small"
           />
         </Box>
@@ -164,7 +157,7 @@ export default function WaterSourceSection({
             type="date"
             value={tap.measurement_date ?? ''}
             onChange={(e) => updateTap('measurement_date', e.target.value || null)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             size="small"
           />
           <TextField
@@ -199,8 +192,7 @@ export default function WaterSourceSection({
               type="number"
               value={ro.ec_ms}
               onChange={(e) => updateRo('ec_ms', parseFloat(e.target.value) || 0)}
-              inputProps={{ step: 0.01, min: 0, max: 0.5, inputMode: 'decimal' }}
-              InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, whiteSpace: 'nowrap', color: 'text.secondary' }}>mS/cm</Typography> }}
+              slotProps={{ htmlInput: { step: 0.01, min: 0, max: 0.5, inputMode: 'decimal' }, input: { endAdornment: <Typography variant="caption" sx={{ pr: 1, whiteSpace: 'nowrap', color: 'text.secondary' }}>mS/cm</Typography> } }}
               size="small"
               helperText="0.0 – 0.5 mS/cm"
               data-testid="ro-ec"
@@ -210,7 +202,7 @@ export default function WaterSourceSection({
               type="number"
               value={ro.ph}
               onChange={(e) => updateRo('ph', parseFloat(e.target.value) || 0)}
-              inputProps={{ step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' }}
+              slotProps={{ htmlInput: { step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' } }}
               size="small"
               helperText="3.0 – 10.0"
               data-testid="ro-ph"

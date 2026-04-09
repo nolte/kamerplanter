@@ -1,0 +1,87 @@
+---
+title: "Wachsblume (Hoya carnosa) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [wachsblume, hoya-carnosa, porzellanblume, zimmerpflanze, pflege, kletterpflanze, haustierfreundlich, bluete]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: hoya-carnosa-standort
+    title: "Wachsblume — Standort und Licht"
+    content: |
+      Die Wachsblume (Hoya carnosa) stammt aus den tropischen Regenwäldern
+      Ostasiens, wo sie als Aufsitzerpflanze auf Baeumen waechst. Sie mag
+      helles, indirektes Licht — ein Ost- oder Westfenster ist ideal. Direkte
+      Mittagssonne kann die Blaetter verbrennen, etwas Morgensonne oder
+      Abendsonne ist aber in Ordnung.
+
+      Temperatur: Im Sommer 18-24 Grad Celsius. Im Winter etwas kuehler
+      (15-20 Grad tagsüber, 10-15 Grad nachts). Diese kuehle Winterphase
+      ist wichtig fuer die Bluetenbildung. Unter 10 Grad wird es kritisch.
+
+      Luftfeuchtigkeit: 40-60% sind optimal. Normale Raumluft reicht meistens
+      aus. Die Pflanze ist nicht so empfindlich wie Calatheen.
+
+      Die Wachsblume rankt gerne — ein Rankgitter, Moosstab oder Bogen ist
+      empfehlenswert. Sie kann bis 2 Meter lang werden. Besondere Eigenschaft:
+      Die sternfoermigen Blueten duften schokoladig-vanilleartig, besonders
+      nachts. Blueten erscheinen erst ab einem Alter von 3-5 Jahren.
+
+      Wichtig: Die Wachsblume ist nicht giftig und damit ideal fuer Haushalte
+      mit Katzen, Hunden und Kindern.
+    metadata:
+      topic: hoya_carnosa_care
+      species: "Hoya carnosa"
+      difficulty: beginner
+
+  - id: hoya-carnosa-giessen
+    title: "Wachsblume — Giessen und Substrat"
+    content: |
+      Die Wachsblume hat leicht fleischige Blaetter und vertraegt
+      Trockenheit besser als Naesse. Im Sommer alle 10-14 Tage giessen,
+      im Winter nur alle 3-5 Wochen. Zwischen den Wassergaben das Substrat
+      gut antrocknen lassen.
+
+      Giessmethode: Kraeftig durchgiessen und ablaufen lassen. Staunaesse
+      unbedingt vermeiden — fuehrt schnell zu Wurzelfaeule. Abgestandenes
+      Leitungswasser ist in Ordnung.
+
+      Substrat: Sehr durchlaessig! Die beste Mischung besteht aus
+      Orchideenrinde, Perlite und etwas Kakteenerde zu gleichen Teilen
+      (1:1:1). Der pH-Wert sollte zwischen 6.0 und 7.0 liegen.
+
+      Wichtiger Tipp: Die Wachsblume blueht besser in einem eher kleinen
+      Topf (leicht wurzelgebunden). Nicht in zu grosse Toepfe umsetzen.
+      Typische Fehler: Zu viel giessen im Winter und zu grosse Toepfe.
+      Die Pflanze steht lieber etwas zu trocken als zu nass.
+    metadata:
+      topic: hoya_carnosa_care
+      species: "Hoya carnosa"
+      difficulty: beginner
+
+  - id: hoya-carnosa-duengung
+    title: "Wachsblume — Duengung und Umtopfen"
+    content: |
+      Die Wachsblume ist ein Schwachzehrer. Von Maerz bis September alle
+      2-3 Wochen mit einem Zimmerpflanzenduenger duengen (z.B. Compo 7-3-6,
+      3 ml/L). Waehrend der Bluetephase auf einen Bluetenpflanzenduenger
+      (phosphorbetont) wechseln. Oktober bis Februar nicht duengen.
+
+      Fuer die Bluetenbildung: Im Winter die Bewaesserung stark reduzieren
+      (nur alle 3 Wochen) und kuehle Temperaturen (12-15 Grad nachts)
+      bieten. Zu viel Stickstoff foerdert Blaetter statt Blueten.
+
+      Umtopfen: Nur alle 3-4 Jahre noetig — die Wachsblume blueht in
+      engem Topf deutlich besser. Wenn umgetopft wird, dann im Fruehling
+      in frisches, durchlaessiges Substrat.
+
+      Ganz wichtig: Die alten Bluetenstiele (Pedunclen) NIEMALS abschneiden!
+      Sie sind mehrjaehrig und bilden jede Saison neue Knospen an derselben
+      Stelle. Nur abgestorbene oder zu lange Triebe kuerzen.
+
+      Vermehrung: Stecklinge mit 2-3 Blaettern und einem Knoten in Wasser
+      stellen (4-6 Wochen) oder direkt in leichtes Substrat stecken.
+    metadata:
+      topic: hoya_carnosa_care
+      species: "Hoya carnosa"
+      difficulty: beginner

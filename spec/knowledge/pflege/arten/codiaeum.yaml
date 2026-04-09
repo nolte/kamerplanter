@@ -1,0 +1,128 @@
+---
+title: "Croton (Codiaeum variegatum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [codiaeum, croton, wunderstrauch, zimmerpflanze, pflege, euphorbiaceae, buntblatt]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: codiaeum-standort
+    title: "Croton — Standort und Licht"
+    content: |
+      Der Croton (Codiaeum variegatum) ist eine der farbenfrohesten
+      Zimmerpflanzen mit Blaettern in Rot, Orange, Gelb, Gruen und
+      Violett. Fuer diese intensive Faerbung braucht er sehr viel Licht.
+
+      Standort: Direkt am Suedfenster — der Croton vertraegt und braucht
+      sogar direkte Sonne. Ohne ausreichend Licht verblassen die Farben
+      und neue Blaetter werden einfarbig gruen.
+
+      Temperatur: 18 bis 27 Grad Celsius. Unter 13 Grad wirft die
+      Pflanze Blaetter ab. Der Croton reagiert extrem empfindlich auf
+      drei Dinge: Standortwechsel (Blattabwurf), Zugluft und
+      Temperaturschwankungen.
+
+      Luftfeuchtigkeit: 50 bis 70 Prozent. Regelmaessiges Besprühen
+      der Blaetter hilft gegen trockene Heizungsluft und haelt
+      ausserdem Spinnmilben fern.
+
+      Wichtiger Hinweis: Den Croton moeglichst nicht umstellen. Jeder
+      Standortwechsel kann massiven Blattfall verursachen. Den Platz
+      einmal sorgfaeltig waehlen und dann dort lassen.
+    metadata:
+      topic: codiaeum_care
+      species: "Codiaeum variegatum"
+      difficulty: beginner
+
+  - id: codiaeum-giessen
+    title: "Croton — Giessen und Substrat"
+    content: |
+      Der Croton mag gleichmaessig feuchtes Substrat. Weder austrocknen
+      noch Staunaesse — beides fuehrt zu Blattfall.
+
+      Giess-Rhythmus Sommer: Alle 5 bis 7 Tage. Die oberen 2 Zentimeter
+      Erde antrocknen lassen, dann gruendlich durchgiessen.
+      Giess-Rhythmus Winter: Alle 7 bis 14 Tage, deutlich weniger.
+
+      Wasserqualitaet: Normales Leitungswasser ist in Ordnung.
+      Zimmerwarmes Wasser verwenden.
+
+      Substrat: Hochwertige, humusreiche Zimmerpflanzenerde mit
+      20 Prozent Perlite fuer gute Drainage. pH-Wert 4,5 bis 6,5
+      (leicht sauer). Das Substrat soll Feuchtigkeit halten, aber
+      gut abfliessen.
+
+      Topfgroesse: 5 bis 20 Liter, mindestens 20 cm Topftiefe. Der
+      Croton wird als Strauch 50 bis 150 cm hoch und braucht einen
+      standfesten Topf.
+
+      Tipp: Regelmaessiges Besprühen der Blaetter erhoet die
+      Luftfeuchtigkeit und dient gleichzeitig als Spinnmilben-
+      Praevention.
+    metadata:
+      topic: codiaeum_care
+      species: "Codiaeum variegatum"
+      difficulty: beginner
+
+  - id: codiaeum-duengung
+    title: "Croton — Duengung und Umtopfen"
+    content: |
+      Duengung: Von Maerz bis September alle 2 Wochen mit einem
+      Gruenpflanzen-Fluessigduenger (NPK 7-3-6 oder 7-3-7, etwa
+      5 ml pro Liter Wasser). Ein leicht erhoehter Kaliumanteil
+      foerdert die intensive Blattfaerbung.
+
+      Von Oktober bis Februar: Kein Duenger. Ueberdüngung fuehrt
+      zu Salzschaeden und Blattfall.
+
+      Umtopfen: Alle 18 bis 24 Monate im Fruehling. Hornspäne
+      (30 g pro Topf) beim Umtopfen untergemischt liefern
+      Langzeitnaehrstoffe.
+
+      Rueckschnitt: Im Fruehling (Maerz/April) ueberlange Triebe
+      kuerzen, um buschigeren Wuchs zu foerdern. Der Croton
+      vertraegt Rueckschnitt gut. Beim Schneiden Handschuhe und
+      Augenschutz tragen — der milchige Latex spritzt und reizt
+      Haut und Augen.
+
+      Schaedlingskontrolle: Woechentlich kontrollieren! Der Croton
+      ist anfaellig fuer Spinnmilben, besonders bei trockener
+      Heizungsluft.
+    metadata:
+      topic: codiaeum_care
+      species: "Codiaeum variegatum"
+      difficulty: beginner
+
+  - id: codiaeum-probleme
+    title: "Croton — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Massiver Blattfall: Standortwechsel, Zugluft oder
+        Temperaturschock. Crotons hassen Veraenderungen.
+      - Farben verblassen: Zu wenig Licht. Naeher ans Fenster.
+      - Gelbe Blaetter: Ueberwaesserung oder Kaelte.
+      - Weisser Belag auf Blaettern: Echter Mehltau. Mit
+        Kaliumbicarbonat (0,5 Prozent) besprühen.
+
+      Schaedlinge: Spinnmilben (Farbverlust, Gespinste — haeufigster
+      Schaedling!), Schmierlaeusen (Wollflecken), Schildlaeusen
+      (braune Schilder) und Thrips (silbrige Streifen). Woechentlich
+      kontrollieren, besonders Blattunterseiten.
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben,
+      Schmierlaeusen und Thrips. Alkohol 70 Prozent mit Wattestäbchen
+      gegen Schildlaeusen.
+
+      Vermehrung: Mittelschwer. Stecklinge (3 bis 4 cm, halbholzig)
+      im Sommer nehmen. Schnittstelle mit Holzkohle bestreuen, um
+      den Latex-Fluss zu stoppen. Hohe Bodenwärme (25 bis 30 Grad)
+      und Folienzelt (hohe Luftfeuchtigkeit) sind wichtig. Bewurzelung
+      dauert 4 bis 8 Wochen.
+
+      Achtung: Croton ist giftig fuer Katzen, Hunde und Kinder. Der
+      Milchsaft (Latex) kann Hautreizungen, Blaeschen und bei Verschlucken
+      Erbrechen und Durchfall verursachen. Immer Handschuhe tragen.
+    metadata:
+      topic: codiaeum_care
+      species: "Codiaeum variegatum"
+      difficulty: beginner

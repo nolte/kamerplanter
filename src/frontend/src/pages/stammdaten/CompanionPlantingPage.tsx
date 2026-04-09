@@ -158,9 +158,7 @@ export default function CompanionPlantingPage() {
                   {compatible.map((c) => (
                     <ListItem key={c.species_key} divider>
                       <ListItemText
-                        primary={c.scientific_name ?? c.species_key}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                      />
+                        primary={c.scientific_name ?? c.species_key} slotProps={{ primary: { variant: 'body2' } }} />
                       <Chip
                         label={`${t('pages.companionPlanting.score')}: ${c.score}`}
                         size="small"
@@ -211,10 +209,7 @@ export default function CompanionPlantingPage() {
                     <ListItem key={c.species_key} divider>
                       <ListItemText
                         primary={c.scientific_name ?? c.species_key}
-                        secondary={c.reason || undefined}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                        secondaryTypographyProps={{ variant: 'caption' }}
-                      />
+                        secondary={c.reason || undefined} slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }} />
                     </ListItem>
                   ))}
                 </List>
@@ -258,7 +253,7 @@ export default function CompanionPlantingPage() {
               onChange={(e) => setScore(Number(e.target.value))}
               fullWidth
               helperText={t('pages.companionPlanting.scoreHelper')}
-              inputProps={{ min: 0, max: 1, step: 0.1 }}
+              slotProps={{ htmlInput: { min: 0, max: 1, step: 0.1 } }}
               data-testid="score-input"
             />
           )}

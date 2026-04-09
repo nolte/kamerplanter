@@ -7,7 +7,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchKarenzPeriods } from '@/store/slices/ipmSlice';

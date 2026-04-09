@@ -1,0 +1,96 @@
+---
+title: "Gruenlilie (Chlorophytum comosum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [gruenlilie, chlorophytum-comosum, spider-plant, zimmerpflanze, pflege, anfaenger, haustierfreundlich, luftreinigend, ampelpflanze]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: chlorophytum-comosum-standort
+    title: "Gruenlilie — Standort und Licht"
+    content: |
+      Die Gruenlilie (Chlorophytum comosum) ist eine der anspruchslosesten
+      Zimmerpflanzen ueberhaupt und perfekt fuer Anfaenger. Sie stammt
+      aus dem tropischen Afrika und ist extrem anpassungsfaehig.
+
+      Licht: Helles, indirektes Licht ist optimal (Ost- oder Westfenster).
+      Die Gruenlilie kommt aber auch mit weniger Licht zurecht — sogar
+      ein Nordfenster funktioniert. Bei zu wenig Licht wachsen panaschierte
+      Sorten allerdings rein gruen. Direkte Mittagssonne im Sommer
+      vermeiden — das verbrennt die Blaetter.
+
+      Temperatur: 18-24 Grad Celsius sind ideal. Die Pflanze toleriert
+      10-30 Grad, aber unter 10 Grad stoppt das Wachstum. Frost ist
+      toedlich.
+
+      Luftfeuchtigkeit: 40-60% genuegen — die Gruenlilie ist bei
+      Luftfeuchtigkeit anspruchslos und kommt mit normaler Raumluft
+      gut zurecht.
+
+      Ideal als Ampelpflanze in Blumenampeln oder auf erhoehten Standorten:
+      Die ueberbogenden Blaetter und haengenden Kindel kommen besonders
+      gut zur Geltung. Die Gruenlilie ist nicht giftig und sicher fuer
+      Katzen, Hunde und Kinder. Sie ist ausserdem ein guter Luftreiniger
+      (NASA Clean Air Study).
+    metadata:
+      topic: chlorophytum_comosum_care
+      species: "Chlorophytum comosum"
+      difficulty: beginner
+
+  - id: chlorophytum-comosum-giessen
+    title: "Gruenlilie — Giessen und Substrat"
+    content: |
+      Die Gruenlilie hat fleischige Speicherwurzeln (Rhizotuberkeln), die
+      Wasser einlagern. Deshalb uebersteht sie auch mal eine Trockenperiode.
+      Im Sommer etwa einmal pro Woche giessen, im Winter alle 10-14 Tage.
+
+      Giessmethode: Von oben langsam giessen bis Wasser unten rauslaeuft.
+      Untersetzer nach 30 Minuten leeren. Die oberen 2-3 cm zwischen den
+      Wassergaben antrocknen lassen (Fingerprobe). Staunaesse unbedingt
+      vermeiden — fuehrt zu Wurzelfaeule.
+
+      Wasserqualitaet: Die Gruenlilie reagiert empfindlich auf Fluorid
+      im Leitungswasser. Braune Blattspitzen sind haeufig ein Zeichen
+      fuer Fluorid. Besser: Regenwasser, destilliertes Wasser oder
+      Leitungswasser einen Tag stehen lassen.
+
+      Substrat: Standard-Zimmerpflanzenerde genuegt, die Pflanze ist
+      anspruchslos. Leicht durchlaessig sollte es sein. Alle 3-4 Monate
+      das Substrat mit klarem Wasser durchspuelen, um Salzansammlungen
+      auszuwaschen.
+
+      Wichtig: Die kraeftigen Wurzeln koennen Plastiktoepfe sprengen —
+      rechtzeitig umtopfen wenn die Wurzeln aus den Abzugsloechern wachsen.
+    metadata:
+      topic: chlorophytum_comosum_care
+      species: "Chlorophytum comosum"
+      difficulty: beginner
+
+  - id: chlorophytum-comosum-duengung
+    title: "Gruenlilie — Duengung und Umtopfen"
+    content: |
+      Die Gruenlilie ist ein Schwachzehrer. Von Maerz bis Oktober alle
+      3-4 Wochen mit einem Gruenpflanzenduenger in halber Dosis duengen
+      (z.B. Compo 7-3-6, 2-3 ml/L). Im Maerz mit Vierteldosis starten
+      und langsam steigern. November bis Februar nicht duengen.
+
+      Ueberduengung fuehrt zu Salzakkumulation und braunen Blattspitzen.
+      Im Zweifel lieber weniger duengen. Fluoridhaltige Duenger vermeiden.
+
+      Umtopfen: Alle 2 Jahre im Fruehling (Maerz-Mai). Topf nur 2-3 cm
+      groesser waehlen. Beim Umtopfen koennen grosse Pflanzen geteilt
+      werden.
+
+      Vermehrung: Extrem einfach! Die Gruenlilie bildet lange Auslaeufer
+      (Stolonen) mit kleinen Kindpflanzen daran. Diese Kindel einfach
+      abschneiden und in feuchtes Substrat setzen oder erst in Wasser
+      bewurzeln (1-2 Wochen). Erfolgsrate ueber 90%. Die Kindel-Bildung
+      wird durch Kurztage (weniger als 12 Stunden Licht) ausgeloest.
+
+      Braune Blattspitzen mit einer scharfen Schere schraeg abschneiden,
+      um die natuerliche Blattform zu erhalten. Ueberzaehlige Auslaeufer
+      entfernen, um die Mutterpflanze zu entlasten.
+    metadata:
+      topic: chlorophytum_comosum_care
+      species: "Chlorophytum comosum"
+      difficulty: beginner

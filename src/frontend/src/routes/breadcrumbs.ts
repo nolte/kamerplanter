@@ -51,6 +51,10 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/aufgaben/tasks': { label: 'nav.taskQueue', parent: '/dashboard', listPath: '/aufgaben/queue' },
   '/aufgaben/workflows': { label: 'nav.workflows', parent: '/aufgaben/queue' },
 
+  // REQ-003 Phase Definitions & Sequences
+  '/phasen/definitionen': { label: 'pages.phaseSequences.phaseDefinitions', parent: '/dashboard' },
+  '/phasen/ablaeufe': { label: 'pages.phaseSequences.phaseSequences', parent: '/dashboard' },
+
   // REQ-013 Durchläufe
   '/durchlaeufe/planting-runs': { label: 'nav.plantingRuns', parent: '/dashboard' },
 

@@ -630,7 +630,7 @@ export default function AccountSettingsPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontFamily="monospace">{s.ip_address || '\u2014'}</Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '\u2014'}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
@@ -684,7 +684,7 @@ export default function AccountSettingsPage() {
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {t('pages.auth.apiKeyCreatedWarning')}
                 </Typography>
-                <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
                   {createdKeyRaw}
                 </Typography>
               </Alert>
@@ -804,9 +804,9 @@ export default function AccountSettingsPage() {
                     enqueueSnackbar(t('common.saved'), { variant: 'success' });
                   }
                 }}
-                slotProps={{ htmlInput: { min: 0.5, max: 100, step: 0.5, inputMode: 'decimal' } }}
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">L</InputAdornment>,
+                slotProps={{
+                  htmlInput: { min: 0.5, max: 100, step: 0.5, inputMode: 'decimal' },
+                  input: { endAdornment: <InputAdornment position="end">L</InputAdornment> },
                 }}
                 sx={{ maxWidth: 220, mt: 'auto' }}
                 data-testid="watering-can-size-field"
@@ -1072,7 +1072,7 @@ export default function AccountSettingsPage() {
             <Typography variant="body2">
               {t('pages.auth.platformModeEnvHint')}
               {' '}
-              <Typography component="code" variant="body2" fontFamily="monospace">
+              <Typography component="code" variant="body2" sx={{ fontFamily: 'monospace' }}>
                 KAMERPLANTER_MODE=light | full
               </Typography>
             </Typography>
@@ -1092,7 +1092,7 @@ export default function AccountSettingsPage() {
                   ] as const).map(({ value, label }) => (
                     <Card key={label} variant="outlined">
                       <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                        <Typography variant="h3" fontWeight={300}>{value}</Typography>
+                        <Typography variant="h3" sx={{ fontWeight: 300 }}>{value}</Typography>
                         <Typography variant="caption" color="text.secondary">{label}</Typography>
                       </CardContent>
                     </Card>
@@ -1126,12 +1126,12 @@ export default function AccountSettingsPage() {
                             <TableRow key={tenant.key}>
                               <TableCell>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Typography variant="body2" fontWeight={500}>{tenant.name}</Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{tenant.name}</Typography>
                                   {tenant.is_platform && (
                                     <Chip label="Platform" size="small" color="warning" variant="outlined" />
                                   )}
                                 </Box>
-                                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                                   {tenant.slug}
                                 </Typography>
                               </TableCell>
@@ -1200,8 +1200,8 @@ export default function AccountSettingsPage() {
                           {adminUsers.map((u) => (
                             <TableRow key={u.key}>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={500}>{u.display_name}</Typography>
-                                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>{u.display_name}</Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                                   {u.email}
                                 </Typography>
                               </TableCell>

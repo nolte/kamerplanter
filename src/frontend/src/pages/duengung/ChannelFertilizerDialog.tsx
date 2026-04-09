@@ -177,7 +177,7 @@ export default function ChannelFertilizerDialog({
               onChange={(e) => setEditMlPerLiter(e.target.value)}
               size="small"
               required
-              inputProps={{ min: 0.1, max: 50, step: 0.1 }}
+              slotProps={{ htmlInput: { min: 0.1, max: 50, step: 0.1 } }}
               helperText={t('pages.nutrientPlans.mlPerLiterHelper')}
             />
             <FormControlLabel
@@ -210,7 +210,7 @@ export default function ChannelFertilizerDialog({
                 />
               )}
               isOptionEqualToValue={(option, value) => option.key === value.key}
-              renderTags={() => null}
+              renderValue={() => null}
             />
 
             {drafts.length > 0 && (
@@ -253,7 +253,7 @@ export default function ChannelFertilizerDialog({
                         }
                         size="small"
                         required
-                        inputProps={{ min: 0.1, max: 50, step: 0.1 }}
+                        slotProps={{ htmlInput: { min: 0.1, max: 50, step: 0.1 } }}
                         sx={{ width: 120 }}
                       />
                       <FormControlLabel

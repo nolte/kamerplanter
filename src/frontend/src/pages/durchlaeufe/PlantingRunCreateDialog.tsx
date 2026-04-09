@@ -445,7 +445,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
             }
             label={t('pages.plantingRuns.adoptAfterCreate')}
           />
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2, ml: 6 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, ml: 6 }}>
             {t('pages.plantingRuns.adoptAfterCreateDesc')}
           </Typography>
 
@@ -517,7 +517,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                               checked={selectedPlants.has(plant.key)}
                               tabIndex={-1}
                               disableRipple
-                              inputProps={{ 'aria-label': plant.instance_id }}
+                              slotProps={{ input: { 'aria-label': plant.instance_id } }}
                             />
                           </ListItemIcon>
                           <ListItemText

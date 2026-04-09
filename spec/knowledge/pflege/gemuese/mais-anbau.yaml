@@ -1,0 +1,113 @@
+---
+title: "Mais (Zuckermais) anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, mais, zuckermais, zea-mays, anbau, garten, starkzehrer, suessgraeser]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: mais-aussaat
+    title: "Mais — Aussaat und Standort"
+    content: |
+      Zuckermais ist ein waermeliebendes Gemuese mit kurzer Kulturzeit
+      (70 bis 90 Tage). Die Aussaat erfolgt ab Mitte Mai direkt ins
+      Freiland, wenn die Bodentemperatur mindestens 10 Grad betraegt.
+      Optimale Keimtemperatur 18 bis 25 Grad. Keimdauer 4 bis 10 Tage.
+      Saattiefe 3 bis 5 cm.
+
+      Vorkultur ab Ende April in Einzeltoepfen ist moeglich, aber Mais
+      vertraegt das Umpflanzen schlecht. Topfballen moeglichst intakt
+      auspflanzen.
+
+      Entscheidend fuer die Bestaeubung: Mais ist windbestaeub. In
+      Bloecken von mindestens 4 bis 5 Reihen pflanzen — NICHT in
+      langen Einzelreihen. Zu wenig Pollenkontakt ergibt lueckige
+      Kolben mit fehlenden Koernern. Pflanzabstand: 30 bis 40 cm in
+      der Reihe, 50 bis 70 cm Reihenabstand.
+
+      Standort: Volle Sonne, windgeschuetzt. Mais ist eine C4-Pflanze
+      und nutzt Licht extrem effizient — je mehr Sonne, desto besser.
+      Boden tiefgruendig, humusreich, gut wasserspeichernd. pH 6,0
+      bis 7,0. Starkzehrer — grosszuegig Kompost und Hornspane einarbeiten.
+
+      Zuckermais getrennt von Futterkoernermais und Popcorn-Mais pflanzen —
+      Kreuzbestaeubung veraendert den Zuckergehalt und den Geschmack.
+
+      Balkon: Nicht geeignet — zu viel Platzbedarf, zu hoch (1,5 bis
+      2,5 m), Bestaeubung im Kuebel problematisch.
+    metadata:
+      topic: corn_growing
+      species: "Zea mays"
+      difficulty: beginner
+
+  - id: mais-pflege
+    title: "Mais — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Mais hat einen hohen Wasserbedarf, besonders waehrend
+      Bluete und Kolbenbildung. Bei Trockenheit tief und durchdringend
+      giessen — die Wurzeln reichen ueber einen Meter tief.
+      Trockenstress waehrend der Bluete fuehrt zu lueckigen Kolben.
+
+      Duengen: Starkzehrer! Vor der Aussaat Kompost und Hornspane
+      einarbeiten. Wenn die Pflanzen 30 bis 50 cm hoch sind, mit
+      Stickstoff-betontem Duenger nachlegen (Brennnesseljauche 1:10,
+      Hornmehl). Anhaeufen bei 30 cm Hoehe foerdert Stuetzwurzeln
+      und Standfestigkeit.
+
+      Sturmschutz: Bei Sturm fallen hohe Pflanzen leicht um. Anhaeufen
+      verstaerkt die Basis. Bei Bedarf mit Schnur an Pfaehlen stuetzen.
+
+      Maiszuensler (Ostrinia nubilalis): Larven bohren sich in den
+      Staengel und Kolben. Trichogramma-Schlupfwespen einsetzen
+      (biologische Bekaempfung). Befallene Pflanzenreste im Herbst
+      gruendlich entfernen oder haeckseln.
+
+      Drei-Schwestern-Mischkultur: Mais, Bohnen und Kuerbis zusammen
+      pflanzen — ein uraltes Anbausystem der Ureinwohner Amerikas.
+      Mais gibt den Bohnen Rankhilfe, Bohnen fixieren Stickstoff,
+      Kuerbis beschattet den Boden und unterdrueckt Unkraut.
+
+      Gute Nachbarn: Bohnen, Kuerbis, Gurken, Kartoffeln.
+      Schlechte Nachbarn: Rote Bete, Sellerie.
+
+      Fruchtfolge: Mais als Suessgraeser hat wenige gemeinsame
+      Krankheiten mit anderen Gemuesen. 2 Jahre Anbaupause genuegt.
+    metadata:
+      topic: corn_growing
+      species: "Zea mays"
+      difficulty: beginner
+
+  - id: mais-ernte
+    title: "Mais — Ernte und Verwendung"
+    content: |
+      Erntezeitpunkt: 70 bis 90 Tage nach der Aussaat, wenn die Faeden
+      (Narbenfaeden) an den Kolben braun und trocken sind, aber die
+      Huellblaetter noch gruen. Zur Probe ein Huellblatt zurueckziehen
+      und mit dem Daumennagel ein Korn andruecken — tritt milchig-weisser
+      Saft aus, ist der Mais reif (Milchreife). Klarer Saft = zu frueh.
+      Teigiger Inhalt = zu spaet (staerkehaltig, weniger suess).
+
+      Ernte am besten morgens — der Zuckergehalt ist dann am hoechsten.
+      Kolben mit einem Ruck nach unten abknicken und abdrehen.
+
+      Sofort verarbeiten: Nach der Ernte beginnt die Umwandlung von
+      Zucker in Staerke. Innerhalb von 2 bis 4 Stunden kochen, grillen
+      oder blanchieren und einfrieren fuer besten Geschmack.
+      Supersuesse sh2-Sorten (Supersweettypen) halten den Zuckergehalt
+      laenger.
+
+      Lagerung: Frischer Zuckermais haelt im Kuehlschrank (mit
+      Huellblaettern) 2 bis 3 Tage. Einfrieren: Kolben 3 bis 5 Minuten
+      blanchieren, abkuehlen, Koerner abschneiden oder ganze Kolben
+      einfrieren.
+
+      Konservierung: Einkochen (Maiskoerner in Salzlake), Trocknen
+      (Popcorn-Mais), Grillmais einfrieren.
+
+      Nach der Ernte: Maisstoppeln gruendlich haeckseln oder
+      ausreissen und kompostieren. Nicht im Boden belassen —
+      Maiszuensler-Larven ueberwintern darin.
+    metadata:
+      topic: corn_growing
+      species: "Zea mays"
+      difficulty: beginner

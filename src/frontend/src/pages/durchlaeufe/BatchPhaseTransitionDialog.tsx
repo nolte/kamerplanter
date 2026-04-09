@@ -12,10 +12,17 @@ import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import * as phasesApi from '@/api/endpoints/phases';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import type { PlantingRunEntry, PlantInRun, GrowthPhase, BatchTransitionResponse } from '@/api/types';
+import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
+import type {
+  PlantingRunEntry,
+  PlantInRun,
+  GrowthPhase,
+  BatchTransitionResponse,
+} from '@/api/types';
 
 interface Props {
   open: boolean;
@@ -71,19 +78,33 @@ export default function BatchPhaseTransitionDialog({
   useEffect(() => {
     if (!open || speciesKeys.length === 0) return;
     setLoadingPhases(true);
-    // Load lifecycle for the first species (most common case: monoculture)
-    phasesApi
-      .getLifecycleConfig(speciesKeys[0])
-      .then((lc) => phasesApi.listGrowthPhases(lc.key))
-      .then((allPhases) => {
-        // Sort by sequence_order and filter to only phases after the current dominant
-        const sorted = allPhases.sort((a, b) => a.sequence_order - b.sequence_order);
-        const currentIdx = sorted.findIndex((p) => p.name === dominantPhase);
-        const available = currentIdx >= 0 ? sorted.slice(currentIdx + 1) : sorted;
-        setPhases(available);
-      })
-      .catch(() => setPhases([]))
-      .finally(() => setLoadingPhases(false));
+
+    const filterAfterDominant = (allPhases: GrowthPhase[]) => {
+      const sorted = allPhases.sort((a, b) => a.sequence_order - b.sequence_order);
+      const currentIdx = sorted.findIndex((p) => p.name === dominantPhase);
+      return currentIdx >= 0 ? sorted.slice(currentIdx + 1) : sorted;
+    };
+
+    // Try PhaseSequence first, fall back to legacy LifecycleConfig + GrowthPhases
+    phaseSequenceApi
+      .getSpeciesPhaseSequence(speciesKeys[0])
+      .catch(() => null)
+      .then((sequence) => {
+        if (sequence && sequence.entries.length > 0) {
+          const mapped = sequence.entries.map(growthPhaseFromEntry);
+          setPhases(filterAfterDominant(mapped));
+          setLoadingPhases(false);
+          return;
+        }
+
+        // Fallback: legacy path
+        phasesApi
+          .getLifecycleConfig(speciesKeys[0])
+          .then((lc) => phasesApi.listGrowthPhases(lc.key))
+          .then((allPhases) => setPhases(filterAfterDominant(allPhases)))
+          .catch(() => setPhases([]))
+          .finally(() => setLoadingPhases(false));
+      });
   }, [open, speciesKeys, dominantPhase]);
 
   const selectedPhase = phases.find((p) => p.key === targetPhaseKey);

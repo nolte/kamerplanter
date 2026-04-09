@@ -40,6 +40,7 @@ class LifecycleConfig(BaseModel):
         default=None,
         description="For perennials: sequence_order at which the cycle restarts after the terminal phase.",
     )
+    phase_sequence_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

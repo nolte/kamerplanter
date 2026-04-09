@@ -41,7 +41,10 @@ def ensure_vectordb_schema(pool: ConnectionPool) -> None:
             sql = migration_file.read_text(encoding="utf-8")
             logger.info("vectordb_migration_apply", filename=migration_file.name)
 
-            for statement in sql.split(";"):
+            # Strip SQL comments before splitting to avoid executing comment text
+            lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+            clean_sql = "\n".join(lines)
+            for statement in clean_sql.split(";"):
                 statement = statement.strip()
                 if statement:
                     conn.execute(statement)

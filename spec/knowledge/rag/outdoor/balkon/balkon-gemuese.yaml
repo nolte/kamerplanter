@@ -1,0 +1,184 @@
+---
+title: Gemuese auf dem Balkon — Sorten, Toepfe und Praxis
+language: de
+category: outdoor
+tags: [balkon, gemuese, tomate, paprika, salat, kraeuter, erdbeere, kuebel, topfgroesse, vertical-gardening, chili]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: top-10-balkongemuese
+    title: Top 10 Gemuesesorten fuer den Balkon
+    content: |
+      Welches Gemuese waechst gut auf dem Balkon? Nicht jedes Gemuese
+      eignet sich fuer Kuebel, aber die Auswahl ist groesser als viele
+      denken. Hier die zuverlaessigsten Sorten fuer Balkon-Anfaenger:
+      1. Tomate: Der Klassiker. Buschtomaten (Balkonstar, Vilma) brauchen
+         weniger Platz als Stabtomaten. Mindestens 10 Liter Topf, besser 20.
+      2. Paprika: Snack-Paprika (Tribelli Mini, Redskin) ideal fuer
+         Kuebel. Brauchen Waerme — Suedbalkon bevorzugt.
+      3. Salat: Pfluecksalat (Lollo, Eichblatt) und Asia-Salate wachsen
+         schnell, brauchen wenig Platz. Schon im Balkonkasten moeglich.
+      4. Radieschen: Superschnell (4-6 Wochen bis zur Ernte), wachsen
+         in flachen Kaesten. Auch fuer Ostbalkone geeignet.
+      5. Kraeuter: Basilikum, Schnittlauch, Petersilie, Minze, Rosmarin,
+         Thymian — brauchen kaum Platz und sind taeglich nuetzlich.
+      6. Erdbeere: Monatserdbeeren (Ruegenwalderbeere, Alexandria) tragen
+         den ganzen Sommer. Haengeampeln oder Kaesten.
+      7. Bohne: Buschbohnen brauchen nur 5-Liter-Toepfe. Stangenbohnen
+         nutzen Hoehe — ideal am Rankgitter.
+      8. Gurke: Mini-Gurken (Ministars, Picolino) fuer Kuebel gezuechtet.
+         Brauchen Rankhilfe und viel Wasser.
+      9. Mangold: Robust, dekorativ (bunte Stiele), mehrfach erntbar.
+         Vertraegt Halbschatten — auch fuer Ost- und Westbalkone.
+      10. Chili: Kompakte Sorten (Prairie Fire, Apache) sind dekorativ
+          und ertragreich. Lieben Waerme und Sonne.
+      Weniger geeignet fuer Balkone: Kuerbis, Zucchini (riesige Pflanzen),
+      Kartoffeln (brauchen viel Volumen), Mais (zu hoch, Windfaenger).
+    metadata:
+      topic: top_balcony_vegetables
+      difficulty: easy
+      minimum_sun_hours: 5
+
+  - id: topfgroessen-guide
+    title: Topfgroessen-Guide — Wie viel Liter braucht welches Gemuese
+    content: |
+      Wie gross muss der Topf fuer mein Balkongemuese sein? Zu kleine
+      Toepfe sind der haeufigste Fehler beim Balkongaertnern. Die
+      Pflanze kuemmert, die Erde trocknet staendig aus, und die Ernte
+      faellt mager aus. Lieber einen Topf groesser waehlen!
+      Topfgroessen-Empfehlungen:
+      - 3-5 Liter: Kraeuter (einzeln), Radieschen, Pfluecksalat,
+        Erdbeere (einzelne Pflanze), Fruehlingszwiebel.
+      - 7-10 Liter: Buschbohne, Snack-Paprika, kleine Chili-Sorten,
+        Kraeutergemeinschaft, Mangold (einzelne Pflanze).
+      - 15-20 Liter: Tomate (Buschtomate), grosse Paprika, grosse Chili,
+        Aubergine, Mini-Gurke, Mangold (mehrere Pflanzen).
+      - 25-40 Liter: Tomate (Stabtomate), grosse Gurke, Stangenbohne,
+        Zucchini (nur kompakte Sorten), Kuerbis (Mini-Sorten).
+      Tiefe vs. Breite:
+      - Tiefwurzler (Tomate, Paprika, Bohne): Topf muss mindestens
+        30 cm tief sein.
+      - Flachwurzler (Salat, Radieschen, Erdbeere, Kraeuter): 15-20 cm
+        Tiefe reichen, breite Kaesten ideal.
+      Balkonkasten-Masse:
+      - Standard 60 cm Balkonkasten (ca. 10-12 Liter): Reicht fuer
+        3-4 Salatpflanzen, eine Reihe Radieschen, oder 3-4 Kraeuter.
+      - Standard 80 cm Balkonkasten (ca. 15-18 Liter): Reicht fuer
+        eine Buschtomate oder 2 Paprika (knapp).
+      Generelle Regel: Im Kuebel immer die Haelfte mehr Volumen
+      einplanen als das Minimum. Die Pflanze dankt es mit besserer
+      Ernte, weniger Giessaufwand und gesunderem Wachstum.
+    metadata:
+      topic: container_size_guide
+      difficulty: easy
+      unit: liters
+
+  - id: tomaten-kuebel
+    title: Tomaten im Kuebel — Sorten, Pflege und Ausgeizen
+    content: |
+      Tomaten auf dem Balkon — was muss ich beachten? Tomaten sind das
+      beliebteste Balkongemuese, brauchen aber etwas mehr Aufmerksamkeit
+      als andere Sorten. Mit den richtigen Tipps klappt es zuverlaessig.
+      Sortenwahl fuer den Balkon:
+      - Buschtomaten (determiniert): Wachsen kompakt (40-80 cm), brauchen
+        kein Ausgeizen, kommen mit kleinerem Topf aus. Sorten: Balkonstar,
+        Vilma, Totem, Tumbling Tom (Ampeltomate).
+      - Stabtomaten (indeterminiert): Werden 150-200 cm hoch, brauchen
+        Rankhilfe, muessen ausgegeizt werden, dafuer hoehere Ernte.
+        Sorten: Cocktailtomate Sungold, Harzfeuer, Matina.
+      Topf: Mindestens 15 Liter fuer Buschtomaten, 25-40 Liter fuer
+      Stabtomaten. Zu kleiner Topf = Bluetenendfaeule (Calciummangel
+      durch ungleichmaessige Wasserversorgung).
+      Ausgeizen: Bei Stabtomaten woechentlich die Seitentriebe in den
+      Blattachseln entfernen (solange sie unter 5 cm sind: einfach
+      ausbrechen). Buschtomaten werden NICHT ausgegeizt — das wuerde
+      den Ertrag reduzieren.
+      Stuetzen: Tomatenstab, Spiralstab oder Schnur von oben. Frueh
+      anbinden, bevor die Pflanze unter dem Fruchtgewicht umknickt.
+      Giessen: Regelmaessig und gleichmaessig — Tomaten hassen
+      Wechsel zwischen trocken und nass (fuehrt zu Bluetenendfaeule
+      und Platzern). Morgens giessen, nie von oben (Braunfaeule!).
+      Duengung: Tomaten sind Starkzehrer. Ab der Bluete woechentlich
+      mit Tomatenduenger nachduengen (hoeher Kalium fuer Fruchtbildung).
+      Regenschutz: Tomatendach oder ueberdachter Balkon-Bereich schuetzt
+      vor Braunfaeule (Phytophthora) — der groesste Feind der Balkontomate.
+    metadata:
+      topic: balcony_tomatoes
+      difficulty: moderate
+      container_min_liters: 15
+      plants: [tomato]
+
+  - id: kraeuter-balkonkasten
+    title: Kraeuter-Balkonkasten — Kombinationen und Pflege
+    content: |
+      Welche Kraeuter passen zusammen in einen Balkonkasten? Nicht alle
+      Kraeuter vertragen sich — manche brauchen viel Wasser und naehr-
+      stoffreichen Boden, andere bevorzugen es trocken und mager. Wer
+      das beachtet, hat den ganzen Sommer frische Kraeuter.
+      Gruppe 1 — Mediterrane Kraeuter (trocken, mager, volle Sonne):
+      Rosmarin, Thymian, Salbei, Oregano, Lavendel.
+      → Zusammen in einen Kasten mit durchlaessigem, sandigem Substrat.
+      Wenig giessen, kaum duengen. Diese Kraeuter sind Hungerkuenstler
+      und bilden bei zu viel Duenger weniger Aroma.
+      Gruppe 2 — Kraeuter mit Wasserbedarf (feucht, naehrstoffreich):
+      Basilikum, Petersilie, Schnittlauch, Koriander, Dill.
+      → Zusammen in einen Kasten mit humoser, feuchter Erde. Regelmaessig
+      giessen und alle 2-3 Wochen fluessig duengen.
+      Gruppe 3 — Einzelgaenger:
+      - Minze: IMMER einzeln in einen Topf! Minze wuchert ueber
+        Auslaeufer und verdraengt alles andere.
+      - Zitronenmelisse: Aehnlich wuchsfreudig, besser separat.
+      Pflege-Tipps:
+      - Basilikum aus dem Supermarkt ist keine Einzelpflanze, sondern
+        ein Buendel aus 20-30 Saemlingen. In Einzelpflanzen teilen
+        und in groessere Toepfe setzen — dann lebt er viel laenger.
+      - Kraeuter regelmaessig ernten, das foerdert buschiges Wachstum.
+        Nie mehr als ein Drittel der Pflanze auf einmal ernten.
+      - Einjahrige Kraeuter (Basilikum, Dill, Koriander) rechtzeitig
+        nachsaeen — sie sterben nach der Bluete.
+      - Mehrjaehrige Kraeuter (Rosmarin, Thymian, Salbei) im Winter
+        schuetzen: An die Hauswand ruecken, Topf mit Vlies umwickeln.
+    metadata:
+      topic: herb_container_combinations
+      difficulty: easy
+      groups: [mediterranean_dry, moisture_loving, solitary]
+
+  - id: vertical-gardening
+    title: Vertical Gardening — Platz nach oben nutzen
+    content: |
+      Mein Balkon ist klein — wie nutze ich den Platz optimal? Wenn
+      die Grundflaeche begrenzt ist, bau nach oben! Vertical Gardening
+      (vertikales Gaertnern) nutzt Waende, Gelaender und Decken.
+      Methoden:
+      - Rankgitter und Spaliere: An der Wand befestigen oder als
+        freistehende Rahmen. Ideal fuer Stangenbohnen, Gurken, Erbsen,
+        Kapuzinerkresse, Clematis, Duftwicke. Produziert Ernte UND
+        Sichtschutz gleichzeitig.
+      - Haengeampeln: Fuer haengende Tomaten (Tumbling Tom), Erdbeeren,
+        Kraeuter, Haenge-Petunien. An Decke, Dachueberstand oder
+        Wandhaken befestigen. Gewicht beachten (nasser Topf!).
+      - Pflanzenwand/Pflanztaschen: Stofftaschen (z.B. Filz-Module)
+        an der Wand montieren. Fuer Kraeuter, Salat, Erdbeeren.
+        Brauchen regelmaessige Bewaesserung, da sie schnell austrocknen.
+      - Paletten-Garten: Europalette hochkant an die Wand stellen,
+        Rueckseite und Boden mit Folie auskleiden, mit Erde fuellen,
+        vorne durch die Latte bepflanzen. Guenstig und rustikal,
+        ideal fuer Kraeuter und Salat.
+      - Etagere/Blumentreppe: Mehrere Ebenen auf kleiner Grundflaeche.
+        Toepfe auf verschiedenen Hoehen — Lichtausbeute verbessert sich,
+        weil untere Pflanzen nicht komplett verschattet werden.
+      - Regalsysteme: Einfaches Metallregal auf dem Balkon — mehrere
+        Pflanzebenen uebereinander. Funktioniert gut an hellen Waenden.
+      Tipps fuer vertikale Systeme:
+      - Giessen: Vertikale Pflanzungen trocknen schneller aus als
+        normale Kuebel. Tropfschlauch oder Giessring einplanen.
+      - Gewicht: Wandbefestigungen muessen das Nassgewicht tragen.
+        Duebel in Beton setzen, nicht nur in Putz.
+      - Licht: Obere Pflanzen beschatten untere. Lichtbedarf beachten:
+        Sonnenliebhaber oben, schattenvertraegliche Arten unten.
+      - Wind: Vertikale Strukturen sind Windfaenger. Sturmsicher
+        befestigen.
+    metadata:
+      topic: vertical_gardening
+      difficulty: moderate
+      methods: [trellis, hanging_basket, plant_wall, pallet_garden, shelving]

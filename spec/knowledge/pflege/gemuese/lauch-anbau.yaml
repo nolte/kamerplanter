@@ -1,0 +1,113 @@
+---
+title: "Lauch (Porree) anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, lauch, porree, allium-porrum, anbau, garten, starkzehrer, zwiebelgewaechse, wintergemuese]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: lauch-aussaat
+    title: "Lauch — Aussaat und Voranzucht"
+    content: |
+      Lauch hat eine lange Kulturzeit (5 bis 8 Monate) und wird fast
+      immer vorgezogen. Aussaat ab Januar bis Maerz in Saatschalen bei
+      15 bis 20 Grad. Keimdauer 10 bis 20 Tage. Saattiefe 1 bis 2 cm
+      (Dunkelkeimer).
+
+      Vorkultur in Topfplatten oder Saatschalen, bis die Pflanzchen
+      bleistiftdick sind (15 bis 20 cm hoch, etwa 10 bis 12 Wochen).
+      Dann auspflanzen.
+
+      Auspflanzen: Mai bis Juli. In vorgestochene Loecher (10 bis 15 cm
+      tief) pflanzen — die tiefe Pflanzung ergibt lange weisse Schaefte.
+      Nach dem Einsetzen nicht mit Erde fuellen, sondern nur angiessen.
+      Die Erde faellt mit der Zeit von selbst nach.
+
+      Pflanzabstand: 15 bis 20 cm in der Reihe, 30 bis 40 cm
+      Reihenabstand.
+
+      Sommerlauch: Pflanzung Mai, Ernte August bis September.
+      Winterlauch: Pflanzung Juni bis Juli, Ernte November bis Maerz.
+      Winterlauch-Sorten sind extrem frosthart (bis minus 15 Grad) und
+      koennen den ganzen Winter im Beet stehen bleiben.
+
+      Tipp: Beim Pflanzen die Blaetter um ein Drittel kuerzen und
+      die Wurzeln auf 2 cm einkuerzen — foerdert das Anwachsen.
+    metadata:
+      topic: leek_growing
+      species: "Allium porrum"
+      difficulty: beginner
+
+  - id: lauch-pflege
+    title: "Lauch — Pflege, Anhaeufen und Schaedlinge"
+    content: |
+      Anhaeufen: Alle 3 bis 4 Wochen Erde seitlich an den Schaft
+      anhaeufen. Das verlaengert den weissen (essbaren) Teil — das
+      Bleichen. Je mehr angehaeuft wird, desto laenger der weisse Schaft.
+      Alternative: Papphuelsen oder Rohre um den Schaft stellen.
+
+      Giessen: Regelmaessig und grosszuegig giessen. Lauch ist ein
+      Starkzehrer und braucht viel Wasser. Trockenheit fuehrt zu
+      duennen, zaehen Schaften.
+
+      Duengen: Vor der Pflanzung reichlich Kompost einarbeiten. Alle 3
+      bis 4 Wochen mit Brennnesseljauche (1:10) oder fluessigem
+      Gemuese-Duenger nachduengen.
+
+      Lauchmotte (Acrolepiopsis assectella): Larven fressen Gaenge in
+      den Schaft. Kulturschutznetz (Maschenweite 0,8 mm) ist die
+      zuverlaessigste Vorbeugung.
+
+      Lauchfliege: Aehnlich wie die Zwiebelfliege. Schutznetz und
+      Mischkultur mit Moehren helfen.
+
+      Lauchrost: Orangefarbene Pusteln auf den Blaettern. Befallene
+      Blaetter entfernen. Resistente Sorten waehlen.
+
+      Gute Nachbarn: Moehren, Erdbeeren, Salat, Sellerie, Kohlrabi,
+      Tomaten.
+      Schlechte Nachbarn: Bohnen, Erbsen, Rote Bete.
+
+      Fruchtfolge: 4 Jahre keine Allium-Arten auf der gleichen Flaeche.
+
+      Wichtig: Alle Allium-Arten sind giftig fuer Katzen und Hunde.
+    metadata:
+      topic: leek_growing
+      species: "Allium porrum"
+      difficulty: beginner
+
+  - id: lauch-ernte
+    title: "Lauch — Ernte und Lagerung"
+    content: |
+      Sommerlauch: Ernte August bis September, sobald der Schaft
+      mindestens 2 bis 3 cm Durchmesser hat.
+
+      Winterlauch: Ab November bis Maerz bei Bedarf ernten. Der Lauch
+      steht den ganzen Winter im Beet — er ist extrem frosthart.
+      Bei Dauerfrost den Boden vorher mulchen, damit er nicht zu tief
+      durchfriert und die Pflanzen noch herausgezogen werden koennen.
+
+      Erntetechnik: Mit der Grabegabel seitlich lockern und den
+      Schaft herausziehen. Nicht am Laub reissen — der Schaft bricht
+      leicht.
+
+      Lagerung: Im Kuehlschrank in Zeitungspapier gewickelt 2 bis
+      3 Wochen. In feuchtem Sand im Keller bis zu 2 Monate. Am
+      laengsten haelt sich Lauch aber direkt im Beet — einfach bei
+      Bedarf ernten.
+
+      Konservierung: In Ringen schneiden und einfrieren (ohne
+      Blanchieren). Lauch laesst sich auch gut trocknen und als
+      Suppenwuerzung verwenden.
+
+      Lauchgruen: Die dunkelgruenen Blaetter sind zaeh, aber
+      aromatisch — ideal fuer Suppengemuese, Bruehe und
+      Schmortopf. Nicht wegwerfen!
+
+      Vermehrung: Wenn Lauch im zweiten Jahr schiesst, bildet er
+      dekorative Kugelblumen, die Bienen anlocken. Samen trocknen
+      lassen und im naechsten Jahr aussaeen.
+    metadata:
+      topic: leek_growing
+      species: "Allium porrum"
+      difficulty: beginner

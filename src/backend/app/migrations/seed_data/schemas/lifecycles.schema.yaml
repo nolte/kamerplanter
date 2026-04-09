@@ -18,9 +18,9 @@ $defs:
   lifecycle:
     type: object
     properties:
-      species_key:
+      scientific_name:
         type: string
-        description: "ArangoDB key of the species"
+        description: "Scientific name of the species (resolved to key at seed time)"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
@@ -31,15 +31,24 @@ $defs:
         type: boolean
       vernalization_required:
         type: boolean
+      vernalization_min_days:
+        type: integer
+        minimum: 1
+      cycle_restart_phase_order:
+        type: integer
+        minimum: 1
       photoperiod_type:
         type: string
         enum: [short_day, long_day, day_neutral]
+      phase_sequence:
+        type: string
+        description: "Reference to a PhaseSequence by name"
       phases:
         type: array
         items:
           $ref: "#/$defs/growth_phase"
         minItems: 1
-    required: [species_key, cycle_type, dormancy_required, vernalization_required,
+    required: [scientific_name, cycle_type, dormancy_required, vernalization_required,
                photoperiod_type, phases]
     additionalProperties: false
 
@@ -75,6 +84,9 @@ $defs:
       is_terminal:
         type: boolean
         description: "True if this is the last phase before cycle restart"
+      is_recurring:
+        type: boolean
+        description: "True if this phase repeats in perennial cycles"
       # Optional environment targets
       vpd_target_min:
         type: number

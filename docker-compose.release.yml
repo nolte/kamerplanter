@@ -84,7 +84,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.26.1-pg16
+    image: timescale/timescaledb:2.26.2-pg16
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
@@ -204,6 +204,8 @@ services:
   # ── Frontend (React + nginx) ──────────────────────────────
   frontend:
     image: ghcr.io/nolte/kamerplanter-frontend:__VERSION__
+    environment:
+      KAMERPLANTER_MODE: light
     ports:
       - "8080:80"
     depends_on:

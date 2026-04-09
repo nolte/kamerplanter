@@ -240,7 +240,7 @@ export function PlantLabelDialog({
               />
             </Tooltip>
           </Box>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
             {t('print.fieldsIntro')}
           </Typography>
           <FormGroup data-testid="field-checkboxes" aria-labelledby={fieldsGroupId}>
@@ -288,7 +288,7 @@ export function PlantLabelDialog({
               />
             </Tooltip>
           </Box>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
             {t('print.layoutIntro')}
           </Typography>
           <RadioGroup

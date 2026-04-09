@@ -35,9 +35,25 @@ class WorkflowTemplate(BaseModel):
     auto_generated: bool = False
     species_key: str | None = None
     lifecycle_key: str | None = None
+    phase_sequence_key: str | None = None
     skill_level_filter: str | None = None
     total_duration_days: int = 0
     target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class WorkflowPhase(BaseModel):
+    key: str | None = Field(default=None, alias="_key")
+    workflow_template_key: str = ""
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    phase_order: int = Field(default=0, ge=0)
+    duration_days: int = Field(default=0, ge=0)
+    stress_tolerance: str = ""
+    trigger_phase: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -66,6 +82,8 @@ class TaskTemplate(BaseModel):
     optimal_time_of_day: TimeOfDay | None = None
     activity_key: str | None = None
     workflow_template_key: str | None = None
+    workflow_phase_key: str | None = None
+    phase_definition_key: str | None = None
     sequence_order: int = Field(default=0, ge=0)
     default_checklist: list[ChecklistItem] = Field(default_factory=list)
     require_all_checklist_items: bool = False

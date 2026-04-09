@@ -7,6 +7,7 @@ from app.api.v1.tasks.schemas import (
     BatchResultItem,
     BatchStatusRequest,
     HSTValidateRequest,
+    PhaseReorderRequest,
     TaskAuditEntryResponse,
     TaskCloneRequest,
     TaskCommentCreate,
@@ -23,13 +24,17 @@ from app.api.v1.tasks.schemas import (
     WorkflowAddTaskRequest,
     WorkflowExecutionResponse,
     WorkflowInstantiateRequest,
+    WorkflowPhaseCreate,
+    WorkflowPhaseResponse,
+    WorkflowPhaseSuggestion,
+    WorkflowPhaseUpdate,
     WorkflowTemplateCreate,
     WorkflowTemplateResponse,
     WorkflowTemplateUpdate,
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_task_service
-from app.domain.models.task import Task, TaskTemplate, WorkflowTemplate
+from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
 
@@ -42,6 +47,10 @@ def _wf_response(wt: WorkflowTemplate) -> WorkflowTemplateResponse:
 
 def _tt_response(tt: TaskTemplate) -> TaskTemplateResponse:
     return TaskTemplateResponse(key=tt.key or "", **tt.model_dump(exclude={"key"}))
+
+
+def _phase_response(p: WorkflowPhase) -> WorkflowPhaseResponse:
+    return WorkflowPhaseResponse(key=p.key or "", **p.model_dump(exclude={"key"}))
 
 
 def _task_response(t: Task) -> TaskResponse:
@@ -176,6 +185,72 @@ def instantiate_workflow(
         entity_type=body.entity_type,
     )
     return _we_response(execution)
+
+
+# ── Workflow Phases ──
+
+
+@router.get("/workflows/{wf_key}/phases", response_model=list[WorkflowPhaseResponse])
+def list_workflow_phases(
+    wf_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
+    return [_phase_response(p) for p in service.get_workflow_phases(wf_key)]
+
+
+@router.post("/workflows/{wf_key}/phases", response_model=WorkflowPhaseResponse, status_code=201)
+def create_workflow_phase(
+    wf_key: str,
+    body: WorkflowPhaseCreate,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
+    phase = WorkflowPhase(**body.model_dump(), workflow_template_key=wf_key)
+    return _phase_response(service.create_workflow_phase(phase))
+
+
+@router.get("/phases/suggestions", response_model=list[WorkflowPhaseSuggestion])
+def list_phase_suggestions(
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    return service.get_phase_suggestions()
+
+
+@router.put("/phases/reorder", response_model=list[WorkflowPhaseResponse])
+def reorder_phases(
+    body: PhaseReorderRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    return [_phase_response(p) for p in service.reorder_workflow_phases([item.model_dump() for item in body.phases])]
+
+
+@router.put("/phases/{key}", response_model=WorkflowPhaseResponse)
+def update_workflow_phase(
+    key: str,
+    body: WorkflowPhaseUpdate,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    phase = service.get_workflow_phase(key)
+    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
+    return _phase_response(service.update_workflow_phase(key, body.model_dump(exclude_none=True)))
+
+
+@router.delete("/phases/{key}", status_code=204)
+def delete_workflow_phase(
+    key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    phase = service.get_workflow_phase(key)
+    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
+    service.delete_workflow_phase(key)
+    return Response(status_code=204)
 
 
 # ── Task Templates ──

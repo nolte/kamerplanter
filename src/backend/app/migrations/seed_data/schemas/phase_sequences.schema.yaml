@@ -1,0 +1,115 @@
+# JSON Schema for phase_sequences.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "phase_sequences.schema.yaml"
+title: "Phase Sequences Seed Data"
+description: "Schema for phase definitions and reusable phase sequences"
+type: object
+
+properties:
+  phase_definitions:
+    type: array
+    items:
+      $ref: "#/$defs/phase_definition"
+  phase_sequences:
+    type: array
+    items:
+      $ref: "#/$defs/phase_sequence"
+
+required: [phase_definitions, phase_sequences]
+additionalProperties: false
+
+$defs:
+  phase_definition:
+    type: object
+    properties:
+      name:
+        type: string
+        description: "Unique machine-readable name"
+      display_name:
+        type: string
+        description: "English display name"
+      display_name_de:
+        type: string
+        description: "German display name"
+      description:
+        type: string
+      description_de:
+        type: string
+      typical_duration_days:
+        type: integer
+        minimum: 1
+      stress_tolerance:
+        type: string
+        enum: [low, medium, high]
+      watering_interval_days:
+        type: integer
+        minimum: 1
+        maximum: 90
+      illustration:
+        type: string
+        description: "Path to KAMI illustration SVG (relative to assets/)"
+      tags:
+        type: array
+        items:
+          type: string
+      is_system:
+        type: boolean
+    required: [name, display_name, display_name_de, typical_duration_days, stress_tolerance]
+    additionalProperties: false
+
+  phase_sequence:
+    type: object
+    properties:
+      name:
+        type: string
+        description: "Unique machine-readable name"
+      display_name:
+        type: string
+      display_name_de:
+        type: string
+      description:
+        type: string
+      description_de:
+        type: string
+      cycle_type:
+        type: string
+        enum: [annual, biennial, perennial]
+      is_repeating:
+        type: boolean
+      cycle_restart_entry_order:
+        type: integer
+        minimum: 0
+      tags:
+        type: array
+        items:
+          type: string
+      is_system:
+        type: boolean
+      entries:
+        type: array
+        items:
+          $ref: "#/$defs/phase_sequence_entry"
+        minItems: 1
+    required: [name, cycle_type, entries]
+    additionalProperties: false
+
+  phase_sequence_entry:
+    type: object
+    properties:
+      phase_name:
+        type: string
+        description: "References a phase_definition by name"
+      sequence_order:
+        type: integer
+        minimum: 0
+      override_duration_days:
+        type: integer
+        minimum: 1
+      is_terminal:
+        type: boolean
+      allows_harvest:
+        type: boolean
+      is_recurring:
+        type: boolean
+    required: [phase_name, sequence_order]
+    additionalProperties: false

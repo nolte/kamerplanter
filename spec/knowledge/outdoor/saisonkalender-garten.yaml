@@ -1,0 +1,399 @@
+---
+title: "Saisonkalender Garten — Monatliche Aufgaben von Januar bis Dezember"
+language: de
+category: outdoor
+tags: [saisonkalender, garten, aussaat, ernte, pflanzung, bodenpflege, schaedlinge, jahresplanung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: saisonkalender-januar
+    title: "Januar — Planung und erste Vorbereitungen"
+    content: |
+      Im Januar ruht der Garten weitgehend. Die Hauptarbeit ist Planung: Welche
+      Sorten sollen angebaut werden? Saatgut bestellen, Fruchtfolge und
+      Beetaufteilung auf Papier oder digital festlegen. Alte Samen auf
+      Keimfaehigkeit pruefen — auf feuchtes Kuechenpapier legen, nach 7 bis
+      10 Tagen zaehlen, wie viele gekeimt sind. Unter 50 Prozent: entsorgen.
+
+      Gartengeraete warten: Scheren schaerfen, Saegen oelen, Spaten-Schneide
+      pruefen. Kompost umsetzen, sofern der Boden nicht gefroren ist.
+      Bestehende Obstbaeume auf Frostschaeden und Leimringe kontrollieren.
+
+      Ab Mitte Januar kann auf der Fensterbank vorgezogen werden: Paprika,
+      Chili und Aubergine brauchen lange Vorkultur (10 bis 12 Wochen vor
+      Auspflanzen). Keimtemperatur 24 bis 28 Grad — Heizmatte empfohlen.
+
+      Gewaechshaus: An frostfreien Tagen lueften, um Schimmelbildung zu
+      vermeiden. Wintergemuese wie Feldsalat, Postelein und Winterportulak
+      koennen noch geerntet werden. Fruehe Radieschen-Aussaat ab Ende
+      Januar moeglich, wenn das Gewaechshaus frostfrei bleibt.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 1
+      difficulty: beginner
+
+  - id: saisonkalender-februar
+    title: "Februar — Voranzucht startet richtig"
+    content: |
+      Ab Anfang Februar beginnt die Voranzucht auf der Fensterbank im
+      groesseren Stil. Tomaten ab Mitte bis Ende Februar aussaeen (8 bis
+      10 Wochen vor Auspflanzen). Paprika und Chili sollten bereits
+      stehen — falls nicht, jetzt unbedingt nachholen.
+
+      Weitere Aussaaten drinnen: Salat, Kohlrabi, Brokkoli, Blumenkohl,
+      Sellerie und Lauch. Saattiefe beachten: Lichtkeimer (Salat, Sellerie)
+      nur andruecken, nicht mit Erde bedecken.
+
+      Draussen: An frostfreien Tagen Beete vorbereiten. Kompost und
+      Hornspane (80 bis 120 g pro Quadratmeter) auf abgetaute Beete
+      ausbringen. Dicke Bohnen (Vicia faba) koennen ab Mitte Februar
+      direkt ins Freiland — sie vertragen Frost bis minus 5 Grad.
+
+      Obstbaeume: Letzter Termin fuer den Winterschnitt bei Kernobst
+      (Apfel, Birne). Vor Austrieb schneiden, Wunden verheilen besser
+      bei steigenden Temperaturen. Beerensstraeucher (Johannisbeere,
+      Stachelbeere) jetzt schneiden: altes Holz (aelter als 3 Jahre)
+      bodennah entfernen.
+
+      Schaedlingskontrolle: Schneckengelege im Boden aufdecken und
+      der Kaelte aussetzen. Leimringe an Obstbaeumen kontrollieren
+      und gegebenenfalls erneuern.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 2
+      difficulty: beginner
+
+  - id: saisonkalender-maerz
+    title: "Maerz — Der Garten erwacht"
+    content: |
+      Im Maerz steigt die Aktivitaet deutlich. Sobald der Boden
+      abgetrocknet ist und nicht mehr an den Schuhen klebt, kann er
+      bearbeitet werden. Beete mit der Grabegabel lockern (nicht
+      umgraben, wenn No-Dig praktiziert wird) und Kompost einarbeiten.
+
+      Direktsaat ins Freiland: Moehren, Pastinaken, Petersilie, Spinat,
+      Erbsen, Radieschen, Rucola, Schwarzwurzel und Zwiebeln (Steckzwiebeln).
+      Salatpflanzen aus Vorkultur ab Mitte Maerz unter Vlies auspflanzen.
+
+      Voranzucht drinnen fortsetzen: Zucchini, Kuerbis, Gurke erst ab
+      Ende Maerz aussaeen — sie wachsen schnell und sollen nicht vergeilen.
+      Tomaten-Saemlinge pikieren, sobald das zweite echte Blattpaar da ist.
+
+      Kartoffeln vorkeimen: Saatkartoffeln ab Anfang Maerz hell und kuhl
+      (10 bis 15 Grad) aufstellen. Die Keime sollen kurz, dick und gruen
+      sein — nicht lange, weisse Geiltriebe.
+
+      Bodenpflege: pH-Wert testen. Liegt er unter 5,5, jetzt kalken (200
+      bis 400 g Gartenkalk pro Quadratmeter). Gruenduengung, die ueber
+      Winter stand, unterarbeiten oder als Mulch liegen lassen.
+
+      Rosen: Winterschutz entfernen, sobald keine starken Froeste mehr
+      drohen. Forsythienbluete markiert traditionell den Beginn der
+      Rosenschnitt-Saison: auf 3 bis 5 Augen zurueckschneiden.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 3
+      difficulty: beginner
+
+  - id: saisonkalender-april
+    title: "April — Pflanzzeit und Frostgefahr"
+    content: |
+      April ist ein Schluesselmonat, aber Vorsicht: Nachtfroeste sind
+      bis Ende April normal. Empfindliche Kulturen mit Vlies oder
+      Folientunnel schuetzen. Faustregel: Alles, was Frost vertraegt
+      (Salat, Kohl, Erbsen, Zwiebeln), kann jetzt raus. Frostempfindliche
+      Arten (Tomaten, Paprika, Bohnen, Kuerbis) noch drinnen lassen.
+
+      Direktsaat Freiland: Mangold, Rote Bete, Kohlrabi-Samen,
+      weitere Moehren-Saetze (Staffelaussaat alle 3 Wochen fuer
+      kontinuierliche Ernte), Dill, Koriander.
+
+      Kartoffeln legen: Ab Mitte April vorgekeimte Kartoffeln in
+      10 bis 15 cm tiefe Furchen legen, Abstand 30 mal 60 cm. Fruehe
+      Sorten (Annabelle, Glorietta) fuer schnelle Ernte.
+
+      Stauden teilen und umsetzen: Beste Zeit fuer sommerblühende
+      Stauden (Taglilien, Astern, Phlox). Auch Kraeuter wie Schnittlauch
+      und Zitronenmelisse jetzt teilen.
+
+      Rasen: Erste Duengung mit organischem Langzeitduenger (3 bis 4 kg
+      pro 100 Quadratmeter). Vertikutieren, wenn der Rasen stark verfilzt
+      ist. Nachsaat auf kahle Stellen.
+
+      Schaedlinge: Blattlaeuse erscheinen an den ersten warmen Tagen.
+      Nuetzlinge foerdern: Marienkaeferlarven, Florfliegenkaesten.
+      Schnecken-Kontrolle beginnen — abends absammeln oder
+      Schneckenkorn (Eisen-III-Phosphat) ausbringen.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 4
+      difficulty: beginner
+
+  - id: saisonkalender-mai
+    title: "Mai — Eisheilige und Hauptpflanzzeit"
+    content: |
+      Die Eisheiligen (11. bis 15. Mai, regional bis 20. Mai) markieren
+      traditionell das Ende der Spaetfrostgefahr. Erst danach kommen
+      frostempfindliche Kulturen ins Freiland: Tomaten, Paprika, Chili,
+      Aubergine, Gurke, Zucchini, Kuerbis, Bohnen, Mais und Basilikum.
+
+      Vor dem Auspflanzen 7 bis 10 Tage abhaerten: Jungpflanzen taeglich
+      fuer zunehmende Stunden nach draussen stellen, aber noch vor
+      Nachtfrost reinholen. Tomatenpflanzen beim Einpflanzen tief setzen —
+      der Stiel bildet Adventivwurzeln.
+
+      Stangenbohnen und Feuerbohnen direkt saeen: 5 bis 7 Samen pro
+      Stange, 3 bis 4 cm tief. Buschbohnen in Reihen, 40 cm Abstand.
+
+      Duengung: Starkzehrer (Tomaten, Kohl, Kuerbis, Zucchini) jetzt
+      mit Kompost und organischem Duenger versorgen. Beinwell-Jauche
+      ansetzen: 1 kg frische Blaetter auf 10 Liter Wasser, 2 Wochen
+      gaeren lassen, 1:10 verduennt giessen.
+
+      Mulchen: Nach den Eisheiligen alle Beete mulchen (Stroh, Rasenschnitt,
+      Holzhackschnitzel). 5 bis 10 cm dick. Mulch haelt Feuchtigkeit,
+      unterdrueckt Unkraut und foerdert Bodenlebewesen.
+
+      Ernte: Erste Radieschen, Salat, Spinat und Rhabarber. Spargelernte
+      laeuft auf Hochtouren (traditionelles Ende am 24. Juni).
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 5
+      difficulty: beginner
+
+  - id: saisonkalender-juni
+    title: "Juni — Wachstum, Pflege und erste Sommerfrüchte"
+    content: |
+      Im Juni waechst alles explosionsartig. Regelmaessige Pflege ist
+      entscheidend: Giessen (morgens, bodennah, 15 bis 20 Liter pro
+      Quadratmeter und Woche bei Trockenheit), Hacken und Mulch ergaenzen.
+
+      Tomaten: Woechentlich ausgeizen — Seitentriebe in den Blattachseln
+      ausbrechen, solange sie unter 5 cm sind. Stuetzen kontrollieren.
+      Nach der 5. bis 7. Blueten-Traube die Spitze kappen (bei Stabtomaten).
+
+      Kartoffeln: Anhaeufeln, sobald das Kraut 20 cm hoch ist. Zweites
+      Anhaeufeln 3 Wochen spaeter. Schuetzt vor Ergruenen (Solanin).
+
+      Erdbeerernte: Reife Fruechte alle 2 bis 3 Tage ernten. Stroh
+      unter die Pflanzen legen. Auslaeufer fuer Vermehrung markieren
+      oder abschneiden, wenn keine neuen Pflanzen gewuenscht.
+
+      Nachsaat fuer Herbsternte: Buschbohnen (letzte Aussaat bis Mitte
+      Juli), Moehren, Rote Bete, Kohlrabi, Salat. Staffelaussaat
+      sichert kontinuierliche Ernte.
+
+      Sommerschnitt Obstbaeume: Wasserschosse (senkrecht wachsende
+      Triebe) an Apfel und Birne jetzt entfernen. Kirschbaum-Schnitt
+      direkt nach der Ernte.
+
+      Schaedlinge: Kohlweissling-Eier auf Kohlblaett-Unterseiten
+      absuchen und zerquetschen. Kulturschutznetze ueber Kohl und
+      Moehren gegen Kohlfliege und Moehrenfliege. Braunfaeule-
+      Praevention: Tomatenblaetter trocken halten, untere Blaetter
+      bis 40 cm Hoehe entfernen.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 6
+      difficulty: beginner
+
+  - id: saisonkalender-juli
+    title: "Juli — Hochsommer, Ernte und Hitze-Management"
+    content: |
+      Juli ist Hochsommer und Erntezeit. Gleichzeitig stellt Hitze
+      eine Herausforderung dar. Bei Temperaturen ueber 30 Grad morgens
+      und abends giessen — nicht in der Mittagshitze (Verdunstung).
+      Tiefgruendig giessen ist besser als taeglich oberflaechlich:
+      2 bis 3 Mal pro Woche gruendlich durchwaessern statt taeglich
+      ein bisschen.
+
+      Ernte: Tomaten, Zucchini, Gurken, Bohnen, Salat, Kohlrabi,
+      Erbsen, fruehe Kartoffeln, Johannisbeeren, Himbeeren, Kirschen.
+      Zucchini taeglich kontrollieren — sie wachsen rasant und werden
+      schnell zu gross (ideal bei 15 bis 20 cm ernten).
+
+      Tomaten: Reife Fruechte sofort ernten, das foerdert Nachreife
+      weiterer Fruechte. Starkzehrer jetzt alle 2 Wochen mit
+      Beinwell-Jauche oder Tomatenfluessigduenger versorgen.
+
+      Wintergemuese saeen: Ab Mitte Juli Gruenkohl, Winterlauch,
+      Chinakohl, Pak Choi und Herbstrettich aussaeen. Diese Kulturen
+      brauchen die kuerzeren Tage fuer guten Kopfschluss.
+
+      Kompost: Bei Hitze trocknet der Kompost aus — bei Bedarf
+      waessern. Rasenschnitt nur duenn aufbringen (3 bis 5 cm),
+      sonst fault er und stinkt.
+
+      Krankheiten: Mehltau tritt bei warmem, trockenem Wetter auf
+      (Echter Mehltau) oder bei feucht-warmem Wetter (Falscher Mehltau).
+      Befallene Blaetter entfernen. Milch-Wasser-Spritzung (1:8) wirkt
+      praeventiv gegen Echten Mehltau bei Zucchini und Gurke.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 7
+      difficulty: beginner
+
+  - id: saisonkalender-august
+    title: "August — Erntemarathon und Herbstvorbereitung"
+    content: |
+      August ist der ertragreichste Monat. Die Ernte laeuft auf allen
+      Beeten: Tomaten in Mengen, Paprika, Auberginen, Bohnen, Mais,
+      Zucchini, Gurken, Kuerbis (Sommersorten), Zwiebeln, fruehe
+      Moehren, Heidelbeeren, Brombeeren, Pflaumen.
+
+      Konservieren: Was nicht sofort gegessen wird, einkochen, trocknen,
+      fermentieren oder einfrieren. Tomaten lassen sich als Passata,
+      getrocknete Tomaten oder Ketchup haltbar machen.
+
+      Herbstaussaat: Letzte Chance fuer Spinat, Feldsalat, Radieschen,
+      Asia-Salate, Winterpostelein. Gruenduengung auf abgeerntete Beete
+      saeen: Phacelia, Gelbsenf oder Winterwicke (bleibt bis Fruehjahr
+      stehen).
+
+      Erdbeeren pflanzen: August ist die beste Pflanzzeit fuer
+      Erdbeeren — die Pflanzen bilden bis zum Herbst starke Wurzeln
+      und tragen im naechsten Jahr voll.
+
+      Starkzehrer weiter duengen: Tomaten, Paprika und Kuerbis
+      brauchen bis zur letzten Ernte Naehrstoffnachschub. Schwachzehrer
+      und Herbstkulturen bekommen keine Duengung mehr.
+
+      Bewässerung: Wasserbedarf bleibt hoch. Mulchschicht pruefen und
+      bei Bedarf auffuellen. Regenwasser-Vorraete im Auge behalten —
+      August kann trocken ausfallen.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 8
+      difficulty: beginner
+
+  - id: saisonkalender-september
+    title: "September — Herbst beginnt, Ernte und Einlagerung"
+    content: |
+      Im September werden die Tage kuerzer und die Naechte kuehler.
+      Die letzten waermeliebenden Kulturen ernten: Tomaten (gruene
+      Fruechte im Haus nachreifen lassen neben einem Apfel — Ethylen
+      beschleunigt die Reife), Paprika, Kuerbis (Winterkuerbis ist
+      reif, wenn der Stiel verholzt und beim Klopfen hohl klingt).
+
+      Kartoffeln ernten: Wenn das Kraut abgestorben ist, 2 Wochen
+      warten, dann ernten. Die Schale haertet in der Erde nach.
+      Kartoffeln dunkel und kuhl lagern (4 bis 8 Grad), nicht
+      neben Aepfeln (Ethylen foerdert Keimung).
+
+      Obstbaeume: Aepfel und Birnen ernten. Lageraepfel pflücken,
+      wenn sich der Stiel leicht vom Ast loest. Fallobst aufsammeln —
+      liegenlassen foerdert Schorf und Monilia.
+
+      Herbstpflanzung: Winterknoblauch stecken (Zehen 5 cm tief,
+      Spitze nach oben). Wintersteckzwiebeln setzen. Neue
+      Obstbaeume und Beerensstraeucher ab Ende September pflanzen —
+      sie wurzeln im Herbst ein und starten im Fruehjahr mit Vorsprung.
+
+      Bodenpflege: Abgeerntete Beete nicht kahl lassen — Gruenduengung
+      saeen oder mit Laub/Stroh mulchen. Offener Boden erodiert und
+      verliert Naehrstoffe durch Regen.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 9
+      difficulty: beginner
+
+  - id: saisonkalender-oktober
+    title: "Oktober — Winterfest machen und letzte Ernten"
+    content: |
+      Oktober ist Aufraeum-Monat. Letzte Ernten einfahren: Restliche
+      Kuerbisse, Wurzelgemuese (Moehren, Pastinaken, Rote Bete,
+      Sellerie), Kohlsorten. Gruenkohl bleibt stehen — er braucht
+      Frost fuer optimalen Geschmack.
+
+      Einlagerung: Wurzelgemuese in feuchtem Sand im kuehlen Keller
+      lagern (2 bis 5 Grad). Kuerbis trocken und warm lagern (12 bis
+      15 Grad), haelt 3 bis 6 Monate. Zwiebeln und Knoblauch trocken
+      und luftig aufhaengen.
+
+      Baeume und Straeucher pflanzen: Oktober bis November ist die
+      ideale Pflanzzeit fuer wurzelnackte Gehoelze. Pflanzloch
+      doppelt so breit wie der Wurzelballen, mit Kompost mischen.
+
+      Laub: Laub von Rasenflaechen raeumen, aber in Beeten als
+      Winterschutz liegen lassen. Igelhaufen aus Laub und Reisig
+      in ruhigen Ecken anlegen.
+
+      Kompost: Letzte Umschichtung vor dem Winter. Halb fertigen
+      Kompost auf Beete als Wintermulch ausbringen. Frischer Kompost
+      verrottet ueber den Winter weiter und ist im Fruehjahr
+      einsatzbereit.
+
+      Wasserversorgung: Aussenhaehne abstellen und entleeren.
+      Regentonnen leeren oder Frostsicher machen (Deckel ab, nicht
+      randvoll stehen lassen). Giesskannen umdrehen.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 10
+      difficulty: beginner
+
+  - id: saisonkalender-november
+    title: "November — Winterschutz und Rueckzug"
+    content: |
+      Der Garten geht in die Winterruhe. Frostempfindliche Pflanzen
+      schuetzen: Rosen mit Reisig oder Laub anhaeufeln (nicht mit
+      Folie — Schimmelgefahr). Stauden mit Frostschutz-Vlies abdecken
+      oder mit Laub mulchen. Kuebelpflanzen ins Winterquartier
+      (frostfrei, 5 bis 10 Grad, hell).
+
+      Obstbaeume: Stämme mit Kalkanstrich oder Weissanstrich schuetzen —
+      verhindert Frostrisse durch schnellen Temperaturwechsel bei
+      Wintersonne. Leimringe gegen Frostspanner anbringen.
+
+      Gewaechshaus: Wintergemuese (Feldsalat, Spinat, Postelein)
+      steht, braucht aber kaum Wasser. An sonnigen Tagen lueften,
+      um Grauschimmel zu vermeiden. Bei starkem Frost Doppelvlies
+      ueber die Pflanzen legen.
+
+      Geraete: Alle Gartengeraete reinigen, oelen und trocken
+      einlagern. Rasenmaeher-Messer schaerfen und Oel wechseln.
+      Gartenschlaeuche entleeren und frostfrei lagern.
+
+      Bodenpflege: Schwere Lehmboeden grob umgraben und in Schollen
+      liegen lassen — Frost sprengt die Klumpen und verbessert die
+      Struktur (Frostgare). Sandige und leichte Boeden nicht umgraben,
+      stattdessen mulchen.
+
+      Planung beginnt: Saatgutkataloge studieren, Erfahrungen der
+      Saison notieren. Was hat gut funktioniert, was nicht?
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 11
+      difficulty: beginner
+
+  - id: saisonkalender-dezember
+    title: "Dezember — Winterruhe und Vorfreude"
+    content: |
+      Der Garten ruht komplett. Die Hauptaufgabe ist Kontrolle:
+      Winterschutz pruefen (hat der Wind Vlies weggeweht?),
+      Obstbaeume auf Wildverbiss kontrollieren (Drahtgitter oder
+      Kalkanstrich), Mausefallen in Gewaechshaus und Keller pruefen.
+
+      Ernte: Gruenkohl, Rosenkohl und Topinambur koennen den
+      ganzen Winter ueber geerntet werden — einfach bei Bedarf
+      aus dem gefrorenen Boden holen. Feldsalat im Gewaechshaus
+      ernten. Winterportulak und Postelein ebenfalls.
+
+      Gewaechshaus: Minimal giessen (alle 2 bis 3 Wochen genuegt
+      bei Winterkulturen). Schnee von Gewaechshausdaechern raeumen,
+      damit die Konstruktion nicht bricht und Licht eindringt.
+
+      Indoor-Aktivitaeten: Sprossen und Microgreens auf der
+      Fensterbank ziehen — von der Aussaat bis zur Ernte in 7 bis
+      14 Tagen. Kresse, Brokkoli-Sprossen, Radieschen-Sprossen
+      und Mungbohnen sind dankbare Anfaenger-Kandidaten.
+
+      Planung vertiefen: Fruchtfolge fuer das neue Jahr festlegen.
+      Bestellungen fuer Saatgut, Saatkartoffeln und Steckzwiebeln
+      aufgeben — beliebte Sorten sind frueh ausverkauft.
+      Gartentagebuch fuehren: Skizzen der Beetbelegung, Notizen
+      zu Sorten, Erntemengen und Problemen. Diese Aufzeichnungen
+      sind Gold wert fuer die naechste Saison.
+    metadata:
+      topic: seasonal_calendar_garden
+      month: 12
+      difficulty: beginner

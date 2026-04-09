@@ -339,6 +339,46 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                     "area_m2": 12,
                 })
 
+        # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+        _now = _dt.now(_tz.utc)
+        _seed_tasks = [
+            {
+                "name": "E2E: Water indoor plants",
+                "name_de": "E2E: Zimmerpflanzen gießen",
+                "category": "watering",
+                "priority": "high",
+                "due_date": (_now - _td(hours=2)).isoformat(),
+                "instruction_de": "Alle Zimmerpflanzen im Wohnzimmer gießen",
+            },
+            {
+                "name": "E2E: Check pH levels",
+                "name_de": "E2E: pH-Werte prüfen",
+                "category": "monitoring",
+                "priority": "medium",
+                "due_date": _now.isoformat(),
+                "instruction_de": "pH-Werte im Nährstofftank messen und dokumentieren",
+            },
+            {
+                "name": "E2E: Prune tomato suckers",
+                "name_de": "E2E: Tomatentriebe ausgeizen",
+                "category": "maintenance",
+                "priority": "low",
+                "due_date": (_now + _td(days=1)).isoformat(),
+                "instruction_de": "Seitentriebe der Tomatenpflanzen entfernen",
+            },
+        ]
+        for task_data in _seed_tasks:
+            status, resp = _post(f"{api}/tasks", task_data)
+            if status == 201:
+                result.setdefault("task_keys", []).append(resp.get("key"))
+
+        # ── Trigger care reminder generation (REQ-022) ───────────────
+        # This creates care tasks for any plant instances that have care
+        # profiles, so the pflege dashboard tests have data to work with.
+        _post(f"{api}/tasks/generate-care-reminders", {})
+
         # Skip onboarding wizard so the browser lands on /dashboard
         _post(f"{api}/onboarding/skip", {})
     except Exception as exc:

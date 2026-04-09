@@ -1,0 +1,200 @@
+---
+title: Balkon-Grundlagen — Standort, Gewicht und Infrastruktur
+language: de
+category: outdoor
+tags: [balkon, terrasse, gewicht, tragfaehigkeit, wind, sonnenstunden, balkonkasten, substrat, wasserabfluss, statik]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: tragfaehigkeit-gewicht
+    title: Tragfaehigkeit und Gewicht — Statik auf dem Balkon beachten
+    content: |
+      Wie viel Gewicht haelt mein Balkon aus? Das ist die wichtigste
+      Frage, bevor du anfaengst. Blumentoepfe mit feuchter Erde sind
+      schwerer als die meisten denken, und ein ueberladener Balkon ist
+      ein echtes Sicherheitsrisiko.
+      Gewicht-Faustregeln:
+      - 1 Liter Blumenerde trocken: ca. 400-600 g.
+      - 1 Liter Blumenerde feucht (nach dem Giessen): ca. 800-1200 g.
+      - 40-Liter-Kuebel mit feuchter Erde: 35-45 kg.
+      - 80 cm Balkonkasten gefuellt: 15-25 kg.
+      - Dazu kommt das Eigengewicht von Topf, Pflanze und Wasserreserve.
+      Typische Balkon-Tragfaehigkeit:
+      - Neubauten: 300-500 kg/m² Nutzlast (in der Regel ausreichend).
+      - Altbauten: Oft nur 150-250 kg/m² — hier wird es schnell eng.
+      - Dachterrassen: Sehr unterschiedlich, Statiker fragen.
+      Was tun?
+      1. Im Zweifelsfall den Vermieter oder die Hausverwaltung fragen
+         — die kennen die Statik oder koennen sie pruefen lassen.
+      2. Gewicht gleichmaessig verteilen, nicht alles in eine Ecke.
+      3. Schwere Kuebel moeglichst nah an der Hauswand aufstellen
+         (dort ist die Tragkraft am hoechsten, nicht am Gelaender!).
+      4. Leichte Substrate verwenden: Perlit, Kokos, Blaehton statt
+         reiner Gartenerde. Spezielle Kuebel-Substrate sind leichter
+         als normale Blumenerde.
+      5. Kunststoff-Toepfe statt Terrakotta — ein grosser Terrakotta-Topf
+         wiegt allein schon 10-15 kg.
+      Gelaender-Kaesten: Haenge-Halterungen muessen fuer das Gewicht
+      ausgelegt sein. Billige Halterungen verbiegen sich unter einem
+      voll bepflanzten, nassen Kasten. Kasten immer nach INNEN haengen
+      (Sicherheit und Pflicht in den meisten Mietvertraegen).
+    metadata:
+      topic: load_capacity
+      difficulty: easy
+      safety: critical
+
+  - id: windschutz
+    title: Windschutz auf dem Balkon
+    content: |
+      Mein Balkon ist sehr windig — was kann ich tun? Wind ist einer
+      der groessten Stressfaktoren fuer Balkonpflanzen. Besonders ab
+      dem 4. Stockwerk nimmt die Windbelastung deutlich zu. Hohe
+      Gebaeude erzeugen zusaetzlich Verwirbelungen und Windduesen.
+      Probleme durch Wind:
+      - Pflanzen trocknen schnell aus (erhoehte Transpiration).
+      - Blaetter und Triebe brechen, besonders bei Tomaten und
+        rankenden Pflanzen.
+      - Toepfe und Kaesten kippen um.
+      - Kuehlung: An windigen Tagen kann die Temperatur am Blatt
+        deutlich niedriger sein als die Lufttemperatur.
+      Schutzmassnahmen:
+      - Windschutz-Wand: Bambusmatten, Schilfmatten oder Stoff-
+        Bespannungen am Gelaender. Halbdurchlaessig ist besser als
+        komplett dicht — eine solide Wand erzeugt Verwirbelungen
+        dahinter, ein halbdurchlaessiger Schutz bremst den Wind
+        gleichmaessig.
+      - Pflanzen als Windschutz: Robuste Graeser (Chinaschilf,
+        Pampasgras im Kuebel) oder immergruene Gehoelze als erste
+        Reihe, empfindliche Pflanzen dahinter.
+      - Schwere Kuebel und Untersetzer verwenden — leichte Plastik-
+        toepfe wehen um.
+      - Rankgitter aufstellen: Schuetzt und dient gleichzeitig als
+        Rankhilfe fuer Bohnen, Gurken, Clematis.
+      - Pflanzen anbinden: Tomaten, hohe Paprika und Chili an Staeben
+        oder Spalieren befestigen.
+      Windresistente Pflanzen fuer exponierte Balkone: Lavendel,
+      Rosmarin, Thymian, Graeser (Festuca, Carex), Hauswurz (Sempervivum),
+      Fetthenne (Sedum), Geranien.
+    metadata:
+      topic: wind_protection
+      difficulty: easy
+      plants: [lavender, rosemary, grasses, geranium]
+
+  - id: sonnenstunden-analyse
+    title: Sonnenstunden-Analyse — Was waechst auf welchem Balkon
+    content: |
+      Sued-, Nord-, Ost- oder Westbalkon — welche Pflanzen passen?
+      Die Ausrichtung deines Balkons bestimmt, wie viele Stunden
+      direkte Sonne deine Pflanzen bekommen. Das ist DER entscheidende
+      Faktor fuer die Pflanzenwahl.
+      Suedbalkon (6-8+ Stunden Sonne):
+      - Vollsonne den ganzen Tag. Im Hochsommer kann es sehr heiss
+        werden (40°C+ am Boden, Toepfe ueberhitzen).
+      - Ideal fuer: Tomaten, Paprika, Chili, Aubergine, Gurke, Bohne,
+        Lavendel, Rosmarin, Geranien, Petunien, Oleander.
+      - Achtung: Mehr giessen noetig, Toepfe beschatten oder isolieren.
+      Ostbalkon (3-5 Stunden Morgensonne):
+      - Sanfte Morgensonne, ab Mittag Schatten. Ideal fuer Pflanzen,
+        die keine Mittagshitze vertragen.
+      - Ideal fuer: Salat, Radieschen, Kraeuter (Schnittlauch, Petersilie,
+        Koriander), Erdbeeren, Fuchsien, Begonien, Hortensien.
+      Westbalkon (3-5 Stunden Nachmittagssonne):
+      - Nachmittags- und Abendsonne, oft waermer als Ost. Kann im
+        Sommer heiss werden.
+      - Ideal fuer: Aehnlich wie Suedbalkon, aber etwas eingeschraenkter.
+        Tomaten und Paprika kommen zurecht, brauchen aber laenger.
+      Nordbalkon (0-2 Stunden direkte Sonne):
+      - Diffuses Licht, kaum direkte Sonne. Im Winter sehr dunkel.
+      - Ideal fuer: Farne, Begonien, Fleissiges Lieschen (Impatiens),
+        Hosta, Efeu, Waldmeister. Gemuese: Spinat, Mangold, Pfluck-
+        salat, Baerlauch (mit Einschraenkungen).
+      - Ungeeignet: Tomaten, Paprika, Chili — zu wenig Licht fuer
+        Fruchtbildung.
+      Tipp: Beobachte deinen Balkon an einem sonnigen Tag im Juni
+      (laengster Tag) und zaehl die Stunden direkter Sonne. Das gibt
+      dir den realistischsten Wert.
+    metadata:
+      topic: sun_exposure_analysis
+      difficulty: easy
+      orientations: [south, east, west, north]
+
+  - id: balkonkasten-substrat
+    title: Balkonkasten-Substrat — leicht und strukturstabil
+    content: |
+      Welches Substrat nehme ich fuer Balkonkaesten und Kuebel?
+      Normale Gartenerde ist fuer Balkonkaesten ungeeignet — sie ist
+      zu schwer, verdichtet schnell und hat keine gute Drainage im
+      begrenzten Topfvolumen.
+      Anforderungen an Kuebel-Substrat:
+      - Leicht: Gewicht ist auf dem Balkon ein Thema.
+      - Strukturstabil: Darf nicht nach ein paar Wochen zusammensacken
+        und matschig werden.
+      - Gute Wasserspeicherung: Im Kuebel trocknet Substrat viel
+        schneller aus als im Beet.
+      - Gute Drainage: Staunaesse ist im Topf gefaehrlicher als im
+        Beet — Wurzelfaeule droht.
+      Gute Optionen:
+      - Fertige Kuebelpflanzenerde: Meist Torf/Kokos + Perlit +
+        Tongranulat + Langzeitduenger. Einfachste Loesung.
+      - Torffreie Alternativen: Kokos + Holzfaser + Kompost + Perlit.
+        Oeologisch besser, Qualitaet schwankt je nach Hersteller.
+      - Selbst mischen: 40% Kokos + 30% Kompost + 20% Perlit +
+        10% Blaehton. Leicht, strukturstabil, gut drainiert.
+      Wasserspeicher-Tricks:
+      - Tongranulat (Seramis, Blaehton) unter die Erde mischen — nimmt
+        Wasser auf und gibt es langsam ab.
+      - Balkonkaesten mit eingebautem Wasserreservoir (Lechuza-Prinzip)
+        reduzieren Giessaufwand massiv.
+      - Mulchschicht oben drauf (Kokos-Mulch, Rindenmulch) reduziert
+        Verdunstung.
+      Drainage nicht vergessen: Topf muss Ablaufloecher haben. Auf
+      keinen Fall Ablaufloecher verschliessen, auch wenn Wasser auf
+      den Balkon tropft — lieber Untersetzer verwenden. Eine Drainage-
+      schicht aus Blaehton (2-3 cm) am Topfboden hilft bei grossen
+      Kuebeln.
+    metadata:
+      topic: container_substrate
+      difficulty: easy
+      components: [coco_coir, perlite, expanded_clay, compost]
+
+  - id: wasserabfluss-nachbarn
+    title: Wasserabfluss und Nachbar-Ruecksicht
+    content: |
+      Wie vermeide ich Aerger mit den Nachbarn beim Balkongaertnern?
+      Ueberschuessiges Giesswasser, das vom Balkon tropft, ist der
+      haeufigste Streitgrund zwischen Balkongaertnern und ihren
+      Nachbarn darunter. Ein paar einfache Massnahmen vermeiden
+      Konflikte und halten deinen Balkon sauber.
+      Wasserabfluss kontrollieren:
+      - Untersetzer unter jeden Topf und Kasten — Pflicht! Ohne
+        Untersetzer laeuft Giesswasser mit Erde und Duenger ueber
+        den Balkon und tropft zum Nachbarn.
+      - Balkonkaesten nach INNEN haengen, nicht nach aussen. In vielen
+        Mietvertraegen ist Aussenhaengung sogar verboten (Sicherheit
+        und Sauberkeit).
+      - Nicht ueber das Gelaender giessen — klingt offensichtlich,
+        passiert aber mit Giesskannen mit langem Auslauf schnell.
+      - Giessen am besten morgens: Pflanzen nehmen tagsüber das Wasser
+        auf, weniger Ueberlauf als bei abendlichem Giessen.
+      Erdverschmutzung vermeiden:
+      - Drainage-Wasser kann Erde und Duenger-Rueckstaende enthalten.
+        Untersetzer nach dem Giessen leeren (nicht stehen lassen, sonst
+        Staunasse und Mueckenbrutstelle).
+      - Beim Umtopfen: Plane oder Zeitung unterlegen.
+      - Blaehton-Mulch oben auf der Erde haelt Substrat an Ort und
+        Stelle (bei Wind und beim Giessen).
+      Weitere Ruecksicht:
+      - Herabfallende Blaetter und Blueten regelmaessig von Gelaender
+        und Boden kehren.
+      - Pflanzenschutzmittel (auch Bio) nicht bei Wind spruehen —
+        Drift zum Nachbarn oder auf darunter haengende Waesche.
+      - Rankpflanzen kontrollieren: Efeu, Wilder Wein und Co. koennen
+        auf den Nachbarbalkon wachsen. Regelmaessig zurueckschneiden.
+      Rechtlich: In Deutschland darfst du deinen Balkon bepflanzen
+      (Mietrecht). Aber: Keine Beeintraechtigung der Nachbarn
+      (Verschmutzung, Schaeden), keine Gefaehrdung (herabfallende
+      Toepfe), keine baulichen Veraenderungen ohne Erlaubnis.
+    metadata:
+      topic: drainage_neighbor_consideration
+      difficulty: easy
+      legal: rental_law_de

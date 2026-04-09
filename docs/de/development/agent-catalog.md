@@ -1,294 +1,256 @@
 ---
 title: Agent- und Skill-Katalog
-description: Übersicht aller verfügbaren Claude Code Agents und Skills im Kamerplanter-Projekt
+description: Uebersicht aller verfuegbaren Claude Code Agents und Skills im Kamerplanter-Projekt
 ---
 
 # Agent- und Skill-Katalog
 
-Übersicht aller verfügbaren Claude Code Agents und Skills im Kamerplanter-Projekt.
+Uebersicht aller verfuegbaren Claude Code Agents und Skills im Kamerplanter-Projekt.
 
-!!! info "Stand: April 2026 — 34 Agents registriert"
-    Dieser Katalog wird vom `agent-catalog-generator` Agent automatisch generiert. Zuletzt aktualisiert: 2026-04-05.
+!!! info "Stand: April 2026 -- 35 Agents, 19 Skills registriert"
+    Dieser Katalog wird vom `/update-catalog` Skill automatisch generiert.
 
 ---
 
 ## Schnellnavigation
 
-| Kategorie | Agents |
-|-----------|--------|
-| **Analyse & Review** | 9 |
-| **Entwicklung** | 5 |
-| **Testing & QA** | 3 |
-| **Dokumentation** | 4 |
-| **Knowledge & RAG** | 4 |
-| **Home Assistant** | 4 |
-| **Sonstiges** | 1 |
-| **Gesamt** | **34** |
+| Kategorie | Technisch | Fachlich | Gesamt |
+|-----------|-----------|----------|--------|
+| **Analyse & Review** | 5 | 5 | 10 |
+| **Entwicklung** | 3 | 4 | 7 |
+| **Testing & QA** | 5 | 0 | 5 |
+| **Dokumentation** | 2 | 0 | 2 |
+| **Spezialagenten** | 6 | 5 | 11 |
+| **Skills** | 12 | 7 | 19 |
 
 ---
 
-## Agents nach Kategorie
+## Agents
 
-### Analyse & Review (9 Agents)
+### Analyse & Review (10 Agents)
 
-Prüfen bestehende Dokumente, Code, Anforderungen oder Daten auf Qualität und Korrektheit.
+Pruefung bestehender Dokumente, Code oder Anforderungen auf Qualitaet, Fehler, Luecken.
 
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `tech-stack-architect` | sonnet | Tech-Stack gegen REQ/NFR/UI-NFR validieren |
-| `requirements-contradiction-analyzer` | sonnet | Anforderungen auf Widersprüche prüfen |
-| `code-security-reviewer` | sonnet | Python/TypeScript auf OWASP-Top-10-Risiken prüfen |
-| `it-security-requirements-reviewer` | opus | IT-Sicherheit & DSGVO in Anforderungen prüfen |
-| `agrobiology-requirements-reviewer` | sonnet | Fachliche Korrektheit (Botanik, Anbau) prüfen |
-| `frontend-design-reviewer` | sonnet | Responsive Design, Kiosk-Modus, WCAG 2.1 prüfen |
-| `smart-home-ha-reviewer` | sonnet | Home Assistant Integration & Automations-Tauglichkeit prüfen |
-| `growing-phase-auditor` | sonnet | Wachstumsphasen-Daten auf botanische Konsistenz prüfen (3-Quellen-Verifizierung) |
-| `casual-houseplant-user-reviewer` | opus | Anforderungen aus Sicht des Casual-Users bewerten |
+| Agent | Typ | Modell | Fokus |
+|-------|-----|--------|-------|
+| `agrobiology-requirements-reviewer` | F | sonnet | Botanische Korrektheit und Vollstaendigkeit von Anforderungen |
+| `cannabis-indoor-grower-reviewer` | F | opus | Indoor-Growing-Perspektive fuer professionelle Nutzer |
+| `casual-houseplant-user-reviewer` | F | opus | Laien-Nutzer-Perspektive, Anfaenger-Freundlichkeit |
+| `code-security-reviewer` | T | sonnet | OWASP Top 10, Injection, Auth-Bypass, Tenant-Isolation |
+| `docs-freshness-checker` | T | sonnet | MkDocs auf Aktualitaet, Vollstaendigkeit, DE/EN-Paritaet |
+| `i18n-completeness-checker` | T | haiku | i18n-Dateien auf fehlende Keys, verwaiste Keys pruefen |
+| `it-security-requirements-reviewer` | T | sonnet | IT-Sicherheit, Datensparsamkeit, DSGVO-Konformitaet |
+| `outdoor-garden-planner-reviewer` | F | sonnet | Outdoor-Gartenbau-Perspektive fuer Anforderungen |
+| `requirements-contradiction-analyzer` | T | sonnet | Widersprueche zwischen REQ/NFR erkennen |
+| `smart-home-ha-reviewer` | F | sonnet | Home-Assistant-Integrations-Tauglichkeit pruefen |
 
-### Entwicklung (5 Agents)
+### Entwicklung (7 Agents)
 
-Implementieren produktiven Code oder führen komplexe Refactorings durch.
+Schreiben produktiven Code, APIs, Komponenten und Integrationen.
 
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `fullstack-developer` | opus | Backend (FastAPI, ArangoDB, Celery) + Frontend (React, MUI) implementieren |
-| `ha-integration-developer` | opus | Home Assistant Custom Integration & Lovelace Cards entwickeln |
-| `ha-integration-sync` | opus | HA-Integration mit Backend-API-Änderungen synchronisieren |
-| `ha-integration-requirements-engineer` | sonnet | HA-spezifische Anforderungen aus REQs ableiten |
-| `plant-info-document-generator` | sonnet | Detaillierte Pflanzendokumente mit Tabellen-Mapping recherchieren |
+| Agent | Typ | Modell | Aufgabe |
+|-------|-----|--------|---------|
+| `frontend-usability-optimizer` | T | sonnet | React/MUI-Seiten und Formulare auf Usability optimieren |
+| `fullstack-developer` | T | opus | Backend (Python/FastAPI) + Frontend (React/TS) implementieren |
+| `ha-integration-developer` | F | opus | Home-Assistant Custom Integration entwickeln |
+| `ha-integration-sync` | F | opus | HA-Integration mit Backend-API synchronisieren |
+| `knowledge-chunk-author` | F | sonnet | RAG-Knowledge-Base-Chunks erstellen und verbessern |
+| `plant-info-document-generator` | F | sonnet | Detaillierte Pflanzen-Informationsdokumente recherchieren |
+| `plant-info-to-seed-yaml` | F | sonnet | Pflanzendokumente in YAML-Seed-Eintraege konvertieren |
 
-### Testing & QA (3 Agents)
+### Testing & QA (5 Agents)
 
-Erstellen, reviewen und automatisieren Tests.
+Test-Erstellung, -Verwaltung und Analyse.
 
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `e2e-testcase-extractor` | sonnet | E2E-Testfälle aus Spezifikationen systematisch ableiten |
-| `selenium-test-generator` | opus | NFR-008-konforme Selenium-Tests mit Page-Objects generieren |
-| `selenium-test-reviewer` | sonnet | Bestehende Selenium-Tests auf NFR-008-Konformität prüfen |
+| Agent | Typ | Modell | Fokus |
+|-------|-----|--------|-------|
+| `e2e-result-reviewer` | T | opus | E2E-Testergebnisse visuell gegen Specs pruefen |
+| `e2e-testcase-extractor` | T | sonnet | E2E-Testfaelle aus Anforderungen systematisch ableiten |
+| `selenium-test-generator` | T | opus | NFR-008-konforme Selenium-E2E-Tests generieren |
+| `selenium-test-reviewer` | T | sonnet | Selenium-Tests auf NFR-008-Konformitaet reviewen |
+| `unit-test-runner` | T | sonnet | Unit-Tests (pytest, vitest) + Linting (Ruff, ESLint) ausfuehren |
 
-### Dokumentation (4 Agents)
+### Dokumentation (2 Agents)
 
-Erstellen, aktualisieren und übersetzen Dokumentation sowie konvertieren Daten.
+Dokumentations-Erstellung und -Pflege.
 
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `mkdocs-documentation` | sonnet | MkDocs-Material-Dokumentation (DE/EN) erstellen & pflegen |
-| `plant-info-to-seed-yaml` | sonnet | Pflanzendokumente zu schema-konformen YAML-Seed-Einträgen konvertieren |
-| `png-to-transparent-svg` | sonnet | PNG zu transparentem SVG mit Tracing konvertieren |
-| `gemini-graphic-prompt-generator` | sonnet | KAMI Graphic-Prompts aus Spezifikationen generieren |
+| Agent | Typ | Modell | Fokus |
+|-------|-----|--------|-------|
+| `mkdocs-documentation` | T | sonnet | MkDocs-Material-Dokumentation (DE+EN) erstellen |
+| `gemini-graphic-prompt-generator` | T | sonnet | KI-Bildgenerations-Prompts fuer Icons und Illustrationen |
 
-### Knowledge & RAG (4 Agents)
+### Spezialagenten (11 Agents)
 
-Managen und optimieren das RAG-System für botanisches Wissen.
+Spezialisierte Aufgaben mit domaenenspezifischem Wissen.
 
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `rag-eval-runner` | sonnet | RAG-Qualität benchmarken, Fehler klassifizieren, Verbesserungen vorschlagen |
-| `knowledge-chunk-author` | sonnet | Knowledge-Base-Chunks erstellen, validieren, Gaps schließen |
-| `cannabis-indoor-grower-reviewer` | opus | Indoor-Growing & Cannabis-Anbau aus Grower-Perspektive reviewen |
-| `outdoor-garden-planner-reviewer` | opus | Outdoor-Gartenplanung, Fruchtfolge, Mischkultur & Saisonalität reviewen |
-
-### Home Assistant (4 Agents)
-
-Spezialisiert auf Home Assistant Architektur, Integration und Anforderungen.
-
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `smart-home-ha-reviewer` | sonnet | HA-Integrations-Architektur & Entity-Design reviewen |
-| `ha-integration-developer` | opus | HA Custom Integration nach Spezifikationen implementieren |
-| `ha-integration-sync` | opus | HA-Integration mit geänderten Backend-APIs abgleichen |
-| `ha-integration-requirements-engineer` | sonnet | Aus REQ-Dokumenten HA-Entity-Mappings & Coordinators ableiten |
-
-### Sonstiges (1 Agent)
-
-| Agent | Modell | Aufgabe |
-|-------|--------|---------|
-| `agent-catalog-generator` | haiku | Diesen Katalog (agent-catalog.md) neu generieren |
+| Agent | Typ | Modell | Fokus |
+|-------|-----|--------|-------|
+| `agent-catalog-generator` | T | haiku | Diesen Agent- und Skill-Katalog regenerieren |
+| `frontend-design-reviewer` | T | sonnet | Frontend auf responsive Design, Kiosk-Modus, WCAG pruefen |
+| `growing-phase-auditor` | F | sonnet | Wachstumsphasen-Daten auf biologische Korrektheit pruefen |
+| `ha-integration-requirements-engineer` | F | sonnet | HA-Integrations-Anforderungen aus REQs ableiten |
+| `png-to-transparent-svg` | T | sonnet | PNG mit Schachbrett-Hintergrund zu transparentem SVG |
+| `pr-to-develop` | T | sonnet | GitHub PR vorbereiten, lokale CI validieren, mergen |
+| `rag-eval-runner` | F | sonnet | RAG-Qualitaets-Benchmarks ausfuehren und analysieren |
+| `seed-data-validator` | F | sonnet | YAML-Seed-Daten auf Qualitaet und Konsistenz pruefen |
+| `target-audience-analyzer` | T | sonnet | Zielgruppen und Nutzer-Profile aus Anforderungen ableiten |
+| `tech-stack-architect` | T | opus | Tech-Stack gegen Anforderungen validieren |
 
 ---
 
-## Skills (3 verfügbar)
+!!! note "Legende: Typ-Spalte"
+    **T** = Technisch (allgemeine Softwareentwicklung, in jedem Projekt nuetzlich)
+    **F** = Fachlich (domaenenspezifisch fuer Pflanzenpflege/Kamerplanter/AgriTech)
 
-Orchestrieren mehrere Agents oder führen wiederverwendbare Workflows durch.
+---
 
-### Quality & Checks (1 Skill)
+## Skills
 
-| Skill | Typ | Beschreibung |
-|-------|-----|-------------|
-| `/check-quality` | Technisch | Ruff-Linting (Python) + ESLint (TypeScript) ausführen |
+Sind in 4 Kategorien organisiert: Quality, Deployment, Workflow, Generierung.
 
-### Workflow (1 Skill)
-
-| Skill | Typ | Beschreibung |
-|-------|-----|-------------|
-| `/pre-pr` | Technisch | Pull-Request vorbereiten: Security-Check + Unit-Tests + UI-Review |
-
-### Generierung (1 Skill)
+### Quality & Checks (5 Skills)
 
 | Skill | Typ | Beschreibung |
 |-------|-----|-------------|
-| `/update-catalog` | Technisch | Agent- & Skill-Katalog regenerieren |
+| `/check-quality` | T | Backend Linting (ruff) + Tests (pytest) + Frontend Linting + TypeScript + Tests (vitest) |
+| `/check-architecture` | T | 5-Layer-Architektur-Verstaesse in Code erkennen und melden |
+| `/check-api-errors` | T | API-Fehlerbehandlung auf NFR-006-Konformitaet pruefen |
+| `/check-helm` | T | Helm-Charts auf bjw-s-Common und Skaffold-Konformitaet validieren |
+| `/check-test-pyramid` | T | Test-Verteilung (Unit/Integration/E2E) und Coverage validieren |
+
+### Deployment (4 Skills)
+
+| Skill | Typ | Beschreibung |
+|-------|-----|-------------|
+| `/deploy-ha` | F | HA-Integration in Kubernetes deployen (kubectl cp, Cache Clear, Restart) |
+| `/verify-ha` | F | HA-Custom-Integration auf Fehler pruefen |
+| `/check-slo` | T | SLO-Metriken und Performance-Budgets validieren |
+| `/check-retention` | T | Datenschutz-Aufbewahrungsrichtlinien im Code enforcing |
+
+### Workflow (5 Skills)
+
+| Skill | Typ | Beschreibung |
+|-------|-----|-------------|
+| `/implement` | T | Feature aus REQ-Dokument implementieren (Spec→Plan→Code) |
+| `/pre-pr` | T | Vor PR: Quality-Gate, Security, i18n, Doku-Check |
+| `/review-spec` | F | Anforderungs-Dokumente auf Vollstaendigkeit pruefen |
+| `/spec-status` | T | Implementierungs-Status aller REQ/NFR tracken |
+| `/test-extract` | T | E2E-Testfaelle aus Anforderungen ableiten |
+
+### Generierung (5 Skills)
+
+| Skill | Typ | Beschreibung |
+|-------|-----|-------------|
+| `/gen-knowledge` | F | RAG-Knowledge-Dokumente (YAML) fuer Pflanzenwissen erstellen |
+| `/update-catalog` | T | Diesen Agent- und Skill-Katalog regenerieren |
+| `/check-deps` | T | Python + Node Dependency-Updates und CVE-Vulnerabilities scannen |
+| `/check-ui-crud` | T | CRUD-UI auf NFR-010 (Listenansicht, Dialoge) validieren |
+| `/ha-derive` | F | HA-Integrations-Details aus REQ-Dokumenten ableiten |
 
 ---
 
 ## Einsatz-Entscheidungshilfe
 
-!!! tip "Welcher Agent für meine Aufgabe?"
+!!! tip "Welcher Agent/Skill fuer meine Aufgabe?"
 
-    ### Nach Workflow-Phase
+    **Nach Workflow-Phase:**
 
-    | Phase | Hauptagent | Alternative |
-    |-------|-----------|-------------|
-    | **Spec/Anforderungen schreiben** | `tech-stack-architect` | — |
-    | **Auf Widersprüche prüfen** | `requirements-contradiction-analyzer` | `it-security-requirements-reviewer` (Security-Fokus) |
-    | **Fachlich validieren** | `agrobiology-requirements-reviewer` | `cannabis-indoor-grower-reviewer`, `outdoor-garden-planner-reviewer` |
-    | **HA-Integration planen** | `smart-home-ha-reviewer` | `ha-integration-requirements-engineer` |
-    | **Testfälle ableiten** | `e2e-testcase-extractor` | — |
-    | **Code implementieren** | `fullstack-developer` | `ha-integration-developer` (nur HA) |
-    | **Security reviewen** | `code-security-reviewer` | `it-security-requirements-reviewer` (für Requirements) |
-    | **UI/UX optimieren** | `frontend-design-reviewer` | — |
-    | **Selenium-Tests generieren** | `selenium-test-generator` | — |
-    | **Tests reviewen** | `selenium-test-reviewer` | — |
-    | **Doku schreiben** | `mkdocs-documentation` | — |
-    | **Pflanzendaten recherchieren** | `plant-info-document-generator` | — |
-    | **Pflanzendaten zu YAML** | `plant-info-to-seed-yaml` | — |
-    | **Wachstumsphasen validieren** | `growing-phase-auditor` | — |
-    | **RAG-System optimieren** | `rag-eval-runner` | `knowledge-chunk-author` (um Gaps zu schließen) |
-
-    ### Nach Domäne
-
-    | Domäne | Agents |
-    |--------|--------|
-    | **Tech-Stack & Architektur** | `tech-stack-architect` |
-    | **Anforderungs-Management** | `requirements-contradiction-analyzer` |
-    | **Security (Code)** | `code-security-reviewer` |
-    | **Security (Requirements)** | `it-security-requirements-reviewer` |
-    | **Botanik & Anbau** | `agrobiology-requirements-reviewer`, `cannabis-indoor-grower-reviewer`, `outdoor-garden-planner-reviewer`, `growing-phase-auditor` |
-    | **Frontend & UX** | `frontend-design-reviewer` |
-    | **Home Assistant** | `smart-home-ha-reviewer`, `ha-integration-developer`, `ha-integration-sync`, `ha-integration-requirements-engineer` |
-    | **Testing** | `e2e-testcase-extractor`, `selenium-test-generator`, `selenium-test-reviewer` |
-    | **Dokumentation** | `mkdocs-documentation`, `png-to-transparent-svg`, `gemini-graphic-prompt-generator` |
-    | **Knowledge & Pflanzendaten** | `rag-eval-runner`, `knowledge-chunk-author`, `plant-info-document-generator`, `plant-info-to-seed-yaml`, `growing-phase-auditor` |
-    | **Casual User Feedback** | `casual-houseplant-user-reviewer` |
+    | Phase | Agent/Skill |
+    |-------|-------------|
+    | Anforderungen schreiben | `tech-stack-architect`, `/review-spec` |
+    | Anforderungen reviewen | `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`, `casual-houseplant-user-reviewer` |
+    | Implementieren | `fullstack-developer`, `/implement` |
+    | Lokal testen | `/check-quality`, `unit-test-runner` |
+    | Code reviewen | `code-security-reviewer`, `frontend-usability-optimizer` |
+    | Doku schreiben | `mkdocs-documentation` |
+    | Doku pruefen | `docs-freshness-checker` |
+    | PR vorbereiten | `/pre-pr`, `pr-to-develop` |
+    | E2E-Tests | `e2e-testcase-extractor` → `selenium-test-generator` |
+    | E2E-Results | `e2e-result-reviewer` |
+    | HA-Integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
+    | HA deployen | `/deploy-ha` |
+    | Knowledge-Base | `/gen-knowledge`, `knowledge-chunk-author` |
+    | RAG-Qualitaet | `rag-eval-runner` |
 
 ---
 
-## Typische Workflows
+## Typische Szenarien
 
-### Workflow 1: Feature aus Spezifikation implementieren
+### Szenario 1: Feature implementieren (Spec → Code → PR)
 
-1. **Spezifikation reviewen:** `tech-stack-architect` (Tech-Stack), `requirements-contradiction-analyzer` (Widersprüche)
-2. **Fachlich validieren:** `agrobiology-requirements-reviewer` (Botanik), `smart-home-ha-reviewer` (HA)
-3. **Code schreiben:** `fullstack-developer`
-4. **Tests schreiben:** `e2e-testcase-extractor` (Ableitung), `selenium-test-generator` (Implementierung)
-5. **Security reviewen:** `code-security-reviewer`
-6. **UI optimieren:** `frontend-design-reviewer`
-7. **Doku schreiben:** `mkdocs-documentation`
-8. **PR vorbereiten:** `/pre-pr` (orchestriert Steps 4–7)
+1. Spezifikation pruefen: `tech-stack-architect`
+2. Anforderungen reviewen: `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`
+3. Implementieren: `fullstack-developer`
+4. Lokal testen: `/check-quality`
+5. Security reviewen: `code-security-reviewer`
+6. UI optimieren: `frontend-usability-optimizer`
+7. Dokumentation: `mkdocs-documentation`
+8. PR vorbereiten: `/pre-pr`, `pr-to-develop`
 
-### Workflow 2: Pflanzendaten erfassen & importieren
+### Szenario 2: E2E-Tests fuer Feature
 
-1. **Recherchieren:** `plant-info-document-generator` (erstellt Markdown-Dokument)
-2. **Zu YAML:** `plant-info-to-seed-yaml` (konvertiert zu schema-konformem YAML)
-3. **Validieren:** `growing-phase-auditor` (prüft Phasen-Konsistenz)
-4. **Importieren:** manuell oder via Seed-Script
+1. Testfaelle ableiten: `e2e-testcase-extractor`
+2. Tests generieren: `selenium-test-generator` (NFR-008-konform)
+3. Tests reviewen: `selenium-test-reviewer`
+4. Ergebnisse analysieren: `e2e-result-reviewer`
 
-### Workflow 3: Home Assistant Integration erweitern
+### Szenario 3: Anforderung reviewen
 
-1. **HA-Anforderungen ableiten:** `ha-integration-requirements-engineer` (aus REQ-Dokumenten)
-2. **HA-Architektur reviewen:** `smart-home-ha-reviewer`
-3. **Implementieren:** `ha-integration-developer`
-4. **Mit Backend synchronisieren:** `ha-integration-sync` (bei Backend-Änderungen)
+1. Tech-Machbarkeit: `tech-stack-architect`
+2. Botanische Korrektheit: `agrobiology-requirements-reviewer`
+3. IT-Security & DSGVO: `it-security-requirements-reviewer`
+4. Widersprueche: `requirements-contradiction-analyzer`
+5. Nutzer-Perspektiven: `casual-houseplant-user-reviewer`, `cannabis-indoor-grower-reviewer`, `outdoor-garden-planner-reviewer`
 
-### Workflow 4: RAG-System optimieren
+### Szenario 4: Home Assistant Integration erweitern
 
-1. **Benchmarken:** `rag-eval-runner` (Smoke- oder Full-Test)
-2. **Gaps schließen:** `knowledge-chunk-author` (neue Chunks erstellen)
-3. **Validieren:** `growing-phase-auditor` (für botanische Korrektheit)
-4. **Wieder testen:** `rag-eval-runner` (Re-Eval)
+1. Anforderungen ableiten: `ha-integration-requirements-engineer`
+2. HA reviewen: `smart-home-ha-reviewer`
+3. Implementieren: `ha-integration-developer`
+4. Mit Backend synchronisieren: `ha-integration-sync`
+5. Deployen: `/deploy-ha`
 
-### Workflow 5: Casual-User Feedback adressieren
+### Szenario 5: RAG-System verbessern
 
-1. **Feedback analysieren:** `casual-houseplant-user-reviewer`
-2. **Outdoor-Anforderungen prüfen:** `outdoor-garden-planner-reviewer`
-3. **Spec überarbeiten** + Workflow 1
+1. Qualitaet benchmarken: `rag-eval-runner`
+2. Gaps schliessen: `knowledge-chunk-author`
+3. Neu testen: `rag-eval-runner`
 
 ---
 
 ## Modellwahl
 
-| Modell | Einsatz | Beispiele |
+| Modell | Einsatz | Beispiel |
 |--------|---------|----------|
-| **opus** | Höchste Qualität (komplexe Generierung, Architektur-Entscheidungen) | `fullstack-developer`, `ha-integration-developer`, `cannabis-indoor-grower-reviewer` |
-| **sonnet** | Standard (die Regel für ~80% der Aufgaben) | Alle Review-Agents, die meisten Generierungs-Agents |
-| **haiku** | Schnell & günstig (einfache Tasks) | `agent-catalog-generator`, `i18n-completeness-checker` |
+| **opus** | Komplexe Generierung, Architektur-Entscheidungen, umfangreiche Analysen | fullstack-developer, ha-integration-developer, e2e-result-reviewer, casual-houseplant-user-reviewer, tech-stack-architect, selenium-test-generator |
+| **sonnet** | Standard: Balance Qualitaet/Geschwindigkeit | Die meisten Agents (Reviews, Code-Fixes, Dokumentation) |
+| **haiku** | Schnell, einfache Pruefungen | agent-catalog-generator, i18n-completeness-checker |
 
 ---
 
-## Output-Pfade
+## Output-Verzeichnisse
 
-Wo Agents ihre Ergebnisse speichern:
-
-| Agent-Typ | Typischer Output | Beispiel |
-|-----------|-----------------|----------|
-| **Analyse/Review** | `spec/analysis/...md` | `spec/analysis/tech-stack-review.md` |
-| **Backend-Code** | `src/backend/app/` | `src/backend/app/api/v1/` |
-| **Frontend-Code** | `src/frontend/src/` | `src/frontend/src/pages/`, `src/frontend/src/components/` |
-| **HA-Code** | `src/ha-integration/` | `src/ha-integration/custom_components/kamerplanter/` |
-| **Tests** | `tests/e2e/`, `test-reports/` | `tests/e2e/test_*.py`, `test-reports/protokoll.md` |
-| **Dokumentation** | `docs/de/`, `docs/en/` | `docs/de/user-guide/`, `docs/de/development/` |
-| **Pflanzen-Daten** | `spec/knowledge/plants/`, `spec/knowledge/rag/` | `spec/knowledge/plants/solanum_lycopersicum.md` |
-| **HA-Specs** | `spec/ha-integration/` | `spec/ha-integration/HA-CUSTOM-INTEGRATION.md` |
-
----
-
-## Häufige Fragen
-
-### Wie starte ich einen Agent?
-
-Im Claude Code Chat:
-```
-/agent <name>
-```
-
-oder einfach:
-```
-Bitte aktiviere den agent-name Agent, um [Aufgabe] zu erledigen.
-```
-
-### Wie orchestriere ich mehrere Agents?
-
-Nutze Skills (z.B. `/pre-pr`) oder beschreibe den Workflow im Chat — Claude Code orchestriert die nötigen Agents automatisch.
-
-### Welcher Agent generiert Tests?
-
-- **Testfälle ableiten:** `e2e-testcase-extractor` (erstellt Spec-Dokumente)
-- **Code generieren:** `selenium-test-generator` (schreibt Python-Tests)
-- **Testen & Reviewen:** `selenium-test-reviewer` (prüft Qualität)
-
-### Welcher Agent schreibt Dokumentation?
-
-`mkdocs-documentation` für MkDocs-Material-Format (DE/EN). Für Pflanzendaten: `plant-info-document-generator` + `plant-info-to-seed-yaml`.
-
-### Was ist die 3-Quellen-Pflicht?
-
-`growing-phase-auditor` und `seed-data-validator` verifizieren botanische Daten durch mindestens 3 unabhängige wissenschaftliche Quellen, um Halluzinationen auszuschließen.
+| Output-Typ | Verzeichnis |
+|------------|------------|
+| Analyse-Reports | `spec/analysis/` |
+| Testfall-Spezifikationen | `spec/e2e-testcases/` |
+| E2E-Test-Reports | `test-reports/` |
+| Dokumentation | `docs/de/`, `docs/en/` |
+| Design-Prompts | `spec/design/` |
+| Seed-Daten | `src/backend/app/migrations/seed_data/` |
+| Knowledge-Base | `spec/knowledge/rag/` |
+| Code | `src/backend/`, `src/frontend/` |
+| HA-Integration | `src/ha-integration/custom_components/kamerplanter/` |
 
 ---
 
-## Hinweise
+## Tipps
 
-- **Agents arbeiten am besten mit klaren Anforderungen:** Beschreibe deine Aufgabe so konkret wie möglich.
-- **HA-Integration ist optional:** Das System funktioniert auch ohne Home Assistant; HA erweitert die Funktionalität.
-- **Code-Standard:** Englisch (source code), Deutsch (Doku/Spezifikationen).
-- **Modellkosten:** `opus` ist teurer als `sonnet`, aber besser für komplexe Aufgaben.
+- **Agent starten:** Im Claude Code Chat den Agent-Namen aufrufen
+- **Skill ausfuehren:** Im Chat `/skillname` eingeben
+- **Agents parallel:** Agents haben keine Abhaengigkeiten, koennen parallel laufen
+- **Englischer Code, deutsche Docs:** NFR-003 — Source Code MUSS Englisch sein
 
 ---
 
-## Version
-
-Katalog-Version: 2026-04-05  
-Agents: 34  
-Skills: 3  
-Letzte Aktualisierung: `agent-catalog-generator` Agent
+**Katalog-Version:** April 2026 | **35 Agents, 19 Skills** | **Zuletzt aktualisiert:** 2026-04-06

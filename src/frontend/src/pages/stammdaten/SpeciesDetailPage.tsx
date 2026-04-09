@@ -27,6 +27,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -65,6 +66,7 @@ import { fetchSpecies, clearCurrent } from '@/store/slices/speciesSlice';
 import * as api from '@/api/endpoints/species';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import * as companionApi from '@/api/endpoints/companionPlanting';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type {
@@ -146,6 +148,7 @@ export default function SpeciesDetailPage() {
   const [rotationFamiliesLoaded, setRotationFamiliesLoaded] = useState(false);
   const [rotationTargetKey, setRotationTargetKey] = useState('');
   const [rotationWaitYears, setRotationWaitYears] = useState(3);
+  const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
 
   const {
@@ -185,7 +188,13 @@ export default function SpeciesDetailPage() {
   });
 
   useEffect(() => {
-    if (key) dispatch(fetchSpecies(key));
+    if (key) {
+      dispatch(fetchSpecies(key));
+      phaseSequenceApi
+        .getSpeciesPhaseSequence(key)
+        .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
+        .catch(() => setPhaseSequenceKey(null));
+    }
     familiesApi.listBotanicalFamilies(0, 200).then(setFamilies).catch(() => {});
     planApi.fetchNutrientPlans(0, 200).then(setNutrientPlans).catch(() => {});
     return () => { dispatch(clearCurrent()); };
@@ -379,9 +388,22 @@ export default function SpeciesDetailPage() {
 
       {tab === 0 && (
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
-          <Typography variant="body2" color="text.secondary">
-            {t('pages.species.editIntro')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.species.editIntro')}
+            </Typography>
+            {phaseSequenceKey && (
+              <Chip
+                component={RouterLink}
+                to={`/phasen/ablaeufe/${phaseSequenceKey}`}
+                icon={<AccountTreeIcon />}
+                label={t('pages.phaseSequences.viewPhaseSequence')}
+                clickable
+                variant="outlined"
+                size="small"
+              />
+            )}
+          </Box>
 
           {/* ── Panel 1: Taxonomie (intermediate — Pflichtfelder) ── */}
           {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
@@ -858,7 +880,7 @@ export default function SpeciesDetailPage() {
                               </Link>
                             }
                             secondary={c.reason || undefined}
-                            secondaryTypographyProps={{ variant: 'caption' }}
+                            slotProps={{ secondary: { variant: 'caption' } }}
                           />
                         </ListItem>
                       ))}
@@ -904,7 +926,7 @@ export default function SpeciesDetailPage() {
                   onChange={(e) => setCompanionScore(Number(e.target.value))}
                   fullWidth
                   helperText={t('pages.companionPlanting.scoreHelper')}
-                  inputProps={{ min: 0, max: 1, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 1, step: 0.1 } }}
                   data-testid="score-input"
                 />
               )}
@@ -1043,7 +1065,7 @@ export default function SpeciesDetailPage() {
                         >
                           <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.25, '&:last-child': { pb: 1.25 } }}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body1" color="text.primary" fontWeight={500}>
+                              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
                                 {s.name ?? s.family_key}
                               </Typography>
                               {s.benefit_reason && (
@@ -1097,7 +1119,7 @@ export default function SpeciesDetailPage() {
                     onChange={(e) => setRotationWaitYears(Number(e.target.value))}
                     fullWidth
                     helperText={t('pages.cropRotation.waitYearsHelper')}
-                    inputProps={{ min: 1, max: 10 }}
+                    slotProps={{ htmlInput: { min: 1, max: 10 } }}
                     data-testid="wait-years-input"
                   />
                 </DialogContent>

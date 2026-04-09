@@ -1,0 +1,358 @@
+---
+title: Post-Harvest — Nacherntebehandlung, Lagerung und Konservierung
+language: de
+category: phasen
+tags:
+  - post-harvest
+  - nacherntebehandlung
+  - trocknung
+  - curing
+  - lagerung
+  - einmachen
+  - konservieren
+  - fermentation
+  - sauerkraut
+  - kimchi
+  - einkochen
+  - einfrieren
+  - doerren
+  - saatgutgewinnung
+  - wurzelgemuese
+  - kartoffeln
+  - zwiebeln
+  - aepfel lagern
+  - ernteueberschuss
+  - vorratshaltung
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [harvest]
+chunks:
+
+  - id: gemuese-kraeuter-trocknen
+    title: Gemuese und Kraeuter trocknen — Lufttrocknung, Doerrautomat, Backrohr
+    content: |
+      Trocknen ist die einfachste und guenstigste Konservierungsmethode — kein
+      Strom, keine Gefriertruhe, jahrelange Haltbarkeit. Gilt fuer Gemuese und
+      Kuechenkreaeuter — fuer Cannabis-Ernte gelten eigene Regeln (langsam,
+      kuehle Temperatur, kein direktes Erwaermen).
+
+      Welche Kraeuter trocknen gut:
+      Rosmarin, Thymian, Oregano, Majoran, Beifuss, Pfefferminze, Kamille und
+      Lorbeer trocknen ausgezeichnet — der Geschmack bleibt erhalten oder
+      konzentriert sich sogar. Einfach buendeln, kopfueber an einem luftigen,
+      schattigen Platz aufhaengen. Niemals in der Sonne trocknen (UV zerstoert
+      aetherische Oele).
+
+      Welche Kraeuter besser einfrieren:
+      Basilikum, Petersilie, Schnittlauch und Koriander verlieren beim Trocknen
+      viel Aroma — besser frisch hacken und in Eiswuerfelformen mit etwas Wasser
+      oder Oel einfrieren.
+
+      Doerrautomat (empfohlen):
+      - Kraeuter: 35-45 Grad Celsius, 2-6 Stunden (je nach Wassergehalt)
+      - Gemuese (Tomaten, Paprika, Zucchini): 50-60 Grad, 6-12 Stunden
+      - Pilze: 40-50 Grad, 4-8 Stunden
+      - Obst (Aepfel, Birnen, Pflaumen): 60-70 Grad, 8-16 Stunden
+      - Wichtig: Lueftungsschlitze nicht blockieren, Scheiben gleichmaessig dick
+
+      Backrohr als Notloesung (nur fuer Gemuese und Kraeuter):
+      Backrohr auf niedrigste Stufe (50-80 Grad), Tuere einen Spalt offen
+      lassen damit Feuchtigkeit entweichen kann. Nicht ideal fuer Gemuese —
+      ungleichmaessige Temperatur, hoher Energieverbrauch.
+
+      Lufttrocknung ohne Geraet:
+      Kraeuter in kleinen Buendeln (nicht zu dicht!) an Schnur aufhaengen.
+      Luftig, schattig, trocken — kein direktes Sonnenlicht. Fertig wenn Blaetter
+      rascheln und zwischen den Fingern zerbroeseln (2-4 Wochen je nach Art
+      und Luftfeuchtigkeit).
+
+      Lagerung getrockneter Kraeuter:
+      Luftdichte Glaeser (kein Plastik — nimmt Geruch an), dunkel und kuehle
+      Stelle. Ganze Blaetter lagern, erst beim Kochen moersern oder zerreiben
+      (Aroma bleibt laenger).
+    metadata:
+      topic: vegetable_herb_drying
+      temperature_herb_celsius: [35, 45]
+      temperature_vegetable_celsius: [50, 60]
+      difficulty: beginner
+      applicable_crops: [herbs, vegetables, mushrooms, fruit]
+      crops_best_dried: [rosemary, thyme, oregano, marjoram, mint, chamomile]
+      crops_better_frozen: [basil, parsley, chives, coriander]
+
+  - id: fermentation-milchsaeure
+    title: Fermentation — Sauerkraut, Saure Gurken und Kimchi selbst herstellen
+    content: |
+      Milchsaeuregaerung ist eine der aeltesten Konservierungsmethoden — keine
+      Hitze, kein Essig, nur Salz und Zeit. Ideal wenn im Herbst Kohl und
+      Gurken im Ueberfluss vorhanden sind.
+
+      Grundprinzip Milchsaeuregaerung:
+      Milchsaeurebakterien (auf jedem Gemuese natuerlich vorhanden) wandeln
+      Zucker in Milchsaeure um. Die entstehende Saeure hemmt Faeulnisbakterien
+      und konserviert das Gemuese. Entscheidend: das Gemuese muss komplett unter
+      die Fluessigkeit tauchen — Sauerstoffkontakt stoert die Gaerung.
+
+      Salzkonzentration — die wichtigste Variable:
+      - 2-3% Salz (bezogen auf Gemuesegewicht) ist der Standardbereich
+      - Zu wenig Salz (<1.5%): Faeulnisrisiko, unerwuenschte Bakterien
+      - Zu viel Salz (>3.5%): Gaerung verlangsamt oder stoppt, sehr salzig
+      - Beispiel: 1 kg Kohl → 20-25 g nicht jodiertes Salz (Jod hemmt Bakterien!)
+
+      Sauerkraut — Schritt fuer Schritt:
+      1. Kohl fein hobeln, Salz einmassieren bis Saft austritt (5-10 Minuten)
+      2. Fest in ein sauberes Glasgefaess oder Steinguttopf stampfen
+      3. Kohl muss vollstaendig im eigenen Saft versinken
+      4. Beschwerungstein oder Zip-Lock-Beutel mit Salzwasser als Gewicht
+      5. Zimmertemperatur (18-22°C), nach 1-2 Tagen beginnt die Gaerung
+      6. Fertig nach 2-4 Wochen (je laenger, desto saurer und komplexer)
+      7. Dann kuehle Lagerung (Keller, Kuehlschrank) — haelt Monate
+
+      Saure Gurken / Kimchi:
+      Gurken (ganz oder geschnitten) in 2% Salzlake einlegen, Glas mit Tuch
+      abdecken. Kimchi: Chinakohl mit Salzlake weichmachen, dann mit Knoblauch,
+      Ingwer und Chili vermengen — gleiches Gaerungsprinzip.
+
+      Gaerbehаelter:
+      Einmachglaeser mit losem Deckel (damit CO2 entweichen kann), Gaertoepfe
+      mit Wasserrinne (ideal), oder einfache Weckglaeser. Niemals luftdicht
+      verschliessen in den ersten Wochen — Druckaufbau durch CO2.
+
+      Hygiene:
+      Glaeser mit heissem Wasser reinigen (kein Seifenrueckstand!). Haende und
+      Werkzeug sauber. Gemuese unbedingt unter der Fluessigkeit halten — alles
+      was Luftkontakt hat schimmelt.
+    metadata:
+      topic: lacto_fermentation
+      salt_percent: [2, 3]
+      fermentation_temp_celsius: [18, 22]
+      duration_weeks: [2, 4]
+      difficulty: intermediate
+      crops: [cabbage, cucumber, white_cabbage, chinese_cabbage]
+      note: relevant_fuer_freilandgaertner_mit_koehl_ueberschuss
+
+  - id: ernte-richtig-lagern
+    title: Ernte richtig lagern — Wurzelgemuese, Kartoffeln, Zwiebeln, Aepfel
+    content: |
+      Nach der Ernte entscheidet die Lagerung ob das Gemuese wochenlang haltbar
+      bleibt oder innerhalb weniger Tage verdirbt. Jedes Gemuese hat andere
+      Ansprueche.
+
+      Wurzelgemuese (Karotten, Rote Bete, Sellerie, Pastinaken):
+      Beste Methode: Sandkiste oder Erdmiete. Schicht Gemuese, Schicht
+      feuchter (nicht nasser) Sand, wieder Gemuese. In kuehlfeuchtem Keller
+      bei 2-4 Grad Celsius haelt Wurzelgemuese so 4-6 Monate. Laub vorher
+      abdrehen (nicht schneiden — Schnittstelle fault). Vorab beschaedigte oder
+      angefaulte Stuecke aussondern — ein krankes Stueck kann die ganze Kiste ruinieren.
+
+      Kartoffeln:
+      - Dunkel lagern (Licht loest Solaninbildung aus — gruene Stellen giftig!)
+      - 4-8 Grad Celsius, trocken und luftig (Holzkiste mit Lueftungsschlitzen)
+      - NICHT im Kuehlschrank (unter 4 Grad wandelt sich Staerke in Zucker —
+        Kartoffeln werden suesslich und brunen beim Braten stark)
+      - Keine Aepfel in der Naehe (Ethylen beschleunigt Keimung)
+      - Gefaehrdete Stellen: Kellerhals mit Lichteinfall, feuchte Ecken
+
+      Zwiebeln und Knoblauch:
+      Trocken lagern ist entscheidend — Feuchtigkeit loest sofort Schimmel aus.
+      Zopf binden oder in Netzen aufhaengen. Luftig, kuehl (5-15 Grad), dunkel.
+      Haelt trocken gelagert 6-12 Monate. Beschaedigte oder gekeimte Zwiebeln
+      zuerst verbrauchen.
+
+      Aepfel und Birnen:
+      Kuehl (2-5 Grad), luftig und getrennt von anderen Fruechten und Gemuese
+      lagern. Aepfel und Birnen sind starke Ethylen-Produzenten und beschleunigen
+      die Reife von Lagergemuese, Kartoffeln und Salat. Lagerfaehige Sorten
+      (Boskop, Jonagold, Elstar) haelten mehrere Monate — Tafelaepfel (Gala,
+      Braeburn) nur wenige Wochen.
+
+      Kuerbis und Speisekuerbis:
+      Trocken, warm (12-15 Grad), gut belueftet. Kuehl-feuchte Keller sind
+      nicht geeignet! Stiel belassen (Schutzbarriere gegen Pilze). Haelt
+      3-6 Monate je nach Sorte.
+
+      Grundregel: Niemals beschaedigtes Erntegut einlagern — es verdirbt
+      schnell und infiziert Nachbarstuecke.
+    metadata:
+      topic: harvest_storage
+      root_vegetable_temp_celsius: [2, 4]
+      potato_temp_celsius: [4, 8]
+      onion_temp_celsius: [5, 15]
+      apple_temp_celsius: [2, 5]
+      squash_temp_celsius: [12, 15]
+      difficulty: beginner
+
+  - id: einmachen-konservieren
+    title: Einmachen, Einfrieren und Einlegen — Grundregeln der Konservierung
+    content: |
+      Einkochen (Einwecken):
+      Gemuese und Fruechte in sterile Glaeser fuellen, im Wasserbad oder Einkochautomat
+      erhitzen. Durch Erhitzen werden Keime abgetoetet und ein Vakuum gebildet.
+      Temperatur und Saeure sind entscheidend:
+      - Saure Lebensmittel (Tomaten, Gurken, Obst): Ausreichend pH < 4.5 hemmt
+        Botulismus-Erreger. Bei genuegend Saeure reicht 90 Grad fuer 20-30 Minuten.
+      - Wenig saures Gemuese (Bohnen, Mais, Kohl ohne Essig): Erfordert Druckkocher
+        (mindestens 116 Grad) fuer Botulismus-Sicherheit. Keine Ausnahme!
+      - Im Zweifelsfall Essig zugeben (pH sicherstellen) oder Gefrierer nutzen.
+      Haltbarkeit: Selbst eingekochtes haelt 1-2 Jahre dunkel gelagert.
+
+      Einfrieren (schnellste Methode):
+      Fast alles kann eingefroren werden — aber Blanchieren vor dem Einfrieren ist
+      Pflicht bei Gemuese! Kurz in kochendes Wasser (1-3 Minuten je nach Sorte),
+      dann sofort in Eiswasser abschrecken. Blanchieren inaktiviert Enzyme die
+      sonst Farbe, Konsistenz und Naehrstoffe im Tiefkuehlschrank abbauen.
+      Ausnahmen (kein Blanchieren noetig): Kraeuterpesto, Fruechte fuer Smoothies,
+      Paprika (roh einfrierbar, verliert aber Biss).
+      Haltbarkeit: 6-12 Monate bei minus 18 Grad.
+
+      Einlegen in Essig:
+      Essig (mind. 5% Saeuregehalt) konserviert zuverlaessig durch niedrigen pH.
+      Gurken, Rote Bete, Kuerbis, Zwiebeln. Heiss einlegen (sterilisiert Glas),
+      mindestens 2 Wochen ziehen lassen vor dem ersten Oeffnen.
+
+      Einlegen in Oel:
+      Nur fuer getrocknete Zutaten (Tomaten, Kraeuter, Paprika) geeignet!
+      Frische Zutaten in Oel sind ein Botulismus-Risiko (anaerobe Umgebung).
+      Immer im Kuehlschrank lagern und innerhalb von 2-4 Wochen verbrauchen.
+
+      Lebensmittelsicherheit:
+      - Glaeser und Deckel sterilisieren (auskochen oder heissem Wasser)
+      - Beschaedigtes Erntegut nicht einkochen
+      - Bei Schimmel oder seltsamen Geruch: Glas entsorgen, nie kosten
+    metadata:
+      topic: canning_preserving
+      min_acidity_botulism_safe: 4.5
+      blanching_required: true
+      freezer_temp_celsius: -18
+      freezer_months: [6, 12]
+      difficulty: intermediate
+
+  - id: saatgut-ernte-lagerung
+    title: Saatgut ernten und lagern — nach der Haupternte Samen fuer naechstes Jahr
+    content: |
+      Saatgut-Ernte lohnt sich besonders bei Sorten die man liebt und die nicht
+      im Handel erhaeltlich sind. Grundregel: Nur von gesunden, kräftigen Pflanzen
+      Saatgut gewinnen. Kranke Pflanzen geben schlechtes Saatgut.
+
+      Welche Pflanzen fuer Saatgut stehen lassen:
+      Einjahrige (Tomate, Paprika, Basilikum, Buschbohne, Erbse, Kuerbis):
+      Einfach — Pflanzen vollstaendig ausreifen lassen. Einige Exemplare der
+      besten Pflanzen markieren und NICHT ernten — fuer Saatgut stehen lassen.
+
+      Zweijahrige (Karotte, Rote Bete, Mangold, Petersilie, Pastinak):
+      Bluehen erst im zweiten Jahr. Im ersten Jahr ueberwintern lassen
+      (oder ausgraben und einlagern), im Fruehjahr wieder einpflanzen.
+      Saatgut nach der Bluetenbildung im Sommer des zweiten Jahres ernten.
+
+      Tomaten-Saatgut (Fermentationsmethode):
+      Tomatensamen sind von Fruchtfleisch und einer Hemmstoff-Gallerte umgeben.
+      Fermentation entfernt diese Schicht und verbessert die Keimrate:
+      1. Samen mit Fruchtfleisch in ein Glas geben, etwas Wasser zugeben
+      2. 2-3 Tage bei Raumtemperatur stehen lassen (bis Schimmelschicht entsteht)
+      3. Wasser aufgiessen, schlechte Samen (schwimmen oben) und Schimmel
+         abgiessen, gute Samen sinken auf den Boden
+      4. Gute Samen abseihen, auf Kuechenpapier trocknen (nicht in der Sonne!)
+
+      Trocknung und Reifungszeit:
+      Samen muessen vollstaendig trocken sein bevor sie gelagert werden —
+      Restfeuchtigkeit fuehrt zu Schimmel in der Lagertuete. Mindestens
+      1-2 Wochen auf Papier oder Sieb bei Raumtemperatur trocknen.
+      Brassica-Samen (Kohl, Radieschen, Rueben): Schoten vollstaendig braun
+      und trocken werden lassen, dann drueschandeln oder reiben.
+      Kuerbis/Zucchini: Frucht vollstaendig ueberreifen lassen (weit nach
+      Erntezeitpunkt), Samen herausnehmen, waschen, trocknen.
+
+      Lagerung:
+      Trocken, dunkel und kuehle Lagerung verlaengert die Keimfaehigkeit
+      erheblich. Papiertueten oder Glasglaeser mit Kieselgel-Beutel
+      (entzieht Restfeuchtigkeit), im Kuehlschrank oder kuehlfeuchtem Keller.
+      Beschriften: Art, Sorte, Erntejahr — wichtig fuer spaetere Keimraten-
+      Einschaetzung. Faustregel Haltbarkeit: Tomate/Paprika 3-5 Jahre,
+      Kohl/Brokkoli 4-5 Jahre, Karotte/Petersilie/Pastinake 1-2 Jahre (kurz!),
+      Kuerbis 4-6 Jahre, Bohne/Erbse 2-3 Jahre.
+    metadata:
+      topic: seed_saving
+      fermentation_method: tomato_seeds
+      storage_conditions: [dark, dry, cool]
+      difficulty: intermediate
+      relevant_crops: [tomato, pepper, squash, carrot, beet, bean, pea]
+
+  - id: cannabis-wet-trim-dry-trim
+    title: Cannabis trimmen — Wet-Trim vs. Dry-Trim, Vor- und Nachteile
+    content: |
+      Nach der Ernte muss Cannabis getrimmt werden — Zuckerblätter rund um
+      die Blueten werden entfernt. Zwei Methoden mit unterschiedlichen Vor- und
+      Nachteilen:
+
+      Wet-Trim (Frisch-Trimmen, direkt nach der Ernte):
+      - Blueten werden VOR der Trocknung getrimmt
+      - Vorteile: Einfacher zu schneiden (weiches Material), schnellere
+        Trocknung (weniger Blattmasse, Feuchtigkeit entweicht schneller),
+        geringeres Schimmelrisiko bei hoher Luftfeuchtigkeit
+      - Nachteile: Klebrig und zeitaufwaendig direkt nach der Ernte,
+        Trocknung geht schneller (kann zu schnell werden wenn RH niedrig)
+      - Empfehlung: Fuer feuchtes Klima (>65% RH im Trocknungsraum) und
+        grosse Ernten (Cannabis Social Club, professionelle Erzeuger)
+
+      Dry-Trim (Trocken-Trimmen, nach der Trocknung):
+      - Blueten haengen komplett mit Blaettern und werden NACH der Trocknung
+        getrimmt
+      - Vorteile: Blaetter schuetzen Blueten waehrend der Trocknung
+        (langsamere, gleichmaessigere Trocknung), angenehmeres Arbeitsbedarf,
+        besseres Aroma (Terpene koennen sich laenger entwickeln)
+      - Nachteile: Schwieriger zu trimmen (trockene Blaetter brechen),
+        hoehere Schimmelgefahr wenn Luftzirkulation schlecht
+      - Empfehlung: Fuer trockenes Klima, kleinere Mengen, hoechste Qualitaet
+
+      Was mit den Trimmresten?
+      Zuckerblätter (Sugar Leaves — harzbesetzte kleine Blaetter) enthalten
+      Trichome und eignen sich fuer Bubble Hash, Rosin, Tinktur oder Kief.
+      Grosse Blattblaetter (Fan Leaves) haben wenig Harz — Kompost.
+
+      Werkzeug:
+      Scharfe Trimmscheren (kurze Klingen fuer Praezision), grosse Scheren
+      fuer Zweige. Isopropanol (70%+) zum Reinigen — Harz klebt sofort.
+      Trimmschalen mit Siebeinlage fangen Kief auf.
+    metadata:
+      topic: cannabis_trimming
+      methods: [wet_trim, dry_trim]
+      difficulty: intermediate
+      target_audience: [cannabis_grower, cannabis_social_club]
+
+  - id: cannabis-langzeitlagerung
+    title: Cannabis langfristig lagern — nach dem Curing richtig aufbewahren
+    content: |
+      Nach abgeschlossenem Curing (mindestens 4 Wochen) kann Cannabis
+      langfristig gelagert werden ohne signifikanten Qualitaetsverlust.
+
+      Optimale Lagerbedingungen:
+      - Temperatur: 15-20 Grad Celsius (keinesfalls unter 10 oder ueber 25 Grad)
+      - Luftfeuchtigkeit: 58-62% RH — Boveda- oder Integra-Pack 62% einlegen
+        und aufgebrauchte Packs regelmassig tauschen
+      - Dunkel: UV-Licht ist der groesste Feind — baut THC ab. Lichtundurchlaessige
+        Glaeser oder dunkle Aufbewahrung verwenden
+      - Keine Erschuetterungen: Trichome sind bruechig — haendeln mit Sorgfalt
+
+      Vakuumversiegelung fuer Langzeitlagerung:
+      Vakuumgeraete entfernen Sauerstoff und verlangsamen den Abbau erheblich.
+      FoodSaver-Geraete oder Vakuumbeutel mit Handpumpe. Bei Vakuum kein
+      Boveda-Pack noetig (aber Glas bevorzugen vor Plastik).
+
+      Haltbarkeit:
+      - Korrekte Lagerung (Glas, dunkel, 15-20 Grad, 62% RH): 6-12 Monate
+        ohne signifikanten Potenz-Verlust
+      - Vakuum zusaetzlich: bis 2 Jahre
+      - Kuehlschrank: Nicht empfohlen (Temperaturschwankungen beim Oeffnen
+        bilden Kondenswasser, stoert Trichome)
+      - Tiefkuehlschrank (Vakuum): bis 5+ Jahre fuer Archivzwecke — nur wenn
+        absolut dicht versiegelt und tatsaechlich nie geoeffnet bis Nutzung
+
+      Zeichen fuer Qualitaetsverlust:
+      Blasse, kruemelende Trichome, Heu-Geruch statt Aroma, bruechige
+      Konsistenz. Schimmel zeigt sich als weisser Flaum oder Ammoniak-Geruch
+      — dann sofort entsorgen, nie konsumieren.
+    metadata:
+      topic: cannabis_longterm_storage
+      target_rh: [58, 62]
+      temperature_celsius: [15, 20]
+      shelf_life_months: [6, 12]
+      difficulty: intermediate
+      target_audience: [cannabis_grower, cannabis_social_club]

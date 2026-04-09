@@ -5,6 +5,7 @@ from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
@@ -22,6 +23,7 @@ class CareReminderService:
         watering_log_repo: IWateringLogRepository | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
         lifecycle_repo: IPhaseRepository | None = None,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -29,6 +31,7 @@ class CareReminderService:
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
         self._lifecycle_repo = lifecycle_repo
+        self._phase_seq_repo = phase_seq_repo
 
     def get_or_create_profile(
         self,
@@ -150,15 +153,30 @@ class CareReminderService:
         return created
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
-        """Look up watering_interval_days from the plant's current growth phase."""
-        if not self._plant_repo or not self._lifecycle_repo:
+        """Look up watering_interval_days from the plant's current growth phase.
+
+        Tries PhaseSequence (via entry -> definition) first, falls back to LifecycleConfig.
+        """
+        if not self._plant_repo:
             return None
         plant = self._plant_repo.get_by_key(plant_key)
         if not plant or not plant.current_phase_key:
             return None
-        phase = self._lifecycle_repo.get_phase_by_key(plant.current_phase_key)
-        if phase and phase.watering_interval_days:
-            return phase.watering_interval_days
+
+        # Try PhaseSequence first: current_phase_key may be a PhaseSequenceEntry key
+        if self._phase_seq_repo:
+            entry = self._phase_seq_repo.get_entry_by_key(plant.current_phase_key)
+            if entry:
+                defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                if defn and defn.watering_interval_days:
+                    return defn.watering_interval_days
+
+        # Fallback to LifecycleConfig
+        if self._lifecycle_repo:
+            phase = self._lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+            if phase and phase.watering_interval_days:
+                return phase.watering_interval_days
+
         return None
 
     def _resolve_slot_keys(self, plant_key: str) -> list[str]:

@@ -182,9 +182,9 @@ export default function ActivityCreateDialog({ open, onClose, onCreated }: Props
                 options={[]}
                 value={field.value}
                 onChange={(_, newValue) => field.onChange(newValue)}
-                renderTags={(value, getTagProps) =>
+                renderValue={(value: string[], getItemProps) =>
                   value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
+                    const { key, ...tagProps } = getItemProps({ index });
                     return <Chip key={key} label={option} size="small" color="primary" variant="outlined" {...tagProps} />;
                   })
                 }

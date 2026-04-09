@@ -10,6 +10,17 @@ properties:
     type: array
     items:
       $ref: "#/$defs/species"
+  photosensitive_species:
+    type: array
+    items:
+      type: string
+  default_phase_sequence:
+    type: string
+    description: "Reference to a PhaseSequence by name for indoor defaults"
+  default_phases:
+    type: array
+    items:
+      $ref: "#/$defs/default_phase"
 
 required: [species]
 additionalProperties: false
@@ -138,3 +149,84 @@ $defs:
         description: "Broad category for UI grouping"
     required: [scientific_name, common_names, family, genus, growth_habit, root_type]
     additionalProperties: true
+
+  default_phase:
+    type: object
+    properties:
+      name:
+        type: string
+      display_name:
+        type: string
+      typical_duration_days:
+        type: integer
+        minimum: 1
+      sequence_order:
+        type: integer
+        minimum: 0
+      is_terminal:
+        type: boolean
+      allows_harvest:
+        type: boolean
+      stress_tolerance:
+        type: string
+        enum: [low, medium, high]
+      watering_interval_days:
+        type: integer
+        minimum: 1
+      requirement_profile:
+        $ref: "#/$defs/requirement_profile"
+      nutrient_profile:
+        $ref: "#/$defs/nutrient_profile"
+    required: [name, display_name, typical_duration_days, sequence_order, is_terminal, allows_harvest, stress_tolerance]
+    additionalProperties: false
+
+  requirement_profile:
+    type: object
+    properties:
+      light_ppfd_target:
+        type: integer
+        minimum: 0
+      photoperiod_hours:
+        type: number
+        minimum: 0
+        maximum: 24
+      temperature_day_c:
+        type: number
+      temperature_night_c:
+        type: number
+      humidity_day_percent:
+        type: integer
+        minimum: 0
+        maximum: 100
+      humidity_night_percent:
+        type: integer
+        minimum: 0
+        maximum: 100
+      vpd_range:
+        type: array
+        items:
+          type: number
+        minItems: 2
+        maxItems: 2
+    required: [light_ppfd_target, photoperiod_hours, temperature_day_c, temperature_night_c,
+               humidity_day_percent, humidity_night_percent, vpd_range]
+    additionalProperties: false
+
+  nutrient_profile:
+    type: object
+    properties:
+      npk_ratio:
+        type: array
+        items:
+          type: integer
+        minItems: 3
+        maxItems: 3
+      target_ec_ms:
+        type: number
+        minimum: 0
+      target_ph:
+        type: number
+        minimum: 0
+        maximum: 14
+    required: [npk_ratio, target_ec_ms, target_ph]
+    additionalProperties: false

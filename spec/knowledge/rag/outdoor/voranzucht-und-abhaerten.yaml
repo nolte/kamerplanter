@@ -1,0 +1,315 @@
+---
+title: Voranzucht, Pikieren und Abhaerten fuer den Freilandanbau
+language: de
+category: outdoor
+tags: [voranzucht, anzucht, saatschale, pikieren, abhaerten, hardening-off, auspflanzen, keimung, lichtkeimer, dunkelkeimer, anzuchterde, saattiefe, eisheilige, jungpflanzen, fensterbank, pflanzenlampe, heizmatte, etiolieren, vergeilen, damping-off, umfallkrankheit, schnecken]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative]
+chunks:
+
+  - id: voranzucht-wann-was
+    title: Was vorziehen und wann — Rückrechnung vom Auspflanztermin
+    content: |
+      Nicht alle Kulturen profitieren von Voranzucht. Die Faustregel: Wer lange
+      Anzuchtzeit hat oder im Freiland nicht ausreichend Zeit zum Reifen bekommt,
+      wird vorgezogen. Wer Pfahlwurzeln bildet oder schnell keimrt, wird direkt gesaet.
+
+      Vorziehen empfohlen (Saattermin = Auspflanztermin minus Anzuchtzeit):
+      - Paprika, Chili, Aubergine: Anzucht 10-12 Wochen → Saatstart Januar-Februar
+      - Tomate: Anzucht 6-8 Wochen → Saatstart Maerz (Auspflanzen nach Eisheiligen = 15. Mai)
+      - Kohlarten (Brokkoli, Blumenkohl, Kohlrabi): Anzucht 4-6 Wochen → Maerz-April
+      - Sellerie, Porree: Anzucht 8-10 Wochen → Februar-Maerz
+      - Kuerbis, Zucchini: Anzucht NUR 3-4 Wochen (wachsen sonst zu gross) → April
+
+      Direktsaat besser (kein Vorziehen):
+      - Moehre, Pastinake, Rote Bete — Pfahlwurzel vertraegt Umpflanzen nicht
+      - Radieschen, Rettich — zu schnell wachsend, kein Vorteil durch Voranzucht
+      - Bohne, Erbse, Mais — keimen schnell, vertragen Wurzelstress schlecht
+      - Spinat, Feldsalat — kaeltetolerant, Direktsaat ab Maerz problemlos
+
+      Rückrechnung Beispiel Tomate:
+      Letzter Frost: 15. Mai → minus 7 Tage Abhaertung → minus 7 Wochen Anzucht
+      = Saatstart Anfang bis Mitte Maerz.
+      Vorsicht: Zu fruehe Aussaat fuehrt zu grossen, stressgeplagten Pflanzen
+      auf der Fensterbank — lieber 1 Woche spaeter als 3 Wochen zu frueh.
+    metadata:
+      topic: voranzucht_planung
+      months: [1, 2, 3, 4]
+      technique: pre_cultivation
+      species_groups: [nightshade, cucurbit, brassica, root_vegetables]
+      difficulty: beginner
+
+  - id: aussaat-technik-substrat
+    title: Anzuchterde, Saattiefe und Aussaat-Technik richtig machen
+    content: |
+      Das richtige Substrat und die korrekte Saattiefe entscheiden ob Samen keimen
+      oder verrotten.
+
+      Anzuchterde — warum speziell:
+      Standard-Blumenerde ist zu naehrstoffreich (verbrennt Keimwurzeln) und oft
+      zu grob. Anzuchterde ist naehrstoffarm (EC unter 1.0 mS/cm), feinkoernig,
+      gut durchlueftet und steril (kein Damping-off durch Pilzsporen).
+      Alternative: 1 Teil Kokoserde + 1 Teil Perlite — ebenso geeignet.
+
+      Saattiefe — die 2x-Regel:
+      Samentiefe = 2-facher Samendurchmesser. Beispiele:
+      - Tomate (klein): 0,5 cm tief
+      - Kuerbis (gross): 2-3 cm tief
+      - Basilikum, Sellerie (sehr klein): nur andrücken, nicht bedecken (Lichtkeimer!)
+
+      Lichtkeimer — Samen NICHT bedecken:
+      Bedeckte Lichtkeimer keimen nicht oder sehr schlecht. Auf Substrat drücken,
+      angießen, Haube drauf — das genuegt.
+      Lichtkeimer: Basilikum, Sellerie, Majoran, Oregano, Petunie, Lobelie,
+      Salat (teilweise), Thymian, Minze, Schnittlauch.
+
+      Dunkelkeimer — abdunkeln:
+      Dunkelkeimer brauchen Dunkelheit zum Keimen. Saatschale mit schwarzer Folie
+      abdecken oder in einen dunklen Schrank stellen. Taeglich pruefen!
+      Dunkelkeimer: Ringelblume, Kapuzinerkresse, Phaseln, Stiefmütterchen,
+      Stockrose, Delphinblume, Spinat (leichter Dunkelkeimer).
+
+      Aussaat-Ablauf:
+      1. Substrat mit lauwarmen Wasser vorfeuchten (druecken — soll feucht, nicht nass sein)
+      2. Saatschale befuellen, leicht andrücken
+      3. Samen einzeln verteilen oder reihen (mind. 2 cm Abstand fuer spaeters Pikieren)
+      4. Mit Sieberde oder Sand bedecken (ausser Lichtkeimer)
+      5. Nochmals sanft andruecken
+      6. Mit Sprühflasche (fein) angießen — nie mit Gießkanne (spuelt Samen weg!)
+      7. Beschriften! (Art, Sorte, Aussaatdatum)
+      8. Haube oder Klarsichtfolie aufsetzen fuer gleichmaessige Feuchte
+    metadata:
+      topic: aussaat_technik
+      months: [1, 2, 3, 4]
+      technique: seed_sowing
+      difficulty: beginner
+
+  - id: keimbedingungen-licht-waerme
+    title: Keimtemperatur, Heizmatte und Licht fuer Saeumlinge
+    content: |
+      Keimdauer und Keimrate haengen direkt von Temperatur und Feuchtigkeit ab —
+      Licht spielt erst nach dem Auflaufen eine Rolle.
+
+      Keimtemperatur je nach Kulturgruppe:
+      - Nachtschattengewaechse (Tomate, Paprika, Aubergine): 22-26°C optimal
+      - Kuebitze (Kuerbis, Gurke, Zucchini): 22-25°C
+      - Kohlgewaechse: 15-18°C (kühler als Nachtschatten!)
+      - Krauter: 18-22°C (Ausnahmen: Basilikum >20°C, Petersilie schon ab 10°C)
+
+      Heizmatte (Anzuchtmatte):
+      Auf der normalen Fensterbank herrschen oft nur 16-18°C — zu kalt fuer
+      Nachtschattengewaechse. Eine Heizmatte erwaermt das Substrat auf
+      22-26°C und verkuerzt die Keimdauer von 14-21 Tagen auf 5-10 Tage.
+      Nach dem Auflaufen Heizmatte abschalten oder Abstand vergroessern —
+      Saeumlinge vertragen Waerme nach dem Keimen schlechter.
+
+      Licht erst nach dem Auflaufen entscheidend:
+      Sobald die Keimlinge auflaufen: SOFORT maximales Licht! Keimlinge die auch
+      nur 1-2 Tage im Dunkeln oder Halbdunkel stehen, vergeilen (etiolieren) — sie
+      werden lang, duenn und bruechig. Ohne ausreichend Licht muessen Pflanzen
+      naeher ans Fenster gestellt oder eine Pflanzenlampe eingesetzt werden.
+
+      Fensterbank: Suedausrichtung bringt 200-400 µmol/m²/s PPFD im Fruehjahr —
+      ausreichend fuer Saeumlinge, aber nur bei wolkenlosem Wetter. An
+      bedeckten Tagen zu wenig Licht → Vergeilen.
+      Nordfenster: Zu dunkel fuer Voranzucht ohne Pflanzenlampe.
+
+      Pflanzenlampe (Grow-Light) fuer Saeumlinge:
+      100-200 µmol/m²/s PPFD genuegt fuer Keimlinge, 16 Stunden taeglich.
+      Abstand LED-Panel zu Saemlingen: 20-30 cm. LED-Leiste oder Panel ab ca.
+      30-50 € genuegen fuer eine Standardfensterbank-Flaeche.
+      Nach dem Pikieren kann auf 200-400 µmol/m²/s erhoet werden.
+
+      Temperatur nach dem Keimen absenken:
+      Nach dem Auflaufen Temperatur auf 16-18°C absenken (Fenster kippen, kuehlere
+      Stelle). Kuehle Temperaturen foerdern kompakten, robusten Wuchs.
+    metadata:
+      topic: keimbedingungen
+      months: [1, 2, 3, 4]
+      equipment: [heizmatte, pflanzenlampe, saatschale]
+      ppfd_range: [100, 200]
+      difficulty: beginner
+
+  - id: pikieren-schritt-fuer-schritt
+    title: Pikieren — Zeitpunkt, Technik und welche Pflanzen es nicht vertragen
+    content: |
+      Pikieren bedeutet: einzelne Saeumlinge aus der Saatschale in eigene Toepfe
+      umsetzen. Es gibt mehr Wurzelraum und verhindert Verdrängungskonkurrenz.
+
+      Richtiger Zeitpunkt:
+      Das erste echte Blattpaar — nicht die Keimblaetter (rund, meist gleich
+      geformt) sondern die ersten artypischen Blaetter (gezahnte Tomatenform,
+      gefingerte Kuerbisform). Zu frueh pikieren bedeutet zerbrechliche Wurzeln,
+      zu spaet bedeutet verdraengte, verfilzte Wurzeln.
+
+      Vorbereitung:
+      - Einzeltoepfe 7-9 cm befuellen mit frischer Anzuchterde (leicht feuchten)
+      - Pikierstab oder Bleistift bereit legen
+      - Saatschale gut angießen 1 Stunde vor dem Pikieren (Wurzeln loesen sich besser)
+      - Pflanzloch in Zieltopf vorbereiten: tief genug fuer die ganze Wurzel
+
+      Technik Schritt fuer Schritt:
+      1. Pikierstab neben Saeumling in die Erde stechen und Wurzel vorsichtig
+         nach oben hebeln — nie am Stengel ziehen!
+      2. Saeumling am Keimblatt anfassen (nicht am Stengel — Stengel ist empfindlich)
+      3. In Zieltopf einsetzen — tiefer als vorher! Besonders bei Tomaten:
+         den Stengel bis zu den Keimblaettern einbuddeln. Der eingegrabene
+         Stengelanteil bildet Adventivwurzeln.
+      4. Erde vorsichtig andruecken, angießen (nicht schwaemmen)
+      5. 1-2 Tage an halbschattigem Ort aufstellen — Schatten reduziert
+         Trockenstress waehrend die Wurzeln sich erholen
+
+      Diese Pflanzen vertragen Pikieren NICHT gut:
+      - Kuerbis, Zucchini, Gurke, Melone — Wurzeln sehr empfindlich. Besser:
+        Direkt in Einzeltopfe saeen (3-4 Wochen vor Auspflanzung), dann
+        ohne Umpflanzen ins Freiland setzen.
+      - Bohne, Erbse — schneller als Pikieren keimt die Direktsaat im Freiland
+      - Moehre, Pastinake — Pfahlwurzel bricht beim Umsetzen
+
+      Nach dem Pikieren:
+      Erste Woche weniger Wasser als spaeter. Kein Duenger fuer 2-3 Wochen —
+      die neue Anzuchterde enthaelt genug Naehrstoffe. Erst wenn die Pflanze
+      sichtbar weitergwaechst: normales Giessen und nach 3-4 Wochen minimale Duengung.
+    metadata:
+      topic: pikieren
+      months: [2, 3, 4, 5]
+      technique: pricking_out
+      difficulty: beginner
+
+  - id: abhaerten-hardening-off-detail
+    title: Abhaerten — der kritische Schritt vor dem Auspflanzen ins Freiland
+    content: |
+      Abhaerten (Hardening Off) ist kein optionaler Schritt — es ist Pflicht.
+      Pflanzen die im Haus aufgewachsen sind, kennen keinen Wind, keine direkte
+      Sonne und keinen Temperaturwechsel. Der Schock beim unvermittelten Auspflanzen
+      kann Sonnenbrand, Windschaden, Blattverlust oder Totalverlust verursachen.
+
+      Das Abhaerungsprotokoll (10-14 Tage vor dem geplanten Auspflanztermin):
+      Tag 1-3:
+        2-3 Stunden draussen. Schattiger, windgeschuetzter Platz (Nordseite des
+        Hauses, hinter einem Gebuesch). Noch kein direktes Sonnenlicht.
+      Tag 4-6:
+        4-5 Stunden draussen. Etwas Morgensonne ist okay. Immer noch windgeschuetzt.
+      Tag 7-9:
+        6-8 Stunden draussen. Zunehmend volle Sonne, auch leichter Wind.
+        Bei Regen die Pflanzen kurz zurueckholen (noch empfindlich).
+      Tag 10-12:
+        Ganztags draussen. Nachts noch reinholen wenn Temperaturen unter 8-10°C
+        fallen oder Frost droht.
+      Tag 13-14:
+        Tag und Nacht draussen, sofern frostfrei. Pflanzen sind abgehaertet.
+
+      Zeichen einer erfolgreich abgehaerteten Pflanze:
+      - Stengel dicker und stabiler als vorher
+      - Blaetter dunkler und kompakter (weniger lang gestreckt)
+      - Leicht blaeuliche oder violette Tonung der Stengel moeglich (normal!)
+      - Pflanze bewegt sich im Wind, ohne zu knicken
+
+      Was passiert ohne Abhaerten:
+      - Sonnenbrand: weisse, braune oder papierartige Flecken auf den Blaettern
+        (irreversibel, aber die Pflanze erholt sich wenn Ursache behoben)
+      - Windschaden: Stengelbruch, Blattraender trocknen ein
+      - Kaeltestress: Lila-Verfaerbung, stagnierendes Wachstum, bei empfindlichen
+        Arten (Paprika, Aubergine) dauerhafte Wachstumsverzoegerung
+
+      Abhaerten bei wechselhaftem Wetter:
+      Bei Gewitter, Starkregen oder Temperaturen unter 5°C sofort reinholen.
+      Kein Duengen waehrend der Abhaertungsphase — die Pflanze soll Energie
+      fuer die Anpassung aufwenden, nicht fuer Wachstum.
+    metadata:
+      topic: abhaerten
+      months: [4, 5]
+      duration_days: 14
+      technique: hardening_off
+      difficulty: beginner
+
+  - id: auspflanzen-erste-woche
+    title: Auspflanzen nach den Eisheiligen — Timing, Technik und Schneckenschutz
+    content: |
+      Der richtige Auspflanztermin fuer frostempfindliche Kulturen (Tomate, Paprika,
+      Gurke, Kuerbis, Zucchini, Bohne, Basilikum) ist nach den Eisheiligen, also ab
+      dem 15. Mai. Vor Mitte Mai droht in Mitteleuropa noch Nachtfrost — der diese
+      Kulturen sofort schaedigt oder toetet. In Kaltluftsenken und Hochlagen: erst
+      ab 20. Mai oder spaeter pflanzen.
+
+      Bodenbedingung pruefen:
+      Bodentemperatur muss mindestens 12°C betragen (Thermometer 10 cm Tiefe).
+      Kalter Boden hemmt Wurzelwachstum und foerdert Wurzelfaeule.
+      Im Zweifel schwarze Mulchfolie 2 Wochen vorab auslegen — erwaermt den Boden
+      um 3-5°C.
+
+      Pflanzloch vorbereiten:
+      - Grosszuegig ausstechen: doppelte Topfgroesse
+      - 1-2 Haende voll reifen Kompost einarbeiten
+      - Pflanzloch gut waessern bevor die Pflanze eingesetzt wird (Anwasserung)
+      - Pflanztiefe je nach Art:
+        Tomate: tief einsetzen bis fast zu den untersten Blaettern —
+        der begrabene Stengel bildet zahlreiche Adventivwurzeln und foerdert
+        kraeftiges Wachstum.
+        Alle anderen: auf gleiche Hoehe wie im Topf (nicht tiefer)
+
+      Erste Woche nach dem Auspflanzen:
+      - Mulchen: 5-8 cm Stroh oder Rasenschnitt um die Pflanze — haelt Feuchtigkeit,
+        unterdrueckt Unkraut, kuehlt den Boden
+      - Angießen: taeglich in der ersten Woche, spaeter nach Bedarf
+      - Schneckenschutz sofort: Schneckenkorn (Eisenphosphat, bienenfreundlich),
+        Schneckenringe aus Kupfer oder Kalk um die Pflanzstelle
+      - Kein Duenger in den ersten 2 Wochen — Stress vermeiden, Wurzeln ausbreiten lassen
+      - Windschutz fuer Paprika und Aubergine: Kleine Strauchschere oder Vliesbeuebel
+        in der ersten Woche
+
+      Wenn doch noch Frost kommt:
+      Gartenvlies (17 g/m²) ueber Nacht ueber die Pflanzen legen. Morgens
+      wieder entfernen, damit keine Ueberhitzung entsteht.
+    metadata:
+      topic: auspflanzen
+      months: [5, 6]
+      frost_tolerance: none
+      technique: transplant
+      difficulty: beginner
+
+  - id: haeufige-voranzucht-fehler
+    title: Haeufige Fehler bei der Voranzucht — Vergeilen, Umfallkrankheit und Co.
+    content: |
+      Diese Fehler kosten jedes Jahr viele Jungpflanzen. Sie sind leicht vermeidbar
+      wenn man die Ursachen kennt.
+
+      Vergeilen (Etiolieren) — Pflanze waechst lang, duenn, blass, streckt sich
+      zum Licht hin:
+      Ursache: Zu wenig Licht. Fensterbank mit Nordausrichtung oder bedeckte
+      Tage ohne Pflanzenlampe. Auch zu wenig Abstand zur Lampe kann
+      Lichtmangel vortaeuschen.
+      Loesung: Pflanze naeher ans Fenster (suedliches Fenster bevorzugen) oder
+      Pflanzenlampe einsetzen (mind. 100 µmol/m²/s, 16h taeglich).
+      Vergeilte Saeumlinge sind zwar noch rettbar (Stengel beim Pikieren tiefer
+      einpflanzen), aber nie so robust wie gut belichtete.
+
+      Umfallkrankheit (Damping-off) — Saemlinge fallen kurz nach dem Auflaufen um,
+      Stengel ist am Boden eingeschnuert oder verfault:
+      Ursache: Pilze (Fusarium, Pythium) bei zu feuchtem Substrat, schlechter
+      Belueftung und nicht-sterilem Substrat. Haeufig auf frisch gedungtem Blumenerde-
+      oder selbst angesetzter Komposterde.
+      Loesung: Sterile Anzuchterde verwenden, nach dem Auflaufen die Haube entfernen,
+      Umluftventilator auf niedrigste Stufe stellen, nie staunass giessen.
+      Befallene Saeumlinge sofort entfernen (Pilz uebertraegt sich auf Nachbarn).
+
+      Zu frueh gesaet — Pflanzen werden riesig bevor draussen Auspflanzzeit ist:
+      Ursache: Saatstart zu frueh geplant (z.B. Tomate schon im Januar).
+      Loesung: Ruckrechnen (Auspflanztermin minus Anzuchtzeit) und im Zweifel
+      1 Woche spaeter saeen. Grossen Tomaten auf der Fensterbank werden wurzelgebunden
+      und gestresst — das sieht man der Pflanze den ganzen Sommer an.
+
+      Nicht pikiert — viele Keimlinge in Saatschale bleiben ohne Umtopfen:
+      Ursache: Vergessen oder befuerchtet es falsch zu machen.
+      Loesung: Pikieren bei erstem echten Blattpaar ist einfacher als befuerchtet.
+      Ohne Pikieren konkurrieren die Wurzeln, Pflanzen bleiben kueemmerlich.
+
+      Nicht abgehaertet — direkt vom Fenster ins Beet:
+      Ursache: Zeitmangel oder Unkenntnis. Folge: Sonnenbrand, Windschaden, Kaelteschock.
+      Loesung: Mindestens 7 Tage Abhaertungsprotokoll einhalten. Lieber einen
+      Auspflanztermin verschieben als Wochen Voranzucht durch Schock zu verlieren.
+    metadata:
+      topic: voranzucht_fehler
+      months: [2, 3, 4, 5]
+      problems: [etiolierung, damping_off, zu_frueh, nicht_pikiert, nicht_abgehaertet]
+      difficulty: beginner

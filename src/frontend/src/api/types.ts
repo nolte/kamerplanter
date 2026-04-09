@@ -628,6 +628,7 @@ export interface LifecycleConfig {
   vernalization_min_days: number | null;
   photoperiod_type: PhotoperiodType;
   critical_day_length_hours: number | null;
+  phase_sequence_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2327,6 +2328,7 @@ export interface HarvestBatch {
 export interface HarvestBatchCreate {
   batch_id?: string;
   harvest_type?: HarvestType;
+  harvest_date?: string;
   wet_weight_g?: number | null;
   estimated_dry_weight_g?: number | null;
   harvester?: string;
@@ -2451,6 +2453,7 @@ export interface WorkflowTemplate {
   total_duration_days: number;
   assigned_entity_count: number;
   target_entity_types: WorkflowTargetType[];
+  phase_sequence_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2488,6 +2491,171 @@ export interface ChecklistItem {
   order: number;
 }
 
+// Phase Definitions & Sequences
+
+export interface PhaseDefinition {
+  key: string;
+  name: string;
+  display_name: string;
+  display_name_de: string;
+  description: string;
+  description_de: string;
+  typical_duration_days: number;
+  stress_tolerance: string;
+  watering_interval_days: number | null;
+  illustration: string;
+  tags: string[];
+  is_system: boolean;
+  usage_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PhaseDefinitionCreate {
+  name: string;
+  display_name?: string;
+  display_name_de?: string;
+  description?: string;
+  description_de?: string;
+  typical_duration_days: number;
+  stress_tolerance?: string;
+  watering_interval_days?: number | null;
+  tags?: string[];
+}
+
+export interface PhaseDefinitionUpdate {
+  name?: string;
+  display_name?: string;
+  display_name_de?: string;
+  description?: string;
+  description_de?: string;
+  typical_duration_days?: number;
+  stress_tolerance?: string;
+  watering_interval_days?: number | null;
+  tags?: string[];
+}
+
+export interface PhaseSequenceEntry {
+  key: string;
+  phase_sequence_key: string;
+  phase_definition_key: string;
+  sequence_order: number;
+  override_duration_days: number | null;
+  effective_duration_days: number;
+  is_terminal: boolean;
+  allows_harvest: boolean;
+  is_recurring: boolean;
+  phase_definition: PhaseDefinition | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PhaseSequenceEntryCreate {
+  phase_definition_key: string;
+  sequence_order?: number;
+  override_duration_days?: number | null;
+  is_terminal?: boolean;
+  allows_harvest?: boolean;
+  is_recurring?: boolean;
+}
+
+export interface PhaseSequenceEntryUpdate {
+  phase_definition_key?: string;
+  sequence_order?: number;
+  override_duration_days?: number | null;
+  is_terminal?: boolean;
+  allows_harvest?: boolean;
+  is_recurring?: boolean;
+}
+
+export interface PhaseSequence {
+  key: string;
+  name: string;
+  display_name: string;
+  display_name_de: string;
+  description: string;
+  description_de: string;
+  species_key: string;
+  cycle_type: CycleType;
+  is_repeating: boolean;
+  cycle_restart_entry_order: number | null;
+  typical_lifespan_years: number | null;
+  dormancy_required: boolean;
+  vernalization_required: boolean;
+  vernalization_min_days: number | null;
+  photoperiod_type: PhotoperiodType;
+  critical_day_length_hours: number | null;
+  is_system: boolean;
+  tags: string[];
+  entries: PhaseSequenceEntry[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PhaseSequenceCreate {
+  name: string;
+  display_name?: string;
+  display_name_de?: string;
+  description?: string;
+  description_de?: string;
+  cycle_type?: string;
+  is_repeating?: boolean;
+  cycle_restart_entry_order?: number | null;
+  tags?: string[];
+}
+
+export interface PhaseSequenceUpdate {
+  name?: string;
+  display_name?: string;
+  display_name_de?: string;
+  description?: string;
+  description_de?: string;
+  cycle_type?: string;
+  is_repeating?: boolean;
+  cycle_restart_entry_order?: number | null;
+  tags?: string[];
+}
+
+export interface WorkflowPhase {
+  key: string;
+  workflow_template_key: string;
+  name: string;
+  description: string;
+  phase_order: number;
+  duration_days: number;
+  stress_tolerance: string;
+  trigger_phase: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WorkflowPhaseCreate {
+  name: string;
+  description?: string;
+  phase_order?: number;
+  duration_days?: number;
+  stress_tolerance?: string;
+  trigger_phase?: string | null;
+}
+
+export interface WorkflowPhaseUpdate {
+  name?: string;
+  description?: string;
+  phase_order?: number;
+  duration_days?: number;
+  stress_tolerance?: string;
+  trigger_phase?: string | null;
+}
+
+export interface WorkflowPhaseSuggestion {
+  name: string;
+  duration_days: number;
+  stress_tolerance: string;
+  trigger_phase: string | null;
+  used_by_species: string[];
+  usage_count: number;
+}
+
 export interface TaskTemplate {
   key: string;
   name: string;
@@ -2514,6 +2682,8 @@ export interface TaskTemplate {
   skill_level: string;
   optimal_time_of_day: string | null;
   workflow_template_key: string | null;
+  workflow_phase_key: string | null;
+  phase_definition_key: string | null;
   activity_key: string | null;
   sequence_order: number;
   recovery_days: number;
@@ -2541,6 +2711,7 @@ export interface TaskTemplateCreate {
   skill_level?: string;
   optimal_time_of_day?: string | null;
   workflow_template_key?: string | null;
+  workflow_phase_key?: string | null;
   sequence_order?: number;
   default_checklist?: ChecklistItem[];
   require_all_checklist_items?: boolean;
@@ -2561,6 +2732,7 @@ export interface TaskTemplateUpdate {
   tools_required?: string[];
   skill_level?: string;
   optimal_time_of_day?: string | null;
+  workflow_phase_key?: string | null;
   sequence_order?: number;
   default_checklist?: ChecklistItem[];
   require_all_checklist_items?: boolean;

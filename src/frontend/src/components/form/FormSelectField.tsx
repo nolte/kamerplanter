@@ -44,7 +44,8 @@ export default function FormSelectField<T extends FieldValues>({
           error={!!error}
           helperText={error?.message ?? helperText}
           fullWidth
-          sx={{ mb: 2 }}
+          margin="dense"
+          sx={{ mb: 1.5 }}
           data-testid={`form-field-${name}`}
         >
           {options.map((opt) => (

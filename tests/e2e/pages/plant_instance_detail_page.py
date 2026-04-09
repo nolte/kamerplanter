@@ -36,9 +36,24 @@ class PlantInstanceDetailPage(BasePage):
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
+    # Error display locator
+    ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
+
     def open(self, key: str) -> PlantInstanceDetailPage:
+        """Navigate to the plant instance detail page.
+
+        Waits for either the detail page or an error display to appear,
+        so that tests for non-existent keys do not timeout.
+        """
+        from selenium.webdriver.support.ui import WebDriverWait
+
         self.navigate(f"{self.PATH_PREFIX}/{key}")
-        self.wait_for_element(self.PAGE)
+        WebDriverWait(self.driver, 15).until(
+            lambda d: (
+                d.find_elements(*self.PAGE)
+                or d.find_elements(*self.ERROR_DISPLAY)
+            )
+        )
         return self
 
     def get_current_phase(self) -> str:

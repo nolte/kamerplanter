@@ -1,0 +1,98 @@
+---
+title: "Schusterpalme (Aspidistra elatior) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [schusterpalme, aspidistra-elatior, gusseisenpflanze, cast-iron-plant, zimmerpflanze, pflege, robust, schattenvertraeglich, haustierfreundlich, anfaenger]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: aspidistra-elatior-standort
+    title: "Schusterpalme — Standort und Licht"
+    content: |
+      Die Schusterpalme (Aspidistra elatior) ist die robusteste Zimmerpflanze
+      ueberhaupt — daher der englische Name "Cast Iron Plant" (Gusseisen-
+      pflanze). Sie stammt aus schattigen Bergwaeldern in Japan und China
+      und ueberlebt Vernachlaessigung, Dunkelheit, Trockenheit und Staub,
+      die andere Pflanzen toeten wuerden.
+
+      Licht: Halbschatten bis Schatten — die Schusterpalme ist eine der
+      wenigen Pflanzen, die wirklich dunkle Ecken vertraegt. Ein Nord-
+      fenster oder ein Platz weit weg vom Fenster ist voellig in Ordnung.
+      Direkte Sonne sollte vermieden werden — sie verbrennt die Blaetter.
+
+      Temperatur: Extrem breit tolerant: 7-27 Grad Celsius. Die Pflanze
+      ist sogar halbfrosthart (bis -15 Grad im Freiland). Als Zimmer-
+      pflanze 15-24 Grad optimal, aber sie ueberlebt auch in kuehlen
+      Treppenhaeusern oder ungeheizten Raeumen.
+
+      Luftfeuchtigkeit: 30-60% — voellig unkritisch. Trockene Heizungsluft
+      ist kein Problem.
+
+      Die Schusterpalme ist nicht giftig — sicher fuer Katzen, Hunde und
+      Kinder. Sie waechst allerdings sehr langsam (nur 2-5 neue Blaetter
+      pro Jahr).
+    metadata:
+      topic: aspidistra_elatior_care
+      species: "Aspidistra elatior"
+      difficulty: beginner
+
+  - id: aspidistra-elatior-giessen
+    title: "Schusterpalme — Giessen und Substrat"
+    content: |
+      Die Schusterpalme ist anspruchslos beim Giessen. Im Sommer alle
+      1-2 Wochen giessen, im Winter alle 2-4 Wochen. Das Substrat
+      zwischen den Wassergaben leicht antrocknen lassen.
+
+      Giessmethode: Kraeftig durchgiessen und ablaufen lassen.
+      Leitungswasser ist voellig in Ordnung. Staunaesse ist die einzige
+      ernsthafte Bedrohung fuer diese Pflanze — sonst kann man kaum
+      etwas falsch machen.
+
+      Substrat: Normale Blumenerde mit 20% Perlite. pH 5.5-7.0.
+      Gute Drainage genuegt. Nichts Besonderes noetig.
+
+      Die Pflanze hat ein Rhizom (unterirdischer Wurzelstock), das
+      langsam waechst und Wasser speichert. Dadurch uebersteht sie
+      auch laengere Trockenperioden problemlos.
+
+      Einziger haeufiger Fehler: Zu viel giessen. Staunaesse fuehrt zu
+      Wurzelfaeule — und das ist praktisch das Einzige, woran eine
+      Schusterpalme eingeht. Im Zweifel lieber zu wenig als zu viel
+      giessen.
+    metadata:
+      topic: aspidistra_elatior_care
+      species: "Aspidistra elatior"
+      difficulty: beginner
+
+  - id: aspidistra-elatior-duengung
+    title: "Schusterpalme — Duengung und Umtopfen"
+    content: |
+      Die Schusterpalme ist ein leichter Zehrer und ueberlebt auch
+      ohne jegliche Duengung mehrere Jahre. Von April bis September
+      monatlich mit einem Gruenpflanzenduenger duengen (z.B. Compo
+      7-3-6, 3 ml/L). Oktober bis Maerz nicht duengen.
+
+      Umtopfen: Nur alle 3-4 Jahre noetig, weil die Pflanze so langsam
+      waechst. Im Fruehling umtopfen. Nicht zu oft stoeren — die
+      Schusterpalme braucht Zeit, sich nach dem Umtopfen zu erholen.
+
+      Rueckschnitt: Kein Rueckschnitt noetig. Nur komplett abgestorbene
+      braune Blaetter an der Basis abzupfen. Die Pflanze reguliert sich
+      selbst.
+
+      Vermehrung: Durch Teilung des Rhizoms beim Umtopfen im Fruehling.
+      Mindestens 2-3 Blaetter pro Abschnitt lassen. Die neuen Teilstuecke
+      brauchen 1-2 Jahre bis sie wieder voll schoene Pflanzen sind —
+      Geduld ist gefragt.
+
+      Schaedlinge sind selten: Gelegentlich Schmierlaeuse (Wollflecken)
+      oder Spinnmilben bei sehr trockener Luft. Behandlung: Neemoel
+      0.5% spruehen.
+
+      Die Schusterpalme ist die perfekte Pflanze fuer alle, die wenig
+      Zeit oder Erfahrung haben — und trotzdem eine huebsche Gruenpflanze
+      moechten.
+    metadata:
+      topic: aspidistra_elatior_care
+      species: "Aspidistra elatior"
+      difficulty: beginner

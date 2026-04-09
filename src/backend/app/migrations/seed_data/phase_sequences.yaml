@@ -1,0 +1,590 @@
+# yaml-language-server: $schema=./schemas/phase_sequences.schema.yaml
+# Phase definitions and reusable phase sequences.
+# 12 unique phase types, 11 sequence patterns (10 outdoor + 1 indoor default).
+
+phase_definitions:
+  - name: germination
+    display_name: Germination
+    display_name_de: Keimung
+    description: Seed germination and initial root emergence
+    description_de: Samenkeimung und erste Wurzelbildung
+    typical_duration_days: 7
+    stress_tolerance: low
+    watering_interval_days: 1
+    illustration: brand/illustrations/phases/timeline-kami-phase-germination.svg
+    tags: [seed, annual]
+    is_system: true
+
+  - name: seedling
+    display_name: Seedling
+    display_name_de: Jungpflanze
+    description: Young plant establishment after germination
+    description_de: Jungpflanzenentwicklung nach der Keimung
+    typical_duration_days: 14
+    stress_tolerance: low
+    watering_interval_days: 2
+    illustration: brand/illustrations/phases/timeline-kami-phase-seedling.svg
+    tags: [young, establishment]
+    is_system: true
+
+  - name: vegetative
+    display_name: Vegetative
+    display_name_de: Vegetative Phase
+    description: Active leaf and stem growth
+    description_de: Aktives Blatt- und Triebwachstum
+    typical_duration_days: 45
+    stress_tolerance: medium
+    watering_interval_days: 3
+    illustration: brand/illustrations/phases/timeline-kami-phase-vegetative.svg
+    tags: [growth, main]
+    is_system: true
+
+  - name: flowering
+    display_name: Flowering
+    display_name_de: Blüte
+    description: Flower development and pollination
+    description_de: Blütenentwicklung und Bestäubung
+    typical_duration_days: 30
+    stress_tolerance: medium
+    watering_interval_days: 2
+    illustration: brand/illustrations/phases/timeline-kami-phase-flowering.svg
+    tags: [bloom, reproductive]
+    is_system: true
+
+  - name: fruiting
+    display_name: Fruiting
+    display_name_de: Fruchtentwicklung
+    description: Fruit development after pollination
+    description_de: Fruchtentwicklung nach Bestäubung
+    typical_duration_days: 75
+    stress_tolerance: medium
+    watering_interval_days: 2
+    illustration: brand/illustrations/phases/timeline-kami-phase-harvest.svg
+    tags: [fruit, reproductive]
+    is_system: true
+
+  - name: ripening
+    display_name: Ripening
+    display_name_de: Reife
+    description: Final maturation before harvest
+    description_de: Endreife vor der Ernte
+    typical_duration_days: 14
+    stress_tolerance: high
+    watering_interval_days: 2
+    illustration: brand/illustrations/phases/timeline-kami-phase-ripening.svg
+    tags: [mature, pre-harvest]
+    is_system: true
+
+  - name: harvest
+    display_name: Harvest
+    display_name_de: Ernte
+    description: Harvest-ready period
+    description_de: Ernteperiode
+    typical_duration_days: 30
+    stress_tolerance: high
+    watering_interval_days: 2
+    illustration: brand/illustrations/phases/timeline-kami-phase-harvest.svg
+    tags: [harvest, terminal]
+    is_system: true
+
+  - name: dormancy
+    display_name: Dormancy
+    display_name_de: Winterruhe
+    description: Winter rest period for perennial plants
+    description_de: Winterruheperiode für mehrjährige Pflanzen
+    typical_duration_days: 120
+    stress_tolerance: high
+    watering_interval_days: 14
+    illustration: brand/illustrations/phases/timeline-kami-phase-dormancy.svg
+    tags: [rest, winter, perennial]
+    is_system: true
+
+  - name: sprouting
+    display_name: Sprouting
+    display_name_de: Austrieb
+    description: New growth emergence after dormancy
+    description_de: Neuaustrieb nach der Ruhephase
+    typical_duration_days: 21
+    stress_tolerance: low
+    watering_interval_days: 3
+    illustration: brand/illustrations/phases/timeline-kami-phase-seedling.svg
+    tags: [spring, emergence, perennial]
+    is_system: true
+
+  - name: senescence
+    display_name: Senescence
+    display_name_de: Blattfall
+    description: Leaf fall and preparation for dormancy
+    description_de: Blattfall und Vorbereitung auf die Ruhephase
+    typical_duration_days: 21
+    stress_tolerance: high
+    watering_interval_days: 7
+    illustration: brand/illustrations/phases/timeline-kami-phase-senescence.svg
+    tags: [autumn, decline, terminal]
+    is_system: true
+
+  - name: flushing
+    display_name: Flushing
+    display_name_de: Spülung
+    description: Pre-harvest flush with plain water
+    description_de: Vorerntesspülung mit klarem Wasser
+    typical_duration_days: 14
+    stress_tolerance: high
+    watering_interval_days: 1
+    illustration: brand/illustrations/phases/timeline-kami-phase-flushing.svg
+    tags: [pre-harvest, indoor]
+    is_system: true
+
+phase_sequences:
+
+  # -- 1. Standard Perennial --
+  - name: perennial_standard
+    display_name: Standard Perennial
+    display_name_de: Standard Staude
+    description: Standard perennial cycle with dormancy, sprouting, growth, bloom, and leaf fall
+    description_de: Standard-Staudenzyklus mit Winterruhe, Austrieb, Wachstum, Blüte und Blattfall
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, standard]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 120
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: sprouting
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 60
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 4
+        override_duration_days: 30
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 2. Early-Bloom Fruit Tree --
+  - name: perennial_fruit_early
+    display_name: Early-Bloom Fruit Tree
+    display_name_de: Frühblühender Obstbaum
+    description: Fruit trees that bloom before leafing (apple, pear, cherry)
+    description_de: Obstbäume die vor dem Laubaustrieb blühen (Apfel, Birne, Kirsche)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, fruit, tree]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 150
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 1
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: fruiting
+        sequence_order: 2
+        override_duration_days: 90
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: harvest
+        sequence_order: 3
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 4
+        override_duration_days: 21
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 3. Sprouting Fruit Perennial --
+  - name: perennial_fruit_sprouting
+    display_name: Sprouting Fruit Perennial
+    display_name_de: Austriebender Fruchtstrauch
+    description: Berry bushes with visible sprouting phase (blackberry, raspberry)
+    description_de: Beerensträucher mit sichtbarer Austriebphase (Brombeere, Himbeere)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, fruit, berry]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 120
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: sprouting
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: fruiting
+        sequence_order: 3
+        override_duration_days: 90
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: harvest
+        sequence_order: 4
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 5
+        override_duration_days: 21
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 4. Annual Flower / Green Manure --
+  - name: annual_flower
+    display_name: Annual Flower / Green Manure
+    display_name_de: Einjährige Blume / Gründüngung
+    description: Annual plants grown for flowers or soil improvement
+    description_de: Einjährige Pflanzen für Blumen oder Bodenverbesserung
+    cycle_type: annual
+    is_repeating: false
+    tags: [annual, outdoor, flower]
+    is_system: true
+    entries:
+      - phase_name: germination
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: seedling
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: flowering
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: senescence
+        sequence_order: 4
+        override_duration_days: 14
+        is_terminal: true
+        allows_harvest: false
+
+  # -- 5. Perennial with Harvest Phase --
+  - name: perennial_harvest_veg
+    display_name: Perennial with Harvest Phase
+    display_name_de: Staude mit Erntephase
+    description: Perennials with a dedicated harvest window (asparagus, rhubarb)
+    description_de: Stauden mit definierter Ernteperiode (Spargel, Rhabarber)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, harvest, vegetable]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 120
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: sprouting
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 45
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: harvest
+        sequence_order: 4
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 5
+        override_duration_days: 21
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 6. Winter-Flowering Perennial --
+  - name: perennial_winter_flower
+    display_name: Winter-Flowering Perennial
+    display_name_de: Winterblühende Staude
+    description: Plants that flower during or right after dormancy (Helleborus)
+    description_de: Pflanzen die während oder direkt nach der Ruhezeit blühen (Christrose)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, winter-flower]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 90
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 1
+        override_duration_days: 60
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 120
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 3
+        override_duration_days: 30
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 7. Annual Harvest Crop --
+  - name: annual_harvest
+    display_name: Annual Harvest Crop
+    display_name_de: Einjährige Erntepflanze
+    description: Annual crops grown for leaf/root harvest (lettuce, herbs)
+    description_de: Einjährige Nutzpflanzen für Blatt-/Wurzelernte (Salat, Kräuter)
+    cycle_type: annual
+    is_repeating: false
+    tags: [annual, outdoor, harvest, vegetable]
+    is_system: true
+    entries:
+      - phase_name: germination
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: seedling
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: harvest
+        sequence_order: 3
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: true
+      - phase_name: senescence
+        sequence_order: 4
+        override_duration_days: 14
+        is_terminal: true
+        allows_harvest: false
+
+  # -- 8. Full Fruit Cycle Perennial --
+  - name: perennial_full_fruit
+    display_name: Full Fruit Cycle Perennial
+    display_name_de: Voller Fruchtzyklus (mehrjährig)
+    description: Multi-season fruit cycle with all phases including ripening
+    description_de: Mehrsaisonaler Fruchtzyklus mit allen Phasen inkl. Reife
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, fruit, full-cycle]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: sprouting
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: fruiting
+        sequence_order: 4
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: ripening
+        sequence_order: 5
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: harvest
+        sequence_order: 6
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 7
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 9. Biennial with Vernalization --
+  - name: biennial_vernalization
+    display_name: Biennial with Vernalization
+    display_name_de: Zweijährige mit Vernalisation
+    description: Biennial crop requiring cold period before flowering
+    description_de: Zweijährige Pflanze die Kälteperiode vor der Blüte benötigt
+    cycle_type: biennial
+    is_repeating: false
+    tags: [biennial, outdoor, vernalization]
+    is_system: true
+    entries:
+      - phase_name: germination
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: seedling
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: vegetative
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: dormancy
+        sequence_order: 3
+        override_duration_days: 90
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: flowering
+        sequence_order: 4
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: harvest
+        sequence_order: 5
+        is_terminal: true
+        allows_harvest: true
+
+  # -- 10. Early-Harvest Perennial --
+  - name: perennial_early_harvest
+    display_name: Early-Harvest Perennial
+    display_name_de: Früherntestaude
+    description: Perennials harvested before main vegetative growth
+    description_de: Stauden die vor der Hauptwachstumsphase geerntet werden
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    tags: [perennial, outdoor, early-harvest]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: sprouting
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: harvest
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: senescence
+        sequence_order: 4
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 11. Indoor Default Cycle --
+  - name: indoor_default
+    display_name: Indoor Default Cycle
+    display_name_de: Indoor-Standard-Zyklus
+    description: Default indoor growing cycle (seedling through harvest)
+    description_de: Standard Indoor-Anbauzyklus (Jungpflanze bis Ernte)
+    cycle_type: annual
+    is_repeating: false
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: day_neutral
+    tags: [indoor, default, standard]
+    is_system: true
+    entries:
+      - phase_name: seedling
+        sequence_order: 0
+        override_duration_days: 14
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: vegetative
+        sequence_order: 1
+        override_duration_days: 28
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: flowering
+        sequence_order: 2
+        override_duration_days: 56
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: flushing
+        sequence_order: 3
+        override_duration_days: 14
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: ripening
+        sequence_order: 4
+        override_duration_days: 14
+        is_terminal: false
+        allows_harvest: true

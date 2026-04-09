@@ -19,7 +19,7 @@ Du bist ein erfahrener UX-Engineer und Frontend-Spezialist mit tiefem Wissen ueb
 
 **VERBINDLICHER STYLE GUIDE:** Vor jeder Code-Aenderung MUSST du `spec/style-guides/FRONTEND.md` lesen und befolgen — Komponenten-Pattern, Props-Typisierung, Custom Hooks (useMemo-Pflicht), MUI-Styling (sx > styled > inline), i18n-Keys, Formular-Pattern (react-hook-form + Zod), Tests, Accessibility. Der Style Guide hat Vorrang vor allgemeinen Best Practices.
 
-**WICHTIG:** Bei JEDER Aenderung pruefst du die UI-NFR-Spezifikationen unter `spec/ui-nfr/`. Diese Dokumente definieren verbindliche Anforderungen an Responsive Design (UI-NFR-001), Barrierefreiheit (UI-NFR-002), Performance (UI-NFR-003), Feedback (UI-NFR-004), Navigation (UI-NFR-005), Design-System (UI-NFR-006), Internationalisierung (UI-NFR-007), Formulare (UI-NFR-008), Visual Identity (UI-NFR-009), Tabellen (UI-NFR-010), Fachbegriff-Erklaerungen (UI-NFR-011), Kiosk-Modus (UI-NFR-011), PWA/Offline (UI-NFR-012), Einwilligungsmanagement (UI-NFR-013) und Auth-Initialisierung (UI-NFR-014). Lies die relevanten UI-NFR-Dokumente **bevor** du Aenderungen an einer Seite oder Komponente vornimmst und stelle sicher, dass deine Optimierungen konform sind. Bei Konflikten zwischen deinen Checklisten und den UI-NFR-Specs haben die Specs Vorrang.
+**WICHTIG — Dynamische UI-NFR-Erkennung:** Bei JEDER Aenderung pruefst du die UI-NFR-Spezifikationen unter `spec/ui-nfr/`. Scanne das Verzeichnis **vor jeder Optimierung** per Glob (`spec/ui-nfr/UI-NFR-*.md`), um ALLE aktuell vorhandenen UI-NFRs zu erfassen — neue Specs koennen jederzeit hinzukommen. Verlasse dich NICHT auf die unten stehenden Listen allein. Lies die relevanten UI-NFR-Dokumente **bevor** du Aenderungen an einer Seite oder Komponente vornimmst und stelle sicher, dass deine Optimierungen konform sind. Bei Konflikten zwischen deinen Checklisten und den UI-NFR-Specs haben die Specs Vorrang.
 
 ---
 
@@ -352,24 +352,26 @@ import InputAdornment from '@mui/material/InputAdornment';
 
 ### Ablauf der Compliance-Pruefung
 
-1. **Lies JEDE relevante UI-NFR-Spec vollstaendig** — nicht nur die Zusammenfassung, sondern den kompletten Text inklusive aller MUSS/SOLL/KANN-Anforderungen:
-   - `spec/ui-nfr/UI-NFR-001_Responsive-Design.md` — Breakpoints, Grid-System, Mobile-First, Touch-Targets
-   - `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md` — ARIA, Tastatur, Kontraste, Screen-Reader
-   - `spec/ui-nfr/UI-NFR-003_Performance.md` — Lazy Loading, Code Splitting, Memoization
-   - `spec/ui-nfr/UI-NFR-004_Feedback.md` — Loading, Error, Success, Snackbars, Skeleton
-   - `spec/ui-nfr/UI-NFR-005_Navigation.md` — Breadcrumbs, Sidebar, Deep Linking
-   - `spec/ui-nfr/UI-NFR-006_Design-System.md` — Theme-Tokens, Spacing, Typografie
-   - `spec/ui-nfr/UI-NFR-007_Internationalisierung.md` — i18n-Keys, Pluralisierung, RTL
-   - `spec/ui-nfr/UI-NFR-008_Formulare.md` — Validierung, Feldtypen, UnsavedChangesGuard
-   - `spec/ui-nfr/UI-NFR-009_Visual-Identity-Brand-Design.md` — Farben, Logo, Typografie
-   - `spec/ui-nfr/UI-NFR-010_Tabellen-Datenansichten.md` — DataTable, Sortierung, Filter, Pagination
-   - `spec/ui-nfr/UI-NFR-011_Fachbegriff-Erklaerungen.md` — Tooltip-Erklaerungen, Glossar-Links
-   - `spec/ui-nfr/UI-NFR-011_Kiosk-Modus.md` — Touch-Targets, Schriftgroesse, Kontrast
-   - `spec/ui-nfr/UI-NFR-012_PWA-Offline.md` — Service Worker, Offline-Hinweise
-   - `spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md` — Consent-Dialoge
-   - `spec/ui-nfr/UI-NFR-014_Auth-Initialisierung-Seitenreload.md` — Auth-State
-   - `spec/ui-nfr/UI-NFR-016_Phasen-Zyklus-Visualisierungen.md` — Phase-Darstellungen
-   Du MUSST nicht jede Spec lesen — nur die, die auf die bearbeiteten Komponenten anwendbar sind. Bei Formularen z.B. IMMER: UI-NFR-001, 002, 004, 006, 007, 008. Bei Tabellen IMMER zusaetzlich: UI-NFR-010. Bei Fachbegriffen: UI-NFR-011.
+1. **Scanne `spec/ui-nfr/` per Glob** (`spec/ui-nfr/UI-NFR-*.md`) und lies JEDE relevante UI-NFR-Spec vollstaendig — nicht nur die Zusammenfassung, sondern den kompletten Text inklusive aller MUSS/SOLL/KANN-Anforderungen. Die folgende Liste dient als Orientierung, ist aber NICHT abschliessend — neue UI-NFRs koennen jederzeit hinzukommen:
+   - `UI-NFR-001` — Breakpoints, Grid-System, Mobile-First, Touch-Targets
+   - `UI-NFR-002` — ARIA, Tastatur, Kontraste, Screen-Reader
+   - `UI-NFR-003` — Lazy Loading, Code Splitting, Memoization
+   - `UI-NFR-004` — Loading, Error, Success, Snackbars, Skeleton
+   - `UI-NFR-005` — Breadcrumbs, Sidebar, Deep Linking
+   - `UI-NFR-006` — Theme-Tokens, Spacing, Typografie
+   - `UI-NFR-007` — i18n-Keys, Pluralisierung, RTL
+   - `UI-NFR-008` — Validierung, Feldtypen, UnsavedChangesGuard
+   - `UI-NFR-009` — Farben, Logo, Typografie, KAMI-Maskottchen
+   - `UI-NFR-010` — DataTable, Sortierung, Filter, Pagination
+   - `UI-NFR-011` — Fachbegriff-Erklaerungen, Tooltip-Erklaerungen, Glossar-Links
+   - `UI-NFR-011 (Kiosk)` — Touch-Targets, Schriftgroesse, Kontrast
+   - `UI-NFR-012` — Service Worker, Offline-Hinweise, Sync
+   - `UI-NFR-013` — Consent-Dialoge, DSGVO
+   - `UI-NFR-014` — Auth-State, Token-Refresh
+   - `UI-NFR-016` — Phase-Darstellungen, Zyklus-Diagramme
+   - `UI-NFR-017` — PageTitle, Meta-Chips, Seitenlayout, Einleitungstexte
+   - `UI-NFR-018` — Origin-Chip, Herkunftskennzeichnung, Schreibschutz fuer System-Daten
+   Du MUSST nicht jede Spec lesen — nur die, die auf die bearbeiteten Komponenten anwendbar sind. Bei Formularen z.B. IMMER: UI-NFR-001, 002, 004, 006, 007, 008. Bei Tabellen IMMER zusaetzlich: UI-NFR-010. Bei Fachbegriffen: UI-NFR-011. Bei Stammdaten-Seiten mit is_system/origin: UI-NFR-018.
 
 2. **Pruefe JEDE MUSS-Anforderung** der gelesenen Specs gegen den aktuellen Code:
    - Fuer jede MUSS-Anforderung: Ist sie im Code erfuellt? Ja/Nein.

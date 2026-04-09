@@ -9,6 +9,12 @@
             "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | grep -qE '\\.claude/(agents|skills)/' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"HINWEIS: Eine Agent- oder Skill-Definition wurde geaendert. Bitte den Agent-Katalog mit /update-catalog neu generieren.\"}}' || true",
             "timeout": 5,
             "statusMessage": "Checking agent/skill changes..."
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | grep -qE 'src/frontend/src/.*\\.(tsx|ts)$' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"PFLICHT: Frontend-Datei geaendert. Nach Abschluss aller Frontend-Aenderungen MUSS der frontend-usability-optimizer Agent gestartet werden, um Usability, Accessibility, Responsive Design und UI-NFR-Compliance zu pruefen.\"}}' || true",
+            "timeout": 5,
+            "statusMessage": "Checking frontend changes..."
           }
         ]
       }

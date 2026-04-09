@@ -174,7 +174,7 @@ export default function PlantTagDialog({ open, onClose, plantKey, plantName }: P
             )}
 
             {nfcSupported && !nfcSuccess && !nfcError && (
-              <Typography variant="body2" color="text.secondary" textAlign="center">
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
                 {t('pages.plantInstances.tag.nfcInstructions')}
               </Typography>
             )}

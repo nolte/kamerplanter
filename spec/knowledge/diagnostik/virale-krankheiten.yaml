@@ -1,0 +1,203 @@
+---
+title: Virale Pflanzenkrankheiten erkennen und handeln
+language: de
+category: diagnostik
+tags: [virus, mosaik, tmv, cmv, tswv, ringflecken, virusdiagnostik, thrips, blattlaus]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: mosaik-viren
+    title: Mosaik-Viren (TMV/CMV) erkennen
+    content: |
+      Symptome: Unregelmaessiges Muster aus hellen und dunklen Flecken
+      auf den Blaettern — sieht aus wie ein gruenes Mosaik oder eine
+      Marmorierung. Hellgruene bis gelbe Bereiche wechseln sich mit
+      normalgruenen ab. Blaetter koennen sich zusaetzlich kraeusen,
+      verformen oder blasig aufwoelben. Wachstum ist gehemmt, Pflanzen
+      bleiben kleiner. Bei Fruechten: Missbildungen, unregelmaessige
+      Reife, geringerer Ertrag.
+      Erreger: Tabakmosaikvirus (TMV) und Gurkenmosaikvirus (CMV) sind
+      die haeufigsten. TMV ist extrem stabil — ueberlebt auf trockenen
+      Oberflaechen, Werkzeugen, Haenden und sogar in Zigarettentabak
+      monatelang. CMV wird hauptsaechlich durch Blattlaeuse uebertragen.
+      Betroffene Pflanzen:
+      - TMV: Tomate, Paprika, Tabak, Petunie, Cannabis — TMV ist der
+        "Klassiker" unter den Pflanzenviren. Besonders bei Tomate und
+        Paprika haeufig.
+      - CMV: Gurke, Zucchini, Kuerbis, Salat, Spinat, Tomate, Paprika,
+        Bohne, Dahlie, viele Zierpflanzen — CMV hat ein extrem breites
+        Wirtsspektrum (ueber 1000 Pflanzenarten!).
+      Sofortmassnahmen:
+      - Es gibt KEIN Heilmittel gegen Pflanzenviren — infizierte
+        Pflanzen bleiben lebenslang infiziert
+      - Leicht befallene Pflanzen koennen weiterkultiviert werden wenn
+        der Ertrag noch akzeptabel ist
+      - Stark befallene Pflanzen entfernen um Ausbreitung zu stoppen
+      - Bei TMV: Haende gruendlich mit Seife waschen nach Kontakt,
+        Werkzeuge desinfizieren (Milch oder 10% Trinatriumphosphat)
+      - Bei CMV: Blattlaeuse bekaempfen (Hauptuebertraeger)
+      Vorbeugung:
+      - Resistente Sorten waehlen (bei Tomate: Tm-2 oder Tm-2a im
+        Sortennamen steht fuer TMV-Resistenz)
+      - TMV: Haende waschen vor dem Arbeiten an Pflanzen (besonders
+        Raucher — TMV kommt im Tabak vor!)
+      - CMV: Blattlaus-Bekaempfung und -Ueberwachung
+      - Virusfreie Setzlinge und Saatgut verwenden
+      - Werkzeuge zwischen Pflanzen desinfizieren
+      Abgrenzung: Naehrstoffmangel kann aehnliche Vergilbungen zeigen,
+      ist aber gleichmaessig (nicht mosaikartig). Herbizidschaden zeigt
+      verdrehte, missgebildete Blaetter ohne Mosaikmuster. Virusmosaik
+      zeigt immer das typische unregelmaessige Hell-Dunkel-Muster.
+    metadata:
+      pathogen: mosaic_virus
+      species: [TMV, CMV]
+      disease_type: viral
+      vectors: [mechanical_contact, aphids]
+      difficulty: beginner
+
+  - id: tswv-bronzeflecken
+    title: Tomatenbronzefleckenvirus (TSWV) erkennen
+    content: |
+      Symptome: Bronzefarbene bis violette Ringflecken auf den Blaettern
+      — die namensgebenden "Bronzeflecken". Nekrotische (abgestorbene)
+      Flecken und Streifen auf Blaettern und Stengeln. Triebspitzen
+      sterben ab und werden schwarz. Bei Tomaten: unregelmaessige Reife
+      der Fruechte mit ringfoermigen Verfaerbungen und eingesunkenen
+      Flecken. Bei Paprika: ringfoermige Muster auf den Fruechten.
+      Befallene Pflanzen zeigen oft einseitiges Welken.
+      Erreger: Tomato Spotted Wilt Virus (TSWV) — gehoert zur Gattung
+      Orthotospovirus. Wird AUSSCHLIESSLICH durch Thrips uebertragen,
+      hauptsaechlich den Kalifornischen Bluenthrips (Frankliniella
+      occidentalis). Andere Insekten uebertragen TSWV NICHT. Die
+      Thrips-Larven nehmen das Virus beim Saugen an infizierten
+      Pflanzen auf und uebertragen es als Adulte auf gesunde Pflanzen.
+      Betroffene Pflanzen: Tomate, Paprika, Salat, Erdnuss, Tabak,
+      Chrysantheme, Dahlie, Impatiens, viele Zierpflanzen — sehr
+      breites Wirtsspektrum (ueber 1000 Arten). Auch Unkraeuter
+      koennen Virusreservoire sein.
+      Sofortmassnahmen:
+      - Kein Heilmittel — befallene Pflanzen entfernen und im
+        Restmuell entsorgen
+      - Thrips energisch bekaempfen (Nematoden, Raubmilben,
+        Blautafeln als Klebefallen)
+      - Alle Unkraeuter in der Naehe entfernen (Virusreservoir)
+      - Nicht zwischen befallenen und gesunden Pflanzen hin- und
+        hergehen (Thrips mitschleppen)
+      Vorbeugung:
+      - Thrips-Monitoring mit Blautafeln (Klebefallen)
+      - Nuetzlinge einsetzen: Raubmilben (Amblyseius cucumeris),
+        Raubwanzen (Orius), Nematoden (Steinernema feltiae)
+      - Unkraut konsequent jaeten (Virusreservoire entfernen)
+      - Resistente Sorten waehlen wenn verfuegbar (bei Tomate:
+        Sw-5 Gen fuer TSWV-Resistenz)
+      - Insektenschutznetze im Gewaechshaus
+      Abgrenzung: TSWV wird oft mit Naehrstoffmangel oder
+      Pilzkrankheiten verwechselt. Das Schluessel-Symptom sind die
+      bronzefarbenen Ringflecken in Kombination mit Thrips-Befall.
+      Wenn Thrips UND ringfoermige Verfaerbungen auftreten, immer
+      an TSWV denken!
+    metadata:
+      pathogen: tswv
+      species: Tomato spotted wilt virus
+      disease_type: viral
+      vector: thrips
+      difficulty: intermediate
+
+  - id: ringflecken-viren
+    title: Ringfleckenviren erkennen
+    content: |
+      Symptome: Konzentrische Ringe oder ringfoermige Muster auf den
+      Blaettern — aehnlich einem Zielscheiben-Muster, aber im Gegensatz
+      zu Alternaria (Pilz) sind die Ringe oft gelb-gruen auf dunklerem
+      Grund. Blaetter koennen sich verformen, kraeusen oder blasig
+      aufwoelben. Bei manchen Wirten treten Ringflecken auch auf
+      Fruechten auf (z.B. Papaya-Ringfleckenvirus). Wachstum ist
+      gehemmt, Pflanzen kuemmern.
+      Erreger: Verschiedene Virusgattungen verursachen Ringflecken:
+      - Tobacco Ringspot Virus (TRSV): Uebertragung durch Nematoden
+        und mechanisch
+      - Arabis Mosaic Virus (ArMV): Nematoden-uebertragen, befaellt
+        Erdbeere, Weinrebe, Himbeere
+      - Papaya Ringspot Virus (PRSV): Blattlaus-uebertragen
+      - Impatiens Necrotic Spot Virus (INSV): Thrips-uebertragen,
+        haeufig bei Zierpflanzen
+      Betroffene Pflanzen: Je nach Virusart sehr unterschiedlich —
+      Erdbeere, Himbeere, Weinrebe, Papaya, Petersilie, Salat,
+      Impatiens, Begonie, Cyclamen, viele Zierpflanzen.
+      Sofortmassnahmen:
+      - Kein Heilmittel — stark befallene Pflanzen entfernen
+      - Vektor-Bekaempfung je nach Virus: Blattlaeuse, Thrips oder
+        bodenbuertige Nematoden
+      - Befallene Pflanzen NICHT als Mutterpflanzen fuer Vermehrung
+        verwenden (Virus wird vegetativ weitergegeben)
+      Vorbeugung:
+      - Virusfreies Pflanzgut verwenden (zertifizierte Setzlinge)
+      - Bei nematodenbuertigen Viren: Boden vor Neupflanzung pruefen,
+        Tagetes als Vorkultur (Nematoden-Reduktion)
+      - Vektoren bekaempfen (Blattlaeuse, Thrips)
+      - Unkraut entfernen (Virusreservoire)
+      - Werkzeuge zwischen Pflanzen desinfizieren
+      Abgrenzung: Pilzliche Ringflecken (Alternaria) zeigen braune,
+      trockene Ringe mit abgestorbenem Gewebe. Virale Ringflecken
+      sind hellgruen-gelb auf lebendem Gewebe — das Blatt lebt noch
+      in den betroffenen Zonen, ist aber farbveraendert. Herbizidschaden
+      kann aehnliche Muster zeigen, tritt aber ploetzlich auf und
+      betrifft alle Blaetter gleichzeitig.
+    metadata:
+      pathogen: ringspot_viruses
+      species: [TRSV, ArMV, PRSV, INSV]
+      disease_type: viral
+      vectors: [nematodes, aphids, thrips]
+      difficulty: intermediate
+
+  - id: virusdiagnostik-grundlagen
+    title: Virusbefall erkennen und richtig handeln — Grundlagen
+    content: |
+      Wie erkennt man Virusbefall?
+      Pflanzenviren lassen sich nicht mit dem bloessen Auge sehen —
+      man erkennt sie nur an den Symptomen. Typische Anzeichen:
+      - Mosaikmuster (helle und dunkle Bereiche auf Blaettern)
+      - Ringflecken oder konzentrische Muster
+      - Blattkraeuseln, -rollen oder -deformationen
+      - Verkuemmertes Wachstum, Zwergwuchs
+      - Verfaerbungen (Gelbfaerbung, Bronzefaerbung, Aufhellungen)
+      - Unregelmaessige Blueten- oder Fruchtfaerbung
+      - Symptome treten oft zuerst an jungen Blaettern auf
+      Wichtige Grundregel: Virus-Symptome sind IMMER systemisch —
+      sie betreffen die gesamte Pflanze, nicht nur einzelne Blaetter.
+      Wenn nur ein Blatt betroffen ist, ist es wahrscheinlich kein
+      Virus sondern Pilz, Bakterien oder ein Umweltschaden.
+      Warum gibt es kein Heilmittel?
+      Viren vermehren sich INNERHALB der Pflanzenzellen — sie nutzen
+      den Zellapparat der Pflanze fuer ihre eigene Vermehrung. Es gibt
+      kein Spritzmittel das in die Zelle eindringt und nur das Virus
+      zerstoert ohne die Pflanze zu schaedigen. Einmal infiziert, bleibt
+      die Pflanze lebenslang Virustraeger (systemische Infektion).
+      Was tun bei Virusverdacht?
+      1. Pflanze isolieren (Ausbreitung verhindern)
+      2. Hande und Werkzeuge waschen/desinfizieren
+      3. Vektoren identifizieren und bekaempfen (Blattlaeuse, Thrips,
+         Weisse Fliege, Nematoden)
+      4. Stark befallene Pflanzen entfernen und im Restmuell entsorgen
+      5. Leicht befallene Pflanzen koennen bleiben wenn der Ertrag
+         noch akzeptabel ist — aber NICHT zur Vermehrung verwenden
+      6. Benachbarte Pflanzen beobachten
+      Uebertragungswege verstehen:
+      - Mechanisch (Kontakt, Werkzeuge, Haende): TMV, PepMV
+      - Blattlaeuse: CMV, PVY, PRSV — Blattlaeuse uebertragen die
+        meisten Pflanzenviren
+      - Thrips: TSWV, INSV
+      - Weisse Fliege: TYLCV (Tomatengelbblatt-Virus)
+      - Nematoden: TRSV, ArMV
+      - Saatgut/Pflanzgut: viele Viren werden vegetativ weitergegeben
+      Langfristige Vorbeugung:
+      - Virusfreies, zertifiziertes Pflanzgut verwenden
+      - Vektoren systematisch ueberwachen und bekaempfen
+      - Unkraut jaeten (Virusreservoire)
+      - Resistente Sorten bevorzugen
+      - Fruchtfolge einhalten
+      - Hygiene: Werkzeuge desinfizieren, Haende waschen
+    metadata:
+      pathogen: general_plant_viruses
+      disease_type: viral
+      difficulty: beginner

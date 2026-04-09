@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +23,7 @@ import TodayIcon from '@mui/icons-material/Today';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import AddIcon from '@mui/icons-material/Add';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -48,6 +48,7 @@ import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
@@ -115,6 +116,19 @@ export default function PlantInstanceDetailPage() {
   const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
+  const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
+  const handleLifecycleLoaded = useCallback((lc: import('@/api/types').LifecycleConfig) => {
+    if (lc.phase_sequence_key) {
+      setPhaseSequenceKey(lc.phase_sequence_key);
+    } else if (lc.species_key) {
+      // Fallback: try to find phase sequence via dedicated endpoint
+      import('@/api/endpoints/phaseSequences').then((api) =>
+        api.getSpeciesPhaseSequence(lc.species_key).then((seq) => {
+          if (seq) setPhaseSequenceKey(seq.key);
+        }).catch(() => {}),
+      );
+    }
+  }, []);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
   // Watering logs state (replaces feeding events)
@@ -892,7 +906,7 @@ export default function PlantInstanceDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   {t('pages.plantInstances.instanceId')}
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>{plant.instance_id}</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>{plant.instance_id}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -930,15 +944,13 @@ export default function PlantInstanceDetailPage() {
                       />
                       <Typography
                         variant="body1"
-                        fontWeight={500}
                         color={
                           estimatedHarvest.daysRemaining < 0
                             ? 'error.main'
                             : estimatedHarvest.daysRemaining <= 7
                               ? 'warning.main'
                               : undefined
-                        }
-                      >
+                        } sx={{ fontWeight: 500 }}>
                         {estimatedHarvest.date.toLocaleDateString(i18n.language)}
                         {' '}
                         ({estimatedHarvest.daysRemaining === 0
@@ -1059,7 +1071,7 @@ export default function PlantInstanceDetailPage() {
                         <Typography variant="caption" color="text.secondary">
                           {t('pages.plantInstances.lastWatered')}
                         </Typography>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {lastWatering
                             ? new Date(lastWatering.confirmed_at).toLocaleDateString(i18n.language)
                             : '—'}
@@ -1088,7 +1100,7 @@ export default function PlantInstanceDetailPage() {
                             <Typography variant="caption" color="text.secondary">
                               {t('pages.plantInstances.nextWatering')}
                             </Typography>
-                            <Typography variant="body1" fontWeight={500} color={isOverdue ? 'error.main' : undefined}>
+                            <Typography variant="body1" color={isOverdue ? 'error.main' : undefined} sx={{ fontWeight: 500 }}>
                               {nextWateringTask?.due_date ? (
                                 <Link
                                   component={RouterLink}
@@ -1227,7 +1239,7 @@ export default function PlantInstanceDetailPage() {
                             {t('pages.nutrientPlans.npkRatio')}
                           </Typography>
                         </Tooltip>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {activePhaseEntry.npk_ratio[0]}-{activePhaseEntry.npk_ratio[1]}-{activePhaseEntry.npk_ratio[2]}
                         </Typography>
                       </Box>
@@ -1300,7 +1312,7 @@ export default function PlantInstanceDetailPage() {
                   {/* Header with name + link */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box>
-                      <Typography variant="h6" fontStyle="italic">{species.scientific_name}</Typography>
+                      <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{species.scientific_name}</Typography>
                       {species.common_names.length > 0 && (
                         <Typography variant="body2" color="text.secondary">
                           {species.common_names.join(', ')}
@@ -1528,7 +1540,20 @@ export default function PlantInstanceDetailPage() {
                 {t('pages.phases.transition')}
               </Button>
             </Box>
-            <PlantPhaseTimeline plant={plant} history={history} speciesName={species?.scientific_name} />
+            <PlantPhaseTimeline plant={plant} history={history} speciesName={species?.scientific_name} onLifecycleLoaded={handleLifecycleLoaded} />
+            {phaseSequenceKey && (
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <Button
+                  component={RouterLink}
+                  to={`/phasen/ablaeufe/${phaseSequenceKey}`}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AccountTreeIcon />}
+                >
+                  {t('pages.phaseSequences.phaseSequence')}
+                </Button>
+              </Box>
+            )}
             <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
               {t('pages.phases.history')}
             </Typography>
@@ -1950,9 +1975,7 @@ export default function PlantInstanceDetailPage() {
                           return (
                             <Typography
                               variant="body2"
-                              color={isOverdue ? 'error' : 'text.primary'}
-                              fontWeight={isOverdue ? 600 : undefined}
-                            >
+                              color={isOverdue ? 'error' : 'text.primary'} sx={{ fontWeight: isOverdue ? 600 : undefined }}>
                               {relative}
                             </Typography>
                           );
@@ -2282,6 +2305,7 @@ export default function PlantInstanceDetailPage() {
       {key && (
         <PhaseTransitionDialog
           plantKey={key}
+          speciesKey={plant?.species_key}
           lifecycleKey={lifecycleKey}
           open={transitionOpen}
           onClose={() => setTransitionOpen(false)}

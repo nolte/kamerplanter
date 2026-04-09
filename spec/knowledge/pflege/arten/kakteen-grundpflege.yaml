@@ -1,0 +1,159 @@
+---
+title: "Kakteen-Grundpflege (Mammillaria, Gymnocalycium, Opuntia) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [kakteen, kaktus, mammillaria, gymnocalycium, opuntia, zimmerpflanze, pflege, cactaceae, trockenheitsvertraeglich, anfaengerfreundlich]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: kakteen-standort
+    title: "Kakteen — Standort und Licht"
+    content: |
+      Kakteen brauchen viel Licht — die meisten Arten wollen den
+      hellsten Platz im Haus, direkt am Suedfenster.
+
+      Mammillaria (Kissenkaktus): Volle Sonne, so hell wie moeglich.
+      500 bis 2000 Mikromol PPFD. Der Kissenkaktus stammt aus
+      mexikanischen Wuesten und braucht direktes Sonnenlicht fuer
+      gesundes Wachstum und Bluetenbildung.
+
+      Gymnocalycium (Mondkaktus): Die Ausnahme! Der Mondkaktus
+      vertraegt Halbschatten und mag keine pralle Mittagssonne.
+      100 bis 300 Mikromol PPFD genuegen. Wichtig: Die bunten
+      (rot, orange, gelb) Mondkakteen aus dem Handel sind gepfropft —
+      der bunte Kopf hat kein Chlorophyll und lebt von der gruenen
+      Unterlage (meist Hylocereus).
+
+      Opuntia microdasys (Hasenohren-Kaktus): Volle Sonne. Vertraegt
+      prallste Mittagshitze. Im Sommer draussen auf dem Balkon
+      optimal. 400 bis 1000 Mikromol PPFD.
+
+      Temperatur Sommer: 20 bis 35 Grad.
+      Temperatur Winter: 5 bis 13 Grad — die kuehle Winterruhe ist
+      entscheidend! Ohne kuehle Winterpause (mindestens 6 bis 8
+      Wochen unter 13 Grad) bilden Mammillaria und Opuntia keine
+      Blueten im Fruehjahr.
+
+      Luftfeuchtigkeit: 10 bis 30 Prozent — so trocken wie moeglich.
+    metadata:
+      topic: cactus_care
+      species: "Mammillaria spp., Gymnocalycium mihanovichii, Opuntia microdasys"
+      difficulty: beginner
+
+  - id: kakteen-giessen
+    title: "Kakteen — Giessen und Substrat"
+    content: |
+      Kakteen brauchen im Vergleich zu anderen Zimmerpflanzen extrem
+      wenig Wasser. Die Faustregel: Im Zweifel nicht giessen.
+
+      Giess-Methode: Durchdringend giessen, dann komplett abtrocknen
+      lassen. Das Substrat muss zwischen den Wassergaben vollstaendig
+      trocken sein.
+
+      Giess-Rhythmus Sommer:
+      - Mammillaria: Alle 14 bis 21 Tage.
+      - Gymnocalycium: Alle 10 bis 14 Tage.
+      - Opuntia: Alle 14 bis 21 Tage.
+
+      Giess-Rhythmus Winter:
+      - Mammillaria: Fast gar nicht! Alle 6 bis 12 Wochen ein
+        winziger Schluck, oder komplett trocken halten.
+      - Gymnocalycium: Alle 3 bis 4 Wochen minimal.
+      - Opuntia: Alle 6 bis 8 Wochen minimal.
+
+      Ueberwaesserung ist die haeufigste Todesursache bei Kakteen.
+      Im Winter zu viel giessen ist besonders gefaehrlich, weil die
+      Kombination aus Kaelte und Naesse zu Wurzel- und Stengelfaeule
+      fuehrt.
+
+      Wasserqualitaet: Normales Leitungswasser ist in Ordnung.
+
+      Substrat: Kakteenerde mit 50 bis 70 Prozent mineralischem
+      Material (Perlite, grober Sand, Bimssplit). pH-Wert 6,0 bis
+      7,5. Hervorragende Drainage ist absolut zwingend. Flache
+      Tontoepfe mit Abzugsloechern bevorzugen.
+
+      Sicherheitshinweis Opuntia: Die winzigen Glochiden (Widerhaken)
+      sind extrem tueckisch — sie bohren sich in die Haut und sind
+      kaum zu entfernen. Immer dicke Handschuhe tragen!
+    metadata:
+      topic: cactus_care
+      species: "Mammillaria spp., Gymnocalycium mihanovichii, Opuntia microdasys"
+      difficulty: beginner
+
+  - id: kakteen-duengung
+    title: "Kakteen — Duengung und Winterruhe"
+    content: |
+      Kakteen sind extreme Schwachzehrer. Zu viel Duenger schadet mehr
+      als zu wenig.
+
+      Duengung: Von April bis September alle 4 bis 6 Wochen mit
+      Kakteenduenger (NPK 4-6-7 oder aehnlich, etwa 2 ml pro Liter
+      Wasser). Nur halbe Empfehlungsdosis verwenden. Phosphor- und
+      kaliumreiche Formel bevorzugen — stickstoffreicher Duenger
+      macht den Kaktus weich und anfaellig.
+
+      Von Oktober bis Maerz: Kein Duenger. Ueberdüngung foerdert
+      weiches, anfaelliges Gewebe.
+
+      Umtopfen: Alle 2 bis 3 Jahre im Fruehling. In trockenes
+      Substrat umsetzen und erst nach 5 bis 7 Tagen giessen.
+      Handschuhe tragen (bei Opuntia dicke Lederhandschuhe!).
+
+      Die Winterruhe ist fuer Kakteen entscheidend:
+      - Oktober: Giessen reduzieren, Duengen einstellen.
+      - November bis Februar: Kuehler (5 bis 13 Grad), heller
+        Standort. Fast kein Wasser. Bei Mammillaria und Opuntia
+        ist die kuehle, trockene Winterruhe Voraussetzung fuer die
+        Bluetenbildung im Fruehjahr (Februar bis Mai).
+      - Maerz: Langsam wieder anfangen zu giessen. Standort pruefen.
+
+      Der Mondkaktus (Gymnocalycium) braucht keine so extreme
+      Winterruhe wie Mammillaria und Opuntia. 10 bis 15 Grad und
+      stark reduziertes Giessen genuegen.
+    metadata:
+      topic: cactus_care
+      species: "Mammillaria spp., Gymnocalycium mihanovichii, Opuntia microdasys"
+      difficulty: beginner
+
+  - id: kakteen-probleme
+    title: "Kakteen — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Weiche, braune Basis: Wurzel- oder Stengelfaeule durch
+        Ueberwaesserung. Sofort aufhoeren zu giessen. Gesunde Teile
+        steril abschneiden und neu bewurzeln.
+      - Keine Blueten: Fehlende kuehle Winterruhe (zu warm
+        ueberwintert).
+      - Braune Flecken: Sonnenbrand (nach Winterpause langsam an
+        Sonne gewoehnen) oder Pilzbefall (Schorf bei hoher
+        Feuchtigkeit).
+      - Mondkaktus stirbt: Die Unterlage waechst oft schneller als
+        der bunte Kopf. Lebensdauer 3 bis 5 Jahre. Eventuell auf
+        neue Unterlage pfropfen.
+
+      Schaedlinge: Schmierlaeusen (Wollflecken an Stacheln und
+      Warzen — haeufigster Schaedling), Schildlaeusen (braune
+      Schilder), Wolllaeusen an der Pfropfnaht (Gymnocalycium)
+      und Wurzelmilben (Wachstumsstillstand). Alle 3 Wochen
+      kontrollieren.
+
+      Behandlung: Alkohol 70 Prozent mit Wattestäbchen (vorsichtig
+      wegen Stacheln). Neemoel (0,5 Prozent) gegen Schmierlaeusen.
+
+      Vermehrung:
+      - Mammillaria: Ableger (Pups) im Fruehjahr abtrennen, 1 bis 2
+        Tage trocknen, in trockenes Kakteensubstrat. Samen bei 22 bis
+        28 Grad, Keimung in 1 bis 3 Wochen.
+      - Gymnocalycium: Schwierig. Bunter Kopf ist nur durch Pfropfen
+        auf neue Unterlage vermehrbar. Erfordert sterile Bedingungen.
+      - Opuntia: Einfach. Padde mit Pinzette abbrechen (nie mit
+        blossen Haenden!), 1 bis 2 Wochen trocknen, in Kakteenerde
+        stecken. Bewurzelung in 3 bis 6 Wochen.
+
+      Alle drei Gattungen sind laut ASPCA nicht giftig. Verletzungs-
+      gefahr durch Stacheln und Glochiden (Opuntia) beachten.
+    metadata:
+      topic: cactus_care
+      species: "Mammillaria spp., Gymnocalycium mihanovichii, Opuntia microdasys"
+      difficulty: beginner

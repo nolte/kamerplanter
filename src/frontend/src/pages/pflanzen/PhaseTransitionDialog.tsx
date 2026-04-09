@@ -13,12 +13,15 @@ import Alert from '@mui/material/Alert';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import * as phasesApi from '@/api/endpoints/phases';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
 import type { GrowthPhase, PlantInstance } from '@/api/types';
 
 interface Props {
   plantKey: string;
+  speciesKey?: string | null;
   lifecycleKey: string | null;
   open: boolean;
   onClose: () => void;
@@ -27,6 +30,7 @@ interface Props {
 
 export default function PhaseTransitionDialog({
   plantKey,
+  speciesKey,
   lifecycleKey,
   open,
   onClose,
@@ -44,13 +48,30 @@ export default function PhaseTransitionDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && lifecycleKey) {
+    if (!open) return;
+    setTargetPhaseKey('');
+    setReason('manual');
+    setForce(false);
+
+    // Try PhaseSequence first, fall back to legacy GrowthPhases
+    if (speciesKey) {
+      phaseSequenceApi
+        .getSpeciesPhaseSequence(speciesKey)
+        .catch(() => null)
+        .then((sequence) => {
+          if (sequence && sequence.entries.length > 0) {
+            setPhases(sequence.entries.map(growthPhaseFromEntry));
+            return;
+          }
+          // Fallback to legacy
+          if (lifecycleKey) {
+            phasesApi.listGrowthPhases(lifecycleKey).then(setPhases).catch(() => {});
+          }
+        });
+    } else if (lifecycleKey) {
       phasesApi.listGrowthPhases(lifecycleKey).then(setPhases).catch(() => {});
-      setTargetPhaseKey('');
-      setReason('manual');
-      setForce(false);
     }
-  }, [open, lifecycleKey]);
+  }, [open, speciesKey, lifecycleKey]);
 
   const handleTransition = async () => {
     if (!targetPhaseKey) return;

@@ -116,7 +116,7 @@ export default function ImportPage() {
       {activeStep === 0 && (
         <Paper sx={{ p: 3 }} data-testid="import-step-upload">
           <Box
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', sm: 400, md: 500 } }}
           >
             <FormControl fullWidth>
               <InputLabel id="entity-type-label">
@@ -166,20 +166,29 @@ export default function ImportPage() {
               </Select>
             </FormControl>
 
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<CloudUploadIcon />}
-              data-testid="import-file-select"
-            >
-              {file ? file.name : t('pages.import.selectFile')}
-              <input
-                type="file"
-                hidden
-                accept=".csv,.tsv,.txt"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </Button>
+            <Box>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CloudUploadIcon />}
+                data-testid="import-file-select"
+              >
+                {file ? file.name : t('pages.import.selectFile')}
+                <input
+                  type="file"
+                  hidden
+                  accept=".csv,.tsv,.txt"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </Button>
+              {file && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {t('pages.import.fileInfo', {
+                    size: (file.size / 1024).toFixed(1),
+                  })}
+                </Typography>
+              )}
+            </Box>
 
             <Button
               variant="text"
@@ -190,15 +199,22 @@ export default function ImportPage() {
               {t('pages.import.downloadTemplate')}
             </Button>
 
-            <Button
-              variant="contained"
-              onClick={handleUpload}
-              disabled={!file || loading}
-              startIcon={<CloudUploadIcon />}
-              data-testid="import-upload-button"
-            >
-              {t('pages.import.upload')}
-            </Button>
+            <Box>
+              <Button
+                variant="contained"
+                onClick={handleUpload}
+                disabled={!file || loading}
+                startIcon={<CloudUploadIcon />}
+                data-testid="import-upload-button"
+              >
+                {t('pages.import.upload')}
+              </Button>
+              {!file && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {t('pages.import.selectFileHint')}
+                </Typography>
+              )}
+            </Box>
           </Box>
         </Paper>
       )}

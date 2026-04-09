@@ -1,0 +1,148 @@
+---
+title: "Efeutute (Epipremnum aureum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [efeutute, epipremnum, pothos, devils-ivy, zimmerpflanze, pflege, araceae, tropisch, haengepflanze, anfaengerfreundlich, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: efeutute-standort
+    title: "Efeutute — Standort und Licht"
+    content: |
+      Die Efeutute (Epipremnum aureum, auch Golden Pothos oder Devil's Ivy
+      genannt) ist eine der robustesten Zimmerpflanzen ueberhaupt. Sie
+      ueberlebt selbst unter schlechten Bedingungen — daher der Name
+      "Devil's Ivy" (Teufelsefeu).
+
+      Achtung Verwechslung: Die Efeutute sieht dem Herzblatt-Philodendron
+      sehr aehnlich, ist aber eine andere Gattung. Der alte botanische
+      Name "Pothos" ist eigentlich falsch, wird aber im Handel haeufig
+      verwendet.
+
+      Licht: Helles bis mittleres indirektes Licht ist optimal.
+      Die Efeutute kommt aber auch mit wenig Licht zurecht — sie waechst
+      dann langsamer und die Blaetter werden kleiner. Variegierte Sorten
+      (Marble Queen, N'Joy) brauchen mehr Licht als die rein gruene
+      Grundform, da sie weniger Chlorophyll haben.
+      Keine direkte Sonne — die Blaetter verbrennen.
+
+      Temperatur: 20 bis 29 Grad Celsius optimal. Nachts nicht unter
+      16 Grad. Unter 10 Grad kommt es zu Kaelteschaeden (Blattflecken,
+      Verfaerbungen).
+
+      Luftfeuchtigkeit: 40 bis 60 Prozent — normale Raumluft genuegt.
+      Keine besonderen Anforderungen.
+
+      Tipp: Ein Moosstab als Kletterhilfe foerdert deutlich groessere
+      Blaetter. Als Haengepflanze in der Ampel bleiben die Blaetter
+      kleiner, was aber auch dekorativ ist. Die Efeutute filtert
+      Formaldehyd, Benzol und Xylol aus der Raumluft.
+    metadata:
+      topic: efeutute_care
+      species: "Epipremnum aureum"
+      difficulty: beginner
+
+  - id: efeutute-giessen
+    title: "Efeutute — Giessen und Substrat"
+    content: |
+      Die Efeutute ist beim Giessen sehr unkompliziert und verzeiht
+      Fehler besser als die meisten Zimmerpflanzen.
+
+      Giess-Rhythmus Sommer (Maerz bis September): Alle 7 bis 10 Tage.
+      Die oberen 2 Zentimeter Erde zwischen den Wassergaben antrocknen
+      lassen.
+
+      Giess-Rhythmus Winter (November bis Februar): Alle 14 bis 21 Tage.
+      Deutlich seltener giessen.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain).
+      Ueberschuss nach 30 Minuten entfernen.
+
+      Wasserqualitaet: Normales Leitungswasser funktioniert gut.
+      Abgestandenes Wasser bevorzugt.
+
+      Substrat: Lockere, durchlaessige Einheitserde mit 20 bis 30 Prozent
+      Perlite. Leicht saures bis neutrales Substrat (pH 6,1 bis 6,5).
+      Guter Wasserabzug wichtig.
+
+      Empfohlenes Topfvolumen: 2 bis 10 Liter. Mindestens 15 cm Topftiefe.
+
+      Haeufigste Giess-Fehler:
+      - Ueberwaesserung: Gelbe Blaetter, braune Wurzeln, fauler Geruch.
+        Der haeufigste Fehler bei dieser sonst so robusten Pflanze.
+      - Dauerhaft nasses Substrat: Fuehrt zu Pythium-Staengelfaeule
+        (Staengelbasis wird schwarz, Pflanze kollabiert).
+      - Zu selten giessen: Weniger schlimm — die Efeutute zeigt Welke
+        als Durstsignal und erholt sich nach dem Giessen schnell.
+    metadata:
+      topic: efeutute_care
+      species: "Epipremnum aureum"
+      difficulty: beginner
+
+  - id: efeutute-duengung
+    title: "Efeutute — Duengung und Umtopfen"
+    content: |
+      Duengung: Die Efeutute ist ein ausgesprochener Schwachzehrer.
+      Alle 4 Wochen von Maerz bis September mit einem Gruenpflanzen-
+      Fluessigduenger duengen (NPK 7-3-6, 5 ml pro Liter Wasser).
+      Bei Schwachlicht-Standorten nur halbe Dosis verwenden.
+
+      Von Oktober bis Februar: Kein Duenger.
+
+      Wichtig: Ueberdüngung schadet der Efeutute mehr als Unterdüngung.
+      Typische Symptome: Braune Blattspitzen, Blattrandnekrosen.
+      Variegierte Sorten (Marble Queen, Neon) brauchen sogar noch
+      weniger Duenger als die Grundart.
+
+      Bei Hydrokultur: EC-Wert bei 0,8 bis 1,2 mS halten.
+
+      Umtopfen: Alle 1 bis 2 Jahre im Fruehling (Februar/Maerz).
+      Topfgroesse um 2 bis 3 cm erhoehen.
+
+      Rueckschnitt: Im Fruehling (Maerz) lange Triebe auf gewuenschte
+      Laenge kuerzen. Die abgeschnittenen Stuecke als Stecklinge
+      verwenden.
+
+      Vermehrung: Extrem einfach — ideal fuer absolute Anfaenger.
+      Stecklinge mit mindestens 2 Knoten (die Verdickungen am Stiel)
+      abschneiden. In ein Glas Wasser stellen, mindestens ein Knoten
+      unter Wasser. Nach 2 bis 4 Wochen bilden sich Wurzeln. Dann in
+      Substrat einpflanzen. Funktioniert fast immer.
+
+      Achtung: Giftig fuer Katzen, Hunde und Kinder. Bei Verschlucken
+      Brennen im Mund, Schwellungen und Uebelkeit moeglich.
+    metadata:
+      topic: efeutute_care
+      species: "Epipremnum aureum"
+      difficulty: beginner
+
+  - id: efeutute-probleme
+    title: "Efeutute — Probleme und Schaedlinge"
+    content: |
+      Haeufigste Probleme:
+      - Gelbe Blaetter: Meist Ueberwaesserung. Die oberen 2 cm Erde
+        sollten zwischen den Guessen antrocknen.
+      - Braune Blattspitzen: Ueberdüngung, Salzansammlung im Substrat
+        oder zu trockene Luft.
+      - Kleine Blaetter, lange kahle Triebe: Zu wenig Licht. Naeher
+        ans Fenster stellen.
+      - Variegierung verschwindet: Zu wenig Licht. Variegierte Sorten
+        brauchen hellere Standorte.
+
+      Schaedlinge: Spinnmilben (feine Gespinste, besonders bei trockener
+      Luft), Schmierlaeusen (wattige weisse Flecken), Trauermücken
+      (kleine schwarze Fliegen, besonders bei zu feuchtem Substrat),
+      Weisse Fliegen (Honigtau, Russtau).
+
+      Behandlung: Neemoel (0,5 Prozent, alle 7 Tage) gegen Spinnmilben,
+      Schmierlaeusen und Weisse Fliegen. Insektizidseife fuer den
+      gleichen Zweck. Gelbtafeln und Nematoden (Steinernema feltiae)
+      gegen Trauermücken.
+
+      Vorbeugung: Alle 2 Wochen Blaetter kontrollieren, besonders
+      Blattunterseiten. Blaetter regelmaessig mit feuchtem Tuch
+      abwischen — entfernt Staub und potenzielle Schaedlinge.
+    metadata:
+      topic: efeutute_care
+      species: "Epipremnum aureum"
+      difficulty: beginner

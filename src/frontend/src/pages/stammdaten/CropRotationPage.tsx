@@ -126,9 +126,7 @@ export default function CropRotationPage() {
               {successors.map((s) => (
                 <ListItem key={s.family_key} divider>
                   <ListItemText
-                    primary={s.name ?? s.family_key}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                  />
+                    primary={s.name ?? s.family_key} slotProps={{ primary: { variant: 'body2' } }} />
                   <Chip
                     label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
                     size="small"
@@ -176,7 +174,7 @@ export default function CropRotationPage() {
             onChange={(e) => setWaitYears(Number(e.target.value))}
             fullWidth
             helperText={t('pages.cropRotation.waitYearsHelper')}
-            inputProps={{ min: 1, max: 10 }}
+            slotProps={{ htmlInput: { min: 1, max: 10 } }}
             data-testid="wait-years-input"
           />
         </DialogContent>

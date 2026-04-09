@@ -1,0 +1,172 @@
+---
+title: Stecklinge — Grundlagen der vegetativen Vermehrung
+language: de
+category: pflege
+tags: [steckling, kopfsteckling, stammsteckling, blattsteckling, bewurzelung, bewurzelungshormon, vermehrung, klonen, wasser, substrat]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: kopfstecklinge
+    title: Kopfstecklinge schneiden und vorbereiten
+    content: |
+      Was ist ein Kopfsteckling und wie schneide ich ihn richtig? Ein
+      Kopfsteckling ist die haeufigste Methode, Pflanzen zu vermehren —
+      du schneidest eine Triebspitze ab und bewurzelst sie als neue Pflanze.
+      So geht's Schritt fuer Schritt:
+      1. Werkzeug: Scharfes, sauberes Messer oder Skalpell. Keine stumpfe
+         Schere — die quetscht den Stengel und verhindert Bewurzelung.
+         Klinge vorher mit Alkohol desinfizieren.
+      2. Schnittstelle: Immer knapp unterhalb eines Knotens (Blattansatz)
+         schneiden. Am Knoten sitzen die meisten Teilungszellen, dort
+         bilden sich neue Wurzeln am schnellsten.
+      3. Laenge: 8-15 cm sind ideal. Der Steckling braucht 2-3 Blaetter
+         fuer Photosynthese, aber nicht zu viele — sonst verdunstet er
+         mehr Wasser als er ohne Wurzeln aufnehmen kann.
+      4. Untere Blaetter: Entferne alle Blaetter im unteren Drittel.
+         Blaetter unter dem Substrat wuerden faulen.
+      5. Grosse Blaetter: Halbiere sie, um Verdunstung zu reduzieren.
+      6. Schnittflaeche: Bei sukkulenten oder milchigen Pflanzen
+         (Euphorbia, Ficus) die Schnittflaeche 1-2 Stunden antrocknen
+         lassen. Bei krautigen Pflanzen (Basilikum, Tradescantia) sofort
+         ins Wasser oder Substrat stecken.
+      Typische Pflanzen fuer Kopfstecklinge: Basilikum, Tradescantia,
+      Pelargonie, Fuchsie, Coleus, Pothos, die meisten Zimmerpflanzen.
+    metadata:
+      topic: tip_cuttings
+      difficulty: easy
+      tools: [sharp_knife, rubbing_alcohol]
+
+  - id: stammstecklinge
+    title: Stammstecklinge bei tropischen Pflanzen
+    content: |
+      Was ist ein Stammsteckling und fuer welche Pflanzen eignet er sich?
+      Ein Stammsteckling ist ein Stueck Stengel oder Stamm ohne Triebspitze.
+      Diese Methode funktioniert besonders gut bei tropischen Pflanzen mit
+      verdickten Stengeln und Luftwurzeln.
+      Ideale Kandidaten:
+      - Monstera deliciosa: Jedes Segment mit mindestens einem Knoten und
+        idealerweise einer Luftwurzel kann bewurzelt werden.
+      - Philodendron: Aehnlich wie Monstera — Knoten mit Luftwurzel.
+      - Dieffenbachia: Stammabschnitte horizontal auf feuchtes Substrat
+        legen, Augen nach oben.
+      - Dracaena/Yucca: 10-15 cm Stammabschnitte aufrecht in Substrat
+        stecken, Polaritaet beachten (unten = wurzelseitig).
+      So geht's:
+      1. Schneide den Stamm in Abschnitte mit jeweils mindestens einem
+         Knoten oder Auge (schlafende Knospe).
+      2. Markiere oben und unten — Stammstecklinge muessen richtig herum
+         stehen (Polaritaet!). Ein umgedrehter Steckling bewurzelt nicht.
+      3. Bei Monstera und Philodendron: Lege den Abschnitt in feuchtes
+         Sphagnum-Moos oder stelle ihn in Wasser, sodass der Knoten und
+         die Luftwurzel im Wasser/Moos sind.
+      4. Geduld: Stammstecklinge brauchen laenger als Kopfstecklinge —
+         rechne mit 4-8 Wochen bis erste neue Triebe erscheinen.
+      Vorteil: Aus einer langen Monstera kannst du 5-10 neue Pflanzen
+      gewinnen. Jedes Segment mit Knoten wird eine eigene Pflanze.
+    metadata:
+      topic: stem_cuttings
+      difficulty: moderate
+      plants: [monstera, philodendron, dieffenbachia, dracaena]
+
+  - id: blattstecklinge
+    title: Blattstecklinge — Vermehrung aus einem einzigen Blatt
+    content: |
+      Kann man aus einem einzelnen Blatt eine neue Pflanze ziehen? Ja,
+      bei einigen Arten funktioniert das erstaunlich gut. Nicht jede
+      Pflanze kann das — die Faehigkeit zur Regeneration aus Blattgewebe
+      ist auf bestimmte Familien beschraenkt.
+      Pflanzen fuer Blattstecklinge:
+      - Sansevieria (Bogenhanf): Blatt in 5-8 cm Abschnitte schneiden,
+        Polaritaet markieren (unten=wurzelseitig), aufrecht in Substrat
+        stecken. Achtung: Panaschierte Sorten verlieren bei Blattstecklingen
+        oft ihre Musterung — besser durch Teilung vermehren.
+      - Begonia rex: Grosse Blaetter auf feuchtes Substrat legen, Hauptadern
+        an 3-4 Stellen einschneiden, mit Drahtbuegeln fixieren. An jeder
+        Schnittstelle kann ein neues Pflanzchen entstehen.
+      - Peperomia: Blatt mit kurzem Stielansatz in Substrat stecken.
+      - Crassula/Echeveria (Sukkulenten): Blatt vorsichtig abdrehen
+        (nicht abschneiden!), 2-3 Tage antrocknen lassen, auf Substrat
+        legen. Nicht eingraben, nur auflegen.
+      - Streptocarpus: Laengliche Blaetter der Laenge nach halbieren,
+        Schnittkante in Substrat stecken.
+      Wichtig bei Blattstecklingen:
+      - Substrat gleichmaessig feucht, aber nicht nass halten.
+      - Hohe Luftfeuchtigkeit hilft: Abdeckhaube oder durchsichtige Tuete
+        drueber, taeglich lueften gegen Schimmel.
+      - Blattstecklinge brauchen Geduld: 6-12 Wochen bis kleine
+        Jungpflanzen sichtbar werden.
+    metadata:
+      topic: leaf_cuttings
+      difficulty: moderate
+      plants: [sansevieria, begonia_rex, peperomia, succulents, streptocarpus]
+
+  - id: bewurzelung-wasser-substrat
+    title: Bewurzelung in Wasser oder Substrat — Vor- und Nachteile
+    content: |
+      Soll ich Stecklinge in Wasser oder direkt in Substrat bewurzeln?
+      Beides funktioniert, hat aber unterschiedliche Vor- und Nachteile.
+      Bewurzelung im Wasser:
+      + Du siehst die Wurzelentwicklung direkt — motivierend und lehrreich.
+      + Einfach: Glas mit Wasser, fertig.
+      + Weniger Faulnis-Risiko als bei zu nassem Substrat.
+      - Wasserwurzeln sind duenner und zerbrechlicher als Substratwurzeln.
+      - Umgewoehnung noetig: Beim Einpflanzen in Erde muessen sich
+        neue Substratwurzeln bilden. Manche Stecklinge stocken dann
+        wochenlang im Wachstum.
+      - Wasser alle 2-3 Tage wechseln, sonst faeulig und sauerstoffarm.
+      Bewurzelung im Substrat:
+      + Wurzeln sind von Anfang an an Substrat angepasst — kein
+        Umgewoehnungs-Schock.
+      + Direkt am endgueltigen Standort moeglich.
+      - Du siehst nicht, was passiert — unsicher, ob Wurzeln kommen.
+      - Zu nasses Substrat = Faule; zu trockenes = keine Bewurzelung.
+      Empfehlung je nach Pflanze:
+      - Wasser-Stars: Pothos, Tradescantia, Basilikum, Monstera (bilden
+        zuverlaessig Wasserwurzeln, vertragen Umgewoehnung gut).
+      - Substrat-Stars: Geranien, Fuchsien, Sukkulenten, Rosen (faulen
+        leicht im Wasser oder bilden dort keine Wurzeln).
+      Tipp fuer die Umgewoehnung: Wenn Wasserwurzeln 3-5 cm lang sind,
+      in lockeres, feuchtes Substrat (Perlit-Kokos-Mix) pflanzen.
+      Erst nach 1 Woche normal giessen, vorher nur leicht feucht halten.
+    metadata:
+      topic: rooting_water_vs_substrate
+      difficulty: easy
+      methods: [water_rooting, substrate_rooting]
+
+  - id: bewurzelungshormon
+    title: Bewurzelungshormon — Wann sinnvoll und natuerliche Alternativen
+    content: |
+      Brauche ich Bewurzelungshormon fuer Stecklinge? In vielen Faellen
+      nicht zwingend, aber es kann die Erfolgsquote und Geschwindigkeit
+      deutlich verbessern — besonders bei schwer bewurzelbaren Arten.
+      Was ist Bewurzelungshormon?
+      Bewurzelungspulver oder -gel enthaelt synthetisches Auxin (meist
+      Indol-3-buttersaeure, kurz IBA). Auxin ist das natuerliche
+      Pflanzenhormon, das Wurzelbildung anregt. Das Pulver verstaerkt
+      diesen Effekt an der Schnittstelle.
+      Wann lohnt es sich?
+      - Verholzte Stecklinge (Rosen, Lavendel, Obstgehoelze): Hier ist
+        Bewurzelungshormon fast Pflicht — ohne dauert es ewig oder klappt
+        gar nicht.
+      - Schwer bewurzelbare Arten: Kamelien, Azaleen, Magnolien.
+      - Grosse Stecklinge mit viel Verdunstungsflaeche.
+      Wann ist es ueberfluessig?
+      - Leicht bewurzelbare Arten: Pothos, Tradescantia, Basilikum, Weide
+        — diese bilden auch ohne Hilfe schnell Wurzeln.
+      - Bewurzelung im Wasser — das Hormon waescht sich sofort ab.
+      Natuerliche Alternativen:
+      - Weidenrinden-Wasser: Frische Weidenzweige (Salix) in Stuecke
+        schneiden, ueber Nacht in Wasser einweichen. Weiden enthalten
+        natuerlich hohe Mengen Indol-3-buttersaeure und Salicylsaeure
+        (hemmt Pilze). Stecklinge 2-4 Stunden darin einweichen.
+      - Zimt: Schnittflaeche in Zimtpulver tauchen. Zimt wirkt
+        antimykotisch und schuetzt vor Faule. Kein echtes Bewurzelungshormon,
+        aber verhindert Verluste durch Pilzbefall.
+      - Honig: Leicht antimikrobiell, duenne Schicht auf Schnittflaeche.
+        Wirkung umstritten, schadet aber nicht.
+      Anwendung: Schnittflaeche leicht anfeuchten, in Pulver tauchen,
+      ueberschuessiges Pulver abklopfen, sofort in Substrat stecken.
+    metadata:
+      topic: rooting_hormone
+      difficulty: moderate
+      alternatives: [willow_bark, cinnamon, honey]

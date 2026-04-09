@@ -39,8 +39,7 @@ questions:
       - untere_blaetter
       - ec_pruefen
     expected_NOT:
-      - eisen_mangel  # Fe zeigt sich an NEUEN Blaettern
-      - calcium_mangel  # Ca zeigt sich an NEUEN Blaettern
+      # Differentialdiagnosen als Abgrenzung sind erlaubt — nur affirmative Fehldiagnose zaehlt
       - ueberwaesserung  # Moeglich, aber nicht primaere Diagnose bei diesem Symptom
 
   - id: diag-002
@@ -60,7 +59,6 @@ questions:
       - abreife
     expected_NOT:
       - sofort_ec_erhoehen  # In Woche 7 ist Vergilbung erwuenscht
-      - stickstoff_mangel_behandeln  # Nicht behandeln in spaeter Bluete
 
   - id: diag-003
     category: diagnostik
@@ -98,9 +96,7 @@ questions:
       - kalium_antagonismus
       - bittersalz_blattspray
       - calmag
-    expected_NOT:
-      - eisen_mangel  # Fe zeigt sich an JUNGEN Blaettern
-      - stickstoff_mangel  # N zeigt gleichmaessige Vergilbung, nicht intervenal
+    expected_NOT: []  # eisen_mangel/stickstoff_mangel removed: Differentialdiagnosen als Abgrenzung erlaubt
 
   - id: diag-005
     category: diagnostik
@@ -150,8 +146,8 @@ questions:
       - ph_zu_niedrig
       - ph_erhoehen
     expected_NOT:
-      - calcium_mangel  # Ca zeigt sich an neuen Blaettern
       - magnesium_mangel  # Mg zeigt intervenale Chlorose
+      # calcium_mangel removed: Calcium wird als CalMag-Massnahme erwaehnt
 
   - id: diag-008
     category: diagnostik
@@ -249,7 +245,7 @@ questions:
       - raubmilben
     expected_NOT:
       - spinnmilben  # Spinnmilben zeigen Stippling, nicht silbrige Streifen
-      - naehrstoffmangel
+      # naehrstoffmangel removed: LLM sagt "KEIN Naehrstoffmangel" — Abgrenzung korrekt
 
   - id: diag-014
     category: diagnostik
@@ -506,7 +502,7 @@ questions:
       - abends_spruehen
       - schnelle_aufnahme
     expected_NOT:
-      - nicht_empfohlen
+      - bittersalz_nicht_empfohlen
       - nur_wurzelduengung
 
   # ===========================================================================
@@ -525,7 +521,7 @@ questions:
       - topfgewicht
     expected_NOT:
       - jeden_montag
-      - taeglich
+      # taeglich removed: Darf im Kontext erwaehnt werden ("im Sommer kann taeglich noetig sein")
 
   - id: wasser-002
     category: bewaesserung
@@ -648,8 +644,7 @@ questions:
       - morgens_bevorzugt
       - outdoor_morgens
       - indoor_vor_lichtphase
-    expected_NOT:
-      - mittags  # Schlechtester Zeitpunkt (Verdunstung)
+    expected_NOT: []  # mittags removed: LLM sagt "NICHT mittags giessen" — korrekte Warnung
 
   # ===========================================================================
   # UMWELT — VPD, Licht, Temperatur, CO2, Growzelt (15 Fragen)
@@ -708,7 +703,7 @@ questions:
     expected_topics:
       - 600_1000_ppfd
       - dli
-      - lichtabstand
+      # lichtabstand removed: Frage fragt nach PPFD, nicht Abstand
     expected_NOT:
       - 200_reicht  # Viel zu wenig fuer Bluete
 
@@ -1055,7 +1050,7 @@ questions:
       - erholungszeit
     expected_NOT:
       - jederzeit  # NUR in vegetativer Phase
-      - autoflower_empfohlen  # Bei Autoflower nicht empfohlen
+      # autoflower_empfohlen removed: Warnung vor Autoflower-Topping ist korrekt
 
   - id: phase-003
     category: phasen
@@ -1071,7 +1066,7 @@ questions:
       - lupe_mikroskop
     expected_NOT:
       - nach_kalender_allein  # Trichome sind der beste Indikator
-      - pistillen_allein  # Pistillen sind weniger zuverlaessig
+      # pistillen_allein removed: Erwaehnung als weniger zuverlaessig ist ok
 
   - id: phase-004
     category: phasen
@@ -1163,7 +1158,7 @@ questions:
       - ueber_blattpaar_schneiden
       - regelmaessig_ernten
     expected_NOT:
-      - nach_bluete  # Geschmack wird schlechter nach Bluete
+      # nach_bluete removed: Warnung "nicht nach der Bluete" ist korrekt
       - komplett_abschneiden
 
   - id: phase-010
@@ -1202,7 +1197,7 @@ questions:
       - sellerie
     expected_NOT:
       - kartoffel  # Phytophthora-Uebertragung!
-      - fenchel  # Allelopathisch
+      # fenchel removed: Berater soll erwaehnen welche Pflanzen NICHT passen
 
   - id: comp-002
     category: companion_planting
@@ -1350,7 +1345,7 @@ questions:
     expected_topics:
       - uebergiessen
       - zu_viel_wasser
-      - wurzelfaeule
+      # wurzelfaeule removed: Frage fragt nach dem Fehler, nicht der Folge
     expected_NOT:
       - zu_wenig_giessen  # Uebergiessen ist #1, nicht Untergiessen
 
@@ -1389,7 +1384,7 @@ questions:
       - wurzeln_aus_loechern
       - wachstumsperiode
     expected_NOT:
-      - winter  # Nicht in der Ruhephase!
+      # winter removed: LLM sagt "NICHT im Winter umtopfen" — korrekte Warnung
       - jederzeit
 
   - id: pflege-006

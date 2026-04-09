@@ -1,0 +1,163 @@
+---
+title: "Tomaten anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, tomate, solanum-lycopersicum, anbau, garten, balkon, gewaechshaus, starkzehrer, nachtschatten]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: tomate-aussaat
+    title: "Tomaten — Aussaat und Voranzucht"
+    content: |
+      Tomaten werden in Mitteleuropa nicht direkt ins Freiland gesaet, sondern
+      immer vorgezogen. Die Aussaat erfolgt ab Mitte Maerz auf der Fensterbank
+      oder im beheizten Gewaechshaus. Spaeter als Anfang April sollte nicht
+      mehr ausgesaet werden, da die Kulturzeit sonst zu kurz wird.
+
+      Saattiefe 0,5 bis 1 cm in naehrstoffarme Aussaaterde. Die optimale
+      Keimtemperatur liegt bei 22 bis 25 Grad Celsius — eine Heizmatte
+      beschleunigt die Keimung auf 5 bis 10 Tage. Unter 14 Grad keimt nichts.
+      Das Substrat gleichmaessig feucht halten, aber nie nass.
+
+      Nach dem Erscheinen des zweiten echten Blattpaares wird pikiert: die
+      Saemlinge einzeln in 8 bis 10 cm Toepfe umsetzen. Danach die
+      Nachttemperatur auf 16 Grad absenken — das foerdert gedrungenen, stabilen
+      Wuchs. Etwa 7 bis 10 Tage vor dem Auspflanzen die Jungpflanzen taeglich
+      fuer einige Stunden nach draussen stellen (Abhaerten).
+
+      Tipp fuer Fortgeschrittene: Geiztriebe, die beim Ausgeizen anfallen,
+      lassen sich als Stecklinge in Wasser bewurzeln und ergeben zusaetzliche
+      Pflanzen.
+    metadata:
+      topic: tomato_growing
+      species: "Solanum lycopersicum"
+      difficulty: beginner
+
+  - id: tomate-auspflanzen
+    title: "Tomaten — Auspflanzen und Standort"
+    content: |
+      Tomaten kommen erst nach den Eisheiligen (ab 15. Mai) ins Freiland.
+      Nachttemperaturen unter 5 Grad sind toedlich. Ein Gewaechshaus ist
+      ideal, da es vor Regen und Braunfaeule schuetzt.
+
+      Standort: Volle Sonne, mindestens 6 Stunden taeglich. Windgeschuetzt
+      aber mit guter Luftzirkulation. Boden tiefgruendig, humos und gut
+      durchlaessig. pH 5,8 bis 6,5. Tomaten sind Starkzehrer — vor dem
+      Pflanzen reichlich Kompost und Hornspane einarbeiten (80 bis 120 g
+      Hornspane pro Quadratmeter).
+
+      Pflanzabstand: 50 bis 80 cm zwischen den Pflanzen, je nach Sorte.
+      Buschtomaten brauchen weniger Platz (50 cm), Stabtomaten mehr (60 bis
+      80 cm). Beim Einpflanzen den Stiel bis zu den unteren Blaettern in die
+      Erde setzen — der Stamm bildet zusaetzliche Wurzeln.
+
+      Sofort nach dem Pflanzen eine Stuetze setzen: Spiralstab, Bambusstab
+      oder Schnur. Mulchen mit Stroh haelt die Feuchtigkeit und verhindert,
+      dass Pilzsporen vom Boden auf die Blaetter spritzen.
+
+      Gute Nachbarn: Basilikum (vertreibt Weisse Fliege), Tagetes (gegen
+      Nematoden), Karotten, Petersilie, Knoblauch, Salat, Spinat.
+      Schlechte Nachbarn: Kartoffeln (gleiche Krankheiten!), Fenchel,
+      Auberginen, Erbsen.
+
+      Balkon: Buschtomaten gedeihen in Kuebeln ab 10 Liter. Volle Sonne
+      und Regen-/Windschutz sind Pflicht. Stabtomaten brauchen mindestens
+      15 bis 20 Liter.
+    metadata:
+      topic: tomato_growing
+      species: "Solanum lycopersicum"
+      difficulty: beginner
+
+  - id: tomate-pflege
+    title: "Tomaten — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Tomaten brauchen gleichmaessige Feuchtigkeit. Ungleichmaessiges
+      Giessen verursacht Bluetenendfaeule und Platzfruechte. Morgens giessen,
+      immer direkt an die Wurzel — Blaetter muessen trocken bleiben (Braunfaeule-
+      Risiko). Im Hochsommer taeglich 1 bis 2 Liter pro Pflanze, bei Kuebeln
+      auch mehr. Lauwarmes Wasser (18 bis 22 Grad) ist ideal.
+
+      Ausgeizen: Bei Stabtomaten (indeterminierten Sorten) regelmaessig die
+      Seitentriebe aus den Blattachseln ausbrechen, sobald sie 3 bis 5 cm
+      lang sind. Am besten morgens, dann trocknet die Wunde schnell.
+      Buschtomaten werden NICHT ausgegeizt. Ab August die obersten
+      Bluetentriebe kappen, damit die vorhandenen Fruechte noch ausreifen.
+
+      Duengen: Ab dem Fruchtansatz alle 7 bis 14 Tage mit Tomatenduenger
+      oder Brennnesseljauche (1:10 verduennt) giessen. Ab der Fruchtphase
+      Beinwell-Jauche (kaliumreich) einsetzen — Kalium foerdert Geschmack
+      und Fruchtfestigkeit. Organisch im Beet: Kompost bei der Pflanzung,
+      dann alle 2 Wochen fluessig nachduengen.
+
+      Untere Blaetter: Bis zur ersten Fruchttraube nach und nach entfernen.
+      Das verbessert die Luftzirkulation und reduziert Pilzkrankheiten.
+
+      Fruchtfolge: Mindestens 3 bis 4 Jahre keine Nachtschattengewaechse
+      (Tomaten, Paprika, Kartoffeln) auf der gleichen Flaeche anbauen.
+    metadata:
+      topic: tomato_growing
+      species: "Solanum lycopersicum"
+      difficulty: beginner
+
+  - id: tomate-krankheiten
+    title: "Tomaten — Krankheiten und Schaedlinge"
+    content: |
+      Kraut- und Braunfaeule (Phytophthora infestans) ist die gefaehrlichste
+      Tomatenkrankheit im Freiland. Symptome: braun-schwarze Flecken auf
+      Blaettern und Fruechten, weisser Pilzrasen auf der Blattunterseite.
+      Vorbeugung: Regengeschuetzter Standort (Tomatendach), Blaetter trocken
+      halten, untere Blaetter entfernen, Mulch gegen Spritzwasser. Im
+      Notfall Kupferpraeparat (Karenzzeit 14 Tage).
+
+      Bluetenendfaeule (BER): Dunkle, eingesunkene Flecken an der Fruchtspitze.
+      Keine Krankheit, sondern Calciummangel durch ungleichmaessiges Giessen.
+      Loesung: Regelmaessig giessen, CalMag-Blattduengung.
+
+      Blattlaeuse: Haeufig im Fruehsommer. Abhilfe: Nuetzlinge foerdern
+      (Marienkaefer, Florfliegen), Neemoel-Spritzung (0,3 bis 0,5 Prozent).
+      Weisse Fliege: Gelbtafeln aufhaengen, Basilikum als Beipflanzung.
+      Spinnmilben: Feine Gespinste auf der Blattunterseite, beguentsigt
+      durch trockene Luft. Raubmilben (Phytoseiulus persimilis) einsetzen.
+
+      Tomatenminiermotte (Tuta absoluta): Miniergaenge in Blaettern.
+      Bacillus thuringiensis (Bt) spritzen, Pheromonfallen aufhaengen.
+
+      Echter Mehltau: Weisser Belag auf Blaettern. Kaliumbicarbonat oder
+      Milch-Wasser-Loesung (1:10) spritzen. Befallene Blaetter entfernen.
+
+      Resistente Sorten waehlen: F1-Hybriden mit V (Verticillium), F (Fusarium),
+      T (TMV) und N (Nematoden) Resistenzkennungen bieten guten Schutz.
+    metadata:
+      topic: tomato_growing
+      species: "Solanum lycopersicum"
+      difficulty: intermediate
+
+  - id: tomate-ernte
+    title: "Tomaten — Ernte und Lagerung"
+    content: |
+      Tomaten sind reif, wenn sie sich leicht vom Stiel loesen und die
+      sortentypische Farbe erreicht haben. Die Ernte beginnt je nach Sorte
+      und Standort ab Juli und laeuft bis Oktober.
+
+      Fruechte reifen am besten bei 22 bis 26 Grad Celsius aus. Ueber
+      30 Grad wird die Lycopin-Synthese gehemmt — Fruechte bleiben orange
+      statt rot. Eine Temperaturdifferenz von 6 bis 8 Grad zwischen Tag
+      und Nacht foerdert die Farbentwicklung.
+
+      Unreife gruene Tomaten im Herbst nicht wegwerfen: In einen Karton
+      legen und einen reifen Apfel dazulegen. Das Ethylen des Apfels
+      beschleunigt die Nachreife. Bei 18 bis 20 Grad dauert das Nachreifen
+      1 bis 2 Wochen.
+
+      Reife Tomaten NICHT im Kuehlschrank lagern — unter 12 Grad verlieren
+      sie Aroma und Textur. Bei Raumtemperatur (15 bis 20 Grad) halten sie
+      3 bis 5 Tage. Fuer laengere Haltbarkeit: einfrieren, einkochen,
+      trocknen oder zu Sauce verarbeiten.
+
+      Am Ende der Saison: Pflanzen komplett entfernen und nur bei
+      Krankheitsfreiheit kompostieren. Bei Phytophthora-Befall das
+      Pflanzenmaterial ueber den Restmuell entsorgen, nicht auf den Kompost.
+    metadata:
+      topic: tomato_growing
+      species: "Solanum lycopersicum"
+      difficulty: beginner

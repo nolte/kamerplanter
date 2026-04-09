@@ -1,0 +1,140 @@
+---
+title: "Birkenfeige (Ficus benjamina) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [birkenfeige, ficus-benjamina, benjaminfeige, weeping-fig, zimmerpflanze, pflege, moraceae, tropisch, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: ficus-benjamina-standort
+    title: "Birkenfeige — Standort und Licht"
+    content: |
+      Die Birkenfeige (Ficus benjamina) ist beruehmt-beruechtig fuer ihre
+      Empfindlichkeit gegenueber Standortwechseln. Ein einmaliges Umstellen
+      kann bis zu 50 Prozent Blattverlust verursachen. Das ist eine normale
+      Stressreaktion — nach 4 bis 6 Wochen treibt die Pflanze am neuen
+      Standort wieder aus. Trotzdem: Einmal guten Platz gefunden, moeglichst
+      nicht mehr bewegen.
+
+      Licht: Helles, indirektes Licht. Ein Platz nahe einem Ost- oder
+      Westfenster ist ideal. Variegierte Sorten (zum Beispiel 'Starlight')
+      brauchen etwas mehr Licht als rein gruene.
+
+      Temperatur: 18 bis 24 Grad Celsius am Tag, nachts 15 bis 20 Grad.
+      Mindesttemperatur 13 Grad. Sehr empfindlich gegenueber Zugluft und
+      Kaelte. Schon ein kalter Luftzug vom Fenster kann Blattfall ausloesen.
+
+      Luftfeuchtigkeit: 50 bis 70 Prozent. Im Winter bei Heizungsluft
+      regelmaessig besprühen oder einen Luftbefeuchter nutzen.
+
+      Sommer im Freien: Kann im Sommer (Mai bis August) auf den Balkon
+      — windgeschuetzter, halbschattiger Platz. Vor dem Frost einraumen
+      und danach den Standort nicht mehr wechseln.
+
+      Luftreinigung: Die Birkenfeige filtert Formaldehyd, Benzol,
+      Trichlorethylen und Xylol aus der Raumluft.
+    metadata:
+      topic: ficus_benjamina_care
+      species: "Ficus benjamina"
+      difficulty: beginner
+
+  - id: ficus-benjamina-giessen
+    title: "Birkenfeige — Giessen und Substrat"
+    content: |
+      Die Birkenfeige mag gleichmaessige Feuchtigkeit, reagiert aber
+      empfindlich auf Giess-Fehler.
+
+      Giess-Rhythmus Sommer (April bis September): Alle 7 bis 10 Tage.
+      Das oberste Erdreich leicht antrocknen lassen vor dem naechsten
+      Giessen.
+
+      Giess-Rhythmus Winter (Oktober bis Februar): Alle 14 bis 21 Tage.
+      Substrat zwischen den Guessen staerker antrocknen lassen.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain).
+      Ueberschuss nach 30 Minuten entfernen.
+
+      Wichtig: Immer lauwarmes, abgestandenes Leitungswasser verwenden.
+      Kaltes Wasser verursacht einen Kaelteschock und loest Blattfall
+      aus.
+
+      Substrat: Hochwertige Zimmerpflanzenerde mit guter Drainage,
+      pH 6,0 bis 6,5. 20 bis 30 Prozent Perlite beimischen. Schwere
+      Tonerde vermeiden.
+
+      Haeufigste Giess-Fehler:
+      - Kaltes Wasser: Klassischer Ausloeser fuer Blattfall.
+      - Ueberwaesserung: Fuehrt zu Wurzelfaeule (fauler Geruch,
+        welke Pflanze trotz feuchter Erde).
+      - Wechsel zwischen zu nass und zu trocken: Stresst die
+        ohnehin empfindliche Pflanze zusaetzlich.
+    metadata:
+      topic: ficus_benjamina_care
+      species: "Ficus benjamina"
+      difficulty: beginner
+
+  - id: ficus-benjamina-duengung
+    title: "Birkenfeige — Duengung und Umtopfen"
+    content: |
+      Duengung: Alle 3 bis 4 Wochen von Maerz bis September mit einem
+      Gruenpflanzen-Fluessigduenger (NPK 7-3-6 oder 7-3-7, 5 ml pro
+      Liter Wasser). Stickstoffbetonte Duenger foerdern dichtes
+      Laubwerk.
+
+      Im Winter komplett pausieren. Ficus benjamina reagiert empfindlich
+      auf Ueberdüngung mit Blattflecken und Blattfall.
+
+      Organische Alternative: Feine Hornspaene (3 g pro Liter Substrat)
+      im Fruehling oder 20 Prozent reifen Kompost beim Umtopfen.
+
+      Umtopfen: Alle 2 bis 3 Jahre bei Bedarf (Wurzeln wachsen aus
+      dem Topf). Im Fruehjahr (Maerz) in den naechstgroesseren Topf.
+      Empfohlenes Topfvolumen: 10 bis 30 Liter. Mindestens 25 cm
+      Topftiefe.
+
+      Rueckschnitt: Im Fruehjahr (Februar/Maerz) fuer buschigen Wuchs.
+      Maximal ein Drittel der Blattmasse pro Schnitt entfernen, sonst
+      reagiert die Pflanze mit starkem Blattverlust. Milchsaft mit
+      Watte oder Holzkohle behandeln.
+
+      Achtung: Birkenfeige ist giftig fuer Haustiere und Kinder.
+      Bei bekannter Latex-Allergie (zum Beispiel Chirurgenhandschuh-
+      Allergie) besteht erhoehtes Risiko einer Kreuzreaktion auf
+      den Ficus-Milchsaft. Handschuhe tragen.
+    metadata:
+      topic: ficus_benjamina_care
+      species: "Ficus benjamina"
+      difficulty: beginner
+
+  - id: ficus-benjamina-probleme
+    title: "Birkenfeige — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Massiver Blattfall: Standortwechsel, Zugluft, Kaelteschock,
+        kaltes Giesswasser. Auch beim Einraumen vom Balkon im Herbst
+        normal — Pflanze treibt in 4 bis 6 Wochen nach.
+      - Welke trotz feuchter Erde: Verdacht auf Wurzelfaeule. Topf
+        pruefen, faule Wurzeln entfernen, in frisches Substrat umtopfen.
+      - Silbrige Streifen auf Blaettern: Thripse (schwer zu erkennen).
+        Blaetter genau untersuchen, Blautafeln aufstellen.
+      - Schwarzer Belag auf Blaettern: Russtau als Folge von
+        Schildlausbefall.
+
+      Schaedlinge: Spinnmilben (feine Gespinste), Schmierlaeusen
+      (Wollflecken, Honigtau), Schildlaeusen (braune Schalen auf
+      Staengeln), Thripse (silbrige Streifen, schwer erkennbar).
+
+      Behandlung: Neemoel (0,5 Prozent, alle 7 Tage) gegen Spinnmilben
+      und Schmierlaeusen. Insektizidseife gegen Blattlaeusen. Bei
+      starkem Schildlausbefall: Paraffinoel im Winter oder systemisches
+      Insektizid (Staebchen ins Substrat).
+
+      Vermehrung: Mittlerer Schwierigkeitsgrad. Stecklinge (10 bis
+      15 cm, halbverholzt) brauchen Bodenwaerme (22 bis 25 Grad) und
+      Bewurzelungshormon. Milchsaft nach dem Schnitt einige Minuten
+      abtrocknen lassen. Bewurzelung in 4 bis 8 Wochen.
+      Luftschichtung an aelteren Zweigen ist zuverlaessiger.
+    metadata:
+      topic: ficus_benjamina_care
+      species: "Ficus benjamina"
+      difficulty: intermediate

@@ -24,6 +24,7 @@ class DashboardPage(BasePage):
     def open(self) -> DashboardPage:
         self.navigate(self.PATH)
         self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
         return self
 
     def get_welcome_text(self) -> str:

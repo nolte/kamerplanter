@@ -383,7 +383,7 @@ export default function CultivarDetailPage() {
                       value={phaseOverrides[gp.name] ?? ''}
                       onChange={(e) => handleOverrideChange(gp.name, e.target.value)}
                       placeholder={String(gp.watering_interval_days ?? '')}
-                      inputProps={{ min: 1, max: 90, step: 1 }}
+                      slotProps={{ htmlInput: { min: 1, max: 90, step: 1 } }}
                       sx={{ width: 120 }}
                       data-testid={`phase-override-${gp.name}`}
                     />

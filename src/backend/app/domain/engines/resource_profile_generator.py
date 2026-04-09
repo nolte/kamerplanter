@@ -1,61 +1,166 @@
-from app.config.constants import EC_DEFAULTS, NPK_DEFAULTS, PHOTOPERIOD_DEFAULTS, VPD_RANGES
+from __future__ import annotations
+
 from app.domain.models.phase import NutrientProfile, RequirementProfile
+
+# Fallback defaults used when no YAML profile data is provided.
+# These match the values formerly in config/constants.py.
+_DEFAULT_PROFILES: dict[str, dict] = {
+    "seedling": {
+        "requirement": {
+            "light_ppfd_target": 200,
+            "photoperiod_hours": 18.0,
+            "temperature_day_c": 24.0,
+            "temperature_night_c": 20.0,
+            "humidity_day_percent": 70,
+            "humidity_night_percent": 75,
+            "vpd_range": (0.4, 0.8),
+        },
+        "nutrient": {"npk_ratio": (1, 1, 1), "target_ec_ms": 0.8, "target_ph": 6.0},
+    },
+    "vegetative": {
+        "requirement": {
+            "light_ppfd_target": 400,
+            "photoperiod_hours": 18.0,
+            "temperature_day_c": 25.0,
+            "temperature_night_c": 20.0,
+            "humidity_day_percent": 60,
+            "humidity_night_percent": 65,
+            "vpd_range": (0.8, 1.2),
+        },
+        "nutrient": {"npk_ratio": (3, 1, 2), "target_ec_ms": 1.5, "target_ph": 6.0},
+    },
+    "flowering": {
+        "requirement": {
+            "light_ppfd_target": 600,
+            "photoperiod_hours": 12.0,
+            "temperature_day_c": 26.0,
+            "temperature_night_c": 20.0,
+            "humidity_day_percent": 50,
+            "humidity_night_percent": 55,
+            "vpd_range": (1.0, 1.5),
+        },
+        "nutrient": {"npk_ratio": (1, 3, 2), "target_ec_ms": 1.8, "target_ph": 6.0},
+    },
+    "flushing": {
+        "requirement": {
+            "light_ppfd_target": 400,
+            "photoperiod_hours": 12.0,
+            "temperature_day_c": 25.0,
+            "temperature_night_c": 20.0,
+            "humidity_day_percent": 60,
+            "humidity_night_percent": 65,
+            "vpd_range": (0.8, 1.2),
+        },
+        "nutrient": {"npk_ratio": (0, 0, 0), "target_ec_ms": 0.0, "target_ph": 6.0},
+    },
+    "ripening": {
+        "requirement": {
+            "light_ppfd_target": 500,
+            "photoperiod_hours": 12.0,
+            "temperature_day_c": 24.0,
+            "temperature_night_c": 18.0,
+            "humidity_day_percent": 45,
+            "humidity_night_percent": 50,
+            "vpd_range": (1.2, 1.6),
+        },
+        "nutrient": {"npk_ratio": (0, 1, 2), "target_ec_ms": 1.2, "target_ph": 6.0},
+    },
+    "dormancy": {
+        "requirement": {
+            "light_ppfd_target": 400,
+            "photoperiod_hours": 18.0,
+            "temperature_day_c": 25.0,
+            "temperature_night_c": 20.0,
+            "humidity_day_percent": 60,
+            "humidity_night_percent": 65,
+            "vpd_range": (0.4, 0.8),
+        },
+        "nutrient": {"npk_ratio": (3, 1, 2), "target_ec_ms": 1.5, "target_ph": 6.0},
+    },
+}
 
 
 class ResourceProfileGenerator:
-    """Generates default resource profiles for growth phases."""
+    """Generates default resource profiles for growth phases.
+
+    Accepts phase profile data (typically loaded from YAML seed data).
+    Falls back to built-in defaults when no data is provided.
+    """
+
+    def __init__(self, phase_profiles: dict[str, dict] | None = None) -> None:
+        self._profiles = phase_profiles or _DEFAULT_PROFILES
 
     def generate_requirement_profile(self, phase_name: str, phase_key: str = "") -> RequirementProfile:
-        """Generate a default requirement profile for a given phase."""
-        vpd_range = VPD_RANGES.get(phase_name, (0.8, 1.2))
+        """Generate a requirement profile for a given phase."""
+        profile = self._profiles.get(phase_name, {})
+        req = profile.get("requirement", {})
+
+        vpd_range = req.get("vpd_range", (0.8, 1.2))
         vpd_target = (vpd_range[0] + vpd_range[1]) / 2
-        photoperiod = PHOTOPERIOD_DEFAULTS.get(phase_name, 18.0)
-
-        # Default temps vary by phase
-        temp_day = 25.0
-        temp_night = 20.0
-        humidity_day = 60
-        humidity_night = 65
-        ppfd = 400
-
-        if phase_name == "seedling":
-            temp_day = 24.0
-            temp_night = 20.0
-            humidity_day = 70
-            humidity_night = 75
-            ppfd = 200
-        elif phase_name == "flowering":
-            temp_day = 26.0
-            temp_night = 20.0
-            humidity_day = 50
-            humidity_night = 55
-            ppfd = 600
-        elif phase_name == "ripening":
-            temp_day = 24.0
-            temp_night = 18.0
-            humidity_day = 45
-            humidity_night = 50
-            ppfd = 500
 
         return RequirementProfile(
             phase_key=phase_key,
-            light_ppfd_target=ppfd,
-            photoperiod_hours=photoperiod,
-            temperature_day_c=temp_day,
-            temperature_night_c=temp_night,
-            humidity_day_percent=humidity_day,
-            humidity_night_percent=humidity_night,
+            light_ppfd_target=req.get("light_ppfd_target", 400),
+            photoperiod_hours=req.get("photoperiod_hours", 18.0),
+            temperature_day_c=req.get("temperature_day_c", 25.0),
+            temperature_night_c=req.get("temperature_night_c", 20.0),
+            humidity_day_percent=req.get("humidity_day_percent", 60),
+            humidity_night_percent=req.get("humidity_night_percent", 65),
             vpd_target_kpa=round(vpd_target, 2),
         )
 
     def generate_nutrient_profile(self, phase_name: str, phase_key: str = "") -> NutrientProfile:
-        """Generate a default nutrient profile for a given phase."""
-        npk = NPK_DEFAULTS.get(phase_name, (3, 1, 2))
-        ec = EC_DEFAULTS.get(phase_name, 1.5)
+        """Generate a nutrient profile for a given phase."""
+        profile = self._profiles.get(phase_name, {})
+        nut = profile.get("nutrient", {})
+
+        npk = nut.get("npk_ratio", (3, 1, 2))
 
         return NutrientProfile(
             phase_key=phase_key,
-            npk_ratio=npk,
-            target_ec_ms=ec,
-            target_ph=6.0,
+            npk_ratio=tuple(npk),
+            target_ec_ms=nut.get("target_ec_ms", 1.5),
+            target_ph=nut.get("target_ph", 6.0),
         )
+
+    @staticmethod
+    def from_yaml_phases(default_phases: list[dict]) -> ResourceProfileGenerator:
+        """Construct a generator from YAML default_phases data.
+
+        Each phase dict may contain 'requirement_profile' and 'nutrient_profile' sub-dicts.
+        """
+        profiles: dict[str, dict] = {}
+        for phase in default_phases:
+            name = phase["name"]
+            entry: dict = {}
+            if "requirement_profile" in phase:
+                rp = phase["requirement_profile"]
+                entry["requirement"] = {
+                    "light_ppfd_target": rp["light_ppfd_target"],
+                    "photoperiod_hours": rp["photoperiod_hours"],
+                    "temperature_day_c": rp["temperature_day_c"],
+                    "temperature_night_c": rp["temperature_night_c"],
+                    "humidity_day_percent": rp["humidity_day_percent"],
+                    "humidity_night_percent": rp["humidity_night_percent"],
+                    "vpd_range": tuple(rp["vpd_range"]),
+                }
+            if "nutrient_profile" in phase:
+                np_data = phase["nutrient_profile"]
+                entry["nutrient"] = {
+                    "npk_ratio": tuple(np_data["npk_ratio"]),
+                    "target_ec_ms": np_data["target_ec_ms"],
+                    "target_ph": np_data["target_ph"],
+                }
+            if entry:
+                profiles[name] = entry
+        return ResourceProfileGenerator(profiles)
+
+    def get_vpd_ranges(self) -> dict[str, tuple[float, float]]:
+        """Extract VPD ranges from the loaded profile data."""
+        result: dict[str, tuple[float, float]] = {}
+        for phase_name, data in self._profiles.items():
+            req = data.get("requirement", {})
+            vpd = req.get("vpd_range")
+            if vpd:
+                result[phase_name] = tuple(vpd)  # type: ignore[assignment]
+        return result

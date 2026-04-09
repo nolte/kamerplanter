@@ -1,0 +1,407 @@
+---
+title: Bakterienkrankheiten bei Pflanzen erkennen und bekaempfen
+language: de
+category: diagnostik
+tags:
+  - bakterienkrankheit
+  - feuerbrand
+  - bakterielle-welke
+  - nassfaeule
+  - weichfaeule
+  - blattflecken
+  - bakterieller-krebs
+  - schwarzbeinigkeit
+  - erwinia
+  - ralstonia
+  - pectobacterium
+  - pseudomonas
+  - xanthomonas
+  - clavibacter
+  - tomate
+  - kartoffel
+  - apfel
+  - birne
+  - orchidee
+  - kohl
+  - salat
+  - gurke
+  - paprika
+  - bakterien
+  - pflanzenkrankheit
+  - welke
+  - faeulnis
+  - freiland
+  - gewaechshaus
+  - zimmerpflanze
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+
+  - id: feuerbrand-apfel-birne
+    title: Feuerbrand (Erwinia amylovora) bei Apfel, Birne und Quitte erkennen
+    content: |
+      Feuerbrand ist die gefaehrlichste Bakterienkrankheit im Obstbau und
+      meldepflichtig. Befaellt vor allem Apfel, Birne, Quitte und Weissdorn
+      (alle Kernobstgewaechse und viele Ziergehoelze der Familie Rosaceae).
+      Fruehsymptome erkennen:
+      - Bluetenbueschel verdorren und bleiben haengen — sehen aus als haette
+        jemand sie mit einer Flamme angesengt (daher: "Feuerbrand")
+      - Triebspitzen biegen sich hakenfoermig nach unten ("Hirtenstab")
+      - Junge Blaetter werden braun-schwarz, welken, bleiben aber
+        am Ast haengen (wichtiges Unterscheidungsmerkmal!)
+      Fortgeschrittene Symptome:
+      - Milchiger bis gelblicher Schleim tritt aus Rinden-Laesionen (Exsudat)
+      - Rinde faerbt sich rotbraun unter der Oberflaeche (sichtbar beim Aufschneiden)
+      - Bei starkem Befall: gesamte Aeste sterben ab, befallene Stellen
+        sehen aus wie nach einem Brand
+      Erreger: Erwinia amylovora — ein Bakterium das sich bei warmem,
+      feuchtem Wetter (Bluetenphase 18-30°C, Regen/Tau) explosionsartig
+      ausbreiten kann. Insekten und Regen uebertragen die Bakterien.
+      Beguestigende Bedingungen:
+      - Warme, feuchte Witterung waehrend der Bluete (Kernzeit fuer Infektion)
+      - Starkes Wachstum durch Stickstoff-Ueberduengung (weiches Gewebe)
+      - Schnittverletzungen und Hagelschaeden (Eintrittspforten)
+      - Anfaellige Sorten (z.B. Gala, Golden Delicious) besonders betroffen
+      Sofortmassnahmen (SCHNELL handeln!):
+      - Befallene Triebe zurueckschneiden — mindestens 30-40 cm ins gesunde Holz!
+      - Schnittwerkzeug nach JEDEM Schnitt desinfizieren (Alkohol 70% oder
+        Natriumhypochlorit-Loesung — andernfalls verbreitet man den Erreger)
+      - Befallene Pflanzenteile in geschlossenen Beuteln entsorgen (NICHT kompostieren!)
+      - Meldepflicht beachten: In Deutschland und Oesterreich ist Feuerbrand
+        meldepflichtig — zustaendige Pflanzenschutzbehorde informieren
+      Vorbeugung:
+      - Resistente Sorten waehlen: Rewena, Renora, Topaz (Apfel),
+        Conference (Birne relativ tolerant)
+      - Stickstoff-Duengung massigen — kein ueppiges Wachstum in der Bluetenzeit
+      - Waehrend der Bluete bei Regen nicht in den Bestand gehen
+      Abgrenzung zu Pilzkrankheiten: Bei Feuerbrand bleiben die braunen Blaetter
+      fest am Ast haengen. Bei Pilzkrankheiten (Monilia, Schorf) fallen Blaetter
+      oft ab oder zeigen charakteristische Sporenlager.
+    metadata:
+      pathogen: fire_blight
+      species: Erwinia amylovora
+      pathogen_type: bakterium
+      host_plants:
+        - Malus domestica
+        - Pyrus communis
+        - Cydonia oblonga
+        - Crataegus monogyna
+      environment_preference: warm_humid_flowering
+      reportable_disease: true
+      difficulty: intermediate
+
+  - id: bakterielle-welke-tomate-kartoffel
+    title: Bakterielle Welke (Ralstonia solanacearum) bei Tomate, Kartoffel und Paprika
+    content: |
+      Die bakterielle Welke ist eine der destruktivsten Pflanzenkrankheiten
+      weltweit — besonders gefuerchtet im Gewaechshaus- und Freilandanbau
+      von Tomaten, Kartoffeln und Paprika.
+      Leitsymptom — Erstdiagnose fuer Anfaenger:
+      Die Pflanze welkt plotzlich obwohl der Boden feucht ist. Anfangs
+      erholt sie sich nachts, tagsueeber welkt sie. Nach wenigen Tagen
+      erholt sie sich nicht mehr und stirbt ab.
+      Weitere Symptome:
+      - Welke beginnt oft nur an einem Trieb oder einer Seite der Pflanze
+      - Blaetter vergilben nicht zuerst — sie welken direkt und bleiben gruen
+        (wichtiger Unterschied zur Naehrstoffmangel-Welke!)
+      - Stengel aufgeschnitten: braeunliches Vaskulaergewebe sichtbar
+      - "Schleimfaden-Test": Stengelstueck in Wasser legen — bei Befall
+        treten milchige Schleimfaeden aus (bakterieller Schleim)
+      Erreger: Ralstonia solanacearum — eines der aggressivsten
+      Bodenbakterien. Befaellt ueber die Wurzeln (Verletzungen, Nematoden),
+      verstopft die Leitgewebe, Pflanze verdurstet von innen.
+      Beguestigende Bedingungen:
+      - Warme Boeden (> 25°C) und hohe Luftfeuchtigkeit
+      - Bodenverletzungen durch Hacken oder Nematodenfraass
+      - Kontaminiertes Giessswasser oder Erde
+      - Infizierte Pflanzenreste im Boden (Erreger ueberleben 2-6 Jahre!)
+      Sofortmassnahmen:
+      - Befallene Pflanzen SOFORT mit Wurzelball entfernen und entsorgen
+        (NICHT kompostieren — Erreger ueberlebt Kompostierung!)
+      - Giessgeraete desinfizieren (verduennte Bleichloesung)
+      - Boden der betroffenen Stelle 2-3 Jahre nicht fuer Nachtschattengewaechse
+        nutzen (Fruchtfolge streng einhalten)
+      - Im Gewaechshaus: befallene Reihen markieren, Substrate austauschen
+      Vorbeugung:
+      - Resistente Sorten verwenden (wichtigste Massnahme!)
+      - Zertifiziertes, virusfreies Pflanzgut kaufen
+      - Fruchtfolge: mindestens 3-4 Jahre keine Nachtschattengewaechse
+        (Tomate, Kartoffel, Paprika, Aubergine, Physalis) auf derselben Flaeche
+      - Bodenhygiene: keine kontaminierten Schuhe oder Geraete einbringen
+      Abgrenzung zu Pilzkrankheiten: Pilzwelke (Fusarium, Verticillium) zeigt
+      oft eine einseitige Vergilbung und braeunliche Streifung im Stengel.
+      Ralstonia-Welke: Pflanze bleibt laenger gruen, Schleimfaeden im Schnitttest.
+    metadata:
+      pathogen: bacterial_wilt
+      species: Ralstonia solanacearum
+      pathogen_type: bakterium
+      host_plants:
+        - Solanum lycopersicum
+        - Solanum tuberosum
+        - Capsicum annuum
+        - Solanum melongena
+      environment_preference: warm_moist_soil
+      difficulty: intermediate
+
+  - id: nassfaeule-weichfaeule-pflanzenkrankheit
+    title: Nassfaeule und Weichfaeule (Pectobacterium/Erwinia) bei Salat, Kohl, Kartoffel und Orchideen
+    content: |
+      Nassfaeule (auch Weichfaeule genannt) entsteht durch Bakterien der
+      Gattungen Pectobacterium (frueher: Erwinia) und Dickeya. Der Erreger
+      loest buchstaeblich die Zellstruktur auf — befallenes Gewebe wird
+      weich, matschig und riecht unangenehm faulig.
+      Betroffene Pflanzen: Salat, Kohl, Sellerie, Kartoffel (Knollen und
+      Staude), Zwiebel, Moehre — und bei Zimmerpflanzen besonders Orchideen,
+      Kakteen und Sukkulenten (bei Staunasse).
+      Symptome erkennen:
+      - Weiche, waessrige, dunkel gefaerbte Flecken an Blaettern, Stengeln
+        oder Knollen — fuehlen sich wie aufgeweichtes Papier an
+      - Unangenehmer, fauliger Geruch (typisch fuer Bakterienfaeule!)
+      - Bei Salat: Innere Blaetter werden zuerst befallen, von innen heraus
+      - Bei Kartoffelknollen: braun-schmieriger Kern, matschige Textur
+      - Bei Orchideen: Scheinknollen oder Blattbasis werden glasig, dann
+        braun-schwarz und matschig (Staunasse ist die Hauptursache!)
+      Erreger: Pectobacterium carotovorum subsp. carotovorum (breite
+      Wirtspflanzenliste), Pectobacterium atrosepticum (Kartoffel-speziell),
+      Dickeya-Arten. Produzieren Enzyme (Pectinasen) die Zellwaende aufloesen.
+      Beguestigende Bedingungen:
+      - Staunasse und schlechte Drainage (haeufigste Ursache!)
+      - Verletzungen an Pflanzen (Schnittstellen, Insektenfraass)
+      - Hohe Temperaturen + hohe Feuchte gleichzeitig (>20°C + >80% rH)
+      - Zu tiefes Pflanzen (Stengelbasis verschlossen, Faeuln begunstigt)
+      - Kontaminierte Erde, Geraete oder Giessswasser
+      Sofortmassnahmen:
+      - Befallene Pflanzen oder Pflanzenteile grosszuegig entfernen
+      - Schnittflaechen an Knollen oder Stecklingen abtrocknen lassen
+        (an der Luft antrocknen vor dem Einpflanzen — mindestens 24-48h)
+      - Giessintensitaet SOFORT reduzieren — Erde zwischen den Giessgaengen
+        antrocknen lassen
+      - Bei Orchideen: faule Stellen komplett herausschneiden, Schnittstelle
+        mit Zimtpulver oder Aktivkohle abdichten
+      Vorbeugung:
+      - Drainage verbessern — Staunasse ist der groesste Risikofaktor
+      - Pflanzen nicht zu tief einsetzen (Stengelbasis freilassen)
+      - Verletzungen beim Pflanzen und Hacken vermeiden
+      - Kartoffelknollen vor der Einlagerung gruendlich trocknen lassen
+      - Orchideen IMMER in Toepfe mit Drainageloechern setzen
+      Abgrenzung zu Pilzkrankheiten: Pilzfaeule (Sclerotinia, Pythium) riecht
+      weniger intensiv und zeigt oft weissen Myzel-Flaum. Nassfaeule riecht
+      stark, kein sichtbares Myzel, Gewebe wird "aufgeloest".
+    metadata:
+      pathogen: soft_rot
+      species:
+        - Pectobacterium carotovorum
+        - Pectobacterium atrosepticum
+        - Dickeya spp.
+      pathogen_type: bakterium
+      host_plants:
+        - Lactuca sativa
+        - Brassica oleracea
+        - Solanum tuberosum
+        - Daucus carota
+        - Allium cepa
+        - Orchidaceae (Familie)
+      environment_preference: warm_wet_stagnant
+      difficulty: beginner
+
+  - id: bakterielle-blattflecken-pseudomonas-xanthomonas
+    title: Bakterielle Blattflecken (Pseudomonas, Xanthomonas) bei Tomate, Paprika, Gurke und Zimmerpflanzen
+    content: |
+      Bakterielle Blattflecken gehoeren zu den haeufigsten bakteriellen
+      Erkrankungen im Gemuese- und Zimmerpflanzenbereich. Verursacher sind
+      Pseudomonas syringae und Xanthomonas-Arten.
+      Symptome (Fruehstadium):
+      - Kleine, wassergetrankte (glasige), ungefaerbt bis hellgruene Flecken
+        auf Blaettern — oft gegen das Licht gehalten sichtbar
+      - Bei trockener Witterung: Flecken trocknen ein, werden braun mit
+        gelbem Lichthof (Halo) rund um den Fleck
+      - Flecken begrenzt durch Blattadern (eckige Form) — typisch!
+      Fortgeschrittene Symptome:
+      - Flecken werden grau-braun, trocknen aus, fallen heraus
+        (Schusslochsymptom — "Schrotschuss-Muster" auf dem Blatt)
+      - Bei starkem Befall: Blaetter vergilben und fallen fruehzeitig ab
+      - Auf Fruechten (Tomate, Paprika): erhabene, warzige Flecken
+      Erreger: Pseudomonas syringae pv. tomato (Tomate), Xanthomonas
+      campestris pv. vesicatoria (Paprika, Tomate), Xanthomonas arboricola
+      pv. pruni (Kirsche, Pflaume). Uebertragung durch Regen-Spritzwasser,
+      Wind, Werkzeug, befallenes Saatgut.
+      Beguestigende Bedingungen:
+      - Kuehl-feuchte Witterung mit Regenperioden (Pseudomonas)
+      - Beregnung von oben (Spritzwasser uebertraegt Bakterien)
+      - Verletztes Gewebe (Hagelschaeden, Insektenfraass)
+      - Ueberdichter Bestand — schlechte Luftzirkulation
+      Sofortmassnahmen:
+      - Von-oben-Beregnung sofort einstellen — auf Tropfbewaesserung umstellen
+      - Befallene Blaetter entfernen
+      - Kupferpraeparat spritzen (Kupferhydroxid oder Bordeauxbruehe) —
+        bremst Ausbreitung, heilt nicht
+      - Luftzirkulation verbessern
+      Vorbeugung:
+      - Nur von unten giessen — niemals Blaetter nass werden lassen
+      - Resistente oder tolerante Sorten waehlen
+      - Befallfreies Saatgut verwenden (zertifiziertes Saatgut)
+      - Nicht bei Regen oder Tau in der Kultur arbeiten
+      Abgrenzung zu Pilzkrankheiten: Alternaria und Septoria zeigen aehnliche
+      Blattflecken — aber: Pilzkrankheiten haben oft konzentrisches Ringmuster
+      oder sichtbare Sporenlager. Bakterielle Flecken sind wasser-glasig im
+      Anfangsstadium und zeigen oft den typischen gelben Halo.
+    metadata:
+      pathogen: bacterial_leaf_spot
+      species:
+        - Pseudomonas syringae
+        - Xanthomonas campestris
+        - Xanthomonas arboricola
+      pathogen_type: bakterium
+      host_plants:
+        - Solanum lycopersicum
+        - Capsicum annuum
+        - Cucumis sativus
+        - Prunus avium
+        - Prunus domestica
+      environment_preference: cool_wet_rain
+      difficulty: beginner
+
+  - id: bakterieller-krebs-tomate-clavibacter
+    title: Bakterieller Krebs (Clavibacter michiganensis) bei Tomate
+    content: |
+      Der bakterielle Krebs der Tomate (Erreger: Clavibacter michiganensis
+      subsp. michiganensis) ist eine gefuerchtete Quarantaenekrankheit im
+      professionellen Tomatenanbau — besonders im Gewaechshaus.
+      Leitsymptome:
+      - Einseitiges Welken einzelner Blaetter oder Triebe — oft beginnt
+        die Welke nur an einer Seite des Blattes oder einer Pflanzenseite
+      - Weisse bis cremefarbene Randverfaerbung auf dem Laub ("bird's eye"
+        Symptom an Fruechten: kleine, weisse Flecken mit dunklem Zentrum)
+      - Stengel aufgeschnitten: gelb-braune Verfaerbung im Mark, haefig
+        hohle Stellen — bei Druck tritt schleimiges Exsudat aus
+      - Spaeteres Stadium: Pflanze stirbt von oben nach unten ab
+      Erreger: Clavibacter michiganensis subsp. michiganensis — befaellt
+      ausschliesslich Tomate (hohe Wirtsspezifitaet). Uebertraegt sich
+      ueber infiziertes Saatgut, Pflanzenreste, Werkzeug und Haende.
+      Meldepflichtig in der EU (Quarantaeneschadorganismus).
+      Beguestigende Bedingungen:
+      - Verletzungen beim Koepfen, Ausgeizen, Spalieren
+      - Kontaminiertes Saatgut (haeufigste Eintragsquelle)
+      - Feucht-warmes Gewaechshausklima
+      - Monokultur ohne Substrataustausch
+      Sofortmassnahmen:
+      - Pflanzenschutzdienst sofort informieren (Quarantaeneschadorganismus!)
+      - Befallene Pflanzen vollstaendig entfernen und vernichten (verbrennen)
+      - Gesamtes Werkzeug gruendlich desinfizieren
+      - Bei Gewaechshausbefall: vollstaendige Desinfektion der Anlage noetig
+      Vorbeugung:
+      - Nur zertifiziertes, unbehandeltes Saatgut verwenden
+      - Werkzeug regelmaessig desinfizieren beim Koepfen und Ausgeizen
+      - Fruchtfolge einhalten — Substrate regelmaessig wechseln
+      - Resistente Sorten bevorzugen
+      Abgrenzung zu anderen Welke-Erkrankungen: Clavibacter zeigt oft die
+      "Vogelaugen" auf den Fruechten als Erkennungszeichen. Ralstonia-Welke
+      breitet sich schneller aus und betrifft die ganze Pflanze gleichzeitig.
+      Fusarium-Welke zeigt einseitige Vergilbung ohne Schleimexsudat.
+    metadata:
+      pathogen: bacterial_canker_tomato
+      species: Clavibacter michiganensis subsp. michiganensis
+      pathogen_type: bakterium
+      host_plants:
+        - Solanum lycopersicum
+      quarantine_pest: true
+      environment_preference: warm_humid_greenhouse
+      difficulty: expert
+
+  - id: schwarzbeinigkeit-kartoffel
+    title: Schwarzbeinigkeit (Pectobacterium atrosepticum) bei Kartoffeln erkennen
+    content: |
+      Schwarzbeinigkeit ist eine der wichtigsten Bakterienkrankheiten der
+      Kartoffel — verursacht erhebliche Ausfaelle sowohl im Bestand
+      als auch bei der Einlagerung.
+      Typische Symptome im Feld:
+      - Stengelbasis (Stengel direkt ueber dem Boden) wird schwarz,
+        weich und matschig — daher der Name "Schwarzbeinigkeit"
+      - Pflanze welkt und bleibt in der Wuchshoehe zurueck
+      - Blaetter rollen sich ein und verfaerben sich gelb-gruen
+      - Beim Herausziehen: Stengel loest sich leicht von der Mutterknolle
+      - Befallene Knollen: braun-schmieriger Kern (Nassfaeule der Knolle)
+      Symptome bei der Einlagerung:
+      - Befallene Knollen entwickeln Nassfaeule (weich, matschig, faulig
+        riechend) — eine befallene Knolle kann die gesamte Miete infizieren
+      - Knolle aussen unauffaellig, innen bereits zersetzt
+      Erreger: Pectobacterium atrosepticum (kuehle Klimazonen), auch
+      Pectobacterium carotovorum und Dickeya-Arten. Uebertragung durch
+      infiziertes Pflanzgut (Mutterknollen) und kontaminierte Erde.
+      Beguestigende Bedingungen:
+      - Nasse, kalte, verdichtete Boeden (schlechte Drainage)
+      - Verletzungen an Knollen beim Pfluegen oder Ernten
+      - Infiziertes oder verletztes Pflanzgut
+      - Hohe Bodenfeuchte bei kuehlen Temperaturen (typisch Fruehjahr)
+      Sofortmassnahmen im Feld:
+      - Befallene Pflanzen mit Knolle ausgraben und vernichten
+      - Bewaesserung sofort einschraenken
+      - Ernte bei trockener Witterung und wenn Knollen gut abgehärtet sind
+      Sofortmassnahmen bei der Einlagerung:
+      - Befallene Knollen SOFORT aussortieren (eine Knolle gefaehrdet alle!)
+      - Lager gut belüften und Temperatur unter 5°C halten
+      - Lagerbehaelter nach der Saison desinfizieren
+      Vorbeugung:
+      - Zertifiziertes, gesundes Pflanzgut verwenden
+      - Drainage verbessern, Staunasse vermeiden
+      - Verletzungen bei Ernte und Einlagerung minimieren
+      - Knollen vor der Einlagerung gut abtrocknen und abharten lassen
+        (Wundheilung durch 2 Wochen bei 12-15°C und hoher Luftfeuchte)
+      Abgrenzung zur Krautfaeule: Krautfaeule (Phytophthora — Pilzkrankheit!)
+      befaellt Blaetter und Knollen mit braunen Flecken, Stengelbasis bleibt
+      meist intakt. Schwarzbeinigkeit zeigt die typische schwarze, matschige
+      Stengelbasis als Leitsymptom.
+    metadata:
+      pathogen: blackleg_potato
+      species:
+        - Pectobacterium atrosepticum
+        - Pectobacterium carotovorum
+      pathogen_type: bakterium
+      host_plants:
+        - Solanum tuberosum
+      environment_preference: cold_wet_compacted
+      difficulty: intermediate
+
+  - id: bakterienkrankheiten-allgemein-vs-pilz
+    title: Bakterielle Pflanzenkrankheiten von Pilzkrankheiten unterscheiden
+    content: |
+      Bakterielle Krankheiten werden haeufig mit Pilzkrankheiten verwechselt,
+      weil die Symptome aehnlich aussehen koennen. Diese Unterschiede helfen
+      bei der Ersteinschaetzung:
+      Typische Hinweise auf BAKTERIEN (nicht Pilz):
+      - Fauliger, unangenehmer Geruch an befallenen Stellen (Bakterienfaeule
+        riecht intensiv — Pilzfaeule eher muffig/schimmelig)
+      - Milchiger oder schleimiger Ausfluss (bakterielles Exsudat)
+      - Kein sichtbarer Pilzrasen, kein Myzel, keine Sporenlager
+      - Wasser-glasige (durchscheinende), oelige Flecken im Fruehstadium
+      - Befallenes Gewebe wird matschig-weich und "aufgeloest" (nicht nur
+        trocken und eingetrocknet wie bei vielen Pilzen)
+      - Schnelle Ausbreitung bei feuchter Witterung, oft innerhalb von Tagen
+      Typische Hinweise auf PILZE (nicht Bakterien):
+      - Sichtbares Myzel (weisser Flaum, grauer Schimmelbelag, Sporenlager)
+      - Sporenstaub (z.B. weisser Staub bei Mehltau)
+      - Ringe oder konzentrische Zonen in Blattflecken
+      - Trockene, eingesunkene oder korkige Stellen (Pilzfaeule)
+      Behandlung — entscheidender Unterschied:
+      - Pilzkrankheiten: Fungizide (Kupfer, Schwefel, Biofungizide)
+      - Bakterienkrankheiten: Kupferpraeparate haben begrenzte Wirkung,
+        klassische Fungizide wirken NICHT gegen Bakterien
+      - Bei Bakterienkrankheiten: Hygiene, Entfernen befallener Teile und
+        Kulturmassnahmen (Drainage, Fruchtfolge) sind die Hauptwerkzeuge
+      Wann zum Pflanzenschutzdienst?
+      - Bei Verdacht auf Feuerbrand (Meldepflicht!)
+      - Bei Verdacht auf bakteriellen Krebs der Tomate (Quarantaene!)
+      - Wenn Verluste trotz Sofortmassnahmen zunehmen
+      Haeufige Verwechslungen:
+      - Schwarzbeinigkeit vs. Krautfaeule (Phytophthora): Krautfaeule hat
+        Sporenrasen auf der Blattunterseite, Schwarzbeinigkeit hat die
+        schwarze Stengelbasis als Leitsymptom
+      - Nassfaeule vs. Sclerotinia (Pilz): Sclerotinia zeigt weisses Myzel
+        und schwarze Sklerotien, Nassfaeule riecht intensiv und kein Myzel
+      - Bakterielle Welke vs. Naehrstoffmangel-Welke: Welke bei
+        ausreichendem Wasserangebot deutet auf Gefasskrankheit hin
+    metadata:
+      type: differential_diagnosis
+      topic: bakterien_vs_pilze
+      pathogen_type: bakterium
+      difficulty: beginner

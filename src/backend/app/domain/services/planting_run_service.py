@@ -7,6 +7,7 @@ from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -26,6 +27,7 @@ class PlantingRunService:
         watering_repo=None,
         phase_repo: IPhaseRepository | None = None,
         site_repo: ISiteRepository | None = None,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
     ) -> None:
         self._repo = run_repo
         self._plant_repo = plant_repo
@@ -35,6 +37,35 @@ class PlantingRunService:
         self._watering_repo = watering_repo
         self._phase_repo = phase_repo
         self._site_repo = site_repo
+        self._phase_seq_repo = phase_seq_repo
+
+    def _resolve_initial_phase(self, species_key: str) -> tuple[str, str]:
+        """Resolve (phase_key, phase_name) for initial phase assignment.
+
+        Tries PhaseSequence first, falls back to LifecycleConfig.
+        Returns ("", "") if no phase data found.
+        """
+        # Try PhaseSequence first
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                if entries:
+                    first = min(entries, key=lambda e: e.sequence_order)
+                    defn = self._phase_seq_repo.get_definition_by_key(first.phase_definition_key)
+                    name = defn.name if defn else ""
+                    return first.key or "", name
+
+        # Fallback to LifecycleConfig
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+                if growth_phases:
+                    first = min(growth_phases, key=lambda gp: gp.sequence_order)
+                    return first.key or "", first.name
+
+        return "", ""
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -190,17 +221,13 @@ class PlantingRunService:
         # Resolve available slots at the run's location
         available_slots = self._get_available_slots(run.location_key)
 
-        # Resolve initial phase per species from lifecycle config
+        # Resolve initial phase per species — prefer PhaseSequence, fallback to LifecycleConfig
         initial_phases: dict[str, tuple[str, str]] = {}  # species_key -> (phase_key, phase_name)
-        if self._phase_repo:
-            for entry in entries:
-                if entry.species_key not in initial_phases:
-                    lifecycle = self._phase_repo.get_lifecycle_by_species(entry.species_key)
-                    if lifecycle:
-                        growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
-                        if growth_phases:
-                            first = min(growth_phases, key=lambda gp: gp.sequence_order)
-                            initial_phases[entry.species_key] = (first.key or "", first.name)
+        for entry in entries:
+            if entry.species_key not in initial_phases:
+                pk, pn = self._resolve_initial_phase(entry.species_key)
+                if pk:
+                    initial_phases[entry.species_key] = (pk, pn)
 
         now = datetime.now(UTC)
 
@@ -521,10 +548,68 @@ class PlantingRunService:
 
     # ── Phase timeline ─────────────────────────────────────────────────
 
+    def _resolve_growth_phases_for_timeline(self, species_key: str) -> tuple[list, str | None, str | None]:
+        """Resolve growth phases for timeline rendering.
+
+        Tries PhaseSequence first, falls back to LifecycleConfig.
+        Returns (growth_phase_dicts, lifecycle_or_sequence_key, cycle_type_value).
+        Each dict has: key, name, display_name, description, sequence_order,
+        typical_duration_days, allows_harvest.
+        """
+        # Try PhaseSequence first
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                if entries:
+                    entries.sort(key=lambda e: e.sequence_order)
+                    phases = []
+                    for entry in entries:
+                        defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                        phases.append(
+                            {
+                                "key": entry.key or "",
+                                "name": defn.name if defn else "",
+                                "display_name": (defn.display_name if defn else "") or (defn.name if defn else ""),
+                                "description": defn.description if defn else "",
+                                "sequence_order": entry.sequence_order,
+                                "typical_duration_days": (
+                                    entry.override_duration_days or (defn.typical_duration_days if defn else 14)
+                                ),
+                            }
+                        )
+                    cycle_val = seq.cycle_type.value if hasattr(seq.cycle_type, "value") else seq.cycle_type
+                    return phases, seq.key, str(cycle_val)
+
+        # Fallback to LifecycleConfig
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle and lifecycle.key:
+                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+                growth_phases.sort(key=lambda gp: gp.sequence_order)
+                if growth_phases:
+                    phases = [
+                        {
+                            "key": gp.key or "",
+                            "name": gp.name,
+                            "display_name": gp.display_name or gp.name,
+                            "description": gp.description or "",
+                            "sequence_order": gp.sequence_order,
+                            "typical_duration_days": gp.typical_duration_days,
+                        }
+                        for gp in growth_phases
+                    ]
+                    cycle_val = (
+                        lifecycle.cycle_type.value if hasattr(lifecycle.cycle_type, "value") else lifecycle.cycle_type
+                    )
+                    return phases, lifecycle.key, str(cycle_val)
+
+        return [], None, None
+
     def get_phase_timeline(self, run_key: PlantingRunKey) -> list[dict]:
         """Build per-species phase timeline with completed/current/projected phases."""
         self.get_run(run_key)
-        if self._phase_repo is None:
+        if self._phase_repo is None and self._phase_seq_repo is None:
             return []
 
         entries = self._repo.get_entries(run_key)
@@ -547,14 +632,9 @@ class PlantingRunService:
             if not sp_plants:
                 continue
 
-            # Get lifecycle + phases for this species
-            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
-            if lifecycle is None or lifecycle.key is None:
-                continue
-
-            growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
-            growth_phases.sort(key=lambda gp: gp.sequence_order)
-            if not growth_phases:
+            # Get phases — prefer PhaseSequence, fallback to LifecycleConfig
+            phase_dicts, config_key, cycle_type_val = self._resolve_growth_phases_for_timeline(species_key)
+            if not phase_dicts or config_key is None:
                 continue
 
             # Pick representative plant (first one)
@@ -563,7 +643,7 @@ class PlantingRunService:
             rep_current_phase = rep_plant.get("current_phase", "")
 
             # Load phase history for representative plant
-            history = self._phase_repo.get_phase_history(rep_key)
+            history = self._phase_repo.get_phase_history(rep_key) if self._phase_repo else []
             history_by_phase: dict[str, dict] = {}
             for h in history:
                 history_by_phase[h.phase_name] = {
@@ -576,20 +656,23 @@ class PlantingRunService:
             now = datetime.now(UTC)
             phase_entries = []
             last_end: datetime | None = None
-            for gp in growth_phases:
-                h = history_by_phase.get(gp.name)
+            for gp in phase_dicts:
+                gp_name = gp["name"]
+                gp_key = gp["key"]
+                typical_days = gp["typical_duration_days"]
+                h = history_by_phase.get(gp_name)
                 exited = h.get("exited_at") if h else None
                 exited_in_past = exited is not None and (exited if exited.tzinfo else exited.replace(tzinfo=UTC)) <= now
                 if h and exited_in_past:
                     # Completed phase (exited_at is in the past)
                     phase_entries.append(
                         {
-                            "phase_key": gp.key or "",
-                            "phase_name": gp.name,
-                            "display_name": gp.display_name or gp.name,
-                            "description": gp.description or "",
-                            "sequence_order": gp.sequence_order,
-                            "typical_duration_days": gp.typical_duration_days,
+                            "phase_key": gp_key,
+                            "phase_name": gp_name,
+                            "display_name": gp.get("display_name", gp_name),
+                            "description": gp.get("description", ""),
+                            "sequence_order": gp["sequence_order"],
+                            "typical_duration_days": typical_days,
                             "status": "completed",
                             "actual_entered_at": h["entered_at"],
                             "actual_exited_at": h["exited_at"],
@@ -599,32 +682,29 @@ class PlantingRunService:
                         }
                     )
                     last_end = h["exited_at"]
-                elif gp.name == rep_current_phase or (h and h.get("entered_at") and not exited_in_past):
-                    # Current phase (either matches plant's current_phase, or has
-                    # entered_at set with exited_at in the future / not yet set)
+                elif gp_name == rep_current_phase or (h and h.get("entered_at") and not exited_in_past):
+                    # Current phase
                     entered = h["entered_at"] if h else None
                     if entered is None:
-                        # Fallback: use current_phase_started_at from plant
                         started_str = rep_plant.get("current_phase_started_at")
                         if started_str:
                             if isinstance(started_str, str):
                                 entered = datetime.fromisoformat(started_str)
                             else:
                                 entered = started_str
-                    # Use future exited_at as projected end, otherwise compute from typical duration
                     proj_end_dt = (
                         exited
                         if (exited and not exited_in_past)
-                        else ((entered + timedelta(days=gp.typical_duration_days)) if entered else None)
+                        else ((entered + timedelta(days=typical_days)) if entered else None)
                     )
                     phase_entries.append(
                         {
-                            "phase_key": gp.key or "",
-                            "phase_name": gp.name,
-                            "display_name": gp.display_name or gp.name,
-                            "description": gp.description or "",
-                            "sequence_order": gp.sequence_order,
-                            "typical_duration_days": gp.typical_duration_days,
+                            "phase_key": gp_key,
+                            "phase_name": gp_name,
+                            "display_name": gp.get("display_name", gp_name),
+                            "description": gp.get("description", ""),
+                            "sequence_order": gp["sequence_order"],
+                            "typical_duration_days": typical_days,
                             "status": "current",
                             "actual_entered_at": entered,
                             "actual_exited_at": exited if (exited and not exited_in_past) else None,
@@ -636,19 +716,19 @@ class PlantingRunService:
                     if proj_end_dt:
                         last_end = proj_end_dt
                     elif entered:
-                        last_end = entered + timedelta(days=gp.typical_duration_days)
+                        last_end = entered + timedelta(days=typical_days)
                 else:
                     # Projected phase (future)
                     proj_start = last_end
-                    proj_end = (proj_start + timedelta(days=gp.typical_duration_days)) if proj_start else None
+                    proj_end = (proj_start + timedelta(days=typical_days)) if proj_start else None
                     phase_entries.append(
                         {
-                            "phase_key": gp.key or "",
-                            "phase_name": gp.name,
-                            "display_name": gp.display_name or gp.name,
-                            "description": gp.description or "",
-                            "sequence_order": gp.sequence_order,
-                            "typical_duration_days": gp.typical_duration_days,
+                            "phase_key": gp_key,
+                            "phase_name": gp_name,
+                            "display_name": gp.get("display_name", gp_name),
+                            "description": gp.get("description", ""),
+                            "sequence_order": gp["sequence_order"],
+                            "typical_duration_days": typical_days,
                             "status": "projected",
                             "actual_entered_at": None,
                             "actual_exited_at": None,
@@ -664,8 +744,8 @@ class PlantingRunService:
                 {
                     "species_key": species_key,
                     "species_name": None,
-                    "lifecycle_key": lifecycle.key,
-                    "cycle_type": lifecycle.cycle_type.value,
+                    "lifecycle_key": config_key,
+                    "cycle_type": cycle_type_val,
                     "plant_count": len(sp_plants),
                     "phases": phase_entries,
                 }

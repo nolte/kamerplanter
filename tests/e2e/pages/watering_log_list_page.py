@@ -140,6 +140,39 @@ class WateringLogListPage(BasePage):
         """Return True if the create dialog is visible."""
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
+    def select_first_plant(self) -> bool:
+        """Type into the plant autocomplete and select the first option.
+
+        Returns True if a plant was selected, False if no options appeared.
+        """
+        import time
+
+        input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
+        input_el.click()
+        # Type a space to trigger the dropdown, then clear it
+        input_el.send_keys(" ")
+        time.sleep(0.3)
+        input_el.clear()
+        time.sleep(0.3)
+
+        # MUI Autocomplete renders options in a listbox
+        options = self.driver.find_elements(
+            By.CSS_SELECTOR, "li[role='option']"
+        )
+        if not options:
+            # Try clicking the input again to open the dropdown
+            input_el.click()
+            time.sleep(0.5)
+            options = self.driver.find_elements(
+                By.CSS_SELECTOR, "li[role='option']"
+            )
+
+        if options:
+            options[0].click()
+            time.sleep(0.3)
+            return True
+        return False
+
     def fill_volume(self, volume: float) -> None:
         """Fill the volume_liters field in the create dialog."""
         el = self.wait_for_element_clickable(self.FORM_VOLUME)

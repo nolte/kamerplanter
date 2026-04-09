@@ -14,6 +14,7 @@ export default function App() {
           maxSnack={3}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           autoHideDuration={5000}
+          style={{ maxWidth: '480px', whiteSpace: 'pre-line' }}
         >
           <AuthProvider>
             <RouterProvider router={router} />

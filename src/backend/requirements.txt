@@ -45,7 +45,7 @@ click-repl==0.3.0
     # via celery
 croniter==6.2.2
     # via kamerplanter-backend (pyproject.toml)
-cryptography==46.0.6
+cryptography==46.0.7
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
@@ -154,7 +154,7 @@ urllib3==2.6.3
     # via
     #   python-arango
     #   requests
-uvicorn==0.43.0
+uvicorn==0.44.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn

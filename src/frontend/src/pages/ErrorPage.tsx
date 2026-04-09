@@ -91,7 +91,7 @@ export default function ErrorPage({ statusCode = 500, onRetry }: ErrorPageProps)
         {message}
       </Typography>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
         <Button
           variant="contained"
           onClick={() => navigate('/dashboard')}

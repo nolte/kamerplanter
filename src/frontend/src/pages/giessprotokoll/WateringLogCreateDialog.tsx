@@ -191,7 +191,7 @@ export default function WateringLogCreateDialog({
         fertilizers_used: data.fertilizers_used,
         notes: data.notes,
       });
-      notification.success(t('common.create'));
+      notification.success(t('pages.wateringLogs.logged'));
       reset();
       onCreated();
     } catch (err) {
@@ -209,8 +209,10 @@ export default function WateringLogCreateDialog({
       fullWidth
       fullScreen={fullScreen}
     >
-      <DialogTitle>{t('pages.wateringLogs.create')}</DialogTitle>
-      <DialogContent>
+      <DialogTitle sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, borderBottom: 1, borderColor: 'divider' }}>
+        {t('pages.wateringLogs.create')}
+      </DialogTitle>
+      <DialogContent sx={{ overflowY: 'auto' }}>
         {channelPreset && (
           <Alert severity="info" sx={{ mb: 2 }}>
             {t('pages.wateringLogs.channelPresetInfo', { channel: channelPreset.channelLabel })}
@@ -248,9 +250,9 @@ export default function WateringLogCreateDialog({
                     sx={{ mb: 2 }}
                   />
                 )}
-                renderTags={(value, getTagProps) =>
+                renderValue={(value, getItemProps) =>
                   value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
+                    const { key, ...tagProps } = getItemProps({ index });
                     return (
                       <Chip
                         key={key}
@@ -284,6 +286,7 @@ export default function WateringLogCreateDialog({
               name="application_method"
               control={control}
               label={t('pages.wateringLogs.applicationMethod')}
+              required
               options={applicationMethods.map((v) => ({
                 value: v,
                 label: t(`enums.applicationMethod.${v}`),
@@ -309,12 +312,14 @@ export default function WateringLogCreateDialog({
               suffix="L"
               min={0.01}
               inputMode="decimal"
+              required
             />
             <Box sx={{ display: 'flex', alignItems: 'flex-start', pt: { xs: 0, sm: 0 } }}>
               <FormSwitchField
                 name="is_supplemental"
                 control={control}
                 label={t('pages.wateringLogs.isSupplemental')}
+                helperText={t('pages.wateringLogs.isSupplementalHelper')}
               />
             </Box>
           </Box>
@@ -455,6 +460,7 @@ export default function WateringLogCreateDialog({
           ))}
           <Button
             size="small"
+            variant="outlined"
             startIcon={<AddIcon />}
             onClick={() => append({ fertilizer_key: '', ml_per_liter: 1 })}
             sx={{ mb: 2 }}

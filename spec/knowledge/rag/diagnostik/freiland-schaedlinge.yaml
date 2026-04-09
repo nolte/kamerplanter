@@ -1,0 +1,521 @@
+---
+title: Freiland-Schaedlinge erkennen und bekaempfen
+language: de
+category: diagnostik
+tags: [schnecken, kohlweissling, erdfloh, kartoffelkaefer, moehrenfliege, buchsbaumzuensler, wuehlmaus, dickmaulrueessler, kirschessigfliege, lauchmotte, nematoden, freiland, garten, schaedlinge, biologisch, bekaempfung, vorbeugung, lochfrass, frasskontrolle]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+
+  - id: schnecken-freiland
+    title: Schnecken im Garten — Schleimspuren und Lochfrass ueber Nacht
+    content: |
+      Leitsymptom fuer Schnecken: Loecher in Blaettern — besonders nachts entstanden,
+      mit silbrigen Schleimspuren auf Blaettern, Boden oder Topfraendern.
+      Beginner-Faustregel: Salat, Basilikum oder Keimlinge haben ueber Nacht Loecher
+      bekommen? Erste Verdachtsdiagnose ist fast immer Schnecken.
+
+      Schadbild:
+      - Unregelmassige Loecher in Blaettern, Stengeln, Fruechten
+      - Silbrig glaenzende Schleimspur (auch bei Trockenheit sichtbar, da trocknet
+        sie zu mattem Film)
+      - Keimlinge komplett abgefressen (oft bis zum Boden)
+      - Hauptaktivitaet nachts und nach Regen
+
+      Biologie:
+      - Gemeine Wegschnecke (Arion vulgaris) und Garten-Wegschnecke (Arion hortensis)
+        sind die Hauptschaedlinge — dunkel bis rotbraun, 5-15 cm
+      - Gehaeusetragend: Weinbergschnecke (Helix pomatia) frisst kaum, aber
+        Graue Gartenschnecke (Cornu aspersum) schaedigt stark
+      - Eier: Runde, perlweisse Kugeln (3-4mm) unter Steinen, Mulch, Brettern
+      - Optimale Schneckenbedingungen: feucht-kuehle Naechte, 10-20°C
+
+      Besonders anfaellige Pflanzen:
+      Salat, Basilikum, Spinat, Zucchini-Jungpflanzen, Hosta, Dahlien, Erdbeeren,
+      Gurken-Keimlinge, Kohl-Jungpflanzen, Dill, Sellerie.
+      Weniger anfaellig: Tomaten (behaart), Kartoffeln, Rosmarin, Salbei, Ringelblume.
+
+      Sofortmassnahmen (biologisch bevorzugt):
+      1. Bierfalle: Flaches Gefaess (z.B. Joghurtbecher) eben im Boden eingraben,
+         mit Bier fuellen (guenstiges helles reicht). Taeglich leeren.
+      2. Schneckenkorn auf Eisenphosphat-Basis (z.B. Ferramol): fuer Haustiere und
+         Igel unbedenklich, zugelassen im Bio-Anbau. Kein Metaldehyd verwenden!
+      3. Nematoden (Phasmarhabditis hermaphrodita): Giessen auf feuchten Boden,
+         ab 5°C Bodentemperatur. Sehr effektiv gegen Nacktschnecken, nicht gegen
+         Gehaeusetragend.
+      4. Laufenten (Indische Laufente): Effektive biologische Dauerloesung fuer groessere
+         Gaerten — fressen Schnecken und Eier, beschaedigen keine Pflanzen.
+
+      Vorbeugung:
+      - Kupferband um Toepfe und Hochbeete (Schnecken moegen keine Kupferionen)
+      - Kragenkoepfe (Plastikflaschen-Ringe) um Einzelpflanzen bei der Pflanzung
+      - Beete abends nicht giessen — feuchte Nacht lockt Schnecken an
+      - Mulch von Pflanzenstengeln fernhalten (Versteck)
+      - Natur-Feinde foerdern: Igel (Totholzhaufen, Laubhaufen), Laufkaefer (Steinhaufen),
+        Blindschleichen (Steinhaufen), Kroeten
+    metadata:
+      pest: slugs_snails
+      families: [Arionidae, Helicidae]
+      difficulty: easy
+      environment_preference: moist_cool
+      control_methods: [beer_trap, iron_phosphate, nematodes, runner_ducks, copper]
+
+  - id: kohlweissling-raupen
+    title: Kohlweissling-Raupen — gruene Raupen mit Kotkruemeln auf Kohl
+    content: |
+      Leitsymptom: Gruene Raupen auf Kohl, Brokkoli oder Blumenkohl — oft mit braunen
+      Kotkruemeln auf Blaettern und grossen Lochfrasstellen. Die Raupen des Kohlweisslings
+      (Pieris brassicae, grosser Kohlweissling; Pieris rapae, kleiner Kohlweissling)
+      sind DAS Hauptproblem bei Kohlgewaechsen.
+
+      Schadbild:
+      - Grosser Kohlweissling (Pieris brassicae): Raupen bis 4 cm, gelblich-gruen mit
+        schwarzen Punkten, fressen in Gruppen, Kahlfrasskefahr
+      - Kleiner Kohlweissling (Pieris rapae): Raupen bis 2.5 cm, einfarbig gruen,
+        Einzelgaenger, bohren sich in Kohlkoepfe
+      - Gelbe Eihaeufen auf Blattunterseiten (Pieris brassicae) oder einzelne
+        Eier (Pieris rapae)
+      - Kotkruemel auf Blaettern und im Herz der Pflanze
+
+      Biologie:
+      - 2-3 Generationen pro Jahr (Mai-Oktober)
+      - Falter: weiss mit schwarzen Punkten, 5-6 cm Spannweite
+      - Fliegen bei Sonnenschein, legen Eier bevorzugt auf Kohlgewaechse
+
+      Betroffene Pflanzen:
+      Kohl (alle Sorten), Brokkoli, Blumenkohl, Rosenkohl, Kohlrabi, Chinakohl,
+      Pak Choi, Steckruebe, Rettich, Rukola.
+
+      Sofortmassnahmen:
+      1. Raupen und Eier von Hand absammeln (effektiv bei kleinem Bestand)
+      2. Bacillus thuringiensis var. kurstaki (Bt): biologisches Mittel, sehr
+         wirksam gegen Schmetterlingsraupen. Spray auf Blaetter, Raupen fressen
+         Bt und sterben. Sicher fuer Bienen und Menschen.
+      3. Trichogramma brassicae (Schlupfwespen): Ei-Parasitierung — winzige
+         Schlupfwespen legen ihre Eier IN die Kohlweisslings-Eier, die dann schwarz
+         werden und keine Raupe schluepft. Ja, Trichogramma-Schlupfwespen koennen
+         biologisch sehr wirksam gegen Kohlweisslinge eingesetzt werden.
+         Rechtzeitig aussetzen ist entscheidend: vorbeugend ab Mai, alle 1-2 Wochen
+         Kaertchen aufhaengen BEVOR die ersten Raupen schluepfen.
+
+      Vorbeugung:
+      - Insektenschutznetz (Maschenweite max. 0.8 mm) als sicherste Methode
+      - Weisskohlmischkultur mit Sellerie, Tomaten oder Thymian (verwirrt Eiablage)
+      - Ringelblumen als Randbepflanzung
+      - Gelbe Klebefallen zeigen Falterflug an (Hinweis fuer Behandlungszeitpunkt)
+    metadata:
+      pest: cabbage_white
+      species: [Pieris brassicae, Pieris rapae]
+      host_plants: [Brassicaceae]
+      control_methods: [hand_picking, Bt, Trichogramma, netting]
+      difficulty: intermediate
+
+  - id: erdfloh-freiland
+    title: Erdfloh — winzige Loecher wie Schrotschuss auf Kohlblaettern
+    content: |
+      Leitsymptom: Viele kleine runde Loecher (1-3 mm) in Blaettern von Kohlgewaechsen,
+      Radieschen oder Rukola — das typische Schadbild sieht aus wie Schrotschuss.
+      Verantwortlich sind Erdfloeheein (Phyllotreta spp.), winzige springende Kaefer.
+
+      Schadbild:
+      - Viele kleine runde bis ovale Loecher, gleichmaessig ueber das Blatt verteilt
+      - Kaefer (2-3 mm, glaenzend schwarz oder schwarzgelb gestreift) springen
+        blitzschnell weg wenn man sich naehert
+      - Jungpflanzen und Keimlinge besonders gefaehrdet — bei starkem Befall
+        kann das gesamte Blattgewebe perforiert werden
+      - Hauptschadenszeit: trockene, warme Fruehjahrsperioden (April-Juni)
+
+      Biologie:
+      - Adulte Kaefer ueberwintern im Boden unter Laub und Pflanzenschutt
+      - Fruehjahr: Kafer werden aktiv sobald Temperaturen ueber 12-15°C steigen
+      - Eiablage im Boden, Larven fressen an Wurzeln (weniger schaedlich als Adulte)
+      - Bevorzugt trockene, warme Bedingungen
+
+      Betroffene Pflanzen:
+      Kohl (alle Sorten), Kohlrabi, Rettich, Radieschen, Rukola, Senf,
+      Pak Choi, Kresse. Auch Tomate und Aubergine gelegentlich betroffen.
+
+      Sofortmassnahmen:
+      - Vliesabdeckung (Insektenschutznetz 0.8 mm) ist die effektivste Massnahme —
+        sofort nach dem Saeen oder Pflanzen auflegen und abdichten
+      - Boden feucht halten: Erdfloehelieben Trockenheit, Bewaesserung reduziert Befall
+      - Kaolinerde (weisser Ton): als Spray auf Blaetter aufgebracht, stoert die Kaefer
+      - Gelbklebefallen fangen Adulte (auch fuer Monitoring nuetzlich)
+      - Schnell wachsende Jungpflanzen ueberstehen Befall besser — gut duengen
+
+      Vorbeugung:
+      - Vlies sofort bei der Pflanzung auflegen
+      - Beet regelmaessig bewaessern
+      - Rueckstande von Kohlgewaechsen im Herbst entfernen (Ueberwinterungsquartiere
+        der Kaefer zerstoeren)
+      - Fruehzeitige Pflanzung vor dem Hauptschadensflug (oder spaete Pflanzung
+        nach dem ersten Flug Ende Juni)
+    metadata:
+      pest: flea_beetle
+      genus: Phyllotreta
+      host_plants: [Brassicaceae, Solanaceae]
+      control_methods: [fleece_net, moisture, kaolin, sticky_traps]
+      difficulty: intermediate
+
+  - id: kartoffelkaefer-erkennung
+    title: Kartoffelkaefer — gelb-schwarz gestreifter Kaefer frisst Blaetter kahl
+    content: |
+      Leitsymptom: Auffaellige gelb-schwarz laengsgestreifte Kaefer (10-12 mm) auf
+      Kartoffelblaettern, oder orange-rote, bucklige Larven die Blaetter kahlfressen.
+      Der Kartoffelkaefer (Leptinotarsa decemlineata) ist einer der bekanntesten
+      Pflanzenschaedlinge — er laesst sich leicht erkennen.
+
+      Schadbild:
+      - Adulte Kaefer: unverkennbar gelb-schwarz gestreift, 10-12 mm, fressen
+        Blattgewebe von aussen nach innen
+      - Larven: orange-rote, weiche, bucklige Tiere (8-15 mm), fressen gruppenweise,
+        Kahlfrassgefahre innerhalb weniger Tage
+      - Orangegelbe Eihaeufen (10-30 Eier) auf Blattunterseiten
+      - Bei starkem Befall: nur noch Stengel und Hauptrippen uebrig
+
+      Biologie:
+      - 1-2 Generationen pro Jahr
+      - Ueberwinterung im Boden (bis 50 cm Tiefe)
+      - Kafer fliegen aktiv, besiedeln neue Felder schnell
+      - Wirtspflanzen: Solanaceae (Nachtschattengewaechse)
+
+      Betroffene Pflanzen:
+      Kartoffel (Hauptwirt), Aubergine (ebenfalls stark), Tomate (weniger),
+      Paprika (selten). Alle Solanaceae gefaehrdet.
+
+      Sofortmassnahmen:
+      1. Absammeln von Hand: Kaefer, Larven und Eipakete absammeln, in Seifenwasser
+         geben. Bei kleinen Bestanden sehr effektiv.
+      2. Bacillus thuringiensis var. tenebrionis (Bttn): wirksam gegen junge Larven,
+         biologisches Mittel. Fruehzeitig einsetzen wenn Larven frisch geschluepft.
+      3. Pyrethrum (natuerliches Pyrethrin): bei starkem Befall, abends anwenden
+         (Bienenschutz). Kurzfristige Wirkung.
+      4. Fruchtfolge einhalten: Kartoffeln nicht haeufiger als alle 3-4 Jahre
+         auf demselben Beet — reduziert den Befallsdruck deutlich.
+
+      Vorbeugung:
+      - Fruchtfolge (3-4 Jahre Pause) ist wichtigste Massnahme
+      - Beete regelmaessig kontrollieren ab Mai (erstes Kaferauftreten)
+      - Mulch aus Stroh hemmt die aus dem Boden aufsteigenden Kaefer
+      - Natur-Feinde: Tachinen-Fliegen, Laufkaefer, Stare fressen Larven
+    metadata:
+      pest: colorado_beetle
+      species: Leptinotarsa decemlineata
+      host_plants: [Solanaceae]
+      control_methods: [hand_picking, Bttn, pyrethrum, crop_rotation]
+      difficulty: intermediate
+      notifiable: false
+
+  - id: moerrenfliege-erkennung
+    title: Moerrenfliege — Maden in der Karotte, Frasskanaele in der Wurzel
+    content: |
+      Leitsymptom: Bitterer Geschmack und rostrote Frasskanaele in Moehren-,
+      Sellerie- oder Petersilienwurzeln — verursacht durch Larven der Moerrenfliege
+      (Psila rosae). Das Schadbild wird erst bei der Ernte sichtbar.
+
+      Fruehwarnsymptome an der Pflanze:
+      - Rotes Verfarben der Blattbasis und Herzlaetter (Kupferroetung)
+      - Welke und Gelbfaerbung des Krautes trotz ausreichender Bewaesserung
+      - Pflanze bleibt klein und kuemmert
+
+      Biologie:
+      - Kleine gelbliche Fliege (4-5 mm), aehnlich einer Stubenfliege
+      - 2-3 Generationen pro Jahr: 1. Generation Mai-Juni, 2. Juli-August,
+        3. September-Oktober
+      - Eiablage in den Boden nahe der Wirtspflanzen
+      - Weisse Maden (bis 8 mm) fressen Frasskanaele in die Wurzeln
+
+      Betroffene Pflanzen:
+      Moehre (Hauptwirt), Sellerie, Petersilie, Pastinake, Fenchel,
+      alle Doldenbluetengewaechse (Apiaceae).
+
+      Sofortmassnahmen:
+      - Befallene Wurzeln ernten und entfernen (Larven nicht in den Boden lassen)
+      - Stark befallene Pflanzen entfernen, nicht kompostieren
+
+      Vorbeugung (Bekaempfung nur praeventiv moeglich!):
+      - Insektenschutznetz (0.8-1.3 mm Maschen) sofort nach der Saat auflegen
+        und bis zur Ernte oben lassen — sicherste Methode
+      - Saatzeiten anpassen: Sehr fruehe Saat (Ende Maerz) oder spaete Saat
+        (ab Juli) umgeht den Hauptflug der 1. Generation
+      - Moehren nicht zu dicht saeen und sorgfaeltig verziehen (Duft lockt Fliege an)
+      - Mischkultur mit Zwiebeln oder Lauch (Geruchsverwirrung)
+      - Erhobene Beete oder Hochbeete (Fliege fliegt bodennah, max. 50-60 cm hoch)
+      - Gelbe Klebefallen als Monitoring (erkennt Flugbeginn)
+    metadata:
+      pest: carrot_fly
+      species: Psila rosae
+      host_plants: [Apiaceae]
+      control_methods: [netting, timing, companion_planting, raised_beds]
+      difficulty: intermediate
+
+  - id: buchsbaumzuensler-erkennung
+    title: Buchsbaumzuensler — Gespinste und Kahlfrasskgefahr am Buchs
+    content: |
+      Leitsymptom: Gruenliche Raupen mit schwarzem Kopf in Gespinsten innerhalb des
+      Buchsbaums — oft erst bei naeherer Betrachtung durch dichte Belaubung sichtbar.
+      Der Buchsbaumzuensler (Cydalima perspectalis) kann einen Buchsbaum innerhalb
+      weniger Wochen kahlfressen.
+
+      Schadbild:
+      - Gespinste aus feinen Faeden zwischen Blaettern und Trieben
+      - Gruen-weisse Kotpellets innerhalb der Gespinste
+      - Kahlfrasskstellen, zuerst im Innern des Busches
+      - Raupen: bis 4 cm, gelblich-gruen mit schwarzem Kopf und weissen Laengsstreifen
+      - Falter: weiss mit braunem Rand, oder vollstaendig braun (zwei Formen)
+
+      Biologie:
+      - 2-3 Generationen pro Jahr (April bis Oktober)
+      - Einwanderer aus Asien seit 2007 in Europa, kein natuerlicher Feind vorhanden
+      - Raupe ueberwintert als Jungraupe im Gespinst im Buchsinneren
+
+      Sofortmassnahmen:
+      1. Gespinste oeffnen und Raupen absammeln
+      2. Bacillus thuringiensis var. kurstaki (Bt): sehr wirksam gegen Raupen
+         aller Groessen, biologisch, bienenunschaedlich. Mehrfach wiederholen
+         (Wirkungsdauer ca. 5-7 Tage).
+      3. Spinosad-Spray (abends): bei starkem Befall effektiv
+      4. Buchsbaum nach der Behandlung kraetig bewaessern (stresst Raupen)
+
+      Vorbeugung:
+      - Buchsbaum regelmaessig von innen begutachten (Raupen verstecken sich)
+      - Pheromonfallen als Monitoring (erkennt Falterflug)
+      - Aufmerksam ab April: erstes Auftreten sobald Temperaturen ueber 10°C steigen
+      - Voegel anlocken: Meisen und Amseln fressen Raupen
+
+      Alternativen zu Buchsbaum (wenn Befall dauerhaft):
+      Ilex crenata, Osmanth us, Lonicera nitida als Ersatzpflanzen
+    metadata:
+      pest: box_tree_moth
+      species: Cydalima perspectalis
+      host_plants: [Buxus]
+      control_methods: [hand_picking, Bt, spinosad, pheromone_traps]
+      difficulty: intermediate
+      invasive: true
+
+  - id: wuehlmaus-schaden
+    title: Wuehlmaeuse — angenabte Wurzeln und Erdgaenge im Garten
+    content: |
+      Leitsymptom: Pflanzen welken plotzlich und lassen sich leicht aus dem Boden ziehen
+      — Wurzeln oder Knolle sind angefressen oder vollstaendig verschwunden. Dazu sichtbare
+      Erdgaenge (8-10 cm Durchmesser) im Boden. Verantwortlich ist meist die Schermaus
+      (Arvicola terrestris), umgangssprachlich Wuehlmaus.
+
+      Schadbild und Erkennungsmerkmale:
+      - Pflanzen welken unvermittelt, Boden gibt leicht nach
+      - Angenabte oder fehlende Wurzeln, Knollen, Zwiebeln
+      - Gaenge im Boden (8-10 cm breit), halbmondfoermige Erdhaufen am Eingang
+      - Obstbaeume: Rindennagen an der Basis und Wurzeln, fuehrt zu Absterben
+      - Unterschied zu Maulwurf: Maulwurf frisst KEINE Wurzeln (nur Regenwuermer),
+        hinterlaesst groessere Erdhaufen; Wuehlmaus frisst Wurzeln und Knollen
+
+      Besonders gefaehrdet:
+      Mohrrrueben, Rote Bete, Kartoffeln, Sellerie, Pastinaken, Zwiebeln,
+      Blumenzwiebeln (Tulpen, Lilien, Krokus), Wurzeln von Obstbaeumen,
+      Strauchrosen, Rhabarber.
+
+      Sofortmassnahmen:
+      - Druckwassermethode: Schlauchanschluss in den Gang halten, Wasser einleiten
+        (verdraengt die Tiere aus dem Beet)
+      - Vibrationsstab oder Windrad (Erschuetterungen im Boden stoeren die Tiere)
+      - Fallen (Tunnelfallen): biologisch, aber toetet das Tier — nur als letztes Mittel
+      - Pflanzschutz: Neupflanzungen in Drahtkoerbe aus engmaschigem Kaninchendraht
+        einsetzen (auch im Rasen unterlegen)
+
+      Vorbeugung:
+      - Umzaeunungsgeflecht aus verzinktem Draht (Maschenweite max. 10 mm) 30-40 cm
+        tief im Boden vergraben als Beetsicherung
+      - Wuerzelkoerbe aus Draht fuer Obstbaeume und wertvolle Staudenbeete
+      - Wuehlmaeuse meiden offene Boden und starke Erschuetterungen —
+        regelmaessige Bodenbearbeitung verdraengt die Tiere
+      - Natuerhliche Feinde foerdern: Bussarde, Milane, Weissstorch, Turmfalke
+    metadata:
+      pest: vole
+      species: Arvicola terrestris
+      host_plants: [Apiaceae, Liliaceae, Rosaceae, Solanaceae]
+      control_methods: [wire_baskets, fencing, vibration, traps]
+      difficulty: intermediate
+
+  - id: dickmaulrueessler-erkennung
+    title: Dickmaulrueessler — buchtenfoermige Blatteinschnitte und Wurzelfrasskdurch Larven
+    content: |
+      Leitsymptom (Adulte): Halbkreisfoermige oder buchtenfoermige Ausbuchtungen am
+      Blattrand — wie mit einem Lochstanzer gestanzt. Typisch fuer Rhododendron,
+      Erdbeeren und Rosen. Der Gefraessige Dickmaulrueessler (Otiorhynchus sulcatus)
+      verursacht doppelten Schaden: Adulte fressen Blaetter, Larven fressen Wurzeln.
+
+      Schadbild:
+      - Adulte Kaefer (Nachtfrasskueber): buchtenfoermige Blattraender, halbkreisige
+        Einbuchtungen (2-5 mm), gleichmaessig entlang des Blattrands
+      - Larven (unterirdisch): weisse, cremefoermige, beinlose Maden bis 12 mm
+        fressen Wurzeln an oder trennen sie ab — Pflanze welkt ploetzlich
+      - Larvenfrass ist gefaehrlicher als Blattfrass!
+      - Adulte Kaefer nur nacht aktiv, tags versteckt im Mulch oder Boden
+
+      Biologie:
+      - 1 Generation pro Jahr
+      - Adulte Kaefer: Juni bis Oktober (alle weiblich — Parthenogenese)
+      - Eier: Juli-August im Boden abgelegt
+      - Larven: Herbst bis Fruehjahr — Hauptschadenszeit an Wurzeln (Herbst und Maerz-April)
+
+      Betroffene Pflanzen:
+      Rhododendron, Azalee (Hauptwirte), Erdbeere, Rosen, Primel, Kubelpflanzen
+      (Pelargonie, Begonie, Cyclamen), Weinreben, Heidelbeere.
+
+      Sofortmassnahmen:
+      Gegen Larven:
+      - Nematoden (Heterorhabditis bacteriophora): giessen auf feuchten Boden,
+        Bodentemperatur mindestens 12°C (Sommer bis Herbst). Sehr effektiv gegen Larven.
+        Entgegen haufiger Verwechslung: Dies sind Nuetzlings-Nematoden, keine Schaedlings-Nematoden.
+      - Topfpflanzen: Substrat komplett austauschen, Larven heraussuchen
+
+      Gegen Adulte:
+      - Nachts absammeln mit Taschenlampe (Kaefer fallen bei Beruehrung zu Boden —
+        weisses Tuch darunter legen)
+      - Klebebarrieren am Topfrand (Kaefer klettern aus dem Boden hoch)
+
+      Vorbeugung:
+      - Nematoden vorbeugend giessen (Juni-September) bei bekanntem Befall
+      - Mulch von Pflanzenstengeln fernhalten (Versteck der Adulten)
+    metadata:
+      pest: vine_weevil
+      species: Otiorhynchus sulcatus
+      host_plants: [Ericaceae, Fragaria, Rosa, Vitis]
+      control_methods: [Heterorhabditis, substrate_change, night_collection]
+      difficulty: intermediate
+
+  - id: kirschessigfliege-schutz
+    title: Kirschessigfliege — weiche Beeren verfaulen von innen
+    content: |
+      Leitsymptom: Weiche, eingedrueckte Stellen an reifen oder fast reifen Beeren —
+      oft mit kleinem Stichpunkt sichtbar. Beim Aufschneiden sind weisse Maden sichtbar.
+      Die Kirschessigfliege (Drosophila suzukii) sticht im Gegensatz zu anderen
+      Taufliegen reife, gesunde Fruechte an (nicht nur faule).
+
+      Schadbild:
+      - Kleine Einstichstellen an Fruechten (1 mm, kaum sichtbar)
+      - Weiche, wasserige Stellen an reifen Beeren, die schnell schimmeln
+      - Weisse Maden (1-2 mm) im Fruchtfleisch
+      - Saurer, gaeriger Geruch
+      - Besonders schaedlich weil Fruechte nicht mehr verkauft oder gelagert werden koennen
+
+      Biologie:
+      - Einwanderer aus Ostasien (seit 2008 in Europa)
+      - Viele Generationen pro Jahr (bis 13), explosionsartige Vermehrung
+      - Weibchen legen Eier in reifende Fruechte (spezielle Saegelegeapparat durchbohrt Fruchtschale)
+      - Aktiv von Juli bis Oktober/November
+
+      Betroffene Pflanzen:
+      Kirschen, Weintrauben, Erdbeere, Himbeere, Brombeere, Heidelbeere,
+      Holunder, Feige, Pfirsich, Pflaume.
+
+      Sofortmassnahmen:
+      - Befallene Fruechte sofort entfernen und in verschlossenem Muellsack entsorgen
+        (NICHT kompostieren — Larven entwickeln sich im Kompost weiter)
+      - Fallen: Essig-Fallen (Apfelessig mit etwas Spuelmittel in Plastikflasche mit Loch) —
+        fangen Adulte, aber kein vollstaendiger Schutz
+
+      Vorbeugung:
+      - Feinmaschige Insektenschutznetze (0.8-1.0 mm) ueber den Strauchern —
+        effektivste Massnahme, direkt nach dem Fruchtansatz aufspannen
+      - Fruehzeitige Ernte: reife Fruechte sofort pflucken, nicht am Strauch haengen lassen
+      - Hygiene: Fallobst und ueberreife Fruechte konsequent entfernen
+      - Gelbe Klebefallen als Monitoring (erkennt Beginn des Zuflugs)
+    metadata:
+      pest: spotted_wing_drosophila
+      species: Drosophila suzukii
+      host_plants: [Prunus, Vitis, Fragaria, Rubus, Vaccinium]
+      control_methods: [fine_netting, early_harvest, traps, hygiene]
+      difficulty: intermediate
+      invasive: true
+
+  - id: lauchmotte-lauchminierfliege
+    title: Lauchmotte und Lauchminierfliege — Bohrloecher und Miniergaenge in Lauch
+    content: |
+      Leitsymptom: Weissliche Gaenge (Miniergaenge) in Lauchblaettern, oder kleine
+      Bohrloecher am Schaft mit Auswurf. Zwei verschiedene Schaedlinge verursachen
+      aehnliche Schaeden an Lauch, Zwiebel und Schnittlauch.
+
+      Lauchmotte (Acrolepiopsis assectella):
+      - Raupen bohren sich in den Lauchschaft, fressen Herzblatt von innen
+      - Mehlweisse Kotmassen im Schaft sichtbar (beim Aufschneiden)
+      - Befallene Pflanzen koennen faulen (Sekundaerinfektionen)
+      - Falter: klein, grau-braun, 1.5 cm Spannweite
+
+      Lauchminierfliege (Napomyza gymnostoma):
+      - Weissliche Miniergaenge (Schlangenlinien) sichtbar durch die Blattschale
+      - Weisskopfige Maden in den Gaengen (bis 8 mm)
+      - Stellt die Hauptbedrohung fuer Lauch in kuehlen Lagen dar
+      - 2 Generationen: April-Mai und September-Oktober
+
+      Biologie beider Arten:
+      - Wichtigste Schaedlinge an Lauch, Zwiebel und Schnittlauch in Mitteleuropa
+      - Beide Arten werden durch Insektenschutznetze sicher zurueckgehalten
+
+      Betroffene Pflanzen:
+      Lauch (Hauptwirt), Zwiebel, Knoblauch, Schnittlauch, Porree.
+
+      Sofortmassnahmen:
+      - Befallene Pflanzenteile abschneiden und entsorgen (nicht kompostieren)
+      - Stark befallene Pflanzen entfernen
+      - Fruchtfolge (3-4 Jahre keine Lauchgewaechse am gleichen Standort)
+
+      Vorbeugung:
+      - Insektenschutznetz (1.3 mm oder enger): sicherer Schutz gegen beide Arten,
+        sofort nach dem Pflanzen auflegen
+      - Saatzeiten anpassen: Herbstlauch umgeht die erste Generation der Lauchminierfliege
+      - Mischkultur mit Karotten oder Petersilie verwirrt Eiablage leicht
+      - Befallene Rueckstaende im Herbst entfernen (Puppenquartiere zerstoeren)
+    metadata:
+      pest: leek_moth_leafminer
+      species: [Acrolepiopsis assectella, Napomyza gymnostoma]
+      host_plants: [Allium]
+      control_methods: [netting, crop_rotation, removal]
+      difficulty: intermediate
+
+  - id: wurzelgallennematoden-schaden
+    title: Schaedlings-Nematoden — Wurzelgallen (Meloidogyne) und Wurzellaesionen (Pratylenchus)
+    content: |
+      WICHTIGE ABGRENZUNG: Nicht alle Nematoden sind Schaedlinge! Viele Nematoden-Arten
+      werden als Nuetzlinge eingesetzt (Steinernema gegen Trauermucken, Heterorhabditis
+      gegen Dickmaulrueessler-Larven). Die hier beschriebenen Arten SIND Schaedlinge.
+
+      Meloidogyne spp. (Wurzelgallennematoden):
+      Leitsymptom: Knollenartige Verdickungen (Gallen) an Wurzeln — sehen aus wie
+      kleine Knoellchen oder Korallengebilde. Pflanze welkt und kuemmert trotz Wasser.
+      - Gallen sind 2-20 mm gross, fest verwachsen mit der Wurzel (nicht abtrennbar)
+      - In der Galle leben die Nematoden und vermehren sich
+      - Pflanze nimmt kaum Wasser und Naehrstoffe auf
+
+      Pratylenchus spp. (Wurzellaeisionsnematoden):
+      Leitsymptom: Braune Flecken und Laesionen (Laeesionen) an Wurzeln ohne Gallen —
+      Wurzeln faerben sich braun, zerfallen, riechen faulig.
+      - Kein Gallenwachstum, stattdessen Faulstellen
+      - Schwerer von anderen Wurzelproblemen zu unterscheiden (Laboranalyse noetig)
+
+      Biologie:
+      - Warmebodenbewohner — Schaden nimmt bei 20-25°C Bodentemperatur stark zu
+      - Verbreitung durch befallte Erde, Pflanzenwurzeln, Wasserabfluss
+      - Meloidogyne: haeufig in Gewaechshaus-Boeden, wo keine Winter-Unterbrechung stattfindet
+
+      Betroffene Pflanzen:
+      Tomate (sehr stark), Moehre, Kartoffel, Paprika, Salatpflanzen, Sellerie.
+
+      Sofortmassnahmen:
+      - Befallene Pflanzen mit gesamtem Wurzelwerk entfernen und entsorgen (nicht kompostieren)
+      - Boden: lange Fruchtfolge-Pause, 4-5 Jahre keine Wirtspflanzen
+      - Tagetes (Studentenblume): als Zwischenfrucht 3 Monate wachsen lassen
+        und einarbeiten — reduziert Meloidogyne-Population nachweislich
+
+      Vorbeugung:
+      - Neues Substrat fuer Topfkultur verwenden (kein Gartenboden)
+      - Befallte Geraetschaften und Werkzeuge reinigen (Nematoden-Verbreitung verhindern)
+      - Samenresistente Sorten einsetzen (bei Tomate verfuegbar)
+      - Biologisch: Tagetes als Mischkultur pflanzen
+    metadata:
+      pest: plant_parasitic_nematodes
+      genera: [Meloidogyne, Pratylenchus]
+      host_plants: [Solanaceae, Apiaceae, Asteraceae]
+      control_methods: [removal, crop_rotation, tagetes, resistant_varieties]
+      difficulty: expert
+      note: distinct_from_beneficial_nematodes

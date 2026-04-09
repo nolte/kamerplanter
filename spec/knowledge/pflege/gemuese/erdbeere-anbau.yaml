@@ -1,0 +1,146 @@
+---
+title: "Erdbeeren anbauen — Pflanzung bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, erdbeere, fragaria, anbau, garten, balkon, obst, mehrjaehrig, mittelzehrer]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: erdbeere-pflanzung
+    title: "Erdbeeren — Pflanzung und Standort"
+    content: |
+      Erdbeeren werden ueber Jungpflanzen oder Auslaeufer gepflanzt,
+      nicht aus Samen (Hybridsorten fallen nicht samenecht). Beste
+      Pflanzzeit fuer Gruenpflanzen: Juli bis August — dann erntet man
+      schon im Folgejahr voll. Frigo-Pflanzen (kuehlgelagerte Pflanzen)
+      koennen im April bis Mai gesetzt werden.
+
+      Standort: Volle Sonne, mindestens 6 Stunden taeglich. Windgeschuetzt
+      aber mit guter Luftzirkulation. Boden humos, locker und leicht sauer
+      (pH 5,5 bis 6,5). Gut durchlaessig — Staunaesse ist toedlich fuer
+      Erdbeeren.
+
+      Pflanzabstand: 25 bis 35 cm in der Reihe, 60 bis 80 cm
+      Reihenabstand. Das Herz (Vegetationspunkt) muss mit der
+      Erdoberflaeche abschliessen — zu tief gepflanzt fault es,
+      zu hoch vertrocknen die Wurzeln.
+
+      Mulchen: Stroh unter die Pflanzen legen, sobald die ersten
+      Fruechte sichtbar sind. Das haelt Fruechte sauber, verhindert
+      Faeulnis durch Bodenkontakt und unterdrueckt Unkraut.
+
+      Balkon: Erdbeeren eignen sich hervorragend fuer Ampeltoepfe,
+      Erdbeertuerme und Balkonkaesten. Ab 3 bis 5 Liter pro Pflanze.
+      Immertragende Sorten (z.B. Ostara, Mara des Bois) sind ideal
+      fuer Kuebel — laengere Ernteperiode.
+
+      Replant-Problem: Erdbeeren nie direkt nach Erdbeeren pflanzen.
+      Mindestens 4 Jahre Anbaupause — Bodenmuedigkeit durch eigene
+      Wurzelausscheidungen.
+    metadata:
+      topic: strawberry_growing
+      species: "Fragaria x ananassa"
+      difficulty: beginner
+
+  - id: erdbeere-pflege
+    title: "Erdbeeren — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Gleichmaessig feucht halten, besonders waehrend Bluete
+      und Fruchtentwicklung. Trockenstress fuehrt zu kleinen, missgeformten
+      Fruechten. Morgens giessen, nie ueber die Blaetter — Grauschimmel-
+      Risiko. Im Topf bei Hitze taeglich giessen.
+
+      Duengen: Erdbeeren sind Mittelzehrer. Kompost im Fruehling und
+      nach der Ernte einarbeiten. Waehrend der Bluete und Fruchtbildung
+      woechentlich mit Kalium-betontem Fluessigduenger giessen. Nicht
+      mit Stickstoff ueberduengen — foerdert Blattmasse auf Kosten
+      der Fruechte.
+
+      Auslaeufer: Konsequent entfernen, wenn nicht zur Vermehrung
+      benoetigt. Auslaeufer kosten der Mutterpflanze Kraft und
+      reduzieren den Ertrag.
+
+      Winterschutz: Im Herbst altes Laub entfernen. Pflanzen mit
+      Reisig oder Vlies abdecken. Toepfe an eine geschuetzte Hauswand
+      stellen und mit Vlies umwickeln.
+
+      Grauschimmel (Botrytis cinerea): Graue, pelzige Belag auf Fruechten.
+      Vorbeugung: Gute Luftzirkulation, Stroh-Mulch, befallene Fruechte
+      sofort entfernen. Nicht zu dicht pflanzen.
+
+      Erdbeermilbe: Verkrueppelte Blaetter. Befallene Pflanzen entfernen.
+      Raubmilben einsetzen.
+
+      Schnecken und Voegel: Schneckenkorn oder Schneckenzaun. Vogelnetze
+      ueber die Reihen spannen.
+    metadata:
+      topic: strawberry_growing
+      species: "Fragaria x ananassa"
+      difficulty: beginner
+
+  - id: erdbeere-ernte
+    title: "Erdbeeren — Ernte und Sortenwahl"
+    content: |
+      Einmaltragende Sorten: Grosse Haupternte im Juni und Juli.
+      Hohe Ertraege in kurzer Zeit. Sorten: Korona, Sonata, Senga
+      Sengana (Klassiker).
+
+      Immertragende (remontierend) Sorten: Ernte von Mai bis Oktober
+      in mehreren Wellen. Kleinere Fruechte, aber laengere Ernteperiode.
+      Sorten: Ostara, Mara des Bois, Buddy (Balkon).
+
+      Ernte: Morgens ernten, wenn die Fruechte trocken und kuhl sind.
+      Komplett durchgefaerbte Fruechte pfluecken — Erdbeeren reifen nach
+      der Ernte nicht nach. Den gruenen Kelch dran lassen (haelt laenger).
+
+      Lagerung: Erdbeeren sind sehr empfindlich. Ungewaschen im
+      Kuehlschrank lagern — haelt 1 bis 2 Tage. Nicht uebereinander
+      stapeln. Erst kurz vor dem Verzehr waschen.
+
+      Konservierung: Einfrieren (auf Tablett einzeln vorfrieren, dann
+      in Beutel), Marmelade, Kompott, Trocknen im Doerrautomat.
+
+      Bestandserneuerung: Nach 3 bis 4 Jahren laesst der Ertrag nach.
+      Dann neue Pflanzen aus Auslaeufern ziehen oder kaufen und an
+      einem neuen Standort pflanzen. Im Sommer 2 bis 3 kraeftige
+      Auslaeufer pro Pflanze bewurzeln lassen und als Jungpflanzen
+      abtrennen.
+    metadata:
+      topic: strawberry_growing
+      species: "Fragaria x ananassa"
+      difficulty: beginner
+
+  - id: erdbeere-pflanzenschutz
+    title: "Erdbeeren — Krankheiten und Schaedlinge"
+    content: |
+      Grauschimmel (Botrytis cinerea): Haeufigste Krankheit. Grauer,
+      pelziger Belag auf Fruechten bei feuchtem Wetter. Stroh-Mulch,
+      gute Luftzirkulation, befallene Fruechte sofort entfernen.
+      Gewaechshaus-Anbau reduziert das Risiko erheblich.
+
+      Weissfaeule (Lederbeerenfaeule / Phytophthora cactorum): Fruechte
+      werden ledrig und hart. Tritt bei Staunaesse und Bodenkontakt auf.
+      Mulchen und gute Drainage beugen vor.
+
+      Erdbeermilbe (Phytonemus pallidus): Verkrueppeltes, braeunliches
+      Herz. Stark befallene Pflanzen komplett entsorgen. Neupflanzung
+      mit zertifiziert gesundem Material.
+
+      Verticillium-Welke: Blaetter welken einseitig. Bodenpilz, der
+      Jahre im Boden ueberdauert. Resistente Sorten waehlen, strenge
+      Fruchtfolge (keine Erdbeeren nach Kartoffeln, Tomaten oder Paprika).
+
+      Schnecken: Besonders Nacktschnecken fressen an reifen Fruechten.
+      Ferramol-Schneckenkorn, Schneckenzaun, Stroh-Mulch (erschwert
+      Zugang).
+
+      Voegel: Amseln und Stare fressen Erdbeeren. Vogelschutznetze
+      ueber die Reihen spannen oder Erdbeerturm verwenden (schwerer
+      zugaenglich).
+
+      Spaetfrost: Offene Blueten erfrieren ab minus 2 Grad. Vlies ueber
+      die Pflanzen legen, wenn Nachtfrost angekuendigt ist.
+    metadata:
+      topic: strawberry_growing
+      species: "Fragaria x ananassa"
+      difficulty: intermediate

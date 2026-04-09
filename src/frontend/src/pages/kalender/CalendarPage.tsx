@@ -50,7 +50,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import SowingCalendarView from './SowingCalendarView';
 import SeasonOverviewView from './SeasonOverviewView';
 import PhaseTimelineView from './PhaseTimelineView';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';

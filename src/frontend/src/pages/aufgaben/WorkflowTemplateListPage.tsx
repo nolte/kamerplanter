@@ -79,7 +79,7 @@ function WorkflowCard({
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>
           {/* Name */}
           <Tooltip title={workflow.name} disableHoverListener={workflow.name.length <= 40} enterDelay={500}>
-            <Typography variant="subtitle1" component="h3" gutterBottom noWrap fontWeight={600}>
+            <Typography variant="subtitle1" component="h3" gutterBottom noWrap sx={{ fontWeight: 600 }}>
               {workflow.name}
             </Typography>
           </Tooltip>

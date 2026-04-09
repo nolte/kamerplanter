@@ -1,0 +1,274 @@
+---
+title: Microgreens anbauen — von der Aussaat bis zur Ernte
+language: de
+category: pflege
+tags: [microgreens, keimlinge, sprossen, fensterbank, indoor, schnell, anfaenger, kresse, radieschen, brokkoli, sonnenblume, erbsenschoss, basilikum, schimmel, bottom-watering, blackout, substratmatten, kokosmatten, hanfmatten, hydroponik, schule, bildung, vermarktung, gastro, farmers-market, naehrstoffe, naehrstoffdicht, naehrstoffreich]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling]
+chunks:
+
+  - id: microgreens-grundlagen
+    title: Was sind Microgreens — und warum lohnt sich der Anbau?
+    content: |
+      Microgreens sind junge Saemlinge die nach dem Keimblattstadium
+      geerntet werden — typischerweise 7 bis 21 Tage nach der Aussaat,
+      wenn die ersten echten Blaetter gerade erscheinen oder kurz davor
+      stehen. Sie sind 2 bis 7 cm hoch und werden mit Substrat oder
+      Matte als Basis angebaut.
+      Abgrenzung zu aehnlichen Konzepten:
+      Sprossen (z.B. Alfalfa, Linsen, Mungo-Bohnen) keimen im Glas oder
+      Sieb ohne jedes Substrat — nur mit Wasser. Sie werden komplett
+      gegessen inklusive Wurzel. Microgreens wachsen dagegen immer auf
+      einem Substrat (Erde, Kokosmatten, Hanfmatten, Vermiculit) und
+      werden knapp ueber der Oberflaeche abgeschnitten.
+      Baby-Greens sind aelter als Microgreens, wachsen im Beet oder
+      groesseren Topf und brauchen 3 bis 8 Wochen bis zur Ernte.
+      Warum Microgreens?
+      Studien zeigen, dass viele Microgreens 4 bis 40-mal mehr Nah-
+      rstoffe enthalten als das ausgewachsene Gemuese — konzentriert
+      in den Keimblaettern. Brokkoli-Microgreens enthalten z.B. besonders
+      viel Sulforaphan, Radieschen-Microgreens liefern viel Vitamin C.
+      Weitere Vorteile: ganzjaehrig indoor anbaubar, kaum Platz noetig
+      (eine einzige Fensterbank reicht), sehr schnelle Ergebnisse (schon
+      nach 5-7 Tagen sichtbares Wachstum), keine Erde notwendig wenn
+      Matten verwendet werden, geringe Kosten.
+      Beliebte Sorten: Brokkoli, Radieschen, Sonnenblume, Erbse,
+      Basilikum, Senf, Rucola, Kresse, Weizengras, Rote Bete, Koriander,
+      Mangold, Pak Choi.
+    metadata:
+      topic: microgreens_basics
+      target_groups: [beginner, school, hobby, commercial]
+      difficulty: beginner
+
+  - id: microgreens-ausruestung
+    title: Ausruestung fuer Microgreens — Was wird wirklich benoetigt?
+    content: |
+      Fuer den Einstieg braucht es erstaunlich wenig Ausruestung.
+      Schalen: Standard sind flache Anzuchtschalen im 10x20-Zoll-Format
+      (ca. 25x50 cm), ca. 5 cm tief. Zwei Schalen pro Anbau: eine mit
+      Drainageloecher (Pflanzschale), eine ohne (als Auffangschale fuer
+      das Bottom-Watering). Guenstige Plastikschalen aus dem Gartenhandel
+      genuegen, stabilere Edelstahlschalen sind hygienischer und
+      langlebiger.
+      Substrat: Mehrere Optionen:
+      - Kokosmatten oder Hanfmatten: Ideal fuer Hydroponik-Einsteiger und
+        saubere Vermarktung. Einfach einlegen, anfeuchten, saeen.
+        Kein Erde-Schmutz, einfache Entsorgung.
+      - Kokoserde (Coco Coir): Guenstig, erneuerbar, gute Wasserhalte-
+        kapazitaet. 2-3 cm Schicht reicht.
+      - Anzuchterde oder Universalerde: Funktioniert gut, etwas unordentlicher.
+      - Vermiculit: Gut fuer kleine Samen, haelt Feuchtigkeit gleichmaessig.
+      Licht: Microgreens brauchen weniger Licht als ausgewachsene Pflanzen.
+      100 bis 200 PPFD reichen aus — eine einfache LED-Leiste genuegt.
+      Direktes Sonnenlicht am Suedfenster kann sogar zu warm und zu hell
+      werden. Ost- oder Westfenster sind ideal; am Nordfenster hilft eine
+      guenstige Pflanzenlampe.
+      Dauer: 12 bis 16 Stunden Licht pro Tag.
+      Belueftung: Ein kleiner USB-Ventilator auf niedriger Stufe verbessert
+      die Luftzirkulation und reduziert Schimmelrisiko erheblich.
+      Sprühflasche: Fuer die erste Anfeuchtung des Substrats und gelegent-
+      liche Befeuchtung der Keimblaetter. Spaeter nur noch Bottom-Watering.
+      Kein Duenger noetig: Der Samen speichert alle Naehrstoffe fuer
+      die Microgreen-Phase. Wer duengt, riskiert eher Schimmel als Ertrag.
+      Startkosten gesamt: Unter 50 Euro fuer eine komplette Erstausruestung
+      (Schalen, Matten, LED-Leiste, Samen-Sortiment).
+    metadata:
+      topic: microgreens_equipment
+      substrate_options: [coco_mat, hemp_mat, coco_coir, vermiculite, soil]
+      light_ppfd_range: [100, 200]
+      difficulty: beginner
+
+  - id: microgreens-aussaat-wachstum
+    title: Microgreens aussaeen und pflegen — Schritt fuer Schritt
+    content: |
+      Schritt 1 — Einweichen (nur grosse Samen):
+      Sonnenblume, Erbse und Weizengras muessen 8 bis 12 Stunden in
+      Wasser eingeweicht werden bevor die Aussaat erfolgt. Kleine Samen
+      wie Radieschen, Brokkoli, Kresse oder Basilikum brauchen kein
+      Einweichen.
+      Schritt 2 — Dicht saeen:
+      Das Substrat gleichmaessig anfeuchten (nicht triefend nass, aber
+      durchgehend feucht). Samen lueckenlos und dicht aussaeen —
+      dichter als man denkt! Bei Microgreens ist dichtes Saeen richtig:
+      Die Samen sollten den Boden fast komplett bedecken, leicht
+      ueberlappend ist in Ordnung. Zu duenn gesaet gibt schlechten Ertrag.
+      Schritt 3 — Blackout-Phase (2 bis 4 Tage):
+      Schale abdecken (zweite Schale umgedreht als Deckel, dunkle Tuete,
+      oder Karton). Leichtes Gewicht obendrauf legen (z.B. eine mit Wasser
+      gefuellte zweite Schale) — der Druck hilft Samen und Substrat in
+      Kontakt zu halten und foerdert gleichmaessiges Keimen. In der
+      Blackout-Phase strecken sich die Stengel auf der Suche nach Licht.
+      Die Keimlinge werden laenger und zarter — das ist erwuenscht!
+      Keine Feuchtigkeit noetig waehrend der Blackout-Phase wenn das
+      Substrat beim Saeen gut angefeuchtet war.
+      Schritt 4 — Licht (nach Blackout):
+      Sobald die meisten Keimlinge 2 bis 3 cm hoch sind und gegen den
+      Deckel druecken, kommt Licht dazu. 12 bis 16 Stunden pro Tag.
+      Kein direktes Mittagssonnenlicht noetig; helles indirektes Licht
+      oder eine einfache LED-Leiste genuegt.
+      Schritt 5 — Bottom-Watering (nicht von oben giessen!):
+      Wasser IMMER von unten zugeben. Die Pflanzschale (mit Loecher)
+      in die Auffangschale stellen und dort Wasser eingiessen.
+      Das Substrat saugt Wasser von unten auf. Von oben giessen
+      foerdert Schimmel auf dem dichten Saatgut und beschaedigt
+      zarte Keimlinge.
+      Temperatur: 18 bis 24 Grad Celsius. Kuehlere Temperaturen
+      verlangsamen das Wachstum, waermere foerdern Schimmel.
+      Schritt 6 — Ernte:
+      Mit einer sauberen Schere oder einem scharfen Messer knapp
+      ueber dem Substrat abschneiden. Erntezeit je nach Sorte 7 bis
+      21 Tage nach Aussaat (Details im Sortenguide). Frisch geerntet
+      schmecken Microgreens am besten; im Kuehlschrank halten sie
+      3 bis 5 Tage.
+    metadata:
+      topic: microgreens_growing
+      key_steps: [soaking, dense_sowing, blackout, light, bottom_watering, harvest]
+      blackout_days: [2, 4]
+      temperature_range_celsius: [18, 24]
+      watering_method: bottom_watering
+      difficulty: beginner
+
+  - id: microgreens-sorten-guide
+    title: Microgreens Sorten-Guide — Welche Sorte fuer wen?
+    content: |
+      Anfaenger-Sorten (schnell, zuverlaeassig, fehlerverzeihend):
+      Radieschen: 5 bis 7 Tage bis zur Ernte. Sehr schnell, fast
+      immer erfolgreich, scharf-wuerzig im Geschmack. Perfekt als
+      Einstieg. Keine Vorbehandlung noetig.
+      Kresse: 5 bis 7 Tage. Das absolut einfachste Microgreen
+      ueberhaupt — funktioniert sogar auf feuchtem Kuechenpapier.
+      Mild-pfeffrig. Klassisches Schulprojekt aus gutem Grund.
+      Senf: 7 bis 10 Tage. Wuerzig, wachstumsstark, sehr dankbar.
+      Gelbe oder braune Senfkerne liefern leicht unterschiedliche
+      Schaerfe.
+      Brokkoli: 8 bis 12 Tage. Mild-nussig, besonders naehrstoffdicht
+      (Sulforaphan). Eine der gesundheitlich wertvollsten Sorten.
+      Fortgeschrittene Sorten (etwas mehr Aufmerksamkeit noetig):
+      Sonnenblume: 10 bis 14 Tage. Unbedingt 8 bis 12 Stunden einweichen!
+      Nussig, knackig, beliebt in Salaten und auf Bruschetta. Braucht
+      etwas mehr Substrat-Tiefe (3 cm) und guten Druck in der Blackout-
+      Phase damit die Samenschalen abgestreift werden.
+      Erbsenschoss: 12 bis 16 Tage. Suesslich, aromatisch — erinnert
+      an frische Erbsen. Ebenfalls einweichen (8 Stunden). Wachsen sehr
+      schnell in die Hoehe; braucht etwas mehr Licht als andere Sorten.
+      Rote Bete: 12 bis 16 Tage. Erdiges Aroma, tiefrote Faerbung,
+      spektakulaer in der Optik. Keimt etwas langsamer.
+      Basilikum: 14 bis 21 Tage. Die anspruchsvollste Anfaenger-Sorte.
+      Basilikumsamen bilden beim Befeuchten eine Schleimschicht (Mucilage)
+      — das ist normal und kein Schimmel! Basilikum keimt langsam, braucht
+      mehr Waerme (mind. 22 Grad) und vertraegt kein Uebergiessen.
+      Rucola: 7 bis 10 Tage. Scharf-pfeffrig, sehr wuechsig.
+      Geschmacksprofile:
+      Scharf/wuerzig: Radieschen, Senf, Rucola
+      Mild/nussig: Sonnenblume, Erbsenschoss
+      Aromatisch: Basilikum, Koriander
+      Mild/erdig: Brokkoli, Rote Bete, Weizengras
+    metadata:
+      topic: microgreens_varieties
+      beginner_varieties: [radieschen, kresse, senf, brokkoli]
+      advanced_varieties: [sonnenblume, erbsenschoss, rote_bete, basilikum]
+      harvest_days:
+        kresse: "5-7"
+        radieschen: "5-7"
+        senf: "7-10"
+        rucola: "7-10"
+        brokkoli: "8-12"
+        sonnenblume: "10-14"
+        erbsenschoss: "12-16"
+        rote_bete: "12-16"
+        basilikum: "14-21"
+      difficulty: beginner
+
+  - id: microgreens-hygiene-schimmel
+    title: Schimmel bei Microgreens verhindern — Ursachen und Gegenmassnahmen
+    content: |
+      Schimmel ist das haeufigste Problem beim Microgreens-Anbau —
+      aber er ist gut zu verhindern wenn man die Ursachen kennt.
+      WICHTIG zuerst — Wurzelhaare sind kein Schimmel!
+      An den Wurzeln junger Keimlinge bilden sich weisse, feine,
+      flauschige Faeden — das sind Wurzelhaare, kein Schimmel.
+      Sie sind ganz normal, erscheinen im Bereich der Wurzeln und
+      verschwinden wenn Luft und Licht die Oberflaeche erreichen.
+      Echter Schimmel dagegen sitzt zwischen den Stengeln an der
+      Substratoberflaeche, ist grau-gruenlich oder schwarz, riecht
+      muffig und breitet sich flaechig aus.
+      Ursachen fuer Schimmelbefall:
+      - Zu viel Feuchtigkeit an der Oberflaeche (von oben giessen!)
+      - Zu dicht gesaet ohne ausreichend Luftzirkulation
+      - Zu wenig Belueeftung (stehende Luft)
+      - Zu warme und feuchte Umgebung (ueber 26 Grad bei hoher Luft-
+        feuchtigkeit)
+      - Verunreinigte Schalen oder wiederverwendetes Substrat
+      Praeventions-Massnahmen:
+      1. Immer bottom-watering — niemals von oben auf die Keimlinge
+         giessen. Wasser nur in die Auffangschale.
+      2. Kleiner Ventilator: Schon ein leiser USB-Luefter auf niedriger
+         Stufe reicht um die Luftzirkulation deutlich zu verbessern und
+         Schimmelrisiko stark zu reduzieren.
+      3. H2O2-Spray zur Praevention: 3 ml 3-prozentiges Wasserstoffperoxid
+         (H2O2) pro Liter Wasser in eine Sprühflasche — nach der Aussaat
+         einmal auf das Substrat spruehen (nicht auf Keimlinge!). Das
+         desinifziert und reduziert Schimmeldruck ohne die Samen zu schaedigen.
+      4. Schalen nach jeder Ernte gruendlich reinigen: Heisses Wasser,
+         Spuelmittel oder 1-2% H2O2-Loesung. Schimmelsporen ueberleben
+         in Schalenritzen.
+      5. Substrat nie wiederverwenden: Verbrauchtes Substrat in den
+         Kompost, frisches Material fuer die naechste Aussaat.
+      6. Samen sauber aufbewahren: Kuehler, trockener, dunkler Ort.
+         Feuchte Samen schimmeln bereits vor der Keimung.
+      Was tun bei Schimmelbefall?
+      Wenn Schimmel auftritt: Betroffene Bereiche entfernen, Luft-
+      zirkulation erhoehen, Giessmengen reduzieren. Bei starkem Befall
+      lieber neu ansetzen als weiter kaempfen — die Ernte in wenigen
+      Tagen ist die bessere Investition.
+    metadata:
+      topic: microgreens_mold_prevention
+      key_prevention: [bottom_watering, ventilation, h2o2_spray, clean_trays]
+      root_hair_vs_mold: wichtige_differenzierung
+      difficulty: beginner
+
+  - id: microgreens-profi-vermarktung
+    title: Microgreens professionell anbauen und vermarkten
+    content: |
+      Wer ueber den Eigenverbrauch hinaus denkt, kann mit Microgreens
+      ein kleines Nebeneinkommen aufbauen — der Markt in Gastronomie
+      und auf Wochenmaerkten ist gut aufnahmefaehig fuer frische,
+      lokal erzeugte Microgreens.
+      Anbausystem skalieren:
+      Stapelbare Regalgestelle mit LED-Beleuchtung pro Ebene ermoeglichen
+      den Anbau auf 4 bis 6 Ebenen uebereinander auf weniger als einem
+      Quadratmeter Grundflaeche. Eine 120-cm-Standleuchte mit Full-Spectrum-
+      LED liefert genuegend Licht fuer eine Schale (200-300 PPFD genuegen).
+      Ernteplanung fuer kontinuierliche Versorgung:
+      Gestaffelte Aussaat ist der Schluessel: Alle 2 bis 3 Tage eine
+      neue Schale ansetzen. So ist alle 2 bis 3 Tage eine Schale erntereif
+      was taeglich frische Ware ohne Leerlauf ergibt. Fuer eine taeglich
+      erntefaehige Produktion von z.B. Radieschen (7 Tage Wachstum)
+      braucht man 3 bis 4 Schalen im Rotation.
+      Verpackung und Haltbarkeit:
+      Microgreens halten im Kuehlschrank bei 4 Grad Celsius 3 bis 5 Tage
+      nach der Ernte. Ideale Verpackung: Clamshell-Boxen (100-125 g),
+      Cut-to-Order auf Bestellung. Lebend auf dem Substrat halten sie
+      laenger — Gastro-Kunden schaetzen oft die lebende Schale (1 bis
+      2 Wochen haltbar) die sie selbst schneiden.
+      Absatzwege:
+      Gastronomie (Restaurants, Cafes): Direkter Kontakt, regelmaessige
+      Bestellungen. Sternekoeche und Veggie-Restaurants zahlen Premiumpre-
+      ise fuer aussergewoehnliche Sorten (Blutampfer, Shiso, Thai-Basilikum).
+      Farmers Markets / Wochenmarkt: Sichtbarer Verkauf, Kundenkontakt,
+      gute Preise bei hochwertiger Praesentation.
+      Kosten-Ertrags-Uebersicht (Beispiel Radieschen):
+      Eine Standard-Schale (25x50 cm) ergibt ca. 200-300 g Ernte.
+      Samenkosten ca. 0,50-1,00 Euro pro Schale, Substrat ca. 0,30 Euro.
+      Verkaufspreis frisch: 3-6 Euro pro 100 g. Marge ist attraktiv bei
+      guter Auslastung.
+      LED-Optimierung:
+      Full-Spectrum-LED mit 4000-6500 K Farbtemperatur. Abstand zur
+      Pflanze: ca. 20-30 cm. Timer auf 14-16 Stunden pro Tag.
+      Energiekosten sind gering (10-20 Watt pro Schale genuegen).
+    metadata:
+      topic: microgreens_commercial
+      target_groups: [commercial, hobbyist_advanced, gastronomy]
+      shelf_life_days: [3, 5]
+      harvest_weight_per_tray_grams: [200, 300]
+      difficulty: expert

@@ -66,6 +66,7 @@ class TaskQueuePage(BasePage):
         """Navigate to the task queue and wait for it to load."""
         self.navigate(self.PATH)
         self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
         return self
 
     # ── Task card interactions ─────────────────────────────────────────

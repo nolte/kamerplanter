@@ -1,0 +1,246 @@
+---
+title: Autoflower vs. Photoperiod Cannabis — Grundlagen und Anbaupraxis
+language: de
+category: phasen
+tags: [autoflower, selbstblueher, photoperiod, photoperiodisch, kurztagspflanze, ruderalis, lichtplan, 18-6, 12-12, day-neutral, short-day, lichtzykus, lichtzyklus, kein-umtopfen, lst, topping, dli, mehrere-ernten, schnelle-ernte, outdoor-kurzer-sommer, cannabis-anfaenger, klone, mutterpflanze]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering]
+chunks:
+  - id: autoflower-vs-photo-grundlagen
+    title: Autoflower vs. Photoperiod — Was ist der Unterschied?
+    content: |
+      Die wichtigste Entscheidung vor jedem Cannabis-Grow: Autoflower oder
+      Photoperiod? Der Unterschied liegt in der Bluetausloesung.
+
+      Photoperiodische Sorten (short_day / Kurztagspflanze):
+      - Bluehen NUR wenn die Dunkelphase lang genug ist (12h+)
+      - Indoor: Du steuerst die Bluete durch Umschalten des Lichtplans auf 12/12
+      - Outdoor: Bluete beginnt natuerlich ab August wenn die Tage kuerzer werden
+      - Genetik: Cannabis sativa, Cannabis indica und deren Hybride
+      - Veg-Phase: Beliebig lang steuerbar (du entscheidest wann geblueht wird)
+      - Bluete: 8-12 Wochen je nach Sorte
+      - Gesamtdauer Indoor: 4-8 Wochen Veg + 8-12 Wochen Bluete = 3-5 Monate
+
+      Autoflowering Sorten (day_neutral / Selbstblueher):
+      - Bluehen automatisch nach Alter — unabhaengig vom Lichtzyklus
+      - Genetik: Cannabis ruderalis Kreuzung (Taigapflanze, kurze Vegetationszeit)
+      - Kein Umschalten noetig: 18/6 oder 20/4 Licht durchgehend von Keimung bis Ernte
+      - Vegetative Phase: Nur 2-4 Wochen (nicht verlaengerbar!)
+      - Bluete: 5-8 Wochen
+      - Gesamtdauer: 8-12 Wochen von Keim bis Ernte
+
+      Ertragsvergleich:
+      - Photoperiod: Hoehere Ertraege pro Pflanze (laengere Veg = groessere Pflanze)
+      - Autoflower: Schneller und mehrere Ernten pro Jahr moeglich (2-3 Zyklen Indoor)
+      - Pro m² Growraum kann Autoflower durch Rotation mithalten
+
+      Technischer Hintergrund (Systemebene): Der photoperiod_type-Wert im
+      Sortenstammdatum bestimmt das Phasensteuerungsverhalten — short_day fuer
+      photoperiodische Sorten, day_neutral fuer Autoflower.
+    metadata:
+      topic: autoflower_vs_photoperiod_grundlagen
+      species: Cannabis sativa, Cannabis ruderalis
+      photoperiod_type: [short_day, day_neutral]
+      difficulty: beginner
+
+  - id: autoflower-anbau-praxis
+    title: Autoflower anbauen — die wichtigsten Regeln
+    content: |
+      Autoflower-Anbau ist ideal fuer Einsteiger, hat aber klare Eigenheiten die
+      man kennen muss. Verstoss gegen diese Regeln kostet Ertrag.
+
+      Lichtzyklus: 18/6 oder 20/4 — durchgehend von Tag 1 bis Ernte.
+      Kein Umschalten auf 12/12 noetig oder sinnvoll (reduziert nur den Ertrag).
+      Mehr Licht = mehr Photosynthese = mehr Ertrag. 24/0 (kein Dunkelzyklus) ist
+      moeglich, aber umstritten — viele Grower berichten bessere Ergebnisse mit
+      mindestens 4-6h Dunkelphase.
+
+      Topfgroesse: Endtopf von Beginn an waehlen — 7-15L je nach Sorte.
+      KEIN Umtopfen! Autoflower reagieren sehr empfindlich auf Wurzelstress, und
+      die kurze Veg-Phase laesst keine Zeit zur Erholung. Direktsaat in den Endtopf
+      oder Umsetzen aus winzigem Keimtopf (max. 0,5L) in der ersten Woche.
+
+      Training: Ausschliesslich LST (Low Stress Training) verwenden.
+      Topping, FIM, Supercropping oder andere HST-Methoden sind bei Autoflowern
+      nicht empfohlen — die vegetative Phase ist zu kurz fuer die noetige
+      Erholungszeit. Jeder Stressverlust bei einem 10-Wochen-Grow ist prozentual
+      viel groesser als bei einem 5-Monats-Photo-Grow.
+
+      Duengung: Zurueckhaltend starten. Autoflower haben genetisch bedingt
+      kleinere Wurzelsysteme und reagieren empfindlicher auf Ueberernaehrung.
+      Einstieg mit 50-75% der empfohlenen Photoperiod-Dosis, EC niedriger halten
+      (0,6-1,0 in Saemlings-/Veg-Phase). Erst bei klarem Bedarf steigern.
+
+      Timeline (typisch):
+      - Keimung: 3-5 Tage
+      - Saemling: 1-2 Wochen
+      - Vegetativ: 2-4 Wochen
+      - Stretch und Vorblute: Woche 4-5
+      - Bluete: 5-8 Wochen
+      - Ernte: Woche 8-12 ab Keimung
+
+      Keine Klone moeglich: Da Autoflower nach Alter bluehen, sind Mutterpflanzen
+      und Stecklinge sinnlos — ein Klon blueht zum selben Zeitpunkt wie die
+      Mutterpflanze. Fuer Klone immer Photoperiod-Sorten verwenden.
+    metadata:
+      topic: autoflower_anbau
+      light_schedule: "18/6 oder 20/4"
+      pot_size_liters: [7, 15]
+      no_repotting: true
+      training: [lst]
+      difficulty: beginner
+
+  - id: photoperiod-anbau-praxis
+    title: Photoperiodische Cannabis-Sorten anbauen — volle Kontrolle uebernehmen
+    content: |
+      Photoperiodische Sorten bieten maximale Kontrolle ueber den Wachstumszyklus.
+      Die Pflanze blueht erst wenn du es moechtest.
+
+      Vegetative Phase (18/6 Licht):
+      - Standard-Lichtplan: 18h Licht, 6h Dunkel
+      - Dauer: Frei waehlbar — 4 Wochen (kleine kompakte Pflanze) bis 12+ Wochen
+        (grosser Baum mit maximaler Ernte)
+      - In der Veg-Phase kannst du alle Training-Techniken anwenden:
+        LST, Topping, FIM, Supercropping, SCROG — ohne Einschraenkung
+
+      Bluetausloesung — Umschalten auf 12/12:
+      - Exakt 12h Licht, 12h ununterbrochene Dunkelheit
+      - KRITISCH: Kein Lichtleck in der Dunkelphase! Selbst 5 Minuten Licht
+        (Handy-Display, Tuerspalt) kann die Bluete stoeren oder Zwitter ausloesen
+        (Hermaphroditen). Grow-Zelt auf absolute Lichtdichtigkeit pruefen.
+      - Outdoor: Bluete beginnt natuerlich ab August wenn Taglaenge unter 12h faellt
+
+      Mutterpflanze und Klone:
+      - Mutterpflanze dauerhaft in 18/6 halten → unbegrenzt Stecklinge
+      - Stecklinge sind genetisch identisch mit der Mutterpflanze
+      - Mehrere Veg-Raeume + ein Bluetraum = kontinuierliche Produktion
+
+      Ertrag und Zeitplanung:
+      - Laengere Veg-Phase = groessere Pflanze = hoehere Ernte
+      - Typisch: 4-8 Wochen Veg + 8-12 Wochen Bluete = 3-5 Monate pro Zyklus
+      - Sativa-Typen: Bis 14 Wochen Bluete moeglich
+      - Indica-Typen: 8-9 Wochen, kompakter und fruehreifer
+
+      Outdoor-Timing:
+      - Pflanzen im Mai nach draussen (nach Eisheiligen, kein Frost!)
+      - Abhuerten: 1-2 Wochen langsam akklimatisieren
+      - Bluete beginnt natuerlich im August, Ernte Oktober
+    metadata:
+      topic: photoperiod_anbau
+      light_schedule_veg: "18/6"
+      light_schedule_bloom: "12/12"
+      difficulty: intermediate
+      no_light_leak: true
+      clones_possible: true
+
+  - id: lichtplaene-dli
+    title: Lichtplaene und DLI fuer Autoflower und Photoperiod
+    content: |
+      Der richtige Lichtzyklus ist entscheidend — und DLI (Daily Light Integral)
+      ist die praezisere Zielgroesse als reine Stunden-Angabe.
+
+      DLI = PPFD (µmol/m²/s) × Beleuchtungsstunden × 0,0036
+      Einheit: mol/m²/d
+
+      Empfohlene DLI-Zielwerte:
+      - Saemling: 15-20 mol/m²/d
+      - Vegetativ: 30-40 mol/m²/d
+      - Bluete: 40-50 mol/m²/d
+
+      Autoflower Lichtplaene im Vergleich:
+      - 18/6 (Standard): Solider Kompromiss, Stromkosten moderat
+      - 20/4 (Ertrags-optimiert): ~10% mehr DLI als 18/6, klarer Ertragsvorteil
+      - 24/0 (kein Dunkelzyklus): Hoehere Stromkosten, umstritten — manche
+        Sorten reagieren besser mit Ruhephase. Geteilte Meinungen in der Praxis.
+      Faustregel: Autoflower 18/6 empfohlen als Standard.
+
+      Photoperiod Lichtplaene:
+      - Veg 18/6: Sicherer Standard, beweist sich seit Jahrzehnten
+      - Veg 20/4: Schnelleres Wachstum moeglich, hoeherer Stromverbrauch
+      - Bluete 12/12: Pflicht fuer zuverlaessige Bluetausloesung
+      - Manche Grower nutzen 11/13 oder 10/14 fuer schwaechere Stretch-Reaktion
+
+      Praxisbeispiel DLI-Berechnung:
+      - PPFD 600 µmol/m²/s × 18h × 0,0036 = 38,9 mol/m²/d (Veg, gut)
+      - PPFD 900 µmol/m²/s × 12h × 0,0036 = 38,9 mol/m²/d (Bluete, gleicher DLI!)
+      - Fazit: Autoflower holen durch laengere Beleuchtung denselben DLI bei
+        niedrigerer PPFD — vorteilhaft fuer LED-Effizienz.
+    metadata:
+      topic: licht_dli_cannabis
+      dli_vegetative: [30, 40]
+      dli_flowering: [40, 50]
+      difficulty: intermediate
+
+  - id: autoflower-oder-photo-entscheidung
+    title: Autoflower oder Photoperiod — Entscheidungshilfe
+    content: |
+      Autoflower empfohlen wenn:
+      - Du Einsteiger bist und den ersten Grow ohne viel Technik durchziehen willst
+      - Dein Growraum klein ist (Autoflower bleiben kompakter)
+      - Du schnelle Ernte willst: 8-12 Wochen statt 4-5 Monate
+      - Du mehrere Ernten pro Jahr planst: 2-3 Zyklen Indoor, 2 Outdoor-Ernten
+        pro Saison moeglich
+      - Outdoor in Regionen mit kurzem Sommer: Norddeutschland, Skandinavien,
+        Gebirgslagen — Autoflower reift vor dem Herbstregen ab
+      - Du keine Klone ziehen willst und keine Mutterpflanze betreiben moechtest
+
+      Photoperiod empfohlen wenn:
+      - Du maximalen Ertrag pro Pflanze willst
+      - Du Klone ziehen und genetisch identische Pflanzen reproduzieren willst
+      - Du alle Training-Techniken ausreizen willst (Topping, SCROG, Supercropping)
+      - Du volle Kontrolle ueber den Zeitplan brauchst (z.B. Ernte zu einem
+        bestimmten Datum planen)
+      - Du Sativas mit langen Bluetzeiten anbaust
+      - Outdoor in suedlichen Regionen mit langem warmem Sommer: Spanien,
+        Sueditalien, Mittelmeerklima — hoher Ertrag durch lange Veg-Zeit
+
+      Kombination moeglich: Viele Grower bauen beides parallel an.
+      Autoflower fuer schnelle Rotationen und ueberbrueckende Ernten,
+      Photoperiod fuer Haupt-Saison mit maximaler Ausbeute.
+    metadata:
+      topic: autoflower_vs_photo_entscheidung
+      beginner_recommendation: autoflower
+      difficulty: beginner
+
+  - id: autoflower-fehler-vermeiden
+    title: Haeufige Autoflower-Fehler — und wie man sie vermeidet
+    content: |
+      Autoflower verzeihen weniger Fehler als Photoperiod, weil jede
+      verlorene Woche prozentual mehr vom Gesamtlebenszyklus ausmacht.
+
+      Fehler 1 — Umtopfen: Der groesste Einzelfehler. Wurzelstress kostet bei
+      Autoflower 1-2 Wochen Erholungszeit, die bei einem 10-Wochen-Grow
+      direkt vom Ertrag abgehen. Loesung: Immer in den Endtopf saen oder
+      sehr frueh (Woche 1) umsetzen.
+
+      Fehler 2 — HST/Topping: Topping, FIM oder Supercropping sind fuer
+      Autoflower nicht empfohlen. Die Erholungszeit von 3-7 Tagen frisst
+      wertvolle Wachstumszeit. Nur LST (Low Stress Training) verwenden —
+      kein Erholungsfenster noetig.
+
+      Fehler 3 — Ueberernaehrung: Autoflower sind empfindlicher gegenueber
+      zu viel Duenger. Starte mit 50-75% der empfohlenen Dosis und beobachte
+      die Pflanze sorgfaeltig. Naehrstoffverbrennung bei Autoflower ist
+      schwerer zu korrigieren (weniger Erholungszeit).
+
+      Fehler 4 — Topfgroesse falsch: Zu kleiner Topf (unter 5L) begrenzt das
+      Wurzelsystem und damit den Ertrag direkt. Zu grosser Topf (ueber 20L)
+      fuehrt zu langsamem Austrocknen und Wurzelfaeule-Risiko. Ziel: 7-15L.
+
+      Fehler 5 — Bluetebeginn verpassen: Autoflower wechseln selbstaendig in
+      die Bluete — ohne Signal von dir. Beobachte die Pflanze regelmaessig
+      ab Woche 3-4. Sobald erste Vorbluten sichtbar sind: Duenger auf
+      Bluete-Verhaeltnis umstellen (mehr P und K, weniger N).
+
+      Fehler 6 — Lichtplan zu kurz: Unter 18h Licht verschenkt Ertrag.
+      Autoflower leben und sterben mit der Lichtmenge. 18/6 als Minimum,
+      20/4 fuer bessere Ergebnisse.
+
+      Fehler 7 — Klone ziehen wollen: Klappt technisch, ergibt aber keinen
+      Sinn. Ein Autoflower-Klon bluegt zum gleichen Zeitpunkt wie die
+      Mutterpflanze und liefert kaum Ertrag. Fuer Klone Photoperiod-Sorten
+      nutzen.
+    metadata:
+      topic: autoflower_fehler
+      common_mistakes: [repotting, topping, overfeeding, wrong_pot_size, missing_bloom_start, short_light_schedule, cloning]
+      difficulty: beginner

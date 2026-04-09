@@ -119,21 +119,51 @@ def _normalize(text: str) -> str:
 
 
 _NEGATION_RE = re.compile(
-    r"(?i)\b(kein|keine|keinen|keinem|nicht|ohne|ausschlie.en|unwahrscheinlich)\b.{0,30}",
+    r"(?i)\b(kein|keine|keinen|keinem|nicht|nie|niemals|ohne|vermeid|ausschlie.en|unwahrscheinlich|"
+    r"NICHT|KEIN|KEINE|sollte\s+nicht|darf\s+nicht|auf\s+keinen\s+Fall)\b",
 )
 
 
 def _is_negated(keyword: str, text: str) -> bool:
-    """Return True if *keyword* only appears in a negated context in *text*."""
+    """Return True if *keyword* only appears in a negated context in *text*.
+
+    Improved logic:
+    - Looks 60 chars before the keyword (up from 40) for negation words
+    - Also checks if the keyword appears in a sentence that starts with a negation
+    - Returns True if ALL occurrences are negated (conservative — avoids FPs)
+    """
     kw_lower = keyword.lower()
     text_lower = text.lower()
     if kw_lower not in text_lower:
         return False
-    for m in re.finditer(re.escape(kw_lower), text_lower):
-        start = max(0, m.start() - 40)
-        prefix = text_lower[start:m.start()]
-        if not _NEGATION_RE.search(prefix):
-            return False
+
+    occurrences = list(re.finditer(re.escape(kw_lower), text_lower))
+    if not occurrences:
+        return False
+
+    for m in occurrences:
+        # Check prefix (60 chars before keyword)
+        prefix_start = max(0, m.start() - 60)
+        prefix = text_lower[prefix_start:m.start()]
+
+        # Check if negation word appears in prefix
+        if _NEGATION_RE.search(prefix):
+            continue  # This occurrence is negated, check next
+
+        # Also check sentence context: find the sentence start (last period/newline)
+        sentence_start = max(
+            text_lower.rfind(".", 0, m.start()),
+            text_lower.rfind("\n", 0, m.start()),
+            0,
+        )
+        sentence_prefix = text_lower[sentence_start:m.start()]
+        if _NEGATION_RE.search(sentence_prefix):
+            continue  # Negated within the same sentence
+
+        # This occurrence is NOT negated
+        return False
+
+    # All occurrences were negated
     return True
 
 

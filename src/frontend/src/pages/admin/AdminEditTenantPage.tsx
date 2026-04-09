@@ -353,10 +353,10 @@ export default function AdminEditTenantPage() {
                     {members.map((m) => (
                       <TableRow key={m.membership_key}>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{m.display_name}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.display_name}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">{m.email}</Typography>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{m.email}</Typography>
                         </TableCell>
                         <TableCell>
                           <Select
