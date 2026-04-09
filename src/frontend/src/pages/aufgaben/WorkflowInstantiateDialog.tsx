@@ -552,24 +552,23 @@ export default function WorkflowInstantiateDialog({
               </li>
             );
           }}
-          renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
+          renderInput={(params) => (
             <TextField
               {...params}
               label={inputLabel}
               required
               sx={{ mb: 2 }}
               slotProps={{
+                ...params.slotProps,
                 input: {
-                  ...MuiInputProps,
+                  ...params.slotProps.input,
                   endAdornment: (
                     <>
                       {loading && <CircularProgress size={16} />}
-                      {MuiInputProps?.endAdornment}
+                      {params.slotProps.input?.endAdornment}
                     </>
                   ),
                 },
-                htmlInput: muiInputProps,
-                inputLabel: muiInputLabelProps,
               }}
               data-testid="target-select"
             />

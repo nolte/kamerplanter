@@ -1112,23 +1112,22 @@ export default function WorkflowDetailPage() {
                     isOptionEqualToValue={(opt, val) => opt.key === val.key}
                     loading={speciesLoading}
                     groupBy={(opt) => opt.plant_category ? t(`enums.plantCategory.${opt.plant_category}`, { defaultValue: opt.plant_category }) : t('common.other')}
-                    renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
+                    renderInput={(params) => (
                       <TextField
                         {...params}
                         placeholder={t('common.search')}
                         helperText={t('pages.tasks.speciesCompatibleHelper')}
                         slotProps={{
+                          ...params.slotProps,
                           input: {
-                            ...MuiInputProps,
+                            ...params.slotProps.input,
                             endAdornment: (
                               <>
                                 {speciesLoading ? <CircularProgress size={20} /> : null}
-                                {MuiInputProps?.endAdornment}
+                                {params.slotProps.input?.endAdornment}
                               </>
                             ),
                           },
-                          htmlInput: muiInputProps,
-                          inputLabel: muiInputLabelProps,
                         }}
                       />
                     )}

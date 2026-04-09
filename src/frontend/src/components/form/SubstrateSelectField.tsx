@@ -178,15 +178,16 @@ export default function SubstrateSelectField<T extends FieldValues>({
                 </Box>
               </Box>
             )}
-            renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
+            renderInput={(params) => (
               <TextField
                 {...params}
                 label={label}
                 error={!!error}
                 helperText={error?.message ?? helperText}
                 slotProps={{
+                  ...params.slotProps,
                   input: {
-                    ...MuiInputProps,
+                    ...params.slotProps.input,
                     endAdornment: (
                       <>
                         {hasFavorites && (
@@ -202,12 +203,10 @@ export default function SubstrateSelectField<T extends FieldValues>({
                             </Tooltip>
                           </InputAdornment>
                         )}
-                        {MuiInputProps?.endAdornment}
+                        {params.slotProps.input?.endAdornment}
                       </>
                     ),
                   },
-                  htmlInput: muiInputProps,
-                  inputLabel: muiInputLabelProps,
                 }}
                 data-testid={`form-field-${name}`}
               />

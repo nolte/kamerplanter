@@ -258,23 +258,22 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                 loading={loadingPlants}
                 value={plants.find((p) => p.key === field.value) ?? null}
                 onChange={(_, value) => field.onChange(value?.key ?? null)}
-                renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
+                renderInput={(params) => (
                   <TextField
                     {...params}
                     label={t('pages.tasks.plant')}
                     sx={{ mb: 2 }}
                     slotProps={{
+                      ...params.slotProps,
                       input: {
-                        ...MuiInputProps,
+                        ...params.slotProps.input,
                         endAdornment: (
                           <>
                             {loadingPlants && <CircularProgress size={16} />}
-                            {MuiInputProps?.endAdornment}
+                            {params.slotProps.input?.endAdornment}
                           </>
                         ),
                       },
-                      htmlInput: muiInputProps,
-                      inputLabel: muiInputLabelProps,
                     }}
                     data-testid="form-field-entity_key"
                   />
