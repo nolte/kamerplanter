@@ -1,0 +1,7 @@
+{
+  "name": "Kamerplanter",
+  "render_readme": false,
+  "zip_release": true,
+  "filename": "kamerplanter-ha.zip",
+  "homeassistant": "2024.1.0"
+}
