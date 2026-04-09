@@ -182,11 +182,11 @@ VITE_BACKEND_URL=http://localhost:8000 npm run dev
 
 ## Home Assistant Integration
 
-Die HA-Integration in `src/ha-integration/` wird **nicht** automatisch von Skaffold deployed. Nach Änderungen an den HA-Integrationsdateien muss der Inhalt manuell in den laufenden Pod kopiert werden:
+Die HA-Integration in `custom_components/kamerplanter/` wird **nicht** automatisch von Skaffold deployed. Nach Änderungen an den HA-Integrationsdateien muss der Inhalt manuell in den laufenden Pod kopiert werden:
 
 ```bash
 # Dateien in den Pod kopieren
-kubectl cp src/ha-integration/custom_components/kamerplanter/ \
+kubectl cp custom_components/kamerplanter/ \
   default/homeassistant-0:/config/custom_components/kamerplanter/
 
 # Python-Cache löschen (MUSS immer gemacht werden, sonst lädt HA alten Bytecode)

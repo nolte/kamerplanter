@@ -32,9 +32,9 @@ build:
           - src: "src/**/*.css"
             dest: /app
     - image: kamerplanter-ha-integration
-      context: src/ha-integration
+      context: .
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: src/ha-integration/Dockerfile.dev
 
 manifests:
   kustomize:

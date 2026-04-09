@@ -1,6 +1,6 @@
 ---
 name: deploy-ha
-description: "Deployed die HA-Integration in den lokalen Kubernetes-Cluster (kubectl cp + Cache-Clear + Pod-Restart), prueft die HA-Logs auf erfolgreichen Start und meldet Fehler. Nutze diesen Skill nach Aenderungen an src/ha-integration/ um die Integration schnell zu testen."
+description: "Deployed die HA-Integration in den lokalen Kubernetes-Cluster (kubectl cp + Cache-Clear + Pod-Restart), prueft die HA-Logs auf erfolgreichen Start und meldet Fehler. Nutze diesen Skill nach Aenderungen an custom_components/kamerplanter/ um die Integration schnell zu testen."
 disable-model-invocation: true
 ---
 
@@ -24,11 +24,11 @@ Falls der Pod nicht existiert oder nicht "Running" ist, melde den Fehler und bri
 Fuehre Ruff auf dem HA-Code aus:
 
 ```bash
-cd src/ha-integration && ruff check custom_components/ 2>&1; echo "EXIT:$?"
+ruff check custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
 ```
 
 ```bash
-cd src/ha-integration && ruff format --check custom_components/ 2>&1; echo "EXIT:$?"
+ruff format --check custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
 ```
 
 Falls Lint-Fehler: behebe sie automatisch, dann weiter.
@@ -40,7 +40,7 @@ Fuehre die folgenden 3 Befehle **sequentiell** aus:
 ### 3a. Dateien kopieren
 
 ```bash
-kubectl cp src/ha-integration/custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
+kubectl cp custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
 ```
 
 ### 3b. Bytecode-Cache loeschen (PFLICHT)

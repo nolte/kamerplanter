@@ -5,4 +5,4 @@ LABEL org.opencontainers.image.title="kamerplanter-ha-integration" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
-COPY custom_components /ha-integration/custom_components
+COPY custom_components/kamerplanter /ha-integration/custom_components/kamerplanter

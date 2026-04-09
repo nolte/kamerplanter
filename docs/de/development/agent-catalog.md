@@ -240,7 +240,7 @@ Sind in 4 Kategorien organisiert: Quality, Deployment, Workflow, Generierung.
 | Seed-Daten | `src/backend/app/migrations/seed_data/` |
 | Knowledge-Base | `spec/knowledge/rag/` |
 | Code | `src/backend/`, `src/frontend/` |
-| HA-Integration | `src/ha-integration/custom_components/kamerplanter/` |
+| HA-Integration | `custom_components/kamerplanter/` |
 
 ---
 

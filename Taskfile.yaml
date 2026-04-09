@@ -46,7 +46,7 @@ tasks:
   ha:deploy:
     desc: Deploy HA custom integration to running HA pod (hot-reload via kill 1)
     cmds:
-      - kubectl cp src/ha-integration/custom_components/kamerplanter/ {{.HA_NS}}/{{.HA_POD}}:{{.HA_COMP_PATH}}/
+      - kubectl cp custom_components/kamerplanter/ {{.HA_NS}}/{{.HA_POD}}:{{.HA_COMP_PATH}}/
       - kubectl exec -n {{.HA_NS}} {{.HA_POD}} -- rm -rf {{.HA_COMP_PATH}}/__pycache__
       # kill 1 restarts only the container, NOT the pod — initContainers don't re-run,
       # so the kubectl-cp'd files are preserved. kubectl delete pod would overwrite them

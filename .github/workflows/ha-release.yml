@@ -21,14 +21,14 @@ jobs:
         run: |
           jq --arg v "${{ steps.version.outputs.version }}" \
             '.version = $v' \
-            src/ha-integration/custom_components/kamerplanter/manifest.json \
+            custom_components/kamerplanter/manifest.json \
             > manifest.tmp && mv manifest.tmp \
-            src/ha-integration/custom_components/kamerplanter/manifest.json
+            custom_components/kamerplanter/manifest.json
 
       - name: Package integration ZIP
         run: |
           mkdir -p staging/custom_components
-          cp -r src/ha-integration/custom_components/kamerplanter \
+          cp -r custom_components/kamerplanter \
             staging/custom_components/kamerplanter
           cd staging
           zip -r ../kamerplanter-ha.zip custom_components/

@@ -10,7 +10,7 @@ Diese Dokumente definieren Konventionen die durch automatische statische Analyse
 | [BACKEND.md](BACKEND.md) | `src/backend/` — Python / FastAPI | Ruff, MyPy strict, pytest |
 | [FRONTEND.md](FRONTEND.md) | `src/frontend/` — React / TypeScript / MUI | ESLint, TypeScript strict, Vitest |
 | [HELM.md](HELM.md) | `helm/`, `skaffold.yaml` — Kubernetes / Helm | helm lint, helm template, skaffold diagnose |
-| [HA-INTEGRATION.md](HA-INTEGRATION.md) | `src/ha-integration/` — Home Assistant Custom Component | Ruff, MyPy, hassfest |
+| [HA-INTEGRATION.md](HA-INTEGRATION.md) | `custom_components/kamerplanter/` — Home Assistant Custom Component | Ruff, MyPy, hassfest |
 
 ## Zweck
 

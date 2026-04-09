@@ -29,7 +29,7 @@ Migration der Entity-Architektur von 40+ individuellen Klassen in einer 1907-Zei
 
 ## 2. Neue Datei: entity.py
 
-Erstelle `src/ha-integration/custom_components/kamerplanter/entity.py`:
+Erstelle `custom_components/kamerplanter/entity.py`:
 
 ```python
 """Base entity for the Kamerplanter integration."""
