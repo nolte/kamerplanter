@@ -45,6 +45,37 @@ workflow_templates:
     tags: [tank, mixing, nutrient-solution, protocol]
     is_system: true
 
+workflow_phases:
+  # -- Cannabis SOG phases --
+  - name: Vegetative
+    workflow_name: Cannabis SOG
+    phase_order: 0
+    duration_days: 21
+    stress_tolerance: medium
+    trigger_phase: vegetative
+
+  - name: Flowering
+    workflow_name: Cannabis SOG
+    phase_order: 1
+    duration_days: 49
+    stress_tolerance: low
+    trigger_phase: flowering
+
+  # -- Tomato Standard phases --
+  - name: Vegetative
+    workflow_name: Tomato Standard
+    phase_order: 0
+    duration_days: 30
+    stress_tolerance: medium
+    trigger_phase: vegetative
+
+  - name: Flowering & Fruiting
+    workflow_name: Tomato Standard
+    phase_order: 1
+    duration_days: 60
+    stress_tolerance: low
+    trigger_phase: flowering
+
 task_templates:
   # -- Cannabis SOG --
   - name: Transplant to SOG
@@ -52,6 +83,7 @@ task_templates:
     category: transplant
     trigger_type: days_after_planting
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 14
     stress_level: medium
     estimated_duration_minutes: 30
@@ -65,6 +97,7 @@ task_templates:
     category: pruning
     trigger_type: days_after_planting
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 18
     stress_level: high
     estimated_duration_minutes: 45
@@ -78,6 +111,7 @@ task_templates:
     category: maintenance
     trigger_type: days_after_planting
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 21
     stress_level: none
     estimated_duration_minutes: 15
@@ -91,6 +125,7 @@ task_templates:
     category: pruning
     trigger_type: days_after_planting
     trigger_phase: flowering
+    phase_name: Flowering
     days_offset: 35
     stress_level: high
     estimated_duration_minutes: 60
@@ -104,6 +139,7 @@ task_templates:
     category: feeding
     trigger_type: days_after_planting
     trigger_phase: flowering
+    phase_name: Flowering
     days_offset: 56
     stress_level: none
     estimated_duration_minutes: 20
@@ -117,6 +153,7 @@ task_templates:
     category: harvest
     trigger_type: days_after_planting
     trigger_phase: flowering
+    phase_name: Flowering
     days_offset: 70
     stress_level: none
     estimated_duration_minutes: 120
@@ -131,6 +168,7 @@ task_templates:
     category: transplant
     trigger_type: phase_entry
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 0
     stress_level: medium
     estimated_duration_minutes: 30
@@ -144,6 +182,7 @@ task_templates:
     category: maintenance
     trigger_type: days_after_phase
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 7
     stress_level: none
     estimated_duration_minutes: 20
@@ -157,6 +196,7 @@ task_templates:
     category: pruning
     trigger_type: days_after_phase
     trigger_phase: vegetative
+    phase_name: Vegetative
     days_offset: 14
     stress_level: medium
     estimated_duration_minutes: 30
@@ -182,6 +222,7 @@ task_templates:
     category: observation
     trigger_type: phase_entry
     trigger_phase: flowering
+    phase_name: "Flowering & Fruiting"
     days_offset: 0
     stress_level: none
     estimated_duration_minutes: 15

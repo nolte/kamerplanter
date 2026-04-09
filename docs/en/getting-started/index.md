@@ -1,64 +1,67 @@
 # Getting Started
 
-Welcome to Kamerplanter! This guide will take you from zero to a running application in just a few minutes.
-
-## Which path is right for you?
-
-=== "I just want to try it out"
-
-    All you need is Docker on your computer. In **5 minutes** you'll have Kamerplanter running and can start adding your first plants.
-
-    **Continue to:** [Quick Start](quickstart.md)
-
-=== "I want to run it permanently"
-
-    You're planning to install Kamerplanter on a Raspberry Pi, NAS, or home server for long-term use.
-
-    **Continue to:** [Installation](installation.md) and then [First Deployment](first-deployment.md)
+Welcome to Kamerplanter! Whether you want to keep a few houseplants alive, grow herbs on your windowsill, or run a grow tent -- Kamerplanter helps you stay on top of things.
 
 ---
 
-## How Kamerplanter works
+## What can Kamerplanter do for you?
 
-Kamerplanter consists of several building blocks that work together:
+=== "Houseplants & Windowsill"
+
+    You have a few plants at home and want to know when to water and fertilize? Kamerplanter reminds you automatically and adjusts care to the season.
+
+    **Continue to:** [Your First Plant](your-first-plant.md)
+
+=== "Balcony & Garden"
+
+    Growing tomatoes, herbs, or vegetables? Kamerplanter plans sowing, fertilization, and harvest -- and shows you what needs to be done and when.
+
+    **Continue to:** [Your First Plant](your-first-plant.md)
+
+=== "Indoor Grow"
+
+    Running a grow tent with a controlled environment? Kamerplanter tracks phases, VPD, EC values, and nutrient plans -- all the way to harvest.
+
+    **Continue to:** [Your First Plant](your-first-plant.md)
+
+---
+
+## How to get started
 
 ```mermaid
 graph LR
-    A["You (Browser)"] --> B["Frontend\n(User Interface)"]
-    B --> C["Backend\n(Logic & API)"]
-    C --> D["Database\n(ArangoDB)"]
-    C --> E["Background\nTasks\n(Celery)"]
-    E --> F["Cache\n(Valkey)"]
-    C --> F
+    A["Open<br>Kamerplanter"] --> B["Onboarding<br>Wizard"]
+    B --> C["Choose a<br>Starter Kit"]
+    C --> D["Plants &<br>Tasks<br>are ready"]
+    D --> E["Let's go!"]
 
     style A fill:#4CAF50,color:#fff
     style B fill:#66BB6A,color:#fff
     style C fill:#43A047,color:#fff
     style D fill:#2E7D32,color:#fff
-    style E fill:#388E3C,color:#fff
-    style F fill:#1B5E20,color:#fff
+    style E fill:#1B5E20,color:#fff
 ```
 
-That sounds like a lot, but **Docker Compose starts everything automatically** with a single command. You don't need to set up the individual components yourself.
-
----
-
-## What to expect after starting
-
-1. You open Kamerplanter in your browser
-2. The **Onboarding Wizard** greets you and guides you through the setup
-3. You choose your experience level and a starter kit (e.g. "Windowsill Herbs" or "Balcony Tomatoes")
-4. Kamerplanter automatically creates plants, locations, and tasks for you
-5. You land on your personal dashboard
-
-Learn more about the Onboarding Wizard in the [User Guide](../user-guide/onboarding.md).
+1. Open Kamerplanter in your browser
+2. The **Onboarding Wizard** greets you and asks about your experience
+3. Choose a **Starter Kit** (e.g. "Windowsill Herbs" or "Balcony Tomatoes")
+4. Kamerplanter automatically creates plants, locations, and initial tasks
+5. You land on your **Dashboard** -- done!
 
 ---
 
 ## In this section
 
-| Page | Description | Time needed |
-|------|-------------|:-----------:|
-| [Installation](installation.md) | Check prerequisites and install Docker | 10 min |
-| [Quick Start](quickstart.md) | Start Kamerplanter and add your first plants | 5 min |
-| [First Deployment](first-deployment.md) | Run permanently on your own server | 15 min |
+| Page | Description |
+|------|-------------|
+| [Your First Plant](your-first-plant.md) | From the Onboarding Wizard to your first plant -- step by step |
+| [Discover Features](discover-features.md) | What Kamerplanter can do and where to find it |
+
+---
+
+## Want to install Kamerplanter yourself?
+
+Kamerplanter needs to be set up on a server or computer before you can use it in your browser. If you want (or need) to do that yourself, head to the **[Deployment](../deployment/index.md)** section.
+
+!!! tip "Tip"
+    If someone else has set up Kamerplanter for you (e.g. in a community garden), you don't need to worry about installation. Just open the URL in your browser and start with the [Onboarding Wizard](your-first-plant.md).

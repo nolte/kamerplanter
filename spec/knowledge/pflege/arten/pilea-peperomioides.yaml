@@ -1,0 +1,112 @@
+---
+title: "Chinesische Geldpflanze (Pilea peperomioides) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [pilea, geldpflanze, chinese-money-plant, ufo-pflanze, bauchnabelpflanze, zimmerpflanze, pflege, urticaceae, anfaengerfreundlich, ungiftig]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: pilea-standort
+    title: "Chinesische Geldpflanze — Standort und Licht"
+    content: |
+      Die Chinesische Geldpflanze (Pilea peperomioides, auch UFO-Pflanze
+      oder Bauchnabelpflanze genannt) ist mit ihren runden, tellerfoermigen
+      Blaettern an langen Stielen unverwechselbar. Sie wurde in den 1970ern
+      von einem norddeutschen Missionar aus China nach Europa gebracht und
+      verbreitete sich ueber Stecklings-Weitergabe unter Pflanzenfreunden.
+
+      Licht: Helles, indirektes Licht ist optimal. Ein Platz nahe einem
+      Ost- oder Westfenster ist ideal. Direkte Mittagssonne vermeiden,
+      aber etwas Morgensonne wird vertragen. Helles Licht ist wichtiger
+      als Duenger fuer grosse, gesunde Blaetter.
+
+      Wichtig: Die Pilea dreht sich stark zum Licht. Den Topf jede
+      Woche um 90 Grad drehen, damit die Pflanze gleichmaessig waechst
+      und nicht einseitig wird.
+
+      Temperatur: 15 bis 30 Grad Celsius. Sehr anpassungsfaehig an
+      normale Zimmertemperaturen. Mindesttemperatur 10 Grad. Nachts
+      mindestens 13 Grad.
+
+      Luftfeuchtigkeit: 40 bis 60 Prozent — normale Raumluft genuegt.
+      Keine besonderen Anforderungen.
+
+      Besonderheit: Pilea peperomioides ist nicht giftig — ideal fuer
+      Haushalte mit Kindern und Haustieren. Das ist ein grosser Vorteil
+      gegenueber vielen anderen beliebten Zimmerpflanzen.
+    metadata:
+      topic: pilea_care
+      species: "Pilea peperomioides"
+      difficulty: beginner
+
+  - id: pilea-giessen
+    title: "Chinesische Geldpflanze — Giessen und Substrat"
+    content: |
+      Die Pilea mag gleichmaessige Feuchtigkeit, aber keine Staunaesse.
+
+      Giess-Rhythmus Sommer (Maerz bis September): Alle 7 bis 10 Tage.
+      Die oberen 2 bis 3 Zentimeter Erde zwischen den Wassergaben
+      antrocknen lassen.
+
+      Giess-Rhythmus Winter (Oktober bis Februar): Alle 14 bis 21 Tage.
+      Substrat zwischen den Guessen etwas mehr antrocknen lassen.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain).
+      Ueberschuss nach 30 Minuten entfernen.
+
+      Wasserqualitaet: Normales Leitungswasser ist gut vertraeglich.
+      Abgestandenes Wasser bevorzugt.
+
+      Substrat: Leichte, gut durchlaessige Einheitserde mit 20 Prozent
+      Perlite. pH 6,0 bis 7,0. Kokosfaser-basierte Mischungen
+      funktionieren ebenfalls gut. Kleinen Topf waehlen — die Pilea
+      mag nicht zu viel Erdvolumen. Empfohlenes Topfvolumen: 1 bis 5
+      Liter.
+
+      Haeufigste Giess-Fehler:
+      - Ueberwaesserung: Gelbe Blaetter und Wurzelfaeule. Besonders
+        in zu grossen Toepfen problematisch.
+      - Wasser auf Blaettern: Kann braun-gelbe Blattflecken verursachen
+        bei schlechter Luftzirkulation.
+      - Ungleichmaessiges Giessen: Wechsel zwischen zu nass und zu
+        trocken fuehrt zu Blattverlust.
+    metadata:
+      topic: pilea_care
+      species: "Pilea peperomioides"
+      difficulty: beginner
+
+  - id: pilea-duengung
+    title: "Chinesische Geldpflanze — Duengung und Umtopfen"
+    content: |
+      Duengung: Alle 4 Wochen von Maerz bis September mit einem
+      Gruenpflanzen-Fluessigduenger (NPK 7-3-6, 4 ml pro Liter
+      Wasser — etwas weniger als die volle Dosis).
+
+      Von Oktober bis Februar: Kein Duenger. Ueberdüngung fuehrt zu
+      kahlen Stielen (sogenanntes "leggy" Wachstum) und kleinen
+      Blaettern.
+
+      Organische Alternative: 15 Prozent Wurmhumus beim Umtopfen
+      unter das Substrat mischen.
+
+      Umtopfen: Alle 12 bis 18 Monate im Fruehling. Topfgroesse nur
+      leicht vergroessern. Die Pilea mag kleine Toepfe.
+
+      Vermehrung: Sehr einfach. Die Pflanze bildet spontan kleine
+      Ableger (sogenannte "Pups" oder Kindpflanzen) an der Basis und
+      am Staengel. Sobald ein Ableger 5 bis 7 cm gross ist, mit einem
+      scharfen Messer abloesen, kurz trocknen lassen und in Wasser
+      oder feuchtem Substrat bewurzeln. Funktioniert sehr zuverlaessig —
+      ideal zum Verschenken.
+
+      Pflege-Tipp: Topf jede Woche um eine Vierteldrehung drehen.
+      Die Pilea dreht sich stark zum Licht und wird sonst einseitig.
+      Ableger regelmaessig entfernen, damit die Mutterpflanze nicht
+      zu dicht wird.
+
+      Gute Nachricht: Pilea peperomioides ist voellig ungiftig —
+      sicher fuer Kinder und Haustiere.
+    metadata:
+      topic: pilea_care
+      species: "Pilea peperomioides"
+      difficulty: beginner

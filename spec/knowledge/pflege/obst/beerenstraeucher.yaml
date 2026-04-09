@@ -1,0 +1,220 @@
+---
+title: "Beerensträucher — Himbeere, Brombeere, Johannisbeere, Stachelbeere, Heidelbeere"
+language: de
+category: pflege
+tags: [beeren, himbeere, brombeere, johannisbeere, stachelbeere, heidelbeere, schnitt, obst, garten]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: himbeere-anbau
+    title: "Himbeere — Sommer- vs. Herbsthimbeere, Schnitt und Pflege"
+    content: |
+      Himbeeren gehoeren zu den dankbarsten Beerenobst-Arten im Garten.
+      Der entscheidende Unterschied: Sommerhimbeeren tragen am
+      zweijährigen Holz (Ruten, die letztes Jahr gewachsen sind),
+      Herbsthimbeeren tragen am diesjaehrigen Holz (Ruten, die im
+      selben Jahr gewachsen sind).
+
+      Sommerhimbeere (z.B. Meeker, Glen Ample, Tulameen): Ernte Juni
+      bis Juli. Schnitt: Abgetragene Ruten (braun, verholzt) direkt
+      nach der Ernte bodennah abschneiden. Neue gruene Ruten stehen
+      lassen — sie tragen naechstes Jahr. Pro Laufmeter 8 bis 10
+      kraeftige Ruten belassen, schwache entfernen.
+
+      Herbsthimbeere (z.B. Autumn Bliss, Polka, Primeberry): Ernte
+      August bis Oktober. Schnitt: Im Februar alle Ruten bodennah
+      abschneiden — komplett. Neue Ruten wachsen im Fruehjahr und
+      tragen im selben Herbst. Extrem einfach und ideal fuer Anfaenger.
+
+      Rankgeruest: Sommerhimbeeren brauchen ein Spalier (2 Draehte
+      auf 60 und 120 cm Hoehe zwischen Pfosten). Herbsthimbeeren
+      kommen oft ohne Stuetze aus, ein einfacher Drahtrahmen hilft
+      aber bei Wind.
+
+      Standort: Sonne bis Halbschatten, lockerer, humoser Boden,
+      leicht sauer (pH 5,5 bis 6,5). Staunaesse ist toedlich —
+      Himbeerwurzeln faulen schnell. Bei schwerem Boden erhoehtes
+      Beet oder Dammpflanzung.
+
+      Duengung: Im Maerz 3 bis 4 Liter Kompost pro Laufmeter und
+      eine Handvoll Hornspane. Mulchen mit Stroh oder Rindenmulch
+      haelt Feuchtigkeit und unterdrueckt Unkraut. Nicht hacken —
+      die flachen Wurzeln werden leicht beschaedigt.
+
+      Haeufiges Problem: Rutenkrankheit (Didymella) — violette
+      Flecken an den Ruten, die aufplatzen. Befallene Ruten entfernen
+      und verbrennen. Vorbeugung: Luftige Pflanzung, keine zu dichte
+      Bepflanzung.
+    metadata:
+      topic: berry_bushes
+      species: "Rubus idaeus"
+      difficulty: beginner
+
+  - id: brombeere-anbau
+    title: "Brombeere — Stachelfrei, Schnitt und Spalier"
+    content: |
+      Moderne stachelfreie Brombeersorten (Navaho, Loch Ness, Chester,
+      Triple Crown) machen die Ernte zum Vergnuegen. Die Fruechte
+      sind groesser und suessser als Wildbrombeeren. Brombeeren
+      tragen wie Sommerhimbeeren am zweijährigen Holz.
+
+      Schnitt: Abgetragene Ruten (erkennbar an vertrockneten
+      Fruchtresten) nach der Ernte bodennah abschneiden. Neue Ruten
+      am Spalier festbinden. Pro Pflanze 4 bis 6 kraeftige Ruten
+      belassen. Seitentriebe im Winter auf 2 bis 3 Augen einkuerzen —
+      hier entstehen die Fruchttriebe.
+
+      Spalier: Unverzichtbar. Brombeerruten werden 2 bis 4 Meter
+      lang. Faecher-System: 3 Draehte auf 50, 100 und 150 cm Hoehe.
+      Neue Ruten auf eine Seite fächern, tragende auf die andere —
+      so bleiben Ernte und neue Triebe getrennt.
+
+      Standort: Volle Sonne fuer beste Sueesse. Geschuetzt vor kaltem
+      Ostwind. Boden nahrhaft, durchlaessig, nicht zu trocken. Pflanz-
+      abstand 2 bis 3 Meter — Brombeeren brauchen viel Platz.
+
+      Duengung: Starkzehrer — im Fruehling reichlich Kompost (5 Liter
+      pro Pflanze) und Hornspane. Waehrend der Fruchtreife kalibetont
+      duengen (Beinwell-Jauche 1:10).
+
+      Winterhaerte: Die meisten Kultursorten sind bis minus 15 bis
+      minus 20 Grad frosthart. In rauen Lagen die Ruten im November
+      vom Spalier loesen, auf den Boden legen und mit Vlies abdecken.
+
+      Achtung: Brombeeren breiten sich ueber Wurzelauslaeufer aus
+      und koennen invasiv werden. Wurzelsperre (Rhizombarriere 60 cm
+      tief) eingraben oder regelmaessig Auslaeufer abstechen.
+    metadata:
+      topic: berry_bushes
+      species: "Rubus fruticosus"
+      difficulty: beginner
+
+  - id: johannisbeere-anbau
+    title: "Johannisbeere — Rot, Schwarz und Weiss im Vergleich"
+    content: |
+      Johannisbeeren sind pflegeleicht, ertragreich und vielseitig.
+      Die drei Typen unterscheiden sich in Schnitt und Pflege deutlich.
+
+      Rote und Weisse Johannisbeere: Tragen am 2- bis 3-jaehrigen
+      Holz. Schnitt im Februar: Jaehrlich die aeltesten 3 bis 4
+      Triebe (aelter als 3 Jahre, erkennbar an dunkler, rissiger
+      Rinde) bodennah entfernen und durch junge Triebe ersetzen.
+      Ein Strauch soll 8 bis 12 Triebe verschiedenen Alters haben.
+      Ernte: Ende Juni bis Juli. Ganze Trauben abschneiden (nicht
+      einzelne Beeren abzupfen).
+
+      Schwarze Johannisbeere: Traegt ueberwiegend am einjährigen
+      Holz. Schnitt staerker: Nach der Ernte (Juli/August) oder
+      im Winter ein Drittel der aeltesten Triebe bodennah entfernen.
+      Starker Rueckschnitt foerdert kraeftige, fruchtbare Neutriebe.
+      Ernte: Juli. Schwarze Johannisbeeren haben den hoechsten
+      Vitamin-C-Gehalt aller Gartenfrüchte (180 mg pro 100 g).
+
+      Standort: Sonne bis Halbschatten. Rote und Weisse vertragen
+      mehr Schatten als Schwarze. Boden: Nahrhaft, feucht aber nicht
+      staunass. pH 5,5 bis 7,0. Pflanzabstand 1,5 bis 2 Meter.
+
+      Duengung: Mittelzehrer. Im Maerz Kompost (3 Liter pro Pflanze)
+      und Hornspane. Mulchen mit Rasenschnitt oder Stroh. Bei
+      Kalimangel (Blattrand-Verbraeunungen) Kalimagnesia nachlegen.
+
+      Haeufiges Problem: Saeulenrost (orange Pusteln auf Blattunterseite)
+      und Blattfallkrankheit. Befallenes Laub entfernen. Vorbeugung:
+      Luftiger Stand, resistente Sorten (Rovada, Titania bei Schwarz).
+      Gallmilbe bei Schwarzer Johannisbeere: Knospen werden
+      kugelrund aufgeblaeht — befallene Knospen im Winter absammeln
+      und entsorgen.
+    metadata:
+      topic: berry_bushes
+      species: "Ribes rubrum / Ribes nigrum"
+      difficulty: beginner
+
+  - id: stachelbeere-anbau
+    title: "Stachelbeere — Schnitt, Mehltau-Praevention und Ernte"
+    content: |
+      Stachelbeeren (Ribes uva-crispa) sind unterschaetzt — moderne
+      Sorten sind gross, suess und teilweise stachelarm. Der groesste
+      Feind ist der Amerikanische Stachelbeermehltau.
+
+      Schnitt: Aehnlich wie Rote Johannisbeere. Traegt am 2- bis
+      3-jaehrigen Holz. Im Februar die 3 bis 4 aeltesten Triebe
+      bodennah entfernen, 8 bis 10 Triebe stehen lassen. Busch
+      offen und luftig halten — das ist die wichtigste Mehltau-
+      Praevention. Seitentriebe auf 3 bis 5 Augen einkuerzen.
+
+      Mehltau-Praevention: Amerikanischer Stachelbeermehltau
+      (Podosphaera mors-uvae) ueberzieht Triebspitzen und Fruechte
+      mit weissem, spaeter braunem Filz. Massnahmen: Resistente
+      Sorten waehlen (Invicta, Hinnonmäki Rot, Pax, Xenia).
+      Triebspitzen mit Mehltau-Befall im Sommer sofort abschneiden.
+      Nicht ueber die Blaetter giessen. Vorbeugend Schachtelhalmbrühe
+      spritzen (Kieselsäure stärkt die Zellwände).
+
+      Ernte: Je nach Sorte Juni bis August. Unreife gruene Fruechte
+      koennen fuer Kompott verwendet werden (herb-sauer). Vollreife
+      Fruechte (weich, durchscheinend) sind suess und zum Frischessen
+      geeignet. Rote Sorten werden vollreif sehr suess.
+
+      Standort: Halbschatten wird gut vertragen — einer der wenigen
+      Fruchtstraeucher fuer schattigere Gartenecken. Boden: Nahrhaft,
+      feucht, humos. pH 6,0 bis 7,0. Kein trockener Sandboden.
+      Pflanzabstand 1,2 bis 1,5 Meter.
+
+      Stachelbeer-Hochstaemmchen: Beliebte Erziehungsform auf einem
+      Stamm (80 bis 100 cm). Erleichtert Ernte und Schnitt. Braucht
+      dauerhaft einen Stuetzpfahl, da die Krone kopflastig wird.
+
+      Duengung: Mittelzehrer. Kompost im Fruehling, Mulchen. Kalium
+      foerdert Fruchtqualitaet und Mehltau-Resistenz.
+    metadata:
+      topic: berry_bushes
+      species: "Ribes uva-crispa"
+      difficulty: beginner
+
+  - id: heidelbeere-anbau
+    title: "Heidelbeere — Saurer Boden, Rhododendronerde und Mulch"
+    content: |
+      Kulturheidelbeeren (Vaccinium corymbosum) brauchen spezielle
+      Bedingungen. Wer diese kennt, wird mit jahrelangen Ernten
+      belohnt — ein Strauch traegt 20 bis 30 Jahre lang.
+
+      Boden: Der entscheidende Faktor. Heidelbeeren brauchen sauren
+      Boden mit pH 4,0 bis 5,0. Normaler Gartenboden (pH 6 bis 7)
+      ist zu basisch — die Pflanzen koennen kein Eisen aufnehmen
+      und zeigen Chlorose (gelbe Blaetter mit gruenen Adern).
+
+      Pflanzung: Pflanzloch 50 cm tief und 80 cm breit ausheben.
+      Komplett mit Rhododendronerde (torfbasiert oder torffreie
+      Alternative aus Nadelholz-Rindenhumus und Holzfaser) fuellen.
+      Moorbeeterde ist identisch. Bei schwerem Tonboden zusaetzlich
+      30 Prozent groben Sand oder Perlite untermischen fuer Drainage.
+
+      Mulch: Entscheidend fuer den Erfolg. 10 bis 15 cm Nadelholz-
+      Hackschnitzel, Tannennadeln oder Rindenkompost. Haelt den Boden
+      sauer, feucht und kuehl. Jaehrlich auffuellen. Kein Kalk in
+      die Naehe — auch kein kalkhaltiges Leitungswasser (Regenwasser
+      ist ideal, pH unter 6).
+
+      Giessen: Gleichmaessig feucht halten. Heidelbeeren haben
+      feine Haarwurzeln und keine Pfahlwurzel — sie trocknen schnell
+      aus. Im Sommer bei Trockenheit alle 2 bis 3 Tage gruendlich
+      giessen. Unbedingt mit Regenwasser oder enthärtetem Wasser
+      giessen. Kalkhaltiges Leitungswasser hebt den pH-Wert.
+
+      Duengung: Nur mit sauerem Duenger (Rhododendrondünger oder
+      speziellem Beerenduenger). Kein Kompost (zu basisch), kein
+      Kalk, keine Asche. Hornspane sind akzeptabel. Duengung
+      von April bis Juni, danach einstellen.
+
+      Schnitt: Erst ab dem 4. Standjahr noetig. Aelteste Triebe
+      (aelter als 4 Jahre) bodennah entfernen, 5 bis 8 Triebe
+      verschiedenen Alters belassen. Leichter Schnitt genuegt —
+      Heidelbeeren sind von Natur aus gut geformt.
+
+      Sorten: Frueh (Juni): Duke, Earlyblue. Mittel (Juli): Bluecrop,
+      Goldtraube. Spaet (August): Darrow, Elliott. Fuer laengere
+      Erntezeit mehrere Sorten kombinieren.
+    metadata:
+      topic: berry_bushes
+      species: "Vaccinium corymbosum"
+      difficulty: beginner

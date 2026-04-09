@@ -1,0 +1,191 @@
+---
+title: "Mulchen und Bodenbedeckung — Materialien, Methoden und No-Dig"
+language: de
+category: outdoor
+tags: [mulch, bodenbedeckung, stroh, rindenmulch, no-dig, bodendecker, lebendmulch, bodenverbesserung]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: mulch-materialien
+    title: "Mulch-Materialien — Stroh, Rindenmulch, Rasenschnitt und Laub"
+    content: |
+      Mulch ist eine Schutzschicht auf dem Boden, die Feuchtigkeit haelt,
+      Unkraut unterdrueckt, Bodentemperatur puffert und Bodenlebewesen
+      foerdert. Verschiedene Materialien haben unterschiedliche Vor- und
+      Nachteile.
+
+      Stroh: Ideal fuer Gemuesebeete (Erdbeeren, Tomaten, Kartoffeln).
+      Locker, luftig, verrottet langsam (6 bis 12 Monate). Haelt
+      Fruechte sauber und trocken. Nachteil: Kann Getreidesamen
+      enthalten — am besten Biostroh oder Weizenstroh verwenden.
+      10 bis 15 cm dick ausbringen. Guenstig in grossen Mengen vom
+      Bauern.
+
+      Rindenmulch: Dekorativ, langlebig (1 bis 3 Jahre), unterdrueckt
+      Unkraut sehr gut. Ideal fuer Wege, Zierstraeucher und Baumscheiben.
+      Nachteil: Entzieht dem Boden Stickstoff waehrend der Zersetzung
+      (Stickstoff-Fixierung). Nicht auf Gemuesebeete — es sei denn,
+      vorher mit Hornspane ausgleichen (100 g pro Quadratmeter).
+      Nur reine Rinde kaufen, kein gefaerbter Mulch. 5 bis 7 cm dick.
+
+      Rasenschnitt: Kostenlos und naehrstoffreich (viel Stickstoff).
+      Nur duenn auftragen (3 bis 5 cm), vorher anwelken lassen.
+      Frischer, dicker Rasenschnitt verklebt, fault und stinkt.
+      Ideal als Mulch fuer Starkzehrer (Tomaten, Kuerbis, Kohl).
+      Regelmaessig nachlegen, da er schnell verrottet (4 bis 8 Wochen).
+
+      Laub: Herbstlaub ist ausgezeichneter Mulch. Eichenlaub ist
+      leicht sauer — gut fuer Heidelbeeren und Rhododendron.
+      Walnusslaub enthält Juglon (wachstumshemmend) — nicht fuer
+      empfindliche Kulturen verwenden. Laub mit dem Rasenmaeher
+      haeckseln, damit es nicht wegweht und schneller verrottet.
+      10 bis 15 cm dick fuer Winterschutz, 5 cm als Sommermulch.
+
+      Holzhackschnitzel: Langlebig, dekorativ, gut fuer Wege und
+      Baumscheiben. Frische Hackschnitzel (weiss bis hellgelb)
+      fixieren viel Stickstoff — nur fuer Wege und Zierbereiche.
+      Kompostierte Hackschnitzel (dunkelbraun, 6 Monate alt) sind
+      besser fuer Beete.
+    metadata:
+      topic: mulching
+      subtopic: materials
+      difficulty: beginner
+
+  - id: mulch-zeitpunkt-dicke
+    title: "Zeitpunkt und Dicke — Wann mulchen und Stickstoff-Raub beachten"
+    content: |
+      Der richtige Zeitpunkt und die richtige Schichtdicke entscheiden
+      ueber Erfolg oder Misserfolg beim Mulchen.
+
+      Zeitpunkt Fruehling: Erst mulchen, wenn der Boden sich auf
+      mindestens 10 Grad erwaermt hat (ab Mai). Zu fruehes Mulchen
+      isoliert den kalten Boden und verzoegert das Wachstum. Vorher
+      den Boden lockern, Unkraut entfernen und bei Bedarf duengen.
+      Dann erst mulchen.
+
+      Zeitpunkt Sommer: Nachtraegliches Mulchen im Sommer ist jederzeit
+      moeglich und sinnvoll, besonders vor Hitzeperioden. Vorher
+      gruendlich giessen, dann mulchen — der Mulch haelt die
+      Feuchtigkeit im Boden.
+
+      Zeitpunkt Herbst: Wintermulch ab Oktober/November. Schuetzt
+      den Boden und die Bodenlebewesen vor Frost. Wintergemuese
+      (Gruenkohl, Lauch, Feldsalat) mit Laub oder Stroh abdecken.
+
+      Schichtdicke — Faustregel:
+      Feines Material (Rasenschnitt, Kaffeesatz): 3 bis 5 cm,
+      haefig nachlegen.
+      Mittleres Material (Stroh, Laub): 5 bis 10 cm.
+      Grobes Material (Rindenmulch, Hackschnitzel): 5 bis 7 cm.
+      Nie ueber 15 cm — zu dick, zu wenig Luft, Faeulnisgefahr.
+
+      Stickstoff-Fixierung: Beim Zersetzen von holzigem Material
+      (Rindenmulch, Hackschnitzel, Stroh) brauchen die Mikroorganismen
+      Stickstoff. Diesen nehmen sie aus dem Boden — er fehlt dann
+      den Pflanzen. Symptome: Gelbe Blaetter, kuemmerliches Wachstum.
+      Gegenmassnahme: Vor dem Mulchen Hornspane (80 bis 100 g pro
+      Quadratmeter) oder Hornmehl einarbeiten. Bei Rasenschnitt
+      und Gruenschnitt tritt kein Stickstoff-Raub auf — diese
+      Materialien liefern selbst Stickstoff.
+
+      Mulch und Schnecken: Mulch bietet Schnecken Unterschlupf.
+      In schneckenreichen Gaerten: Keine dicke Mulchschicht direkt
+      um empfindliche Jungpflanzen. Alternativ: Schneckenkorn
+      (Eisen-III-Phosphat) unter den Mulch streuen.
+    metadata:
+      topic: mulching
+      subtopic: timing_and_thickness
+      difficulty: beginner
+
+  - id: lebendmulch-bodendecker
+    title: "Lebendmulch und Bodendecker — Klee, Erdbeere und Unterpflanzung"
+    content: |
+      Lebendmulch ist die eleganteste Form der Bodenbedeckung:
+      Lebende Pflanzen uebernehmen die Mulchfunktion und liefern
+      oft Zusatznutzen wie Stickstofffixierung oder essbare Fruechte.
+
+      Weissklee (Trifolium repens): Der Klassiker als Lebendmulch.
+      Wächst niedrig (5 bis 15 cm), bildet dichte Matten, fixiert
+      Stickstoff aus der Luft ueber Knöllchenbakterien (50 bis
+      100 kg Stickstoff pro Hektar und Jahr). Ideal als Unterpflanzung
+      zwischen Obstbaeumen, in Wegen zwischen Beeten oder als
+      permanente Begrünung unter Hochstaemmen. Vertraegt Maehen
+      und leichten Tritt. Nachteil: Konkurriert mit Gemuese um
+      Wasser — nicht direkt in Gemuesebeete.
+
+      Erdbeere als Bodendecker: Walderdbeeren (Fragaria vesca) bilden
+      Auslaeufer und bedecken den Boden rasch. Essbare Fruechte als
+      Bonus. Ideal unter Obstbaeumen und in Hanglagen. Zier-Erdbeeren
+      (z.B. Pink Panda) bluehen dauerhaft, tragen aber kaum Fruechte.
+
+      Kapuzinerkresse (Tropaeolum majus): Schnellwachsend, essbar
+      (Blüten und Blätter), lockt Blattläuse an (Opferpflanze —
+      lenkt Laeuse von Nutzpflanzen ab). Einjährig, stirbt beim
+      ersten Frost. Ideal als Unterpflanzung unter Tomaten oder
+      am Beetrand.
+
+      Phacelia: Hervorragender Gründünger und Bienenweide. 60 bis
+      80 cm hoch, dicht, erstickend fuer Unkraut. Winterhart bis
+      minus 5 Grad, stirbt bei staerkerem Frost ab und bildet
+      eine natuerliche Mulchdecke. Keine Verwandtschaft mit gaengigen
+      Gemuesearten — passt in jede Fruchtfolge.
+
+      Kombinations-Tipp: In Streifen zwischen Gemuese-Reihen
+      niedrige Bodendecker saeen. Weissklee-Streifen zwischen
+      Kohlreihen reduzieren nachweislich Kohlfliegenbefall (die
+      Fliege wird vom gruenen Untergrund verwirrt).
+    metadata:
+      topic: mulching
+      subtopic: living_mulch
+      difficulty: intermediate
+
+  - id: no-dig-methode
+    title: "No-Dig-Methode — Kompost-Auflage statt Umgraben"
+    content: |
+      No-Dig (kein Umgraben) ist eine Anbaumethode, die den Boden
+      nie wendend bearbeitet. Stattdessen wird jaehrlich eine Schicht
+      Kompost aufgebracht. Der bekannteste Vertreter ist Charles
+      Dowding aus England, der seit ueber 40 Jahren No-Dig praktiziert
+      und in Vergleichsversuchen gleiche oder hoehere Ertraege erzielt
+      als konventionell bearbeitete Beete.
+
+      Prinzip: Die natuerliche Bodenschichtung bleibt intakt.
+      Regenwuermer und Bodenlebewesen verarbeiten den aufgebrachten
+      Kompost und transportieren die Naehrstoffe in tiefere Schichten.
+      Die Bodenstruktur verbessert sich von Jahr zu Jahr. Mykorrhiza-
+      Netzwerke (Pilzgeflechte, die Pflanzen mit Naehrstoffen
+      versorgen) bleiben erhalten — beim Umgraben werden sie zerstoert.
+
+      Neues Beet anlegen: Unkraut oder Rasen kurz maehen. Pappe oder
+      dicke Zeitungslagen (6 bis 8 Lagen) auf den Boden legen — das
+      erstickt bestehendes Unkraut. Darauf 15 cm reifen Kompost
+      auftragen. Fertig. Direkt bepflanzen oder saeen. Die Pappe
+      verrottet innerhalb einer Saison.
+
+      Bestehendes Beet umstellen: Einfach nicht mehr umgraben. Im
+      Herbst oder Fruehjahr 3 bis 5 cm Kompost gleichmaessig auf
+      die Beetoberflaeche auftragen. Nicht einarbeiten — einfach
+      liegen lassen. Jedes Jahr wiederholen.
+
+      Unkraut-Management: Ohne Umgraben werden weniger Unkrautsamen
+      an die Oberflaeche geholt. Kompost-Auflage unterdrueckt
+      vorhandenes Unkraut. Durchstossende Unkraeuter (Quecke,
+      Giersch) von Hand ziehen — im lockeren Kompost-Boden geht
+      das leichter als in verdichteter Erde.
+
+      Vorteile: Deutlich weniger Arbeit (kein Graben, weniger Unkraut),
+      bessere Bodenstruktur, mehr Bodenlebewesen, bessere Wasser-
+      speicherung, weniger Erosion. Nachteil: Braucht grosse Mengen
+      Kompost — eigene Kompostproduktion oder Zukauf notwendig.
+      Fuer ein 10-Quadratmeter-Beet braucht man jährlich 300 bis
+      500 Liter Kompost.
+
+      Uebergang: Im ersten Jahr sind die Ergebnisse oft durchschnittlich.
+      Ab dem zweiten Jahr verbessert sich der Boden sichtbar. Nach
+      3 bis 5 Jahren ist der Unterschied zu gegrabenen Beeten
+      dramatisch — der No-Dig-Boden ist locker, kruemelig und voller
+      Regenwuermer.
+    metadata:
+      topic: mulching
+      subtopic: no_dig
+      difficulty: intermediate

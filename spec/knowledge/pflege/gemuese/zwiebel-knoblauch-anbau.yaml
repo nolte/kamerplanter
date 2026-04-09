@@ -1,0 +1,128 @@
+---
+title: "Zwiebeln und Knoblauch anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, zwiebel, knoblauch, allium, anbau, garten, balkon, mittelzehrer, zwiebelgewaechse]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: zwiebel-aussaat
+    title: "Zwiebeln — Aussaat, Steckzwiebeln und Standort"
+    content: |
+      Es gibt zwei Wege zur Zwiebel: Steckzwiebeln oder Saatzwiebeln.
+      Steckzwiebeln sind die einfachere und schnellere Methode fuer
+      Anfaenger: kleine Vorjahreszwiebeln ab Maerz bis April 2 bis 3 cm
+      tief in die Erde stecken, Spitze nach oben. Ernte ab Juli.
+
+      Saatzwiebeln werden ab Januar bis Februar im Haus vorgezogen
+      (Vorkultur 10 bis 12 Wochen) oder ab Maerz direkt gesaet. Ernte
+      erst August bis September — laengere Kulturzeit, aber groessere Auswahl
+      an Sorten. Saattiefe 1 bis 2 cm. Keimdauer 7 bis 14 Tage.
+
+      Standort: Volle Sonne. Zwiebeln sind Langtagspflanzen — sie brauchen
+      mindestens 14 Stunden Tageslicht fuer die Zwiebelbildung. Boden
+      locker, durchlaessig und nicht frisch organisch geduengt. pH 6,0
+      bis 7,0. Mittelzehrer — Kompost genuegt.
+
+      Pflanzabstand: 10 bis 15 cm in der Reihe, 25 bis 30 cm
+      Reihenabstand. Nicht tiefer als 3 cm stecken.
+
+      Wintersteckzwiebeln: Im September bis Oktober stecken, sie
+      ueberwintern im Boden (bis minus 10 Grad) und sind ab Juni erntereif.
+
+      Wichtig: Alle Allium-Arten sind giftig fuer Katzen und Hunde.
+    metadata:
+      topic: onion_garlic_growing
+      species: "Allium cepa"
+      difficulty: beginner
+
+  - id: knoblauch-anbau
+    title: "Knoblauch — Anbau und Pflege"
+    content: |
+      Knoblauch wird nicht aus Samen gezogen, sondern vegetativ ueber
+      einzelne Zehen vermehrt. Die beste Pflanzzeit ist der Herbst
+      (September bis November) — Herbstknoblauch bildet groessere
+      Knollen als Fruehjahrsknoblauch. Die Zehen ueberwintern problemlos
+      im Boden (winterhart bis minus 20 Grad).
+
+      Pflanzung: Einzelne Zehen mit der Spitze nach oben 3 bis 5 cm
+      tief in lockeren, gut drainierten Boden stecken. Abstand 10 bis
+      15 cm, Reihenabstand 25 bis 30 cm. pH 6,0 bis 7,0.
+
+      Knoblauch ist ein Schwachzehrer und braucht kaum Duengung.
+      Keine frische organische Duengung — Kompost im Herbst einarbeiten
+      genuegt.
+
+      Im Juni den Bluetenschaft (Scape) abschneiden — das lenkt die
+      Energie in die Knolle. Die Scapes sind essbar und schmecken
+      mild nach Knoblauch (Pesto, Pfannengemuese).
+
+      Giessen: Maessig giessen. Ab Juni Bewaesserung reduzieren, damit
+      die Knollen ausreifen. Staunaesse vermeiden — Knoblauch fault leicht.
+
+      Balkon: Gut geeignet fuer Toepfe ab 20 cm Tiefe. Auch als
+      Beipflanzung zu Rosen und Erdbeeren (Schaedlingsabwehr durch Allicin).
+    metadata:
+      topic: onion_garlic_growing
+      species: "Allium sativum"
+      difficulty: beginner
+
+  - id: zwiebel-knoblauch-pflege
+    title: "Zwiebeln und Knoblauch — Pflege und Schaedlinge"
+    content: |
+      Giessen: Zwiebeln brauchen in der Wachstumsphase regelmaessig Wasser.
+      Ab dem Beginn der Zwiebelbildung (wenn das Laub umknickt) die
+      Bewaesserung einstellen — die Zwiebeln muessen trocknen. Nasse
+      Zwiebeln faulen im Lager.
+
+      Duengen: Zwiebeln sind Mittelzehrer. Kompost vor der Pflanzung und
+      ggf. eine leichte Stickstoffgabe im Fruehjahr genuegen. Kein
+      frischer Mist.
+
+      Zwiebelfliege (Delia antiqua): Wichtigster Schaedling. Larven
+      fressen im Inneren der Zwiebel. Vorbeugung: Kulturschutznetz,
+      Mischkultur mit Moehren (Zwiebelgeruch verwirrt Moehrenfliege,
+      Moehrengeruch verwirrt Zwiebelfliege).
+
+      Falscher Mehltau: Grauviloetter Belag auf den Blaettern.
+      Luftige Pflanzung, befallene Pflanzen entfernen. Keine Ueberwaesserung.
+
+      Gute Nachbarn: Moehren (klassische Mischkultur!), Erdbeeren,
+      Rote Bete, Salat, Tomaten, Dill, Kamille.
+      Schlechte Nachbarn: Bohnen, Erbsen, Kartoffeln, Kohl.
+
+      Fruchtfolge: 4 Jahre keine Allium-Arten auf der gleichen Flaeche.
+    metadata:
+      topic: onion_garlic_growing
+      species: "Allium cepa / Allium sativum"
+      difficulty: beginner
+
+  - id: zwiebel-knoblauch-ernte
+    title: "Zwiebeln und Knoblauch — Ernte und Lagerung"
+    content: |
+      Zwiebel-Ernte: Wenn zwei Drittel des Laubes umgeknickt sind und
+      gelb werden, ist Erntezeit (Juli bis September). Bei trockenem
+      Wetter ausgraben und 2 bis 3 Wochen an einem trockenen, luftigen
+      Ort nachtrocknen (auf Latten oder aufgehaengt in Zwiebelzoepfen).
+
+      Knoblauch-Ernte: Herbstknoblauch ist im Juni bis Juli reif,
+      Fruehjahrsknoblauch im August. Erntereif, wenn das untere Drittel
+      des Laubes gelb wird. Nicht zu lange warten — ueberreife Knollen
+      platzen auf und lagern schlecht.
+
+      Lagerung Zwiebeln: Trocken, kuhl (5 bis 15 Grad), luftig und
+      dunkel. In Netzen oder als Zoepfe aufgehaengt halten sie 4 bis
+      8 Monate. Rote Zwiebeln lagern kuerzer als gelbe.
+
+      Lagerung Knoblauch: Trocken und kuhl (10 bis 15 Grad). In einem
+      luftdurchlaessigen Beutel oder als Zopf aufgehaengt haelt er
+      6 bis 8 Monate. Nicht im Kuehlschrank — zu feucht.
+
+      Konservierung: Zwiebeln und Knoblauch lassen sich einlegen,
+      trocknen oder einfrieren. Knoblauch in Oel einlegen ist beliebt,
+      aber Achtung: ohne Saeuerung Botulismus-Risiko — immer im
+      Kuehlschrank aufbewahren und innerhalb von 2 Wochen verbrauchen.
+    metadata:
+      topic: onion_garlic_growing
+      species: "Allium cepa / Allium sativum"
+      difficulty: beginner

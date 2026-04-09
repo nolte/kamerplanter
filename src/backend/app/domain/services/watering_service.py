@@ -7,6 +7,7 @@ from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
@@ -30,6 +31,7 @@ class WateringService:
         species_repo=None,
         substrate_repo=None,
         lifecycle_repo=None,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -44,6 +46,7 @@ class WateringService:
         self._species_repo = species_repo
         self._substrate_repo = substrate_repo
         self._lifecycle_repo = lifecycle_repo
+        self._phase_seq_repo = phase_seq_repo
 
     # ── Create ─────────────────────────────────────────────────────────
 
@@ -253,18 +256,31 @@ class WateringService:
                 water_holding_capacity = substrate.water_holding_capacity_percent
                 irrigation_strategy = substrate.irrigation_strategy
 
-        # Gather phase requirement profile
+        # Gather phase requirement profile — prefer PhaseSequence, fallback to LifecycleConfig
         phase_name: str | None = None
         phase_irrigation_vol: int | None = None
-        if self._lifecycle_repo and plant.current_phase_key:
-            lifecycle_repo: IPhaseRepository = self._lifecycle_repo
-            growth_phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
-            if growth_phase:
-                phase_name = growth_phase.name
-            if hasattr(lifecycle_repo, "get_requirement_profile"):
-                req_profile = lifecycle_repo.get_requirement_profile(plant.current_phase_key)
-                if req_profile and req_profile.irrigation_volume_ml_per_plant > 0:
-                    phase_irrigation_vol = req_profile.irrigation_volume_ml_per_plant
+        if plant.current_phase_key:
+            resolved_from_seq = False
+
+            # Try PhaseSequence first: current_phase_key may be a PhaseSequenceEntry key
+            if self._phase_seq_repo:
+                entry = self._phase_seq_repo.get_entry_by_key(plant.current_phase_key)
+                if entry:
+                    defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                    if defn:
+                        phase_name = defn.name
+                        resolved_from_seq = True
+
+            # Fallback to LifecycleConfig
+            if not resolved_from_seq and self._lifecycle_repo:
+                lifecycle_repo: IPhaseRepository = self._lifecycle_repo
+                growth_phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+                if growth_phase:
+                    phase_name = growth_phase.name
+                if hasattr(lifecycle_repo, "get_requirement_profile"):
+                    req_profile = lifecycle_repo.get_requirement_profile(plant.current_phase_key)
+                    if req_profile and req_profile.irrigation_volume_ml_per_plant > 0:
+                        phase_irrigation_vol = req_profile.irrigation_volume_ml_per_plant
 
         return self._volume_engine.suggest_volume(
             container_volume_liters=plant.container_volume_liters,

@@ -107,7 +107,8 @@
     "calendar": "Kalender",
     "wateringLog": "Gießprotokoll",
     "phasen": "Phasen",
-    "detail": "Details"
+    "detail": "Details",
+    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
@@ -2883,7 +2884,8 @@
         "showFavoritesOnly": "Nur Favoriten",
         "viewDetails": "Art-Details anzeigen",
         "indoorPlant": "Zimmerpflanze",
-        "filterByCategory": "Nach Kategorie filtern"
+        "filterByCategory": "Nach Kategorie filtern",
+        "legend": "Legende"
       },
       "seasonOverview": {
         "title": "Saisonübersicht",

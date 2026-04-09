@@ -253,5 +253,5 @@ curl http://localhost:8000/api/v1/health/ready
 ## See also
 
 - [Helm Charts](helm.md) — Detailed description of the chart structure and all configuration options
-- [Quick Start](../getting-started/quickstart.md) — Simpler alternative with Docker Compose
-- [First Deployment](../getting-started/first-deployment.md) — Docker Compose based permanent operation
+- [Docker Compose Quick Start](docker-quickstart.md) — Simpler alternative with Docker Compose
+- [Docker Compose Permanent Operation](docker-dauerbetrieb.md) — Docker Compose based permanent operation

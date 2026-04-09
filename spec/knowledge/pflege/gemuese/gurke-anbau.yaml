@@ -1,0 +1,128 @@
+---
+title: "Gurken anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, gurke, cucumis-sativus, anbau, garten, gewaechshaus, starkzehrer, kuerbisgewaechse]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: gurke-aussaat
+    title: "Gurken — Aussaat und Voranzucht"
+    content: |
+      Gurken sind Waermekeimer und extrem kaelteempfindlich. Die Voranzucht
+      beginnt Mitte bis Ende April — nicht frueher, da Gurken schnell wachsen
+      und ueberaltertes Pflanzgut schlecht anwaechst. Direktsaat ins Freiland
+      ist ab Ende Mai moeglich, wenn die Bodentemperatur ueber 15 Grad liegt.
+
+      Samen einzeln in 8 bis 10 cm Toepfe saeen, 2 bis 3 cm tief
+      (Dunkelkeimer). Optimale Keimtemperatur 25 bis 30 Grad — Heizmatte
+      empfohlen. Die Keimung erfolgt bei Waerme in nur 3 bis 7 Tagen.
+      Unter 15 Grad faulen die Samen in nasser Erde.
+
+      Wichtig: Gurken vertragen kein Pikieren. Ihre empfindlichen Wurzeln
+      reagieren auf Beschaedigung mit Wachstumsstillstand. Deshalb immer
+      direkt in Einzeltoepfe saeen.
+
+      Fuer das Gewaechshaus: Schlangengurken (Salatgurken) sind die
+      klassische Gewaechshauskultur. Im Freiland sind Einlegegurken und
+      Freilandsorten besser geeignet.
+
+      Vor dem Auspflanzen 5 bis 7 Tage abhaerten. Nicht unter 10 Grad
+      stellen — bereits kuehle Naechte verursachen Blattverfaerbungen
+      und Wachstumsstopp.
+    metadata:
+      topic: cucumber_growing
+      species: "Cucumis sativus"
+      difficulty: beginner
+
+  - id: gurke-auspflanzen
+    title: "Gurken — Auspflanzen und Standort"
+    content: |
+      Gurken kommen erst nach den Eisheiligen ins Freiland. Temperaturen
+      unter 10 Grad verursachen Kaelteschaeden. Ideal ist ein warmer,
+      windgeschuetzter Platz in voller Sonne.
+
+      Boden: Naehrstoffreich, humos, wasserhaltend und gut durchlaessig.
+      pH 6,0 bis 6,8. Gurken sind Starkzehrer — grosszuegig Kompost
+      einarbeiten. Pflanzabstand 60 bis 100 cm, je nach Anbauform.
+
+      An Rankhilfen (Gitter, Schnur, Spalier) wachsen Gurken platzsparender
+      und die Fruechte bleiben sauberer. Auf dem Boden liegend brauchen
+      sie mehr Platz (100 cm Abstand) und sind anfaelliger fuer Faeulnis.
+
+      Gewaechshaus: Schlangengurken an Schnueren oder Draht nach oben
+      leiten. Seitentriebe nach dem ersten Fruchtansatz zurueckschneiden.
+
+      Gute Nachbarn: Bohnen (Stickstoff-Fixierung), Dill, Salat, Sellerie,
+      Erbsen, Mais, Sonnenblumen.
+      Schlechte Nachbarn: Tomaten (unterschiedliche Klimaansprueche im
+      Gewaechshaus), Kartoffeln, andere Kuerbisgewaechse.
+
+      Balkon: Moeglich in grossen Kuebeln ab 20 Liter mit Rankhilfe.
+      Kompakte Snack-Gurken-Sorten sind besser geeignet als Schlangengurken.
+    metadata:
+      topic: cucumber_growing
+      species: "Cucumis sativus"
+      difficulty: beginner
+
+  - id: gurke-pflege
+    title: "Gurken — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Gurken haben einen sehr hohen Wasserbedarf. Im Hochsommer
+      taeglich 2 bis 5 Liter pro Pflanze giessen, immer lauwarm (nie unter
+      15 Grad). Kaltes Wasser verursacht Bitterstoff-Bildung bei aelteren
+      Sorten. Morgens giessen, Blaetter trocken halten.
+
+      Mulchen: Eine dicke Schicht Stroh oder Rasenschnitt haelt die
+      Feuchtigkeit, unterdrueckt Unkraut und verhindert den Kontakt
+      der Fruechte mit der feuchten Erde (Faeulnisschutz).
+
+      Duengen: Ab dem Fruchtansatz alle 1 bis 2 Wochen mit
+      Gemuese-Fluessigduenger oder Brennnesseljauche (1:10) giessen.
+      EC nicht ueber 2,5 mS — Gurken reagieren empfindlich auf Uebersalzung.
+
+      Schaedlinge und Krankheiten: Echter Mehltau ist das haeufigste Problem
+      — weisser Belag auf Blaettern, beguentsigt durch trocken-warme Tage
+      und kuehle Naechte. Milch-Wasser-Loesung (1:10) oder Kaliumbicarbonat
+      spritzen. Befallene Blaetter sofort entfernen.
+
+      Spinnmilben bei trockener Gewaechshausluft: Luftfeuchtigkeit erhoehen,
+      Raubmilben einsetzen. Blattlaeuse mit Neemoel oder Florfliegenlarven
+      bekaempfen.
+
+      Achtung: Bitter schmeckende Gurken enthalten Cucurbitacin — NICHT
+      essen. Bitterkeit tritt bei Stress (Trockenheit, Kaelte) auf.
+
+      Fruchtfolge: 3 Jahre keine Kuerbisgewaechse auf der gleichen Flaeche.
+    metadata:
+      topic: cucumber_growing
+      species: "Cucumis sativus"
+      difficulty: beginner
+
+  - id: gurke-ernte
+    title: "Gurken — Ernte und Lagerung"
+    content: |
+      Gurken regelmaessig ernten, sobald sie die gewuenschte Groesse haben.
+      Salatgurken bei 25 bis 35 cm, Einlegegurken bei 6 bis 12 cm Laenge.
+      Nicht zu gross werden lassen — ueberreife Gurken werden wuessrig,
+      entwickeln harte Kerne und die Pflanze bildet weniger neue Fruechte.
+
+      Am besten morgens ernten, wenn die Fruechte prall und fest sind.
+      Mit einer scharfen Schere abschneiden, nicht abreissen. Alle 2 bis
+      3 Tage durchpfluecken — die Pflanze traegt dann ueber Wochen.
+
+      Lagerung: Gurken gehoeren NICHT in den Kuehlschrank (unter 10 Grad
+      bekommen sie Kaelteschaeden). Ideal bei 12 bis 15 Grad, dort halten
+      sie 5 bis 7 Tage. In feuchtes Kuechentuch gewickelt bleiben sie
+      laenger frisch.
+
+      Konservierung: Einlegen als Gewuerzgurken (Senfkoerner, Dill,
+      Meerrettich) ist die klassische Methode. Gurken lassen sich auch
+      gut fermentieren (Milchsauer-Gaerung).
+
+      Saisonende: Ab September nimmt die Fruchtbildung ab. Bei ersten
+      Nachtfroesten die Pflanzen entfernen.
+    metadata:
+      topic: cucumber_growing
+      species: "Cucumis sativus"
+      difficulty: beginner

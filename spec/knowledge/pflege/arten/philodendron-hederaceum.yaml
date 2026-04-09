@@ -1,0 +1,112 @@
+---
+title: "Herzblatt-Philodendron (Philodendron hederaceum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [philodendron, herzblatt-philodendron, kletterphilodendron, zimmerpflanze, pflege, araceae, tropisch, haengepflanze, anfaengerfreundlich]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: philodendron-standort
+    title: "Herzblatt-Philodendron — Standort und Licht"
+    content: |
+      Der Herzblatt-Philodendron (Philodendron hederaceum) ist eine der
+      pflegeleichtesten Zimmerpflanzen ueberhaupt. Mit ihren herzfoermigen
+      Blaettern waechst sie als Haengepflanze in der Ampel oder als
+      Kletterpflanze am Moosstab.
+
+      Achtung Verwechslung: Der Herzblatt-Philodendron sieht der Efeutute
+      (Epipremnum aureum) sehr aehnlich, ist aber eine andere Gattung.
+      Im Handel wird er manchmal auch unter den alten Namen Philodendron
+      scandens oder P. oxycardium verkauft.
+
+      Licht: Helles bis mittleres indirektes Licht. Kommt auch mit
+      weniger Licht zurecht als viele andere Zimmerpflanzen, waechst
+      dann aber langsamer mit kleineren Blaettern. Keine direkte Sonne
+      — die Blaetter verbrennen leicht. Ein Nordfenster funktioniert
+      sogar, solange es nicht zu dunkel ist.
+
+      Temperatur: 18 bis 26 Grad Celsius, nachts nicht unter 15 Grad.
+      Mindesttemperatur 10 Grad. Empfindlich gegenueber Kaelte und
+      Zugluft.
+
+      Luftfeuchtigkeit: 40 bis 60 Prozent — normale Raumluft reicht
+      aus. Die Pflanze ist hier weniger anspruchsvoll als viele andere
+      tropische Arten.
+
+      Tipp: Ein Moosstab als Kletterhilfe foerdert groessere Blaetter.
+      Als Haengepflanze bleiben die Blaetter kleiner, was aber ebenfalls
+      dekorativ aussieht.
+    metadata:
+      topic: philodendron_care
+      species: "Philodendron hederaceum"
+      difficulty: beginner
+
+  - id: philodendron-giessen
+    title: "Herzblatt-Philodendron — Giessen und Substrat"
+    content: |
+      Der Herzblatt-Philodendron ist beim Giessen unkompliziert und
+      verzeiht gelegentliches Vergessen.
+
+      Giess-Rhythmus Sommer (Maerz bis September): Alle 7 bis 10 Tage.
+      Die oberen 2 bis 3 Zentimeter Erde zwischen den Wassergaben
+      antrocknen lassen.
+
+      Giess-Rhythmus Winter (Oktober bis Februar): Alle 14 bis 21 Tage.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain).
+      Ueberschuss nach 30 Minuten entfernen.
+
+      Wasserqualitaet: Normales Leitungswasser ist gut vertraeglich.
+      Abgestandenes Wasser bevorzugt.
+
+      Substrat: Lockere, durchlaessige Einheitserde mit 20 bis 30 Prozent
+      Perlite. pH 6,0 bis 7,0. Guter Wasserabzug wichtig.
+
+      Empfohlenes Topfvolumen: 2 bis 10 Liter. Mindestens 15 cm
+      Topftiefe.
+
+      Haeufigste Giess-Fehler:
+      - Ueberwaesserung: Gelbe Blaetter und Wurzelfaeule.
+      - Wasser auf den Blaettern stehen lassen: Kann braune, nasse
+        Blattflecken verursachen (bakterielle Blattflecken).
+      - Zu selten giessen ist weniger kritisch: Die Pflanze verzeiht
+        kurzfristige Trockenheit relativ gut.
+    metadata:
+      topic: philodendron_care
+      species: "Philodendron hederaceum"
+      difficulty: beginner
+
+  - id: philodendron-duengung
+    title: "Herzblatt-Philodendron — Duengung und Umtopfen"
+    content: |
+      Duengung: Der Herzblatt-Philodendron ist ein Schwachzehrer —
+      alle 4 Wochen in der Wachstumsphase (Maerz bis September) mit
+      einem Gruenpflanzen-Fluessigduenger duengen (NPK 7-3-6, 5 ml
+      pro Liter Wasser).
+
+      Im Winter: Kein Duenger. Ueberdüngung fuehrt zu braunen
+      Blattspitzen.
+
+      Organische Alternative: 10 Prozent Wurmhumus beim Umtopfen
+      unter das Substrat mischen.
+
+      Umtopfen: Alle 1 bis 2 Jahre im Fruehling. Topfgroesse nur
+      leicht vergroessern (2 bis 3 cm mehr Durchmesser).
+
+      Rueckschnitt: Im Fruehling (Maerz/April) lange Triebe auf
+      gewuenschte Laenge kuerzen. Die abgeschnittenen Stuecke eignen
+      sich hervorragend als Stecklinge.
+
+      Vermehrung: Sehr einfach — ideal fuer Anfaenger. Stecklinge
+      mit 2 bis 3 Knoten und mindestens 2 Blaettern abschneiden.
+      Mindestens ein Knoten muss unter der Wasseroberflaeche sein.
+      In Wasser stellen: Nach 2 bis 4 Wochen bilden sich Wurzeln.
+      Dann in Substrat einpflanzen. Funktioniert auch direkt in
+      feuchtem Substrat. Sehr hohe Erfolgsrate.
+
+      Achtung: Der Herzblatt-Philodendron ist giftig fuer Katzen,
+      Hunde und Kinder. Der Milchsaft kann Kontaktdermatitis ausloesen.
+    metadata:
+      topic: philodendron_care
+      species: "Philodendron hederaceum"
+      difficulty: beginner

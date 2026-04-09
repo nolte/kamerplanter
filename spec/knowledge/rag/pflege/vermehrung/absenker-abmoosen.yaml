@@ -1,0 +1,132 @@
+---
+title: Absenker, Abmoosen und Steckhoelzer
+language: de
+category: pflege
+tags: [absenker, abmoosen, luftschichtung, steckholz, vermehrung, sphagnum, winter, rose, brombeere, ficus, monstera]
+expertise_level: [intermediate, expert]
+applicable_phases: [vegetative]
+chunks:
+  - id: absenker-freiland
+    title: Absenker im Freiland — Triebe in der Erde bewurzeln
+    content: |
+      Was ist ein Absenker und fuer welche Pflanzen eignet er sich?
+      Beim Absenken biegst du einen niedrig wachsenden Trieb einer
+      bestehenden Pflanze herunter in die Erde, wo er Wurzeln bildet —
+      waehrend er noch mit der Mutterpflanze verbunden ist. Das ist
+      eine der sichersten Vermehrungsmethoden, weil die Jungpflanze
+      durchgehend von der Mutter versorgt wird.
+      Ideale Kandidaten:
+      - Brombeere und Himbeere: Triebspitzen biegen sich natuerlich
+        zum Boden und bewurzeln dort von selbst (Tip Layering). Einfach
+        einen jungen Trieb herunterbiegen und die Spitze 10 cm tief
+        eingraben. Im Herbst oder naechsten Fruehling abtrennen.
+      - Clematis: Junge, biegsame Triebe am Boden entlang fuehren,
+        an einem Knoten mit Drahtbuegel fixieren, mit 5 cm Erde bedecken.
+      - Hortensie: Niedrige Triebe am Knoten einritzen (Verwundung
+        regt Wurzelbildung an), in Erde druecken, fixieren.
+      - Johannisbeere, Stachelbeere: Aehnlich wie Hortensie.
+      - Efeu, Kletterhortensie: Bilden oft von selbst Wurzeln an
+        Bodenkontaktstellen.
+      Schritt fuer Schritt:
+      1. Biegsamen, diesjaehrigen Trieb auswaehlen.
+      2. An der Stelle, die eingegraben wird: Rinde leicht einritzen
+         oder mit Messer ein kleines Stueck Rinde entfernen (Verwundung).
+         Optional: Bewurzelungspulver auf die Wunde.
+      3. Trieb in eine 10-15 cm tiefe Mulde druecken und mit Drahtbuegel
+         oder Stein fixieren.
+      4. Mit Erde bedecken, gut angiessen. Die Triebspitze muss aus
+         der Erde schauen.
+      5. Regelmaessig feucht halten.
+      6. Bewurzelung dauert 3-12 Monate je nach Art.
+      7. Wenn kraeftige Wurzeln gebildet sind: Trieb zur Mutterpflanze
+         kappen, Jungpflanze ausgraben und an den endgueltigen Standort
+         pflanzen.
+    metadata:
+      topic: ground_layering
+      difficulty: easy
+      plants: [blackberry, raspberry, clematis, hydrangea, currant]
+
+  - id: abmoosen-luftschichtung
+    title: Luftschichtung und Abmoosen — Bewurzelung am Stamm
+    content: |
+      Was ist Abmoosen und wann ist es besser als ein normaler Steckling?
+      Beim Abmoosen (auch Luftschichtung, Air Layering) bringst du eine
+      Pflanze dazu, mitten am Stamm Wurzeln zu bilden — waehrend der
+      Trieb noch an der Mutterpflanze haengt. Danach schneidest du den
+      bewurzelten Abschnitt ab. Perfekt fuer Pflanzen, die als Steckling
+      schlecht bewurzeln, oder wenn du eine grosse, sofort kraeftige
+      Jungpflanze willst.
+      Ideale Kandidaten:
+      - Monstera deliciosa: Besonders bei grossen Pflanzen, die du
+        kuerzen willst. Abmoosen an einem Knoten mit Luftwurzel.
+      - Ficus elastica (Gummibaum), Ficus lyrata (Geigenfeige):
+        Schwer ueber Stecklinge zu bewurzeln, Abmoosen funktioniert
+        zuverlaessig.
+      - Dracaena, Schefflera: Wenn die Pflanze zu gross geworden ist
+        und du die Spitze mit Wurzeln abtrennen willst.
+      - Magnolia, Ahorn: Im Gartenbereich bei schwer bewurzelbaren
+        Gehoelzen.
+      Anleitung:
+      1. Stelle waehlen: Einen Knoten oder eine Stelle mit Luftwurzel
+         aussuchen, 30-60 cm unter der Triebspitze.
+      2. Rinde verletzen: Ring von ca. 2-3 cm Breite rund um den Stamm
+         einschneiden und die Rinde entfernen (Ringelung). Alternativ:
+         Schraeganschnitt (2-3 cm lang, halb durch den Stamm) und ein
+         Stueck Zahnstocher als Keil einschieben, damit die Wunde
+         offen bleibt.
+      3. Bewurzelungspulver auf die Wundflaeche auftragen.
+      4. Feuchtes Sphagnum-Moos (vorher in Wasser einweichen und
+         ausdruecken) um die Wunde wickeln — ein faustgrosser Ball.
+      5. Mit Frischhaltefolie fest umwickeln, oben und unten mit
+         Draht oder Kabelbinder verschliessen.
+      6. Alle 1-2 Wochen kontrollieren: Moos muss feucht bleiben.
+         Falls noetig, Folie oeffnen und nachspruehen.
+      7. Nach 4-8 Wochen sind Wurzeln durch das Moos sichtbar.
+      8. Unterhalb der neuen Wurzeln abschneiden, Folie entfernen,
+         in Topf mit frischem Substrat pflanzen.
+    metadata:
+      topic: air_layering
+      difficulty: moderate
+      materials: [sphagnum_moss, plastic_wrap, rooting_hormone]
+      plants: [monstera, ficus, dracaena, magnolia]
+
+  - id: steckhoelzer
+    title: Steckhoelzer — Vermehrung im Winter
+    content: |
+      Was sind Steckhoelzer und warum macht man das im Winter?
+      Steckhoelzer sind verholzte Triebabschnitte von Laubgehoelzen,
+      die im Winter geschnitten und bewurzelt werden. Die Methode ist
+      einfach, kostet nichts und funktioniert bei vielen Straucharten
+      zuverlaessig — braucht aber Geduld (Ergebnis erst naechstes Jahr).
+      Ideale Kandidaten:
+      - Rosen: Klassiker unter den Steckhoelzern. Einjahrige, gut
+        ausgereifte Triebe verwenden.
+      - Johannisbeere, Stachelbeere: Bewurzeln besonders zuverlaessig.
+      - Weigelie, Forsythie, Deutzie: Typische Zierstaucher.
+      - Weide (Salix): Bewurzelt selbst im Wasserglas innerhalb von
+        Tagen — dankbares Uebungsobjekt.
+      - Hartriegel (Cornus), Liguster, Holunder.
+      Zeitpunkt: November bis Februar, waehrend der Vegetationsruhe.
+      Das Holz muss vollstaendig ausgereift sein (braune Rinde, kein
+      gruenes, weiches Gewebe mehr).
+      Anleitung:
+      1. Kraeftige, einjahrige Triebe (bleistiftdick) auswahlen.
+      2. In 20-25 cm lange Stuecke schneiden. Oben: Schraegschnitt
+         (damit Regenwasser ablaeuft und du oben/unten erkennst).
+         Unten: Gerader Schnitt knapp unter einem Auge (Knospe).
+      3. Zu Buendeln zusammenbinden, Polaritaet markieren.
+      4. Im Freiland: Zwei Drittel des Steckholzes senkrecht in lockere
+         Erde stecken (Sandrinne oder Beet an geschuetzter Stelle).
+         Oberes Drittel mit 1-2 Knospen schaut heraus.
+      5. Alternativ: Buendel ueber Winter horizontal in feuchtem Sand
+         im Keller lagern (Kallusbildung), im Fruehling stecken.
+      6. Im Fruehling treiben die Knospen aus. Nicht zu frueh ausgraben!
+         Erst im Herbst haben die Steckhoelzer genuegend Wurzeln fuer
+         das Umpflanzen an den endgueltigen Standort.
+      Erfolgsquote: Bei Johannisbeere und Weide ueber 90 Prozent,
+      bei Rosen etwa 50-70 Prozent.
+    metadata:
+      topic: hardwood_cuttings
+      difficulty: moderate
+      season: winter
+      plants: [rose, currant, gooseberry, willow, forsythia]

@@ -63,6 +63,58 @@ class WorkflowTemplateResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+# ── Workflow Phases ──
+
+
+class WorkflowPhaseCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    phase_order: int = 0
+    duration_days: int = 0
+    stress_tolerance: str = ""
+    trigger_phase: str | None = None
+
+
+class WorkflowPhaseUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    phase_order: int | None = None
+    duration_days: int | None = None
+    stress_tolerance: str | None = None
+    trigger_phase: str | None = None
+
+
+class WorkflowPhaseResponse(BaseModel):
+    key: str
+    workflow_template_key: str
+    name: str
+    description: str = ""
+    phase_order: int = 0
+    duration_days: int = 0
+    stress_tolerance: str = ""
+    trigger_phase: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class WorkflowPhaseSuggestion(BaseModel):
+    name: str
+    duration_days: int = 0
+    stress_tolerance: str = ""
+    trigger_phase: str | None = None
+    used_by_species: list[str] = Field(default_factory=list)
+    usage_count: int = 0
+
+
+class PhaseReorderItem(BaseModel):
+    key: str
+    phase_order: int
+
+
+class PhaseReorderRequest(BaseModel):
+    phases: list[PhaseReorderItem] = Field(min_length=1)
+
+
 # ── Task Templates ──
 
 
@@ -82,6 +134,7 @@ class TaskTemplateCreate(BaseModel):
     skill_level: str = "beginner"
     optimal_time_of_day: str | None = None
     workflow_template_key: str | None = None
+    workflow_phase_key: str | None = None
     sequence_order: int = 0
     default_checklist: list[ChecklistItemSchema] = Field(default_factory=list)
     require_all_checklist_items: bool = False
@@ -102,6 +155,7 @@ class TaskTemplateUpdate(BaseModel):
     tools_required: list[str] | None = None
     skill_level: str | None = None
     optimal_time_of_day: str | None = None
+    workflow_phase_key: str | None = None
     sequence_order: int | None = None
     default_checklist: list[ChecklistItemSchema] | None = None
     require_all_checklist_items: bool | None = None
@@ -133,6 +187,7 @@ class TaskTemplateResponse(BaseModel):
     skill_level: str
     optimal_time_of_day: str | None = None
     workflow_template_key: str | None = None
+    workflow_phase_key: str | None = None
     activity_key: str | None = None
     sequence_order: int
     recovery_days: int = 0

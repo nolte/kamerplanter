@@ -49,6 +49,7 @@ YIELD_METRICS = "yield_metrics"
 
 # REQ-006 Tasks
 WORKFLOW_TEMPLATES = "workflow_templates"
+WORKFLOW_PHASES = "workflow_phases"
 TASK_TEMPLATES = "task_templates"
 TASKS = "tasks"
 WORKFLOW_EXECUTIONS = "workflow_executions"
@@ -106,6 +107,11 @@ PLANT_DIARY_ENTRIES = "plant_diary_entries"
 NOTIFICATIONS = "notifications"
 NOTIFICATION_PREFERENCES = "notification_preferences"
 
+# Phase Sequences
+PHASE_DEFINITIONS = "phase_definitions"
+PHASE_SEQUENCES = "phase_sequences"
+PHASE_SEQUENCE_ENTRIES = "phase_sequence_entries"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -148,6 +154,7 @@ DOCUMENT_COLLECTIONS = [
     QUALITY_ASSESSMENTS,
     YIELD_METRICS,
     WORKFLOW_TEMPLATES,
+    WORKFLOW_PHASES,
     TASK_TEMPLATES,
     TASKS,
     WORKFLOW_EXECUTIONS,
@@ -178,6 +185,9 @@ DOCUMENT_COLLECTIONS = [
     NOTIFICATIONS,
     NOTIFICATION_PREFERENCES,
     PLANT_DIARY_ENTRIES,
+    PHASE_DEFINITIONS,
+    PHASE_SEQUENCES,
+    PHASE_SEQUENCE_ENTRIES,
 ]
 
 # Edge collections
@@ -247,6 +257,7 @@ HAS_YIELD_METRIC = "has_yield_metric"
 
 # REQ-006 Task edges
 WF_CONTAINS = "wf_contains"
+WF_HAS_PHASE = "wf_has_phase"
 REQUIRES_PHASE = "requires_phase"
 HAS_TASK = "has_task"
 TASK_BLOCKS = "task_blocks"
@@ -308,6 +319,11 @@ NOTIFIED_ABOUT_PLANT = "notified_about_plant"
 HAS_DIARY_ENTRY = "has_diary_entry"
 TO_RUN = "to_run"
 NOTIFICATION_FOR_RUN = "notification_for_run"
+
+# Phase Sequence edges
+SEQ_HAS_ENTRY = "seq_has_entry"
+ENTRY_USES_DEFINITION = "entry_uses_definition"
+HAS_PHASE_SEQUENCE = "has_phase_sequence"
 
 # Watering Schedule edges
 RUN_FOLLOWS_PLAN = "run_follows_plan"
@@ -380,6 +396,7 @@ EDGE_COLLECTIONS = [
     ASSESSED_BY_QUALITY,
     HAS_YIELD_METRIC,
     WF_CONTAINS,
+    WF_HAS_PHASE,
     REQUIRES_PHASE,
     HAS_TASK,
     TASK_BLOCKS,
@@ -428,6 +445,9 @@ EDGE_COLLECTIONS = [
     HAS_DIARY_ENTRY,
     TO_RUN,
     NOTIFICATION_FOR_RUN,
+    SEQ_HAS_ENTRY,
+    ENTRY_USES_DEFINITION,
+    HAS_PHASE_SEQUENCE,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -737,6 +757,11 @@ GRAPH_EDGE_DEFINITIONS = [
         "to_vertex_collections": [TASK_TEMPLATES],
     },
     {
+        "edge_collection": WF_HAS_PHASE,
+        "from_vertex_collections": [WORKFLOW_TEMPLATES],
+        "to_vertex_collections": [WORKFLOW_PHASES],
+    },
+    {
         "edge_collection": REQUIRES_PHASE,
         "from_vertex_collections": [TASK_TEMPLATES],
         "to_vertex_collections": [GROWTH_PHASES],
@@ -988,6 +1013,22 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [NOTIFICATIONS],
         "to_vertex_collections": [PLANTING_RUNS],
     },
+    # Phase Sequences
+    {
+        "edge_collection": SEQ_HAS_ENTRY,
+        "from_vertex_collections": [PHASE_SEQUENCES],
+        "to_vertex_collections": [PHASE_SEQUENCE_ENTRIES],
+    },
+    {
+        "edge_collection": ENTRY_USES_DEFINITION,
+        "from_vertex_collections": [PHASE_SEQUENCE_ENTRIES],
+        "to_vertex_collections": [PHASE_DEFINITIONS],
+    },
+    {
+        "edge_collection": HAS_PHASE_SEQUENCE,
+        "from_vertex_collections": [SPECIES],
+        "to_vertex_collections": [PHASE_SEQUENCES],
+    },
 ]
 
 
@@ -1075,6 +1116,9 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
     wf_templates_col.add_hash_index(fields=["name"], unique=True)
+
+    wf_phases_col = db.collection(WORKFLOW_PHASES)
+    wf_phases_col.add_hash_index(fields=["workflow_template_key"], unique=False)
 
     # REQ-023 Auth indexes
     users_col = db.collection(USERS)
@@ -1169,6 +1213,13 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     notification_prefs_col = db.collection(NOTIFICATION_PREFERENCES)
     notification_prefs_col.add_hash_index(fields=["user_key"], unique=True)
+
+    # Phase Sequence indexes
+    phase_defs_col = db.collection(PHASE_DEFINITIONS)
+    phase_defs_col.add_hash_index(fields=["name"], unique=True)
+
+    phase_seq_entries_col = db.collection(PHASE_SEQUENCE_ENTRIES)
+    phase_seq_entries_col.add_hash_index(fields=["phase_sequence_key", "sequence_order"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

@@ -37,12 +37,26 @@ class WorkflowDetailPage(BasePage):
         """Navigate to a workflow detail page by key."""
         self.navigate(f"{self.PATH_PREFIX}/{key}")
         self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
         return self
 
     # ── Page title ─────────────────────────────────────────────────────
 
     def get_workflow_title(self) -> str:
         """Return the page heading (workflow name)."""
+        from selenium.common.exceptions import StaleElementReferenceException
+
+        self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
+        for _ in range(3):
+            try:
+                el = self.wait_for_element(
+                    (By.CSS_SELECTOR, "[data-testid='workflow-detail-page'] [data-testid='page-title']")
+                )
+                return el.text
+            except StaleElementReferenceException:
+                import time
+                time.sleep(0.5)
         el = self.wait_for_element(
             (By.CSS_SELECTOR, "[data-testid='page-title']")
         )

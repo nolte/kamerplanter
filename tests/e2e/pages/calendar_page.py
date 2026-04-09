@@ -86,6 +86,7 @@ class CalendarPage(BasePage):
         """Navigate to the calendar page and wait for the container."""
         self.navigate("/kalender")
         self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
         return self
 
     # ── View switching ──────────────────────────────────────────────────

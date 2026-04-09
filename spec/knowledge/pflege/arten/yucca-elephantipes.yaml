@@ -1,0 +1,96 @@
+---
+title: "Yucca-Palme (Yucca elephantipes) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [yucca, yucca-palme, yucca-elephantipes, zimmerpflanze, pflege, robust, wenig-giessen, anfaenger, sonnig]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: yucca-elephantipes-standort
+    title: "Yucca-Palme — Standort und Licht"
+    content: |
+      Die Yucca-Palme (Yucca elephantipes) stammt aus den Trockenwaeldern
+      Mexikos und Zentralamerikas. Trotz ihres Namens ist sie keine echte
+      Palme, sondern gehoert zu den Agavengewaechsen. Sie liebt moeglichst
+      viel Licht und vertraegt auch volle Sonne.
+
+      Licht: Suedwester oder Suedfenster mit direkter Sonne ist ideal.
+      Die Yucca gehoert zu den wenigen Zimmerpflanzen, die volle
+      Mittagssonne vertragen. Bei zu wenig Licht wird sie schlapp und
+      die Blaetter vergilben.
+
+      Temperatur: Im Sommer 20-28 Grad Celsius, im Winter kuehler
+      (10-18 Grad). Eine kuehle Ueberwinterung bei 10-15 Grad ist sogar
+      foerderlich fuer die Gesundheit. Kurzzeitig ueberlebt sie bis
+      -2 Grad, aber Frost beschaedigt die Pflanze.
+
+      Luftfeuchtigkeit: 30-50% genuegen — trockene Luft ist kein Problem.
+      Im Sommer darf die Yucca gerne auf den Balkon oder die Terrasse in
+      die volle Sonne. Langsam akklimatisieren (erst Halbschatten, dann
+      ueber 2 Wochen volle Sonne). Vor dem ersten Nachtfrost (unter 5 Grad)
+      wieder reinholen.
+
+      Die Yucca ist giftig fuer Katzen, Hunde und Kinder (Saponine).
+      Besonders Katzen reagieren empfindlich.
+    metadata:
+      topic: yucca_elephantipes_care
+      species: "Yucca elephantipes"
+      difficulty: beginner
+
+  - id: yucca-elephantipes-giessen
+    title: "Yucca-Palme — Giessen und Substrat"
+    content: |
+      Die Yucca ist genuegsam und braucht wenig Wasser. Im Sommer alle
+      1-2 Wochen giessen, im Winter nur alle 3-5 Wochen. Immer erst
+      giessen, wenn die oberen 3-5 cm der Erde trocken sind (Fingertest).
+
+      Giessmethode: Kraeftig durchgiessen bis Wasser aus dem Drainageloch
+      laeuft. Untersetzer nach 15-20 Minuten leeren. Dann vollstaendig
+      abtrocknen lassen. Staunaesse ist der Hauptfeind — Ueberwaesserung
+      im Winter bei niedrigen Temperaturen ist die haeufigste Ursache
+      fuer Wurzelfaeule und damit die haeufigste Todesursache.
+
+      Substrat: Durchlaessiges Kakteensubstrat oder Blumenerde (70%)
+      gemischt mit Perlite (20%) und grobem Sand (10%). pH 6.0-7.0.
+      Ein Topf mit Drainageloch ist Pflicht.
+
+      Leitungswasser wird gut vertragen. Die Yucca waechst sehr langsam
+      (15-30 cm pro Jahr) und braucht entsprechend grosse Toepfe
+      (15-30 Liter fuer ausgewachsene Exemplare). Indoor erreicht sie
+      1.5-3 Meter Hoehe.
+
+      Typischer Fehler: Im Winter bei kuehlen Temperaturen zu viel giessen.
+    metadata:
+      topic: yucca_elephantipes_care
+      species: "Yucca elephantipes"
+      difficulty: beginner
+
+  - id: yucca-elephantipes-duengung
+    title: "Yucca-Palme — Duengung und Umtopfen"
+    content: |
+      Die Yucca ist ein ausgepraegter Schwachzehrer und reagiert empfindlich
+      auf Ueberduengung. Von Maerz bis September monatlich mit einem
+      Kakteenduenger oder Zimmerpflanzenduenger in halber Dosis duengen
+      (z.B. Compo 7-4-6, 2-3 ml/L). Oktober bis Februar nicht duengen.
+
+      Ueberduengung fuehrt zu Blattspitzenverbrennung und Salzakkumulation
+      im Substrat. Bei weissem Belag auf der Erdoberflaeche: Substrat
+      komplett durchspuelen und 6-8 Wochen pausieren. Nie auf trockenes
+      Substrat duengen — immer erst giessen, dann duengen.
+
+      Umtopfen: Alle 2-3 Jahre im Fruehling (April). Frisches Kakteen-
+      substrat verwenden. Der neue Topf sollte nur eine Groesse groesser
+      sein.
+
+      Rueckschnitt: Nur bei zu gross gewordenen Pflanzen noetig. Der
+      Stamm kann auf gewuenschte Hoehe eingekuerzt werden — er treibt
+      aus dem Stumpf neu aus. Vergilbte untere Blaetter regelmaessig
+      abzupfen. Schutzhandschuhe tragen (Blattkanten koennen schneiden).
+
+      Vermehrung: Stammstücke von 15-30 cm in feuchtes Kakteensubstrat
+      stecken. Bei 22-26 Grad bewurzeln sie in 6-12 Wochen. Auch
+      Seitentriebe an der Basis lassen sich abtrennen und einpflanzen.
+    metadata:
+      topic: yucca_elephantipes_care
+      species: "Yucca elephantipes"
+      difficulty: beginner

@@ -1,0 +1,98 @@
+---
+title: "Strahlenaralie (Schefflera arboricola) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [schefflera, strahlenaralie, zwergschefflera, umbrella-plant, zimmerpflanze, pflege, tropisch, robust, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: schefflera-arboricola-standort
+    title: "Strahlenaralie — Standort und Licht"
+    content: |
+      Die Strahlenaralie (Schefflera arboricola) stammt aus den tropischen
+      Waeldern Taiwans und Suedchinas. Sie ist tolerant gegenueber
+      schwaeherem Licht und eignet sich daher auch fuer dunklere
+      Zimmerecken — ideal als Bueropflanze.
+
+      Licht: Helles, indirektes Licht ist optimal (Ost- oder Westfenster).
+      Vertraegt aber auch Halbschatten. Panaschierte Sorten (Gold Capella,
+      Trinette) brauchen mehr Licht, damit die Musterung erhalten bleibt.
+      Direkte Mittagssonne im Sommer vermeiden.
+
+      Temperatur: 18-27 Grad Celsius. Im Winter nicht unter 12 Grad.
+      Toleriert kurze Abkuehlungen auf 10 Grad. Zugluft vermeiden.
+
+      Luftfeuchtigkeit: 40-60% genuegen. Normale Raumluft reicht aus.
+      Die Schefflera ist diesbezueglich unkompliziert. Im Sommer kann
+      die Pflanze auf den Balkon — Halbschatten bevorzugt, frostfrei.
+
+      Die Schefflera wird oft mit der grossen Art S. actinophylla
+      verwechselt. S. arboricola bleibt kompakter (bis 2 m Indoor) und
+      laesst sich sogar als Bonsai kultivieren.
+
+      Achtung: Die Pflanze ist giftig fuer Katzen, Hunde und Kinder
+      (Calciumoxalat und Saponine). Bei Hautkontakt mit dem Saft
+      koennen empfindliche Personen Reizungen bekommen.
+    metadata:
+      topic: schefflera_arboricola_care
+      species: "Schefflera arboricola"
+      difficulty: beginner
+
+  - id: schefflera-arboricola-giessen
+    title: "Strahlenaralie — Giessen und Substrat"
+    content: |
+      Die Strahlenaralie mag gleichmaessige Feuchtigkeit ohne Staunaesse.
+      Im Sommer alle 7-10 Tage giessen, im Winter alle 10-14 Tage.
+      Das Substrat zwischen den Wassergaben leicht antrocknen lassen.
+
+      Giessmethode: Kraeftig durchgiessen und ablaufen lassen.
+      Leitungswasser ist gut vertraeglich. Gleichmaessig feucht halten,
+      aber nie im Wasser stehen lassen.
+
+      Substrat: Hochwertige Blumenerde mit 20% Perlite. pH-Wert 6.0-6.5.
+      Gute Drainage ist wichtig. Tongefaesse bevorzugen — sie verhindern
+      Ueberwaesserung.
+
+      Typische Probleme bei falschem Giessen:
+      - Blaetter werden gelb und fallen ab: Ueberwaesserung oder Staunaesse
+      - Blaetter haengen und welken: Zu trocken oder Wurzelfaeule
+      - Klebrige Tropfen auf Blaettern: Natuerlicher Guttationsprozess
+        oder Hinweis auf Schaedlingsbefall (Honigtau)
+
+      Die Schefflera vertraegt regelmaessigen starken Rueckschnitt gut
+      und treibt zuverlaessig neu aus. Triebspitzen pinzieren foerdert
+      buschigen Wuchs.
+    metadata:
+      topic: schefflera_arboricola_care
+      species: "Schefflera arboricola"
+      difficulty: beginner
+
+  - id: schefflera-arboricola-duengung
+    title: "Strahlenaralie — Duengung und Umtopfen"
+    content: |
+      Die Strahlenaralie ist ein mittlerer Zehrer. Von Maerz bis September
+      monatlich mit einem stickstoffbetonten Zimmerpflanzenduenger duengen
+      (z.B. Compo 7-3-6, 5 ml/L). Oktober bis Februar nicht duengen.
+      Bei wenig Licht die Duengermenge auf ein Viertel reduzieren.
+
+      Umtopfen: Alle 2 Jahre im Fruehling. Topf eine Groesse groesser
+      waehlen und frische Erde verwenden. Beim Umtopfen kann Hornmehl
+      (30-50 g/Topf) als organischer Langzeitduenger eingearbeitet werden.
+
+      Schaedlinge: Anfaellig fuer Spinnmilben, Schmierlaeuse, Schildlaeuse
+      und Blattlaeuse. Regelmaessig kontrollieren (alle 2 Wochen).
+      Behandlung: Neemoel 0.5% spruehen, Schildlaeuse mit Alkohol und
+      Wattestaebchen entfernen, Blattlaeuse mit Insektizidseife behandeln.
+
+      Rueckschnitt im Fruehjahr (Maerz-April): Vertraegt starken
+      Rueckschnitt und treibt zuverlaessig neu aus. Auf gewuenschte
+      Form bringen. Triebspitzen regelmaessig pinzieren fuer buschigen
+      Wuchs.
+
+      Vermehrung: Halbholzige Stecklinge (8-12 cm) bei 22-26 Grad und
+      hoher Luftfeuchtigkeit bewurzeln. Dauer: 4-8 Wochen. Abmoosen
+      (Luftabsenker) ist zuverlaessiger fuer dickere Staemme.
+    metadata:
+      topic: schefflera_arboricola_care
+      species: "Schefflera arboricola"
+      difficulty: beginner

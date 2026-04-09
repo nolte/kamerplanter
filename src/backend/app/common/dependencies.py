@@ -153,11 +153,12 @@ def get_plant_instance_service() -> PlantInstanceService:
         rotation_validator,
         companion_engine,
         phase_repo=get_lifecycle_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
     )
 
 
 def get_phase_service() -> PhaseService:
-    service = PhaseService(get_lifecycle_repo(), get_plant_repo())
+    service = PhaseService(get_lifecycle_repo(), get_plant_repo(), phase_seq_repo=get_phase_sequence_repo())
     # REQ-006: Activate dormant tasks when a plant transitions to a new phase
     task_service = get_task_service()
     service.register_on_transition(task_service.activate_dormant_tasks_for_phase)
@@ -216,6 +217,7 @@ def get_planting_run_service() -> PlantingRunService:
         watering_repo=get_watering_repo(),
         phase_repo=get_lifecycle_repo(),
         site_repo=get_site_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
     )
 
 
@@ -274,6 +276,7 @@ def get_watering_service() -> WateringService:
         species_repo=get_species_repo(),
         substrate_repo=get_substrate_repo(),
         lifecycle_repo=get_lifecycle_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
     )
 
 
@@ -505,7 +508,23 @@ def get_care_reminder_service() -> CareReminderService:
         watering_log_repo=get_watering_log_repo(),
         plant_repo=get_plant_repo(),
         lifecycle_repo=get_lifecycle_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
     )
+
+
+# ── Phase Sequence dependencies ────────────────────────────────────
+
+
+def get_phase_sequence_repo():
+    from app.data_access.arango.phase_sequence_repository import ArangoPhaseSequenceRepository
+
+    return ArangoPhaseSequenceRepository(get_db())
+
+
+def get_phase_sequence_service():
+    from app.domain.services.phase_sequence_service import PhaseSequenceService
+
+    return PhaseSequenceService(get_phase_sequence_repo())
 
 
 # ── REQ-032 Print dependencies ──────────────────────────────────────
@@ -672,6 +691,7 @@ def get_activity_plan_service():
         planting_run_repo=get_planting_run_repo(),
         species_repo=get_species_repo(),
         family_repo=get_family_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
     )
 
 

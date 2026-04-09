@@ -1,0 +1,237 @@
+---
+title: "Kompostierung — Vom Komposthaufen bis Bokashi"
+language: de
+category: outdoor
+tags: [kompost, kompostierung, heisskompost, kaltkompost, wurmkompost, bokashi, bodenverbesserung, duengung]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: kompost-anlegen
+    title: "Kompost anlegen — Standort, Schichtung und Gruen/Braun-Verhaeltnis"
+    content: |
+      Ein Kompost ist das Herzstück jedes Gartens. Er verwandelt
+      Küchenabfälle und Gartenreste in wertvollen Humus und spart
+      Dünger und Entsorgungskosten.
+
+      Standort: Halbschattig, windgeschuetzt, auf gewachsenem Boden
+      (nicht auf Beton oder Pflaster — Bodenlebewesen muessen Zugang
+      haben). Nicht direkt an der Grundstuecksgrenze (Geruch, Optik)
+      und nicht zu weit vom Haus (sonst wird er nicht genutzt).
+
+      Behälter: Offener Lattenkomposter (gute Belüftung, günstig),
+      Thermokomposter (schnellere Rotte, weniger Ungeziefer, Platzsparend)
+      oder einfacher Drahtkomposter. Mindestvolumen: 1 Kubikmeter.
+      Ideal: 2 bis 3 Behälter im Wechsel (einer wird befuellt, einer
+      ruht, einer ist fertig).
+
+      Gruen/Braun-Verhaeltnis: Der entscheidende Faktor fuer guten
+      Kompost. Gruen-Material (stickstoffreich): Rasenschnitt,
+      Kuechenabfaelle, frisches Unkraut, Kaffeesatz, Obstreste.
+      Braun-Material (kohlenstoffreich): Laub, Stroh, Holzhackschnitzel,
+      Karton (unbedruckt), Aeste (zerkleinert), Eierschachteln.
+
+      Idealverhaeltnis: 2 Teile Braun auf 1 Teil Gruen (nach Volumen).
+      Zu viel Gruen: Matschig, stinkt, faulig. Zu viel Braun: Zu
+      trocken, Rotte stockt. Der Kompost soll sich anfuehlen wie ein
+      ausgewrungener Schwamm — feucht, aber kein Wasser raussickern.
+
+      Schichtung: In dunnen Lagen abwechselnd Gruen und Braun
+      aufschichten. Nie dicke Schichten eines Materials (besonders
+      Rasenschnitt verklebt und fault). Aeste und Zweige ganz unten
+      als Drainage-Schicht.
+
+      Was nicht auf den Kompost: Gekochtes Essen und Fleisch (Ratten),
+      kranke Pflanzen (Pilzsporen ueberleben), samentragendes Unkraut
+      (Samen ueberleben Kaltkompost), Zitrusschalen in grossen Mengen
+      (hemmen Mikroorganismen), Katzenstreu, behandeltes Holz.
+    metadata:
+      topic: composting
+      subtopic: setup
+      difficulty: beginner
+
+  - id: heisskompost-kaltkompost
+    title: "Heisskompost vs. Kaltkompost — Temperatur, Dauer, Vor- und Nachteile"
+    content: |
+      Heisskompost (Schnellkompost): Wird in einem Durchgang aufgesetzt
+      (mindestens 1 Kubikmeter auf einmal) und erreicht durch
+      mikrobielle Aktivitaet Temperaturen von 55 bis 70 Grad Celsius.
+      Diese Hitze toetet Unkrautsamen und Krankheitserreger zuverlaessig
+      ab. Fertiger Kompost in 6 bis 12 Wochen.
+
+      Heisskompost-Methode: Material zerkleinern (je kleiner, desto
+      schneller), Gruen/Braun sorgfaeltig mischen, Haufen auf einmal
+      aufsetzen (nicht stueckweise). Feuchtigkeit wie ausgewrungener
+      Schwamm. Nach 3 bis 5 Tagen steigt die Temperatur. Wenn die
+      Temperatur sinkt (nach 1 bis 2 Wochen), umsetzen (durchmischen).
+      Insgesamt 3 bis 4 Mal umsetzen. Thermometer ins Zentrum stecken
+      zur Kontrolle.
+
+      Kaltkompost (Langzeitkompost): Die gaengige Hausgarten-Methode.
+      Material wird laufend aufgeschuettet, wie es anfaellt. Temperatur
+      bleibt unter 40 Grad. Rotte dauert 6 bis 12 Monate. Vorteil:
+      Kein Aufwand mit Umsetzen, laufende Beschickung moeglich.
+      Nachteil: Unkrautsamen und Krankheitserreger ueberleben.
+
+      Wann welche Methode? Heisskompost lohnt sich bei grossen
+      Materialmengen (Herbstlaub, Gartenumgestaltung) und wenn
+      unkrautfreier Kompost benoetigt wird (fuer Anzuchterde).
+      Kaltkompost ist der Alltags-Komposter fuer laufende Kuechenabfaelle
+      und kleiner Gartenreste.
+
+      Reife erkennen: Fertiger Kompost riecht nach Waldboden, ist
+      kruemelig, dunkelbraun bis schwarz. Kressetest: Kresse in eine
+      Schale mit dem Kompost saeen — keimt sie normal und gruen,
+      ist der Kompost reif. Keimt sie nicht oder wird gelb, ist
+      er noch nicht fertig (Ammoniak-Blockade).
+
+      Ausbringung: Reifen Kompost durch ein Sieb (10 bis 15 mm
+      Maschenweite) geben. Feines Material aufs Beet (2 bis 3 Liter
+      pro Quadratmeter), Groebes zurueck auf den neuen Kompost als
+      Impfmaterial.
+    metadata:
+      topic: composting
+      subtopic: hot_vs_cold
+      difficulty: intermediate
+
+  - id: wurmkompost
+    title: "Wurmkompost — Indoor moeglich, Eisenia fetida und Wurmtee"
+    content: |
+      Wurmkompostierung (Vermicomposting) ist die eleganteste Form der
+      Kompostierung — leise, geruchlos und sogar auf dem Balkon oder
+      in der Wohnung moeglich. Kompostwuermer (Eisenia fetida, der
+      Rote Kalifornische Regenwurm) zersetzen organisches Material
+      besonders schnell und produzieren hochwertigen Wurmhumus.
+
+      Wurmkiste: Stapelbare Kunststoff- oder Holzkisten mit Loecher
+      im Boden (Drainage). Unten eine Auffangschale fuer den Wurmtee
+      (Sickersaft). Kommerzielle Wurmfarmen (Can-O-Worms, Hungry Bin)
+      sind praktisch, aber eine Selbstbau-Kiste aus zwei Mörtelkisten
+      funktioniert genauso gut.
+
+      Wuermer: Etwa 500 bis 1000 Wuermer fuer den Start (circa 250 g).
+      Bezugsquellen: Angelbedarf, Online-Shops fuer Wurmkompostierung.
+      Nicht normale Regenwuermer aus dem Garten nehmen — die falschen
+      Arten ueberleben nicht in der Kiste.
+
+      Fuetterung: Küchenabfälle in kleinen Mengen (die Wuermer
+      fressen taeglich etwa die Haelfte ihres Koerpergewichts). Gut:
+      Obst- und Gemuesereste (klein geschnitten), Kaffeesatz mit
+      Filter, Teebeutel, Eierschalen (zerkleinert, puffern den pH).
+      Schlecht: Zitrusfruechte (zu sauer), Zwiebeln und Knoblauch
+      (Wuermer meiden sie), Fleisch, Milchprodukte, oeliges Essen.
+
+      Wurmtee: Die dunkle Fluessigkeit, die unten aus der Kiste
+      sickert. Reich an Mikroorganismen und Naehrstoffen. 1:10 mit
+      Wasser verduennen und als Fluessigduenger fuer Zimmer- und
+      Gartenpflanzen verwenden. Innerhalb von 24 Stunden nach dem
+      Auffangen verwenden — die Mikroorganismen sterben schnell.
+
+      Wurmhumus: Nach 3 bis 6 Monaten fertig. Dunkel, kruemelig,
+      geruchlos. Als Zuschlag fuer Blumenerde (20 bis 30 Prozent
+      beimischen) oder duenn auf Beete ausbringen. Extrem naehrstoff-
+      und mikroorganismenreich.
+
+      Temperatur: Wuermer arbeiten optimal bei 15 bis 25 Grad.
+      Unter 5 Grad sterben sie, ueber 35 Grad ebenfalls. Im Winter
+      die Kiste ins Haus holen oder isolieren.
+    metadata:
+      topic: composting
+      subtopic: vermicomposting
+      difficulty: beginner
+
+  - id: kompost-probleme
+    title: "Kompost-Probleme — Geruch, Fliegen, zu nass, zu trocken, Ratten"
+    content: |
+      Ein gut gefuehrter Kompost stinkt nicht. Wenn er unangenehm
+      riecht, stimmt etwas nicht — aber die Loesung ist meistens
+      einfach.
+
+      Fauliger Gestank (Schwefelwasserstoff, faule Eier): Zu nass
+      und zu wenig Sauerstoff. Ursache: Zu viel Rasenschnitt oder
+      Kuechenabfaelle ohne Braun-Material. Loesung: Sofort Braun-
+      Material untermischen (Stroh, zerknuellter Karton, trockenes
+      Laub). Haufen umsetzen fuer Belueftung. Abdecken bei
+      Dauerregen.
+
+      Ammoniak-Geruch (stechend, scharf): Zu viel Stickstoff
+      (Gruen-Material). Loesung: Braun-Material dazu, Haufen
+      umsetzen. Holzhackschnitzel oder Saegemehl binden
+      ueberschuessigen Stickstoff.
+
+      Fruchtfliegen und Trauermücken: Kuechenabfaelle immer mit
+      einer Schicht Braun-Material abdecken (5 cm Laub, Stroh oder
+      Erde). Nie offen liegen lassen. Bei starkem Befall:
+      Kompostoberflaech mit Steinmehl duenn bestauben.
+
+      Zu trocken (Rotte stockt): Material bleibt unveraendert,
+      keine Zersetzung sichtbar. Mit Giesskanne oder Gartenschlauch
+      bewaessern. Gruene Kuechenabfaelle dazumischen. Im Sommer
+      Kompost beschatten oder abdecken.
+
+      Ratten und Maeuse: Angelockt durch Essensreste. Keine
+      gekochten Speisen, Fleisch, Brot oder Kaese kompostieren.
+      Geschlossene Thermokomposter mit Gitter-Boden sind
+      nagetiersicher. Bei offenen Kompostern: Engmaschiges
+      Drahtgitter (unter 10 mm) unter und um den Kompost legen.
+
+      Ameisen: Zeichen fuer zu trocken. Kompost durchwaessern —
+      Ameisen verschwinden, wenn es feucht wird.
+
+      Schnecken: Kein echtes Problem — sie helfen bei der Zersetzung.
+      Wer Schnecken im Garten reduzieren will: Kompost nicht direkt
+      an Beeten aufstellen und regelmaessig Schneckenbretter auslegen
+      und absammeln.
+    metadata:
+      topic: composting
+      subtopic: troubleshooting
+      difficulty: beginner
+
+  - id: bokashi-fermentation
+    title: "Bokashi — Fermentation, Effektive Mikroorganismen und Kuechenkompost"
+    content: |
+      Bokashi ist eine japanische Fermentationsmethode, die alle
+      Kuechenabfaelle — einschliesslich gekochtem Essen, Fleisch und
+      Milchprodukte — in einen wertvollen Bodenverbesserer verwandelt.
+      Im Gegensatz zu Kompostierung ist Bokashi eine anaerobe (sauerstoff-
+      freie) Fermentation.
+
+      Funktion: Kuechenabfaelle werden in einem luftdichten Eimer mit
+      Effektiven Mikroorganismen (EM) bestreut und fermentiert. Die
+      Milchsaeurebakterien konservieren das Material (aehnlich wie
+      Sauerkraut) statt es zu zersetzen. Das Ergebnis ist kein
+      fertiger Kompost, sondern fermentiertes Material, das im Boden
+      vergraben und dort innerhalb von 2 bis 4 Wochen von Bodenlebewesen
+      vollstaendig abgebaut wird.
+
+      Bokashi-Eimer: Luftdichter Eimer mit Ablasshahn unten und
+      Presseinsatz. Kommerzielle Modelle (EM-Bokashi-Eimer) kosten
+      30 bis 50 Euro. Zwei Eimer im Wechsel: Einer wird befuellt,
+      einer fermentiert.
+
+      EM-Bokashi-Streumittel: Weizenkleie, die mit Effektiven
+      Mikroorganismen (EM1) fermentiert wurde. Nach jeder Schicht
+      Kuechenabfaelle (3 bis 5 cm) eine Handvoll EM-Streumittel
+      aufstreuen. Material festdruecken (Luft rauspressen).
+      Eimer-Deckel fest verschliessen.
+
+      Bokashi-Saft: Alle 2 bis 3 Tage den Saft unten ablassen.
+      1:100 mit Wasser verduennen als Fluessigduenger. Unverdünnt
+      in den Abfluss — reinigt Rohre (Milchsäurebakterien zersetzen
+      Fettablagerungen).
+
+      Fermentation: Voller Eimer 2 Wochen stehen lassen (Deckel zu).
+      Fertiges Bokashi riecht sauer-sueßlich (wie Silage), nicht
+      faulig. Dann im Garten vergraben: 20 cm tiefes Loch graben,
+      Bokashi rein, Erde drueber. Nach 2 bis 4 Wochen ist alles
+      zersetzt. Nicht direkt an Pflanzenwurzeln — der saure pH
+      verbrennt feine Wurzeln. 20 cm Abstand halten.
+
+      Vorteile: Funktioniert ganzjaehrig in der Kueche. Kein Geruch
+      (solange der Eimer geschlossen bleibt). Verarbeitet alle
+      Kuechenabfaelle ohne Ausnahme. Ideal fuer Wohnungen ohne Garten
+      — das fermentierte Material kann auch in grosse Blumenkaesten
+      oder in den Kompost eines befreundeten Gaertners gegeben werden.
+    metadata:
+      topic: composting
+      subtopic: bokashi
+      difficulty: beginner

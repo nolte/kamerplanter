@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +48,7 @@ import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
@@ -115,6 +116,19 @@ export default function PlantInstanceDetailPage() {
   const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
+  const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
+  const handleLifecycleLoaded = useCallback((lc: import('@/api/types').LifecycleConfig) => {
+    if (lc.phase_sequence_key) {
+      setPhaseSequenceKey(lc.phase_sequence_key);
+    } else if (lc.species_key) {
+      // Fallback: try to find phase sequence via dedicated endpoint
+      import('@/api/endpoints/phaseSequences').then((api) =>
+        api.getSpeciesPhaseSequence(lc.species_key).then((seq) => {
+          if (seq) setPhaseSequenceKey(seq.key);
+        }).catch(() => {}),
+      );
+    }
+  }, []);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
   // Watering logs state (replaces feeding events)
@@ -1528,7 +1542,20 @@ export default function PlantInstanceDetailPage() {
                 {t('pages.phases.transition')}
               </Button>
             </Box>
-            <PlantPhaseTimeline plant={plant} history={history} speciesName={species?.scientific_name} />
+            <PlantPhaseTimeline plant={plant} history={history} speciesName={species?.scientific_name} onLifecycleLoaded={handleLifecycleLoaded} />
+            {phaseSequenceKey && (
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <Button
+                  component={RouterLink}
+                  to={`/phasen/ablaeufe/${phaseSequenceKey}`}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AccountTreeIcon />}
+                >
+                  {t('pages.phaseSequences.phaseSequence')}
+                </Button>
+              </Box>
+            )}
             <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
               {t('pages.phases.history')}
             </Typography>
@@ -2282,6 +2309,7 @@ export default function PlantInstanceDetailPage() {
       {key && (
         <PhaseTransitionDialog
           plantKey={key}
+          speciesKey={plant?.species_key}
           lifecycleKey={lifecycleKey}
           open={transitionOpen}
           onClose={() => setTransitionOpen(false)}

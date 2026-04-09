@@ -6,6 +6,7 @@ from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
@@ -20,12 +21,14 @@ class PlantInstanceService:
         rotation_validator: CropRotationValidator,
         companion_engine: CompanionPlantingEngine,
         phase_repo: IPhaseRepository | None = None,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
         self._rotation = rotation_validator
         self._companion = companion_engine
         self._phase_repo = phase_repo
+        self._phase_seq_repo = phase_seq_repo
 
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
@@ -48,14 +51,11 @@ class PlantInstanceService:
         if plant.current_phase_started_at is None:
             plant.current_phase_started_at = datetime.now(UTC)
 
-        # Resolve initial phase from lifecycle config
-        if not plant.current_phase_key and self._phase_repo:
-            lifecycle = self._phase_repo.get_lifecycle_by_species(plant.species_key)
-            if lifecycle:
-                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
-                if growth_phases:
-                    first = min(growth_phases, key=lambda gp: gp.sequence_order)
-                    plant.current_phase_key = first.key
+        # Resolve initial phase — prefer PhaseSequence, fallback to LifecycleConfig
+        if not plant.current_phase_key:
+            initial_key = self._resolve_initial_phase_key(plant.species_key)
+            if initial_key:
+                plant.current_phase_key = initial_key
 
         created = self._repo.create(plant)
 
@@ -106,6 +106,31 @@ class PlantInstanceService:
 
     def get_slot_history(self, slot_key: SlotKey, years: int = 3) -> list[PlantInstance]:
         return self._repo.get_history_by_slot(slot_key, years)
+
+    def _resolve_initial_phase_key(self, species_key: str) -> str | None:
+        """Resolve the first phase key for a species.
+
+        Tries PhaseSequence first, falls back to LifecycleConfig.
+        """
+        # Try PhaseSequence first
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                if entries:
+                    first = min(entries, key=lambda e: e.sequence_order)
+                    return first.key
+
+        # Fallback to LifecycleConfig
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+                if growth_phases:
+                    first = min(growth_phases, key=lambda gp: gp.sequence_order)
+                    return first.key
+
+        return None
 
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name."""

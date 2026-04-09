@@ -1,0 +1,113 @@
+---
+title: "Bogenhanf (Dracaena trifasciata) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [bogenhanf, sansevieria, schwiegermutterzunge, snake-plant, zimmerpflanze, pflege, asparagaceae, sukkulentenartig, anfaengerfreundlich, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: bogenhanf-standort
+    title: "Bogenhanf — Standort und Licht"
+    content: |
+      Der Bogenhanf (Dracaena trifasciata, frueher Sansevieria trifasciata,
+      auch Schwiegermutterzunge oder Snake Plant genannt) gehoert zu den
+      robustesten Zimmerpflanzen ueberhaupt. Er vertraegt Vernachlaessigung,
+      trockene Luft und wenig Licht besser als fast jede andere Pflanze.
+
+      Licht: Extrem anpassungsfaehig. Von Vollsonne bis Halbschatten —
+      der Bogenhanf waechst (fast) ueberall. Mehr Licht foerdert
+      schnelleres Wachstum und kraeftigere Farben. Auch in dunklen Ecken
+      ueberlebt er, waechst dann aber extrem langsam. Variegierte Sorten
+      wie 'Laurentii' (goldener Blattrand) brauchen etwas mehr Licht.
+
+      Temperatur: 18 bis 27 Grad Celsius optimal. Nachts nicht unter
+      15 Grad. Mindesttemperatur 10 Grad — unter 10 Grad drohen
+      Kaelteschaeden. Normale Zimmertemperatur ist perfekt.
+
+      Luftfeuchtigkeit: 30 bis 50 Prozent — der Bogenhanf bevorzugt
+      trockene Luft. Er ist damit ideal fuer beheizte Raeume im Winter,
+      wo andere Pflanzen unter der trockenen Heizungsluft leiden.
+      Keine Befeuchtung noetig.
+
+      Standort-Tipp: Ideal fuer Schlafzimmer (produziert nachts
+      Sauerstoff), Bueros, Flure und alle Raeume mit trockener Luft.
+      Einer der besten Luftreiniger laut NASA-Studie: filtert
+      Formaldehyd, Benzol, Trichlorethylen, Xylol und Toluol.
+    metadata:
+      topic: bogenhanf_care
+      species: "Dracaena trifasciata"
+      difficulty: beginner
+
+  - id: bogenhanf-giessen
+    title: "Bogenhanf — Giessen und Substrat"
+    content: |
+      Beim Bogenhanf gilt die goldene Regel: Lieber zu wenig als zu
+      viel giessen. Die sukkulenten Blaetter speichern Wasser, und
+      Ueberwaesserung ist mit Abstand der haeufigste Pflegefehler.
+
+      Giess-Rhythmus Sommer (April bis September): Alle 14 bis 21 Tage.
+      Das Substrat muss zwischen den Wassergaben komplett durchtrocknen.
+
+      Giess-Rhythmus Winter (Oktober bis Maerz): Nur einmal pro Monat
+      oder noch seltener. Im Winter braucht der Bogenhanf fast kein
+      Wasser.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain), dann
+      komplett austrocknen lassen. Ueberschuss sofort entfernen.
+
+      Wasserqualitaet: Normales Leitungswasser ist voellig in Ordnung.
+      Staunaesse unbedingt vermeiden.
+
+      Substrat: Kaktus- oder Sukkulentenerde, oder Einheitserde mit
+      30 bis 40 Prozent Perlite oder Sand. Sehr durchlaessig. Tongefaesse
+      sind ideal, weil sie schneller austrocknen als Plastiktoepfe.
+      Empfohlenes Topfvolumen: 2 bis 15 Liter.
+
+      Haeufigste Giess-Fehler:
+      - Zu viel giessen: Die haeufigste Todesursache. Weiche, gelbe
+        Blaetter an der Basis und fauliger Geruch sind Warnzeichen.
+      - Wasser in den Blatttrichter: Kann besonders im Winter zu
+        Blattbasisfaeule fuehren.
+      - Im Winter genauso viel giessen wie im Sommer: Fuehrt fast
+        sicher zu Wurzelfaeule.
+    metadata:
+      topic: bogenhanf_care
+      species: "Dracaena trifasciata"
+      difficulty: beginner
+
+  - id: bogenhanf-duengung
+    title: "Bogenhanf — Duengung und Umtopfen"
+    content: |
+      Duengung: Der Bogenhanf ist ein extremer Schwachzehrer — er
+      speichert Naehrstoffe in seinen sukkulenten Blaettern. Maximal
+      2 bis 3 Duengergaben pro Jahr genuegen.
+
+      Von April bis August: Alle 6 bis 8 Wochen mit einem Kakteen- und
+      Sukkulentenduenger (zum Beispiel NPK 4-6-7, nur 2 ml pro Liter —
+      halbe Normaldosis). Alternativ normalen Zimmerpflanzenduenger mit
+      einem Drittel der empfohlenen Dosis verwenden.
+
+      Von September bis Maerz: Kein Duenger. Ueberdüngung bei
+      Winterruhe ist einer der haeufigsten Fehler.
+
+      Organische Alternative: 10 Prozent Wurmhumus oder 5 Prozent
+      Pflanzenkohle beim Umtopfen unter das Substrat mischen.
+
+      Umtopfen: Nur alle 2 bis 3 Jahre, wenn die Wurzeln aus dem Topf
+      draengen. Im Fruehling (Februar/Maerz). Bogenhanf mag es etwas
+      enger — zu grosse Toepfe erhoehen das Staunaesserisiko.
+
+      Vermehrung: Drei Methoden moeglich:
+      1. Teilung des Rhizoms beim Umtopfen — schnellste Methode.
+      2. Blattstecklinge: 5 bis 8 cm lange Stuecke eines Blattes
+         in Substrat stecken. Dauert 2 bis 3 Monate.
+         Wichtig: Variegierte Sorten wie 'Laurentii' verlieren bei
+         Blattstecklingen ihre Baenderung — gruene Nachkoemmlinge.
+      3. Ableger (Auslaeufer) am Topfrand, wenn vorhanden.
+
+      Achtung: Leicht giftig fuer Katzen, Hunde und Kinder (Saponine).
+      Symptome: Uebelkeit, Erbrechen, Durchfall.
+    metadata:
+      topic: bogenhanf_care
+      species: "Dracaena trifasciata"
+      difficulty: beginner

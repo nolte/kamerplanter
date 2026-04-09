@@ -1,0 +1,143 @@
+---
+title: "Geigenfeige (Ficus lyrata) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [geigenfeige, ficus-lyrata, fiddle-leaf-fig, zimmerpflanze, pflege, moraceae, tropisch]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: ficus-lyrata-standort
+    title: "Geigenfeige — Standort und Licht"
+    content: |
+      Die Geigenfeige (Ficus lyrata) ist eine der anspruchsvollsten
+      Zimmerpflanzen, wenn es um den Standort geht. Die wichtigste Regel:
+      Einmal den richtigen Platz gefunden — nie mehr bewegen. Ficus lyrata
+      hasst Standortwechsel und reagiert mit massivem Blattabwurf.
+
+      Licht: Helles, indirektes Licht ist der Schluesselfaktor. Ein
+      Platz nahe einem grossen Ost- oder Westfenster ist ideal. Etwas
+      Morgensonne oder spaete Nachmittagssonne wird vertragen, aber
+      keine pralle Mittagssonne. Ohne ausreichend Licht stirbt die
+      Pflanze langsam ab.
+
+      Temperatur: 18 bis 24 Grad Celsius am Tag, nachts nicht unter
+      15 Grad. Mindesttemperatur 12 Grad. Die Geigenfeige ist extrem
+      empfindlich gegenueber Zugluft und Temperaturwechseln — schon
+      ein offenes Fenster im Winter kann Blattabwurf ausloesen.
+
+      Luftfeuchtigkeit: 50 bis 60 Prozent genuegen. Bei trockener
+      Heizungsluft im Winter die Blaetter gelegentlich besprühen oder
+      einen Luftbefeuchter aufstellen.
+
+      Tipp: Im Februar pruefen, ob der Standort noch genug Licht bietet.
+      Falls nicht, eine Pflanzenlampe ergaenzen. Ausserdem die grossen
+      Blaetter regelmaessig mit einem feuchten Tuch abwischen — Staub
+      auf den Blaettern hemmt die Photosynthese.
+    metadata:
+      topic: ficus_lyrata_care
+      species: "Ficus lyrata"
+      difficulty: beginner
+
+  - id: ficus-lyrata-giessen
+    title: "Geigenfeige — Giessen und Substrat"
+    content: |
+      Die Geigenfeige mag es gleichmaessig feucht, aber nie nass.
+      Staunaesse ist toedlich fuer diese Pflanze.
+
+      Giess-Rhythmus Sommer (Maerz bis September): Alle 7 bis 14 Tage.
+      Die oberen 5 Zentimeter der Erde sollten zwischen den Wassergaben
+      antrocknen.
+
+      Giess-Rhythmus Winter (Oktober bis Februar): Alle 14 bis 21 Tage.
+      Das Substrat zwischen den Guessen deutlich abtrocknen lassen.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain) — so lange
+      giessen, bis Wasser unten aus dem Topf laeuft. Ueberschuss nach
+      30 Minuten weggiessen. Immer zimmerwarmes Wasser verwenden.
+
+      Substrat: Lockere, gut durchlaessige Qualitaetserde mit hohem
+      organischem Anteil. Bewaehrte Mischung: 60 Prozent Einheitserde,
+      20 Prozent Perlite, 20 Prozent Kokoserde. pH-Wert 6,0 bis 7,0.
+      Tongefaesse mit guter Drainage sind besser als Plastiktoepfe.
+
+      Haeufigste Giess-Fehler:
+      - Staunaesse: Fuehrt schnell zu Wurzelfaeule (Welke trotz feuchter
+        Erde, schwarze Wurzeln, Blattverlust).
+      - Kaltes Wasser: Kann Blattfall ausloesen.
+      - Unregelmaeissiges Giessen: Wechsel zwischen zu trocken und zu
+        nass stresst die Pflanze enorm.
+    metadata:
+      topic: ficus_lyrata_care
+      species: "Ficus lyrata"
+      difficulty: beginner
+
+  - id: ficus-lyrata-duengung
+    title: "Geigenfeige — Duengung und Umtopfen"
+    content: |
+      Duengung: Monatlich von Maerz bis September mit einem
+      Gruenpflanzen-Fluessigduenger (zum Beispiel NPK 7-3-6,
+      5 ml pro Liter Wasser). Stickstoff sorgt fuer sattgruene
+      Blaetter — aber massvolle Dosierung ist wichtig.
+
+      Von Oktober bis Februar: Kein Duenger. Ueberdüngung fuehrt zu
+      Blattrandnekrosen und Blattverbrennungen. Bei Blattflecken:
+      Duenger fuer 2 Monate komplett aussetzen.
+
+      Organische Alternative: Beim Umtopfen 15 bis 20 Prozent Wurmhumus
+      oder 10 Prozent Bokashi-Kompost unter das Substrat mischen.
+
+      Umtopfen: Nur alle 2 bis 3 Jahre, und nur wenn die Pflanze
+      eindeutig wurzelgebunden ist (Wurzeln wachsen aus den
+      Abzugsloechern). Maximal 2 cm groesseren Topf waehlen — zu
+      grosse Toepfe erhoehen das Staunaesserisiko. Nicht zu oft
+      umtopfen, das stresst die Pflanze.
+
+      Empfohlenes Topfvolumen: 10 bis 30 Liter. Mindestens 30 cm
+      Topftiefe. Bester Zeitpunkt: April.
+
+      Rueckschnitt: Nur im Fruehjahr (Maerz/April) schneiden, wenn die
+      Pflanze aktiv waechst. Topping (Haupttrieb kappen) foerdert
+      buschigen Wuchs. Schnittstellen mit Aktivkohle behandeln, da
+      der Milchsaft sich sonst staut.
+
+      Achtung: Die Geigenfeige ist giftig fuer Haustiere und Kinder.
+      Beim Schneiden und Umtopfen Handschuhe tragen (Latexallergie-
+      Kreuzreaktion moeglich durch den Milchsaft).
+    metadata:
+      topic: ficus_lyrata_care
+      species: "Ficus lyrata"
+      difficulty: beginner
+
+  - id: ficus-lyrata-probleme
+    title: "Geigenfeige — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Massiver Blattabwurf: Fast immer durch Standortwechsel,
+        Zugluft oder Temperaturwechsel. Einmal guten Platz gefunden,
+        nie mehr bewegen.
+      - Braune Flecken: Ueberwaesserung (wässrige braune Flecken)
+        oder bakterielle Blattflecken (braune Flecken mit gelbem Hof).
+      - Gelbe Blaetter bei gruenen Adern: Eisen- oder Magnesiummangel,
+        oder falscher pH-Wert im Substrat.
+      - Weisser Belag auf Blaettern: Echter Mehltau, entsteht bei
+        trockener Luft und feuchten Blaettern.
+
+      Schaedlinge: Spinnmilben (Gespinste, gelbe Tupfen), Schmierlaeusen
+      (Wollflecken in Blattachseln), Schildlaeusen (braune Schilder auf
+      Staengeln), Weisse Fliegen und Blattlaeusen.
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben und
+      Schmierlaeusen. Alkohol (70 Prozent) mit Wattestaebchen gegen
+      Schildlaeusen. Insektizidseife gegen Blattlaeusen und Weisse Fliegen.
+      Alle 2 Wochen Blaetter kontrollieren.
+
+      Vermehrung: Schwierig im Vergleich zu anderen Zimmerpflanzen.
+      Die zuverlaessigste Methode ist Abmoosen (Air Layering): Stamm
+      anschneiden, feuchtes Sphagnum-Moos mit Folie umwickeln, nach
+      4 bis 8 Wochen bewurzelt. Stecklinge mit 2 bis 3 Blaettern bei
+      24 bis 28 Grad und ueber 80 Prozent Luftfeuchtigkeit. Stecklinge
+      im Wasser funktionieren selten gut.
+    metadata:
+      topic: ficus_lyrata_care
+      species: "Ficus lyrata"
+      difficulty: intermediate

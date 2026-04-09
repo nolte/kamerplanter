@@ -108,9 +108,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     run_seed_activities()
 
+    from app.migrations.seed_phase_sequences import run_seed_phase_sequences
+
+    run_seed_phase_sequences()
+
     from app.migrations.seed_lifecycles_outdoor import run_seed_lifecycles_outdoor
 
     run_seed_lifecycles_outdoor()
+
+    from app.migrations.migrate_lifecycle_to_phase_sequence import (
+        run_migrate_lifecycle_to_phase_sequence,
+    )
+
+    run_migrate_lifecycle_to_phase_sequence()
 
     if settings.kamerplanter_mode == "light":
         from app.migrations.seed_light_mode import run_seed_light_mode

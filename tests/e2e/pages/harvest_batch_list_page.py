@@ -310,12 +310,36 @@ class HarvestBatchListPage(BasePage):
         return len(els) > 0 and els[0].is_displayed()
 
     def has_any_dialog_error(self) -> bool:
-        """Check for any MUI error helper text inside the dialog."""
+        """Check for any MUI error helper text or error-state form control inside the dialog."""
+        from selenium.webdriver.common.by import By
+
+        # Check for explicit error helper text
+        if len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+        )) > 0:
+            return True
+        # Check for MUI form controls in error state (e.g. Select without helper text)
+        if len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "div[role='dialog'] .MuiFormControl-root.Mui-error",
+        )) > 0:
+            return True
+        # Check for MUI InputBase in error state
+        if len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "div[role='dialog'] .MuiInputBase-root.Mui-error",
+        )) > 0:
+            return True
+        return False
+
+    def has_aria_invalid_field(self) -> bool:
+        """Check for any field with aria-invalid='true' inside the dialog."""
         from selenium.webdriver.common.by import By
 
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+            "div[role='dialog'] [aria-invalid='true']",
         )) > 0
 
     def wait_for_dialog_closed(self, timeout: int = 10) -> None:

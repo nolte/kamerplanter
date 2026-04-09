@@ -1,0 +1,138 @@
+---
+title: "Gummibaum (Ficus elastica) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [gummibaum, ficus-elastica, rubber-plant, zimmerpflanze, pflege, moraceae, tropisch, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: ficus-elastica-standort
+    title: "Gummibaum — Standort und Licht"
+    content: |
+      Der Gummibaum (Ficus elastica) ist deutlich robuster als seine
+      Verwandten Geigenfeige und Birkenfeige. Er toleriert Standortwechsel,
+      niedrigere Lichtverhältnisse und gelegentliches Vergessen beim
+      Giessen besser.
+
+      Licht: Helles, indirektes Licht ist optimal. Der Gummibaum kommt
+      aber auch mit weniger Licht zurecht als andere Ficus-Arten. Dunkle
+      Sorten wie 'Burgundy' vertragen etwas mehr Schatten, variegierte
+      Sorten wie 'Tineke' brauchen mehr Licht, damit die Musterung
+      erhalten bleibt. Direkte Mittagssonne vermeiden.
+
+      Temperatur: 18 bis 29 Grad Celsius am Tag, nachts nicht unter
+      15 Grad. Mindesttemperatur 10 Grad. Damit ist er kaeltetoleranter
+      als die Geigenfeige.
+
+      Luftfeuchtigkeit: 40 bis 60 Prozent genuegen. Normale Raumluft
+      reicht in der Regel aus. Keine besondere Befeuchtung noetig.
+
+      Sommer im Freien: Der Gummibaum kann im Sommer auf den Balkon
+      oder die Terrasse gestellt werden — halbschattiger, windgeschuetzter
+      Platz. Vor dem ersten Frost wieder einraumen.
+
+      Besonderheit: Die grossen, glaenzenden Blaetter reinigen die Luft
+      besonders gut (NASA Clean Air Study). Regelmaessiges Abstauben
+      der Blaetter foerdert sowohl die Photosynthese als auch die
+      Luftreinigung.
+    metadata:
+      topic: ficus_elastica_care
+      species: "Ficus elastica"
+      difficulty: beginner
+
+  - id: ficus-elastica-giessen
+    title: "Gummibaum — Giessen und Substrat"
+    content: |
+      Der Gummibaum ist beim Giessen vergleichsweise unkompliziert,
+      vertraegt aber keine Staunaesse.
+
+      Giess-Rhythmus Sommer (Maerz bis Oktober): Alle 7 bis 14 Tage.
+      Die ersten 2 bis 5 Zentimeter Erde zwischen den Wassergaben
+      trocknen lassen.
+
+      Giess-Rhythmus Winter (November bis Februar): Alle 14 bis 21 Tage.
+      Deutlich weniger giessen, da die Pflanze kaum waechst.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain). Immer
+      zimmerwarmes Wasser verwenden.
+
+      Substrat: Lockere, gut durchlaessige Qualitaetserde mit 20 Prozent
+      Perlite. pH-Wert 6,0 bis 7,0. Schwere Erde vermeiden — gute
+      Drainage ist wichtig.
+
+      Haeufigste Giess-Fehler:
+      - Zu viel giessen: Gelbe Blaetter, Blattverlust, Wurzelfaeule.
+        Wenn die Pflanze welkt trotz feuchter Erde, sind die Wurzeln
+        wahrscheinlich schon angegriffen.
+      - Wasser im Untersetzer stehen lassen: Klassischer Anfaengerfehler,
+        fuehrt schnell zu Staunaesse.
+      - Zu selten giessen ist weniger schlimm: Der Gummibaum verzeiht
+        kurze Trockenperioden besser als die meisten Ficus-Arten.
+    metadata:
+      topic: ficus_elastica_care
+      species: "Ficus elastica"
+      difficulty: beginner
+
+  - id: ficus-elastica-duengung
+    title: "Gummibaum — Duengung und Umtopfen"
+    content: |
+      Duengung: Monatlich von Maerz bis Oktober mit einem
+      Gruenpflanzen-Fluessigduenger (zum Beispiel NPK 7-3-6,
+      5 ml pro Liter Wasser). Stickstoffbetonte Formel foerdert
+      glaenzendes, grosses Laub.
+
+      November bis Februar: Kein Duenger.
+
+      Organische Alternative: 15 Prozent Wurmhumus oder 10 Prozent
+      Bokashi beim Umtopfen unter das Substrat mischen.
+
+      Umtopfen: Alle 2 Jahre in einen leicht groesseren Topf.
+      Empfohlenes Topfvolumen: 10 bis 30 Liter. Mindestens 30 cm
+      Topftiefe. Bester Zeitpunkt: Fruehjahr.
+
+      Rueckschnitt: Vertraegt Rueckschnitt gut, am besten im Fruehjahr
+      (Maerz bis Mai). Topping (Haupttrieb kappen) foerdert Verzweigung.
+      Schnittstellen mit Aktivkohle behandeln, weil viel Milchsaft
+      austritt.
+
+      Ruhephase (November bis Februar): Weniger giessen, nicht duengen.
+      Blaetter weiterhin regelmaessig entstauben.
+
+      Achtung: Der Gummibaum ist giftig fuer Haustiere und Kinder.
+      Der Milchsaft kann bei Latex-Allergikern Kreuzreaktionen ausloesen.
+      Beim Schneiden immer Handschuhe tragen.
+    metadata:
+      topic: ficus_elastica_care
+      species: "Ficus elastica"
+      difficulty: beginner
+
+  - id: ficus-elastica-probleme
+    title: "Gummibaum — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Gelbe Blaetter und Blattverlust: Ueberwaesserung ist die
+        haeufigste Ursache. Weniger giessen und Drainage pruefen.
+      - Schwarzer Belag auf Blaettern (Russtau): Folge von
+        Schildlaus- oder Schmierlausbefall. Erst die Schaedlinge
+        bekaempfen, dann die Blaetter abwischen.
+      - Blaetter verlieren Glanz: Staub auf den Blaettern oder
+        Naehrstoffmangel.
+
+      Schaedlinge: Spinnmilben (Gespinste, Blaetter vergilben),
+      Schmierlaeusen (Wollflecken), Schildlaeusen (braune Schilder),
+      Weisse Fliegen (Honigtau). Alle 2 Wochen kontrollieren.
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben und
+      Schmierlaeusen. Alkohol (70 Prozent) mit Wattestaebchen gegen
+      Schildlaeusen. Insektizidseife gegen Weisse Fliegen.
+
+      Vermehrung: Mittlerer Schwierigkeitsgrad. Stecklinge (10 bis
+      15 cm) bei 22 bis 26 Grad und ueber 80 Prozent Luftfeuchtigkeit
+      bewurzeln. Schnittstelle kurz trocknen lassen wegen des
+      Milchsafts, dann mit Plastikbeutel abdecken. Bewurzelung in
+      4 bis 8 Wochen. Abmoosen (Luftabsenker) funktioniert bei
+      dickeren Staemmen besser.
+    metadata:
+      topic: ficus_elastica_care
+      species: "Ficus elastica"
+      difficulty: beginner

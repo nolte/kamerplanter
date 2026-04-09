@@ -1,0 +1,112 @@
+---
+title: "Elefantenohr (Alocasia x amazonica) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [alocasia, elefantenohr, afrikanische-maske, zimmerpflanze, pflege, araceae, tropisch]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: alocasia-standort
+    title: "Elefantenohr — Standort und Licht"
+    content: |
+      Das Elefantenohr (Alocasia x amazonica, oft als 'Polly' verkauft)
+      ist eine tropische Pflanze mit dramatischen, pfeilfoermigen Blaettern
+      und auffaelliger weisser Blattaderung. Trotz des Namens kommt sie
+      nicht aus dem Amazonas — sie ist eine Hybridzuechtung aus Florida.
+
+      Licht: Helles, indirektes Licht. Kein direktes Sonnenlicht, da die
+      Blaetter schnell verbrennen. Ein Platz am Ost- oder Westfenster
+      mit leichtem Abstand ist ideal. Bei zu wenig Licht werden die
+      Blaetter kleiner und die Pflanze waechst kaum.
+
+      Temperatur: 18 bis 27 Grad Celsius am Tag, nachts nicht unter
+      16 Grad. Unter 15 Grad stellt die Pflanze das Wachstum ein und
+      kann in eine Dormanz (Ruhephase) gehen — alle Blaetter sterben ab
+      und nur die Knolle ueberwintert im Topf. Das ist normal und kein
+      Zeichen des Absterbens. Im Fruehling treibt sie wieder aus.
+
+      Luftfeuchtigkeit: 60 bis 80 Prozent — das ist der entscheidende
+      Faktor. Bei trockener Raumluft bekommen die Blaetter braune Raender
+      und Spitzen. Ein Luftbefeuchter, regelmaessiges Besprühen oder ein
+      Platz im Badezimmer hilft.
+
+      Achtung: Alocasia ist stark giftig fuer Katzen, Hunde und
+      Kleinkinder. Die Calciumoxalat-Kristalle koennen schwere
+      Schwellungen im Mund- und Rachenraum verursachen. In Haushalten
+      mit Kleinkindern oder Tieren besser auf andere Pflanzen ausweichen.
+    metadata:
+      topic: alocasia_care
+      species: "Alocasia x amazonica"
+      difficulty: beginner
+
+  - id: alocasia-giessen
+    title: "Elefantenohr — Giessen und Substrat"
+    content: |
+      Alocasia braucht gleichmaessige Feuchtigkeit, vertraegt aber
+      absolut keine Staunaesse. Die Knollen faulen sehr schnell bei
+      zu viel Naesse.
+
+      Giess-Rhythmus Sommer (Maerz bis September): Alle 5 bis 7 Tage.
+      Substrat gleichmaessig feucht halten, aber nie durchnaesst.
+
+      Giess-Rhythmus Winter / Dormanz (Oktober bis Februar): Alle 14
+      bis 21 Tage, nur ganz sparsam. Wenn die Pflanze in Dormanz geht
+      (alle Blaetter abgeworfen), die Knolle im Topf lassen und nur
+      minimal feucht halten.
+
+      Giessmethode: Gruendlich durchgiessen (Drench and Drain).
+      Ueberschuss sofort entfernen.
+
+      Wasserqualitaet: Weiches, kalkfreies Wasser bevorzugt.
+      Raumtemperatur — kein kaltes Leitungswasser.
+
+      Substrat: Lockeres, gut drainiertes Substrat ist entscheidend.
+      Bewaehrte Mischung: Einheitserde plus 30 Prozent Perlite plus
+      10 Prozent Orchideenrinde. pH 5,5 bis 7,0. Guter Wasserabzug
+      ist zwingend.
+
+      Haeufigste Giess-Fehler:
+      - Staunaesse: Fuehrt zu Knollenfaeule (welke, gelbe Blaetter,
+        faulende Knollen). Haeufigstes Problem bei dieser Pflanze.
+      - Zu trockene Luft statt zu wenig Wasser: Braune Blattspitzen
+        sind oft ein Luftfeuchtigkeitsproblem, nicht ein Giessproblem.
+      - Wasser auf Blaettern: Kann braune oder schwarze Blattflecken
+        verursachen.
+    metadata:
+      topic: alocasia_care
+      species: "Alocasia x amazonica"
+      difficulty: beginner
+
+  - id: alocasia-duengung
+    title: "Elefantenohr — Duengung und Umtopfen"
+    content: |
+      Duengung: Alle 2 bis 4 Wochen in der Wachstumsphase (Maerz bis
+      September) mit einem Gruenpflanzen-Fluessigduenger (NPK 7-3-6,
+      5 ml pro Liter Wasser). Stickstoff foerdert grosses, sattgruenes
+      Laub.
+
+      Im Herbst und Winter: Kein Duenger. Ueberdüngung fuehrt zu
+      Blattrandnekrosen. Wenn die Pflanze in Dormanz ist, auf keinen
+      Fall duengen.
+
+      Organische Alternative: 15 Prozent Wurmhumus beim Umtopfen
+      unter das Substrat mischen.
+
+      Umtopfen: Alle 1 bis 2 Jahre im Fruehling. Empfohlenes
+      Topfvolumen: 3 bis 12 Liter. Mindestens 20 cm Topftiefe.
+      Beim Umtopfen Kindknollen (Ableger) entdecken und bei
+      Bedarf abtrennen.
+
+      Dormanz-Pflege: Wenn im Winter alle Blaetter absterben, die
+      Knolle im Topf lassen. Kaum giessen, nicht duengen. Den Topf
+      warm halten (mindestens 15 Grad). Im Fruehling treibt die
+      Knolle von selbst wieder aus.
+
+      Vermehrung: Beim Umtopfen Kindknollen (kleine Ableger an der
+      Mutterknolle) abtrennen. Jede Kindknolle mit eigenem Triebansatz
+      einzeln einpflanzen. Bewurzelung bei 22 bis 24 Grad Bodentemperatur
+      und hoher Luftfeuchtigkeit (80 Prozent).
+    metadata:
+      topic: alocasia_care
+      species: "Alocasia x amazonica"
+      difficulty: beginner

@@ -21,6 +21,7 @@ def generate_due_care_reminders() -> dict:
         get_care_reminder_service,
         get_lifecycle_repo,
         get_nutrient_plan_repo,
+        get_phase_sequence_repo,
         get_plant_repo,
         get_planting_run_repo,
         get_task_repo,
@@ -34,6 +35,7 @@ def generate_due_care_reminders() -> dict:
     plant_repo = get_plant_repo()
     nutrient_plan_repo = get_nutrient_plan_repo()
     lifecycle_repo = get_lifecycle_repo()
+    phase_seq_repo = get_phase_sequence_repo()
 
     today = date.today()
     created_count = 0
@@ -55,13 +57,24 @@ def generate_due_care_reminders() -> dict:
 
         # Always ensure next watering task exists (unless plant has active run schedule)
         if not has_plan:
-            # Resolve phase-specific watering interval
+            # Resolve phase-specific watering interval — prefer PhaseSequence, fallback to LifecycleConfig
             phase_interval = None
             plant = plant_repo.get_by_key(plant_key)
             if plant and plant.current_phase_key:
-                phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
-                if phase and phase.watering_interval_days:
-                    phase_interval = phase.watering_interval_days
+                # Try PhaseSequence first
+                resolved = False
+                if phase_seq_repo:
+                    entry = phase_seq_repo.get_entry_by_key(plant.current_phase_key)
+                    if entry:
+                        defn = phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                        if defn and defn.watering_interval_days:
+                            phase_interval = defn.watering_interval_days
+                            resolved = True
+                # Fallback to LifecycleConfig
+                if not resolved:
+                    phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+                    if phase and phase.watering_interval_days:
+                        phase_interval = phase.watering_interval_days
             task = care_service.ensure_next_watering_task(
                 profile,
                 phase_watering_interval=phase_interval,

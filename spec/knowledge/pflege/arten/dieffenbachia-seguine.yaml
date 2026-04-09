@@ -1,0 +1,91 @@
+---
+title: "Dieffenbachie (Dieffenbachia seguine) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [dieffenbachie, dieffenbachia-seguine, dumb-cane, zimmerpflanze, pflege, tropisch, giftig, luftreinigend]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: dieffenbachia-seguine-standort
+    title: "Dieffenbachie — Standort und Licht"
+    content: |
+      Die Dieffenbachie (Dieffenbachia seguine) stammt aus den feuchten
+      Tropenwaeldern Mittel- und Suedamerikas. Sie mag helles, indirektes
+      Licht — ein Ost- oder Westfenster ist ideal. Direkte Sonne verbrennt
+      die Blaetter, zu wenig Licht fuehrt zu blassen Farben und langsamem
+      Wachstum.
+
+      Temperatur: 20-30 Grad Celsius im Sommer, 18-24 Grad im Winter.
+      Die Pflanze ist empfindlich gegen Zugluft und Kaelte — unter
+      15 Grad wird es problematisch.
+
+      Luftfeuchtigkeit: 60-70% sind optimal. Trockene Heizungsluft im
+      Winter kann zu braunen Blattspitzen fuehren. Abhilfe: Luftbefeuchter,
+      Kieselstein-Schale mit Wasser oder Pflanzen gruppieren.
+
+      SICHERHEITSHINWEIS: Die Dieffenbachie ist stark giftig. Alle
+      Pflanzenteile enthalten Calciumoxalat-Nadelkristalle. Bei Kontakt
+      mit Mund und Zunge starkes Brennen, Schwellung und voruebergehender
+      Sprachverlust (daher "Dumb Cane"). Kinder und Haustiere muessen
+      von dieser Pflanze ferngehalten werden. Beim Umtopfen und Schneiden
+      immer Handschuhe tragen.
+    metadata:
+      topic: dieffenbachia_seguine_care
+      species: "Dieffenbachia seguine"
+      difficulty: beginner
+
+  - id: dieffenbachia-seguine-giessen
+    title: "Dieffenbachie — Giessen und Substrat"
+    content: |
+      Die Dieffenbachie mag gleichmaessige Feuchtigkeit. Im Sommer alle
+      7-10 Tage giessen, im Winter alle 10-14 Tage. Das Substrat sollte
+      zwischen den Wassergaben leicht antrocknen, aber nie komplett
+      austrocknen.
+
+      Giessmethode: Kraeftig durchgiessen und ablaufen lassen. Staunaesse
+      unbedingt vermeiden — fuehrt zu Wurzelfaeule. Zimmerwarmes Wasser
+      verwenden. Hartes Leitungswasser kann zu Blattrandnekrosen fuehren.
+
+      Substrat: Lockere, gut durchlaessige Blumenerde mit 20-30% Perlite.
+      pH-Wert 6.0-7.0. Hoher organischer Anteil wird bevorzugt. Gute
+      Drainage ist unerlässlich.
+
+      Die Dieffenbachie kann recht gross werden (60-180 cm hoch). Mit
+      der Zeit fallen die unteren Blaetter ab und der Stamm wird kahl.
+      Das ist normal. Falls die Pflanze zu gross wird oder kahl aussieht:
+      Im Fruehling den Stamm auf 5-10 cm kuerzen — er treibt zuverlaessig
+      neu aus. HANDSCHUHE und Schutzbrille dabei tragen.
+    metadata:
+      topic: dieffenbachia_seguine_care
+      species: "Dieffenbachia seguine"
+      difficulty: beginner
+
+  - id: dieffenbachia-seguine-duengung
+    title: "Dieffenbachie — Duengung und Umtopfen"
+    content: |
+      Die Dieffenbachie ist ein mittlerer Zehrer und braucht regelmaessige
+      Naehrstoffe. Von Maerz bis September monatlich mit einem stickstoff-
+      betonten Zimmerpflanzenduenger duengen (z.B. Compo 7-3-6, 5 ml/L).
+      Der Stickstoff foerdert das ueppige, grosse Laub. Oktober bis
+      Februar nicht duengen.
+
+      Bei schlechtem Licht: Duengermenge reduzieren, weil die Pflanze
+      weniger Naehrstoffe verwerten kann.
+
+      Umtopfen: Alle 1-2 Jahre im Fruehling in einen etwas groesseren
+      Topf mit frischer Erde. Immer Handschuhe tragen wegen des giftigen
+      Pflanzensafts.
+
+      Schaedlinge: Anfaellig fuer Spinnmilben (feine Gespinste bei
+      trockener Luft), Schmierlaeuse (Wollflecken in Blattachseln) und
+      Blattlaeuse (Kolonien an Triebspitzen). Vorbeugung: Regelmaessig
+      kontrollieren, Luftfeuchtigkeit hoch halten. Behandlung: Neemoel
+      0.5% spruehen oder Schmierlaeuse mit Alkohol und Wattestaebchen
+      entfernen — dabei Handschuhe tragen.
+
+      Vermehrung: Stammstuecke (5-10 cm) mit einem Auge in feuchtes
+      Substrat legen. Bewurzelung bei 22-26 Grad in 3-6 Wochen.
+    metadata:
+      topic: dieffenbachia_seguine_care
+      species: "Dieffenbachia seguine"
+      difficulty: beginner

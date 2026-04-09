@@ -1,0 +1,329 @@
+---
+title: Pilzkrankheiten erweitert — seltene und spezialisierte Erreger
+language: de
+category: diagnostik
+tags: [pilzkrankheiten, rost, schwarzflecken, verticillium, fusarium, alternaria, buchsbaum, sternrusstau, septoria, pilz, fungizid]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: rost-puccinia
+    title: Rost (Puccinia spp.) erkennen und behandeln
+    content: |
+      Symptome: Orangefarbene bis rostbraune Pusteln auf der Blattunterseite
+      — sehen aus wie kleine Sommersprossen oder Rostflecken. Auf der
+      Blattoberseite erscheinen gelbliche Flecken als Gegenreaktion. Bei
+      starkem Befall verschmelzen die Pusteln, das Blatt vergilbt und
+      faellt vorzeitig ab. Manchmal sind auch Stengel und Blattstiele
+      betroffen.
+      Erreger: Puccinia-Arten und verwandte Gattungen (Uromyces,
+      Phragmidium). Viele Rostpilze sind wirtsspezifisch — Rosenrost
+      befaellt keine Geranien und umgekehrt. Einige Arten benoetigen
+      einen Wirtswechsel zwischen zwei verschiedenen Pflanzenarten
+      (z.B. Birnengitterrost wechselt zwischen Birne und Wacholder).
+      Betroffene Pflanzen: Rosen (Phragmidium), Malven, Stockrosen,
+      Pelargonien, Fuchsien, Schnittlauch, Minze, Getreide, Birne
+      (Birnengitterrost), Rasen (Kronenrost).
+      Sofortmassnahmen:
+      - Befallene Blaetter abpfluecken und im Restmuell entsorgen
+        (NICHT kompostieren — Sporen ueberleben)
+      - Boden unter der Pflanze von abgefallenem Laub befreien
+      - Fungizid auf Schwefel- oder Kupferbasis vorbeugend spritzen
+      - Bei Birnengitterrost: Wacholder als Zwischenwirt in der Naehe
+        entfernen wenn moeglich
+      Vorbeugung:
+      - Resistente Sorten waehlen (bei Rosen besonders wichtig)
+      - Blaetter trocken halten — nur von unten giessen
+      - Nicht zu dicht pflanzen — gute Luftzirkulation
+      - Herbstlaub konsequent entfernen (Ueberwinterung der Sporen)
+      - Stickstoff-Duengung nicht uebertreiben (weiches Gewebe
+        ist anfaelliger)
+      Abgrenzung: Nicht verwechseln mit Oedema (Korkflecken bei
+      Pelargonien) — Oedema-Pusteln sind fest und nicht staeubend,
+      waehrend Rostpusteln beim Beruehren oranges Sporenpulver abgeben.
+    metadata:
+      pathogen: rust
+      family: Pucciniaceae
+      disease_type: fungal
+      difficulty: beginner
+
+  - id: schwarzfleckenkrankheit-rose
+    title: Schwarzfleckenkrankheit (Diplocarpon rosae) bei Rosen
+    content: |
+      Symptome: Runde, schwarze Flecken mit ausgefranstem Rand auf der
+      Blattoberseite. Die Flecken werden bis zu 1-2 cm gross. Das
+      Blattgewebe um die Flecken herum vergilbt. Bei starkem Befall
+      wirft die Rose massiv Blaetter ab — manchmal steht sie im
+      Hochsommer fast kahl da.
+      Erreger: Diplocarpon rosae (auch als Marssonina rosae bekannt).
+      Der Pilz ueberwintert auf abgefallenem Laub am Boden und auf
+      befallenen Trieben.
+      Betroffene Pflanzen: Fast ausschliesslich Rosen. Alle Rosenklassen
+      koennen betroffen sein, aber Beetrosen und Kletterrosen sind
+      besonders anfaellig. Manche Wildrosenarten und ADR-Rosen zeigen
+      gute Widerstandskraft.
+      Sofortmassnahmen:
+      - Befallene Blaetter absammeln (auch abgefallene vom Boden!)
+      - Triebe mit schwarzen Flecken zurueckschneiden
+      - Fungizid auf Basis von Kupfer oder Schwefel spritzen
+      - Bei starkem Befall: systemische Fungizide erwaegen
+      Vorbeugung:
+      - ADR-gepruefe Rosensorten waehlen (hohe Pilzresistenz)
+      - Herbstlaub komplett entfernen — das ist die wichtigste
+        Einzelmassnahme (Infektionsquelle beseitigen!)
+      - Nur von unten giessen, Blaetter trocken halten
+      - Pflanzstaerkungs-Spritzungen (Schachtelhalm-Bruehe, Ackerschachtelhalm
+        enthaelt Kieselsaeure die die Blattoberflaeche staerkt)
+      - Luftiger Standort, nicht zu schattig
+      Abgrenzung zu Sternrusstau: Sternrusstau zeigt sternfoermig
+      auslaufende Flecken und ist derselbe Erreger (Diplocarpon rosae) —
+      die Begriffe werden oft synonym verwendet. Typisch ist der
+      ausgefranste, "sternfoermige" Rand der schwarzen Flecken.
+    metadata:
+      pathogen: black_spot
+      species: Diplocarpon rosae
+      disease_type: fungal
+      host_plants: [Rosa]
+      difficulty: beginner
+
+  - id: verticillium-welke
+    title: Verticillium-Welke erkennen und behandeln
+    content: |
+      Symptome: Einseitiges Welken — oft welkt nur eine Seite der
+      Pflanze oder ein einzelner Ast, waehrend der Rest noch gesund
+      aussieht. Blaetter vergilben von unten nach oben. Im
+      Querschnitt des Stengels sind braune Verfaerbungen in den
+      Leitbuendeln sichtbar (Leitbuendelverbaunng). Die Pflanze
+      kuemmert, waechst nicht mehr richtig und stirbt bei starkem
+      Befall langsam ab.
+      Erreger: Verticillium dahliae und Verticillium albo-atrum.
+      Bodenbuertige Pilze die ueber die Wurzeln eindringen und die
+      Wasserleitbahnen (Xylem) verstopfen. Mikrosklerotien ueberleben
+      jahrelang im Boden (bis zu 10 Jahre).
+      Betroffene Pflanzen: Sehr breites Wirtsspektrum — Tomate, Paprika,
+      Aubergine, Erdbeere, Himbeere, Ahorn, Catalpa, Magnolie, Rosen,
+      Cannabis, Olivenbaum. Graeser und Getreide sind NICHT betroffen.
+      Sofortmassnahmen:
+      - Es gibt KEINE wirksame chemische Bekaempfung im Boden
+      - Befallene Pflanzen entfernen und im Restmuell entsorgen
+      - Erde im Bereich der Wurzeln grosszuegig austauschen
+      - Werkzeug nach Kontakt desinfizieren
+      Vorbeugung:
+      - Resistente Sorten und Unterlagen verwenden (bei Tomate: Ve/Vd
+        im Sortennamen steht fuer Verticillium-Resistenz)
+      - Fruchtfolge: mindestens 4 Jahre keine anfaelligen Kulturen
+        auf derselben Flaeche
+      - Boden mit Biofumigation behandeln (Senf-Gruenduengung, Tagetes)
+      - Substrat fuer Topfpflanzen dampfsterilisieren
+      Verwechslungsgefahr: Fusarium-Welke zeigt aehnliche Symptome —
+      Fusarium beginnt aber typischerweise an der Stengelbasis (Faeule
+      am Wurzelhals) und tritt bei hoeheren Temperaturen auf (>28°C).
+      Verticillium bevorzugt kuehlere Bedingungen (20-25°C).
+    metadata:
+      pathogen: verticillium_wilt
+      species: Verticillium dahliae
+      disease_type: fungal
+      difficulty: intermediate
+
+  - id: fusarium-welke
+    title: Fusarium-Welke und Stengelfaeule erkennen
+    content: |
+      Symptome: Die Pflanze welkt obwohl der Boden feucht ist — das ist
+      das Leitsymptom. An der Stengelbasis (Wurzelhals) zeigt sich eine
+      braune bis roetlich-braune Verfaerbung, die Rinde wird weich und
+      matschig. Bei Cannabis und Tomate sieht man im Stengelquerschnitt
+      eine deutliche braune Verfaerbung der Leitbuendel. Blaetter
+      vergilben typischerweise einseitig (eine Blatthaefte oder ein
+      Ast). Bei Jungpflanzen: "Umfallkrankheit" — Saemlinge knicken
+      am Wurzelhals ab.
+      Erreger: Fusarium oxysporum (Welke-Form) und Fusarium solani
+      (Wurzel-/Stengelfaeule). Es gibt viele Spezialformen (formae
+      speciales) die jeweils nur bestimmte Pflanzen befallen.
+      Betroffene Pflanzen: Tomate (F. oxysporum f.sp. lycopersici),
+      Cannabis, Basilikum, Banane (Panama-Krankheit), Gurke, Erbse,
+      Melone, viele Zierpflanzen.
+      Sofortmassnahmen:
+      - Befallene Pflanzen sofort entfernen und im Restmuell entsorgen
+      - Befallenes Substrat NICHT wiederverwenden
+      - Alle Toepfe und Werkzeuge gruendlich desinfizieren
+      - Nachbarpflanzen auf Welke-Symptome beobachten
+      - Bei Stecklingen: Befallene Mutterpflanze komplett verwerfen
+      Vorbeugung:
+      - Sauberes, steriles Substrat verwenden
+      - Resistente Sorten waehlen (bei Tomate: F oder Fol im Sortennamen)
+      - Trichoderma-Praeparate als biologische Gegenspieler einsetzen
+        (Trichoderma besiedelt Wurzeln und verdraengt Fusarium)
+      - pH-Wert im Substrat auf 6.0-6.5 halten
+      - Ueberwaesserung vermeiden — Fusarium liebt nasse, sauerstoffarme
+        Wurzelzonen
+      - Stecklingsmesser nach jedem Schnitt desinfizieren
+      Abgrenzung zu Verticillium: Fusarium tritt bevorzugt bei hohen
+      Temperaturen (>28°C) auf, Verticillium bei kuehleren (20-25°C).
+      Fusarium zeigt haeufig Stengelbasis-Faeule, Verticillium nicht.
+    metadata:
+      pathogen: fusarium_wilt
+      species: Fusarium oxysporum
+      disease_type: fungal
+      difficulty: intermediate
+
+  - id: alternaria-blattflecken
+    title: Alternaria-Blattflecken (Zielscheiben-Krankheit) erkennen
+    content: |
+      Symptome: Braune, runde Blattflecken mit konzentrischen Ringen —
+      das typische "Zielscheiben-Muster" oder "Bullseye" ist das
+      Erkennungsmerkmal. Die Ringe entstehen durch abwechselndes
+      Pilzwachstum und Sporulation. Flecken beginnen oft an aelteren,
+      unteren Blaettern und breiten sich nach oben aus. Bei starkem
+      Befall verschmelzen die Flecken, das Blatt stirbt ab.
+      Erreger: Alternaria solani (Duerre-Fleckenkrankheit bei Tomate/
+      Kartoffel), Alternaria brassicicola (Kohlgewaechse), Alternaria
+      dauci (Moehre) und weitere wirtsspezifische Arten.
+      Betroffene Pflanzen: Tomate und Kartoffel (Alternaria solani —
+      nicht verwechseln mit Phytophthora!), Kohl, Brokkoli, Moehre,
+      Kuerbis, Zucchini, Cannabis, viele Zierpflanzen.
+      Sofortmassnahmen:
+      - Befallene untere Blaetter entfernen (reduziert Sporendruck)
+      - Kupfer- oder Schwefel-Fungizid spritzen
+      - Pflanzen auslichten fuer bessere Luftzirkulation
+      - Boden mulchen (verhindert Spritzwasser-Infektion)
+      Vorbeugung:
+      - Fruchtfolge einhalten (3 Jahre keine verwandten Kulturen)
+      - Resistente Sorten waehlen
+      - Untere Blaetter vorbeugend entfernen (bei Tomate: Ausgeizen
+        und untere Blaetter entfernen reduziert Alternaria deutlich)
+      - Nicht von oben bewaessern
+      - Pflanzenreste im Herbst gruendlich entfernen
+      Abgrenzung zu Septoria: Septoria-Flecken sind heller (grau-weiss)
+      mit dunklem Rand und zeigen kleine schwarze Punkte (Fruchkoerper)
+      im Zentrum. Alternaria zeigt braune Ringe ohne Punkte. Abgrenzung
+      zu Phytophthora: Krautfaeule breitet sich viel schneller aus und
+      zeigt waessrige, nicht ringfoermige Flecken.
+    metadata:
+      pathogen: early_blight
+      genus: Alternaria
+      disease_type: fungal
+      difficulty: beginner
+
+  - id: buchsbaum-sterben
+    title: Buchsbaum-Triebsterben (Cylindrocladium buxicola) erkennen
+    content: |
+      Symptome: Zuerst erscheinen dunkelbraune Flecken auf den Blaettern.
+      Dann fallen die Blaetter schnell ab — der Buchsbaum verkahlt in
+      wenigen Wochen. An den Trieben zeigen sich schwarze, laengliche
+      Streifen (Strichelnekrosen). Bei feuchter Witterung bildet sich
+      weisser Sporenbelag auf der Blattunterseite. Der Buchsbaum sieht
+      aus wie "verbrannt" — ganze Aeste sterben von der Spitze her ab.
+      Erreger: Calonectria pseudonaviculata (frueher Cylindrocladium
+      buxicola). Der Pilz bildet extrem widerstandsfaehige Dauersporen
+      die jahrelang im Boden und auf Pflanzenresten ueberleben.
+      Betroffene Pflanzen: Ausschliesslich Buchsbaum (Buxus) —
+      besonders Buxus sempervirens. Buxus microphylla 'Faulkner' zeigt
+      etwas bessere Toleranz.
+      Sofortmassnahmen:
+      - Befallene Triebe grosszuegig zurueckschneiden (15-20 cm ins
+        gesunde Holz)
+      - Abgefallenes Laub komplett aufsammeln und im Restmuell entsorgen
+      - Werkzeug nach jedem Schnitt mit Alkohol desinfizieren
+      - Fungizid-Spritzung mit Azoxystrobin oder Kupferpraeparat
+      - Mulch unter befallenen Pflanzen austauschen
+      Vorbeugung:
+      - Buchsbaum-Alternativen in Betracht ziehen: Ilex crenata,
+        Lonicera nitida, Euonymus japonicus als Ersatz fuer Hecken
+      - Wenn Buchsbaum: nur nach Trocknung schneiden (nie bei Naesse)
+      - Nicht von oben bewaessern
+      - Gute Luftzirkulation um die Pflanze
+      - Neue Pflanzen in Quarantaene halten (3-4 Wochen beobachten
+        vor dem Einpflanzen)
+      Abgrenzung: Buchsbaumzuensler (Raupe) frisst Blaetter und
+      hinterlaesst Gespinste — das ist ein Schaedling, kein Pilz.
+      Buchsbaum-Triebsterben zeigt schwarze Streifen am Trieb und
+      Blattfall OHNE Frassschaden.
+    metadata:
+      pathogen: boxwood_blight
+      species: Calonectria pseudonaviculata
+      disease_type: fungal
+      host_plants: [Buxus sempervirens, Buxus microphylla]
+      difficulty: beginner
+
+  - id: sternrusstau-rose
+    title: Sternrusstau bei Rosen erkennen und behandeln
+    content: |
+      Symptome: Schwarze, sternfoermig auslaufende Flecken auf der
+      Blattoberseite — der Rand der Flecken ist nicht glatt rund,
+      sondern laueft strahlenfoermig aus wie ein Stern. Das Blatt
+      vergilbt rund um die Flecken und faellt vorzeitig ab. Bei starkem
+      Befall verliert die Rose fast alle Blaetter. Die Pflanze treibt
+      zwar wieder aus, wird aber durch den wiederholten Blattverlust
+      ueber die Jahre geschwaecht.
+      Erreger: Diplocarpon rosae — identisch mit dem Erreger der
+      Schwarzfleckenkrankheit. Sternrusstau und Schwarzfleckenkrankheit
+      sind im Grunde dieselbe Erkrankung. Der Name "Sternrusstau"
+      betont die typische Sternform der Flecken.
+      Betroffene Pflanzen: Ausschliesslich Rosen. Besonders anfaellig:
+      Teehybriden, Beetrosen, Kletterrosen. Wenig anfaellig:
+      Bodendeckerrosen, viele Strauchrosen, ADR-Rosen.
+      Sofortmassnahmen:
+      - Befallene und abgefallene Blaetter konsequent aufsammeln
+      - Befallene Triebe beim Winterschnitt zuruecknehmen
+      - Kupfer- oder Schwefel-basierte Spritzung
+      - Pflanzenstaeerkungsmittel (Schachtelhalm-Extrakt vorbeugend)
+      Vorbeugung:
+      - ADR-Rosen waehlen: Das ADR-Praedikat wird nur vergeben wenn
+        die Rose ohne Pflanzenschutzmittel gesund bleibt
+      - Herbstlaub lueckenlos entfernen — der Pilz ueberwintert auf
+        dem Falllaub am Boden
+      - Mulch unter Rosen im Fruehjahr erneuern
+      - Nur von unten giessen
+      - Luftiger, sonniger Standort
+      - Kalium-betonte Duengung staerkt die Blatthaut
+      Abgrenzung: Nicht verwechseln mit Rosenrost (orangefarbene
+      Pusteln auf der Blattunterseite) oder Echtem Mehltau (weisser
+      Belag). Sternrusstau/Schwarzfleckenkrankheit zeigt immer
+      SCHWARZE Flecken auf der Blattoberseite.
+    metadata:
+      pathogen: black_spot
+      species: Diplocarpon rosae
+      disease_type: fungal
+      host_plants: [Rosa]
+      difficulty: beginner
+
+  - id: graufleckenkrankheit-septoria
+    title: Graufleckenkrankheit (Septoria) erkennen
+    content: |
+      Symptome: Helle, grau-weisse Blattflecken mit deutlich dunklerem
+      Rand (braun bis schwarz). Im Zentrum der Flecken sind bei genauem
+      Hinsehen winzige schwarze Punkte erkennbar — das sind die
+      Fruchkoerper (Pyknidien) des Pilzes. Befall beginnt an den
+      unteren, aelteren Blaettern und steigt nach oben auf. Bei
+      starkem Befall vertrocknen und fallen die Blaetter ab.
+      Erreger: Septoria lycopersici (Tomate), Septoria tritici (Weizen),
+      Septoria apiicola (Sellerie) und weitere wirtsspezifische Arten.
+      Die Sporen werden durch Spritzwasser (Regen, Beregnung) von
+      befallenen Blaettern auf gesunde Blaetter uebertragen.
+      Betroffene Pflanzen: Tomate (Septoria-Blattfleckenkrankheit ist
+      eine der haeufigsten Tomatenkrankheiten), Sellerie, Petersilie,
+      Weizen, Erdbeere, Chrysantheme, viele Gemuese und Zierpflanzen.
+      Sofortmassnahmen:
+      - Befallene untere Blaetter sofort entfernen
+      - Mulchschicht auftragen (verhindert Spritzwasser-Infektion
+        vom Boden — die wichtigste Sofortmassnahme)
+      - Kupfer-Fungizid bei staerkerem Befall
+      - Nicht von oben bewaessern
+      Vorbeugung:
+      - Untere Blaetter bei Tomaten vorbeugend entfernen (Ausgeizen)
+      - Mulch unter den Pflanzen (Stroh, Gras) — verhindert dass
+        Regen Sporen vom Boden auf die Blaetter spritzt
+      - Fruchtfolge: 2-3 Jahre Pause fuer dieselbe Kultur
+      - Pflanzenreste im Herbst entfernen (Pilz ueberwintert darauf)
+      - Tropfbewaesserung statt Ueberkopf-Beregnung
+      - Resistente Sorten wenn verfuegbar
+      Abgrenzung zu Alternaria: Septoria-Flecken sind heller (grau-weiss
+      mit dunklem Rand) und zeigen schwarze Punkte im Zentrum. Alternaria
+      zeigt braune Ringe im Zielscheiben-Muster ohne schwarze Punkte.
+      Abgrenzung zu Phytophthora: Krautfaeule breitet sich viel
+      schneller aus und zeigt groessere, waessrige, braune Flecken
+      ohne helles Zentrum.
+    metadata:
+      pathogen: septoria_leaf_spot
+      genus: Septoria
+      disease_type: fungal
+      difficulty: beginner

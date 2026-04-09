@@ -1,0 +1,103 @@
+---
+title: "Salat anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, salat, kopfsalat, pfluecksalat, lactuca-sativa, anbau, garten, balkon, anfaenger, schwachzehrer]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: salat-aussaat
+    title: "Salat — Aussaat und Standort"
+    content: |
+      Salat ist eine der einfachsten Gemuese-Kulturen und ideal fuer
+      Anfaenger. Die kurze Kulturzeit von 30 bis 60 Tagen erlaubt
+      mehrere Saetze pro Saison (Staffelsaat alle 2 bis 3 Wochen).
+
+      Salat ist ein Lichtkeimer — Samen nur leicht andruecken oder
+      hoechstens 0,5 cm mit Erde bedecken. Optimale Keimtemperatur
+      10 bis 16 Grad. Wichtig: Ueber 25 Grad tritt Keimhemmung ein
+      (Thermodormanz). Bei Sommeraussaat das Saatgut vorher 24 Stunden
+      im Kuehlschrank lagern.
+
+      Direktsaat ab Maerz unter Vlies oder im Fruehbeet. Vorkultur
+      ab Februar auf der Fensterbank moeglich. Pflanzabstand: Kopfsalat
+      25 bis 30 cm, Pfluecksalat 15 bis 20 cm. Reihenabstand 25 bis
+      30 cm.
+
+      Standort: Sonnig bis halbschattig. Im Hochsommer sogar Halbschatten
+      bevorzugen — Hitze ueber 25 Grad loest Schiessen (Bluetenbildung)
+      aus und macht die Blaetter bitter. Boden humos, locker und
+      gleichmaessig feucht. pH 6,0 bis 7,0. Salat ist ein Mittel- bis
+      Schwachzehrer — keine Ueberduengung.
+
+      Balkon: Ideal fuer Topf, Balkonkasten und Hochbeet. Schon ab
+      3 bis 5 Liter pro Pflanze. Auch Indoor-Anbau unter LED ist moeglich.
+    metadata:
+      topic: lettuce_growing
+      species: "Lactuca sativa"
+      difficulty: beginner
+
+  - id: salat-pflege
+    title: "Salat — Pflege, Giessen und Schiessen vermeiden"
+    content: |
+      Giessen: Gleichmaessig feucht halten, aber Staunaesse vermeiden
+      (Faeulnisgefahr). Morgens giessen ist ideal. Bei Hitze taeglich.
+      Mulch mit Rasenschnitt oder Stroh haelt die Feuchtigkeit.
+
+      Duengen: Kompost vor der Pflanzung genuegt meist. Bei Pfluecksalat
+      mit mehrfacher Ernte alle 3 bis 4 Wochen leicht nachduengen.
+      Nicht mit Stickstoff ueberduengen — Salat reichert sonst Nitrat an.
+
+      Schiessen vermeiden: Das groesste Problem bei Salat. Lange Tage
+      (ueber 14 Stunden) und Temperaturen ueber 25 Grad loesen die
+      Bluetenbildung aus. Der Stiel schiesst hoch, die Blaetter werden
+      bitter. Gegenmassnahmen: Schossfeste Sorten waehlen (Batavia,
+      Eichblatt), im Sommer halbschattigen Standort waehlen, Mulchen.
+      Bei beginnendem Schiessen sofort ernten.
+
+      Gute Nachbarn: Radieschen (schnelle Markierung der Reihen),
+      Moehren, Erdbeeren, Tomaten, Bohnen, Kohlrabi, Zwiebeln.
+      Schlechte Nachbarn: Petersilie, Sellerie.
+
+      Schnecken: Salat ist Schneckenfutter Nummer eins. Schneckenzaun,
+      Ferramol-Schneckenkorn, Bierfallen oder Nacktschnecken abends
+      absammeln.
+
+      Blattlaeuse: Haeufig an Salatherzen. Abbrausen mit Wasser oder
+      Neemoel-Spritzung.
+    metadata:
+      topic: lettuce_growing
+      species: "Lactuca sativa"
+      difficulty: beginner
+
+  - id: salat-ernte
+    title: "Salat — Ernte und Sortenwahl"
+    content: |
+      Kopfsalat: Den ganzen Kopf ernten, sobald er fest ist. Morgens
+      ernten, dann ist der Salat am knackigsten. Den Strunk bodennah
+      abschneiden.
+
+      Pflueck- und Schnittsalat: Aeussere Blaetter einzeln pfluecken,
+      das Herz stehen lassen — es waechst 2 bis 3 Mal nach
+      (Cut-and-Come-Again-Methode). Ideal fuer kontinuierliche Ernte
+      ueber Wochen.
+
+      Sortenwahl fuer verschiedene Jahreszeiten:
+      Fruehjahr (Maerz bis Mai): Kopfsalat, Feldsalat, Rucola.
+      Sommer (Juni bis August): Schossfeste Sorten wie Batavia,
+      Eichblatt, Lollo Rosso. Hitzetolerante Sorten waehlen.
+      Herbst (September bis November): Asia-Salate, Endivie, Radicchio,
+      Feldsalat (Valerianella). Unter Vlies bis in den Winter.
+
+      Lagerung: Frisch geernteter Salat haelt im Kuehlschrank 3 bis
+      5 Tage. In ein feuchtes Kuechentuch einwickeln oder in einem
+      verschlossenen Behaelter lagern. Salat laesst sich nicht
+      einfrieren oder konservieren — immer frisch verbrauchen.
+
+      Saatgut-Tipp: Eine Tuete Pfluecksalat-Mix reicht fuer eine ganze
+      Saison bei Staffelsaat. Verschiedene Sorten im Mix sorgen fuer
+      Abwechslung auf dem Teller.
+    metadata:
+      topic: lettuce_growing
+      species: "Lactuca sativa"
+      difficulty: beginner

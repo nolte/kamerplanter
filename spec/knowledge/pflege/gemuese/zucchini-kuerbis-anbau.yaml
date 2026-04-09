@@ -1,0 +1,132 @@
+---
+title: "Zucchini und Kuerbis anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, zucchini, kuerbis, hokkaido, cucurbita, anbau, garten, starkzehrer, kuerbisgewaechse]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: zucchini-kuerbis-aussaat
+    title: "Zucchini und Kuerbis — Aussaat und Voranzucht"
+    content: |
+      Zucchini und Kuerbis werden ab Mitte April vorgezogen oder ab Ende Mai
+      direkt ins Freiland gesaet. Die Voranzucht bringt einen Vorsprung
+      von 2 bis 3 Wochen.
+
+      Samen einzeln in 8 bis 10 cm Toepfe, 2 bis 3 cm tief (Dunkelkeimer).
+      Optimale Keimtemperatur 22 bis 25 Grad. Keimdauer 5 bis 14 Tage.
+      Unter 15 Grad keimt nichts zuverlaessig. Pro Topf 2 Samen legen,
+      den schwaecheren Keimling nach dem Aufgehen entfernen.
+
+      Wie Gurken vertragen Zucchini und Kuerbis kein Pikieren — immer
+      direkt in Einzeltoepfe saeen. Die empfindlichen Wurzeln reagieren
+      auf Beschaedigung mit Wachstumsstopp.
+
+      Achtung Cucurbitacin: Saatgut NUR von zertifizierten Quellen
+      verwenden. Cucurbita-Arten kreuzen sich leicht mit Zierkuerbissen
+      (Bienenbestaeubung). Hybriden koennen toedliche Mengen Cucurbitacin
+      bilden. Bitter schmeckende Fruechte NIEMALS essen — Cucurbitacin wird
+      durch Kochen NICHT zerstoert.
+    metadata:
+      topic: squash_growing
+      species: "Cucurbita pepo / Cucurbita maxima"
+      difficulty: beginner
+
+  - id: zucchini-kuerbis-auspflanzen
+    title: "Zucchini und Kuerbis — Auspflanzen und Standort"
+    content: |
+      Auspflanzen erst nach den Eisheiligen (ab 15. Mai). Beide Arten
+      sterben beim ersten Nachtfrost ab.
+
+      Standort: Volle Sonne, naehrstoffreicher, humoser Boden. pH 6,0
+      bis 6,8. Als Starkzehrer brauchen sie sehr viel Naehrstoffe — das
+      Pflanzloch grosszuegig mit Kompost (8 bis 10 Liter) und Hornspane
+      (100 bis 150 g) fuellen. Der klassische Standort ist direkt auf dem
+      Komposthaufen.
+
+      Platzbedarf: Zucchini (Buschtyp) 80 bis 100 cm Abstand. Kuerbis
+      (Rankentyp wie Hokkaido) 150 bis 200 cm — die Ranken werden
+      mehrere Meter lang. Bei wenig Platz Kuerbis am Zaun oder Gestell
+      hochranken lassen.
+
+      Gute Nachbarn: Mais und Bohnen (klassische Drei-Schwestern-Mischkultur),
+      Kapuzinerkresse (Blattlaus-Ablenkpflanze), Tagetes (Nematoden-Abwehr).
+      Schlechte Nachbarn: Kartoffeln, andere Kuerbisgewaechse (Mehltau-
+      Uebertragung).
+
+      Balkon: Zucchini in kompakten Buschsorten moeglich ab 40 Liter
+      Topfvolumen. Kuerbis braucht zu viel Platz fuer den Balkon.
+
+      Schneckenschutz ist besonders bei Jungpflanzen essenziell — Schnecken
+      koennen eine Pflanze in einer Nacht komplett auffressen. Schneckenkorn
+      (Ferramol / Eisen-III-Phosphat) oder Schneckenzaun einsetzen.
+    metadata:
+      topic: squash_growing
+      species: "Cucurbita pepo / Cucurbita maxima"
+      difficulty: beginner
+
+  - id: zucchini-kuerbis-pflege
+    title: "Zucchini und Kuerbis — Pflege und Duengung"
+    content: |
+      Giessen: Grosser Wasserbedarf, besonders waehrend der Fruchtbildung.
+      Alle 3 bis 4 Tage grosszuegig giessen (1 bis 3 Liter pro Pflanze),
+      direkt an die Wurzel. Blaetter trocken halten — feuchte Blaetter
+      foerdern Mehltau.
+
+      Duengen: Alle 2 bis 3 Wochen mit Brennnesseljauche (1:10) oder
+      fluessigem Gemuese-Duenger nachduengen. Zu viel Stickstoff foerdert
+      Ranken auf Kosten der Fruechte. Ab der Fruchtphase Kalium betonen
+      (Beinwell-Jauche oder Patentkali).
+
+      Bestaeubung: Kuerbisgewaechse haben getrennte maennliche und
+      weibliche Blueten. Wenn trotz vieler Blueten keine Fruechte ansetzen,
+      fehlt die Bestaeubung. Morgens eine maennliche Bluete pfluecken,
+      Bluetenblaetter entfernen und Pollen direkt auf die Narbe der
+      weiblichen Bluete tupfen.
+
+      Mehltau: Echter Mehltau ist das haeufigste Problem. Weisser Belag
+      auf den Blaettern. Befallene Blaetter entfernen, Milch-Wasser-Loesung
+      (1:10) spritzen. Gute Luftzirkulation foerdern. Kuerbis-Sorten mit
+      Mehltau-Toleranz waehlen.
+
+      Kuerbis-Tipp: Im Juli Triebspitzen pinzieren, um die Kraft in
+      weniger, aber groessere Fruechte zu lenken. Brett oder Stroh
+      unter die Fruechte legen (verhindert Bodenfeuchte und Faeulnis).
+
+      Fruchtfolge: 3 Jahre keine Kuerbisgewaechse auf der gleichen Flaeche.
+    metadata:
+      topic: squash_growing
+      species: "Cucurbita pepo / Cucurbita maxima"
+      difficulty: beginner
+
+  - id: zucchini-kuerbis-ernte
+    title: "Zucchini und Kuerbis — Ernte und Lagerung"
+    content: |
+      Zucchini: Bei 15 bis 25 cm Laenge ernten — kleinere Fruechte
+      schmecken zarter und haben mehr Aroma. Alle 2 bis 3 Tage ernten,
+      da Zucchini extrem schnell wachsen. Ueberreife Riesenzucchini
+      (ueber 40 cm) sind waessrig und samenreich. Regelmaessiges Ernten
+      foerdert den Neuansatz. Pro Pflanze 10 bis 20 Fruechte pro Saison.
+
+      Zucchini-Lagerung: Im Kuehlschrank 1 bis 2 Wochen. Gut zum
+      Einfrieren (in Scheiben), Einlegen oder als Zoodles.
+
+      Kuerbis (Hokkaido, Butternut): Der Kuerbis ist reif, wenn der
+      Stiel verholzt ist, die Schale sich nicht mehr mit dem Fingernagel
+      einritzen laesst und die Frucht beim Klopfen hohl klingt.
+      Erntezeit September bis Oktober, VOR dem ersten Frost.
+
+      Mit 5 bis 10 cm Stiel abschneiden — ohne Stiel fault der Kuerbis
+      schnell. Nach der Ernte 1 bis 2 Wochen an einem warmen, trockenen
+      Ort nachreifen lassen (Curing).
+
+      Kuerbis-Lagerung: Kuhl (10 bis 15 Grad), trocken und frostfrei.
+      Hokkaido haelt 2 bis 3 Monate, Butternut bis zu 6 Monate.
+      Nicht uebereinander stapeln — Druckstellen fuehren zu Faeulnis.
+
+      Vor dem Verzehr immer ein kleines Stueck roh probieren — bitter
+      schmeckende Kuerbisse entsorgen (Cucurbitacin-Gefahr).
+    metadata:
+      topic: squash_growing
+      species: "Cucurbita pepo / Cucurbita maxima"
+      difficulty: beginner

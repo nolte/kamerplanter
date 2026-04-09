@@ -8,6 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import StarIcon from '@mui/icons-material/Star';
@@ -24,6 +25,8 @@ import ForestIcon from '@mui/icons-material/Forest';
 import SpaIcon from '@mui/icons-material/Spa';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import FilterVintageIcon from '@mui/icons-material/FilterVintage';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EmptyState from '@/components/common/EmptyState';
 import type { SowingCalendarEntry, FrostConfig, SowingPhase } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
@@ -99,6 +102,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedCategories, setSelectedCategories] = useState<Set<PlantCategoryKey>>(() => new Set());
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const labelWidth = isMobile ? 120 : 210;
   const totalWeeks = 52;
@@ -296,49 +300,67 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
           </Box>
         </Box>
 
-        {/* Legend — auto-detect which phases are actually used */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2, pt: 1, borderTop: 1, borderColor: 'divider' }}>
-          {usedPhases.map((phase) => (
-            <Box key={phase} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 16,
-                  height: 12,
-                  borderRadius: 0.5,
-                  bgcolor: PHASE_COLORS[phase],
-                }}
-              />
-              <Typography variant="caption">{t(PHASE_I18N[phase])}</Typography>
+        {/* Legend — collapsible, auto-detect which phases are actually used */}
+        <Box sx={{ mt: 2, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setLegendOpen((p) => !p)}
+            role="button"
+            aria-expanded={legendOpen}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              {t('pages.calendar.sowingCalendar.legend')}
+            </Typography>
+            {legendOpen
+              ? <ExpandLessIcon sx={{ fontSize: 18, color: 'text.secondary', ml: 0.5 }} />
+              : <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary', ml: 0.5 }} />
+            }
+          </Box>
+          <Collapse in={legendOpen}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
+              {usedPhases.map((phase) => (
+                <Box key={phase} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 16,
+                      height: 12,
+                      borderRadius: 0.5,
+                      bgcolor: PHASE_COLORS[phase],
+                    }}
+                  />
+                  <Typography variant="caption">{t(PHASE_I18N[phase])}</Typography>
+                </Box>
+              ))}
+              {eisheiligenWeek && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 16,
+                      height: 0,
+                      borderTop: '2px dashed',
+                      borderColor: 'error.main',
+                    }}
+                  />
+                  <Typography variant="caption">{t('pages.calendar.sowingCalendar.eisheilige')}</Typography>
+                </Box>
+              )}
+              {todayWeek && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 16,
+                      height: 12,
+                      borderRadius: 0.5,
+                      bgcolor: alpha(theme.palette.info.main, 0.25),
+                      border: '1.5px solid',
+                      borderColor: 'info.main',
+                    }}
+                  />
+                  <Typography variant="caption">{t('pages.calendar.sowingCalendar.today')}</Typography>
+                </Box>
+              )}
             </Box>
-          ))}
-          {eisheiligenWeek && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 16,
-                  height: 0,
-                  borderTop: '2px dashed',
-                  borderColor: 'error.main',
-                }}
-              />
-              <Typography variant="caption">{t('pages.calendar.sowingCalendar.eisheilige')}</Typography>
-            </Box>
-          )}
-          {todayWeek && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 16,
-                  height: 12,
-                  borderRadius: 0.5,
-                  bgcolor: alpha(theme.palette.info.main, 0.25),
-                  border: '1.5px solid',
-                  borderColor: 'info.main',
-                }}
-              />
-              <Typography variant="caption">{t('pages.calendar.sowingCalendar.today')}</Typography>
-            </Box>
-          )}
+          </Collapse>
         </Box>
       </CardContent>
     </Card>

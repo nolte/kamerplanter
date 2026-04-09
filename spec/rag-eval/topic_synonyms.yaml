@@ -136,8 +136,8 @@ topics:
     de: [ja, immer, unbedingt, zwingend]
 
   calcium_magnesium_fehlt:
-    pattern: '(?i)kein.*Calcium|kein.*Magnesium|0.*ppm|keine.*Mineral'
-    de: [kein Calcium, kein Magnesium, keine Mineralien]
+    pattern: '(?i)kein.*Calcium|kein.*Magnesium|0.*ppm|keine.*Mineral|Mangel.*Calcium|Mangel.*Magnesium|Ca.*Mg.*fehlt|Ca.*Mg.*entfernt'
+    de: [kein Calcium, kein Magnesium, keine Mineralien, Mangel Calcium, Mangel Magnesium, Ca Mg fehlt]
 
   ec_03_04:
     pattern: '(?i)EC.*0[.,]3|EC.*0[.,]4|0[.,]3.*0[.,]4|0[.,]3.*mS'
@@ -152,16 +152,16 @@ topics:
     de: [Wasser zuerst, Wasser temperieren, Beginne mit Wasser]
 
   silikat_vor_calmag:
-    pattern: '(?i)Silikat.*vor.*CalMag|Silikat.*zuerst|Silikat.*als.*erst'
-    de: [Silikat vor CalMag]
+    pattern: '(?i)Silikat.*vor.*CalMag|Silikat.*zuerst|Silikat.*als.*erst|Silikat.*dann.*CalMag|Schritt.*Silikat.*Schritt.*CalMag'
+    de: [Silikat vor CalMag, Silikat dann CalMag]
 
   calmag_vor_part_a:
     pattern: '(?i)CalMag.*vor.*Part.*A|CalMag.*vor.*Base|CalMag.*zuerst|CalMag.*vor.*Basis|CalMag.*vor.*Teil.*A|CalMag.*als.*[Nn]aechst|3\..*CalMag|CalMag.*immer.*vor'
     de: [CalMag vor Part A, CalMag vor Basis-Duenger, CalMag vor Teil A]
 
   part_a_vor_part_b:
-    pattern: '(?i)Part.*A.*vor.*Part.*B|A.*vor.*B|Teil.*A.*vor.*Teil.*B|Teil.*A.*Teil.*B.*Reihenfolge|Reihenfolge.*Teil.*A.*Teil.*B|Calciumnitrat.*vor.*Magnesiumsulfat'
-    de: [Part A vor Part B, Teil A vor Teil B, Reihenfolge Teil A und Teil B, Calciumnitrat vor Magnesiumsulfat]
+    pattern: '(?i)Part.*A.*vor.*Part.*B|A.*vor.*B|Teil.*A.*vor.*Teil.*B|Teil.*A.*Teil.*B.*Reihenfolge|Reihenfolge.*Teil.*A.*Teil.*B|Calciumnitrat.*vor.*Magnesiumsulfat|Teil.*A.*dann.*Teil.*B|Basis.*A.*Basis.*B'
+    de: [Part A vor Part B, Teil A vor Teil B, Reihenfolge Teil A und Teil B, Calciumnitrat vor Magnesiumsulfat, Teil A dann Teil B, Basis A Basis B]
 
   ph_zuletzt:
     pattern: '(?i)pH.*zuletzt|pH.*am.*Ende|pH.*letzt.*Schritt'
@@ -696,8 +696,8 @@ topics:
     de: [3-4 Jahre Pause, 3-4 Jahre Rotation, Anbaupause]
 
   brassicaceae:
-    pattern: '(?i)Brassicaceae|Kreuzbluetl|Kohl.*Familie'
-    de: [Brassicaceae, Kreuzbluetler]
+    pattern: '(?i)Brassicaceae|Kreuzbluetl|Kohl.*Familie|Kohlart|Kohlgewaechs'
+    de: [Brassicaceae, Kreuzbluetler, Kohlart, Kohlgewaechs]
 
   phacelia:
     pattern: '(?i)Phacelia|Bueschelschoen'
@@ -1056,8 +1056,8 @@ topics:
     de: [calathea]
 
   calcium:
-    pattern: '(?i)calcium'
-    de: [calcium]
+    pattern: '(?i)calcium|\bCa\b|Ca-'
+    de: [calcium, Ca]
 
   calcium_nicht_verfuegbar:
     pattern: '(?i)calcium.*nicht.*verf[uü]gbar|Ca[- ]?Lockout|Calcium.*Lockout|nicht.*pflanzenverf[uü]gbar|Calcium.*ausgefaell|Calcium.*gebunden|Ca.*nicht.*aufgenommen'
@@ -1164,8 +1164,8 @@ topics:
     de: [flush]
 
   frueherkennung:
-    pattern: '(?i)Frueherkennung|frueh.*erkennen|rechtzeitig.*erkennen|bevor.*ausbreit'
-    de: [Frueherkennung, frueh erkennen]
+    pattern: '(?i)Frueherkennung|frueh.*erkennen|rechtzeitig.*erkennen|bevor.*ausbreit|Fr[uü]hwarnsystem|fr[uü]h.*entdeck|fr[uü]h.*bemerk'
+    de: [Frueherkennung, frueh erkennen, Fruehwarnsystem, frueh entdecken]
 
   fruehling_starten:
     pattern: '(?i)Fruehling.*start|Fruehjahr.*start|wieder.*dueng|ab.*Maerz|ab.*Fruehling|wenn.*Wachstum.*start'
@@ -1476,8 +1476,8 @@ topics:
     de: [nach stretch]
 
   naeher_ans_fenster:
-    pattern: '(?i)n[aä]her.*an.*Fenster|n[aä]her.*ans.*Fenster|Fenster.*n[aä]her|Pflanze.*n[aä]her.*Fenster|direkt.*ans.*Fenster'
-    de: [naeher ans Fenster, Pflanze naeher ans Fenster, direkt ans Fenster]
+    pattern: '(?i)n[aä]her.*an.*Fenster|n[aä]her.*ans.*Fenster|naeher.*an.*Fenster|naeher.*ans.*Fenster|Fenster.*n[aä]her|Fenster.*naeher|Pflanze.*n[aä]her.*Fenster|Pflanze.*naeher.*Fenster|direkt.*ans.*Fenster'
+    de: [naeher ans Fenster, Pflanze naeher ans Fenster, direkt ans Fenster, naeher an das Fenster]
 
   naehrstoff_verfuegbarkeit:
     pattern: '(?i)N[aä]hrstoff.*verf[uü]gbar|verf[uü]gbar.*N[aä]hrstoff|N[aä]hrstoff.*aufnahme.*eingeschr|N[aä]hrstoff.*blockier|N[aä]hrstoff.*festleg|Lockout|pH.*beeinflusst.*Aufnahme'
@@ -1506,6 +1506,10 @@ topics:
   nicht_empfohlen:
     pattern: '(?i)nicht.*empfohlen'
     de: [nicht empfohlen]
+
+  bittersalz_nicht_empfohlen:
+    pattern: '(?i)Bittersalz.*nicht.*empfohlen|nicht.*empfohlen.*Bittersalz|Blattspray.*nicht.*empfohlen'
+    de: [Bittersalz nicht empfohlen, Blattspray nicht empfohlen]
 
   nicht_giessen:
     pattern: '(?i)nicht.*gie[sß]en|Gie[sß]en.*stopp|Gie[sß]en.*einstell|sofort.*aufh[oö]r.*gie[sß]|kein.*Wasser.*geb|Gie[sß]en.*unterlassen|Gie[sß]en.*pausier|Gie[sß].*stopp|Gie[sß].*Pause|mit.*Gie[sß]en.*wart|Gie[sß]en.*reduzier'
@@ -1596,8 +1600,8 @@ topics:
     de: [oomycet]
 
   optional:
-    pattern: '(?i)optional'
-    de: [optional]
+    pattern: '(?i)CalMag.*optional|optional.*CalMag'
+    de: [CalMag optional]
 
   orchidee:
     pattern: '(?i)orchidee'

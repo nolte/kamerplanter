@@ -1,9 +1,9 @@
-# Schnellstart
+# Docker Compose Schnellstart
 
 In 5 Minuten von Null zur laufenden Kamerplanter-Instanz mit deinen ersten Pflanzen.
 
 !!! info "Voraussetzung"
-    Docker und Docker Compose müssen installiert sein. Falls nicht, folge zuerst der [Installationsanleitung](installation.md).
+    Docker und Docker Compose müssen installiert sein. Falls nicht, folge zuerst der [Installationsanleitung](docker-installation.md).
 
 ---
 
@@ -185,4 +185,4 @@ Dein Kamerplanter läuft. Von hier aus kannst du:
 
 - [Onboarding-Wizard](../user-guide/onboarding.md) — Ausführliche Beschreibung aller Wizard-Schritte
 - [Light-Modus](../user-guide/light-mode.md) — Was der Light-Modus genau bedeutet
-- [Erstes Deployment](first-deployment.md) — Kamerplanter dauerhaft auf eigenem Server betreiben
+- [Erstes Deployment](docker-dauerbetrieb.md) — Kamerplanter dauerhaft auf eigenem Server betreiben

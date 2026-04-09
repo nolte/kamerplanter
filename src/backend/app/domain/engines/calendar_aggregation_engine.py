@@ -13,7 +13,12 @@ from app.domain.models.calendar import CalendarEvent, CalendarEventsQuery
 
 
 class CalendarAggregationEngine:
-    """Aggregate calendar events from multiple sources (tasks, phase transitions, maintenance, watering)."""
+    """Aggregate calendar events from multiple sources (tasks, phase transitions, maintenance, watering).
+
+    NOTE: AQL queries currently traverse HAS_LIFECYCLE + CONSISTS_OF edges for LifecycleConfig.
+    TODO: Update AQL to also traverse HAS_PHASE_SEQUENCE edges once PhaseSequence migration is complete.
+    The current queries still work because LifecycleConfig data is preserved during the migration period.
+    """
 
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db

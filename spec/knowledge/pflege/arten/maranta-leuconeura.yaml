@@ -1,0 +1,94 @@
+---
+title: "Gebetspflanze (Maranta leuconeura) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [maranta, gebetspflanze, pfeilwurz, prayer-plant, zimmerpflanze, pflege, tropisch, haustierfreundlich, luftfeuchtigkeit]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: maranta-leuconeura-standort
+    title: "Gebetspflanze — Standort und Licht"
+    content: |
+      Die Gebetspflanze (Maranta leuconeura) kommt aus dem Unterwuchs
+      tropischer Regenwaelder in Brasilien. Sie braucht indirektes Licht
+      und vertraegt keine direkte Sonne — ein Nordfenster oder ein
+      zurueckgesetzter Platz am Ost-/Westfenster ist perfekt.
+
+      Temperatur: 18-27 Grad Celsius das ganze Jahr ueber. Unter 15 Grad
+      wird es kritisch. Die Pflanze reagiert empfindlich auf Zugluft und
+      Temperaturschwankungen — nicht neben offene Fenster oder Heizungen
+      stellen.
+
+      Luftfeuchtigkeit: Mindestens 55-70% sind ideal. Trockene Heizungsluft
+      im Winter ist das groesste Problem. Abhilfe: Luftbefeuchter aufstellen,
+      Kieselstein-Schale mit Wasser unter den Topf oder mehrere Pflanzen
+      gruppieren. Regelmaessig besprühen kann helfen, aber nicht uebertreiben
+      (Blattflecken-Gefahr).
+
+      Besonderheit: Die Blaetter falten sich abends senkrecht zusammen wie
+      Gebeths-Haende (Nyktinastie) und oeffnen sich morgens wieder. Wenn
+      die Blaetter das nicht mehr tun, stimmt etwas nicht.
+
+      Die Gebetspflanze ist nicht giftig — ideal fuer Haushalte mit
+      Katzen, Hunden und Kindern.
+    metadata:
+      topic: maranta_leuconeura_care
+      species: "Maranta leuconeura"
+      difficulty: beginner
+
+  - id: maranta-leuconeura-giessen
+    title: "Gebetspflanze — Giessen und Substrat"
+    content: |
+      Die Gebetspflanze mag gleichmaessige Feuchtigkeit, aber keine
+      Staunaesse. Im Sommer alle 5-7 Tage giessen, im Winter alle
+      7-10 Tage. Das Substrat sollte leicht feucht bleiben, aber nie
+      richtig nass stehen.
+
+      Giessmethode: Am besten von unten giessen (Topf in Wasser stellen
+      fuer 15-20 Minuten). So bleiben die Blaetter trocken — nasse Blaetter
+      foerdern Pilzkrankheiten.
+
+      Wasserqualitaet ist wichtig: Weiches, kalkfreies Wasser verwenden.
+      Regenwasser oder destilliertes Wasser ist ideal. Fluorid im
+      Leitungswasser schadet der Pflanze und verursacht braune Blattspitzen.
+      Mindestens Leitungswasser einen Tag stehen lassen.
+
+      Substrat: Lockere, feuchtigkeitshaltende aber gut durchlaessige Erde.
+      Normale Blumenerde mit 20% Perlite und 10% Kokoserde mischen.
+      pH-Wert 5.5-6.5 — kein kalkhaltiges Substrat verwenden.
+
+      Typische Fehler: Zu kalkhaltiges Wasser, zu trockene Luft im Winter
+      und direkte Sonne (Blaetter verbleichen und verbrennen).
+    metadata:
+      topic: maranta_leuconeura_care
+      species: "Maranta leuconeura"
+      difficulty: beginner
+
+  - id: maranta-leuconeura-duengung
+    title: "Gebetspflanze — Duengung und Umtopfen"
+    content: |
+      Die Gebetspflanze ist ein Schwachzehrer. Von Maerz bis September
+      alle 4 Wochen mit einem Zimmerpflanzenduenger in halber Dosierung
+      duengen (z.B. Compo Orchideenduenger 7-5-6, 3 ml/L auf halbe
+      Dosis reduziert). Oktober bis Februar nicht duengen.
+
+      Wichtig: Fluoridhaltige Duenger vermeiden — Fluorid schadet der
+      Pflanze und verursacht Blattspitzenverbrennung.
+
+      Umtopfen: Alle 12-18 Monate im Fruehling. Die Pflanze waechst
+      relativ zuegig und bildet ein flaches Rhizom-System. Beim Umtopfen
+      kann die Pflanze gleichzeitig geteilt werden — das ist auch die
+      einfachste Vermehrungsmethode.
+
+      Schaedlinge: Bei trockener Luft anfaellig fuer Spinnmilben
+      (feine Gespinste, Blaetter vergilben). Vorbeugung: Luftfeuchtigkeit
+      hoch halten. Bei Befall Neemoel 0.5% spruehen. Thripse (silbrige
+      Streifen auf Blaettern) mit Insektizidseife behandeln.
+
+      Die verwandten Calatheen (Goeppertia) haben aehnliche Ansprueche,
+      sind aber empfindlicher. Die Gebetspflanze ist toleranter und
+      daher besser fuer Einsteiger geeignet.
+    metadata:
+      topic: maranta_leuconeura_care
+      species: "Maranta leuconeura"
+      difficulty: beginner

@@ -1,0 +1,162 @@
+---
+title: "Kohl anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, kohl, weisskohl, brokkoli, blumenkohl, kohlrabi, gruenkohl, brassica-oleracea, anbau, garten, starkzehrer, kreuzbluetler]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: kohl-aussaat
+    title: "Kohlgemuese — Aussaat und Voranzucht"
+    content: |
+      Die Kohlfamilie (Brassica oleracea) umfasst viele Gemuese: Weisskohl,
+      Rotkohl, Blumenkohl, Brokkoli, Kohlrabi, Rosenkohl und Gruenkohl.
+      Alle sind Starkzehrer und bevorzugen kuehles Klima.
+
+      Vorkultur: Fruehe Sorten ab Maerz, Herbstsorten ab Mai bis Juni,
+      Winterkohl (Gruenkohl, Rosenkohl) ab Mai bis Juli. Keimtemperatur
+      15 bis 20 Grad. Keimdauer 4 bis 7 Tage — Kohl keimt schnell.
+      Saattiefe 1 bis 1,5 cm.
+
+      Jungpflanzen abhaerten: Ab 5 Grad nach draussen stellen.
+      Blumenkohl und Kohlrabi sind etwas kaelteempfindlicher als
+      Weisskohl oder Gruenkohl.
+
+      Auspflanzen: Fruehe Sorten ab April (unter Vlies), Hauptkultur
+      ab Mai. Pflanzabstand sortenabhaengig: Kohlrabi 25 bis 30 cm,
+      Brokkoli und Blumenkohl 50 bis 60 cm, Weisskohl 50 bis 80 cm,
+      Rosenkohl 60 bis 70 cm. Tief pflanzen (bis zu den Keimblaettern).
+
+      Kohlrabi und Brokkoli haben die kuerzeste Kulturzeit (8 bis 12
+      Wochen) und eignen sich gut fuer Anfaenger.
+
+      Balkon: Kohlrabi geht in Kuebeln ab 10 Liter. Weisskohl und
+      Rosenkohl sind zu gross fuer den Balkon.
+    metadata:
+      topic: cabbage_growing
+      species: "Brassica oleracea"
+      difficulty: beginner
+
+  - id: kohl-standort
+    title: "Kohlgemuese — Standort und Boden"
+    content: |
+      Standort: Sonnig bis leicht halbschattig. Kohl mag kuehle
+      Temperaturen — 15 bis 20 Grad sind optimal. Hitze ueber 25 Grad
+      verursacht bei Blumenkohl Verfaerbung und bei Kohlrabi Verholzung.
+
+      Boden: Naehrstoffreich, tiefgruendig, lehmig-humos mit guter
+      Wasserspeicherung. pH 6,5 bis 7,5 (leicht alkalisch!). Kohl
+      braucht Kalk — auf sauren Boeden Kohlhernie-Gefahr (siehe
+      Krankheiten). Vor dem Pflanzen reichlich Kompost und Hornspane
+      einarbeiten.
+
+      Gute Nachbarn: Sellerie (vertreibt Kohlfliege), Tomaten
+      (Kohlweissling-Abwehr), Salat, Spinat, Rote Bete, Bohnen,
+      Erbsen, Dill, Kamille.
+      Schlechte Nachbarn: Andere Kreuzbluetler (Rettich, Senf, Raps —
+      gleiche Schaedlinge), Zwiebeln, Knoblauch, Erdbeeren.
+
+      Fruchtfolge: Mindestens 4 Jahre keine Kreuzbluetler (Brassicaceae)
+      auf der gleichen Flaeche anbauen. Kohlhernie-Erreger ueberleben
+      bis zu 7 Jahre im Boden.
+    metadata:
+      topic: cabbage_growing
+      species: "Brassica oleracea"
+      difficulty: beginner
+
+  - id: kohl-pflege
+    title: "Kohlgemuese — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Gleichmaessig feucht halten, besonders waehrend der
+      Kopfbildung (Weisskohl) oder Rosettenbildung (Brokkoli, Blumenkohl).
+      Schwankende Wasserversorgung fuehrt zu Rissen und Platzern.
+      Pro Pflanze 1 bis 2 Liter taeglich im Hochsommer.
+
+      Duengen: Kohl ist Starkzehrer. Grundduengung mit Kompost und
+      Hornspane bei der Pflanzung, dann alle 3 bis 4 Wochen nachduengen
+      (Brennnesseljauche 1:10, Gemuese-Fluessigduenger). Rosenkohl
+      ab August nicht mehr mit Stickstoff duengen — sonst werden die
+      Roeschen locker.
+
+      Anhaeufen: Weisskohl und Rosenkohl regelmaessig an der Basis
+      anhaeufen — das stabilisiert die Pflanze und foerdert
+      Wurzelbildung.
+
+      Blumenkohl-Tipp: Wenn der Kopf sichtbar wird, die aeusseren
+      Blaetter darueber zusammenbinden. Das schuetzt vor Verfaerbung
+      durch Sonnenlicht (Vergilbung).
+
+      Gruenkohl-Tipp: Erst nach dem ersten Frost ernten — Kaelte wandelt
+      Staerke in Zucker um und verbessert den Geschmack erheblich.
+
+      Kohlrabi: Nicht zu spaet ernten — ueberreife Knollen werden holzig.
+      Tennisball-Groesse ist ideal (je nach Sorte 6 bis 10 cm Durchmesser).
+    metadata:
+      topic: cabbage_growing
+      species: "Brassica oleracea"
+      difficulty: beginner
+
+  - id: kohl-krankheiten
+    title: "Kohlgemuese — Krankheiten und Schaedlinge"
+    content: |
+      Kohlweissling (Pieris brassicae und P. rapae): Gruene Raupen
+      fressen Loecher in die Blaetter. Eier an der Blattunterseite
+      absuchen und vernichten. Kulturschutznetz (Maschenweite 1,3 mm)
+      direkt nach der Pflanzung aufspannen. Bacillus thuringiensis (Bt)
+      spritzen bei starkem Befall.
+
+      Kohlfliege (Delia radicum): Larven fressen an den Wurzeln.
+      Symptome: Kuemmerwuchs, welke Pflanzen trotz Giessen.
+      Kohlkragen aus Pappe um den Stiel legen — verhindert die Eiablage.
+      Kulturschutznetz. Mischkultur mit Sellerie und Tomaten.
+
+      Erdfloh: Kleine Kaefer fressen runde Loecher in die Blaetter
+      junger Pflanzen. Boden feucht halten, Vlies-Abdeckung, Gesteinsmehl
+      stauben.
+
+      Kohlhernie (Plasmodiophora brassicae): Knollige Verdickungen an
+      den Wurzeln, Pflanze welkt und waechst nicht. Kein Heilmittel —
+      befallene Pflanzen komplett entsorgen (nicht kompostieren!).
+      Vorbeugung: Kalkung auf pH ueber 7,0, resistente Sorten, strenge
+      Fruchtfolge (7 Jahre!). Befall ueber Boden und Werkzeug.
+
+      Schnecken: Jungpflanzen besonders gefaehrdet. Ferramol-Schneckenkorn,
+      Schneckenzaun oder abendliches Absammeln.
+    metadata:
+      topic: cabbage_growing
+      species: "Brassica oleracea"
+      difficulty: intermediate
+
+  - id: kohl-ernte
+    title: "Kohlgemuese — Ernte und Lagerung"
+    content: |
+      Kohlrabi: Ernte bei 6 bis 10 cm Durchmesser (Tennisballgroesse).
+      Nicht zu lange warten — wird holzig. Fruehjahr bis Herbst.
+
+      Brokkoli: Ernten, solange die Knospen noch fest geschlossen sind.
+      Wenn die gelben Blueten sichtbar werden, ist der Brokkoli ueberreif.
+      Nach dem Hauptkopf bilden sich bei vielen Sorten noch kleinere
+      Seitenkoepfe — ueber Wochen weiter ernten.
+
+      Blumenkohl: Weisser, fester Kopf ohne braune Stellen. Die aeusseren
+      Blaetter ueber den Kopf binden, wenn er 5 cm Durchmesser hat.
+
+      Weisskohl: Kopf ist erntereif, wenn er fest und prall ist und sich
+      nicht mehr weiter vergroessert. Herbst- und Winterkohl vertraegt
+      leichte Froeste bis minus 5 bis minus 10 Grad.
+
+      Rosenkohl: Ab November ernten, nach dem ersten Frost. Von unten
+      nach oben ernten — die unteren Roeschen reifen zuerst.
+
+      Gruenkohl: Ab November bis Maerz. Frost verbessert den Geschmack.
+      Aeussere Blaetter zuerst ernten.
+
+      Lagerung: Weisskohl haelt in kuehlen Kellern (0 bis 4 Grad)
+      3 bis 6 Monate. Brokkoli und Blumenkohl im Kuehlschrank nur
+      3 bis 5 Tage — besser einfrieren (vorher blanchieren). Kohlrabi
+      haelt im Kuehlschrank 1 bis 2 Wochen. Sauerkraut-Gaerung ist
+      die klassische Konservierung fuer Weisskohl.
+    metadata:
+      topic: cabbage_growing
+      species: "Brassica oleracea"
+      difficulty: beginner

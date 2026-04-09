@@ -1,0 +1,133 @@
+---
+title: "Kartoffeln anbauen — Pflanzung bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, kartoffel, solanum-tuberosum, anbau, garten, balkon, starkzehrer, nachtschatten, wurzelgemuese]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: kartoffel-pflanzung
+    title: "Kartoffeln — Pflanzung und Vorkeimen"
+    content: |
+      Kartoffeln werden nicht gesaet, sondern vegetativ ueber Pflanzknollen
+      vermehrt. Zertifiziertes Pflanzkartoffel-Saatgut verwenden —
+      Supermarkt-Kartoffeln koennen Krankheiten uebertragen.
+
+      Vorkeimen ab Maerz: Pflanzknollen in Eierkartons mit den Augen
+      nach oben an einen hellen, kuehlen Ort (10 bis 15 Grad) stellen.
+      Nach 3 bis 4 Wochen haben sich 1 bis 2 cm lange, kraeftige Triebe
+      gebildet. Vorgekeimte Kartoffeln bringen 2 bis 3 Wochen fruehere
+      Ernte.
+
+      Pflanzen: Ab April, wenn die Bodentemperatur mindestens 8 Grad
+      betraegt. Pflanzknollen 10 bis 15 cm tief in lockere Erde legen,
+      Triebe nach oben. Abstand: 30 bis 35 cm in der Reihe, 70 bis
+      80 cm Reihenabstand.
+
+      Boden: Locker, sandig-lehmig, humusreich. pH 5,5 bis 6,5
+      (leicht sauer). Starkzehrer — Kompost einarbeiten, aber keinen
+      frischen Mist (foerdert Schorf).
+
+      Balkon: Moeglich im Kartoffelsack oder Kuebel ab 40 Liter.
+      Pflanzsack mit 3 bis 4 Knollen fuellen und sukzessive Erde
+      nachlegen, wenn das Kraut waechst.
+    metadata:
+      topic: potato_growing
+      species: "Solanum tuberosum"
+      difficulty: beginner
+
+  - id: kartoffel-pflege
+    title: "Kartoffeln — Pflege und Anhaeufen"
+    content: |
+      Anhaeufen ist die wichtigste Pflegemassnahme: Wenn das Kraut
+      15 bis 20 cm hoch ist, Erde seitlich an die Pflanze anhaeufen,
+      sodass nur die oberen Blaetter herausschauen. 2 bis 3 Mal
+      wiederholen. Das Anhaeufen vergroessert die Knolle-bildende Zone,
+      haelt die Knollen dunkel (Licht macht sie gruen und giftig!)
+      und schuetzt vor Frost.
+
+      Giessen: Maessig und gleichmaessig. Besonders wichtig waehrend
+      der Bluete und Knollenbildung. Nicht ueberwaessern — Staunaesse
+      foerdert Faule. Bei Trockenheit alle 3 bis 5 Tage gruendlich
+      giessen.
+
+      Duengen: Kompost vor der Pflanzung. Kein frischer Mist (Schorf).
+      Eine Nachdungung mit Kalium-betontem Duenger (Patentkali) zur
+      Knollenbildung ist foerderlich.
+
+      Kartoffelkaefer (Leptinotarsa decemlineata): Gelb-schwarz
+      gestreifte Kaefer und orange Larven fressen die Blaetter kahl.
+      Regelmaessig absammeln (morgens, wenn sie traege sind). Bt-Praeparat
+      (Bacillus thuringiensis tenebrionis) gegen Larven spritzen.
+      Neemoel als Alternative.
+
+      Kraut- und Knollenfaeule (Phytophthora infestans): Gleicher
+      Erreger wie bei Tomaten. Braune Flecken am Kraut, faule Knollen.
+      Vorbeugung: Weite Reihenabstaende, Kupfer-Spritzung praeventiv,
+      fruehe Sorten vor dem Hauptbefall ernten.
+
+      Wichtig: Gruene Kartoffeln und Kartoffelbeeren enthalten Solanin —
+      giftig! Gruene Stellen grosszuegig abschneiden.
+    metadata:
+      topic: potato_growing
+      species: "Solanum tuberosum"
+      difficulty: beginner
+
+  - id: kartoffel-sorten
+    title: "Kartoffeln — Sorten und Reifegruppen"
+    content: |
+      Fruehkartoffeln (Reifezeit 60 bis 80 Tage): Ernte ab Juni. Duenne
+      Schale, schmecken frisch am besten, lagern aber schlecht. Sorten:
+      Annabelle, Princess, Berber.
+
+      Mittelfrühe Sorten (80 bis 110 Tage): Ernte Juli bis August.
+      Vielseitig, guter Ertrag. Sorten: Agria, Laura, Linda, Nicola.
+
+      Spaete Sorten (110 bis 140 Tage): Ernte September bis Oktober.
+      Hohe Ertraege, beste Lagereigenschaften. Sorten: Bamberger
+      Hoernchen, Jelly, Ditta.
+
+      Kocheigenschaften: Festkochend (Salat, Bratkartoffeln), vorwiegend
+      festkochend (Pellkartoffeln, Gratin), mehlig kochend (Pueree,
+      Knoedel, Suppen). Die Kocheigenschaft steht auf der Sorteninfo.
+
+      Fruchtfolge: 4 Jahre keine Nachtschattengewaechse (Kartoffeln,
+      Tomaten, Paprika, Auberginen) auf der gleichen Flaeche. Kartoffeln
+      sind eine gute Erstkultur auf Neuland — das Anhaeufen lockert
+      den Boden.
+    metadata:
+      topic: potato_growing
+      species: "Solanum tuberosum"
+      difficulty: beginner
+
+  - id: kartoffel-ernte
+    title: "Kartoffeln — Ernte und Lagerung"
+    content: |
+      Fruehkartoffeln: Ernten, wenn die Pflanze blueht oder das Kraut
+      beginnt gelb zu werden. Eine Pflanze probeweise vorsichtig
+      ausgraben — sind die Knollen gross genug? Fruehkartoffeln haben
+      eine duenne Schale, die sich abreiben laesst.
+
+      Spaete Kartoffeln: Ernten, wenn das Kraut komplett abgestorben ist.
+      Dann noch 2 Wochen warten — die Schale wird in der Erde fester
+      (bessere Lagerfaehigkeit). Mit der Grabegabel vorsichtig heben,
+      nicht mit dem Spaten (Verletzungsgefahr). Bei trockenem Wetter
+      ernten.
+
+      Trocknung: Knollen nach der Ernte 2 bis 3 Stunden auf der Erde
+      abtrocknen lassen. Nicht waschen — Restfeuchtigkeit foerdert
+      Faule. Beschaedigte und gruene Knollen aussortieren.
+
+      Lagerung: Dunkel, kuhl (4 bis 8 Grad), luftig. Keller, Erdmiete
+      oder Kartoffelsack. Nicht zusammen mit Aepfeln lagern — die
+      Ethylen-Abgabe foerdert Keimung. Bei richtiger Lagerung halten
+      spaete Sorten 4 bis 6 Monate. Fruehkartoffeln nur 2 bis 3 Wochen.
+
+      Konservierung: Kartoffeln lassen sich als Pellkartoffeln einfrieren,
+      zu Kartoffelpueree verarbeiten oder trocknen (Kartoffelchips). Roh
+      einfrieren funktioniert NICHT — die Textur wird nach dem Auftauen
+      matschig.
+    metadata:
+      topic: potato_growing
+      species: "Solanum tuberosum"
+      difficulty: beginner

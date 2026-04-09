@@ -32,12 +32,14 @@ export function useApiError() {
           case 'DUPLICATE_ENTRY':
             notification.error(t('errors.duplicate'));
             break;
-          case 'VALIDATION_ERROR':
+          case 'VALIDATION_ERROR': {
+            const vDetail = sanitizeDetail(error.message);
             notification.error(
-              error.message
-                ? t('errors.validationWithDetail', { detail: error.message })
+              vDetail
+                ? t('errors.validationWithDetail', { detail: vDetail })
                 : t('errors.validation'),
             );
+          }
             break;
           case 'INTERNAL_ERROR':
             notification.error(t('errors.server'));
@@ -79,10 +81,11 @@ export function useApiError() {
           } else if (status === 413) {
             notification.error(t('errors.tooLarge'));
           } else if (status === 422) {
-            const detail = extractDetail(error.response.data);
+            const rawDetail = extractDetail(error.response.data);
+            const cleanDetail = sanitizeDetail(rawDetail);
             notification.error(
-              detail
-                ? t('errors.validationWithDetail', { detail })
+              cleanDetail
+                ? t('errors.validationWithDetail', { detail: cleanDetail })
                 : t('errors.validation'),
             );
           } else if (status >= 500) {
@@ -122,4 +125,14 @@ function extractDetail(data: unknown): string | null {
     if (typeof obj.message === 'string') return obj.message;
   }
   return null;
+}
+
+/** Known English backend error patterns that should not be shown as raw detail text. */
+const ENGLISH_DETAIL_PATTERN = /^(The .+ is invalid\.|.+ not found\.|An internal error occurred)/i;
+
+/** Return the detail only if it is not a raw English backend message. */
+function sanitizeDetail(detail: string | undefined | null): string | null {
+  if (!detail) return null;
+  if (ENGLISH_DETAIL_PATTERN.test(detail)) return null;
+  return detail;
 }

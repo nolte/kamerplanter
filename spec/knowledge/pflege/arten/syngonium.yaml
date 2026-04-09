@@ -1,0 +1,125 @@
+---
+title: "Pfeilblatt (Syngonium podophyllum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [syngonium, pfeilblatt, zimmerpflanze, pflege, araceae, tropisch, kletterpflanze]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: syngonium-standort
+    title: "Pfeilblatt — Standort und Licht"
+    content: |
+      Das Pfeilblatt (Syngonium podophyllum) gedeiht am besten bei hellem,
+      indirektem Licht. Ein Ost- oder Westfenster ist ideal. Direkte
+      Mittagssonne verbrennt die Blaetter, besonders bei buntblättrigen
+      Sorten wie 'Neon Robusta' oder 'Albo-Variegatum'.
+
+      Die Pflanze kommt auch mit weniger Licht zurecht, waechst dann aber
+      langsamer und die Blaetter bleiben kleiner. Variegierte Sorten
+      verlieren bei zu wenig Licht ihre Panaschierung und werden gruener.
+
+      Temperatur: 18 bis 27 Grad Celsius, nachts nicht unter 15 Grad.
+      Die Pflanze ist waermeliebend und vertraegt keine Kaelte unter
+      15 Grad.
+
+      Luftfeuchtigkeit: 50 bis 70 Prozent sind optimal. Bei trockener
+      Heizungsluft im Winter hilft gelegentliches Besprühen oder ein
+      Luftbefeuchter.
+
+      Besonderheit: Das Syngonium veraendert seine Blattform mit dem Alter
+      dramatisch. Junge Pflanzen haben einfache pfeilfoermige Blaetter,
+      aeltere Exemplare entwickeln gelappte, fingerartige Blaetter mit
+      bis zu 9 Lappen. Fuer den kompakten Wuchs mit den huebschen
+      Pfeilblaettern: Regelmaessig zurueckschneiden.
+    metadata:
+      topic: syngonium_care
+      species: "Syngonium podophyllum"
+      difficulty: beginner
+
+  - id: syngonium-giessen
+    title: "Pfeilblatt — Giessen und Substrat"
+    content: |
+      Das Syngonium mag gleichmaessig feuchtes Substrat, ohne Staunaesse.
+      Lass die oberen 2 bis 3 Zentimeter Erde zwischen den Wassergaben
+      antrocknen, dann gruendlich giessen.
+
+      Giess-Rhythmus Sommer: Alle 7 bis 10 Tage.
+      Giess-Rhythmus Winter: Alle 10 bis 14 Tage.
+
+      Wasserqualitaet: Normales Leitungswasser ist voellig ausreichend.
+      Zimmerwarmes Wasser verwenden.
+
+      Substrat: Lockere, gut durchlaessige Zimmerpflanzenerde mit
+      20 Prozent Perlite. pH-Wert 5,5 bis 6,5. Das Substrat sollte
+      Feuchtigkeit halten, aber nicht stauen.
+
+      Topfgroesse: 2 bis 8 Liter, mindestens 15 cm Topftiefe.
+
+      Haeufigste Giess-Fehler:
+      - Ueberwaesserung: Gelbe Blaetter und Wurzelfaeule.
+      - Zu trocken: Blaetter rollen sich ein und werden braun.
+      - Staunasse Erde: Fuehrt schnell zu Faeulnis, besonders im
+        Winter.
+    metadata:
+      topic: syngonium_care
+      species: "Syngonium podophyllum"
+      difficulty: beginner
+
+  - id: syngonium-duengung
+    title: "Pfeilblatt — Duengung und Umtopfen"
+    content: |
+      Duengung: Von Maerz bis September alle 4 Wochen mit einem
+      Gruenpflanzen-Fluessigduenger (zum Beispiel NPK 7-3-6, etwa 4 ml
+      pro Liter Wasser). Stickstoffbetonte Formel foerdert buschiges,
+      farbiges Laub.
+
+      Bei variegierten Sorten: Etwas weniger Stickstoff verwenden, da
+      zu viel Stickstoff die Blaetter gruener macht und die Panaschierung
+      zurueckdraengt.
+
+      Von Oktober bis Februar: Kein Duenger.
+
+      Umtopfen: Alle 12 bis 18 Monate in einen etwas groesseren Topf.
+      Bester Zeitpunkt: Fruehling (Maerz/April). Handschuhe tragen,
+      da der Milchsaft Hautreizungen verursachen kann.
+
+      Rueckschnitt: Fuer kompakten Wuchs die Triebe regelmaessig
+      kappen. Haengende oder kriechende Triebe kuerzen, um
+      jungblaettrige, schoenere Pflanzen zu erhalten. Am besten im
+      Fruehling.
+    metadata:
+      topic: syngonium_care
+      species: "Syngonium podophyllum"
+      difficulty: beginner
+
+  - id: syngonium-probleme
+    title: "Pfeilblatt — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Gelbe Blaetter: Ueberwaesserung oder Naehrstoffmangel.
+      - Braune Flecken: Nasses Laub oder bakterielle/pilzliche
+        Blattflecken.
+      - Variegierung verschwindet: Zu wenig Licht.
+      - Langstielig und kahl: Zu wenig Licht, zurueckschneiden.
+
+      Schaedlinge: Spinnmilben (Gespinste, vergilbende Blaetter),
+      Schmierlaeusen (Wollflecken), Thrips (silbrige Streifen,
+      deformierte Blaetter) und Blattlaeusen (Kolonien an Triebspitzen).
+      Alle 2 Wochen kontrollieren.
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben, Schmierlaeusen
+      und Thrips. Insektizidseife gegen Blattlaeuse und Thrips.
+
+      Vermehrung: Sehr einfach. Stecklinge unterhalb eines Knotens mit
+      Luftwurzelansatz abschneiden und in Wasser stellen. In 1 bis 2
+      Wochen bilden sich Wurzeln. Dann in Substrat einpflanzen.
+      Alternativ direkt in feuchtes Substrat stecken. Handschuhe
+      empfohlen wegen des reizenden Milchsafts.
+
+      Achtung: Syngonium ist giftig fuer Katzen, Hunde und Kinder
+      (Kalziumoxalat-Kristalle). Der Milchsaft kann Hautreizungen
+      verursachen.
+    metadata:
+      topic: syngonium_care
+      species: "Syngonium podophyllum"
+      difficulty: beginner

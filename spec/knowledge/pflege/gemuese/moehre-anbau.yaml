@@ -1,0 +1,108 @@
+---
+title: "Moehren anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, moehre, karotte, daucus-carota, anbau, garten, balkon, mittelzehrer, wurzelgemuese]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: moehre-aussaat
+    title: "Moehren — Aussaat und Standort"
+    content: |
+      Moehren werden immer direkt ins Freiland gesaet — sie vertragen
+      kein Pikieren oder Umtopfen, da ihre Pfahlwurzel empfindlich auf
+      Beschaedigung reagiert.
+
+      Aussaat ab Maerz bis Juli in Staffelsaat alle 3 bis 4 Wochen fuer
+      kontinuierliche Ernte. Saatrillen 1 bis 2 cm tief ziehen,
+      Reihenabstand 25 bis 30 cm. Die feinen Samen duenn verteilen oder
+      Saatband verwenden. Keimdauer 10 bis 21 Tage — Geduld noetig!
+      Optimale Keimtemperatur 10 bis 20 Grad. Moehren keimen schon ab
+      5 Grad, sind also echte Fruehstarter.
+
+      Der Boden ist entscheidend: Er MUSS tiefgruendig, locker, steinfrei
+      und feinkruemelig sein. Steine, verdichteter Boden oder frischer
+      Mist fuehren zu krummen, gespaltenen oder beinigen Moehren. Schwere
+      Lehmboeden mit Sand und Kompost verbessern.
+
+      pH 6,0 bis 7,0. Moehren sind Mittelzehrer — moderate Duengung
+      genuegt. Keine frische organische Duengung (Beinigkeit!).
+
+      Markiersaat: Radieschen zwischen die Moehren saeen. Radieschen
+      keimen schneller und markieren die Reihen. Bis die Moehren
+      aufgehen, sind die Radieschen schon geerntet.
+
+      Balkon: Moeglich in tiefen Toepfen (mindestens 30 cm Tiefe).
+      Kurzwurzelige Sorten wie Pariser Markt sind ideal fuer Kuebel.
+    metadata:
+      topic: carrot_growing
+      species: "Daucus carota subsp. sativus"
+      difficulty: beginner
+
+  - id: moehre-pflege
+    title: "Moehren — Pflege und Moehrenfliege vermeiden"
+    content: |
+      Nach dem Aufgehen auf 3 bis 5 cm Abstand vereinzeln. Das ist
+      wichtig — zu dicht stehende Moehren bleiben duenn und klein.
+
+      Giessen: Gleichmaessig feucht halten. Trockenphasen gefolgt von
+      starkem Giessen verursachen Risse in den Wurzeln. Nicht zu nass —
+      Staunaesse foerdert Faeulnis.
+
+      Unkraut jaeten ist in den ersten Wochen wichtig, da Moehren
+      langsam wachsen und von Unkraut leicht ueberwuchert werden.
+      Flaches Hacken reicht — tief hacken beschaedigt die Wurzeln.
+
+      Die Moehrenfliege (Psila rosae) ist der wichtigste Schaedling.
+      Symptome: Gaenge in der Wurzel, rotbraune Verfaerbung, Frassgaenge.
+      Vorbeugung: Kulturschutznetz mit engmaschigem Netz (max. 1,3 mm)
+      direkt nach der Aussaat aufspannen. Zwiebeln als Mischkultur-Partner
+      — der Zwiebelgeruch verwirrt die Moehrenfliege. Sorten mit
+      geringerem Chlorogensaeuregehalt (z.B. Flyaway) sind weniger
+      attraktiv.
+
+      Gute Nachbarn: Zwiebeln (verwirren Moehrenfliege), Lauch, Knoblauch,
+      Tomaten, Salat, Radieschen, Erbsen, Schnittlauch.
+      Schlechte Nachbarn: Dill (gleiche Familie, gleiche Schaedlinge),
+      Petersilie, Fenchel, Sellerie.
+
+      Fruchtfolge: 3 Jahre keine Doldenbluetler (Apiaceae) auf der
+      gleichen Flaeche.
+    metadata:
+      topic: carrot_growing
+      species: "Daucus carota subsp. sativus"
+      difficulty: beginner
+
+  - id: moehre-ernte
+    title: "Moehren — Ernte und Lagerung"
+    content: |
+      Fruehe Sorten (z.B. Nantes) sind ab Juni erntefaehig, spaete Sorten
+      (Herbstmoehren) ab September bis November. Die Moehre ist erntereif,
+      wenn die Schulter einen Durchmesser von 2 bis 4 cm hat und die
+      sortentypische Farbe zeigt.
+
+      Bei lockerer Erde lassen sich Moehren an den Blaettern
+      herausziehen. Bei fester Erde vorher mit der Grabegabel lockern.
+      Nicht am Kraut reissen — der Kopf bricht sonst ab.
+
+      Moehren koennen bei Abdeckung mit Mulch oder Vlies bis zu den
+      ersten staerkeren Froesten (minus 5 bis minus 8 Grad) im Boden
+      bleiben. Frost macht sie sogar suesser — die Pflanze wandelt
+      Staerke in Zucker um.
+
+      Lagerung: Kraut direkt nach der Ernte abdrehen (nicht abschneiden),
+      da es der Wurzel Feuchtigkeit entzieht. Ungewaschen in feuchtem
+      Sand im Keller oder in der Erdmiete lagern — haelt bei 0 bis 5 Grad
+      und hoher Luftfeuchtigkeit 4 bis 6 Monate. Im Kuehlschrank in
+      einer Plastiktuete mit Loechern 2 bis 4 Wochen.
+
+      Konservierung: Blanchieren und Einfrieren (in Stuecken oder Scheiben)
+      ist die einfachste Methode. Auch Einlegen und Doerren moeglich.
+
+      Allergiker-Hinweis: Moehren koennen bei Birkenpollen-Allergikern
+      eine Kreuzreaktion ausloesen (Orales Allergiesyndrom). Kochen
+      zerstoert das Allergen.
+    metadata:
+      topic: carrot_growing
+      species: "Daucus carota subsp. sativus"
+      difficulty: beginner

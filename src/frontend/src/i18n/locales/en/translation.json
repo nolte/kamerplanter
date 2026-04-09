@@ -107,7 +107,8 @@
     "calendar": "Calendar",
     "wateringLog": "Watering Log",
     "phasen": "Phases",
-    "detail": "Details"
+    "detail": "Details",
+    "beginnerHint": "Unlock more features in the settings"
   },
   "errors": {
     "network": "Network error. Please check your connection.",
@@ -2882,7 +2883,8 @@
         "showFavoritesOnly": "Favorites only",
         "viewDetails": "View species details",
         "indoorPlant": "Houseplant",
-        "filterByCategory": "Filter by category"
+        "filterByCategory": "Filter by category",
+        "legend": "Legend"
       },
       "seasonOverview": {
         "title": "Season Overview",

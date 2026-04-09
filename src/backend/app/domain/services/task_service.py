@@ -12,6 +12,7 @@ from app.domain.models.task import (
     TaskComment,
     TaskTemplate,
     WorkflowExecution,
+    WorkflowPhase,
     WorkflowTemplate,
 )
 
@@ -92,15 +93,61 @@ class TaskService:
         )
         created_wf = self._repo.create_workflow_template(clone)
 
+        # Clone phases and build key mapping
+        source_phases = self._repo.get_phases_for_workflow(key)
+        phase_key_map: dict[str, str] = {}
+        for sp in source_phases:
+            old_key = sp.key
+            sp.key = None
+            sp.workflow_template_key = created_wf.key or ""
+            sp.created_at = None
+            sp.updated_at = None
+            new_phase = self._repo.create_phase(sp)
+            phase_key_map[old_key or ""] = new_phase.key or ""
+
         templates = self._repo.get_task_templates_for_workflow(key)
         for tt in templates:
             tt.key = None
             tt.workflow_template_key = created_wf.key or ""
+            if tt.workflow_phase_key and tt.workflow_phase_key in phase_key_map:
+                tt.workflow_phase_key = phase_key_map[tt.workflow_phase_key]
             tt.created_at = None
             tt.updated_at = None
             self._repo.create_task_template(tt)
 
         return created_wf
+
+    # ── Workflow Phases ──
+
+    def get_workflow_phases(self, wf_key: str) -> list[WorkflowPhase]:
+        self.get_workflow_template(wf_key)
+        return self._repo.get_phases_for_workflow(wf_key)
+
+    def get_workflow_phase(self, key: str) -> WorkflowPhase:
+        phase = self._repo.get_phase_by_key(key)
+        if not phase:
+            raise NotFoundError("WorkflowPhase", key)
+        return phase
+
+    def create_workflow_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
+        self.get_workflow_template(phase.workflow_template_key)
+        return self._repo.create_phase(phase)
+
+    def update_workflow_phase(self, key: str, data: dict) -> WorkflowPhase:
+        phase = self.get_workflow_phase(key)
+        for field, value in data.items():
+            setattr(phase, field, value)
+        return self._repo.update_phase(key, phase)
+
+    def delete_workflow_phase(self, key: str) -> bool:
+        self.get_workflow_phase(key)
+        return self._repo.delete_phase(key)
+
+    def reorder_workflow_phases(self, phase_orders: list[dict]) -> list[WorkflowPhase]:
+        return self._repo.reorder_phases(phase_orders)
+
+    def get_phase_suggestions(self) -> list[dict]:
+        return self._repo.get_phase_suggestions()
 
     # ── Task Templates ──
 
