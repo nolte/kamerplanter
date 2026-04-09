@@ -96,7 +96,7 @@ src/
   backend/                # Python/FastAPI backend (5-layer architecture)
   frontend/               # React/TypeScript frontend
   knowledge-service/      # RAG/AI microservice (vector search + LLM)
-  ha-integration/         # Home Assistant custom integration
+custom_components/        # Home Assistant custom integration (HACS-compatible)
 helm/                     # Helm charts (bjw-s/common)
 tests/e2e/                # Selenium E2E test suite
 test-reports/             # Generated test results (rag-eval, e2e)

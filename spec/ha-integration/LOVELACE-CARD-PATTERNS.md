@@ -2,7 +2,7 @@
 
 > **Quelle:** [home-assistant/frontend](https://github.com/home-assistant/frontend) (`dev`-Branch)
 > **Datum:** 2026-04-03
-> **Zweck:** Referenzdokumentation fuer die Entwicklung eigener Custom Lovelace Cards in `src/ha-integration/www/`
+> **Zweck:** Referenzdokumentation fuer die Entwicklung eigener Custom Lovelace Cards in `custom_components/kamerplanter/www/`
 
 ---
 

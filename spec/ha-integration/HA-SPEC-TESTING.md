@@ -29,7 +29,7 @@ Aufbau einer vollstaendigen Testinfrastruktur fuer die HA Custom Integration:
 ## 2. Verzeichnisstruktur
 
 ```
-src/ha-integration/
+custom_components/kamerplanter/
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py                  # Shared Fixtures
@@ -61,7 +61,7 @@ src/ha-integration/
 ```toml
 # pyproject.toml oder requirements-test.txt
 [tool.pytest.ini_options]
-testpaths = ["src/ha-integration/tests"]
+testpaths = ["custom_components/kamerplanter/tests"]
 asyncio_mode = "auto"
 
 [project.optional-dependencies]
@@ -348,7 +348,7 @@ async def test_diagnostics_redaction(hass, mock_config_entry) -> None:
 ## 11. Coverage-Kommando
 
 ```bash
-pytest src/ha-integration/tests/ \
+pytest custom_components/kamerplanter/tests/ \
   --cov=custom_components.kamerplanter \
   --cov-report=term-missing \
   --cov-fail-under=80 \

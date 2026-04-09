@@ -7,7 +7,7 @@ Status: Spezifiziert
 Version: 1.0
 Datum: 2026-04-03
 Behebt: GAP-021, GAP-022, GAP-023, GAP-035, GAP-037, GAP-038
-Scope: src/ha-integration/www/*.js, src/ha-integration/custom_components/kamerplanter/www/*.js
+Scope: custom_components/kamerplanter/www/*.js, custom_components/kamerplanter/www/*.js
 Style Guide: spec/style-guides/HA-INTEGRATION.md §13
 Referenz: spec/ha-integration/LOVELACE-CARD-PATTERNS.md
 ```
@@ -213,7 +213,7 @@ resources:
 
 ### 6.2 Standalone Cards (www/ im Repo-Root)
 
-Die Cards in `src/ha-integration/www/` (plant-card, tank-card, mix-card) werden vom User manuell nach `/config/www/` kopiert und als `/local/kamerplanter-plant-card.js` eingebunden. Dieses Pattern bleibt unveraendert.
+Die Cards in `custom_components/kamerplanter/www/` (plant-card, tank-card, mix-card) werden vom User manuell nach `/config/www/` kopiert und als `/local/kamerplanter-plant-card.js` eingebunden. Dieses Pattern bleibt unveraendert.
 
 ---
 
@@ -257,7 +257,7 @@ echo "__pycache__/" >> .gitignore
 echo "*.pyc" >> .gitignore
 
 # Bestehende Dateien aus Git entfernen
-git rm -r --cached src/ha-integration/custom_components/kamerplanter/__pycache__/
+git rm -r --cached custom_components/kamerplanter/__pycache__/
 ```
 
 ---

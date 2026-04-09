@@ -3,7 +3,7 @@
 **Datum:** 2026-04-03
 **Fokus:** Responsive Design, Kiosk-Modus, Mobile, Barrierefreiheit, Praxistauglichkeit
 **Analysierte Dateien:**
-- `src/ha-integration/www/kamerplanter-plant-card.js`
+- `custom_components/kamerplanter/www/kamerplanter-plant-card.js`
 - `src/frontend/src/pages/pflege/PflegeDashboardPage.tsx`
 - `src/frontend/src/pages/pflege/components/CareProfileEditDialog.tsx`
 - `src/frontend/src/pages/pflege/components/CareConfirmDialog.tsx`
@@ -33,7 +33,7 @@ Die Implementierungen zeigen solides Handwerk: Theme-Integration, fullScreen-Dia
 ## Kritisch - Sofortiger Korrekturbedarf
 
 ### K-001: Timeline-Schriftgroessen unlesbar auf Smartphones
-**Datei:** `src/ha-integration/www/kamerplanter-plant-card.js`, Zeile 363-385
+**Datei:** `custom_components/kamerplanter/www/kamerplanter-plant-card.js`, Zeile 363-385
 **Bedienkontext:** Smartphone (HA Mobile App, Browser)
 **Problem:**
 Die Timeline verwendet drei verschiedene Schriftgroessen unterhalb der Lesbarkeitsgrenze:
@@ -107,7 +107,7 @@ Wireframe der verbesserten Card-Aktionszone:
 ---
 
 ### K-003: Timeline-Overflow ohne Hinweis auf Scrollbarkeit
-**Datei:** `src/ha-integration/www/kamerplanter-plant-card.js`, Zeile 237-251
+**Datei:** `custom_components/kamerplanter/www/kamerplanter-plant-card.js`, Zeile 237-251
 **Bedienkontext:** Smartphone, Tablet
 **Problem:**
 Die Timeline verwendet `overflow-x: auto` mit `scrollbar-width: none` (alle Browser). Das bedeutet: Bei mehr als 5-6 Phasen auf einem Smartphone (360px Breite) werden rechts liegende Phasen abgeschnitten und die Scrollbarkeit ist voellig unsichtbar. Der Nutzer sieht nicht, dass da noch mehr ist — und scroll-Gesten im HA-Dashboard koennen mit dem Page-Scroll interferieren (beide reagieren auf horizontales Swipe).
@@ -192,7 +192,7 @@ Alle anderen Beschriftungen in beiden Dialogen verwenden korrekt `t(...)`. Diese
 ---
 
 ### U-003: HA-Card - Leere alt-Attribute bei Kami-Phasen-Icons in Timeline
-**Datei:** `src/ha-integration/www/kamerplanter-plant-card.js`, Zeile 1070 und 1037
+**Datei:** `custom_components/kamerplanter/www/kamerplanter-plant-card.js`, Zeile 1070 und 1037
 **Bedienkontext:** Screenreader, assistive Technologien
 **Problem:**
 In `_renderDetails()` haben alle Kami-SVG-Bilder leere alt-Attribute:
@@ -239,7 +239,7 @@ Das reduziert den Reset-useEffect von 18 Zeilen auf eine Zeile und den handleSav
 ---
 
 ### U-005: HA-Card - Keine ARIA-Live-Region bei Sensor-Updates
-**Datei:** `src/ha-integration/www/kamerplanter-plant-card.js`, ab Zeile 782
+**Datei:** `custom_components/kamerplanter/www/kamerplanter-plant-card.js`, ab Zeile 782
 **Bedienkontext:** Screenreader
 **Problem:**
 Die Card wird bei jedem `set hass(hass)` vollstaendig neu gerendert (DOM-Patching). Fuer Screenreader gibt es keine `aria-live`-Region, die auf Aenderungen hinweist. Da sich HA-Sensor-States regelmaessig aendern, kann das bei Screenreader-Nutzern zu staendigem Unterbrechungs-Rauschen fuehren — oder umgekehrt komplett lautlos bleiben.
