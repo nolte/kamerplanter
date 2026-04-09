@@ -244,11 +244,11 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
                   size="small"
                   slotProps={{
                     input: {
-                      ...params.InputProps,
+                      ...params.slotProps?.input,
                       endAdornment: (
                         <>
                           {speciesLoading ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
+                          {params.slotProps?.input?.endAdornment}
                         </>
                       ),
                     },

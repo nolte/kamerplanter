@@ -171,13 +171,13 @@ export default function PhaseSequenceEntryDialog({
                       helperText={error?.message}
                       slotProps={{
                         input: {
-                          ...params.InputProps,
+                          ...params.slotProps?.input,
                           endAdornment: (
                             <>
                               {definitionsLoading ? (
                                 <CircularProgress size={20} />
                               ) : null}
-                              {params.InputProps.endAdornment}
+                              {params.slotProps?.input?.endAdornment}
                             </>
                           ),
                         },
