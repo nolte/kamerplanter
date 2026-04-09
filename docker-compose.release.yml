@@ -204,6 +204,8 @@ services:
   # ── Frontend (React + nginx) ──────────────────────────────
   frontend:
     image: ghcr.io/nolte/kamerplanter-frontend:__VERSION__
+    environment:
+      KAMERPLANTER_MODE: light
     ports:
       - "8080:80"
     depends_on:
