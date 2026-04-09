@@ -345,10 +345,10 @@ export default function AdminEditUserPage() {
                     {memberships.map((m) => (
                       <TableRow key={m.membership_key}>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{m.tenant_name}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.tenant_name}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">{m.tenant_slug}</Typography>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{m.tenant_slug}</Typography>
                         </TableCell>
                         <TableCell>
                           <Select

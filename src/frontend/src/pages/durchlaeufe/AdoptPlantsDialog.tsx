@@ -202,9 +202,9 @@ export default function AdoptPlantsDialog({
                         checked={selected.has(plant.key)}
                         tabIndex={-1}
                         disableRipple
-                        inputProps={{
+                        slotProps={{ input: {
                           'aria-label': plant.instance_id,
-                        }}
+                        } }}
                       />
                     </ListItemIcon>
                     <ListItemText

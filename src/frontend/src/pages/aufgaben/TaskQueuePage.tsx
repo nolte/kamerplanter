@@ -27,7 +27,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -647,7 +647,7 @@ export default function TaskQueuePage() {
                       )}
                     </Box>
                   </Box>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
                     {task.priority !== 'medium' && (
                       <Chip
                         label={t(`enums.taskPriority.${task.priority}`)}

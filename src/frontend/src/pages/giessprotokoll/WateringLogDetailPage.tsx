@@ -198,12 +198,12 @@ export default function WateringLogDetailPage() {
             <CardHeader
               avatar={<WaterDropIcon color="primary" />}
               title={
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                   {loggedAtFormatted}
                 </Typography>
               }
               subheader={
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
                   <Chip
                     label={t(`enums.applicationMethod.${log.application_method}`)}
                     size="small"

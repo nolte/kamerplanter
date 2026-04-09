@@ -106,7 +106,7 @@ function TaskTypeRow({
         label={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {icon}
-            <Typography variant="body2" fontWeight={enabled ? 600 : 400}>
+            <Typography variant="body2" sx={{ fontWeight: enabled ? 600 : 400 }}>
               {label}
             </Typography>
           </Box>
@@ -327,7 +327,7 @@ export default function CareProfileEditDialog({
         size="small"
         value={customValue ?? value}
         onChange={(e) => (onCustomChange ?? onChange)(Math.max(min, Number(e.target.value)))}
-        inputProps={{ min, max }}
+        slotProps={{ htmlInput: { min, max } }}
         sx={{ width: 100 }}
         data-testid={testId}
       />
@@ -548,7 +548,7 @@ export default function CareProfileEditDialog({
                 size="small"
                 value={winterWateringMultiplier}
                 onChange={(e) => setWinterWateringMultiplier(Number(e.target.value))}
-                inputProps={{ min: 0.1, max: 3.0, step: 0.1 }}
+                slotProps={{ htmlInput: { min: 0.1, max: 3.0, step: 0.1 } }}
                 fullWidth
                 helperText={t('pages.pflege.winterWateringMultiplierHelper')}
                 data-testid="winter-watering-multiplier-field"

@@ -264,12 +264,13 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                     label={t('pages.tasks.plant')}
                     sx={{ mb: 2 }}
                     slotProps={{
+                      ...params.slotProps,
                       input: {
-                        ...params.InputProps,
+                        ...params.slotProps.input,
                         endAdornment: (
                           <>
                             {loadingPlants && <CircularProgress size={16} />}
-                            {params.InputProps.endAdornment}
+                            {params.slotProps.input?.endAdornment}
                           </>
                         ),
                       },
@@ -310,10 +311,10 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                   options={[]}
                   value={field.value}
                   onChange={(_, value) => field.onChange(value)}
-                  renderTags={(value, getTagProps) =>
+                  renderValue={(value: string[], getItemProps) =>
                     value.map((tag, idx) => (
                       <Chip
-                        {...getTagProps({ index: idx })}
+                        {...getItemProps({ index: idx })}
                         key={tag}
                         label={tag}
                         size="small"

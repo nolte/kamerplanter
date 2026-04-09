@@ -85,7 +85,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   const d = dayjs(label);
   return (
     <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, p: 1, fontSize: '0.8rem' }}>
-      <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+      <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
         {d.format('DD.MM.YYYY HH:mm')}
       </Typography>
       {payload.map((p) => (

@@ -281,7 +281,7 @@ export default function NutrientPlanAssignDialog({
                         </Box>
                       </Box>
                     }
-                    secondaryTypographyProps={{ component: 'div' }}
+                    slotProps={{ secondary: { component: 'div' } }}
                   />
                 </ListItemButton>
               );

@@ -270,11 +270,9 @@ export default function DeliveryChannelDialog({
               value={targetEc}
               onChange={(e) => setTargetEc(e.target.value)}
               size="small"
-              inputProps={{ min: 0, max: 10, step: 0.1, inputMode: 'decimal' }}
               slotProps={{
-                input: {
-                  endAdornment: <Typography variant="caption" sx={{ whiteSpace: 'nowrap', ml: 0.5 }}>mS/cm</Typography>,
-                },
+                htmlInput: { min: 0, max: 10, step: 0.1, inputMode: 'decimal' },
+                input: { endAdornment: <Typography variant="caption" sx={{ whiteSpace: 'nowrap', ml: 0.5 }}>mS/cm</Typography> },
               }}
               helperText={t('pages.deliveryChannels.targetEcHelper')}
             />
@@ -284,7 +282,7 @@ export default function DeliveryChannelDialog({
               value={targetPh}
               onChange={(e) => setTargetPh(e.target.value)}
               size="small"
-              inputProps={{ min: 0, max: 14, step: 0.1, inputMode: 'decimal' }}
+              slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1, inputMode: 'decimal' } }}
               helperText={t('pages.deliveryChannels.targetPhHelper')}
             />
             <TextField
@@ -308,7 +306,7 @@ export default function DeliveryChannelDialog({
                   value={runsPerDay}
                   onChange={(e) => setRunsPerDay(parseInt(e.target.value) || 1)}
                   size="small"
-                  inputProps={{ min: 1, max: 24, inputMode: 'numeric' }}
+                  slotProps={{ htmlInput: { min: 1, max: 24, inputMode: 'numeric' } }}
                   helperText={t('pages.deliveryChannels.runsPerDayHelper')}
                 />
                 <TextField
@@ -317,7 +315,7 @@ export default function DeliveryChannelDialog({
                   value={durationSeconds}
                   onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 300)}
                   size="small"
-                  inputProps={{ min: 1, max: 7200, step: 1, inputMode: 'numeric' }}
+                  slotProps={{ htmlInput: { min: 1, max: 7200, step: 1, inputMode: 'numeric' } }}
                   helperText={t('pages.deliveryChannels.durationSecondsHelper')}
                 />
               </>
@@ -329,11 +327,9 @@ export default function DeliveryChannelDialog({
                 value={volumePerFeeding}
                 onChange={(e) => setVolumePerFeeding(parseFloat(e.target.value) || 1)}
                 size="small"
-                inputProps={{ min: 0.1, max: 100, step: 0.1, inputMode: 'decimal' }}
                 slotProps={{
-                  input: {
-                    endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography>,
-                  },
+                  htmlInput: { min: 0.1, max: 100, step: 0.1, inputMode: 'decimal' },
+                  input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography> },
                 }}
               />
             )}
@@ -344,11 +340,9 @@ export default function DeliveryChannelDialog({
                 value={volumePerSpray}
                 onChange={(e) => setVolumePerSpray(parseFloat(e.target.value) || 0.5)}
                 size="small"
-                inputProps={{ min: 0.1, max: 10, step: 0.1, inputMode: 'decimal' }}
                 slotProps={{
-                  input: {
-                    endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography>,
-                  },
+                  htmlInput: { min: 0.1, max: 10, step: 0.1, inputMode: 'decimal' },
+                  input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography> },
                 }}
               />
             )}
@@ -360,11 +354,9 @@ export default function DeliveryChannelDialog({
                   value={gramsPerPlant}
                   onChange={(e) => setGramsPerPlant(e.target.value)}
                   size="small"
-                  inputProps={{ min: 0, step: 0.5, inputMode: 'decimal' }}
                   slotProps={{
-                    input: {
-                      endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g</Typography>,
-                    },
+                    htmlInput: { min: 0, step: 0.5, inputMode: 'decimal' },
+                    input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g</Typography> },
                   }}
                 />
                 <TextField
@@ -373,11 +365,9 @@ export default function DeliveryChannelDialog({
                   value={gramsPerM2}
                   onChange={(e) => setGramsPerM2(e.target.value)}
                   size="small"
-                  inputProps={{ min: 0, step: 0.5, inputMode: 'decimal' }}
                   slotProps={{
-                    input: {
-                      endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g/m\u00B2</Typography>,
-                    },
+                    htmlInput: { min: 0, step: 0.5, inputMode: 'decimal' },
+                    input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g/m{'\u00B2'}</Typography> },
                   }}
                 />
               </>
@@ -454,7 +444,7 @@ export default function DeliveryChannelDialog({
                     value={intervalDays}
                     onChange={(e) => setIntervalDays(parseInt(e.target.value) || 3)}
                     size="small"
-                    inputProps={{ min: 1, max: 90, step: 1 }}
+                    slotProps={{ htmlInput: { min: 1, max: 90, step: 1 } }}
                   />
                 )}
 
@@ -474,7 +464,7 @@ export default function DeliveryChannelDialog({
                   value={reminderHoursBefore}
                   onChange={(e) => setReminderHoursBefore(parseInt(e.target.value) || 0)}
                   size="small"
-                  inputProps={{ min: 0, max: 24, step: 1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 24, step: 1 } }}
                 />
 
                 <TextField
@@ -483,7 +473,7 @@ export default function DeliveryChannelDialog({
                   value={timesPerDay}
                   onChange={(e) => setTimesPerDay(Math.max(1, Math.min(6, parseInt(e.target.value) || 1)))}
                   size="small"
-                  inputProps={{ min: 1, max: 6, step: 1 }}
+                  slotProps={{ htmlInput: { min: 1, max: 6, step: 1 } }}
                 />
               </>
             )}

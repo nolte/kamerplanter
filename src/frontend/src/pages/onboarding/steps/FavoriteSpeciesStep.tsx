@@ -67,7 +67,7 @@ export default function FavoriteSpeciesStep({
       </Typography>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="body2" fontWeight={600}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {t('pages.onboarding.favorites.selectedCount', { count: favoriteSpeciesKeys.length })}
         </Typography>
       </Box>
@@ -193,9 +193,8 @@ export default function FavoriteSpeciesStep({
 
                 <Typography
                   variant="body2"
-                  fontWeight={isFavorited ? 600 : 400}
                   noWrap
-                  sx={{ maxWidth: '100%', px: 0.5 }}
+                  sx={{ fontWeight: isFavorited ? 600 : 400, maxWidth: '100%', px: 0.5 }}
                 >
                   {displayName}
                 </Typography>

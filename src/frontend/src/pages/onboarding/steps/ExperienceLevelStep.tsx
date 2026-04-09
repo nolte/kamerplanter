@@ -71,9 +71,7 @@ export default function ExperienceLevelStep({
             >
               <Box sx={{ color: 'primary.main', mb: 1 }}>{icon}</Box>
               <Typography
-                variant="subtitle1"
-                fontWeight={experienceLevel === level ? 700 : 400}
-              >
+                variant="subtitle1" sx={{ fontWeight: experienceLevel === level ? 700 : 400 }}>
                 {t(`enums.experienceLevel.${level}`)}
               </Typography>
               <Typography variant="caption" color="text.secondary">

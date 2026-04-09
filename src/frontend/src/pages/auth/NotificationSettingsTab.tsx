@@ -18,7 +18,7 @@ import FormControl from '@mui/material/FormControl';
 import Divider from '@mui/material/Divider';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import { useSnackbar } from 'notistack';
 import {
   getPreferences,
