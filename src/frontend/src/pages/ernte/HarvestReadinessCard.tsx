@@ -104,7 +104,7 @@ export default function HarvestReadinessCard({
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.harvest.estimatedDays')}:{' '}
-              <Typography component="span" variant="body2" fontWeight="bold">
+              <Typography component="span" variant="body2" sx={{ fontWeight: 'bold' }}>
                 {readiness.estimated_days}{' '}
                 {t('pages.harvest.days')}
               </Typography>

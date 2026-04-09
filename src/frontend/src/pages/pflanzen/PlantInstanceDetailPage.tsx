@@ -23,7 +23,7 @@ import TodayIcon from '@mui/icons-material/Today';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import AddIcon from '@mui/icons-material/Add';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -906,7 +906,7 @@ export default function PlantInstanceDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   {t('pages.plantInstances.instanceId')}
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>{plant.instance_id}</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>{plant.instance_id}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -944,15 +944,13 @@ export default function PlantInstanceDetailPage() {
                       />
                       <Typography
                         variant="body1"
-                        fontWeight={500}
                         color={
                           estimatedHarvest.daysRemaining < 0
                             ? 'error.main'
                             : estimatedHarvest.daysRemaining <= 7
                               ? 'warning.main'
                               : undefined
-                        }
-                      >
+                        } sx={{ fontWeight: 500 }}>
                         {estimatedHarvest.date.toLocaleDateString(i18n.language)}
                         {' '}
                         ({estimatedHarvest.daysRemaining === 0
@@ -1073,7 +1071,7 @@ export default function PlantInstanceDetailPage() {
                         <Typography variant="caption" color="text.secondary">
                           {t('pages.plantInstances.lastWatered')}
                         </Typography>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {lastWatering
                             ? new Date(lastWatering.confirmed_at).toLocaleDateString(i18n.language)
                             : '—'}
@@ -1102,7 +1100,7 @@ export default function PlantInstanceDetailPage() {
                             <Typography variant="caption" color="text.secondary">
                               {t('pages.plantInstances.nextWatering')}
                             </Typography>
-                            <Typography variant="body1" fontWeight={500} color={isOverdue ? 'error.main' : undefined}>
+                            <Typography variant="body1" color={isOverdue ? 'error.main' : undefined} sx={{ fontWeight: 500 }}>
                               {nextWateringTask?.due_date ? (
                                 <Link
                                   component={RouterLink}
@@ -1241,7 +1239,7 @@ export default function PlantInstanceDetailPage() {
                             {t('pages.nutrientPlans.npkRatio')}
                           </Typography>
                         </Tooltip>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {activePhaseEntry.npk_ratio[0]}-{activePhaseEntry.npk_ratio[1]}-{activePhaseEntry.npk_ratio[2]}
                         </Typography>
                       </Box>
@@ -1314,7 +1312,7 @@ export default function PlantInstanceDetailPage() {
                   {/* Header with name + link */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box>
-                      <Typography variant="h6" fontStyle="italic">{species.scientific_name}</Typography>
+                      <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{species.scientific_name}</Typography>
                       {species.common_names.length > 0 && (
                         <Typography variant="body2" color="text.secondary">
                           {species.common_names.join(', ')}
@@ -1977,9 +1975,7 @@ export default function PlantInstanceDetailPage() {
                           return (
                             <Typography
                               variant="body2"
-                              color={isOverdue ? 'error' : 'text.primary'}
-                              fontWeight={isOverdue ? 600 : undefined}
-                            >
+                              color={isOverdue ? 'error' : 'text.primary'} sx={{ fontWeight: isOverdue ? 600 : undefined }}>
                               {relative}
                             </Typography>
                           );

@@ -21,7 +21,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -572,9 +572,9 @@ export default function FertilizerDetailPage() {
                   : theme.palette.grey[50],
             }}
           >
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
               {/* NPK values */}
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                 <Chip
                   label={`N ${npkN}%`}
                   color="success"
@@ -596,13 +596,13 @@ export default function FertilizerDetailPage() {
               <Divider sx={{ display: { xs: 'block', sm: 'none' } }} />
 
               {/* EC & pH */}
-              <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={3} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {t('pages.fertilizers.ecContribution')}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <Typography variant="body1" fontWeight={600}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
                       {fertilizer.ec_contribution_per_ml.toFixed(3)} mS/ml
                     </Typography>
                     {fertilizer.ec_contribution_uncertain && (
@@ -613,7 +613,7 @@ export default function FertilizerDetailPage() {
                   </Stack>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {t('pages.fertilizers.phEffect')}
                   </Typography>
                   <Chip
@@ -625,10 +625,10 @@ export default function FertilizerDetailPage() {
                 </Box>
                 {fertilizer.max_dose_ml_per_liter != null && (
                   <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                       {t('pages.fertilizers.maxDose')}
                     </Typography>
-                    <Typography variant="body1" fontWeight={600}>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
                       {fertilizer.max_dose_ml_per_liter} ml/L
                     </Typography>
                   </Box>
@@ -655,7 +655,7 @@ export default function FertilizerDetailPage() {
               />
             </DetailRow>
             <DetailRow label={t('pages.fertilizers.mixingPriority')}>
-              <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
                 <Chip label={fertilizer.mixing_priority} size="small" variant="outlined" />
                 <Typography variant="caption" color="text.secondary">
                   {t('pages.fertilizers.mixingPriorityHelper')}
@@ -747,7 +747,7 @@ export default function FertilizerDetailPage() {
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid size={{ xs: 6, sm: 4 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {t('pages.fertilizers.stockTotalVolume')}
                   </Typography>
                   <Typography variant="h6">
@@ -760,7 +760,7 @@ export default function FertilizerDetailPage() {
               {avgCostPerLiter != null && (
                 <Grid size={{ xs: 6, sm: 4 }}>
                   <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                       {t('pages.fertilizers.stockAvgCost')}
                     </Typography>
                     <Typography variant="h6">
@@ -771,7 +771,7 @@ export default function FertilizerDetailPage() {
               )}
               <Grid size={{ xs: 6, sm: 4 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {t('pages.fertilizers.stockCount')}
                   </Typography>
                   <Typography variant="h6">{stocks.length}</Typography>

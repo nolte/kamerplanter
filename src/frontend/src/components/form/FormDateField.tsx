@@ -31,7 +31,7 @@ export default function FormDateField<T extends FieldValues>({
           helperText={error?.message}
           fullWidth
           sx={{ mb: 2 }}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       )}
     />

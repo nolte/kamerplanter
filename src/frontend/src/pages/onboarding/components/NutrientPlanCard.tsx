@@ -56,7 +56,7 @@ export default function NutrientPlanCard({
       <CardContent sx={{ pb: showFertilizerSection ? 0 : undefined }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1.3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
               {plan.name}
             </Typography>
             {plan.description && (

@@ -896,7 +896,7 @@ export default function WorkflowDetailPage() {
                                   size="small"
                                   value={tt.days_offset}
                                   onChange={(e) => handleDaysOffsetChange(tt, Number(e.target.value))}
-                                  inputProps={{ min: 0, style: { width: 48, textAlign: 'center', padding: '4px 4px' } }}
+                                  slotProps={{ htmlInput: { min: 0, style: { width: 48, textAlign: 'center', padding: '4px 4px' } } }}
                                   variant="outlined"
                                   sx={{ '& .MuiOutlinedInput-root': { height: 30 } }}
                                 />
@@ -1007,13 +1007,13 @@ export default function WorkflowDetailPage() {
               placeholder={t('pages.tasks.searchActivities')}
               value={activityFilter}
               onChange={(e) => setActivityFilter(e.target.value)}
-              InputProps={{
+              slotProps={{ input: {
                 startAdornment: (
                   <InputAdornment position="start">
                     <SearchIcon />
                   </InputAdornment>
                 ),
-              }}
+              } }}
               autoFocus
             />
 
@@ -1109,7 +1109,7 @@ export default function WorkflowDetailPage() {
                 size="small"
                 value={addDayOffset}
                 onChange={(e) => setAddDayOffset(Math.max(0, Number(e.target.value)))}
-                inputProps={{ min: 0 }}
+                slotProps={{ htmlInput: { min: 0 } }}
                 helperText={t('pages.tasks.dayOffsetHelper')}
               />
             )}
@@ -1213,12 +1213,13 @@ export default function WorkflowDetailPage() {
                         placeholder={t('common.search')}
                         helperText={t('pages.tasks.speciesCompatibleHelper')}
                         slotProps={{
+                          ...params.slotProps,
                           input: {
-                            ...params.InputProps,
+                            ...params.slotProps.input,
                             endAdornment: (
                               <>
                                 {speciesLoading ? <CircularProgress size={20} /> : null}
-                                {params.InputProps.endAdornment}
+                                {params.slotProps.input?.endAdornment}
                               </>
                             ),
                           },
@@ -1241,9 +1242,9 @@ export default function WorkflowDetailPage() {
                         </ListItem>
                       );
                     }}
-                    renderTags={(value, getTagProps) =>
+                    renderValue={(value, getItemProps) =>
                       value.map((opt, index) => {
-                        const { key: tagKey, ...tagProps } = getTagProps({ index });
+                        const { key: tagKey, ...tagProps } = getItemProps({ index });
                         return (
                           <Chip
                             key={tagKey}

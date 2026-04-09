@@ -25,7 +25,7 @@ export default function MobileCard({ title, subtitle, fields, trailing, chips }:
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="subtitle2" noWrap>{title}</Typography>
             {subtitle && (
-              <Typography variant="caption" color="text.secondary" noWrap display="block">
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                 {subtitle}
               </Typography>
             )}

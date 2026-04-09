@@ -48,7 +48,7 @@ click-repl==0.3.0
     # via celery
 coverage==7.13.5
     # via pytest-cov
-cryptography==46.0.6
+cryptography==46.0.7
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
@@ -103,7 +103,7 @@ pathspec==1.0.4
     # via
     #   black
     #   mypy
-platformdirs==4.9.4
+platformdirs==4.9.6
     # via black
 pluggy==1.6.0
     # via
@@ -126,7 +126,7 @@ pygments==2.20.0
     # via pytest
 pyjwt==2.12.1
     # via python-arango
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   kamerplanter-backend (pyproject.toml)
     #   pytest-asyncio
@@ -157,7 +157,7 @@ requests==2.33.1
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.9
+ruff==0.15.10
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
@@ -193,7 +193,7 @@ urllib3==2.6.3
     # via
     #   python-arango
     #   requests
-uvicorn==0.43.0
+uvicorn==0.44.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn

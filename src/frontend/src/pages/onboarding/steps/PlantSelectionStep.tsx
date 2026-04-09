@@ -182,12 +182,12 @@ export default function PlantSelectionStep({
                       const val = Math.max(0, Math.min(50, parseInt(e.target.value, 10) || 0));
                       updateConfig(key, { count: val });
                     }}
-                    inputProps={{
+                    slotProps={{ htmlInput: {
                       min: 0,
                       max: 50,
                       style: { textAlign: 'center', width: 48 },
                       'aria-label': t('pages.onboarding.plants.countLabel', { name: getSpeciesName(key) }),
-                    }}
+                    } }}
                     sx={{ width: 72 }}
                     data-testid={`plant-count-input-${key}`}
                   />
@@ -241,7 +241,7 @@ export default function PlantSelectionStep({
             <Typography variant="subtitle2" color="text.secondary">
               {t('pages.onboarding.plants.totalPlants')}
             </Typography>
-            <Typography variant="h6" fontWeight={700} color="primary">
+            <Typography variant="h6" color="primary" sx={{ fontWeight: 700 }}>
               {totalPlants}
             </Typography>
           </Box>

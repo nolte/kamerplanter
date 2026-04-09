@@ -178,7 +178,7 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
         }
         if (r.status === 'projected') {
           return (
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
               {r.projected_start ? `~${formatDate(r.projected_start)}` : '\u2014'}
             </Typography>
           );
@@ -204,14 +204,14 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
         }
         if (r.status === 'current') {
           return (
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
               {t('pages.plantingRuns.phaseCurrent')}
             </Typography>
           );
         }
         if (r.status === 'projected') {
           return (
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
               {r.projected_end ? `~${formatDate(r.projected_end)}` : '\u2014'}
             </Typography>
           );
@@ -226,7 +226,7 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
       render: (r) => {
         if (r.status === 'completed' && r.actual_duration_days != null) {
           return (
-            <Typography variant="body2" fontWeight={500}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {r.actual_duration_days} {t('pages.plantingRuns.daysShort')}
             </Typography>
           );

@@ -325,9 +325,7 @@ export default function Sidebar({ open }: SidebarProps) {
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>{section.icon}</ListItemIcon>
                   <ListItemText
-                    primary={section.label}
-                    primaryTypographyProps={{ fontSize: '0.875rem' }}
-                  />
+                    primary={section.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
                 </ListItemButton>
               );
             }
@@ -377,9 +375,7 @@ export default function Sidebar({ open }: SidebarProps) {
                     >
                       <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
                       <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{ fontSize: '0.875rem' }}
-                      />
+                        primary={item.label} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
                     </ListItemButton>
                   );
                 })}
@@ -419,9 +415,7 @@ export default function Sidebar({ open }: SidebarProps) {
         >
           <ListItemIcon sx={{ minWidth: 40 }}><RocketLaunchIcon /></ListItemIcon>
           <ListItemText
-            primary={t('nav.onboarding')}
-            primaryTypographyProps={{ fontSize: '0.875rem' }}
-          />
+            primary={t('nav.onboarding')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
         </ListItemButton>
         <ListItemButton
           component={Link}
@@ -434,9 +428,7 @@ export default function Sidebar({ open }: SidebarProps) {
         >
           <ListItemIcon sx={{ minWidth: 40 }}><SettingsIcon /></ListItemIcon>
           <ListItemText
-            primary={t('nav.settings')}
-            primaryTypographyProps={{ fontSize: '0.875rem' }}
-          />
+            primary={t('nav.settings')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
         </ListItemButton>
       </List>
     </Drawer>

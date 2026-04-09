@@ -72,7 +72,7 @@ export default function StarterKitStep({
                 data-selected={isSelected ? 'true' : 'false'}
                 sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start' }}
               >
-                <Typography variant="subtitle1" fontWeight={isSelected ? 700 : 500} gutterBottom>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: isSelected ? 700 : 500 }}>
                   {kit.icon} {getKitName(kit)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, flex: 1 }}>

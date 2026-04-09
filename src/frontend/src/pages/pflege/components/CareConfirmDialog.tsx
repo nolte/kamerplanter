@@ -199,7 +199,7 @@ export default function CareConfirmDialog({
           minRows={2}
           margin="normal"
           size="small"
-          inputProps={{ 'aria-label': t('common.notes') }}
+          slotProps={{ htmlInput: { 'aria-label': t('common.notes') } }}
           data-testid="confirm-notes-field"
         />
 
@@ -231,7 +231,7 @@ export default function CareConfirmDialog({
                   onChange={(e) => setVolumeLiters(e.target.value)}
                   type="number"
                   size="small"
-                  inputProps={{ min: 0, step: 0.1, inputMode: 'decimal' }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1, inputMode: 'decimal' } }}
                   helperText={volumeHint ?? t('pages.pflege.volumeLitersHelper')}
                   sx={{ flex: 1, minWidth: { xs: '100%', sm: 'unset' } }}
                   data-testid="confirm-volume-field"
@@ -244,7 +244,7 @@ export default function CareConfirmDialog({
                   onChange={(e) => setMeasuredEc(e.target.value)}
                   type="number"
                   size="small"
-                  inputProps={{ min: 0, step: 0.1, inputMode: 'decimal' }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1, inputMode: 'decimal' } }}
                   helperText={t('pages.pflege.measuredEcHelper')}
                   sx={{ flex: 1, minWidth: { xs: '100%', sm: 'unset' } }}
                   data-testid="confirm-ec-field"
@@ -257,7 +257,7 @@ export default function CareConfirmDialog({
                   onChange={(e) => setMeasuredPh(e.target.value)}
                   type="number"
                   size="small"
-                  inputProps={{ min: 0, max: 14, step: 0.1, inputMode: 'decimal' }}
+                  slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1, inputMode: 'decimal' } }}
                   helperText={t('pages.pflege.measuredPhHelper')}
                   sx={{ flex: 1, minWidth: { xs: '100%', sm: 'unset' } }}
                   data-testid="confirm-ph-field"
@@ -287,7 +287,7 @@ export default function CareConfirmDialog({
                     onChange={(e) => handleMlChange(index, e.target.value)}
                     type="number"
                     size="small"
-                    inputProps={{ min: 0, step: 0.1 }}
+                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                     sx={{ flex: 1 }}
                   />
                   <IconButton size="small" onClick={() => handleRemoveFertilizer(index)}>

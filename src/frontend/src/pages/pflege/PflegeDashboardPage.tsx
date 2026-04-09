@@ -256,11 +256,11 @@ export default function PflegeDashboardPage() {
                     ({entry.species_name})
                   </Typography>
                 )}
-                <Typography variant="body2" color="text.secondary" display="block">
+                <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
                   {t(`enums.reminderType.${entry.reminder_type}`)}
                 </Typography>
                 {entry.due_date && (
-                  <Typography variant="body2" color="text.secondary" display="block">
+                  <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
                     {formatDueDate(entry.due_date, locale, t)}
                   </Typography>
                 )}

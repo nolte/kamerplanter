@@ -250,9 +250,9 @@ export default function WateringLogCreateDialog({
                     sx={{ mb: 2 }}
                   />
                 )}
-                renderTags={(value, getTagProps) =>
+                renderValue={(value, getItemProps) =>
                   value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
+                    const { key, ...tagProps } = getItemProps({ index });
                     return (
                       <Chip
                         key={key}

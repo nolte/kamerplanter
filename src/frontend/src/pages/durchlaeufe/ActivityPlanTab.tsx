@@ -30,9 +30,9 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import BuildIcon from '@mui/icons-material/Build';
 import TimerIcon from '@mui/icons-material/Timer';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AlertTitle from '@mui/material/AlertTitle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -467,7 +467,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                               </Box>
                             }
                             secondary={instructionText || undefined}
-                            secondaryTypographyProps={{ sx: { mt: 0.5 } }}
+                            slotProps={{ secondary: { sx: { mt: 0.5 } } }}
                           />
                         </ListItem>
                       </Box>
@@ -707,7 +707,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                     size="small"
                                     value={tt.days_offset}
                                     onChange={(e) => handleDayOffsetChange(tt.key, Number(e.target.value))}
-                                    inputProps={{ min: 0, max: group.phaseDurationDays, style: { width: 48, textAlign: 'center', padding: '4px 4px' } }}
+                                    slotProps={{ htmlInput: { min: 0, max: group.phaseDurationDays, style: { width: 48, textAlign: 'center', padding: '4px 4px' } } }}
                                     variant="outlined"
                                     sx={{ '& .MuiOutlinedInput-root': { height: 30 } }}
                                   />

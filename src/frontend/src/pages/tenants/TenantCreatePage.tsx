@@ -54,7 +54,7 @@ export default function TenantCreatePage() {
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
-              inputProps={{ minLength: 2, maxLength: 200 }}
+              slotProps={{ htmlInput: { minLength: 2, maxLength: 200 } }}
             />
             <TextField
               label={t('pages.tenants.description')}

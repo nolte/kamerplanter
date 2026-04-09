@@ -77,7 +77,7 @@ function ChannelCard({
     <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
       <CardContent sx={{ pb: '12px !important' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             {group.channelLabel}
           </Typography>
           <Chip
@@ -115,7 +115,7 @@ function ChannelCard({
                   <TableRow key={d.fertilizerKey}>
                     <TableCell>{fert?.product_name ?? d.fertilizerKey}</TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {amount}
                       </Typography>
                     </TableCell>
@@ -200,7 +200,7 @@ export default function PlantingRunDetailsTab({
       >
         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
           <Typography variant="caption" color="text.secondary">{t('pages.plantingRuns.runType')}</Typography>
-          <Typography variant="body1" fontWeight={500}>{t(`enums.plantingRunType.${run.run_type}`)}</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 500 }}>{t(`enums.plantingRunType.${run.run_type}`)}</Typography>
         </Grid>
         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
           <Typography variant="caption" color="text.secondary">{t('pages.plantingRuns.plannedQuantity')}</Typography>
@@ -228,7 +228,7 @@ export default function PlantingRunDetailsTab({
               to={`/standorte/locations/${run.location_key}`}
               underline="hover"
               variant="body1"
-              display="block"
+              sx={{ display: 'block' }}
             >
               {locationName}
             </Link>
@@ -242,7 +242,7 @@ export default function PlantingRunDetailsTab({
               to={`/duengung/plans/${(assignedPlan as { key?: string }).key}`}
               underline="hover"
               variant="body1"
-              display="block"
+              sx={{ display: 'block' }}
             >
               {(assignedPlan as { name?: string }).name ?? '\u2014'}
             </Link>
@@ -276,15 +276,13 @@ export default function PlantingRunDetailsTab({
             <Typography variant="caption" color="text.secondary">{t('pages.plantInstances.estimatedHarvest')}</Typography>
             <Typography
               variant="body1"
-              fontWeight={500}
               color={
                 daysRemaining < 0
                   ? 'error.main'
                   : daysRemaining <= 7
                     ? 'warning.main'
                     : 'text.primary'
-              }
-            >
+              } sx={{ fontWeight: 500 }}>
               {estimatedHarvestDate.toLocaleDateString(i18n.language)} ({daysRemaining > 0
                 ? t('pages.plantingRuns.daysRemaining', { count: daysRemaining })
                 : t('pages.plantingRuns.overdue', { count: Math.abs(daysRemaining) })})
@@ -368,7 +366,7 @@ export default function PlantingRunDetailsTab({
               {/* Header with name + link */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                 <Box>
-                  <Typography variant="h6" fontStyle="italic">{speciesData.scientific_name}</Typography>
+                  <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{speciesData.scientific_name}</Typography>
                   {speciesData.common_names.length > 0 && (
                     <Typography variant="body2" color="text.secondary">
                       {speciesData.common_names.join(', ')}

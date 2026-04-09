@@ -185,8 +185,9 @@ export default function SubstrateSelectField<T extends FieldValues>({
                 error={!!error}
                 helperText={error?.message ?? helperText}
                 slotProps={{
+                  ...params.slotProps,
                   input: {
-                    ...params.InputProps,
+                    ...params.slotProps.input,
                     endAdornment: (
                       <>
                         {hasFavorites && (
@@ -202,7 +203,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
                             </Tooltip>
                           </InputAdornment>
                         )}
-                        {params.InputProps.endAdornment}
+                        {params.slotProps.input?.endAdornment}
                       </>
                     ),
                   },

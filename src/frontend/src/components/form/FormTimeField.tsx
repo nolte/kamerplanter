@@ -34,7 +34,7 @@ export default function FormTimeField<T extends FieldValues>({
           helperText={error?.message ?? helperText}
           fullWidth
           sx={{ mb: 2 }}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       )}
     />

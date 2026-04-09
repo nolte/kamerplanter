@@ -621,20 +621,20 @@ export default function TaskDetailPage() {
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                             {plantInfo.plant.plant_name || plantInfo.plant.instance_id}
                           </Typography>
-                          <Typography variant="caption" display="block">
+                          <Typography variant="caption" sx={{ display: 'block' }}>
                             {t('entities.species')}: {plantInfo.speciesName}
                           </Typography>
                           {plantInfo.cultivarName && (
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" sx={{ display: 'block' }}>
                               {t('entities.cultivar')}: {plantInfo.cultivarName}
                             </Typography>
                           )}
                           {plantInfo.plant.current_phase && (
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" sx={{ display: 'block' }}>
                               {t('pages.plantInstances.currentPhase')}: {t(`enums.phaseName.${plantInfo.plant.current_phase}`, { defaultValue: plantInfo.plant.current_phase })}
                             </Typography>
                           )}
-                          <Typography variant="caption" display="block" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             ID: {plantInfo.plant.instance_id}
                           </Typography>
                         </Box>
@@ -814,7 +814,7 @@ export default function TaskDetailPage() {
                 <Typography variant="subtitle2" gutterBottom>
                   {t('pages.tasks.tags')}
                 </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                   {task.tags.map((tag) => (
                     <Chip key={tag} label={tag} size="small" variant="outlined" />
                   ))}

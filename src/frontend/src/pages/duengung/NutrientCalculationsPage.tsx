@@ -244,7 +244,7 @@ export default function NutrientCalculationsPage() {
                 onChange={(e) => setMpVolume(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: 0.1, step: 0.1 }}
+                slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }}
                 helperText={t('pages.nutrientCalc.targetVolumeHelper')}
               />
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -255,7 +255,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setMpTargetEc(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                   helperText={t('pages.nutrientCalc.ecUnitHelper')}
                 />
                 <TextField
@@ -265,7 +265,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setMpTargetPh(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
                   helperText={t('pages.nutrientCalc.phUnitHelper')}
                 />
               </Box>
@@ -277,7 +277,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setMpBaseEc(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                   helperText={t('pages.nutrientCalc.ecUnitHelper')}
                 />
                 <TextField
@@ -287,7 +287,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setMpBasePh(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
                 />
               </Box>
               <TextField
@@ -362,7 +362,7 @@ export default function NutrientCalculationsPage() {
                 onChange={(e) => setFlCurrentEc(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
+                slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
               />
               <TextField
                 type="number"
@@ -371,7 +371,7 @@ export default function NutrientCalculationsPage() {
                 onChange={(e) => setFlDaysUntilHarvest(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: 1 }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
               <Button variant="contained" onClick={calcFlushing} fullWidth>
                 {t('pages.nutrientCalc.calculate')}
@@ -422,7 +422,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoInputEc(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                   helperText={t('pages.nutrientCalc.ecUnitHelper')}
                 />
                 <TextField
@@ -432,7 +432,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoRunoffEc(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                 />
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -443,7 +443,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoInputPh(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
                   helperText={t('pages.nutrientCalc.phUnitHelper')}
                 />
                 <TextField
@@ -453,7 +453,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoRunoffPh(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
                 />
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -464,7 +464,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoInputVol(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                 />
                 <TextField
                   type="number"
@@ -473,7 +473,7 @@ export default function NutrientCalculationsPage() {
                   onChange={(e) => setRoRunoffVol(Number(e.target.value))}
                   fullWidth
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 0, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                 />
               </Box>
               <Button variant="contained" onClick={calcRunoff} fullWidth>
@@ -564,7 +564,7 @@ export default function NutrientCalculationsPage() {
                     value={wmTapEc}
                     onChange={(e) => setWmTapEc(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, max: 2, step: 0.01 }}
+                    slotProps={{ htmlInput: { min: 0, max: 2, step: 0.01 } }}
                     helperText={t('pages.nutrientCalc.ecUnitHelper')}
                   />
                   <TextField
@@ -573,7 +573,7 @@ export default function NutrientCalculationsPage() {
                     value={wmAlkalinity}
                     onChange={(e) => setWmAlkalinity(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, max: 500, step: 10 }}
+                    slotProps={{ htmlInput: { min: 0, max: 500, step: 10 } }}
                   />
                   <TextField
                     type="number"
@@ -581,7 +581,7 @@ export default function NutrientCalculationsPage() {
                     value={wmTargetBaseEc}
                     onChange={(e) => setWmTargetBaseEc(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, max: 2, step: 0.01 }}
+                    slotProps={{ htmlInput: { min: 0, max: 2, step: 0.01 } }}
                     helperText={t('pages.nutrientCalc.ecUnitHelper')}
                   />
                 </Box>
@@ -608,7 +608,7 @@ export default function NutrientCalculationsPage() {
                     value={ebTargetEc}
                     onChange={(e) => setEbTargetEc(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, max: 10, step: 0.1 }}
+                    slotProps={{ htmlInput: { min: 0, max: 10, step: 0.1 } }}
                   />
                   <TextField
                     select
@@ -638,7 +638,7 @@ export default function NutrientCalculationsPage() {
                     value={ebVolume}
                     onChange={(e) => setEbVolume(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0.1, step: 1 }}
+                    slotProps={{ htmlInput: { min: 0.1, step: 1 } }}
                   />
                 </Box>
                 <TextField
@@ -662,7 +662,7 @@ export default function NutrientCalculationsPage() {
                     value={ebCalmagDose}
                     onChange={(e) => setEbCalmagDose(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, step: 0.1 }}
+                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                   />
                   <TextField
                     label={t('pages.nutrientCalc.silicateKey')}
@@ -676,7 +676,7 @@ export default function NutrientCalculationsPage() {
                     value={ebSilicateDose}
                     onChange={(e) => setEbSilicateDose(Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, step: 0.1 }}
+                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -686,7 +686,7 @@ export default function NutrientCalculationsPage() {
                     value={ebSubstrateCycles}
                     onChange={(e) => setEbSubstrateCycles(e.target.value === '' ? '' : Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, step: 1 }}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
                   />
                   <TextField
                     type="number"
@@ -694,7 +694,7 @@ export default function NutrientCalculationsPage() {
                     value={ebMeasuredEc}
                     onChange={(e) => setEbMeasuredEc(e.target.value === '' ? '' : Number(e.target.value))}
                     fullWidth
-                    inputProps={{ min: 0, step: 0.01 }}
+                    slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                   />
                   <TextField
                     type="number"
@@ -702,7 +702,7 @@ export default function NutrientCalculationsPage() {
                     value={ebMeasuredTemp}
                     onChange={(e) => setEbMeasuredTemp(e.target.value === '' ? '' : Number(e.target.value))}
                     fullWidth
-                    inputProps={{ step: 0.5 }}
+                    slotProps={{ htmlInput: { step: 0.5 } }}
                   />
                 </Box>
                 <Button variant="contained" onClick={calcEcBudget} fullWidth sx={{ mb: 2 }}>
