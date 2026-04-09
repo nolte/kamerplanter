@@ -69,7 +69,7 @@ plugins:
       lang:
         - de
         - en
-      separator: '[\\s\\-,:!=\\[\\]()\"/]+|(?!\\b)(?=[A-Z][a-z])|\\.(?!\\d)|&[lg]t;'
+      separator: '[\s\-,:!=\[\]()\"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
 
   - i18n:
       docs_structure: folder
@@ -84,9 +84,11 @@ plugins:
           nav_translations:
             Startseite: Home
             Erste Schritte: Getting Started
-            Installation: Installation
-            Schnellstart: Quickstart
-            Erstes Deployment: First Deployment
+            Deine erste Pflanze: Your First Plant
+            Funktionen entdecken: Discover Features
+            Docker installieren: Docker Installation
+            Docker Compose Schnellstart: Docker Compose Quick Start
+            Docker Compose Dauerbetrieb: Docker Compose Permanent Operation
             Benutzerhandbuch: User Guide
             Stammdaten: Plant Master Data
             Standorte & Substrate: Locations & Substrates
@@ -171,7 +173,13 @@ plugins:
         remove_comments: true
 
   - redirects:
-      redirect_maps: {}
+      redirect_maps:
+        de/getting-started/installation.md: de/deployment/docker-installation.md
+        de/getting-started/quickstart.md: de/deployment/docker-quickstart.md
+        de/getting-started/first-deployment.md: de/deployment/docker-dauerbetrieb.md
+        en/getting-started/installation.md: en/deployment/docker-installation.md
+        en/getting-started/quickstart.md: en/deployment/docker-quickstart.md
+        en/getting-started/first-deployment.md: en/deployment/docker-dauerbetrieb.md
 
 markdown_extensions:
   - abbr
@@ -225,9 +233,8 @@ nav:
   - Startseite: de/index.md
   - Erste Schritte:
       - de/getting-started/index.md
-      - Installation: de/getting-started/installation.md
-      - Schnellstart: de/getting-started/quickstart.md
-      - Erstes Deployment: de/getting-started/first-deployment.md
+      - Deine erste Pflanze: de/getting-started/erste-pflanze.md
+      - Funktionen entdecken: de/getting-started/funktionen-entdecken.md
   - Benutzerhandbuch:
       - de/user-guide/index.md
       - Stammdaten: de/user-guide/plant-management.md
@@ -277,6 +284,9 @@ nav:
       - Service Accounts: de/api/service-accounts.md
   - Deployment:
       - de/deployment/index.md
+      - Docker installieren: de/deployment/docker-installation.md
+      - Docker Compose Schnellstart: de/deployment/docker-quickstart.md
+      - Docker Compose Dauerbetrieb: de/deployment/docker-dauerbetrieb.md
       - Betriebsprofile: de/deployment/betriebsprofile.md
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
