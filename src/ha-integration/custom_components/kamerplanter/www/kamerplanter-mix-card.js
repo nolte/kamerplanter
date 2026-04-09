@@ -93,6 +93,10 @@ class KamerplanterMixCard extends HTMLElement {
     this._customVols = {};
   }
 
+  connectedCallback() {
+    if (this._config) this._render();
+  }
+
   set hass(hass) {
     const entities = (this._config?.entities || []).filter(Boolean);
     const changed = !this._hass || entities.some(

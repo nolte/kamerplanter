@@ -21,7 +21,13 @@ const _haFormReady = (async () => {
 function _buildTankSchema(hass) {
   const tankEntities = hass
     ? Object.keys(hass.states).filter(
-        (id) => id.startsWith("sensor.kp_") && id.endsWith("_info")
+        (id) => {
+          if (!id.startsWith("sensor.")) return false;
+          const s = hass.states[id];
+          // Primary: attribute check; fallback: entity_id pattern
+          return (s && s.attributes && s.attributes.tank_key !== undefined)
+              || id.endsWith("_tank_info");
+        }
       )
     : [];
   return [
@@ -97,6 +103,10 @@ customElements.define("kamerplanter-tank-card-editor", KamerplanterTankCardEdito
  */
 class KamerplanterTankCard extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: "open" }); }
+
+  connectedCallback() {
+    if (this._config) this._render();
+  }
 
   set hass(hass) {
     const entities = this._getMonitoredEntities();
