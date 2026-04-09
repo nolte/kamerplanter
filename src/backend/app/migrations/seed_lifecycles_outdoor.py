@@ -2,8 +2,9 @@
 
 import structlog
 
-from app.common.dependencies import get_lifecycle_repo
+from app.common.dependencies import get_db, get_lifecycle_repo, get_phase_sequence_repo
 from app.common.enums import CycleType, PhotoperiodType, StressTolerance
+from app.data_access.arango import collections as col
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.migrations.yaml_loader import load_yaml
@@ -11,22 +12,187 @@ from app.migrations.yaml_loader import load_yaml
 logger = structlog.get_logger()
 
 
+def _build_species_name_map() -> dict[str, str]:
+    """Build a scientific_name -> _key lookup for all species in the DB."""
+    db = get_db()
+    species_col = db.collection(col.SPECIES)
+    name_map: dict[str, str] = {}
+    for doc in species_col.all():
+        name_map[doc["scientific_name"]] = doc["_key"]
+    return name_map
+
+
+def _build_sequence_name_map() -> dict[str, str]:
+    """Build a name->key lookup for PhaseSequences."""
+    ps_repo = get_phase_sequence_repo()
+    seqs, _ = ps_repo.get_all_sequences(0, 200)
+    return {s.name: s.key or "" for s in seqs}
+
+
+def _ensure_has_phase_sequence_edge(
+    species_key: str,
+    phase_sequence_key: str,
+) -> bool:
+    """Create HAS_PHASE_SEQUENCE edge if it does not exist yet.
+
+    Returns True if a new edge was created, False if it already existed.
+    """
+    db = get_db()
+    species_id = f"{col.SPECIES}/{species_key}"
+    seq_id = f"{col.PHASE_SEQUENCES}/{phase_sequence_key}"
+
+    existing = list(
+        db.aql.execute(
+            "FOR e IN @@edge_col FILTER e._from == @from_id AND e._to == @to_id RETURN 1",
+            bind_vars={
+                "@edge_col": col.HAS_PHASE_SEQUENCE,
+                "from_id": species_id,
+                "to_id": seq_id,
+            },
+        )
+    )
+    if existing:
+        return False
+
+    edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
+    edge_col.insert({"_from": species_id, "_to": seq_id})
+    return True
+
+
+def _cleanup_orphaned_lifecycles() -> int:
+    """Remove lifecycle_configs and their edges/phases that reference non-existent species.
+
+    Returns the number of orphaned lifecycle configs removed.
+    """
+    db = get_db()
+    removed = 0
+
+    # Find lifecycle configs whose species_key does not match any species document
+    orphaned_lcs = list(
+        db.aql.execute(
+            """
+            FOR lc IN @@lc_col
+                LET species_exists = (
+                    FOR s IN @@species_col
+                        FILTER s._key == lc.species_key
+                        LIMIT 1
+                        RETURN 1
+                )
+                FILTER LENGTH(species_exists) == 0
+                RETURN lc
+            """,
+            bind_vars={
+                "@lc_col": col.LIFECYCLE_CONFIGS,
+                "@species_col": col.SPECIES,
+            },
+        )
+    )
+
+    for lc_doc in orphaned_lcs:
+        lc_key = lc_doc["_key"]
+        lc_id = f"{col.LIFECYCLE_CONFIGS}/{lc_key}"
+        species_key = lc_doc.get("species_key", "unknown")
+
+        # Remove HAS_LIFECYCLE edges pointing to this lifecycle
+        db.aql.execute(
+            "FOR e IN @@edge_col FILTER e._to == @lc_id REMOVE e IN @@edge_col",
+            bind_vars={"@edge_col": col.HAS_LIFECYCLE, "lc_id": lc_id},
+        )
+
+        # Remove CONSISTS_OF edges from this lifecycle (to growth phases)
+        phase_keys = list(
+            db.aql.execute(
+                "FOR e IN @@edge_col FILTER e._from == @lc_id RETURN PARSE_IDENTIFIER(e._to).key",
+                bind_vars={"@edge_col": col.CONSISTS_OF, "lc_id": lc_id},
+            )
+        )
+        db.aql.execute(
+            "FOR e IN @@edge_col FILTER e._from == @lc_id REMOVE e IN @@edge_col",
+            bind_vars={"@edge_col": col.CONSISTS_OF, "lc_id": lc_id},
+        )
+
+        # Remove orphaned growth phases + their profiles
+        for phase_key in phase_keys:
+            # Remove requirement profiles linked to this phase
+            db.aql.execute(
+                """
+                FOR rp IN @@rp_col
+                    FILTER rp.phase_key == @phase_key
+                    REMOVE rp IN @@rp_col
+                """,
+                bind_vars={"@rp_col": col.REQUIREMENT_PROFILES, "phase_key": phase_key},
+            )
+            # Remove nutrient profiles linked to this phase
+            db.aql.execute(
+                """
+                FOR np IN @@np_col
+                    FILTER np.phase_key == @phase_key
+                    REMOVE np IN @@np_col
+                """,
+                bind_vars={"@np_col": col.NUTRIENT_PROFILES, "phase_key": phase_key},
+            )
+            # Remove the growth phase itself
+            db.aql.execute(
+                "REMOVE @key IN @@col",
+                bind_vars={"@col": col.GROWTH_PHASES, "key": phase_key},
+            )
+
+        # Remove the lifecycle config itself
+        db.aql.execute(
+            "REMOVE @key IN @@col",
+            bind_vars={"@col": col.LIFECYCLE_CONFIGS, "key": lc_key},
+        )
+
+        removed += 1
+        logger.info(
+            "orphaned_lifecycle_removed",
+            lifecycle_key=lc_key,
+            species_key=species_key,
+        )
+
+    return removed
+
+
 def run_seed_lifecycles_outdoor() -> None:
     """Create lifecycle configs + growth phases for species that don't have one yet."""
     repo = get_lifecycle_repo()
-    profile_gen = ResourceProfileGenerator()
+    species_data = load_yaml("species.yaml")
+    profile_gen = ResourceProfileGenerator.from_yaml_phases(species_data.get("default_phases", []))
     data = load_yaml("lifecycles_outdoor.yaml")
+    seq_map = _build_sequence_name_map()
+    species_name_map = _build_species_name_map()
+
+    # Cleanup orphaned lifecycle configs from previous seeds with stale keys
+    orphaned = _cleanup_orphaned_lifecycles()
+    if orphaned:
+        logger.info("orphaned_lifecycles_cleanup_complete", removed=orphaned)
 
     entries = data.get("lifecycles", [])
     created = 0
     skipped = 0
 
     for entry in entries:
-        species_key = entry["species_key"]
+        scientific_name = entry["scientific_name"]
+        species_key = species_name_map.get(scientific_name)
 
-        # Skip if lifecycle already exists for this species
+        if not species_key:
+            logger.warning(
+                "species_not_found_for_lifecycle",
+                scientific_name=scientific_name,
+            )
+            continue
+
+        # Skip lifecycle creation if already exists, but still ensure edge
         existing = repo.get_lifecycle_by_species(species_key)
         if existing:
+            ps_name = entry.get("phase_sequence")
+            if ps_name:
+                ps_key = seq_map.get(ps_name, "")
+                if ps_key:
+                    if not existing.phase_sequence_key:
+                        existing.phase_sequence_key = ps_key
+                        repo.update_lifecycle(existing.key or "", existing)
+                    _ensure_has_phase_sequence_edge(species_key, ps_key)
             skipped += 1
             continue
 
@@ -42,6 +208,29 @@ def run_seed_lifecycles_outdoor() -> None:
         )
         created_lc = repo.create_lifecycle(lc)
         lc_key = created_lc.key or ""
+
+        # Link to phase sequence if specified
+        ps_name = entry.get("phase_sequence")
+        ps_key: str = ""
+        if ps_name:
+            ps_key = seq_map.get(ps_name, "")
+            if ps_key:
+                created_lc.phase_sequence_key = ps_key
+                repo.update_lifecycle(lc_key, created_lc)
+            else:
+                logger.warning(
+                    "phase_sequence_not_found",
+                    scientific_name=scientific_name,
+                    phase_sequence=ps_name,
+                )
+
+        # Create HAS_PHASE_SEQUENCE edge (species -> phase_sequence)
+        if ps_key and _ensure_has_phase_sequence_edge(species_key, ps_key):
+            logger.info(
+                "has_phase_sequence_edge_created",
+                scientific_name=scientific_name,
+                sequence=ps_name,
+            )
 
         for phase_data in entry.get("phases", []):
             phase = GrowthPhase(
@@ -65,6 +254,10 @@ def run_seed_lifecycles_outdoor() -> None:
             repo.create_nutrient_profile(nut)
 
         created += 1
-        logger.info("lifecycle_outdoor_created", species_key=species_key, phases=len(entry.get("phases", [])))
+        logger.info(
+            "lifecycle_outdoor_created",
+            scientific_name=scientific_name,
+            phases=len(entry.get("phases", [])),
+        )
 
     logger.info("seed_lifecycles_outdoor_complete", created=created, skipped=skipped)

@@ -1,0 +1,137 @@
+---
+title: Veredelung — Pfropfen, Okulation und Unterlagenwahl
+language: de
+category: pflege
+tags: [veredelung, pfropfen, kopulation, okulation, unterlage, edelreis, obstbaum, rose, veredeln]
+expertise_level: [intermediate, expert]
+applicable_phases: [vegetative]
+chunks:
+  - id: kopulation
+    title: Kopulation — Edelreis auf Unterlage pfropfen
+    content: |
+      Was ist Kopulation und wofuer brauche ich das? Kopulation ist die
+      gaengigste Veredelungsmethode fuer Obstbaeume. Du verbindest ein
+      Edelreis (Triebstueck der gewuenschten Sorte) mit einer Unterlage
+      (Wurzelstock), sodass beide zusammenwachsen und ein neuer Baum
+      entsteht. Dadurch bekommst du die Fruchtsorte, die du willst,
+      auf einem Wurzelstock, der Groesse, Standortanpassung und
+      Krankheitsresistenz steuert.
+      Zeitpunkt: Spaeter Winter (Januar-Maerz), bevor die Knospen
+      austreiben. Das Edelreis muss in der Winterruhe sein.
+      Edelreis-Ernte: Im Dezember/Januar einjahrige Triebe (bleistiftdick,
+      gut ausgereift) von der gewuenschten Sorte schneiden, in feuchtes
+      Kuechenpapier wickeln, im Kuehlschrank lagern bis zur Veredelung.
+      Anleitung Kopulation (einfach):
+      1. Unterlage und Edelreis muessen etwa gleichen Durchmesser haben.
+      2. An beiden einen langen, schraegen Schnitt setzen (3-5 cm lang,
+         Schnittflaeche moeglichst glatt). Scharfes Veredelungsmesser
+         verwenden — Schnitthygiene ist entscheidend.
+      3. Beide Schnittflaechen aneinanderlegen, sodass die gruene
+         Kambiumschicht (duenne Wachstumsschicht unter der Rinde)
+         moeglichst lueckenlos aufeinanderpasst. Das Kambium muss
+         sich beruehren, sonst waechst nichts zusammen.
+      4. Mit Veredelungsband (Parafilm, Baumwachs-Band) fest umwickeln.
+         Kein Klebeband — das schnuert ein.
+      5. Schnittstelle mit Baumwachs versiegeln (verhindert Austrocknung
+         und Pilzbefall).
+      Verbesserte Kopulation (Gegenlaeppchen):
+      - Zusaetzlich wird in beide Schnittflaechen eine Zunge geschnitten,
+        die ineinandergreift. Ergibt besseren Halt und groessere
+        Kontaktflaeche. Erfordert Uebung, ergibt aber hoehere
+        Anwuchsraten.
+      Erfolgsrate: 70-90 Prozent bei korrekter Ausfuehrung und guter
+      Kambium-Passung. Haeufigster Fehler: Schlechtes Werkzeug und
+      unsaubere Schnitte.
+    metadata:
+      topic: whip_grafting
+      difficulty: advanced
+      season: late_winter
+      plants: [apple, pear, cherry, plum]
+
+  - id: okulation
+    title: Okulation — Augen-Veredelung bei Rosen und Obstbaeumen
+    content: |
+      Was ist Okulation und warum wird sie besonders bei Rosen
+      eingesetzt? Bei der Okulation (Augen-Veredelung, T-Schnitt)
+      setzt du eine einzelne Knospe (Auge) der gewuenschten Sorte
+      in die Rinde einer Unterlage ein. Diese Methode ist sparsamer
+      als Kopulation — aus einem einzigen Trieb gewinnst du viele
+      Augen und brauchst pro Veredelung nur minimales Pflanzenmaterial.
+      Zeitpunkt: Sommer (Juli-August), wenn die Rinde gut loesbar ist
+      ("im Saft steht"). Zu dieser Zeit laesst sich die Rinde leicht
+      vom Holz abheben.
+      Anleitung T-Okulation:
+      1. Auge (Schild) vorbereiten: Von einem diesjaehrigen Trieb der
+         Edelsorte ein Auge herausschneiden — flacher Schnitt unter
+         der Knospe, 2-3 cm langes Schildchen mit Auge, Blattstiel
+         als Griff stehen lassen. Die duenne Holzschicht auf der
+         Rueckseite entfernen oder belassen (beides funktioniert).
+      2. T-Schnitt auf der Unterlage: An einer glatten, knotenfreien
+         Stelle (bei Rosen: Wurzelhals) einen T-foermigen Schnitt durch
+         die Rinde machen. Nur die Rinde durchschneiden, nicht ins
+         Holz schneiden.
+      3. Rindenlappen vorsichtig mit dem Messerruecken oeffnen.
+      4. Schildchen mit dem Auge von oben in den T-Schnitt einschieben,
+         bis es buendig sitzt. Das Auge muss nach oben zeigen.
+      5. Mit Okulierband (elastisches Gummiband) fest umwickeln. Das
+         Auge selbst NICHT bedecken — es muss frei liegen.
+      6. Nach 3-4 Wochen pruefen: Wenn der Blattstiel bei leichter
+         Beruehrung abfaellt und das Auge gruen aussieht → Veredelung
+         erfolgreich. Wenn das Auge braun und eingetrocknet ist →
+         fehlgeschlagen.
+      7. Im naechsten Fruehling: Unterlage oberhalb der Veredelungsstelle
+         zurueckschneiden, damit das Auge austreibt.
+      Rosen-Veredelung speziell: Fast alle Gartenrosen im Handel sind
+      okuliert — die Verdickung am Wurzelhals ist die Veredelungsstelle.
+      Deshalb muessen Rosen tief gepflanzt werden: Veredelungsstelle
+      5 cm unter der Erde schuetzt vor Frost.
+    metadata:
+      topic: bud_grafting
+      difficulty: advanced
+      season: summer
+      plants: [rose, apple, pear, peach]
+
+  - id: unterlagen-wahl
+    title: Unterlagen-Wahl — schwachtreibend bis starktreibend
+    content: |
+      Warum brauche ich eine Unterlage und welche soll ich nehmen?
+      Die Unterlage (Wurzelstock) bestimmt massgeblich, wie gross dein
+      veredelter Baum wird, wie frueh er traegt und wie robust er ist.
+      Die Edelsorte bestimmt die Frucht, die Unterlage bestimmt den
+      Baum. Falsche Unterlage = Baum wird zu gross oder zu schwach.
+      Wuchsstaerke-Klassen:
+      - Schwachtreibend (Spindelbusch, Saeule): Baum wird 2-3 m hoch.
+        Fruchtbeginn schon nach 2-3 Jahren. Braucht Stuetze (Pfahl),
+        weil das Wurzelsystem schwach ist. Ideal fuer kleine Gaerten,
+        Kuebel, Spalier. Beispiel Apfel: M9, M26.
+      - Mitteltreibend (Halbstamm): Baum wird 3-5 m hoch. Guter
+        Kompromiss fuer Hausgaerten. Standfest ohne Pfahl. Fruchtbeginn
+        nach 3-5 Jahren. Beispiel Apfel: MM106, M7.
+      - Starktreibend (Hochstamm): Baum wird 6-10 m hoch. Sehr
+        langlebig (80-100+ Jahre), aber Fruchtbeginn erst nach 5-8
+        Jahren. Braucht viel Platz. Fuer Streuobstwiesen und
+        Landschaftspflege. Beispiel Apfel: Saemling, A2.
+      Wichtige Unterlagen nach Obstart:
+      - Apfel: M9 (schwach), M26 (schwach-mittel), MM106 (mittel),
+        Saemling (stark). M9 dominiert den Erwerbsobstbau.
+      - Birne: Quitte A/C (schwach-mittel), Birnen-Saemling (stark).
+        Achtung: Nicht alle Birnensorten sind mit Quitte kompatibel —
+        manche brauchen eine Zwischenveredelung.
+      - Kirsche: GiSelA 5 (schwach), GiSelA 6 (mittel), Vogel-Kirsche
+        Saemling (stark).
+      - Zwetschge/Pflaume: St. Julien A (mittel), Myrobalane (stark).
+      Weitere Kriterien bei der Wahl:
+      - Bodenbedingungen: Schwere, nasse Boeden brauchen robuste
+        Unterlagen (z.B. MM111 fuer Apfel toleriert Staunaesse).
+      - Klima: In rauen Lagen starktreibende Unterlagen mit besserem
+        Wurzelsystem waehlen.
+      - Krankheitsresistenz: Manche Unterlagen bieten Resistenz gegen
+        Feuerbrand, Kragenfaeule oder Blutlaus.
+      Fuer Anfaenger: Schwachtreibende Unterlage waehlen — der Baum
+      bleibt klein, uebersichtlich und traegt schnell. Perfekt zum
+      Lernen.
+    metadata:
+      topic: rootstock_selection
+      difficulty: moderate
+      vigor_classes: [dwarfing, semi_vigorous, vigorous]
+      fruits: [apple, pear, cherry, plum]

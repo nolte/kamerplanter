@@ -1,0 +1,78 @@
+---
+title: "Radieschen anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, radieschen, raphanus-sativus, anbau, garten, balkon, anfaenger, schwachzehrer, schnellkultur]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: radieschen-aussaat
+    title: "Radieschen — Aussaat, Pflege und Standort"
+    content: |
+      Radieschen sind das perfekte Anfaenger-Gemuese: einfach, schnell
+      (4 bis 6 Wochen von Aussaat bis Ernte) und ideal fuer Balkon,
+      Hochbeet und kleine Gaerten.
+
+      Direktsaat ab Maerz bis September ins Freiland. Saattiefe 1 bis
+      2 cm, Saatabstand 3 bis 5 cm, Reihenabstand 10 bis 15 cm.
+      Keimtemperatur 15 bis 20 Grad (keimt schon ab 5 Grad). Keimdauer
+      3 bis 7 Tage. Vorkultur ist nicht noetig und nicht empfohlen
+      (Pfahlwurzel vertraegt kein Umpflanzen).
+
+      Staffelsaat: Alle 2 bis 3 Wochen nachsaeen fuer kontinuierliche
+      Ernte. Im Hochsommer (Juli bis August) Pause einlegen —
+      Langtagsbedingungen und Hitze lassen Radieschen schiessen (holzig,
+      scharf, Bluetenbildung). Herbstaussaat ab Anfang September.
+
+      Standort: Sonnig bis halbschattig. Boden locker, steinfrei und
+      ohne frische organische Duengung. Schwachzehrer — keine Duengung
+      noetig. Gleichmaessig feucht halten, nie austrocknen lassen
+      (wird sonst holzig und unertraeglich scharf).
+
+      Balkon: Perfekt fuer Balkonkaesten ab 15 cm Tiefe. Auch in
+      Blumentoepfen und auf der Fensterbank moeglich.
+
+      Bei zu dichter Aussaat auf 3 bis 5 cm vereinzeln, sonst bleiben
+      die Knollen winzig. Unkraut jaeten in den ersten 2 Wochen.
+
+      Gute Nachbarn: Moehren (Markiersaat), Salat, Bohnen, Erbsen,
+      Spinat, Tomaten, Erdbeeren.
+      Schlechte Nachbarn: Andere Kreuzbluetler (Kohl, Rettich).
+    metadata:
+      topic: radish_growing
+      species: "Raphanus sativus var. sativus"
+      difficulty: beginner
+
+  - id: radieschen-ernte
+    title: "Radieschen — Ernte und Tipps"
+    content: |
+      Ernte nach 4 bis 6 Wochen, wenn die Knolle 2 bis 3 cm Durchmesser
+      hat und an der Erdoberflaeche sichtbar wird. Nicht zu lange
+      warten — ueberreife Radieschen werden holzig, pelzig und
+      unertraeglich scharf.
+
+      Probeweise eine Knolle herausziehen und testen. Bei lockerer Erde
+      einfach am Laub herausziehen. Bei fester Erde vorher leicht lockern.
+
+      Lagerung: Laub sofort entfernen (entzieht Feuchtigkeit). Im
+      Kuehlschrank in einem feuchten Tuch 3 bis 5 Tage. Fuer laengere
+      Frische in ein Glas Wasser stellen (wie Schnittblumen).
+
+      Die Blaetter sind essbar und naehrstoffreich — fuer Salat, Pesto
+      oder Suppe verwenden. Radieschen-Schoten (unreife Samenschoten von
+      schossenden Pflanzen) sind essbar und schmecken wuerzig-scharf.
+
+      Typische Probleme:
+      Holzige Knollen: Zu spaet geerntet, zu trocken, zu warm.
+      Keine Knollenbildung: Zu dicht gesaet, zu wenig Licht.
+      Risse: Ungleichmaessiges Giessen.
+      Erdfloh (kleine Loecher in Blaettern): Boden feucht halten,
+      Vlies-Abdeckung.
+
+      Fruchtfolge: 3 Jahre keine Kreuzbluetler auf der gleichen Flaeche.
+      Radieschen sind eine gute Vorkultur und Zwischenkultur — sie
+      raumen schnell das Beet und hinterlassen lockere Erde.
+    metadata:
+      topic: radish_growing
+      species: "Raphanus sativus var. sativus"
+      difficulty: beginner

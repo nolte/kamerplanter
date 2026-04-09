@@ -33,6 +33,7 @@ import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
 
@@ -67,7 +68,7 @@ interface SidebarProps {
 export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
-  const { isNavVisible } = useExpertiseLevel();
+  const { isNavVisible, level } = useExpertiseLevel();
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -239,6 +240,22 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
+      header: t('nav.phasen'),
+      sectionKey: 'phasen',
+      items: [
+        {
+          label: t('pages.phaseSequences.phaseDefinitions'),
+          path: '/phasen/definitionen',
+          icon: <TimelineIcon />,
+        },
+        {
+          label: t('pages.phaseSequences.phaseSequences'),
+          path: '/phasen/ablaeufe',
+          icon: <AccountTreeIcon />,
+        },
+      ],
+    },
+    {
       header: t('nav.durchlaeufe'),
       sectionKey: 'durchlaeufe',
       items: [
@@ -366,6 +383,24 @@ export default function Sidebar({ open }: SidebarProps) {
             );
           })}
         </List>
+        {level === 'beginner' && (
+          <Box sx={{ px: 2, py: 1.5, mt: 'auto' }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component={Link}
+              to="/settings"
+              sx={{
+                display: 'block',
+                textDecoration: 'none',
+                '&:hover': { textDecoration: 'underline' },
+              }}
+              onClick={isMobile ? handleClose : undefined}
+            >
+              {t('nav.beginnerHint')}
+            </Typography>
+          </Box>
+        )}
       </Box>
       <Divider />
       <List disablePadding sx={{ pb: 1 }}>

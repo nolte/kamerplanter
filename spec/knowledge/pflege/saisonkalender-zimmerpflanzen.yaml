@@ -1,0 +1,239 @@
+---
+title: "Saisonkalender Zimmerpflanzen — Pflege im Jahresverlauf"
+language: de
+category: pflege
+tags: [zimmerpflanzen, saisonkalender, giessen, duengen, umtopfen, licht, ruhephase, indoor]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: zimmerpflanzen-jan-feb
+    title: "Januar und Februar — Ruhephase und Lichtmangel"
+    content: |
+      Im Winter befinden sich die meisten Zimmerpflanzen in einer natuerlichen
+      Ruhephase. Das Wachstum stagniert, der Stoffwechsel ist verlangsamt.
+      Die wichtigste Regel: Weniger giessen, nicht duengen.
+
+      Giessen: Substrat zwischen den Wassergaben deutlich antrocknen lassen.
+      Fingertest machen — erst giessen, wenn die oberen 2 bis 3 cm trocken
+      sind. Ueberwässerung ist im Winter die haeufigste Todesursache fuer
+      Zimmerpflanzen. Staunasse Erde fuehrt zu Wurzelfaeule, besonders
+      bei kuehlen Temperaturen. Lauwarmes Wasser verwenden (Zimmertemperatur),
+      kaltes Leitungswasser stresst die Wurzeln.
+
+      Duengung: Komplett einstellen von November bis Ende Februar. Die
+      Pflanzen koennen die Naehrstoffe nicht verwerten und Salze
+      reichern sich im Substrat an.
+
+      Licht: Die Tage sind kurz, Lichtmangel ist das groesste Problem.
+      Pflanzen naeher ans Fenster ruecken. Suedseite ist jetzt der beste
+      Platz — im Gegensatz zum Sommer droht keine Verbrennung durch die
+      tiefstehende Wintersonne. Verstaubte Blaetter vorsichtig abwischen —
+      Staub reduziert die Lichtaufnahme erheblich.
+
+      Luftfeuchtigkeit: Heizungsluft trocknet auf 20 bis 30 Prozent.
+      Tropische Pflanzen (Calathea, Farne, Alocasia) brauchen mindestens
+      50 Prozent. Abhilfe: Wasserschalen auf der Heizung, Pflanzen
+      gruppieren (erzeugt Mikroklima), elektrischer Luftbefeuchter. Nicht
+      direkt besprühen — auf kalten Blaettern foerdert das Pilzbefall.
+
+      Schaedlinge: Trockene Heizungsluft beguenstigt Spinnmilben und
+      Thripse. Blattoberseiten und -unterseiten regelmaessig kontrollieren.
+      Spinnmilben erkennt man an feinen Gespinsten zwischen Blaettern.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [1, 2]
+      difficulty: beginner
+
+  - id: zimmerpflanzen-maerz-april
+    title: "Maerz und April — Neues Wachstum und Umtopfzeit"
+    content: |
+      Ab Maerz werden die Tage laenger, die Lichtintensitaet steigt.
+      Die Pflanzen erwachen aus der Winterruhe — frische Triebe und
+      neue Blaetter erscheinen. Jetzt wird umgeschaltet auf aktive Pflege.
+
+      Umtopfen: Maerz bis April ist die ideale Umtopfzeit. Pflanzen
+      umtopfen, wenn Wurzeln aus dem Abzugsloch wachsen, das Substrat
+      innerhalb weniger Stunden durchtrocknet oder das Wachstum seit
+      zwei Jahren stagniert. Neuer Topf nur 2 bis 3 cm groesser als
+      der alte — zu grosse Toepfe fuehren zu Staunaesse. Frisches,
+      hochwertiges Substrat verwenden, nicht die alte Erde recyceln.
+
+      Duengung starten: Ab Mitte Maerz alle 2 bis 4 Wochen mit
+      Fluessigduenger in halber Konzentration beginnen. Ab April
+      auf volle Konzentration steigern. Gruenpflanzen brauchen
+      stickstoffbetonten Duenger (NPK etwa 7-3-5), Bluehpflanzen
+      phosphor-/kalibetont (NPK etwa 3-5-7).
+
+      Stecklinge: Maerz und April sind perfekt fuer Vermehrung.
+      Kopfstecklinge von Pothos, Philodendron, Tradescantia und
+      Monstera schneiden — direkt unter einem Knoten (Nodium).
+      In Wasser oder feuchtes Perlite stellen. Bewurzelung dauert
+      2 bis 6 Wochen.
+
+      Rueckschnitt: Ueberwinterte Pflanzen, die kahl oder lang
+      geworden sind (Hibiskus, Fuchsie, Geranien), jetzt kraeftig
+      zurueckschneiden. Das foerdert buschigen Neuaustrieb.
+
+      Licht: Suedseite wird wieder intensiv — empfindliche Pflanzen
+      (Farne, Calathea) schrittweise umstellen, um Sonnenbrand
+      zu vermeiden. Leichte Gardine oder 1 Meter Abstand zum
+      Fenster genuegen.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [3, 4]
+      difficulty: beginner
+
+  - id: zimmerpflanzen-mai-juni
+    title: "Mai und Juni — Volle Wachstumsphase"
+    content: |
+      Mai und Juni sind die produktivsten Monate fuer Zimmerpflanzen.
+      Lange Tage, viel Licht und warme Temperaturen treiben das
+      Wachstum auf Hoechstgeschwindigkeit.
+
+      Duengung: Regelmaessig alle 2 Wochen mit Fluessigduenger oder
+      einmalig Langzeitduenger-Staebchen fuer die gesamte Saison.
+      Orchideen alle 2 bis 3 Wochen mit speziellem Orchideenduenger
+      in halber Konzentration. Kakteen und Sukkulenten monatlich mit
+      Kakteenduenger (wenig Stickstoff, mehr Kalium).
+
+      Nach draussen stellen: Ab Mitte Mai (nach den Eisheiligen)
+      koennen viele Zimmerpflanzen auf Balkon oder Terrasse. Wichtig:
+      Schrittweise an die Sonne gewoehnen (3 bis 5 Tage im Schatten,
+      dann Halbschatten, erst nach einer Woche direkte Morgensonne).
+      Direkte Mittagssonne verbrennt fast alle Zimmerpflanzen.
+
+      Geeignet fuer draussen: Monstera, Ficus, Palmen, Zitrus,
+      Hibiskus, Oleander, Yucca, Geldbaum, Aloe. Nicht geeignet:
+      Farne, Calathea, Usambaraveilchen — zu empfindlich gegen
+      Wind und Sonne.
+
+      Giessen: Wasserbedarf steigt deutlich. Taeglich kontrollieren,
+      manche Pflanzen brauchen jetzt alle 2 bis 3 Tage Wasser.
+      Draussen stehende Pflanzen trocknen durch Wind schneller aus
+      als drinnen. Morgens giessen ist ideal.
+
+      Schaedlinge: Bei der Umstellung nach draussen auf Blattlaeuse
+      achten, die von Gartenpflanzen uebersiedeln. Positiv: Draussen
+      helfen natuerliche Feinde (Marienkaeferlarven, Florfliegen)
+      bei der Bekaempfung.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [5, 6]
+      difficulty: beginner
+
+  - id: zimmerpflanzen-juli-august
+    title: "Juli und August — Hitze-Management und Schaedlingskontrolle"
+    content: |
+      Im Hochsommer sind Hitze und intensive Sonne die groessten
+      Herausforderungen. Zimmerpflanzen auf Fensterbaenken koennen
+      bei Suedausrichtung Blatttemperaturen ueber 45 Grad erreichen —
+      das ist fuer die meisten Arten zu viel.
+
+      Hitzeschutz: Pflanzen von Suedseite wegrücken oder mit leichter
+      Gardine beschatten. Zugluft von Klimaanlagen vermeiden — der
+      kalte Luftstrom schadet tropischen Pflanzen erheblich.
+
+      Giessen: Haeufiger, aber weiterhin Fingertest machen. In
+      Hitzewellen koennen Terrakotta-Toepfe taeglich gegossen werden —
+      sie verdunsten Wasser durch die poroese Wand. Plastiktoepfe
+      halten Feuchtigkeit laenger. Nie in voller Sonne giessen, da
+      Wassertropfen auf Blaettern wie Brennglaeser wirken.
+
+      Urlaubs-Tipp: Bei 2 Wochen Abwesenheit: Alle Pflanzen in die
+      Badewanne stellen (2 cm Wasser, Handtuch als Kapillarmatte),
+      Rolllaeden halb schliessen. Automatische Tropfbewaesserung ist
+      fuer laengere Abwesenheit zuverlaessiger. Alternativ:
+      Flaschen-Bewaesserung (umgedrehte Flasche mit Ton-Kegel).
+
+      Schaedlinge: Hochsaison fuer Spinnmilben (trockene Hitze),
+      Trauermücken (feucht-warmes Substrat) und Wollläuse. Gelbtafeln
+      gegen Trauermücken aufstellen. Bei Spinnmilben die Pflanze gruendlich
+      abduschen und Luftfeuchtigkeit erhoehen. Wollläuse mit
+      Isopropanol-getraenktem Wattestäbchen einzeln entfernen.
+
+      Duengung: Weiter alle 2 Wochen. Bei extremer Hitze (ueber 35
+      Grad Raumtemperatur) Duengung pausieren — gestresste Pflanzen
+      koennen Naehrstoffe nicht aufnehmen.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [7, 8]
+      difficulty: beginner
+
+  - id: zimmerpflanzen-sep-okt
+    title: "September und Oktober — Uebergang und Reinholen"
+    content: |
+      Ab September werden die Naechte kuehler. Pflanzen, die den Sommer
+      draussen verbracht haben, muessen rechtzeitig zurueckgeholt werden —
+      bevor die Nachttemperaturen unter 10 Grad fallen. Tropische Arten
+      (Monstera, Philodendron, Calathea) bereits bei unter 15 Grad
+      Nachttemperatur reinholen.
+
+      Beim Reinholen: Pflanze gruendlich auf Schaedlinge untersuchen.
+      Blattunterseiten, Blattachseln und Substratoberfläche kontrollieren.
+      Schnecken, Asseln und Ohrwuermer verstecken sich in Untersetzern
+      und Abzugsloechern. Am besten die Pflanze abduschen und 24 Stunden
+      in Quarantaene stellen, bevor sie neben andere Zimmerpflanzen kommt.
+
+      Duengung reduzieren: Ab Mitte September nur noch alle 4 Wochen
+      duengen, ab Oktober komplett einstellen. Die Pflanze bereitet sich
+      auf die Winterruhe vor und braucht weniger Naehrstoffe.
+
+      Giessen reduzieren: Weniger Licht bedeutet weniger Verdunstung.
+      Giessmenge und -haeufigkeit schrittweise zurueckfahren. Sukkulenten
+      und Kakteen ab Oktober nur noch sporadisch giessen (alle 3 bis
+      4 Wochen).
+
+      Standort anpassen: Pflanzen wieder naeher an Fenster ruecken, da
+      die Lichtintensitaet abnimmt. Suedseite ist ab Oktober wieder
+      unproblematisch. Zusaetzliche Pflanzenlampen (LED, 6000 bis 6500
+      Kelvin, 12 bis 14 Stunden taeglich) helfen lichtbeduerftigen
+      Arten durch den Winter.
+
+      Nicht umtopfen: Herbst ist keine Umtopfzeit. Die Pflanze hat
+      nicht genug Energie und Licht, um neue Wurzeln zu bilden.
+      Ausnahme: Notfall bei akuter Wurzelfaeule.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [9, 10]
+      difficulty: beginner
+
+  - id: zimmerpflanzen-nov-dez
+    title: "November und Dezember — Winterruhe einleiten"
+    content: |
+      Ab November geht die Ruhephase los. Die Pflege wird auf ein Minimum
+      reduziert. Weniger giessen, nicht duengen, nicht umtopfen.
+
+      Giessen: Nur wenn das Substrat deutlich trocken ist. Lieber
+      einmal zu wenig als einmal zu viel. Ausnahme: Weihnachtsstern
+      (Euphorbia pulcherrima) und Weihnachtskaktus (Schlumbergera)
+      brauchen gleichmaessige Feuchtigkeit waehrend der Bluete. Diese
+      Arten nicht austrocknen lassen, aber Staunaesse ist trotzdem
+      toedlich.
+
+      Heizungsluft: Das groesste Winterproblem. Relative Luftfeuchtigkeit
+      faellt auf 20 bis 30 Prozent. Gegenmassnahmen: Pflanzen auf
+      Kieselsteine in wassergefuellten Untersetzern stellen (Topfboden
+      darf nicht im Wasser stehen). Gruppierung mehrerer Pflanzen
+      schafft ein feuchtes Mikroklima. Elektrische Luftbefeuchter sind
+      die effektivste Loesung — Zielwert 40 bis 60 Prozent.
+
+      Standort: Pflanzen nicht direkt ueber oder neben Heizkoerpern
+      platzieren. Die aufsteigende Warmluft trocknet Blaetter extrem
+      aus. Mindestens 30 cm Abstand zur Heizung. Kalte Zugluft beim
+      Lueften ebenfalls vermeiden — tropische Pflanzen reagieren
+      empfindlich auf Temperaturschwankungen.
+
+      Blattpflege: Grosse Blaetter (Monstera, Ficus, Gummibaum) mit
+      feuchtem Tuch abwischen. Staub reduziert die ohnehin geringe
+      Lichtaufnahme. Keine Blattpflege-Sprays verwenden — sie
+      verstopfen die Stomata.
+
+      Weihnachtskaktus zum Bluehen bringen: Ab September 6 Wochen
+      lang kuehl stellen (15 bis 18 Grad) und weniger giessen. Danach
+      an warmen Platz zurueck — die Knospen erscheinen innerhalb von
+      2 bis 3 Wochen. Nicht mehr drehen oder umstellen, sonst fallen
+      die Knospen ab.
+    metadata:
+      topic: seasonal_calendar_houseplants
+      months: [11, 12]
+      difficulty: beginner

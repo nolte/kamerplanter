@@ -1,0 +1,109 @@
+---
+title: "Rote Bete und Mangold anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, rote-bete, mangold, beta-vulgaris, anbau, garten, balkon, mittelzehrer, wurzelgemuese, blattgemuese]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: rote-bete-aussaat
+    title: "Rote Bete und Mangold — Aussaat und Standort"
+    content: |
+      Rote Bete und Mangold gehoeren zur gleichen Art (Beta vulgaris) und
+      werden aehnlich angebaut. Rote Bete bildet eine verdickte Wurzel,
+      Mangold wird wegen seiner Blaetter und Stiele geerntet.
+
+      Aussaat ab Mitte April direkt ins Freiland, wenn die Bodentemperatur
+      mindestens 8 Grad betraegt. Vorkultur ab Maerz moeglich. Optimale
+      Keimtemperatur 10 bis 20 Grad. Saattiefe 2 bis 3 cm (Dunkelkeimer).
+      Keimdauer 10 bis 14 Tage.
+
+      Besonderheit: Die Samen sind eigentlich Knaeuelfruchte — aus jedem
+      Samenkorn wachsen 2 bis 4 Pflanze. Nach dem Aufgehen auf eine Pflanze
+      pro Stelle vereinzeln! Monogerm-Sorten ersparen diesen Schritt.
+      Tipp: Saatgut vor der Aussaat 12 bis 24 Stunden einweichen.
+
+      Pflanzabstand: 10 bis 15 cm in der Reihe, 25 bis 30 cm
+      Reihenabstand (Rote Bete). Mangold braucht mehr Platz: 30 bis
+      40 cm in der Reihe.
+
+      Standort: Sonnig bis halbschattig. Boden humos, tiefgruendig und
+      steinfrei (Steine = deformierte Rueben). pH 6,0 bis 7,5.
+      Mittelzehrer — Kompost genuegt.
+
+      Balkon: Rote Bete gut in tiefen Kuebeln (mindestens 25 cm Tiefe).
+      Mangold eignet sich sogar als dekoratives Balkongemuese (bunte
+      Stiele: Bright Lights).
+    metadata:
+      topic: beetroot_chard_growing
+      species: "Beta vulgaris subsp. vulgaris"
+      difficulty: beginner
+
+  - id: rote-bete-pflege
+    title: "Rote Bete und Mangold — Pflege und Schaedlinge"
+    content: |
+      Giessen: Gleichmaessig feucht halten. Trockenphasen gefolgt von
+      starkem Giessen verursachen Risse in den Rueben und holzige Stellen.
+      Mulchen mit Rasenschnitt haelt die Feuchtigkeit.
+
+      Duengen: Maessig — als Mittelzehrer brauchen sie keine starke
+      Duengung. Kompost vor der Aussaat genuegt. Nicht mit Stickstoff
+      ueberduengen — Rote Bete reichert sonst Nitrat an.
+
+      Blaetter als Gemuese: Die Blaetter beider Arten sind essbar und
+      naehrstoffreich (wie Spinat). Bei Rote Bete maximal 2 bis 3
+      aeussere Blaetter pro Pflanze ernten, damit die Ruebe weiter
+      gut waechst. Mangold-Blaetter aeussere zuerst pfleuecken.
+
+      Schiessen: Bei Rote Bete kann eine Kaltphase im Fruehjahr
+      unerwuenschtes Schiessen (Bluetenbildung) ausloesen. Schoessende
+      Pflanzen sofort entfernen — die Ruebe wird holzig.
+
+      Schaedlinge: Ruebenblattlaus, Rueben-Erdfloh (kleine Loecher in
+      Blaettern). Boden feucht halten, Vlies-Abdeckung.
+
+      Krankheiten: Cercospora-Blattflecken (runde braune Flecken) bei
+      feuchtem Wetter. Befallene Blaetter entfernen, gute Luftzirkulation.
+
+      Gute Nachbarn: Zwiebeln, Knoblauch, Bohnen, Kohl, Salat, Kohlrabi.
+      Schlechte Nachbarn: Spinat (gleiche Familie), Mangold (gleiche Art).
+
+      Fruchtfolge: 3 Jahre keine Amaranthaceae (Rote Bete, Mangold,
+      Spinat) auf der gleichen Flaeche.
+    metadata:
+      topic: beetroot_chard_growing
+      species: "Beta vulgaris subsp. vulgaris"
+      difficulty: beginner
+
+  - id: rote-bete-ernte
+    title: "Rote Bete und Mangold — Ernte und Lagerung"
+    content: |
+      Rote Bete: Ernte ab Juli (fruehe Sorten) bis November. Optimal bei
+      einem Durchmesser von 6 bis 8 cm — groessere Rueben werden holzig.
+      Baby Beets bei 3 bis 4 cm ernten fuer zartes Gemuese.
+
+      Bei Frostgefahr die Rueben ernten oder mit Mulch/Vlies abdecken.
+      Leichte Froeste (bis minus 5 Grad) werden vertragen und machen die
+      Rueben sogar suesser.
+
+      Lagerung Rote Bete: Laub abdrehen (nicht abschneiden — blutet
+      sonst aus). Ungewaschen in feuchtem Sand im Keller: 4 bis 6 Monate
+      bei 0 bis 5 Grad. Im Kuehlschrank 2 bis 4 Wochen. Einlegen in
+      Essig, vakuumgaren und einfrieren oder als Saft pressen.
+
+      Mangold: Aeussere Blaetter laufend ernten (Cut-and-Come-Again).
+      Das Herz stehen lassen — es waechst 3 bis 4 Mal nach. Ernte von
+      Juni bis zum ersten starken Frost. Mangold ist frosthaerter als
+      Rote Bete und uebersteht leichte Froeste.
+
+      Lagerung Mangold: Im Kuehlschrank nur 2 bis 3 Tage. Zum Einfrieren
+      blanchieren und in Portionen einfrieren. Laesst sich gut als
+      Spinat-Ersatz verwenden.
+
+      Hinweis: Rote Bete und Mangold enthalten Oxalsaeure. Fuer Personen
+      mit Neigung zu Nierensteinen (Calciumoxalat) nur in Massen. Kochen
+      reduziert den Oxalsaeuregehalt.
+    metadata:
+      topic: beetroot_chard_growing
+      species: "Beta vulgaris subsp. vulgaris"
+      difficulty: beginner

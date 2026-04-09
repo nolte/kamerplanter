@@ -1,0 +1,129 @@
+---
+title: "Zimmerhibiskus (Hibiscus rosa-sinensis) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [hibiscus, zimmerhibiskus, roseneibisch, zimmerpflanze, pflege, malvaceae, bluehpflanze, kuebelpflanze]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: hibiscus-rosa-standort
+    title: "Zimmerhibiskus — Standort und Licht"
+    content: |
+      Der Zimmerhibiskus (Hibiscus rosa-sinensis) ist ein Sonnenanbeter.
+      Fuer reiche Bluetenbildung braucht er den hellsten Platz, den du
+      bieten kannst. Direkt am Suedfenster oder im Sommer draussen auf
+      Balkon oder Terrasse in voller Sonne.
+
+      Temperatur im Sommer: 20 bis 30 Grad Celsius. Der Hibiskus liebt
+      Waerme und blueht bei Hitze am besten.
+
+      Ueberwinterung: Im Winter kuehler stellen, bei 10 bis 15 Grad.
+      Ein helles, kuehles Treppenhaus oder ein ungeheizter, heller Raum
+      ist ideal. Zu warm ueberwintert wird die Pflanze anfaellig fuer
+      Schaedlinge.
+
+      Im Fruehling (ab Mai, nach den Eisheiligen) schrittweise an die
+      Sonne gewoehnen (Abhaerten), bevor sie dauerhaft nach draussen
+      kommt. Vor dem ersten Frost (Oktober) wieder hereinholen.
+
+      Luftfeuchtigkeit: 50 bis 70 Prozent. Regelmaessiges Besprühen
+      hilft, besonders im Winter.
+
+      Tipp: Der Zimmerhibiskus ist ein Starkzehrer und wird 80 bis
+      200 cm gross. Rechne mit einem grossen Kuebel (10 bis 30 Liter).
+    metadata:
+      topic: hibiscus_care
+      species: "Hibiscus rosa-sinensis"
+      difficulty: beginner
+
+  - id: hibiscus-rosa-giessen
+    title: "Zimmerhibiskus — Giessen und Substrat"
+    content: |
+      Der Zimmerhibiskus hat im Sommer einen enormen Wasserbedarf.
+      An heissen Tagen kann er taeglich oder alle 2 Tage gegossen
+      werden muessen.
+
+      Giess-Rhythmus Sommer: Alle 2 bis 4 Tage, je nach Hitze und
+      Topfgroesse. Das Substrat darf oberflächlich antrocknen, aber
+      nie tief austrocknen. Bei Kuebelpflanzen im Freien an heissen
+      Tagen morgens und abends kontrollieren.
+
+      Giess-Rhythmus Winter: Alle 10 bis 14 Tage. Deutlich weniger
+      giessen, da die Pflanze ruht. Gerade so feucht halten, dass
+      der Wurzelballen nicht komplett austrocknet.
+
+      Wasserqualitaet: Leitungswasser ist vertraeglich. Regenwasser
+      wird bevorzugt. Zimmerwarm giessen.
+
+      Substrat: Naehrstoffreiche, gut drainierte Kuebelpflanzenerde.
+      pH-Wert 6,0 bis 7,0. Jaehrliches Umtopfen im Fruehling in
+      frisches Substrat ist wichtig.
+
+      Topfgroesse: 10 bis 30 Liter, mindestens 25 cm Tiefe.
+    metadata:
+      topic: hibiscus_care
+      species: "Hibiscus rosa-sinensis"
+      difficulty: beginner
+
+  - id: hibiscus-rosa-duengung
+    title: "Zimmerhibiskus — Duengung und Rueckschnitt"
+    content: |
+      Duengung: Der Zimmerhibiskus ist ein ausgesprochener Starkzehrer.
+      Von April bis Oktober woechentlich mit Fluessigduenger duengen
+      (Hibiskus-Duenger NPK 8-6-11 oder Bluehpflanzen-Duenger
+      NPK 4-6-8). Besonders auf Spurenelemente achten: Bor, Mangan,
+      Molybdaen und Eisen sind wichtig.
+
+      Eisenmangel (gelbe Blaetter mit gruenen Adern = Chlorose) tritt
+      bei zu hohem pH-Wert auf. In diesem Fall Eisenduenger nachduengen.
+
+      Von November bis Maerz: Kein Duenger. Die Pflanze ruht.
+
+      Rueckschnitt: Kraeftiger Rueckschnitt im Februar/Maerz auf
+      30 bis 50 Prozent der Triebe. Die Pflanze blueht am neuen
+      Holz — ohne Rueckschnitt wird sie kahl und blüht weniger.
+      Der Hibiskus vertraegt auch starken Rueckschnitt gut.
+
+      Jahreszyklus:
+      - Januar/Februar: Kuehle Winterruhe, wenig Wasser, kein Duenger.
+      - Maerz: Kraeftig zurueckschneiden, umtopfen, erste Duengergabe.
+      - Mai: Nach den Eisheiligen rausstellen, schrittweise abhaerten.
+      - Juni bis September: Blütezeit. Taeglich/alle 2 Tage giessen,
+        woechentlich duengen, sonnig stellen.
+      - Oktober: Vor Frost hereinholen, giessen reduzieren.
+    metadata:
+      topic: hibiscus_care
+      species: "Hibiscus rosa-sinensis"
+      difficulty: intermediate
+
+  - id: hibiscus-rosa-probleme
+    title: "Zimmerhibiskus — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Knospen fallen ab ohne zu oeffnen: Zu trockene Luft,
+        Standortwechsel, Gallmücken oder Temperaturschwankungen.
+      - Gelbe Blaetter mit gruenen Adern (Chlorose): Eisenmangel,
+        pH zu hoch. Eisenduenger verwenden.
+      - Blattfall im Winter: Normal bei kuehler Ueberwinterung.
+        Solange die Triebe gruen sind, ist alles in Ordnung.
+      - Keine Blueten: Zu wenig Licht oder zu warme Ueberwinterung.
+
+      Schaedlinge: Spinnmilben (gesprenkelten Blaetter, Gespinste),
+      Weisse Fliege (aufgescheucht fliegen sie auf, Honigtau),
+      Schildlaeusen, Wolllaeusen und Gallmücken (Knospenfall).
+      Woechentlich kontrollieren!
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben und Weisse
+      Fliege. Gelbkarten gegen Weisse Fliege und Trauermücken.
+      Blaetter regelmaessig mit Wasser abbrausen gegen Spinnmilben.
+
+      Vermehrung: Stecklinge (halbholzig) im Sommer nehmen.
+      Mittelschwer — braucht Bodenwärme und Geduld. Aussaat ist
+      moeglich, aber langsam.
+
+      Gute Nachricht: Der Zimmerhibiskus ist laut ASPCA nicht
+      giftig fuer Katzen, Hunde und Kinder.
+    metadata:
+      topic: hibiscus_care
+      species: "Hibiscus rosa-sinensis"
+      difficulty: beginner

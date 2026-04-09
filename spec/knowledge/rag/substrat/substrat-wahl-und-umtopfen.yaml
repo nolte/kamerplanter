@@ -1,0 +1,304 @@
+---
+title: Substrat-Wahl, Erde mischen und Umtopfen
+language: de
+category: substrat
+tags:
+  - substrat
+  - erde
+  - coco
+  - kokos
+  - hydroponik
+  - perlit
+  - vermiculit
+  - umtopfen
+  - topfgroesse
+  - fabric-pot
+  - stofftopf
+  - orchideensubstrat
+  - kakteenerde
+  - sukkulentenerde
+  - anzuchterde
+  - bonsaisubstrat
+  - moorbeeterde
+  - pon
+  - seramis
+  - lechuza
+  - mineralsubstrat
+  - blumenerde
+  - coco-buffering
+  - substrat-recycling
+  - wiederverwendung
+  - drainage
+  - tonscherben-mythos
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering]
+chunks:
+
+  - id: substrat-vergleich-entscheidungshilfe
+    title: Welches Substrat soll ich nehmen — Erde, Coco, Hydro oder Mineral?
+    content: |
+      Die Wahl des Substrats haengt von Pflanze, Erfahrung, Zeiteinsatz und Ziel ab.
+      Ein Substrat passt nicht fuer alles — hier die wichtigsten Typen im Vergleich.
+
+      Blumenerde (organisch, gepuffert):
+      Blumenerde ist das Einsteiger-Substrat schlechthin. Neben organischen Bestandteilen
+      (Torf, Kompost, Humus) enthaelt gute Blumenerde bereits Naehrstoffe fuer 4-6 Wochen.
+      Der pH-Puffer abfedert Fehler beim Duengen. Nachteil: Erde kann Schaedlinge (Trauer-
+      muecken) mitbringen, verdichtet sich mit der Zeit und haelt mehr Wasser — bei zu
+      kleinen Toepfen steigt das Ueberwaesserungsrisiko. Geeignet fuer: Zimmerpflanzen,
+      Krauter, Gemuese, Saemlinganzucht. Schwierigkeit: Anfaenger.
+
+      Kokos/Coco (inert, schnell, kontrollierbarer):
+      Kokossubstrat ist ein Abfallprodukt der Kokosnuss-Industrie — inert (keine eigenen
+      Naehrstoffe), hat eine hohe Luftporen-Rate und ausgezeichnetes Luft-Wasser-Verhaeltnis.
+      Kokos verzeiht Fehler beim Giessen weniger als Erde — es muss haeufig gewaessert
+      werden und IMMER mit Naehrloesung (nie mit reinem Wasser). Wer Erde-Erfahrung hat
+      und mehr Kontrolle ueber Naehrstoffe will, sollte Coco probieren. Geeignet fuer:
+      Cannabis, Tomaten, fortgeschrittene Anbauer. Schwierigkeit: Mittel.
+
+      Mineralsubstrat: Pon, Seramis, Lechuza (Zimmerpflanzen-Semi-Hydro):
+      Pon und Seramis sind anorganische Mineralsubstrate aus vulkanischen Gesteinen.
+      Sie speichern Wasser und Naehrstoffe im Porenraum und geben sie durch Kapillar-
+      wirkung ab. Semi-hydroponisch: Die Pflanze entnimmt Wasser aus einem kleinen
+      Wasserreservoir am Topfboden. Nahezu wartungsarm, kein Schimmel, keine Trauer-
+      muecken. Nachteil: teurere Anschaffung, Umstellung von Erde dauert 2-4 Wochen.
+      Geeignet fuer: anspruchslose Zimmerpflanzen, Sanseveria, Pothos, Yucca.
+      Schwierigkeit: Einsteiger nach kurzer Eingewoehnung.
+
+      Hydroponik (substratlos oder mit inertem Traegermedium):
+      DWC, NFT und Kratky arbeiten ohne Substrat — die Wurzeln haengen direkt in der
+      Naehrloesung. Maximale Kontrolle, maximales Wachstum, aber auch maximaler Aufwand.
+      Als Traegermedium werden Blahton (Clay Pebbles), Steinwolle oder Perlit verwendet.
+      Geeignet fuer: Erfahrene Anbauer, Cannabis, Salat, Krauter in NFT. Schwierigkeit: Experten.
+
+      Faustregel: Anfaenger starten mit guter Blumenerde. Fortgeschrittene wechseln
+      auf Coco fuer mehr Kontrolle. Zimmerpflanzen-Enthusiasten probieren Pon/Seramis.
+      Hydroponik ist das naechste Level nach Coco-Erfahrung.
+    metadata:
+      topic: substrat_vergleich
+      substrate_types: [soil, coco, pon_mineral, hydro]
+      difficulty: beginner
+
+  - id: erde-richtig-mischen
+    title: Welche Erde fuer meine Monstera, Alocasia oder Zimmerpflanze — und wie mischen?
+    content: |
+      Fertige Blumenerde ist ein guter Ausgangspunkt, aber die meisten Zimmerpflanzen
+      profitieren von einer aufgelockerten Mischung mit besserer Drainage. Reine Erde
+      ohne Zusatz ist oft zu schwer und speichert zu viel Wasser.
+
+      Basis-Mischung fuer Zimmerpflanzen (Monstera, Philodendron, Pothos, Alocasia):
+      - 60-70% Blumenerde (qualitativ hochwertig, torfarme Moeglichkeit bevorzugen)
+      - 20-30% Perlit (weisse, porige Vulkankiesel) — verbessert Drainage und Luftporen,
+        beugt Verdichtung und Ueberwaesserung vor, beimischen ist Pflicht bei schwerer Erde
+      - 10% Wurmhumus oder Kompost (Naehrstoffe, Mikrobiom)
+      Perlit beimischen ist die einfachste Massnahme fuer bessere Drainage — 20-30% Anteil.
+
+      Mischung fuer Kakteen und Sukkulenten:
+      - 40-50% mineralische Erde oder Kakteenerde (kalkhaltig, grob)
+      - 30-40% Perlit oder Bims (schnelle Drainage, verhindert Staunaesse)
+      - 10-20% Sand oder Quarzkies
+
+      Mischung fuer Aroiden (Monstera, Anthurium, Alocasia):
+      - 40% Blumenerde
+      - 25% Perlit
+      - 20% Orchideenrinde (grobe Stuecke — schafft Luftporen)
+      - 15% Wurmhumus
+
+      Mischung fuer Cannabis in Erde:
+      - 50% Qualitaets-Blumenerde (pH 6.0-7.0)
+      - 20-30% Perlit (Drainage, Belueftung)
+      - 10-20% Wurmhumus (langsame Naehrstofffreisetzung)
+      Optional: Kokosfaser (Auflockerung), Aktivkohle (Anti-Moder), Perlite bis 40%.
+
+      Anzuchterde (fuer Samen und Jungpflanzen):
+      Anzuchterde ist bewusst naehrstoffarm und fein — Wurzeln wachsen besser in
+      schwacher Naehrstoffumgebung. Keine normaler Blumenerde fuer Samen verwenden!
+      Oft reicht fertige Anzuchterde vom Handel. Fuer Stecklinge: reines Perlit oder
+      Coco-Perlit-Gemisch (50/50) ohne Naehrstoffe.
+
+      Fertig-Substrate sind praktisch, aber oft zu nass-schwer fuer Topfkultur.
+      Selbst mischen kostet einmalig mehr Zeit, gibt aber bessere Kontrolle.
+    metadata:
+      topic: erde_mischen
+      common_species: [Monstera, Alocasia, Philodendron, Cannabis, Kakteen]
+      difficulty: beginner
+
+  - id: coco-substrat-vorbereiten
+    title: Kokos/Coco-Substrat vorbereiten — Buffering, pH und Perlit-Anteil
+    content: |
+      Frisches, ungepuffertes Kokossubstrat MUSS vor dem ersten Gebrauch vorbereitet
+      werden — andernfalls bindet es Calcium und Magnesium aus der Naehrloesung und
+      verursacht direkt nach dem Einpflanzen CalMag-Mangel.
+
+      Buffering (Pufferung) — Pflichtschritt:
+      Frisches Coco hat eine hohe Kationenaustauschkapazitaet (CEC). Es bindet
+      CalMag-Ionen und gibt dafuer Natrium und Kalium frei. Wenn man ungepuffertes
+      Coco mit Naehrloesung giesst, "stiehlt" das Substrat das Calcium und Magnesium
+      fuer die ersten Wochen. Loesung: Coco mit CalMag-Loesung einweichen und puffern.
+      Puffer-Anleitung:
+      1. CalMag-Loesung ansetzen: EC 1.2-1.5, Ca:Mg Verhaeltnis ca. 3:1-5:1, pH 5.8-6.2
+      2. Coco in CalMag-Loesung einweichen (mindestens 8-24 Stunden)
+      3. Abgiessen, leicht ausdruecken, direkt verwenden
+      Nach dem Puffern ist der Kationenaustausch gesaettigt — die CEC-Bindungsplaetze
+      sind mit Calcium belegt statt mit Natrium.
+
+      EC und pH vor der Nutzung pruefen:
+      Billiges Coco kann hohe EC-Werte durch Salz-Rueckstaende aus der Verarbeitung
+      haben. Runoff-EC ueber 1.0 mS/cm beim ersten Giessen deutet auf schlechte Qualitaet
+      hin. Gutes Coco hat nach dem Buffering einen Runoff-pH von 5.5-6.5.
+
+      Perlit-Anteil:
+      Reines Coco ist eher dicht. 30-50% Perlit beimischen verbessert die Luft-
+      poren-Rate deutlich und verhindert Ueberwaesserung. Bei Hochfrequenz-Fertigation
+      (3-5x taeglich) sind 30% Perlit Standard; bei weniger haeufigem Giessen 40-50%.
+
+      Bewaesserungsstrategie in Coco (Run-to-Waste):
+      Coco wird immer mit Naehrloesung gegossen, nie nur mit Wasser. Ziel sind
+      10-20% Runoff bei jedem Giessvorgang. Haeufiges Giessen (mehrmals taeglich
+      in der Bluete) ist gewollt und fuehrt NICHT zu Ueberwaesserung — Coco haelt
+      durch seine Struktur Luft und Wasser gleichzeitig.
+    metadata:
+      topic: coco_vorbereitung
+      substrate_type: coco
+      difficulty: intermediate
+
+  - id: umtopfen-guide
+    title: Wann und wie umtopfen — Topfgroesse, Zeitpunkt und der Tonscherben-Mythos
+    content: |
+      Umtopfen ist notig wenn die Wurzeln den Topf ausgefuellt haben oder das Substrat
+      erschoepft ist. Aber nicht jede Pflanze will sofort einen riesigen Topf.
+
+      Wann ist umtopfen noetig?
+      - Wurzeln wachsen aus den Loechern des Topfbodens heraus
+      - Der Topf ist komplett durchgewurzelt (Wurzeln sichtbar oben, seitlich)
+      - Wachstum stagniert trotz ausreichend Licht, Wasser und Naehrstoffe
+      - Substrat laeuft sofort durch (kein Wasser haelt sich)
+      - Pflanze kippt im Topf (zu schwer oben, zu wenig Wurzelmasse unten)
+      Wurzeln pruefen: Topf kippen und Ballen herausnehmen — wenn der Wurzelballen
+      eng und filzartig ist, ist es Zeit. Wurzeln aus den Loechern zu sehen ist
+      das deutlichste Signal.
+
+      Wie gross soll der neue Topf sein?
+      NICHT zu gross — ein Topf der viel zu gross ist fuehrt zu Staunaesse! In
+      grossem Substratvolumen ohne Wurzeln haelt sich das Wasser zu lang.
+      Faustregel: nur 2-3 cm groesseren Durchmesser nehmen als der aktuelle Topf.
+      Schrittweise umpflanzen ist immer besser als grosse Spruenge.
+
+      Bester Zeitpunkt zum Umtopfen:
+      Im Fruehling, am besten Maerz bis April, wenn die Wachstumsperiode beginnt.
+      Dann erholt sich die Pflanze am schnellsten und kann sofort ins aktive Wachstum
+      starten. Im Herbst oder Winter moeglichst vermeiden — die Pflanze ist in Ruhe
+      und vertraegt den Stress schlecht.
+
+      Topfmaterial:
+      - Plastik: Guenstig, haelt Feuchtigkeit laenger, gut fuer feuchtigkeitsliebende Pflanzen
+      - Terracotta/Ton: Verdunstet ueber Waende, trocknet schneller — ideal fuer Kakteen,
+        Sukkulenten, Rosmarin, Feigenbaeume
+      - Fabric Pot (Stofftopf): Beste Belueftung, Air-Pruning der Wurzeln verhindert
+        Wurzelspiralbildung, trocknet schnell — beliebt fuer Cannabis
+
+      Der Tonscherben-Mythos — Drainage-Schicht am Topfboden:
+      Kiesel, Tonscherben oder eine Schicht Steine am Topfboden sollen angeblich die
+      Drainage verbessern. Das ist ein Mythos! Diese Schichten sind kontraproduktiv.
+      Wegen der "Perched Water Table" (haengende Wasserzone): Wasser behaelt eine
+      Kapillarzone direkt ueber dem Uebergang von Substrat zu Kies und sammelt sich
+      dort. Das Ergebnis ist mehr Staunaesse, nicht weniger. Stattdessen: Perlit
+      (20-30%) ins Substrat mischen — das verbessert Drainage ohne negative Effekte.
+      Topf mit Drainage-Lochern am Boden ist Pflicht — das ist die echte Drainage.
+      Angiessung nach dem Umtopfen: Einmal gruendlich giessen, dann 3-5 Tage
+      weniger giessen (Wurzeln bilden sich besser in leicht trocknerem Substrat).
+    metadata:
+      topic: umtopfen
+      difficulty: beginner
+
+  - id: spezialsubstrate-zimmerpflanzen
+    title: Spezialsubstrate — Orchideen, Kakteen, Bonsai, Moorbeet und Anzuchterde
+    content: |
+      Nicht jede Pflanze kommt mit normaler Blumenerde klar. Diese Spezialfaelle brauchen
+      ein angepasstes Substrat.
+
+      Orchideensubstrat (fuer Phalaenopsis, Cattleya, Dendrobium):
+      Orchideen sind Epiphyten — sie wachsen in der Natur auf Baumrinden, nicht in Erde.
+      Orchideensubstrat besteht aus grober Pinienrinde, Perlit und manchmal Sphagnum-Moos.
+      Die Rinde ermoeglicht gute Belueftung und das Abtrocknen zwischen den Giessvorgaengen.
+      Normale Blumenerde ist fuer Orchideen ungeeignet — zu schwer, zu wenig Luft,
+      Wurzeln verrotten. Giessrhythmus: Tauchbad alle 7-14 Tage, komplett abtrocknen lassen.
+
+      Kakteenerde und Sukkulentenerde (mineral, mager):
+      Kakteen und Sukkulenten brauchen sehr schnell draenierende, mineralreiche und
+      naehrstoffarme Erde. Normale Blumenerde ist zu naehrstoffreich und zu feucht.
+      Fertige Kakteenerde ist ein guter Ausgangspunkt — noch besser: 50% Kakteenerde
+      plus 30-50% mineralischer Zusatz (Perlit, Bims, Quarzsand). pH 6.5-7.5.
+
+      Bonsai-Substrat (Akadama, Bims, Lava):
+      Bonsai brauchen ein mineralhaltiges, strukturstabiles Substrat das gut
+      draeniert und nicht verschlaemmt. Klassische Mischung: Akadama (japanischer
+      Ton, gebrannt) + Bimskies + Lava-Granulat je zu einem Drittel.
+      Normaler Boden oder Blumenerde sind fuer Bonsai nicht geeignet.
+
+      Moorbeeterde (sauer, pH 4-5):
+      Moorbeetpflanzen wie Heidelbeere, Azalee, Rhododendron und Hortensie brauchen
+      saures Substrat. Moorbeeterde hat pH 4.0-5.0. Kalkhaltige Blumenerde schadet
+      ihnen — die Pflanzen koennen Eisen und Mangan nicht aufnehmen (Chlorose).
+      Heidelbeeren und Blaubeeren ausschliesslich in Moorbeeterde oder spezielle
+      Blaubeerende pflanzen!
+
+      Anzuchterde fuer Samen und Jungpflanzen:
+      Anzuchterde ist fein und naehrstoffarm — das klingt paradox, ist aber gewollt.
+      Junge Wurzeln wachsen aktiver in schwachen Naehrstoffumgebungen auf der Suche
+      nach Naehrstoffen (Tropismus). Normale Blumenerde ist zu naehrstoffreich fuer
+      frisch gekeimte Samen und kann Jungpflanzen verbrennen. Nach 3-4 Wochen in
+      normales oder angepasstes Substrat umpflanzen.
+
+      Sphagnum-Moos (fuer Orchideen und Karnivoren):
+      Torfmoos hat eine sehr hohe Wasserhaltekapazitaet und einen natuerlich sauren
+      pH (3.5-4.5). Ideal fuer feuchtigkeitsliebende Epiphyten und fleischfressende
+      Pflanzen (Sarracenia, Drosera). Karnivoren brauchen Sphagnum mit destilliertem
+      Wasser oder Regenwasser — kein Leitungswasser, kein Duenger.
+    metadata:
+      topic: spezialsubstrate
+      substrate_types: [orchid_bark, sphagnum, pon_mineral]
+      common_species: [Orchidee, Kaktus, Sukkulente, Bonsai, Heidelbeere, Hortensie]
+      difficulty: beginner
+
+  - id: substrat-recycling-wiederverwendung
+    title: Substrat wiederverwenden — wann geht das und wie aufbereiten?
+    content: |
+      Gebrauchtes Substrat ist nicht automatisch unbrauchbar. Ob Wiederverwendung
+      sinnvoll ist, haengt vom Substrattyp, der Nutzungsdauer und dem Pflanzenzustand ab.
+
+      Wann Substrat wiederverwenden?
+      Erde: Nach einem Anbau-Zyklus (1 Saison) kann Erde aufgefrischt werden.
+      Blahton (Clay Pebbles) und Perlit: Mehrfach wiederverwendbar nach Reinigung.
+      Coco: 2-3 Zyklen moeglich, wenn pH-Verlauf stabil war (Standardabweichung < 0.3)
+      und keine starke Salzanreicherung vorliegt (EC-Anstieg unter 1.0 mS/cm).
+      Steinwolle-Slabs: Max. 3 Zyklen mit Dampfsterilisation.
+
+      Wann NICHT wiederverwenden (absolut):
+      - Nach Pilzkrankheiten (Botrytis, Fusarium, Pythium) — Sporen bleiben im Substrat!
+      - Nach starkem Schimmelbefall oder Wurzelfaeule
+      - Nach Befall mit bodenleben Schaedlingen (Fungus Gnats, Thrips-Puppen)
+      - Anzucht-Plugs aus Steinwolle (rockwool_plug) sind Einweg-Substrat
+      - Bei stark versalzenem Substrat (EC im Runoff dauerhaft ueber 3.0 mS/cm)
+
+      Aufbereitungsmethoden:
+      Erde auffrischen: Altes Substrat mit 20-30% frischem Perlit und 20% Wurmhumus
+      oder Kompost mischen. Grosse Wurzelreste entfernen. Vor Wiederverwendung
+      pH pruefen und ggf. korrigieren.
+      Blahton reinigen: Wurzelreste entfernen, in H2O2-Loesung (3%) einweichen
+      (12 Stunden), gruendlich mit pH-neutralem Wasser abspuelen.
+      Perlit reinigen: Wurzelreste absieben, mit H2O2 desinfizieren, abspuelen.
+      Coco aufbereiten: Bei hohem EC zuerst entsalzen (mit pH 5.5-Wasser durchspuelen,
+      3-5x Substratvolumen), danach erneut CalMag-Puffern (einweichen, 8-24 Stunden).
+      Steinwolle-Slabs: Dampfsterilisation (70 Grad Celsius, 30 Minuten) oder
+      H2O2 3% Einweichen (24 Stunden), anschliessend mit pH-5.5-Wasser entsalzen.
+      Living Soil: Nach der Ernte 14 Tage Nachkompostierung mit Wurmkompost und
+      Gesteinsmehl, dann Komposttee zur Mikrobiom-Reaktivierung zugeben. Living Soil
+      profitiert von Wiederverwendung — das Mikrobiom wird von Zyklus zu Zyklus aktiver.
+
+      Faustregel: Bei Krankheit oder Schaedlingen niemals wiederverwenden.
+      Bei gesunden Pflanzen und stabilen EC/pH-Werten lohnt die Aufbereitung.
+    metadata:
+      topic: substrat_recycling
+      substrate_types: [coco, clay_pebbles, perlite, rockwool_slab, living_soil]
+      difficulty: intermediate

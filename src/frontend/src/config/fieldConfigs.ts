@@ -175,6 +175,8 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/ernte/batches': 'expert',
   '/aufgaben/workflows': 'expert',
   '/durchlaeufe/planting-runs': 'expert',
+  '/phasen/definitionen': 'expert',
+  '/phasen/ablaeufe': 'expert',
 };
 
 // Section headers: the minimum level where the section appears
@@ -186,5 +188,6 @@ export const navSectionConfig: Record<string, ExperienceLevel> = {
   pflanzenschutz: 'expert',
   ernte: 'expert',
   aufgaben: 'beginner',
+  phasen: 'expert',
   durchlaeufe: 'expert',
 };

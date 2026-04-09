@@ -1,0 +1,143 @@
+---
+title: "Bohnen und Erbsen anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, bohne, erbse, phaseolus, pisum, anbau, garten, balkon, schwachzehrer, leguminosen, huelsenfruechte]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: bohne-aussaat
+    title: "Bohnen — Aussaat und Standort"
+    content: |
+      Bohnen (Buschbohnen und Stangenbohnen) sind Waermekeimer und
+      werden ab Mitte Mai direkt ins Freiland gesaet, wenn die
+      Bodentemperatur mindestens 10 Grad betraegt (optimal 18 bis 22 Grad).
+      Unter 10 Grad faulen die Samen.
+
+      Samen 3 bis 5 cm tief in die Erde druecken (Dunkelkeimer).
+      Keimdauer 5 bis 10 Tage. Bohnen NICHT vorquellen — die Samen
+      ersticken und faulen. Reihenabstand: Buschbohnen 40 bis 50 cm,
+      Stangenbohnen 60 bis 80 cm. In der Reihe: 5 bis 8 cm (Busch)
+      bzw. 10 bis 15 cm (Stange).
+
+      Staffelsaat: Buschbohnen alle 3 bis 4 Wochen nachsaeen bis
+      Mitte Juli fuer kontinuierliche Ernte.
+
+      Stangenbohnen: Rankhilfe (2 m Stangen, Wigwam, Netz) VOR der
+      Aussaat aufstellen. 5 bis 7 Samen pro Stange saeen.
+
+      Standort: Volle Sonne, windgeschuetzt. Bohnen sind Schwachzehrer —
+      sie fixieren ueber Knollchenbakterien (Rhizobium) ihren eigenen
+      Stickstoff und brauchen kaum Duengung. Boden locker und durchlaessig,
+      pH 6,0 bis 7,0.
+
+      Balkon: Buschbohnen in Kuebeln ab 10 Liter moeglich (3 bis 4
+      Pflanzen pro Topf). Stangenbohnen nur mit stabilem Spalier.
+
+      WARNUNG: Rohe Bohnen sind giftig! Das Lektin Phasin wird erst
+      durch mindestens 10 Minuten Kochen zerstoert. Nie roh essen.
+    metadata:
+      topic: bean_pea_growing
+      species: "Phaseolus vulgaris"
+      difficulty: beginner
+
+  - id: erbse-aussaat
+    title: "Erbsen — Aussaat und Standort"
+    content: |
+      Erbsen sind Kuehle-Liebhaber und koennen schon ab Maerz direkt
+      ins Freiland gesaet werden — Keimlinge vertragen Froeste bis
+      minus 4 Grad. Optimale Keimtemperatur 8 bis 15 Grad. Ueber
+      20 Grad sinkt die Keimrate.
+
+      Samen 3 bis 5 cm tief, Reihenabstand 30 bis 50 cm. Vor der
+      Aussaat 12 bis 24 Stunden in lauwarmem Wasser einweichen
+      (beschleunigt die Keimung). Impfung mit Rhizobium leguminosarum
+      empfohlen bei erstmaligem Anbau.
+
+      Erbsen brauchen kuehle Temperaturen. Hitze ueber 25 Grad fuehrt
+      zu Ertragsdepression und vorzeitigem Absterben. Deshalb: Erbsen
+      im Fruehjahr saeen und im Fruehsommer ernten. Eine Herbstaussaat
+      (August bis September) ist bei mildem Klima moeglich.
+
+      Rankhilfe: Ab 50 cm Wuchshoehe Reisig, Maschendraht oder Schnuere
+      als Kletterhilfe aufstellen. Zwergsorten (40 bis 60 cm) brauchen
+      weniger Stuetzung.
+
+      Standort: Sonnig, kalkhaltig. pH 6,0 bis 7,5. Schwachzehrer wie
+      Bohnen — brauchen keine Stickstoffduengung dank Rhizobium-Symbiose.
+    metadata:
+      topic: bean_pea_growing
+      species: "Pisum sativum"
+      difficulty: beginner
+
+  - id: bohne-erbse-pflege
+    title: "Bohnen und Erbsen — Pflege und Schaedlinge"
+    content: |
+      Giessen: Gleichmaessig feucht halten, besonders waehrend der Bluete
+      und Huelsen-Entwicklung. Nicht ueber die Blaetter giessen — foerdert
+      Pilzkrankheiten.
+
+      Duengen: Nicht noetig! Als Leguminosen fixieren Bohnen und Erbsen
+      ihren eigenen Stickstoff ueber Knollchenbakterien. Zu viel
+      Stickstoff foerdert Blattmasse auf Kosten der Huelsen.
+
+      Bohnenfliege: Madenbefall an den Samen, besonders in nasser,
+      kalter Erde. Vorbeugung: Nicht zu frueh saeen, Boden muss warm sein.
+
+      Bohnenlaus (Schwarze Bohnenlaus): Grosse Kolonien an Triebspitzen.
+      Triebspitzen abschneiden (die Pflanze braucht sie nach der Bluete
+      nicht mehr). Nuetzlinge foerdern (Marienkaefer).
+
+      Erbsenmehltau: Weisser Belag. Beguenstigt durch warmes, trockenes
+      Wetter. Vorbeugung: Frueh saeen, resistente Sorten waehlen.
+
+      Grauschimmel (Botrytis): Bei feuchtem Wetter. Gute Luftzirkulation,
+      nicht zu dicht pflanzen.
+
+      Gute Nachbarn fuer Bohnen: Mais und Kuerbis (Drei-Schwestern),
+      Bohnenkraut (vertreibt Bohnenlaus!), Gurken, Salat, Tomaten.
+      Schlechte Nachbarn: Zwiebeln, Knoblauch, Lauch, Fenchel, Erbsen.
+
+      Gute Nachbarn fuer Erbsen: Moehren, Radieschen, Salat, Kohlrabi.
+      Schlechte Nachbarn: Tomaten, Bohnen, Zwiebeln, Knoblauch.
+
+      Fruchtfolge: 3 Jahre Pause fuer Leguminosen. Wurzeln nach der
+      Ernte im Boden belassen — der gespeicherte Stickstoff nuetzt
+      der Folgekultur.
+    metadata:
+      topic: bean_pea_growing
+      species: "Phaseolus vulgaris / Pisum sativum"
+      difficulty: beginner
+
+  - id: bohne-erbse-ernte
+    title: "Bohnen und Erbsen — Ernte und Lagerung"
+    content: |
+      Buschbohnen: 6 bis 8 Wochen nach der Aussaat erntereif. Huelsen
+      ernten, wenn sie 10 bis 15 cm lang sind und beim Brechen glatt
+      durchbrechen (ohne Faeden bei modernen Sorten). Alle 2 bis 3 Tage
+      durchpfluecken — regelmaessiges Ernten foerdert Neuansatz.
+
+      Stangenbohnen: Ab Juli durchgehend bis zum ersten Frost ernten.
+      Nicht zu gross werden lassen — ueberreife Huelsen werden zaeh.
+
+      Erbsen: Markerbsen bei gut gefuellten Huelsen ernten, bevor die
+      Koerner hart werden. Zuckererbsen komplett mit Huelse essen, wenn
+      die Koerner noch klein sind. Morgens ernten, wenn sie am suessesten
+      sind. Taeglich durchpfluecken.
+
+      Trockenbohnen und Trockenerbsen: An der Pflanze trocknen lassen,
+      bis die Huelsen rascheln. Dann komplett ernten und an einem
+      trockenen Ort nachrocknen.
+
+      Lagerung: Frische Bohnen und Erbsen halten im Kuehlschrank nur
+      2 bis 3 Tage — am besten sofort verarbeiten. Einfrieren ist die
+      beste Konservierungsmethode: 2 Minuten blanchieren, abschrecken,
+      einfrieren. Erbsen und Bohnen lassen sich auch trocknen
+      (lagerfaehig ueber Jahre).
+
+      Wichtig: Bohnen immer mindestens 10 Minuten kochen — rohe Bohnen
+      sind durch das Lektin Phasin giftig!
+    metadata:
+      topic: bean_pea_growing
+      species: "Phaseolus vulgaris / Pisum sativum"
+      difficulty: beginner

@@ -1,0 +1,89 @@
+---
+title: "Aloe vera (Aloe vera) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [aloe-vera, echte-aloe, zimmerpflanze, pflege, sukkulente, heilpflanze, anfaenger, wenig-giessen]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: aloe-vera-standort
+    title: "Aloe vera — Standort und Licht"
+    content: |
+      Aloe vera stammt von der Arabischen Halbinsel und liebt viel Licht.
+      Ein heller Platz am Sued- oder Westfenster mit direkter Sonne ist
+      ideal. Bei zu wenig Licht wird die Pflanze blass und die Blaetter
+      kippen zur Seite.
+
+      Temperatur: Im Sommer 18-29 Grad Celsius, normale Zimmertemperatur
+      ist perfekt. Im Winter etwas kuehler (15-24 Grad). Die Pflanze
+      ueberlebt kurzzeitig bis 4 Grad, aber Frost ist toedlich.
+
+      Luftfeuchtigkeit: 25-40% reichen aus — trockene Heizungsluft ist
+      kein Problem. Im Sommer darf die Aloe gerne auf den Balkon in die
+      volle Sonne (windgeschuetzt). Vor dem ersten Nachtfrost wieder
+      reinbringen.
+
+      Aloe vera ist auch als Heilpflanze bekannt: Das klare Gel im Blatt-
+      inneren hilft nachweislich bei leichten Verbrennungen. Das aeussere
+      Blattgewebe (gelblicher Latex) ist dagegen giftig und darf nicht
+      verschluckt werden.
+    metadata:
+      topic: aloe_vera_care
+      species: "Aloe vera"
+      difficulty: beginner
+
+  - id: aloe-vera-giessen
+    title: "Aloe vera — Giessen und Substrat"
+    content: |
+      Aloe vera speichert Wasser in ihren dicken Blaettern und braucht
+      nur selten Wasser. Im Sommer alle 2-3 Wochen kraeftig giessen,
+      dann das Substrat komplett durchtrocknen lassen. Im Winter reicht
+      alle 4-6 Wochen ein kleiner Schluck.
+
+      Giessmethode: Kraeftig durchgiessen bis Wasser unten rauslaeuft,
+      nach 15 Minuten den Untersetzer leeren. Staunaesse ist die
+      haeufigste Todesursache bei Aloe vera.
+
+      Substrat: Kakteen- und Sukkulentenerde oder normale Blumenerde
+      mit 50% Perlite oder grobem Sand gemischt. Sehr durchlaessig muss
+      es sein. Terrakotta-Toepfe sind ideal, weil sie schneller austrocknen
+      als Plastik.
+
+      Leitungswasser ist voellig in Ordnung. Typische Fehler: zu oft
+      giessen, Wasser im Untersetzer stehen lassen und der Topf steht
+      zu dunkel. Wenn die Blaetter matschig und braun werden, ist fast
+      immer Ueberwaesserung schuld.
+    metadata:
+      topic: aloe_vera_care
+      species: "Aloe vera"
+      difficulty: beginner
+
+  - id: aloe-vera-duengung
+    title: "Aloe vera — Duengung und Umtopfen"
+    content: |
+      Aloe vera ist ein extremer Schwachzehrer. Nur 2-3 Duengergaben pro
+      Wachstumsperiode (April bis August) genuegen. Kakteen- und
+      Sukkulentenduenger (z.B. Compo 4-6-7, 3 ml/L) alle 8 Wochen
+      verwenden. Von Oktober bis Maerz nicht duengen.
+
+      Ueberduengung fuehrt zu schnellem, aber weichem Wachstum — die
+      Blaetter enthalten dann weniger Wirkstoffe. Fuer medizinische
+      Nutzung des Gels lieber minimal duengen.
+
+      Umtopfen alle 2-3 Jahre im Fruehling. Neuen Topf nur 2-3 cm
+      groesser waehlen, frisches Kakteensubstrat verwenden. Beim
+      Umtopfen koennen gleichzeitig Ableger (Kindpflanzen) abgetrennt
+      werden.
+
+      Vermehrung: Am einfachsten ueber Ableger ("Pups"), die an der
+      Basis der Mutterpflanze wachsen. Bei 5-10 cm Hoehe ablösen,
+      1-2 Tage Schnittstelle trocknen lassen und in trockenes
+      Kakteensubstrat pflanzen.
+
+      Achtung: Der gelbliche Latex (Alooin) in der aeusseren Blattschicht
+      ist giftig fuer Katzen, Hunde und Kinder. Das klare innere Gel ist
+      dagegen unbedenklich.
+    metadata:
+      topic: aloe_vera_care
+      species: "Aloe vera"
+      difficulty: beginner

@@ -1,0 +1,107 @@
+---
+title: "Spinat anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, spinat, spinacia-oleracea, anbau, garten, balkon, anfaenger, mittelzehrer, blattgemuese]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: spinat-aussaat
+    title: "Spinat — Aussaat und Standort"
+    content: |
+      Spinat ist ein typisches Fruehjahrs- und Herbstgemuese. Im Sommer
+      schiesst er bei Temperaturen ueber 20 Grad und Taglaengen ueber
+      14 Stunden schnell in die Bluete — die Blaetter werden dann bitter.
+
+      Fruehjahrsaussaat: Februar bis Mai, direkt ins Freiland. Spinat
+      keimt schon ab 5 Grad und vertraegt Froeste bis minus 10 Grad
+      (Wintersorten sogar bis minus 15 Grad). Saattiefe 2 bis 3 cm,
+      Reihenabstand 20 bis 25 cm. Keimdauer 7 bis 14 Tage.
+
+      Herbstaussaat: August bis Oktober. Die kuerzeren Tage verhindern
+      das Schiessen. Winterspinat mit Vlies abdecken und bis in den
+      Winter ernten.
+
+      Standort: Sonnig bis halbschattig. Im Fruehling volle Sonne,
+      im Sommer lieber Halbschatten. Boden humos, gleichmaessig feucht
+      und naehrstoffreich. pH 6,5 bis 7,5 (leicht alkalisch).
+      Mittelzehrer — Kompost genuegt.
+
+      Balkon: Ideal fuer Toepfe und Balkonkaesten ab 5 Liter. Auch auf
+      der Fensterbank moeglich. Schnelle Kultur: 6 bis 8 Wochen von
+      Aussaat bis Ernte.
+
+      Staffelsaat: Alle 3 Wochen nachsaeen fuer kontinuierliche Ernte.
+      Im Hochsommer pausieren (Schiess-Gefahr).
+    metadata:
+      topic: spinach_growing
+      species: "Spinacia oleracea"
+      difficulty: beginner
+
+  - id: spinat-pflege
+    title: "Spinat — Pflege, Giessen und Schiessen vermeiden"
+    content: |
+      Giessen: Gleichmaessig feucht halten. Trockenheit foerdert das
+      Schiessen und macht die Blaetter zaeh. Mulchen haelt die
+      Feuchtigkeit und kuehlt den Boden.
+
+      Duengen: Kompost vor der Aussaat genuegt. Nicht mit Stickstoff
+      ueberduengen — Spinat reichert Nitrat an, besonders bei zu viel
+      Duengung und zu wenig Licht. Fuer Babyspinat (Ernte nach 4 Wochen)
+      reicht die Naehrstoffreserve des Bodens.
+
+      Schiessen vermeiden: Das groesste Problem bei Spinat. Ausloeser
+      sind lange Tage (ueber 14 Stunden), Hitze (ueber 20 Grad) und
+      Trockenstress. Gegenmassnahmen: Schossfeste Sorten waehlen
+      (Butterflay, Columbia), im Sommer nicht saeen, Halbschatten-
+      Standort im Fruehjahr.
+
+      Falscher Mehltau: Graue Flecken auf der Blattunterseite.
+      Luftige Pflanzung, morgens giessen, befallene Blaetter entfernen.
+      Resistente Sorten waehlen (achten auf Peronospora-Resistenz).
+
+      Schnecken: Spinat ist fuer Schnecken attraktiv. Schneckenzaun oder
+      Ferramol-Schneckenkorn.
+
+      Gute Nachbarn: Erdbeeren, Radieschen, Bohnen, Kohl, Tomaten,
+      Kartoffeln.
+      Schlechte Nachbarn: Rote Bete, Mangold (gleiche Familie).
+
+      Fruchtfolge: 3 Jahre keine Amaranthaceae auf der gleichen Flaeche.
+    metadata:
+      topic: spinach_growing
+      species: "Spinacia oleracea"
+      difficulty: beginner
+
+  - id: spinat-ernte
+    title: "Spinat — Ernte und Verwendung"
+    content: |
+      Babyspinat: Schon nach 4 bis 5 Wochen ernten, wenn die Blaetter
+      5 bis 8 cm lang sind. Zart und mild — ideal fuer Salat.
+
+      Voller Spinat: Nach 6 bis 8 Wochen die ganze Rosette 2 cm ueber
+      dem Boden abschneiden. Bei einigen Sorten waechst er nach
+      (einmal Nachschnitt moeglich). Alternativ aeussere Blaetter
+      einzeln pfluecken (Cut-and-Come-Again).
+
+      Morgens ernten, wenn der Nitratgehalt am niedrigsten ist
+      (Licht baut Nitrat ab). Bei beginnendem Schiessen sofort ernten —
+      die Blaetter werden bitter.
+
+      Lagerung: Frischer Spinat haelt im Kuehlschrank nur 1 bis 2 Tage.
+      Einfrieren ist die beste Konservierung: kurz blanchieren (1 Minute),
+      abschrecken, ausdruecken, portionsweise einfrieren. Haelt
+      tiefgefroren 6 bis 12 Monate.
+
+      Wichtig: Spinat nicht aufwaermen! Aufgewaermter Spinat ist zwar
+      nicht giftig (wie frueher behauptet), aber Bakterien wandeln
+      Nitrat in Nitrit um, wenn Spinat laengere Zeit warm steht. Reste
+      sofort kuehlen und innerhalb von 24 Stunden aufbrauchen.
+
+      Spinat enthaelt Oxalsaeure (aehnlich wie Rote Bete). Kochen
+      reduziert den Gehalt. Fuer Saeglinge unter 6 Monaten nicht
+      geeignet (Nitrat).
+    metadata:
+      topic: spinach_growing
+      species: "Spinacia oleracea"
+      difficulty: beginner

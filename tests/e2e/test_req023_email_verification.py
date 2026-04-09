@@ -37,6 +37,7 @@ def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
 # -- TC-023-007 / TC-023-008: Page rendering -----------------------------------
 
 
+@pytest.mark.requires_auth
 class TestEmailVerificationPageLoad:
     """EmailVerificationPage renders with heading (Spec: TC-023-007, TC-023-008)."""
 
@@ -66,6 +67,7 @@ class TestEmailVerificationPageLoad:
 # -- TC-023-008: Invalid token shows error ------------------------------------
 
 
+@pytest.mark.requires_auth
 class TestEmailVerificationInvalidToken:
     """Invalid token shows error alert (Spec: TC-023-008)."""
 
@@ -132,6 +134,7 @@ class TestEmailVerificationInvalidToken:
 # -- TC-023-007: Login link visibility and navigation --------------------------
 
 
+@pytest.mark.requires_auth
 class TestEmailVerificationLoginLink:
     """Login link is visible and navigates to /login (Spec: TC-023-007, TC-023-008)."""
 

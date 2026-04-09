@@ -6,6 +6,7 @@ from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
@@ -13,16 +14,97 @@ from app.domain.models.plant_instance import PlantInstance
 
 
 class PhaseService:
-    def __init__(self, phase_repo: IPhaseRepository, plant_repo: IPlantInstanceRepository) -> None:
+    def __init__(
+        self,
+        phase_repo: IPhaseRepository,
+        plant_repo: IPlantInstanceRepository,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
+    ) -> None:
         self._repo = phase_repo
         self._plant_repo = plant_repo
-        self._transition_engine = PhaseTransitionEngine(phase_repo, plant_repo)
+        self._phase_seq_repo = phase_seq_repo
+        self._transition_engine = PhaseTransitionEngine(phase_repo, plant_repo, phase_seq_repo=phase_seq_repo)
         self._profile_generator = ResourceProfileGenerator()
         self._on_phase_transition_callbacks: list = []
 
     def register_on_transition(self, callback) -> None:
         """Register a callback(plant_key: str, phase_name: str) to invoke after phase transitions."""
         self._on_phase_transition_callbacks.append(callback)
+
+    def _resolve_phases_for_species(self, species_key: str) -> tuple[list[dict], str, dict]:
+        """Resolve phases for a species, preferring PhaseSequence over LifecycleConfig.
+
+        Returns:
+            Tuple of (phases_list, cycle_type, sequence_metadata).
+            phases_list contains GrowthPhase-compatible dicts.
+        """
+        # Try PhaseSequence first
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                phases: list[dict] = []
+                for entry in entries:
+                    defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                    phases.append(
+                        {
+                            "key": entry.key,
+                            "name": defn.name if defn else "",
+                            "display_name": defn.display_name if defn else "",
+                            "typical_duration_days": (
+                                entry.override_duration_days or (defn.typical_duration_days if defn else 1)
+                            ),
+                            "sequence_order": entry.sequence_order,
+                            "is_terminal": entry.is_terminal,
+                            "allows_harvest": entry.allows_harvest,
+                            "is_recurring": entry.is_recurring,
+                            "stress_tolerance": defn.stress_tolerance.value if defn else "medium",
+                            "watering_interval_days": defn.watering_interval_days if defn else None,
+                        }
+                    )
+                cycle_type_val = seq.cycle_type.value if hasattr(seq.cycle_type, "value") else seq.cycle_type
+                meta = {
+                    "cycle_type": cycle_type_val,
+                    "is_repeating": seq.is_repeating,
+                    "cycle_restart_entry_order": seq.cycle_restart_entry_order,
+                    "dormancy_required": seq.dormancy_required,
+                    "source": "phase_sequence",
+                    "sequence_key": seq.key,
+                }
+                return phases, str(cycle_type_val), meta
+
+        # Fallback to LifecycleConfig
+        lc = self._repo.get_lifecycle_by_species(species_key)
+        if not lc:
+            return [], "annual", {}
+        growth_phases = self._repo.get_phases_by_lifecycle(lc.key or "")
+        phases = [
+            {
+                "key": gp.key,
+                "name": gp.name,
+                "display_name": gp.display_name,
+                "typical_duration_days": gp.typical_duration_days,
+                "sequence_order": gp.sequence_order,
+                "is_terminal": gp.is_terminal,
+                "allows_harvest": gp.allows_harvest,
+                "is_recurring": gp.is_recurring,
+                "stress_tolerance": (
+                    gp.stress_tolerance.value if hasattr(gp.stress_tolerance, "value") else gp.stress_tolerance
+                ),
+                "watering_interval_days": gp.watering_interval_days,
+            }
+            for gp in growth_phases
+        ]
+        cycle_type_val = lc.cycle_type.value if hasattr(lc.cycle_type, "value") else lc.cycle_type
+        meta = {
+            "cycle_type": cycle_type_val,
+            "is_repeating": str(cycle_type_val) == "perennial",
+            "cycle_restart_entry_order": lc.cycle_restart_phase_order,
+            "dormancy_required": lc.dormancy_required,
+            "source": "lifecycle_config",
+            "lifecycle_key": lc.key,
+        }
+        return phases, str(cycle_type_val), meta
 
     # --- Lifecycle ---
 
@@ -145,10 +227,21 @@ class PhaseService:
                 phase_name = phase.name
                 lifecycle_key = phase.lifecycle_key
 
-        # Resolve lifecycle metadata
+        # Resolve lifecycle metadata — prefer PhaseSequence, fallback to LifecycleConfig
         cycle_type: str | None = None
         has_harvest_phase = False
-        if lifecycle_key:
+
+        # Try PhaseSequence first via species_key on the plant
+        resolved_from_seq = False
+        if plant.species_key and self._phase_seq_repo:
+            seq_phases, seq_cycle_type, seq_meta = self._resolve_phases_for_species(plant.species_key)
+            if seq_phases:
+                cycle_type = seq_cycle_type
+                has_harvest_phase = any(p.get("allows_harvest", False) for p in seq_phases)
+                resolved_from_seq = True
+
+        # Fallback to LifecycleConfig
+        if not resolved_from_seq and lifecycle_key:
             lifecycle = self._repo.get_lifecycle_by_key(lifecycle_key)
             if lifecycle:
                 cycle_type = lifecycle.cycle_type.value

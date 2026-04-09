@@ -1,0 +1,284 @@
+---
+title: Physiologische Stoerungen — nicht-infektioese Pflanzenschaeden
+language: de
+category: diagnostik
+tags: [physiologisch, sonnenbrand, frost, chlorose, bluetenendfaeule, gruenkragen, aufplatzen, abiotisch, umweltschaden]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: sonnenbrand-pflanzen
+    title: Sonnenbrand bei Pflanzen erkennen und vermeiden
+    content: |
+      Symptome: Weisse, bleiche oder silbrig-braune Flecken auf der
+      sonnenzugewandten Seite der Blaetter oder Fruechte. Die Flecken
+      sind scharf abgegrenzt — nur die direkt der Sonne ausgesetzte
+      Stelle ist betroffen. Blattraender koennen papierartig duenn und
+      brueching werden. Bei Fruechten (Tomate, Paprika, Apfel): weisse
+      bis hellbraune, eingesunkene Stellen auf der Sonnenseite. Bei
+      Sukkulenten und Kakteen: gelbliche bis braune Verfaerbungen.
+      Ursache: Zu starke UV-Strahlung und Hitze — besonders wenn
+      Pflanzen ploetzlich von Schatten in volle Sonne gestellt werden
+      (fehlende Akklimatisierung). Auch nach dem Ausraeumen von
+      Zimmerpflanzen im Fruehjahr oder nach dem Abharten von
+      Jungpflanzen. Wassertropfen auf Blaettern wirken NICHT als
+      Brennglas — das ist ein Mythos.
+      Betroffene Pflanzen: Alle Pflanzen koennen Sonnenbrand bekommen.
+      Besonders empfindlich: Zimmerpflanzen die nach draussen gestellt
+      werden, frisch pikierte Saemlinge, Hortensien, Farne, Hostas,
+      Salat, Tomaten-Fruechte.
+      Sofortmassnahmen:
+      - Pflanze NICHT sofort zurueck in den Schatten stellen — das
+        verursacht erneuten Stress
+      - Schattierung bieten (Schattennetz, Vlies, grossere Pflanze
+        als Schattenspender)
+      - Verbrannte Blaetter nicht entfernen — sie schuetzen
+        darunterliegende Blaetter
+      - Gut giessen (Hitze erhoeht Wasserbedarf)
+      Vorbeugung:
+      - Langsam akklimatisieren: Zimmerpflanzen im Fruehjahr erst 1-2
+        Stunden an die Sonne gewoehnen, taeglich steigern (7-10 Tage)
+      - Jungpflanzen und Saemlinge nicht direkt in pralle Mittagssonne
+      - Tomaten: Blaetter schuetzen die Fruechte — nicht zu radikal
+        ausgeizen (genug Blattmasse lassen)
+      - Gewaechshaus: Schattierung ab 30°C Innentemperatur
+      Abgrenzung: Sonnenbrand zeigt sich NUR auf der sonnenzugewandten
+      Seite und ist scharf begrenzt. Pilzkrankheiten und Naehrstoffmangel
+      verteilen sich gleichmaessig ueber die Pflanze. Echtem Mehltau
+      (weisser Belag) kann aehnlich hell aussehen — aber Mehltau ist
+      abwischbar, Sonnenbrand nicht.
+    metadata:
+      cause: UV_radiation
+      disease_type: physiological
+      difficulty: beginner
+
+  - id: frostschaden
+    title: Frostschaden erkennen und behandeln
+    content: |
+      Symptome: Blaetter werden schlaff und welk nach einer Frostnacht,
+      verfaerben sich dann braun bis schwarz. Blattspitzen und
+      Blattraender sind zuerst betroffen (Bereiche mit dem hoechsten
+      Wasserverlust). Saftige Triebspitzen werden matschig und schwarz.
+      Bei Gehoelzen: Rinde platzt auf (Frostrisse, besonders an der
+      Suedseite). Bluetenknospen werden braun und oeffnen sich nicht.
+      Knollen und Wurzeln: glasig-waessriges Gewebe das bei Tauung
+      matschig wird.
+      Ursache: Eiskristalle bilden sich in den Zellzwischenraeumen,
+      entziehen den Zellen Wasser und zerstoeren die Zellmembranen.
+      Spaetfrost im Fruehjahr (nach dem Austrieb) ist gefaehrlicher als
+      Winterfrost, weil frische Triebe und Blueten empfindlicher sind
+      als verholztes Gewebe. Besonders kritisch: klare, windstille
+      Naechte nach warmen Tagen (Strahlungsfrost).
+      Betroffene Pflanzen: Alle nicht-frostharten Pflanzen. Besonders
+      empfindlich: Tomaten, Paprika, Basilikum, Kuerbis, Zucchini
+      (erfrieren bei 0°C), Obstblueten im Fruehjahr, frisch
+      ausgetriebene Gehoelze, Kartoffeltriebe.
+      Sofortmassnahmen:
+      - Frostverfaerbte Pflanzenteile NICHT sofort abschneiden —
+        sie schuetzen darunterliegendes Gewebe vor weiterem Frost
+      - Abwarten bis keine Frostgefahr mehr besteht, dann totes
+        Gewebe zurueckschneiden
+      - Pflanze nicht in die Sonne stellen (schnelles Auftauen
+        schadet mehr als langsames)
+      - Normal giessen sobald Boden aufgetaut ist
+      Vorbeugung:
+      - Eisheilige abwarten (Mitte Mai) bevor frostempfindliche
+        Pflanzen nach draussen kommen
+      - Vlies oder Folie als Frostschutz ueber empfindliche Pflanzen
+      - Toepfe an die Hauswand stellen (Waermeabstrahlung)
+      - Fruehbeet oder Gewaechshaus nutzen
+      - Bei Obstbaeumen: Frostschutzberegnung (professionell) oder
+        Rauch/Frostkerzen (traditionell)
+      - Frostharte Sorten waehlen fuer den Standort
+      Abgrenzung: Nicht verwechseln mit Welke-Krankheiten (Verticillium,
+      Fusarium) — Frostschaden tritt immer nach einer kalten Nacht auf
+      und betrifft alle exponierten Pflanzen gleichzeitig. Pilzliche
+      Welke betrifft einzelne Pflanzen und ist temperaturunabhaengig.
+    metadata:
+      cause: frost
+      disease_type: physiological
+      difficulty: beginner
+
+  - id: chlorose-vertieft
+    title: Chlorose vertieft — Eisenmangel, pH-Lockout oder Ueberwaesserung?
+    content: |
+      Chlorose (Gelbfaerbung der Blaetter) ist eines der haeufigsten
+      Symptome ueberhaupt — aber die Ursache zu finden ist die
+      Herausforderung. Die drei haeufigsten Ursachen:
+      1. Echter Eisenmangel:
+      Symptome: Junge Blaetter (oben an der Pflanze) werden gelb,
+      aber die Blattadern bleiben gruen — das ergibt ein typisches
+      Netzmuster (Interkostal-Chlorose). Aeltere Blaetter bleiben
+      gruen. In schwerem Fall werden Blaetter fast weiss.
+      Ursache: Zu wenig verfuegbares Eisen im Boden/Substrat.
+      Loesung: Eisen-Chelatduenger (Fe-EDDHA wirkt am breitesten
+      pH-Bereich, Fe-DTPA fuer hydroponische Systeme). Blattduengung
+      mit Eisen-Chelat fuer schnelle Ergebnisse.
+      2. pH-bedingter Eisen-Lockout:
+      Symptome: Identisch mit echtem Eisenmangel — gelbe Blaetter
+      mit gruenen Adern. ABER: Es ist genug Eisen im Boden, es ist
+      nur nicht verfuegbar weil der pH-Wert zu hoch ist.
+      Ursache: pH ueber 7.0 — Eisen wird bei hohem pH in unloeliche
+      Formen umgewandelt. Typisch bei: kalkhaltiges Leitungswasser,
+      zu viel Kalk im Boden, Betonnaehe (Kalk aus Beton).
+      Loesung: pH senken! Schwefel, Rhododendron-Erde, Regenwasser
+      statt Leitungswasser, essigbasierte pH-Senker bei Hydroponik.
+      Eisen duengen hilft hier nur kurzfristig wenn der pH hoch bleibt.
+      3. Ueberwaesserung:
+      Symptome: Aeltere Blaetter (unten) werden zuerst gelb — und zwar
+      gleichmaessig, OHNE gruene Adern. Blaetter werden insgesamt gelb
+      und fallen ab. Boden ist nass, Pflanze welkt trotzdem.
+      Ursache: Sauerstoffmangel an den Wurzeln. Wurzeln koennen bei
+      Staunaesse kein Eisen (und andere Naehrstoffe) aufnehmen.
+      Wurzelfaeule beginnt.
+      Loesung: Weniger giessen! Drainage pruefen, Substrat antrocknen
+      lassen, Wurzeln auf Faeule pruefen.
+      Schnelle Unterscheidung:
+      - Gelbe JUNGE Blaetter + gruene Adern = Eisen-Problem (pH pruefen!)
+      - Gelbe ALTE Blaetter + gleichmaessig gelb = Ueberwaesserung
+        oder Stickstoffmangel
+      - Alle Blaetter gelb + nasser Boden = Ueberwaesserung/Wurzelfaeule
+    metadata:
+      cause: [iron_deficiency, pH_lockout, overwatering]
+      disease_type: physiological
+      difficulty: intermediate
+
+  - id: bluetenendfaeule-ber
+    title: Bluetenendfaeule (BER) bei Tomaten und Paprika
+    content: |
+      Symptome: Am Bluetenende der Frucht (gegenueber vom Stiel) bildet
+      sich ein dunkler, eingesunkener, lederartiger Fleck. Der Fleck
+      wird groesser und braun-schwarz. Das betroffene Gewebe ist fest
+      und trocken (nicht matschig wie bei Faeulnis). Typischerweise
+      sind die ersten Fruechte einer Traube betroffen. Der Fleck kann
+      sich auch an der Seite der Frucht zeigen, ist aber immer am
+      bluetenabgewandten Ende am staerksten.
+      Ursache: Kalzium-Transportproblem in der Frucht — NICHT immer
+      Kalzium-Mangel im Boden! Kalzium wird in der Pflanze nur ueber
+      den Transpirationsstrom (Xylem) transportiert. Fruechte
+      transpirieren weniger als Blaetter und bekommen daher weniger
+      Kalzium. Ausloesende Faktoren:
+      - Unregelmaessige Bewaesserung (Wechsel von trocken und nass)
+      - Zu schnelles Wachstum (zu viel Stickstoff)
+      - Hohe Luftfeuchtigkeit (weniger Transpiration = weniger
+        Kalzium-Transport)
+      - Salzstress (hoher EC verdraengt Kalzium-Aufnahme)
+      - Tatsaechlicher Kalzium-Mangel im Boden (seltener)
+      Betroffene Pflanzen: Tomate (am haeufigsten), Paprika, Zucchini,
+      Wassermelone, Aubergine.
+      Sofortmassnahmen:
+      - Befallene Fruechte entfernen (werden nicht mehr gesund)
+      - Bewaesserung REGELMAESSIG gestalten — das ist die wichtigste
+        Massnahme! Gleichmaessige Wasserversorgung ohne Trocken-Nass-
+        Wechsel
+      - Mulchen (haelt Bodenfeuchtigkeit gleichmaessiger)
+      - Kalzium-Blattduengung (Kalziumchlorid-Loesung) — wirkt nur
+        begrenzt da Kalzium nicht von Blaettern in Fruechte wandert
+      Vorbeugung:
+      - Gleichmaessig giessen — NICHT wechselnd trocken und nass
+      - Mulchen (Stroh, Rasenschnitt) haelt Feuchtigkeit
+      - Nicht zu viel Stickstoff duengen
+      - Kalk in den Boden einarbeiten wenn Kalzium-Mangel vorliegt
+      - pH-Wert auf 6.0-6.5 halten (Kalzium-Verfuegbarkeit)
+      - Tropfbewaesserung mit Timer ist ideal
+      Abgrenzung: BER ist KEIN Pilz und NICHT ansteckend! Nicht
+      verwechseln mit Phytophthora (Braunfaeule) — Phytophthora zeigt
+      waessrige, sich ausbreitende Faeulnis und befaellt auch Blaetter.
+      BER betrifft NUR das Bluetenende der Frucht.
+    metadata:
+      cause: calcium_transport
+      disease_type: physiological
+      host_plants: [Solanum lycopersicum, Capsicum annuum, Cucurbita pepo]
+      difficulty: beginner
+
+  - id: gruenkragen-tomate
+    title: Gruenkragen (Greenback) bei Tomaten
+    content: |
+      Symptome: Die "Schultern" der Tomate (oben um den Stielansatz
+      herum) bleiben gruen oder gelb-gruen waehrend der Rest der
+      Frucht normal rot wird. Der gruene Bereich ist hart und holzig,
+      manchmal auch innen weisslich-gruen und fest. Bei manchen Sorten
+      zeigt sich auch ein gelber "Kragen" statt eines gruenen. Die
+      betroffenen Stellen reifen nicht nach und bleiben geschmacklos.
+      Ursache: Direkte Sonneneinstrahlung auf die Fruchtschulter in
+      Kombination mit hohen Temperaturen (>30°C). UV-Strahlung und
+      Hitze hemmen die Lycopin-Bildung (roter Farbstoff) und foerdern
+      den Chlorophyll-Erhalt im oberen Fruchtbereich. Zusaetzliche
+      Faktoren:
+      - Zu starkes Ausgeizen (zu wenig Blattschutz ueber den Fruechten)
+      - Kaliummangel (Kalium foerdert gleichmaessige Reife)
+      - Hohe Temperatur-Schwankungen
+      - Sorten-Anfaelligkeit (grosse Fleischtomaten staerker betroffen)
+      Betroffene Pflanzen: Ausschliesslich Tomaten. Besonders anfaellig:
+      grosse Fleischtomaten, Ochsenherz-Typen. Weniger anfaellig:
+      kleinfruchtige Sorten (Cocktail, Kirschtomate).
+      Sofortmassnahmen:
+      - Betroffene Fruechte koennen gegessen werden — den gruenen
+        Kragen grosszuegig wegschneiden (schmeckt bitter und ist hart)
+      - Schattierung ueber den Fruechten anbringen bei extremer Hitze
+      - Kalium-Duengung verstaerken (Kaliumsulfat, Tomatenspezialdünger)
+      Vorbeugung:
+      - Nicht zu radikal ausgeizen — genug Blattwerk ueber den
+        Fruchttauben lassen damit die Blaetter die Fruechte beschatten
+      - Sorten waehlen die wenig anfaellig sind (Sorten mit "uniform
+        ripening" Gen u — die meisten modernen Sorten)
+      - Ausreichend Kalium duengen (Kalium foerdert gleichmaessige Reife)
+      - Bei extremer Hitze: leichtes Schattennetz ueber den Pflanzen
+      Abgrenzung: Nicht verwechseln mit unreifen Tomaten — Gruenkragen
+      reift NICHT nach, auch nicht am Fensterbrett. Wenn eine Tomate
+      oben gruen bleibt waehrend unten rot ist, ist das Gruenkragen.
+      Wenn die ganze Frucht gleichmaessig gruen ist, ist sie einfach
+      noch unreif.
+    metadata:
+      cause: sun_exposure_potassium
+      disease_type: physiological
+      host_plants: [Solanum lycopersicum]
+      difficulty: beginner
+
+  - id: aufplatzen-fruechte
+    title: Aufplatzen und Platzen von Fruechten
+    content: |
+      Symptome: Fruechte reissen auf — entweder ringfoermig um den
+      Stielansatz herum (Ringplatzer) oder sternfoermig vom Stiel nach
+      unten (Strahlrisse). Bei Tomaten: Haut reisst auf, das Fruchtfleisch
+      liegt frei. Bei Kirschen: Fruechte platzen nach Regen auf. Bei
+      Kohl: Koepfe reissen auf und treiben aus. Bei Karotten: Laengsrisse.
+      Die Risse koennen sekundaer von Pilzen (Botrytis, Alternaria)
+      oder Essigfliegen besiedelt werden.
+      Ursache: Ploetzliche Wasseraufnahme nach einer Trockenphase. Die
+      Frucht nimmt schnell Wasser auf, das Volumen steigt schneller als
+      die Haut sich dehnen kann — die Frucht platzt. Besonders haeufig:
+      - Starker Regen nach laengerer Trockenheit
+      - Unregelmaessiges Giessen (vergessen, dann viel auf einmal)
+      - Abendliches Giessen (nachts wachsen Fruechte am meisten)
+      - Ueberreife (Haut wird mit zunehmender Reife duenner)
+      - Grosse Temperatur-Schwankungen
+      Betroffene Pflanzen: Tomate (am haeufigsten — besonders grosse
+      Fleischtomaten), Kirsche, Pflaume, Kohl, Kohlrabi, Karotte,
+      Radieschen, Wassermelone, Kuerbis.
+      Sofortmassnahmen:
+      - Aufgeplatzte Fruechte sofort ernten — sie halten sich nicht
+        und werden schnell von Schimmel oder Fruchtfliegen besiedelt
+      - Aufgeplatzte Tomaten koennen sofort verarbeitet werden (Sauce,
+        Suppe) — Qualitaet ist nicht beeintraechtigt
+      - Bei Kirschen: Ernte vor dem naechsten Regen
+      Vorbeugung:
+      - Gleichmaessig giessen — das ist die wichtigste Massnahme!
+        Nie austrocknen lassen und dann viel giessen
+      - Mulchen (haelt Bodenfeuchtigkeit gleichmaessig)
+      - Tropfbewaesserung mit Timer
+      - Tomaten: platzfeste Sorten waehlen (viele Cocktail- und
+        Cherrytomaten sind platzfester als grosse Sorten)
+      - Kirschen: Regenschutzdach ueber der Reihe (Folie auf Geruest)
+        — die effektivste Massnahme gegen Kirschplatzer
+      - Rechtzeitig ernten, nicht ueberreifen lassen
+      - Kohl: Wurzeln einseitig mit dem Spaten anstechen wenn die
+        Koepfe erntereif sind aber noch stehen sollen (reduziert
+        Wasseraufnahme)
+      Abgrenzung: Aufplatzen ist KEINE Krankheit und NICHT ansteckend.
+      Nicht verwechseln mit Frassschaeden (ungleichmaessige Loecher)
+      oder Schneckenschaden (Schleimspuren). Aufplatzen zeigt immer
+      saubere Risse die dem Wachstumsmuster der Frucht folgen.
+    metadata:
+      cause: irregular_watering
+      disease_type: physiological
+      difficulty: beginner

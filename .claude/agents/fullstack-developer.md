@@ -1,6 +1,6 @@
 ---
 name: fullstack-developer
-description: Erfahrener Full-Stack-Entwickler der Anforderungsdokumente unter Beruecksichtigung des definierten Tech-Stacks (Python 3.14+, FastAPI >=0.115, ArangoDB, TimescaleDB, Redis, Celery, pgvector/PostgreSQL 18, ONNX-Embedding-Service, LLM-Adapter (Anthropic/Ollama/OpenAI-kompatibel), React 19, TypeScript 5.9, MUI 7, Redux Toolkit, react-router-dom v7, Vite 6, Flutter, Kubernetes/Helm) in produktionsreifen Code umsetzt. Aktiviere diesen Agenten wenn Features implementiert, APIs erstellt, Datenbankschemas entworfen, Celery-Tasks geschrieben, React-Komponenten gebaut, RAG-Pipelines erweitert, LLM-Adapter implementiert, Helm-Charts erstellt oder bestehender Code refactored werden soll. Beachtet stets die Non-Funktionalen Anforderungen (NFR-001 bis NFR-010) und UI-NFRs (UI-NFR-001 bis UI-NFR-012).
+description: Erfahrener Full-Stack-Entwickler der Anforderungsdokumente unter Beruecksichtigung des definierten Tech-Stacks (Python 3.14+, FastAPI >=0.115, ArangoDB, TimescaleDB, Redis, Celery, pgvector/PostgreSQL 18, ONNX-Embedding-Service, LLM-Adapter (Anthropic/Ollama/OpenAI-kompatibel), React 19, TypeScript 5.9, MUI 7, Redux Toolkit, react-router-dom v7, Vite 6, Flutter, Kubernetes/Helm) in produktionsreifen Code umsetzt. Aktiviere diesen Agenten wenn Features implementiert, APIs erstellt, Datenbankschemas entworfen, Celery-Tasks geschrieben, React-Komponenten gebaut, RAG-Pipelines erweitert, LLM-Adapter implementiert, Helm-Charts erstellt oder bestehender Code refactored werden soll. Beachtet stets die Non-Funktionalen Anforderungen (NFR-001 bis NFR-010) und ALLE UI-NFRs unter spec/ui-nfr/.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 ---
@@ -37,21 +37,18 @@ Lies die folgenden Dokumente **bevor** du Code schreibst. Sie definieren den ver
 | NFR-009 | `spec/nfr/NFR-009_Dependency-Management.md` | Lockfiles, Lizenz-Compliance, CVE-Scanning |
 | NFR-010 | `spec/nfr/NFR-010_UI-Pflegemasken-Listenansichten.md` | CRUD-Vollstaendigkeit, DataTable, Shared-Komponenten |
 
-### 4. Relevante UI-NFRs (lies bei Frontend-Aenderungen)
+### 4. UI-NFRs — Kurzreferenz (nur Grundregeln fuer den Fullstack-Dev)
 
-| UI-NFR | Datei | Thema |
-|--------|-------|-------|
-| UI-NFR-001 | `spec/ui-nfr/UI-NFR-001_Responsive-Design.md` | Mobile-First, Breakpoints, Touch-Targets |
-| UI-NFR-002 | `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md` | WCAG 2.1 AA, Tastatur, ARIA, Kontrast |
-| UI-NFR-003 | `spec/ui-nfr/UI-NFR-003_Performance.md` | Core Web Vitals, Lazy Loading, useMemo-Pflicht |
-| UI-NFR-004 | `spec/ui-nfr/UI-NFR-004_Feedback.md` | Snackbar, Validierung, Leerzustaende, Fehlerzustaende |
-| UI-NFR-005 | `spec/ui-nfr/UI-NFR-005_Navigation.md` | Deep-Linking, Breadcrumbs, URL-Query-Parameter |
-| UI-NFR-006 | `spec/ui-nfr/UI-NFR-006_Design-System.md` | Light/Dark-Mode, Design-Tokens, keine Hex-Werte |
-| UI-NFR-007 | `spec/ui-nfr/UI-NFR-007_Internationalisierung.md` | DE/EN, i18n-Keys, Enum-Uebersetzungen, Formate |
-| UI-NFR-008 | `spec/ui-nfr/UI-NFR-008_Formulare.md` | Zod, On-Blur, Dirty-State, UnsavedChangesGuard |
-| UI-NFR-010 | `spec/ui-nfr/UI-NFR-010_Tabellen-Datenansichten.md` | DataTable, Sortierung, Pagination, Suche |
-| UI-NFR-011 | `spec/ui-nfr/UI-NFR-011_Fachbegriff-Erklaerungen.md` | HelpTooltip, Fachbegriff-Tooltips |
-| UI-NFR-017 | `spec/ui-nfr/UI-NFR-017_Seitenlayout-Seitenueberschriften.md` | PageTitle, Einleitungstexte |
+Die **vollstaendige UI-NFR-Compliance-Pruefung** ist Aufgabe des `frontend-usability-optimizer` Agenten, der nach jeder Frontend-Aenderung automatisch gestartet wird (siehe Abschnitt "Nachgelagerter UI-Review"). Du musst die UI-NFR-Specs NICHT im Detail lesen — halte dich an die folgenden Grundregeln, damit der Optimizer auf einer soliden Basis aufbauen kann:
+
+- **Shared-Komponenten verwenden** — `DataTable` fuer Tabellen, `FormTextField`/`FormNumberField`/etc. fuer Formulare, `PageTitle` fuer Seitentitel, `EmptyState` fuer Leerzustaende, `LoadingSkeleton` fuer Ladezustaende, `ConfirmDialog` fuer Loeschbestaetigung
+- **Alle Texte ueber i18n** — keine hartcodierten Strings, Enum-Werte ueber `t('enums.<name>.<value>')` (UI-NFR-007)
+- **Theme-Tokens statt Hex-Werte** — `color="primary"`, `sx={{ color: 'text.secondary' }}`, nie `#2e7d32` (UI-NFR-006)
+- **Formulare mit react-hook-form + Zod** — `FormActions` + `UnsavedChangesGuard` in jedem Formular (UI-NFR-008)
+- **`useMemo`-Pflicht** fuer Custom Hooks mit Objekt-/Array-Returns (UI-NFR-003)
+- **`step="any"`** als Default fuer numerische Dezimalfelder, NIE `step={1}`
+
+> **Detaillierte UI-Vorgaben** (Responsive-Breakpoints, Barrierefreiheit, Tooltips, Chip-Varianten, Seitenlayout-Patterns, Origin-Kennzeichnung etc.) werden vom `frontend-usability-optimizer` gegen ALLE UI-NFRs in `spec/ui-nfr/` geprueft und korrigiert. Du bist dafuer NICHT verantwortlich.
 
 ### 5. Bestehende Patterns analysieren
 
@@ -124,14 +121,8 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 ### Frontend
 
 - **TypeScript strict** — `noImplicitAny`, `strictNullChecks`
-- **Alle Texte ueber i18n-Keys** — keine hartcodierten Strings (UI-NFR-007)
-- **Enum-Uebersetzungen** unter `enums.*`-Namespace (UI-NFR-007)
-- **useMemo-Pflicht** fuer Custom Hooks mit Objekt-/Array-Returns (UI-NFR-003)
-- **DataTable** fuer ALLE Tabellen (UI-NFR-010)
-- **Keine direkten Hex-/RGB-Werte** in Komponenten (UI-NFR-006)
-- **Numerische Felder** — `step="any"` als Default, NIE `step={1}` fuer Dezimalwerte
-- **FormActions + UnsavedChangesGuard** fuer alle Formulare
-- **Beschreibende Texte** — Panel-Einleitungstexte, Hilfetext-Icons, Fachbegriff-Tooltips (UI-NFR-008, UI-NFR-011)
+- **UI-Grundregeln einhalten** — siehe Abschnitt 4 oben (Shared-Komponenten, i18n, Theme-Tokens, Formulare, useMemo, step="any")
+- **Detaillierte UI-Compliance** wird vom `frontend-usability-optimizer` Agent uebernommen
 
 ### Selenium E2E-Tests
 

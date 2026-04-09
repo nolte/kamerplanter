@@ -1,6 +1,6 @@
-# First Deployment
+# Docker Compose Permanent Operation
 
-You've tried Kamerplanter in the [Quick Start](quickstart.md) and now want to run it permanently? This guide shows you how to set up Kamerplanter on your own server — for example on a Raspberry Pi, NAS, or home server.
+You've tried Kamerplanter in the [Quick Start](docker-quickstart.md) and now want to run it permanently? This guide shows you how to set up Kamerplanter on your own server — for example on a Raspberry Pi, NAS, or home server.
 
 ---
 
@@ -20,7 +20,7 @@ In the Quick Start, you built Kamerplanter from source code (`docker compose up`
 
 ## Prerequisites
 
-- A server with Docker and Docker Compose (see [Installation](installation.md))
+- A server with Docker and Docker Compose (see [Installation](docker-installation.md))
 - At least 2 GB RAM (4 GB recommended)
 - Stable network connection for downloading images
 

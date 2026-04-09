@@ -25,6 +25,7 @@ const schema = z.object({
   plant_key: z.string().min(1),
   batch_id: z.string().max(100).optional(),
   harvest_type: z.enum(harvestTypes),
+  harvest_date: z.string().nullable(),
   wet_weight_g: z.number().min(0).nullable(),
   harvester: z.string().max(200),
   notes: z.string().nullable(),
@@ -60,6 +61,7 @@ export default function HarvestCreateDialog({
       plant_key: plantKey ?? '',
       batch_id: '',
       harvest_type: 'final',
+      harvest_date: new Date().toISOString().slice(0, 16),
       wet_weight_g: null,
       harvester: '',
       notes: null,
@@ -83,6 +85,7 @@ export default function HarvestCreateDialog({
         plant_key: plantKey ?? '',
         batch_id: '',
         harvest_type: 'final',
+        harvest_date: new Date().toISOString().slice(0, 16),
         wet_weight_g: null,
         harvester: '',
         notes: null,
@@ -97,6 +100,7 @@ export default function HarvestCreateDialog({
       await harvestApi.createBatch(plant_key, {
         batch_id: payload.batch_id || undefined,
         harvest_type: payload.harvest_type,
+        harvest_date: payload.harvest_date || undefined,
         wet_weight_g: payload.wet_weight_g,
         harvester: payload.harvester || undefined,
         notes: payload.notes,
@@ -156,10 +160,18 @@ export default function HarvestCreateDialog({
             name="harvest_type"
             control={control}
             label={t('pages.harvest.harvestType')}
+            required
             options={harvestTypes.map((v) => ({
               value: v,
               label: t(`enums.harvestType.${v}`),
             }))}
+          />
+          <FormTextField
+            name="harvest_date"
+            control={control}
+            label={t('pages.harvest.harvestDate')}
+            type="datetime-local"
+            helperText={t('pages.harvest.harvestDateHelper')}
           />
           <FormNumberField
             name="wet_weight_g"

@@ -1,0 +1,340 @@
+---
+title: IPM-Strategien und Behandlungsmethoden
+language: de
+category: diagnostik
+tags: [ipm, integrierter-pflanzenschutz, prävention, monitoring, intervention, biologisch, nützlinge, resistenzmanagement, quarantäne, kulturhygiene, pflanzenstärkung, karenzzeit, schadensschwelle, biologische-bekämpfung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+
+  - id: ipm-3-stufen-modell
+    title: "IPM — Was ist integrierter Pflanzenschutz und warum biologisch vor chemisch?"
+    content: |
+      Integriertes Pest Management (IPM) ist kein einzelnes Mittel, sondern ein Gesamtkonzept
+      aus drei aufeinander aufbauenden Stufen: Prävention, Monitoring und Intervention.
+      Ziel ist es, Schäden zu minimieren ohne unnötig auf chemische Mittel zurückzugreifen.
+
+      Stufe 1 — Prävention (immer zuerst):
+      Schadensvermeidung durch gute Kulturführung. Dazu zählen: resistente Sorten wählen,
+      optimale Wachstumsbedingungen schaffen (Licht, Temperatur, Luftfeuchtigkeit), Kulturhygiene,
+      Fruchtfolge einhalten, Quarantäne für neue Pflanzen. Prävention ist billiger und effektiver
+      als jede nachträgliche Behandlung.
+
+      Stufe 2 — Monitoring (frühzeitig erkennen):
+      Regelmäßige Inspektionen — mindestens wöchentlich, in der Blüte zweimal pro Woche.
+      Klebefallen (gelb für Trauermücken/Weiße Fliege, blau für Thrips), Blattunterseiten
+      kontrollieren, Befallsprotokoll führen. Befallsdruck einschätzen: keine, niedrig, mittel,
+      hoch, kritisch. Erst wenn ein Befall die Schadensschwelle überschreitet, wird eingegriffen.
+
+      Schadensschwelle: Nicht jeder einzelne Schädling erfordert Behandlung. Die Schadensschwelle
+      ist der Befallsgrad, ab dem wirtschaftlicher oder ästhetischer Schaden entsteht.
+      Unterhalb der Schwelle genügt Monitoring.
+
+      Stufe 3 — Intervention (so spät und so zielgerichtet wie möglich):
+      Reihenfolge: mechanisch → biologisch → chemisch-biologisch → synthetisch-chemisch.
+      Biologische Mittel (Neem, Kaliseife, Bt, Nützlinge) bevorzugen, weil sie:
+      - Nützlinge schonen und das natürliche Gleichgewicht erhalten
+      - Keine oder kurze Karenzzeiten haben
+      - Geringeres Resistenzrisiko aufweisen
+      - Für Ernte und Verzehr sicherer sind
+
+      Synthetisch-chemische Mittel sind immer die letzte Wahl, da sie Nützlinge abtöten,
+      Resistenzen fördern und lange Karenzzeiten haben können.
+    metadata:
+      topic: ipm_system
+      model: 3_tier_ipm
+      difficulty: beginner
+      target_audiences: [ZG-001, ZG-002, ZG-003, ZG-004, UZG-001, UZG-002, UZG-005]
+
+  - id: biologische-pflanzenschutzmittel
+    title: "Biologische Pflanzenschutzmittel — Neem, Kaliseife, Bt, Spinosad, Pyrethrum, Schwefel, Kupfer"
+    content: |
+      Biologische und naturstoffbasierte Pflanzenschutzmittel sind die erste Interventionsstufe
+      im IPM. Überblick über die wichtigsten Wirkstoffe:
+
+      Neem-Öl (Azadirachtin):
+      Wirkt als Fraß- und Häutungshemmer. Nicht sofort tötend, sondern hemmt den Lebenszyklus
+      von Insekten (Thrips, Spinnmilben, Weiße Fliege, Blattläuse). Als Blattspray und als
+      Substratdrench (gegen Trauermücken-Larven) einsetzbar. Karenzzeit: 1-3 Tage.
+      Nicht in der Blüte auf Buds spritzen (Rückstände). Baut sich durch UV-Licht ab.
+
+      Kaliseife / Schmierseife:
+      Kontaktmittel — löst die Wachsschicht von Weichkörper-Insekten auf (Blattläuse,
+      Weiße Fliege, Spinnmilben). Nur direkter Kontakt wirkt. Gründliches Besprühen beider
+      Blattseiten nötig. Karenzzeit: 0-1 Tag, sehr sicher. Verträglichkeit testen (erst
+      ein Blatt, dann ganze Pflanze).
+
+      Bacillus thuringiensis (Bt):
+      Bodenbakterienstamm, der für Raupen (Bt kurstaki = Btk) oder Trauermücken-Larven
+      (Bt israelensis = BTi / Mosquito Bits) eingesetzt wird. Karenzzeit: 0-1 Tag, sehr
+      sicher für Säugetiere, bienen- und nützlingsschonend. Einmal getrocknet: unwirksam
+      gegen neue Schädlinge — regelmäßig erneuern.
+
+      Spinosad:
+      Biologisches Insektizid aus Bodenbakterienfermenterung. Sehr wirksam gegen Thrips,
+      Raupen, Minierfliegen. Achtung: bienengiftig im frischen Zustand — immer abends
+      nach dem Bienenflug anwenden. Getrocknet sicher für anfliegende Bienen.
+      Karenzzeit: 3-7 Tage. Nicht mehr als 2-3 Anwendungen in Folge (Resistenzrisiko).
+
+      Pyrethrum (natürliches Pyrethrin):
+      Kontaktinsektizid aus Chrysanthemen. Wirkt schnell, baut sich schnell ab.
+      Lichtempfindlich — abends anwenden. Karenzzeit: 1-3 Tage.
+      Bienengiftig — nicht auf blühende Pflanzen in der Hauptflugzeit.
+
+      Netzschwefel:
+      Fungizid (gegen Echten Mehltau) und Akarizid (gegen Spinnmilben).
+      Temperaturgrenze: unter 30°C anwenden — über 35°C Verbrennungsgefahr.
+      Nicht mit Ölen mischen (Reaktion). Karenzzeit: 3-7 Tage.
+
+      Kupferpräparate (Bordeaux-Brühe, Kupferhydroxid):
+      Breitband-Fungizid und Bakterizid (Kraut- und Braunfäule, Falscher Mehltau).
+      Lange Karenzzeit: 14-21 Tage. Kupfer akkumuliert im Boden — sparsam und
+      nur bei echtem Bedarf einsetzen. Nicht auf Verzehrorgane in der Erntephase.
+
+      Mischbarkeit: Neem-Öl und Kaliseife können kombiniert werden. Schwefel NICHT
+      mit Ölen mischen. Kupfer NICHT mit anderen Fungiziden mischen.
+    metadata:
+      topic: biological_pesticides
+      difficulty: intermediate
+      target_audiences: [ZG-001, ZG-002, ZG-003, ZG-004, UZG-001, UZG-002]
+
+  - id: nuetzlingseinsatz-leitfaden
+    title: "Welcher Nützling gegen welchen Schädling? Leitfaden für biologische Bekämpfung"
+    content: |
+      Nützlinge sind die effektivste und umweltfreundlichste biologische Bekämpfung.
+      Der richtige Nützling für den richtigen Schädling ist entscheidend.
+
+      Spinnmilben → Phytoseiulus persimilis (spezialisiert, sehr effektiv bei aktuellem Befall)
+      oder Amblyseius californicus (vorbeugend einsetzbar, überlebt ohne Spinnmilben).
+      Temperatur: mind. 18-20°C. Im Gewächshaus ideal.
+
+      Weiße Fliege → Encarsia formosa (Schlupfwespe, parasitiert Larven der Weißen Fliege).
+      Temperatur: mind. 18°C, optimum 20-25°C. Vorbeugend oder bei erstem Befall aussetzen.
+
+      Blattläuse → Adalia bipunctata (Marienkäfer). Ja, sehr effektiv — Marienkäfer
+      fressen 50-100 Läuse pro Tag. Larven sind effektiver als erwachsene Käfer, da sie
+      sich nicht verfliegen. Auch Chrysoperla carnea (Florfliege) als Generalist.
+
+      Thrips → Amblyseius cucumeris (Raubmilbe, frisst Thrips-Larven, vorbeugend).
+      Orius laevigatus (Blumenwanze, frisst adulte Thrips und Larven, auch Spinnmilben).
+
+      Trauermücken / Dickmaulrüssler → Steinernema feltiae (Nematoden).
+      Als Gießlösung ins Substrat — Nematoden sind biologisch, sehr effektiv gegen Larven.
+      Substrat feucht halten nach Ausbringung. Temperatur: 10-25°C.
+
+      Raupen / Schmetterlingsraupen (Kohlweißling, Maiszünsler) → Trichogramma-Schlupfwespen.
+      Biologisch sehr wirksam: Trichogramma legt Eier in die Eier der Schmetterlinge
+      (Ei-Parasitierung), der Schädling schlüpft nicht. Vorbeugend einsetzen und rechtzeitig
+      aussetzen — vor dem Schlüpfen der Raupen, bei erstem Zuflug der Schmetterlinge.
+
+      Wollläuse → Cryptolaemus montrouzieri (Australischer Marienkäfer, "Wolllauszerstörer").
+      Temperaturen über 22°C notwendig.
+
+      Bezugsquellen: Spezialisierte Nützlings-Anbieter (Katz Biotech, Biobest, Andermatt
+      BioControl, Nützlingsangebote im Gartenfachhandel). Immer Frischmaterial bestellen,
+      Kühlkette beachten. Ausbringung: sofort nach Erhalt, morgens oder abends, nicht bei
+      direkter Sonneneinstrahlung. Nicht mit Pflanzenschutzmitteln kombinieren — viele
+      Wirkstoffe töten Nützlinge.
+    metadata:
+      topic: beneficial_organisms
+      difficulty: intermediate
+      target_audiences: [ZG-002, ZG-004, UZG-002, UZG-005]
+
+  - id: resistenzmanagement-wirkstoffe
+    title: "Resistenzmanagement — Wirkstoffe rotieren, Resistenzbildung vermeiden"
+    content: |
+      Resistenz entsteht, wenn Schädlingspopulationen durch häufige Anwendung desselben
+      Wirkstoffs eine Immunität entwickeln: Die wenigen überlebenden resistenten Individuen
+      pflanzen sich fort, bis die gesamte Population immun ist.
+
+      Die Grundregel: Denselben Wirkstoff (oder dieselbe Wirkstoffgruppe) maximal
+      2-3 Mal in Folge anwenden, dann wechseln.
+
+      Rotationsfenster: Innerhalb von 90 Tagen denselben Wirkstoff nicht öfter als
+      3 Mal einsetzen. Danach mindestens einen anderen Wirkmechanismus dazwischenschieben.
+
+      Wirkstoffgruppen im Überblick:
+      - Gruppe 1: Neem (Azadirachtin) — Häutungshemmer
+      - Gruppe 2: Spinosad — Neurotoxin (nikotinerger Rezeptor)
+      - Gruppe 3: Pyrethrum / Pyrethroide — Natriumkanal-Blocker
+      - Gruppe 4: Kaliseife — Kontakt/Membranstörung (kein Resistenzrisiko)
+      - Gruppe 5: Kupfer/Schwefel — Mehrfach-Wirkmechanismus, geringes Resistenzrisiko
+
+      Beispiel-Rotation gegen Thrips: Spinosad → Neem-Öl → Pyrethrum → Spinosad.
+      Kaliseife und Nützlinge können jederzeit parallel eingesetzt werden.
+
+      Warum dokumentieren? Ohne Aufzeichnung weiß man nicht, wie oft ein Wirkstoff
+      bereits eingesetzt wurde. Behandlungsprotokoll führen: Datum, Wirkstoff, Dosierung,
+      Befallsgrad. So lässt sich Resistenzrisiko systematisch vermeiden und bei Wirkverlust
+      frühzeitig auf Rotation umstellen.
+
+      Nützlinge vor Chemie schützen: Biologische und chemische Bekämpfung schließen
+      sich oft aus. Vor dem Nützlingseinsatz mindestens 14 Tage keine chemischen
+      Mittel anwenden (Residualwirkung beachten).
+    metadata:
+      topic: resistance_management
+      max_applications_per_90_days: 3
+      difficulty: expert
+      target_audiences: [ZG-001, UZG-002, UZG-005]
+
+  - id: quarantaene-protokoll-neue-pflanzen
+    title: "Quarantäne für neue Pflanzen — warum und wie 2-4 Wochen isolieren"
+    content: |
+      Neue Pflanzen sind die häufigste Eintragsquelle für Schädlinge und Krankheiten.
+      Quarantäne ist Pflicht — immer, ohne Ausnahme.
+
+      Quarantäne-Dauer: 2-4 Wochen. Spinnmilben, Thrips und Weiße Fliege sind im
+      frühen Stadium kaum sichtbar. Ihr Lebenszyklus beträgt 1-3 Wochen — erst nach
+      einer vollen Generation sind Schäden oder Tiere sicher erkennbar.
+
+      Wo isolieren: Räumlich getrennt von anderen Pflanzen — anderer Raum oder
+      Gewächshaus-Abteil. Nicht nur "auf der anderen Seite des Regals". Lüftung
+      getrennt halten (Thrips fliegen im Luftstrom).
+
+      Was bei der Quarantäne prüfen:
+      - Täglich Blattunterseiten, Triebspitzen und Blattachseln kontrollieren
+      - Klebefallen (gelb + blau) direkt neben die neue Pflanze
+      - Substrat auf Trauermücken-Adulte prüfen (Gelbtafeln bodennah)
+      - Wurzeln beim Umtopfen auf Wollläuse und Wurzelschäden prüfen
+      - Auf Honigtau, Gespinste, silbrige Streifen achten
+
+      Häufigste Schädlinge bei Neukäufen:
+      - Spinnmilben (oft unsichtbar bis Befall groß ist)
+      - Wollläuse (versteckt in Blattachseln und unter der Erde als Wurzelwollläuse)
+      - Schildläuse (an Stengeln und Blattachseln)
+      - Thrips (in Knospen und jungen Blättern)
+      - Trauermücken (Eier und Larven im Substrat)
+
+      Vorbeugend behandeln (optional, aber sinnvoll): Pflanzen in Quarantäne mit
+      Neem-Öl besprühen (Blattunterseiten!) und einmal BTi ins Substrat gießen.
+      Das schlägt die meisten gängigen Schädlinge, bevor sie sich etablieren.
+
+      Besonders wichtig für: Zimmerpflanzen-Sammler, Neuzugänge im Gewächshaus,
+      getauschte Stecklinge, Pflanzen aus dem Baumarkt oder unbekannter Quelle.
+    metadata:
+      topic: quarantine_protocol
+      quarantine_days: [14, 28]
+      difficulty: beginner
+      target_audiences: [ZG-003, UZG-001, UZG-004]
+
+  - id: kulturhygiene-ipm
+    title: "Kulturhygiene als IPM-Maßnahme — Werkzeuge, Substrat, Gewächshaus-Reinigung"
+    content: |
+      Kulturhygiene ist der wichtigste und billigste Schutz gegen Schädlingsbefall.
+      Viele Infektionen und Befälle entstehen durch kontaminierte Werkzeuge, altes Substrat
+      oder abgefallenes Pflanzenmaterial. Sauberkeit ist aktive Krankheitsvorbeugung.
+
+      Werkzeuge desinfizieren:
+      Scheren, Messer und Töpfe zwischen Pflanzen desinfizieren — besonders bei
+      Schnittmaßnahmen. Geeignet: 70% Isopropanol, 10% Bleichmittel-Lösung oder
+      kommerzielle Desinfektionsmittel für den Gartenbau. Kurzes Eintauchen oder
+      Abwischen reicht. Bei viralen Krankheiten (Mosaikvirus, TSWV) ist Desinfektion
+      besonders kritisch — Viren werden durch infiziertes Pflanzenmaterial übertragen.
+
+      Abgefallenes Laub und Pflanzenreste entfernen:
+      Totes Pflanzenmaterial auf dem Boden ist Brutstätte für Botrytis, Fusarium und
+      Trauermücken. Sofort entfernen und in den Restmüll (nicht kompostieren wenn
+      krank). Gewächshaus-Boden regelmäßig kehren.
+
+      Substrat-Hygiene:
+      Altes Substrat nicht wiederverwenden ohne Sterilisation (120°C im Ofen oder
+      mit Dampf). Zugekaufte Torfsubstrate und Blumenerde können Trauermücken-Eier
+      enthalten — mit BTi vorbeugen beim ersten Gießen.
+
+      Fruchtfolge als IPM-Maßnahme:
+      Im Freiland und Hochbeet: Fruchtfolge (Crop Rotation) über 3-4 Jahre verhindert
+      Anreicherung bodenbürtiger Schädlinge und Pilze. Kohlhernie, Fusarium und
+      Wurzelnematoden werden durch regelmäßigen Familienwechsel deutlich reduziert.
+
+      Gewächshaus-Desinfektion zwischen Zyklen:
+      Am Ende jedes Anbau-Zyklus: Gewächshaus komplett ausräumen, alle Flächen mit
+      Desinfektionsmittel abwaschen (Peressigsäure oder Kaliumhypochlorit), Töpfe
+      und Schalen sterilisieren, neue Klebefallen aufhängen. Schädlinge überwintern
+      in Ecken, Ritzen und auf alten Pflanzenresten.
+    metadata:
+      topic: cultural_hygiene
+      difficulty: intermediate
+      target_audiences: [ZG-001, ZG-002, ZG-004, UZG-002, UZG-005]
+
+  - id: pflanzenstärkung-vorbeugend
+    title: "Pflanzenstärkung vor Schädlingsbefall — Pflanzenjauchen, Mykorrhiza, Silizium, Bacillus"
+    content: |
+      Gesunde, kräftig gewachsene Pflanzen sind weniger anfällig für Schädlinge und
+      Krankheiten. Pflanzenstärkungsmittel wirken vorbeugend — sie bauen keine
+      aktiven Infektionen ab, sondern erhöhen die Widerstandskraft.
+
+      Pflanzenjauchen (Freiland und Gewächshaus):
+      - Brennnesseljauche: Stärkt Pflanzen, leichte Stickstoffversorgung, schreckt
+        Blattläuse ab. Verdünnt 1:10 als Blattspray oder 1:20 als Gießlösung.
+      - Schachtelhalmbrühe: Reich an Kieselsäure (Silizium) — stärkt Zellwände,
+        erhöht mechanische Resistenz gegen Pilze (Echter Mehltau). 1:5 verdünnt.
+      - Knoblauchbrühe: Enthält Allicin — fungizide und insektizide Wirkung gegen
+        Blattläuse und Spinnmilben. Als Blattspray.
+      Jauchen täglich im Sonnenlicht herstellen, nach Abklingen der Gärung (kein
+      starker Geruch mehr) verwenden. Eigene Herstellung ist kostenlos.
+
+      Komposttee (aerated compost tea):
+      Aktivierter Kompostextrakt mit lebenden Mikroorganismen — fördert Bodenbiologie,
+      unterdrückt Wurzelpathogene (Pythium, Fusarium) durch Konkurrenz. Direkt auf
+      Substrat gießen.
+
+      Silizium (SiO₂-Düngung):
+      Silizium stärkt Zellwände mechanisch — Schädlinge können schwerer Pflanzensaft
+      saugen, Pilzsporen können schlechter eindringen. Als Kieselsäure-Düngung
+      (z.B. Kieselsäure-Lösung, Monosilikate) im Substrat oder als Blattspray.
+      Besonders wirksam in der Blüte bei Mehltau-Vorbeugung.
+
+      Mykorrhiza-Pilze:
+      Symbiontische Pilze, die das Wurzelnetz erweitern und Pflanzen mit Wasser
+      und Nährstoffen versorgen. Stärkere Pflanzen sind widerstandsfähiger.
+      Mykorrhiza nicht mit H₂O₂ oder synthetischen Fungiziden kombinieren —
+      beides tötet die Pilze.
+
+      Bacillus subtilis:
+      Bodenbakterie, die Pilzsporen bekämpft (Echter Mehltau, Botrytis). Als
+      vorbeugend eingesetztes Blattspray — schützt Blattoberflächen vor
+      Pilzinfektionen durch Konkurrenz. Sicher für Nützlinge, keine Karenzzeit.
+    metadata:
+      topic: plant_strengthening
+      difficulty: intermediate
+      target_audiences: [ZG-002, ZG-003, ZG-004, UZG-001]
+
+  - id: karenzzeiten-uebersicht
+    title: "Karenzzeiten Pflanzenschutzmittel — wann ist die Ernte nach Behandlung sicher?"
+    content: |
+      Karenzzeit (auch: Wartezeit, Sicherheitsabstand) ist die Mindestzeit zwischen
+      letzter Behandlung und Ernte. Wer die Karenzzeit unterschreitet, riskiert
+      gesundheitsschädliche Rückstände auf dem Erntegut.
+
+      Typische Karenzzeiten (Richtwerte, Produktetikett beachten):
+
+      Sehr kurze Karenzzeit (0-1 Tag):
+      - Kaliseife / Schmierseife: 0 Tage — kein toxisches Wirkprinzip, abwaschen reicht
+      - Bacillus thuringiensis (Bt): 0-1 Tag — sicher für Säugetiere
+      - Bacillus subtilis: 0-1 Tag — vorbeugend, keine Gefahr
+
+      Kurze Karenzzeit (1-3 Tage):
+      - Neem-Öl (Azadirachtin): 1-3 Tage — baut sich durch UV-Licht (Photolyse) schnell ab.
+        Neem hat eine kurze Karenzzeit, die Ernte muss nicht lange verschoben werden.
+      - Pyrethrum (natürliches Pyrethrin): 1-3 Tage — zerfällt schnell im Licht
+
+      Mittlere Karenzzeit (3-7 Tage):
+      - Spinosad: 3-7 Tage je nach Kultur und Anwendungsmenge
+      - Netzschwefel: 3-7 Tage je nach Anwendung
+      - Kieselerde (Diatomeenerde): 3 Tage
+
+      Lange Karenzzeit (14-21 Tage):
+      - Kupferpräparate: 14-21 Tage — Kupfer akkumuliert, daher langen Sicherheitsabstand einhalten
+
+      Wichtige Regeln:
+      - Karenzzeit beginnt ab dem Tag der LETZTEN Behandlung
+      - Bei mehreren Mitteln gilt die LÄNGSTE Karenzzeit
+      - Im Zweifelsfall länger warten — Produktetikett hat Vorrang
+      - Während der Blüte (z.B. Cannabis) keine Mittel auf Blüten sprühen —
+        Rückstände sind beim Rauchen/Konsumieren gesundheitsschädlich
+      - Systemisch wirkende Mittel (ins Substrat gegossen) haben oft längere
+        Auswaschzeiten als Blattbehandlungen
+    metadata:
+      topic: pre_harvest_interval
+      difficulty: intermediate
+      target_audiences: [ZG-001, ZG-002, UZG-002]

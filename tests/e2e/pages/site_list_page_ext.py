@@ -59,21 +59,31 @@ class SiteListPageExt(BasePage):
 
     # ── Navigation ─────────────────────────────────────────────────────
 
-    def open(self, via_sidebar: bool = False) -> SiteListPageExt:
-        if via_sidebar:
-            self.navigate_via_sidebar(self.PATH)
-        else:
-            self.navigate(self.PATH)
-        self.wait_for_element(self.PAGE)
-        self.wait_for_loading_complete()
-        # Wait for content to render (DataTable rows, site cards, or empty state)
+    def open(self, via_sidebar: bool = False, retries: int = 2) -> SiteListPageExt:
+        from selenium.common.exceptions import StaleElementReferenceException
         from selenium.webdriver.support.ui import WebDriverWait
-        WebDriverWait(self.driver, 10).until(
-            lambda d: (d.find_elements(*self.TABLE_ROWS)
-                       or d.find_elements(*self.SITE_CARDS)
-                       or d.find_elements(*self.EMPTY_STATE))
-        )
-        return self
+        import time
+
+        for attempt in range(retries + 1):
+            try:
+                if via_sidebar:
+                    self.navigate_via_sidebar(self.PATH)
+                else:
+                    self.navigate(self.PATH)
+                self.wait_for_element(self.PAGE)
+                self.wait_for_loading_complete()
+                # Wait for content to render (DataTable rows, site cards, or empty state)
+                WebDriverWait(self.driver, 10).until(
+                    lambda d: (d.find_elements(*self.TABLE_ROWS)
+                               or d.find_elements(*self.SITE_CARDS)
+                               or d.find_elements(*self.EMPTY_STATE))
+                )
+                return self
+            except StaleElementReferenceException:
+                if attempt >= retries:
+                    raise
+                time.sleep(0.5)
+        return self  # unreachable, keeps type checker happy
 
     # ── Table queries ──────────────────────────────────────────────────
 

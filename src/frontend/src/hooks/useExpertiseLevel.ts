@@ -13,7 +13,10 @@ export function useExpertiseLevel() {
   const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.userPreferences.preferences);
   const showAllOverride = useAppSelector((state) => state.ui.showAllFieldsOverride);
-  const level = preferences?.experience_level ?? 'beginner';
+  const loading = useAppSelector((state) => state.userPreferences.loading);
+  const rawLevel = preferences?.experience_level;
+  const level = rawLevel ?? 'beginner';
+  const levelKnown = rawLevel != null && !loading;
 
   const toggleShowAll = useCallback(() => {
     dispatch(toggleShowAllFields());
@@ -26,9 +29,10 @@ export function useExpertiseLevel() {
       toggleShowAll,
       isFieldVisible: (minLevel: ExperienceLevel) =>
         showAllOverride || LEVEL_ORDER[level] >= LEVEL_ORDER[minLevel],
+      // Never hide navigation when level is unknown (not yet loaded or missing)
       isNavVisible: (minLevel: ExperienceLevel) =>
-        LEVEL_ORDER[level] >= LEVEL_ORDER[minLevel],
+        !levelKnown || LEVEL_ORDER[level] >= LEVEL_ORDER[minLevel],
     }),
-    [level, showAllOverride, toggleShowAll],
+    [level, levelKnown, showAllOverride, toggleShowAll],
   );
 }

@@ -1,0 +1,13 @@
+# Substrate-specific defaults for EC limits per substrate type.
+# Source: formerly hardcoded in app/config/constants.py
+
+substrate_defaults:
+  ec_limits:
+    hydro_solution: [0.5, 3.0]
+    coco: [0.8, 2.2]
+    soil: [0.4, 1.6]
+    living_soil: [0.0, 0.8]
+    rockwool_slab: [0.5, 2.5]
+    rockwool_plug: [0.5, 2.5]
+    clay_pebbles: [0.5, 2.5]
+    perlite: [0.5, 2.5]

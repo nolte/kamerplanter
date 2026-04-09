@@ -16,6 +16,10 @@ import type {
   WorkflowAddTaskRequest,
   WorkflowExecution,
   WorkflowInstantiateRequest,
+  WorkflowPhase,
+  WorkflowPhaseCreate,
+  WorkflowPhaseSuggestion,
+  WorkflowPhaseUpdate,
   WorkflowTargetType,
   WorkflowTemplate,
   WorkflowTemplateCreate,
@@ -112,6 +116,60 @@ export async function instantiateWorkflow(
   const { data } = await client.post<WorkflowExecution>(
     `${BASE}/workflows/${key}/instantiate`,
     payload,
+  );
+  return data;
+}
+
+// -- Workflow Phases --
+
+export async function listWorkflowPhases(
+  wfKey: string,
+): Promise<WorkflowPhase[]> {
+  const { data } = await client.get<WorkflowPhase[]>(
+    `${BASE}/workflows/${wfKey}/phases`,
+  );
+  return data;
+}
+
+export async function createWorkflowPhase(
+  wfKey: string,
+  payload: WorkflowPhaseCreate,
+): Promise<WorkflowPhase> {
+  const { data } = await client.post<WorkflowPhase>(
+    `${BASE}/workflows/${wfKey}/phases`,
+    payload,
+  );
+  return data;
+}
+
+export async function updateWorkflowPhase(
+  key: string,
+  payload: WorkflowPhaseUpdate,
+): Promise<WorkflowPhase> {
+  const { data } = await client.put<WorkflowPhase>(
+    `${BASE}/phases/${key}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteWorkflowPhase(key: string): Promise<void> {
+  await client.delete(`${BASE}/phases/${key}`);
+}
+
+export async function reorderPhases(
+  phases: { key: string; phase_order: number }[],
+): Promise<WorkflowPhase[]> {
+  const { data } = await client.put<WorkflowPhase[]>(
+    `${BASE}/phases/reorder`,
+    { phases },
+  );
+  return data;
+}
+
+export async function listPhaseSuggestions(): Promise<WorkflowPhaseSuggestion[]> {
+  const { data } = await client.get<WorkflowPhaseSuggestion[]>(
+    `${BASE}/phases/suggestions`,
   );
   return data;
 }

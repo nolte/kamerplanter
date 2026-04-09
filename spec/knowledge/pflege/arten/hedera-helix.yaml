@@ -1,0 +1,101 @@
+---
+title: "Efeu (Hedera helix) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [efeu, hedera-helix, english-ivy, zimmerpflanze, pflege, kletterpflanze, luftreinigend, kuehler-standort]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: hedera-helix-standort
+    title: "Efeu — Standort und Licht"
+    content: |
+      Efeu (Hedera helix) stammt aus europaeischen Waeldern und mag es
+      kuehler als die meisten tropischen Zimmerpflanzen. Das ist der
+      wichtigste Pflegehinweis: Efeu braucht kuehle Temperaturen und
+      relativ hohe Luftfeuchtigkeit. In warmen, trockenen Wohnraeumen
+      ist er schwer zu halten.
+
+      Licht: Helles, indirektes Licht ist optimal. Ein Nord- oder Ost-
+      fenster mit kuehler Fensterbank ist ideal. Panaschierte Sorten
+      brauchen mehr Licht als rein gruene. Direkte Mittagssonne vermeiden.
+
+      Temperatur: 16-26 Grad im Sommer, 8-16 Grad im Winter. Die Pflanze
+      bevorzugt kuehle Raeume und ist bis -25 Grad winterhart (im Freiland).
+      Zu warme, trockene Heizungsluft ist das groesste Problem und macht
+      die Pflanze anfaellig fuer Spinnmilben.
+
+      Luftfeuchtigkeit: Mindestens 50-60%. Bei trockener Heizungsluft
+      regelmaessig besprühen oder Luftbefeuchter aufstellen.
+
+      Efeu ist einer der besten Luftreiniger (NASA Clean Air Study) und
+      filtert Benzol, Formaldehyd und andere Schadstoffe.
+
+      Achtung: Efeu ist giftig fuer Katzen, Hunde und Kinder (Saponine,
+      Falcarinol). Der Saft kann bei empfindlichen Personen Kontakt-
+      dermatitis ausloesen. Handschuhe beim Schneiden tragen.
+    metadata:
+      topic: hedera_helix_care
+      species: "Hedera helix"
+      difficulty: beginner
+
+  - id: hedera-helix-giessen
+    title: "Efeu — Giessen und Substrat"
+    content: |
+      Efeu mag gleichmaessige Feuchtigkeit — nicht zu nass und nicht
+      zu trocken. Im Sommer alle 5-7 Tage giessen, im Winter alle
+      1-2 Wochen. Das Substrat sollte leicht feucht bleiben, aber nie
+      nass stehen.
+
+      Giessmethode: Kraeftig durchgiessen und ablaufen lassen. Leitungs-
+      wasser ist gut vertraeglich. Kuehles Wasser bevorzugt.
+
+      Substrat: Standard-Blumenerde mit 20% Perlite. pH 6.0-7.5. Normale
+      Gartenerde wird ebenfalls vertragen. Gute Drainage ist wichtig.
+
+      Der wichtigste Tipp fuer Efeu als Zimmerpflanze: Kuehler, heller
+      Standort mit ausreichend Luftfeuchtigkeit. In warmen, trockenen
+      Raeumen (ueber 22 Grad bei unter 40% Luftfeuchtigkeit) bekommt
+      der Efeu fast sicher Spinnmilben. Die feinen Gespinste und gelben
+      Punkte auf den Blaettern sind das typische Zeichen. Vorbeugung:
+      Kuehler Standort und Luftfeuchtigkeit hoch halten.
+
+      Efeu waechst als Kletter- oder Haengepflanze und kann ueber 1 Meter
+      lang werden. Er klettert mit Haftwurzeln an Waenden und Moebeln
+      hoch — das kann Spuren hinterlassen.
+    metadata:
+      topic: hedera_helix_care
+      species: "Hedera helix"
+      difficulty: beginner
+
+  - id: hedera-helix-duengung
+    title: "Efeu — Duengung und Umtopfen"
+    content: |
+      Efeu ist ein leichter Zehrer. Von Maerz bis September monatlich
+      mit einem Zimmerpflanzenduenger duengen (z.B. Compo 7-3-6, 3 ml/L).
+      Halbe bis normale Dosis genuegt. Oktober bis Februar nicht duengen.
+
+      Stickstoffbetonte Duenger foerdern dichtes Laub.
+
+      Umtopfen: Alle 1-2 Jahre im Fruehling. Frische Erde und gute
+      Drainage verwenden.
+
+      Rueckschnitt: Vertraegt starken Rueckschnitt sehr gut. Im Fruehjahr
+      ueberlange Triebe kuerzen — die Pflanze wird dadurch buschiger.
+      Triebe koennen auf beliebige Laenge zurueckgeschnitten werden.
+
+      Vermehrung: Extrem einfach. Stecklinge (8-10 cm mit 3-4 Blaettern)
+      in Wasser oder feuchtem Substrat bewurzeln. Sehr zuverlaessig.
+      Kuehle Bewurzelungstemperatur (16-20 Grad) bevorzugt.
+
+      Haeufige Schaedlinge: Spinnmilben (groesstes Problem bei warmer,
+      trockener Luft), Schmierlaeuse, Schildlaeuse, Blattlaeuse.
+      Woechtentlich kontrollieren! Behandlung: Kuehler, feuchter Standort
+      ist die beste Vorbeugung. Neemoel 0.5% oder Insektizidseife
+      gegen akuten Befall.
+
+      Tipp: Efeu eignet sich hervorragend fuer kuehle Treppenhaeuser,
+      Schlafzimmer und unbeheizte Wintergaerten.
+    metadata:
+      topic: hedera_helix_care
+      species: "Hedera helix"
+      difficulty: beginner

@@ -1,0 +1,107 @@
+---
+title: "Geldbaum (Crassula ovata) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [geldbaum, crassula-ovata, pfennigbaum, jade-pflanze, zimmerpflanze, pflege, sukkulente, anfaenger, wenig-giessen]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: crassula-ovata-standort
+    title: "Geldbaum — Standort und Licht"
+    content: |
+      Der Geldbaum (Crassula ovata) stammt aus der trockenen Buschsavanne
+      Suedafrikas und liebt deshalb moeglichst viel Licht. Ein Platz direkt
+      am Sued- oder Westfenster mit voller Sonne ist ideal. Bei zu wenig
+      Licht werden die Triebe lang und duenn ("vergeilt") und die Pflanze
+      verliert ihre kompakte, buschige Form.
+
+      Temperatur: Im Sommer 18-29 Grad Celsius, ganz normale Zimmertemperatur
+      reicht aus. Im Winter sollte der Geldbaum kuehler stehen, etwa 10-15 Grad.
+      Diese kuehle Winterphase foerdert die Bluetenbildung bei aelteren Pflanzen
+      (ab 5-7 Jahren). Unter 5 Grad wird es kritisch — Frost ueberlebt er nicht.
+
+      Luftfeuchtigkeit spielt kaum eine Rolle: 25-40% reichen voellig aus.
+      Trockene Heizungsluft im Winter ist kein Problem. Im Sommer darf
+      der Geldbaum gerne auf den Balkon oder die Terrasse — volle Sonne und
+      windgeschuetzt. Vor dem ersten Nachtfrost muss er zurueck ins Haus.
+    metadata:
+      topic: crassula_ovata_care
+      species: "Crassula ovata"
+      difficulty: beginner
+
+  - id: crassula-ovata-giessen
+    title: "Geldbaum — Giessen und Substrat"
+    content: |
+      Der Geldbaum speichert Wasser in seinen dicken Blaettern und braucht
+      deshalb nur selten Wasser. Im Sommer alle 2-3 Wochen kraeftig giessen
+      und dann das Substrat komplett durchtrocknen lassen. Im Winter reicht
+      alle 4-6 Wochen ein kleiner Schluck — die Pflanze macht Winterruhe.
+
+      Die Giessmethode ist "Durchgiessen und Ablaufen lassen": Kraeftig
+      giessen bis Wasser unten rauslaeuft, Untersetzer nach 15 Minuten leeren.
+      Staunaesse ist die haeufigste Todesursache beim Geldbaum.
+
+      Als Substrat eignet sich Kakteen- und Sukkulentenerde oder normale
+      Blumenerde gemischt mit 50% Perlite oder grobem Sand. Sehr gute
+      Drainage ist Pflicht. Tongefaesse sind ideal — sie trocknen schneller
+      aus als Plastik. Den Topf eher klein waehlen: leicht wurzelgebundene
+      Pflanzen bluehen eher.
+
+      Leitungswasser ist voellig in Ordnung. Typische Fehler: zu oft giessen,
+      Wasser im Untersetzer stehen lassen und zu grosser Topf.
+    metadata:
+      topic: crassula_ovata_care
+      species: "Crassula ovata"
+      difficulty: beginner
+
+  - id: crassula-ovata-duengung
+    title: "Geldbaum — Duengung und Umtopfen"
+    content: |
+      Der Geldbaum ist ein extremer Schwachzehrer. Zwei bis drei Duengergaben
+      pro Wachstumsperiode (April bis August) genuegen voellig. Einen
+      Kakteen- und Sukkulentenduenger in normaler Dosierung (z.B. Compo
+      Kakteenduenger 3 ml/L) alle 6-8 Wochen verwenden. Von Oktober bis
+      Maerz wird nicht geduengt — die Pflanze ruht.
+
+      Ueberduengung fuehrt zu weichem, anfaelligem Gewebe. Im Zweifel
+      lieber weniger duengen als zu viel.
+
+      Umtopfen ist nur alle 2-3 Jahre noetig, am besten im Fruehling.
+      Beim Umtopfen den neuen Topf nur 2-3 cm groesser waehlen. Frisches
+      Kakteensubstrat verwenden. Nach dem Umtopfen 2 Wochen nicht giessen.
+
+      Rueckschnitt im Fruehjahr (Maerz-April): Ueberlange Triebe um ein
+      Drittel kuerzen foerdert buschigen Wuchs. Die abgeschnittenen Triebe
+      lassen sich als Stecklinge verwenden. Einfach 2-3 Tage antrocknen
+      lassen und in Kakteenerde stecken.
+    metadata:
+      topic: crassula_ovata_care
+      species: "Crassula ovata"
+      difficulty: beginner
+
+  - id: crassula-ovata-probleme
+    title: "Geldbaum — Probleme und Vermehrung"
+    content: |
+      Haeufige Probleme beim Geldbaum:
+      - Weicher, verfaerbter Stamm: Wurzelfaeule durch Ueberwaesserung.
+        Sofort aus dem Topf nehmen, faule Wurzeln abschneiden, 3-5 Tage
+        trocknen lassen, in frisches Substrat pflanzen.
+      - Blaetter fallen ab: Oft zu viel Wasser, zu wenig Licht oder Zugluft.
+      - Wollflecken in Blattachseln: Schmierlaeuse. Mit 70% Alkohol und
+        Wattestaebchen entfernen oder Neemoel 0.5% spruehen.
+      - Gespinste an Blaettern: Spinnmilben bei sehr trockener Luft.
+        Neemoel hilft.
+
+      Vermehrung ist kinderleicht: Steckinge von 7-10 cm Laenge abschneiden,
+      Schnittflaeche 2-3 Tage trocknen lassen (Kallus bilden), dann in
+      Kakteensubstrat stecken. Nicht giessen bis ein Widerstand beim Zupfen
+      spuerbar ist (= Wurzeln gebildet). Sogar einzelne Blaetter lassen sich
+      vermehren: Blatt abdrehen, trocknen lassen und auf feuchtes Substrat
+      legen.
+
+      Achtung: Der Geldbaum ist leicht giftig fuer Katzen, Hunde und Kinder.
+      Bei Verschlucken Uebelkeit und Erbrechen moeglich. Schweregrad gering.
+    metadata:
+      topic: crassula_ovata_care
+      species: "Crassula ovata"
+      difficulty: beginner

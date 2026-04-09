@@ -1,0 +1,97 @@
+---
+title: "Koenigsbegonie (Begonia rex-cultorum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [koenigsbegonie, begonia-rex, rex-begonia, zimmerpflanze, pflege, buntblatt, luftfeuchtigkeit, tropisch]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: begonia-rex-standort
+    title: "Koenigsbegonie — Standort und Licht"
+    content: |
+      Die Koenigsbegonie (Begonia rex-cultorum) ist eine Hybridgruppe mit
+      spektakulaeren Blattmustern in Silber, Purpur, Bronze, Schwarz, Rosa
+      und Gruen. Der Dekorationswert liegt in den Blaettern, nicht in den
+      unscheinbaren Blueten.
+
+      Licht: Helles, indirektes Licht — ein Ost- oder Westfenster ist
+      ideal. Direkte Sonne verbrennt die empfindlichen Blaetter. Zu
+      wenig Licht laesst die Farben verblassen.
+
+      Temperatur: 18-24 Grad Celsius. Unter 13 Grad wird es kritisch.
+      Zugluft und Temperaturschwankungen vermeiden.
+
+      Luftfeuchtigkeit: 50-70% sind optimal. Die Koenigsbegonie braucht
+      hohe Luftfeuchtigkeit, aber gleichzeitig muessen die Blaetter
+      trocken bleiben — nasse Blaetter foerdern Mehltau. Nicht
+      bespruehen! Stattdessen: Kieselstein-Schale mit Wasser unter den
+      Topf stellen oder Luftbefeuchter verwenden. Pflanzen gruppieren
+      hilft ebenfalls.
+
+      Achtung: Die Koenigsbegonie ist giftig fuer Katzen, Hunde und
+      Kinder (Calciumoxalat, besonders in den Rhizomen). Von Haustieren
+      und Kleinkindern fernhalten.
+    metadata:
+      topic: begonia_rex_care
+      species: "Begonia rex-cultorum"
+      difficulty: beginner
+
+  - id: begonia-rex-giessen
+    title: "Koenigsbegonie — Giessen und Substrat"
+    content: |
+      Die Koenigsbegonie mag es gleichmaessig leicht feucht, aber nie
+      nass. Im Sommer alle 7-10 Tage giessen, im Winter alle 10-21 Tage.
+      Das Substrat zwischen den Wassergaben leicht antrocknen lassen.
+      Unterbewässerung ist besser als Ueberwaesserung.
+
+      Giessmethode: Immer von unten giessen (Topf in Wasser stellen fuer
+      15-20 Minuten). So bleiben die Blaetter trocken — nasse Blaetter
+      sind der haeufigste Ausloeser fuer Echten Mehltau und Grauschimmel.
+      NIE auf die Blaetter giessen oder spruehen.
+
+      Substrat: Lockere, gut durchlaessige Blumenerde mit 25% Perlite.
+      pH 5.5-6.5. Flache Schalen oder Toepfe bevorzugen — das Rhizom
+      braucht Breite, nicht Tiefe. Mindesttiefe 10 cm genuegt.
+
+      Leitungswasser ist in Ordnung. Typische Fehler: Wasser auf die
+      Blaetter giessen (Mehltau), zu oft giessen (Wurzelfaeule) und
+      zu trockene Luft (Blattrandnekrosen). Die Kombination "hohe
+      Luftfeuchtigkeit + trockene Blaetter" ist der Schluessel zum Erfolg.
+    metadata:
+      topic: begonia_rex_care
+      species: "Begonia rex-cultorum"
+      difficulty: beginner
+
+  - id: begonia-rex-duengung
+    title: "Koenigsbegonie — Duengung und Umtopfen"
+    content: |
+      Die Koenigsbegonie ist ein leichter Zehrer. Von Maerz bis September
+      monatlich mit einem Zimmerpflanzenduenger in halber Dosis duengen
+      (z.B. Compo 7-3-6, 2 ml/L). Oktober bis Februar nicht duengen.
+      Nie auf die Blaetter duengen.
+
+      Umtopfen: Alle 18-24 Monate im Fruehling. Flache Schalen bevorzugen
+      (Rhizom waechst in die Breite). Beim Umtopfen kann das Rhizom
+      geteilt werden — einfachste Vermehrungsmethode.
+
+      Vermehrung ueber Blattstecklinge: Blatt abnehmen, auf der Unterseite
+      4-5 Kerben in die Hauptadern schneiden und auf feuchtes Substrat
+      legen. In 6-12 Wochen bilden sich an den Schnitten neue
+      Pflaenzchen. Alternativ: Blattstiel im 45-Grad-Winkel in feuchtes
+      Substrat stecken.
+
+      Haeufige Probleme:
+      - Weisser Belag auf Blaettern: Echter Mehltau (nasse Blaetter,
+        schlechte Belueftung). Kaliumbicarbonat 0.5% spruehen.
+      - Graubrauner Schimmel: Grauschimmel (Botrytis) — zu hohe
+        Feuchtigkeit. Befallene Teile entfernen, besser lueften.
+      - Blaetter verblassen: Zu wenig Licht.
+      - Gespinste: Spinnmilben bei trockener Luft. Neemoel 0.3% auf
+        die Blattunterseite spruehen.
+
+      Die Pflanze lebt typischerweise 3-5 Jahre und wird dann durch
+      Teilung verjuengt.
+    metadata:
+      topic: begonia_rex_care
+      species: "Begonia rex-cultorum"
+      difficulty: beginner

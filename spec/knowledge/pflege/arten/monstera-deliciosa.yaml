@@ -1,0 +1,140 @@
+---
+title: "Fensterblatt (Monstera deliciosa) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [monstera, fensterblatt, zimmerpflanze, pflege, araceae, tropisch, kletterpflanze]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: monstera-standort
+    title: "Fensterblatt — Standort und Licht"
+    content: |
+      Das Fensterblatt (Monstera deliciosa) braucht helles, indirektes Licht.
+      Direkte Mittagssonne verbrennt die Blaetter — ein Platz am Ost- oder
+      Westfenster ist ideal. Auch leicht zurueckgesetzt an einem Suedfenster
+      funktioniert gut, solange kein direktes Sonnenlicht auf die Blaetter
+      faellt. Nordfenster sind zu dunkel, es sei denn du ergaenzt mit einer
+      Pflanzenlampe.
+
+      Die beruehmten Loecher in den Blaettern (Fenestrierung) bilden sich
+      nur bei ausreichend Licht. Bekommt die Monstera zu wenig Licht,
+      bleiben neue Blaetter klein und ohne Loecher.
+
+      Temperatur: Ideal sind 18 bis 27 Grad Celsius. Unter 12 Grad stellt
+      die Pflanze das Wachstum komplett ein. Nachts sollte es nicht unter
+      16 Grad fallen. Zugluft und Standorte neben Heizkoerpern vermeiden.
+
+      Luftfeuchtigkeit: 50 bis 70 Prozent sind optimal. Normale
+      Raumluft reicht meist aus, im Winter bei Heizungsluft hilft
+      gelegentliches Besprühen oder eine Schale mit Wasser neben der
+      Pflanze.
+
+      Wichtig: Die Monstera ist eine Kletterpflanze. Ein Moosstab oder
+      Kokosstab als Rankhilfe foerdert groessere Blaetter und kraeftigeres
+      Wachstum. Luftwurzeln nicht abschneiden — sie helfen der Pflanze
+      bei der Naehrstoff- und Wasseraufnahme.
+    metadata:
+      topic: monstera_care
+      species: "Monstera deliciosa"
+      difficulty: beginner
+
+  - id: monstera-giessen
+    title: "Fensterblatt — Giessen und Substrat"
+    content: |
+      Die Monstera mag gleichmaessige Feuchtigkeit, aber keine Staunaesse.
+      Giesse von oben, bis Wasser aus den Abzugsloechern laeuft. Nach
+      30 Minuten den Untersetzer leeren.
+
+      Giess-Rhythmus Sommer (Maerz bis Oktober): Alle 5 bis 7 Tage.
+      Lass die oberen 3 bis 5 Zentimeter Erde zwischen den Wassergaben
+      antrocknen. Die Fingerprobe ist der beste Test: Fuehlt sich die
+      Erde in 3 cm Tiefe trocken an, wird gegossen.
+
+      Giess-Rhythmus Winter (November bis Februar): Alle 10 bis 14 Tage.
+      Die Pflanze waechst langsamer und braucht weniger Wasser.
+
+      Substrat: Eine lockere, grobe Mischung ist wichtig. Bewährt hat sich:
+      50 bis 60 Prozent Zimmerpflanzenerde, 20 bis 30 Prozent Orchideenrinde,
+      10 bis 20 Prozent Perlite. Der pH-Wert sollte zwischen 5,5 und 6,5
+      liegen. Staunaesse ist der haeufigste Fehler und fuehrt zu
+      Wurzelfaeule.
+
+      Wasserqualitaet: Normales Leitungswasser ist voellig in Ordnung.
+      Am besten zimmerwarm giessen.
+
+      Haeufigste Giess-Fehler:
+      - Zu viel giessen: Gelbe Blaetter, matschige Stiele, fauliger Geruch.
+      - Zu wenig giessen: Blaetter rollen sich ein, braune Raender.
+      - Wasser im Untersetzer stehen lassen: Fuehrt zu Wurzelfaeule.
+    metadata:
+      topic: monstera_care
+      species: "Monstera deliciosa"
+      difficulty: beginner
+
+  - id: monstera-duengung
+    title: "Fensterblatt — Duengung und Umtopfen"
+    content: |
+      Duengung: Von Maerz bis Oktober alle 2 Wochen mit einem
+      Gruenpflanzen-Fluessigduenger duengen (zum Beispiel NPK 7-3-6,
+      etwa 7 ml pro Liter Wasser). Im Maerz und September mit halber
+      Dosis starten beziehungsweise ausklingen lassen.
+
+      Von November bis Februar wird nicht geduengt — die Pflanze ruht
+      und kann die Naehrstoffe nicht verwerten. Ueberdüngung erkennst du
+      an braunen Blattspitzen und Salzraendern.
+
+      Tipp: Alle 3 bis 4 Monate das Substrat gruendlich mit klarem Wasser
+      durchspuelen. Das schwemmt ueberschuessige Salze aus.
+
+      Umtopfen: Alle 18 bis 24 Monate in einen Topf, der etwa 5 cm
+      groesser ist als der alte. Bester Zeitpunkt: Fruehling (April).
+      Schwere Toepfe aus Ton oder Keramik geben grossen Exemplaren mit
+      Kletterhilfe mehr Stabilitaet.
+
+      Empfohlenes Topfvolumen: 10 bis 20 Liter je nach Groesse.
+      Mindestens 25 cm Topftiefe, damit die kraeftigen Wurzeln Platz haben.
+
+      Ruhephase (November bis Februar): Weniger giessen, nicht duengen,
+      Standort nicht wechseln. Blaetter regelmaessig von Staub befreien
+      — das foerdert die Lichtaufnahme.
+    metadata:
+      topic: monstera_care
+      species: "Monstera deliciosa"
+      difficulty: beginner
+
+  - id: monstera-probleme
+    title: "Fensterblatt — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Gelbe Blaetter: Meist Ueberwaesserung. Seltener Naehrstoffmangel
+        oder zu wenig Licht.
+      - Braune Blattspitzen: Trockene Luft, Ueberdüngung oder Salzansammlung
+        im Substrat.
+      - Keine Loecher in neuen Blaettern: Zu wenig Licht. Naeher ans Fenster
+        stellen oder Pflanzenlampe ergaenzen.
+      - Blaetter rollen sich ein: Zu trocken, mehr giessen.
+
+      Schaedlinge: Spinnmilben (feine Gespinste, besonders bei trockener
+      Heizungsluft), Schmierlaeusen (wattige weisse Flecken in
+      Blattachseln) und Trauermücken (kleine schwarze Fliegen, Larven im
+      Substrat). Regelmaessige Kontrolle alle 2 Wochen, besonders
+      Blattunterseiten und Stielachseln absuchen.
+
+      Behandlung: Neemoel (0,5 Prozent Spruehloesung) hilft gegen
+      Spinnmilben und Schmierlaeusen. Gegen Trauermücken wirken Gelbtafeln
+      und Nematoden (Steinernema feltiae) zum Giessen.
+
+      Vermehrung: Sehr einfach. Stecklinge mit mindestens einem Knoten
+      (der Verdickung am Stiel, wo Blaetter und Luftwurzeln wachsen)
+      abschneiden. In Wasser stellen — nach 2 bis 4 Wochen bilden sich
+      Wurzeln. Dann in Substrat einpflanzen. Alternativ Abmoosen:
+      Stiel anritzen, feuchtes Moos umwickeln und mit Folie abdecken.
+      Sicherste Methode mit geringstem Verlustrisiko.
+
+      Achtung: Monstera ist giftig fuer Katzen, Hunde und Kinder.
+      Der Pflanzensaft kann Hautreizungen verursachen — beim Schneiden
+      Handschuhe tragen.
+    metadata:
+      topic: monstera_care
+      species: "Monstera deliciosa"
+      difficulty: beginner

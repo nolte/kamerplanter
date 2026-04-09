@@ -1,0 +1,154 @@
+---
+title: "Sukkulenten-Sammlung (Echeveria, Haworthia, Sedum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [sukkulenten, echeveria, haworthia, sedum, zimmerpflanze, pflege, crassulaceae, asphodelaceae, trockenheitsvertraeglich, anfaengerfreundlich]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: sukkulenten-standort
+    title: "Sukkulenten — Standort und Licht"
+    content: |
+      Sukkulenten wie Echeveria, Haworthia und Sedum brauchen viel Licht.
+      Die meisten Arten moegen einen hellen Standort mit mehreren Stunden
+      direkter Sonne pro Tag.
+
+      Echeveria (Mexikanische Schneekugel): Volle Sonne, direkt am
+      Suedfenster. Ohne genug Licht strecken sich die Rosetten in die
+      Hoehe ("etiolieren") und verlieren ihre kompakte Form. Ideal:
+      400 bis 1000 Mikromol PPFD.
+
+      Haworthia (Zebra-Haworthia): Die Ausnahme unter den Sukkulenten —
+      vertraegt Halbschatten und ist eine der wenigen Sukkulenten, die
+      auch am Ost- oder Nordfenster gedeihen. Direkte Mittagssonne
+      kann die Blaetter verbrennen. Ideal: 200 bis 600 Mikromol PPFD.
+
+      Sedum morganianum (Eselsschwanz): Helles Licht, aber keine
+      pralle Mittagssonne. Ideal als Haengepflanze am Ost- oder
+      Westfenster. Ideal: 200 bis 600 Mikromol PPFD.
+
+      Temperatur fuer alle: 18 bis 27 Grad im Sommer. Im Winter
+      kuehler (10 bis 18 Grad) — das foerdert bei vielen Arten die
+      Bluetenbildung im Fruehling.
+
+      Luftfeuchtigkeit: 20 bis 40 Prozent — niedrig! Hohe
+      Luftfeuchtigkeit beguenstigt Faeulnis.
+    metadata:
+      topic: succulent_care
+      species: "Echeveria elegans, Haworthiopsis fasciata, Sedum morganianum"
+      difficulty: beginner
+
+  - id: sukkulenten-giessen
+    title: "Sukkulenten — Giessen und Substrat"
+    content: |
+      Die goldene Regel bei Sukkulenten: Weniger ist mehr. Zwischen den
+      Wassergaben muss das Substrat vollstaendig austrocknen.
+
+      Giess-Methode: Durchdringend giessen ("Soak and Dry"). Komplett
+      durchgiessen, bis Wasser aus den Abzugsloechern laeuft. Dann
+      warten, bis das Substrat vollstaendig trocken ist, bevor du
+      erneut giesst.
+
+      Giess-Rhythmus Sommer:
+      - Echeveria: Alle 10 bis 14 Tage.
+      - Haworthia: Alle 14 bis 21 Tage (hat Sommerdormanz!).
+      - Sedum: Alle 10 bis 14 Tage.
+
+      Giess-Rhythmus Winter:
+      - Echeveria: Alle 21 bis 42 Tage (fast gar nicht).
+      - Haworthia: Alle 28 bis 42 Tage.
+      - Sedum: Alle 21 bis 30 Tage.
+
+      Wasserqualitaet: Normales Leitungswasser ist voellig ausreichend.
+
+      Wichtig bei Echeveria: Niemals auf die Blaetter giessen! Die
+      Wachsschicht (Farina) wird zerstoert und waechst nicht nach.
+      Wasser in der Rosette fuehrt zu Faeulnis. Immer direkt ins
+      Substrat giessen.
+
+      Substrat: Kakteen- und Sukkulentenerde mit 30 Prozent Perlite
+      oder grobem Sand. pH-Wert 6,0 bis 7,5. Hervorragende Drainage
+      ist das Wichtigste. Tontoepfe trocknen schneller als Plastik
+      und sind besser geeignet. Flache Toepfe bevorzugen.
+
+      Staunaesse ist der groesste Feind aller Sukkulenten und die
+      haeufigste Todesursache!
+    metadata:
+      topic: succulent_care
+      species: "Echeveria elegans, Haworthiopsis fasciata, Sedum morganianum"
+      difficulty: beginner
+
+  - id: sukkulenten-duengung
+    title: "Sukkulenten — Duengung und Umtopfen"
+    content: |
+      Sukkulenten sind extreme Schwachzehrer. Weniger ist hier wirklich
+      mehr.
+
+      Duengung: 1 bis 2 Mal im Fruehling mit Kakteen- und
+      Sukkulentenduenger (zum Beispiel NPK 4-6-7, etwa 2 ml pro
+      Liter Wasser). Das reicht fuer die gesamte Saison.
+
+      Kein Duenger im Sommer (Haworthia hat dann Halbdormanz),
+      kein Duenger im Herbst und Winter. Ueberdüngung fuehrt zu
+      weichem, anfaelligem Wachstum.
+
+      Umtopfen:
+      - Echeveria: Alle 18 bis 24 Monate.
+      - Haworthia: Alle 24 bis 36 Monate (waechst sehr langsam).
+      - Sedum: Alle 24 Monate.
+
+      Bester Zeitpunkt: Fruehling. Immer in trockenes Substrat
+      umtopfen und erst nach 5 bis 7 Tagen das erste Mal giessen.
+      Das verhindert Wurzelfaeule an beschaedigten Wurzeln.
+
+      Toepfe: Flache Toepfe oder Schalen mit Abzugsloechern.
+      Terrakotta ist ideal, weil es Feuchtigkeit ableitet.
+
+      Tipp fuer Arrangements: Echeveria, Sedum und Haworthia lassen
+      sich wunderbar in Sukkulenten-Schalen kombinieren, da sie
+      aehnliche Pflegeansprueche haben.
+    metadata:
+      topic: succulent_care
+      species: "Echeveria elegans, Haworthiopsis fasciata, Sedum morganianum"
+      difficulty: beginner
+
+  - id: sukkulenten-probleme
+    title: "Sukkulenten — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Weiche, matschige Basis: Wurzelfaeule durch Ueberwaesserung.
+        Sofort aufhoeren zu giessen. Gesunde Teile abschneiden und
+        neu bewurzeln.
+      - Rosette streckt sich (Echeveria): Zu wenig Licht. Naeher
+        ans Fenster oder Pflanzenlampe ergaenzen.
+      - Blaetter fallen bei Beruehrung ab (Sedum): Normal — der
+        Eselsschwanz verliert Blaetter bei Erschuetterung. Wenig
+        bewegen. Abgefallene Blaetter koennen vermehrt werden.
+      - Braune Flecken: Sonnenbrand (nach Dunkelphase langsam an
+        Sonne gewoehnen) oder Faeulnis.
+
+      Schaedlinge: Schmierlaeusen (Wollflecken in Blattachseln —
+      haeufigster Schaedling!) und Trauermücken (Larven in feuchtem
+      Substrat). Alle 3 Wochen kontrollieren.
+
+      Behandlung: Neemoel als Substratgiessbehandlung gegen Trauermücken.
+      Alkohol 70 Prozent mit Wattestäbchen gegen Schmierlaeusen.
+
+      Vermehrung — alle drei Gattungen sind einfach zu vermehren:
+      - Echeveria: Blattstecklinge. Blatt sanft mit Drehbewegung
+        abtrennen, 2 bis 3 Tage trocknen lassen, flach auf feuchtes
+        Substrat legen (nicht stecken!). Neue Rosette in 4 bis 8 Wochen.
+        Ableger einfach abtrennen.
+      - Haworthia: Ableger (Pups) an der Basis abtrennen, wenn sie
+        4 bis 5 cm gross sind. 1 bis 2 Tage trocknen, dann in
+        trockenes Kakteensubstrat.
+      - Sedum: Triebstecklinge (5 bis 10 cm) abschneiden, 2 bis 7
+        Tage trocknen (wichtig!), in trockenes Substrat. Oder einzelne
+        Blaettchen auf Substrat legen.
+
+      Alle drei Gattungen sind laut ASPCA nicht giftig fuer Katzen,
+      Hunde und Kinder.
+    metadata:
+      topic: succulent_care
+      species: "Echeveria elegans, Haworthiopsis fasciata, Sedum morganianum"
+      difficulty: beginner

@@ -10,13 +10,14 @@ lifecycles:
   # ============================================================================
 
   # -- Forsythia x intermedia (Forsythie) -- Laubabwerfender Strauch
-  - species_key: "1794864"
+  - scientific_name: "Forsythia x intermedia"
     cycle_type: "perennial"
     typical_lifespan_years: 30
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -60,13 +61,14 @@ lifecycles:
         is_recurring: true
 
   # -- Geranium sanguineum (Blut-Storchschnabel) -- Staude
-  - species_key: "1794868"
+  - scientific_name: "Geranium sanguineum"
     cycle_type: "perennial"
     typical_lifespan_years: 15
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -110,13 +112,14 @@ lifecycles:
         is_recurring: true
 
   # -- Helleborus niger (Christrose) -- Winterblüher
-  - species_key: "1794872"
+  - scientific_name: "Helleborus niger"
     cycle_type: "perennial"
     typical_lifespan_years: 20
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_winter_flower"
     phases:
       - name: "dormancy"
         display_name: "Sommerruhe"
@@ -152,13 +155,14 @@ lifecycles:
         is_recurring: true
 
   # -- Hemerocallis spp. (Taglilie) -- Staude
-  - species_key: "1794876"
+  - scientific_name: "Hemerocallis spp."
     cycle_type: "perennial"
     typical_lifespan_years: 20
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -202,13 +206,14 @@ lifecycles:
         is_recurring: true
 
   # -- Hosta spp. (Funkie) -- Staude
-  - species_key: "1794880"
+  - scientific_name: "Hosta spp."
     cycle_type: "perennial"
     typical_lifespan_years: 25
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -252,13 +257,14 @@ lifecycles:
         is_recurring: true
 
   # -- Hydrangea macrophylla (Gartenhortensie) -- Laubabwerfender Strauch
-  - species_key: "1794884"
+  - scientific_name: "Hydrangea macrophylla"
     cycle_type: "perennial"
     typical_lifespan_years: 30
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -302,13 +308,14 @@ lifecycles:
         is_recurring: true
 
   # -- Ligustrum vulgare (Gemeiner Liguster) -- Laubabwerfender Strauch
-  - species_key: "1794888"
+  - scientific_name: "Ligustrum vulgare"
     cycle_type: "perennial"
     typical_lifespan_years: 40
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -352,13 +359,14 @@ lifecycles:
         is_recurring: true
 
   # -- Paeonia lactiflora (Staudenpfingstrose) -- Staude
-  - species_key: "1794892"
+  - scientific_name: "Paeonia lactiflora"
     cycle_type: "perennial"
     typical_lifespan_years: 50
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -402,13 +410,14 @@ lifecycles:
         is_recurring: true
 
   # -- Phlox paniculata (Hohe Flammenblume) -- Staude
-  - species_key: "1794896"
+  - scientific_name: "Phlox paniculata"
     cycle_type: "perennial"
     typical_lifespan_years: 10
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -452,13 +461,14 @@ lifecycles:
         is_recurring: true
 
   # -- Rhododendron spp. (Rhododendron) -- Immergrüner Strauch
-  - species_key: "1794900"
+  - scientific_name: "Rhododendron spp."
     cycle_type: "perennial"
     typical_lifespan_years: 50
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_winter_flower"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -494,13 +504,14 @@ lifecycles:
         is_recurring: true
 
   # -- Rosa spp. (Rose) -- Dauerblüher-Strauch
-  - species_key: "1794904"
+  - scientific_name: "Rosa spp."
     cycle_type: "perennial"
     typical_lifespan_years: 25
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -544,13 +555,14 @@ lifecycles:
         is_recurring: true
 
   # -- Syringa vulgaris (Gemeiner Flieder) -- Laubabwerfender Strauch
-  - species_key: "1794908"
+  - scientific_name: "Syringa vulgaris"
     cycle_type: "perennial"
     typical_lifespan_years: 40
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -594,13 +606,14 @@ lifecycles:
         is_recurring: true
 
   # -- Viburnum opulus (Gemeiner Schneeball) -- Laubabwerfender Strauch
-  - species_key: "1794912"
+  - scientific_name: "Viburnum opulus"
     cycle_type: "perennial"
     typical_lifespan_years: 30
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -644,13 +657,14 @@ lifecycles:
         is_recurring: true
 
   # -- Weigela florida (Weigelie) -- Laubabwerfender Strauch
-  - species_key: "1794916"
+  - scientific_name: "Weigela florida"
     cycle_type: "perennial"
     typical_lifespan_years: 25
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -698,13 +712,14 @@ lifecycles:
   # ============================================================================
 
   # -- Malus domestica (Kulturapfel) -- Obstbaum, fruiting 120d
-  - species_key: "1794920"
+  - scientific_name: "Malus domestica"
     cycle_type: "perennial"
     typical_lifespan_years: 50
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -748,13 +763,14 @@ lifecycles:
         is_recurring: true
 
   # -- Prunus avium (Süßkirsche) -- Obstbaum, fruiting 60d
-  - species_key: "1794924"
+  - scientific_name: "Prunus avium"
     cycle_type: "perennial"
     typical_lifespan_years: 40
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -798,13 +814,14 @@ lifecycles:
         is_recurring: true
 
   # -- Prunus domestica (Zwetschge/Pflaume) -- Obstbaum, fruiting 90d
-  - species_key: "1794928"
+  - scientific_name: "Prunus domestica"
     cycle_type: "perennial"
     typical_lifespan_years: 40
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -848,13 +865,14 @@ lifecycles:
         is_recurring: true
 
   # -- Pyrus communis (Birne) -- Obstbaum, fruiting 120d
-  - species_key: "1794932"
+  - scientific_name: "Pyrus communis"
     cycle_type: "perennial"
     typical_lifespan_years: 60
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -898,13 +916,14 @@ lifecycles:
         is_recurring: true
 
   # -- Ribes rubrum (Rote Johannisbeere) -- Beerenobst
-  - species_key: "1794936"
+  - scientific_name: "Ribes rubrum"
     cycle_type: "perennial"
     typical_lifespan_years: 15
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_sprouting"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -956,13 +975,14 @@ lifecycles:
         is_recurring: true
 
   # -- Ribes uva-crispa (Stachelbeere) -- Beerenobst
-  - species_key: "1794940"
+  - scientific_name: "Ribes uva-crispa"
     cycle_type: "perennial"
     typical_lifespan_years: 15
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_sprouting"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1014,13 +1034,14 @@ lifecycles:
         is_recurring: true
 
   # -- Rubus fruticosus agg. (Brombeere) -- Beerenobst
-  - species_key: "1794944"
+  - scientific_name: "Rubus fruticosus agg."
     cycle_type: "perennial"
     typical_lifespan_years: 15
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_sprouting"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1072,13 +1093,14 @@ lifecycles:
         is_recurring: true
 
   # -- Rubus idaeus (Himbeere) -- Beerenobst
-  - species_key: "1794948"
+  - scientific_name: "Rubus idaeus"
     cycle_type: "perennial"
     typical_lifespan_years: 12
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_sprouting"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1130,13 +1152,14 @@ lifecycles:
         is_recurring: true
 
   # -- Sambucus nigra (Schwarzer Holunder) -- Obstbaum
-  - species_key: "1794952"
+  - scientific_name: "Sambucus nigra"
     cycle_type: "perennial"
     typical_lifespan_years: 30
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1180,13 +1203,14 @@ lifecycles:
         is_recurring: true
 
   # -- Vaccinium corymbosum (Kulturheidelbeere) -- Beerenobst
-  - species_key: "1794956"
+  - scientific_name: "Vaccinium corymbosum"
     cycle_type: "perennial"
     typical_lifespan_years: 20
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_sprouting"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1238,13 +1262,14 @@ lifecycles:
         is_recurring: true
 
   # -- Vitis vinifera (Weinrebe) -- Kletterpflanze mit Reifephase
-  - species_key: "1794960"
+  - scientific_name: "Vitis vinifera"
     cycle_type: "perennial"
     typical_lifespan_years: 50
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_full_fruit"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1316,13 +1341,14 @@ lifecycles:
   # ============================================================================
 
   # -- Levisticum officinale (Liebstöckel) -- Mehrjähriges Kraut
-  - species_key: "1794964"
+  - scientific_name: "Levisticum officinale"
     cycle_type: "perennial"
     typical_lifespan_years: 10
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1374,13 +1400,14 @@ lifecycles:
         is_recurring: true
 
   # -- Melissa officinalis (Zitronenmelisse) -- Mehrjähriges Kraut
-  - species_key: "1794968"
+  - scientific_name: "Melissa officinalis"
     cycle_type: "perennial"
     typical_lifespan_years: 8
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1432,13 +1459,14 @@ lifecycles:
         is_recurring: true
 
   # -- Origanum vulgare (Oregano) -- Mehrjähriges Kraut
-  - species_key: "1794972"
+  - scientific_name: "Origanum vulgare"
     cycle_type: "perennial"
     typical_lifespan_years: 8
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1490,12 +1518,13 @@ lifecycles:
         is_recurring: true
 
   # -- Satureja hortensis (Bohnenkraut) -- Einjährig
-  - species_key: "1794976"
+  - scientific_name: "Satureja hortensis"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_harvest"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1538,13 +1567,14 @@ lifecycles:
   # ============================================================================
 
   # -- Pastinaca sativa (Pastinake) -- Zweijährig, vernalization_required
-  - species_key: "1794980"
+  - scientific_name: "Pastinaca sativa"
     cycle_type: "biennial"
     typical_lifespan_years: 2
     dormancy_required: true
     vernalization_required: true
     vernalization_min_days: 30
     photoperiod_type: "day_neutral"
+    phase_sequence: "biennial_vernalization"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1590,13 +1620,14 @@ lifecycles:
         is_terminal: true
 
   # -- Rheum rhabarbarum (Rhabarber) -- Staude mit Erntephase
-  - species_key: "1794984"
+  - scientific_name: "Rheum rhabarbarum"
     cycle_type: "perennial"
     typical_lifespan_years: 15
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_early_harvest"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1640,12 +1671,13 @@ lifecycles:
         is_recurring: true
 
   # -- Spinacia oleracea (Spinat) -- Einjährig, Langtagpflanze
-  - species_key: "1794988"
+  - scientific_name: "Spinacia oleracea"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "long_day"
+    phase_sequence: "annual_harvest"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1688,12 +1720,13 @@ lifecycles:
   # ============================================================================
 
   # -- Lupinus polyphyllus (Vielblättrige Lupine) -- Gründüngung, annual use
-  - species_key: "1794992"
+  - scientific_name: "Lupinus polyphyllus"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_flower"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1732,13 +1765,14 @@ lifecycles:
         is_terminal: true
 
   # -- Medicago sativa (Luzerne) -- Perennial Gründüngung
-  - species_key: "1794996"
+  - scientific_name: "Medicago sativa"
     cycle_type: "perennial"
     typical_lifespan_years: 5
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
     cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
     phases:
       - name: "dormancy"
         display_name: "Winterruhe"
@@ -1790,12 +1824,13 @@ lifecycles:
         is_recurring: true
 
   # -- Phacelia tanacetifolia (Bienenfreund) -- Gründüngung, lange Blüte
-  - species_key: "1795000"
+  - scientific_name: "Phacelia tanacetifolia"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_flower"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1834,12 +1869,13 @@ lifecycles:
         is_terminal: true
 
   # -- Sinapis alba (Weißer Senf) -- Gründüngung
-  - species_key: "1795004"
+  - scientific_name: "Sinapis alba"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_flower"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1878,12 +1914,13 @@ lifecycles:
         is_terminal: true
 
   # -- Tagetes patula (Studentenblume) -- Gründüngung, lange Blüte (Nematodenfalle)
-  - species_key: "1795008"
+  - scientific_name: "Tagetes patula"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_flower"
     phases:
       - name: "germination"
         display_name: "Keimung"
@@ -1922,12 +1959,13 @@ lifecycles:
         is_terminal: true
 
   # -- Tropaeolum majus (Kapuzinerkresse) -- Gründüngung/Mischkultur
-  - species_key: "1795012"
+  - scientific_name: "Tropaeolum majus"
     cycle_type: "annual"
     typical_lifespan_years: 1
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    phase_sequence: "annual_flower"
     phases:
       - name: "germination"
         display_name: "Keimung"

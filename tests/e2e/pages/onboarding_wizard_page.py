@@ -601,15 +601,26 @@ class OnboardingWizardPage(BasePage):
         """Open the site type dropdown and select by visible text."""
         import time
         from selenium.webdriver.common.keys import Keys
+        from selenium.common.exceptions import (
+            StaleElementReferenceException,
+            TimeoutException,
+        )
 
-        trigger = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select")
-        )
-        self.scroll_and_click(trigger)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
-        )
-        option.click()
+        for attempt in range(3):
+            try:
+                trigger = self.wait_for_element_clickable(
+                    (By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select")
+                )
+                self.scroll_and_click(trigger)
+                option = self.wait_for_element_clickable(
+                    (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
+                )
+                option.click()
+                break
+            except (StaleElementReferenceException, TimeoutException):
+                if attempt == 2:
+                    raise
+                time.sleep(0.5)
         # Dismiss MUI Select backdrop/popover
         time.sleep(0.3)
         try:

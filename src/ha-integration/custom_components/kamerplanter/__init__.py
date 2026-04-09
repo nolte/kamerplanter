@@ -82,7 +82,7 @@ async def async_setup_entry(
     # Forward setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Auto-register Lovelace cards from www/ subdirectory
+    # Auto-register Lovelace cards and assets from www/ subdirectory
     www_dir = Path(__file__).parent / "www"
     if www_dir.is_dir():
         from homeassistant.components.http import StaticPathConfig
@@ -92,6 +92,12 @@ async def async_setup_entry(
             StaticPathConfig(f"/{DOMAIN}/{js_file.name}", str(js_file), True)
             for js_file in js_files
         ]
+
+        # Register Kami phase SVGs under /local/kami/ so cards can reference them
+        kami_dir = www_dir / "kami"
+        if await hass.async_add_executor_job(kami_dir.is_dir):
+            paths.append(StaticPathConfig("/local/kami", str(kami_dir), True))
+
         if paths:
             # On reload, routes are already registered — filter out existing ones
             registered = {

@@ -13,14 +13,24 @@ def calculate_vpd(temp_c: float, humidity_percent: float) -> float:
     return svp - avp
 
 
-def classify_vpd(vpd_kpa: float, phase: str) -> tuple[str, str]:
+def classify_vpd(
+    vpd_kpa: float,
+    phase: str,
+    vpd_ranges: dict[str, tuple[float, float]] | None = None,
+) -> tuple[str, str]:
     """Classify VPD value for a given growth phase.
     Returns (status, recommendation) tuple.
     status: 'low', 'optimal', 'high'
-    """
-    from app.config.constants import VPD_RANGES
 
-    ranges = VPD_RANGES.get(phase, (0.8, 1.2))
+    vpd_ranges: optional mapping of phase name -> (low, high) kPa.
+        When omitted, uses built-in defaults from ResourceProfileGenerator.
+    """
+    if vpd_ranges is None:
+        from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
+
+        vpd_ranges = ResourceProfileGenerator().get_vpd_ranges()
+
+    ranges = vpd_ranges.get(phase, (0.8, 1.2))
     low, high = ranges
     if vpd_kpa < low:
         return "low", f"VPD too low ({vpd_kpa:.2f} kPa). Decrease humidity or increase temperature."

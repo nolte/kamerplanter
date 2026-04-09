@@ -208,6 +208,10 @@ class TestWateringLogCreateDialog:
             "Watering log create dialog opened",
         )
 
+        # Select a plant (required by the backend service)
+        if not watering_list.select_first_plant():
+            pytest.skip("No plants available -- cannot test watering log creation")
+
         # Fill required field: volume_liters (defaults: application_method=drench, volume=1)
         watering_list.fill_volume(2.5)
 

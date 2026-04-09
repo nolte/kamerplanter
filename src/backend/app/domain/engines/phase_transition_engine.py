@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from app.common.enums import CycleType
 from app.common.exceptions import PhaseTransitionError
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
@@ -11,9 +12,15 @@ from app.domain.models.plant_instance import PlantInstance
 class PhaseTransitionEngine:
     """Manages plant phase transitions with validation."""
 
-    def __init__(self, phase_repo: IPhaseRepository, plant_repo: IPlantInstanceRepository) -> None:
+    def __init__(
+        self,
+        phase_repo: IPhaseRepository,
+        plant_repo: IPlantInstanceRepository,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
+    ) -> None:
         self._phase_repo = phase_repo
         self._plant_repo = plant_repo
+        self._phase_seq_repo = phase_seq_repo
 
     def _is_perennial_cycle_restart(
         self,
@@ -25,11 +32,26 @@ class PhaseTransitionEngine:
         A cycle restart is allowed when the current phase is terminal,
         the lifecycle is perennial, and the target phase matches the
         configured cycle_restart_phase_order.
+
+        Tries PhaseSequence first, falls back to LifecycleConfig.
         """
         current_phase = self._phase_repo.get_phase_by_key(current_phase_key)
         if current_phase is None or not current_phase.is_terminal:
             return False
 
+        # Try PhaseSequence first (via lifecycle_key -> species_key -> PhaseSequence)
+        if self._phase_seq_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_key(current_phase.lifecycle_key)
+            if lifecycle and lifecycle.species_key:
+                seq = self._phase_seq_repo.get_sequence_by_species(lifecycle.species_key)
+                if seq:
+                    if seq.cycle_type != CycleType.PERENNIAL:
+                        return False
+                    if seq.cycle_restart_entry_order is not None:
+                        return target_sequence_order == seq.cycle_restart_entry_order
+                    return False
+
+        # Fallback to LifecycleConfig
         lifecycle = self._phase_repo.get_lifecycle_by_key(current_phase.lifecycle_key)
         if lifecycle is None:
             return False

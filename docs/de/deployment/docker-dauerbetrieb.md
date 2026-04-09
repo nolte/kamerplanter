@@ -1,6 +1,6 @@
-# Erstes Deployment
+# Docker Compose Dauerbetrieb
 
-Du hast Kamerplanter im [Schnellstart](quickstart.md) ausprobiert und möchtest es jetzt dauerhaft betreiben? Diese Anleitung zeigt dir, wie du Kamerplanter auf einem eigenen Server einrichtest — zum Beispiel auf einem Raspberry Pi, einem NAS oder einem Heimserver.
+Du hast Kamerplanter im [Schnellstart](docker-quickstart.md) ausprobiert und möchtest es jetzt dauerhaft betreiben? Diese Anleitung zeigt dir, wie du Kamerplanter auf einem eigenen Server einrichtest — zum Beispiel auf einem Raspberry Pi, einem NAS oder einem Heimserver.
 
 ---
 
@@ -20,7 +20,7 @@ Im Schnellstart hast du Kamerplanter aus dem Quellcode gebaut (`docker compose u
 
 ## Voraussetzungen
 
-- Ein Server mit Docker und Docker Compose (siehe [Installation](installation.md))
+- Ein Server mit Docker und Docker Compose (siehe [Installation](docker-installation.md))
 - Mindestens 2 GB RAM (4 GB empfohlen)
 - Stabile Netzwerkverbindung für den Download der Images
 

@@ -1,0 +1,387 @@
+---
+title: Bodenpflege, Kompostierung und Bodenverbesserung
+language: de
+category: outdoor
+tags:
+  - bodenpflege
+  - kompost
+  - kompostierung
+  - mulchen
+  - mulch
+  - gruenduengung
+  - bodenanalyse
+  - bodenprobe
+  - hochbeet
+  - hochbeet-befuellen
+  - wurmkiste
+  - vermicompost
+  - wurmkompost
+  - wurmhumus
+  - bodenart
+  - lehm
+  - ton
+  - sand
+  - fingerprobe
+  - humus
+  - bodenfruchtbarkeit
+  - bodenverbesserung
+  - ph-test
+  - gute-erde
+  - gartenerde
+  - bodenlebewesen
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering, harvest]
+chunks:
+
+  - id: bodenarten-erkennen-verbessern
+    title: Bodenart bestimmen und verbessern — Fingerprobe, Sand, Lehm, Ton
+    content: |
+      Die Bodenart ist die wichtigste Eigenschaft des Gartenbodens — sie bestimmt
+      Wasserspeicherung, Belueftung und Naehrstoffverfuegbarkeit. Einfachste Methode
+      zur Bestimmung: die Fingerprobe.
+
+      Fingerprobe durchfuehren:
+      Feuchte Erde zwischen Daumen und Zeigefinger rollen. Formt sich eine glatte,
+      plastische Wurst (laenger als 3 cm ohne zu reissen)? → Tonreicher Boden.
+      Rollt sich gar nicht, bricht sofort auseinander? → Sandboden.
+      Faellt nach 3-4 cm auseinander, fuehlt sich leicht mehlig an? → Lehmboden (Optimum).
+
+      Sandiger Boden (leichter Boden):
+      Vorteile: Schnell warm im Fruehling, gut belueftet, leicht zu bearbeiten.
+      Nachteile: Haelt Wasser und Naehrstoffe schlecht, trocknet rasch aus.
+      Verbesserung: Reifkompost (5-8 L/m² einarbeiten), Bentonit (250-500 g/m²,
+      erhoet die Wasserhaltekapazitaet dauerhaft), Gruenduengung mit Leguminosen.
+
+      Toniger/lehmiger Boden (schwerer Boden):
+      Vorteile: Naehrstoffreich, gute Wasserhaltekapazitaet, hohe Kationenaustauschkapazitaet.
+      Nachteile: Verdichtet leicht, schlechte Belueftung, spaet warm, Staunaesse-Risiko.
+      Verbesserung: Groben Sand (mind. 10 L/m², nie Feinsand — macht es schlimmer!),
+      Reifkompost und Ton-Humus-Komplexe aufbauen durch regelmaessige Kompostgaben.
+      Grundregel: Schwere Boeden nie nass bearbeiten — Struktur wird zerstoert.
+
+      Idealer Gartenboden (Lehm):
+      Krümelig und dunkel, riecht nach Wald (Petrichor = Geosmin von Actinobakterien),
+      laesst sich locker in der Hand zusammendrücken, faellt dann auseinander.
+      pH-Zielbereich fuer die meisten Gemuese: 6.0-7.0 (leicht sauer bis neutral).
+
+      pH-Test:
+      Guenstiger Einstieg: pH-Testset aus dem Gartencenter (~5-15 €), genuegt fuer
+      grobe Orientierung. Fuer Genauigkeit: Professionelle Bodenanalyse (Raiffeisen,
+      LUFA, kostet ca. 30-50 €) — gibt auch P, K, Mg und Humusgehalt an.
+      pH zu niedrig (unter 6.0)? → Kalken mit Dolomitkalk oder Calciumcarbonat.
+      pH zu hoch (ueber 7.5)? → Schwefel einarbeiten oder saure organische Materialien
+      (Nadelkompost, Rindenmulch).
+    metadata:
+      topic: bodenart_bestimmung
+      method: fingerprobe
+      soil_types: [sand, lehm, ton]
+      ph_target_range: [6.0, 7.0]
+      difficulty: beginner
+      target_groups: [freiland, gemeinschaftsgarten, casual]
+
+  - id: kompostierung-grundlagen
+    title: Kompostierung — was rein darf und was nicht, Heiß- vs. Kaltkompost
+    content: |
+      Kompost ist das wichtigste Bodenverbesserungsmittel — selbst hergestellt aus
+      organischen Abfaellen, die sonst im Muell landen. Reifer Kompost riecht nach
+      Wald, ist dunkelbraun und krümelig.
+
+      Was darf in den Kompost (JA):
+      - Küchenabfaelle: Obst- und Gemueseabfaelle, Kaffeesatz mit Filter, Teebeutel
+        (papier), Eierschalen (zerkleinernd — liefern Calcium und neutralisieren pH)
+      - Gartenabfaelle: Rasenschnitt (duenn schichten!), Laub, Stauden, Blumenerde,
+        welke Blumen (ohne Samen), Heckenschnitt (gehäckselt)
+      - Braunes Material: Karton, Zeitungspapier, Stroh, Saegemehl (unbehandelt),
+        trockene Blätter
+
+      Was NICHT in den Kompost (NEIN):
+      - Fleisch, Fisch, Knochen, gekochte Speisen → Schädlinge und Gestank
+      - Kranke Pflanzen (Mehltau, Virosen, Kohlhernie) → Krankheiten ueberleben
+      - Unkraut mit Samen (Giersch, Vogelmiere in Blüte) → Samenbank im Kompost
+      - Zitrusschalen in großen Mengen → hemmen Bodenlebewesen, sehr langsam rottend
+      - Hundekot, Katzenkot → Krankheitserreger
+      - Kohle, Asche von Kohle → Schadstoffe (Holzasche in kleinen Mengen ok)
+
+      C:N-Verhältnis — braun zu grün = 3:1:
+      Kohlenstoffreiches (braunes) Material: Stroh, Pappe, Häckselgut, Sägemehl.
+      Stickstoffreiches (gruenes) Material: Rasenschnitt, frische Küchenabfaelle.
+      Zu viel Grün → Faulschlamm, Gestank. Zu viel Braun → rottet kaum.
+      Regel: Auf jede Schicht Rasenschnitt eine Schicht gehäckseltes Braummaterial.
+
+      Heißkompost (Thermokomposter):
+      Kerntemperatur 55-70°C tötet Unkrautsamen, Krankheitserreger und Schädlinge ab.
+      Erfordert Mindestvolumen (~1 m³), regelmäßiges Umsetzen (alle 2-4 Wochen)
+      und ausreichend Feuchtigkeit (wie ausgedrückter Schwamm — nicht tropfnass).
+      Reifezeit: 3-6 Monate bei aktivem Management.
+
+      Kaltkompost (offener Haufen):
+      Weniger Aufwand, aber keine Hitzephase. Unkrautsamen und Krankheiten bleiben
+      aktiv. Nur sicheres Material kompostieren. Reifezeit: 9-18 Monate.
+
+      Kompostertypen:
+      Thermokomposter (isoliert, ideal fuer Heißkompost), offener Holz- oder
+      Drahtrahmen-Komposter (guenstig, gut belueftet), Wurmkiste (see eigener Chunk).
+      Reife pruefen: Kompost laesst sich in der Hand zerbroeckeln, riecht erdig,
+      Temperatur im Kern gefallen, keine erkennbaren Ausgangsmaterialien mehr.
+    metadata:
+      topic: kompostierung_grundlagen
+      cn_ratio: "3:1 (braun:gruen)"
+      hot_compost_temp_c: [55, 70]
+      maturation_months_hot: [3, 6]
+      maturation_months_cold: [9, 18]
+      difficulty: beginner
+      target_groups: [freiland, gemeinschaftsgarten, casual]
+
+  - id: wurmkompost-vermicompost
+    title: Wurmkompost (Vermicompost) — Wurmkiste fuer Balkon und Zimmerpflanzen
+    content: |
+      Wurmkompost (Vermicompost) ist der naehrstoffreichste organische Duenger den
+      man selbst herstellen kann. Der Wurmhumus enthaelt 5-10x mehr Nahrstoffe als
+      normaler Kompost und ist sofort pflanzenverfuegbar. Ideal fuer Balkon, Wohnung
+      und als Duenger fuer Zimmerpflanzen.
+
+      Geeignete Wurmarten:
+      Kompostwuermer — nicht der gewoehnliche Regenwurm (Lumbricus terrestris)!
+      Hauptsaechlich verwendet werden:
+      - Eisenia fetida (Roter Wurm, Tiger Worm) — haeufigste Art
+      - Eisenia andrei (roter Streifen-Kompostwurm)
+      Beide sind kauflich erhältlich (~5-10 € fuer 250-500 Exemplare).
+
+      Wurmkiste einrichten:
+      Undurchsichtiger Behaelter (Kunststoff, Holz), mind. 30 cm tief mit Deckel.
+      Bohrungen fuer Luftzirkulation und Ablauf fuer Wurmtee.
+      Einstreu: Feuchter Karton/Kokosfaser/Zeitungspapier als erstes Bett.
+      Feuchtigkeit: Wie ausgedrueckter Schwamm — nie klitschnass, nie ausgetrocknet.
+      Temperatur: 15-25°C, kein direktes Sonnenlicht.
+
+      Fuetterung:
+      Gluecklich sind sie mit Gemiese- und Obstabfaellen (kein Zitrus in großen Mengen,
+      kein Fleisch, keine scharfen Gewuerze). Kaffeesatz wird gerne genommen.
+      Langsam beginnen: In den ersten 4 Wochen nur wenig fuettern bis die Population
+      angepasst ist. Nahrung immer leicht eingraben — verhindert Geruch und Fliegen.
+
+      Ernte des Wurmhumus:
+      Nach 3-4 Monaten ist die unterste Schicht reifer Wurmhumus. Wuermer wandern
+      nach oben zur frischen Nahrung — Humus kann unten entnommen werden.
+      Methode: Neues Futter nur auf eine Haelfte legen, Wuermer wandern dorthin,
+      andere Haelfte ernten.
+
+      Wurmtee (Wuermsaft):
+      Die braune Fluessigkeit die am Boden ablaeuft ist hochwirksamer Fluessigduenger.
+      1:10 mit Wasser verduennen und als Gieß- oder Blattduenger verwenden.
+      Unverdünnt kann er Wurzeln verbrennen.
+
+      Als Zimmerpflanzenduenger:
+      Eine Handvoll Wurmhumus als Toppressing auf die Erde geben oder 1 TL in 1 L
+      Wasser aufloesen und giessen. Riecht angenehm erdig, kein Gestank bei richtiger
+      Fuehrung der Wurmkiste.
+    metadata:
+      topic: wurmkompost_vermicompost
+      species: [Eisenia fetida, Eisenia andrei]
+      harvest_months: [3, 4]
+      dilution_wurmtee: "1:10"
+      difficulty: intermediate
+      target_groups: [balkon, zimmer, gemeinschaftsgarten]
+
+  - id: mulchen-methoden-vorteile
+    title: Mulchen — Feuchtigkeit halten, Unkraut unterdrücken, Boden schützen
+    content: |
+      Mulch ist jedes Material das auf die Bodenoberfläche aufgebracht wird. Mulchen
+      ist eine der wirkungsvollsten und einfachsten Maßnahmen im Garten.
+
+      Warum mulchen (die vier Hauptvorteile):
+      1. Feuchtigkeit halten: Mulch reduziert Wasserverdunstung aus dem Boden um
+         50-70%. Weniger gießen, gleichmäßigere Bodenfeuchtigkeit.
+      2. Unkraut unterdrücken: Lichtabschluss verhindert Keimung vieler Unkraeuter.
+         Nicht alle werden unterdrückt — Giersch z.B. treibt durch 20 cm Mulch durch.
+      3. Bodentemperatur regulieren: Hält Boden im Sommer kuehl (Wurzelschutz),
+         verzögert Austrocknung. Im Fruehling aber ERST mulchen wenn Boden warm ist!
+      4. Bodenlebewesen foerdern: Regenwuermer, Pilzmyzel und Bodenbakterien werden
+         aktiver. Mulch wird langsam von unten humifiziert — Bodenstruktur verbessert
+         sich langfristig ohne Umgraben.
+
+      Mulchmaterialien und ihre Eigenschaften:
+      - Stroh: Ideal fuer Gemuese (Tomaten, Erdbeeren), laesst Luft durch, verrottet
+        mittelschnell. Vorsicht: Schneckenhabitat! Schichtdicke 8-10 cm.
+      - Rasenschnitt: Kostenlos, aber duenn schichten (max. 3-5 cm) sonst faule Schicht.
+        Reich an Stickstoff — duengt nebenbei. Antrocknen lassen bevor aufbringen.
+      - Rindenmulch: Langlebig (2-3 Jahre), ideal unter Straeuchern und Baeumen.
+        Fuer Gemuese weniger geeignet — bindet beim Verrotten Stickstoff aus dem Boden.
+      - Holzhaecksel: Aehnlich wie Rindenmulch. Tiefwurzler wie Tomaten vertragen es.
+        Im Gemuesebereich 1-2 cm Abstand zu Pflanzenstaengeln halten.
+      - Laub (verrottet): Hervorragend fuer Beete und als Winterschutz.
+        Frisches Laub erst kompostieren oder als Kaltmulch aufbringen.
+      - Reifer Kompost: Duengt und schuetzt gleichzeitig. Schichtdicke 3-5 cm.
+
+      Wann NICHT mulchen:
+      - Schneckenproblem: Mulch bietet Unterschlupf und Feuchtigkeit — Schneckendruck
+        steigt stark an. Bierfallen und Schneckenkorn zuerst, dann entscheiden ob Mulch.
+      - Nasse, schwere Boeden: Mulch verstaerkt Staunaesse und Faeulnis.
+      - Fruehling: Boden zuerst aufwärmen lassen (Mitte April), dann mulchen.
+      - Direkt an Pflanzenstaengeln: 5-10 cm Abstand halten — verhindert Faeulnis.
+
+      Schichtdicke: 5-10 cm fuer gutes Ergebnis. Zu duenn = kaum Wirkung, zu dick =
+      kein Gasaustausch, Faeulnis moeglich.
+    metadata:
+      topic: mulchen
+      layer_thickness_cm: [5, 10]
+      moisture_reduction_percent: [50, 70]
+      difficulty: beginner
+      target_groups: [freiland, gemeinschaftsgarten, casual]
+
+  - id: gruenduengung-praxis
+    title: Grüngedüngung — Phacelia, Klee, Lupine, Senf und Stickstoff-Fixierung
+    content: |
+      Grüngedüngung bedeutet: Pflanzen werden nicht geerntet sondern in den Boden
+      eingearbeitet. Das verbessert Bodenstruktur, Stickstoffversorgung und
+      Bodenfruchtbarkeit — vollstaendig organisch und kostenguenstig.
+
+      Warum Gruenduengung unverzichtbar ist:
+      - Stickstoff-Fixierung (N-Fixierung): Leguminosen wie Klee und Lupine bilden
+        mit Knoellchenbakterien (Rhizobien) Symbiosen und fixieren Luftstickstoff.
+        Klee liefert 80-120 kg N/ha, Lupine 100-150 kg N/ha — kostenlos aus der Luft.
+      - Bodenlockerung: Tiefwurzler wie Lupine (Pfahlwurzel bis 2 m) und Ölrettich
+        (bis 150 cm) brechen Bodenverdichtungen auf ohne Umgraben.
+      - Erosionsschutz: Bedeckter Boden verliert keine Erde durch Regen und Wind.
+      - Unkrautunterdrückung: Dichte Gruenduengung verdraengt Unkraut durch Beschattung.
+      - Humusaufbau: Eingearbeitete Gruenmasse erhoet den Humusgehalt dauerhaft.
+
+      Sommergrüngedüngung (Aussaat April-August):
+      - Phacelia (Bueschelschoen): Die universellste Gruenduengung. Keine Verwandtschaft
+        mit Gemuese — passt in jede Fruchtfolge. Ausgezeichnete Bienenweide. Friert
+        bei -5°C ab (kein weiteres Umarbeiten noetig). Aussaat bis August.
+      - Buchweizen: Schnell (6-8 Wochen bis Bluete), lockt Nuetzlinge an, mobilisiert
+        gebundenen Phosphor im Boden. Waermeliebend, kein Frost.
+      - Ölrettich: Tiefwurzler bricht Verdichtungen auf. ACHTUNG: Kreuzbluetler (Brassicaceae)
+        — nicht vor oder nach Kohlgewaechsen einsetzen!
+      - Gelbsenf: Schnellwuechsig, unterdrueckt Nematoden. Ebenfalls Kreuzbluetler.
+
+      Wintergrüngedüngung (Aussaat August-Oktober):
+      - Winterroggen: Winterhart bis -25°C, dichte Wurzelmasse, bester Erosionsschutz.
+        Im Fruehling 3-4 Wochen vor Pflanzung abmaehen und oberflaechlich einarbeiten.
+      - Inkarnatklee (Klee): Leguminose mit N-Fixierung. 80-120 kg N/ha durch Rhizobien.
+        Aussaat bis September. Mit Winterroggen mischen fuer Sicherheit.
+      - Lupine: Leguminose, Pfahlwurzel bis 2 m, 100-150 kg N/ha N-Fixierung.
+        Ideal fuer verdichtete und saure Böden. Auch im Sommer moeglich.
+      - Winterwicke: Leguminose, 60-100 kg N/ha. Klettern an Roggen hoch — ideale
+        Mischung (Landsberger Gemenge: Winterroggen + Inkarnatklee + Winterwicke).
+
+      Einarbeitung:
+      Gruenmasse oberflaechlich einarbeiten (Grabgabel, Grubber) — NICHT tief untergraben.
+      2-4 Wochen Rottephase abwarten bevor naechste Aussaat. Im Fruchtfolgeplan:
+      Gruenduengungsjahr ist Jahr 4 im klassischen Vierjahres-Rotationsschema.
+      Gruenduengung immer VOR der Bluete einarbeiten — danach holzig und verrottet langsam.
+    metadata:
+      topic: gruenduengung_praxis
+      n_fixierung_leguminosen: true
+      species_sommer: [phacelia, buchweizen, oelrettich, gelbsenf]
+      species_winter: [winterroggen, inkarnatklee, lupine, winterwicke]
+      rotation_integration: vierjahres_zyklus
+      difficulty: intermediate
+      target_groups: [freiland, gemeinschaftsgarten, marktgaertner]
+
+  - id: bodenanalyse-verstehen
+    title: Bodenanalyse — Bodenprobe nehmen, Ergebnisse verstehen und umsetzen
+    content: |
+      Eine professionelle Bodenanalyse ist der sicherste Weg um zu verstehen was der
+      eigene Gartenboden braucht. Sie ersetzt das Raten und spart Geld fuer ueberflüssige
+      Duenger.
+
+      Wann Bodenprobe nehmen:
+      Idealer Zeitpunkt ist Herbst (nach der Ernte) oder frühes Frühjahr (vor der Düngung).
+      Nicht direkt nach Kalkung oder Düngung — verfaelscht Ergebnisse (mind. 4 Wochen warten).
+
+      Wie die Probe richtig nehmen (Mischprobe):
+      1. Stechwerkzeug reinigen (Rost verfaelscht Eisenwert)
+      2. Mindestens 10 Einstiche quer über die Fläche, gleichmäßig verteilt
+      3. Tiefe: 20 cm (Gartenspaten-Blatttiefe), fuer Rasen 10 cm
+      4. Alle Proben in einen sauberen Eimer mischen, gut umrühren
+      5. Ca. 500 g in den mitgelieferten Proben-Beutel abfüllen
+      6. Frische Grasreste und Steine entfernen vorher
+
+      Was wird gemessen:
+      - pH-Wert: Wichtigster Wert — bestimmt Naehrstoffverfügbarkeit
+      - Phosphor (P): Blüten- und Wurzelentwicklung
+      - Kalium (K): Wasserregulierung, Stresstoleanz, Fruchtentwicklung
+      - Magnesium (Mg): Chlorophyllbildung, Photosynthese
+      - Humusgehalt (%): Bodengesundheit und Wasserspeicherkapazitaet
+      - Bodenart (Ton/Schluff/Sand-Anteil): Grundlage fuer alle weiteren Empfehlungen
+
+      Ergebnisse interpretieren — Versorgungsstufen A-E:
+      Stufe A = sehr niedrig (Mangel moeglich), Stufe B = niedrig, Stufe C = ausreichend
+      (Optimum), Stufe D = hoch, Stufe E = sehr hoch (Ueberschuss, Ausbringen stoppen).
+      Ziel fuer die meisten Kulturen: pH 6.0-7.0, P und K in Stufe C-D.
+
+      Labor-Empfehlungen umsetzen:
+      Kalkung (pH erhoehen): Dolomitkalk oder Calciumcarbonat, Herbstgabe bevorzugt
+      (loest sich langsam auf). pH um 1 Punkt anheben: ca. 200-300 g Kalk/m².
+      P- und K-Mangel: Kompost, Hornmehl, Kalimagnesia (Patentkali), Basaltmehl.
+      Ueberschuss: Nicht mehr duengen bis Stufe sinkt.
+
+      Kosten und Anlaufstellen:
+      Raiffeisen-Laboranalyse, LUFA (Landwirtschaftliche Untersuchungs- und
+      Forschungsanstalt) oder regionale Bodenlabore: ca. 30-50 €.
+      Enthält detaillierte Düngungsempfehlungen in kg/ha — durch 10 teilen fuer g/m².
+    metadata:
+      topic: bodenanalyse
+      sample_depth_cm: 20
+      sample_count_minimum: 10
+      cost_eur: [30, 50]
+      versorgungsstufen: [A, B, C, D, E]
+      difficulty: intermediate
+      target_groups: [freiland, gemeinschaftsgarten, marktgaertner]
+
+  - id: hochbeet-befuellen-schichtaufbau
+    title: Hochbeet befüllen — der richtige Schichtaufbau und Pflege über die Jahre
+    content: |
+      Ein Hochbeet ist der perfekte Einstieg fuer Anfaenger und produziert im ersten
+      Jahr meist die besten Ertraege des gesamten Gartens. Der Schlüssel liegt im
+      richtigen Schichtaufbau — von unten nach oben.
+
+      Schichtaufbau (Standardhochbeet 80 cm tief):
+      Schicht 1 — Drainage und Rohkompost (ca. 20 cm):
+      Grobe Äste, Holzabschnitte, Baumstumpfreste. Dient als Drainage und langer
+      Naehrstoffspeicher. Verrottet langsam ueber 3-5 Jahre und gibt Waerme ab.
+
+      Schicht 2 — Haeckselgut/Zweige (ca. 15 cm):
+      Kleineres gehaeckseltes Material, Laub-Strauch-Schnitt. Uebergangszone,
+      lockert die Struktur, gute Belueftung.
+
+      Schicht 3 — Organisches Material (ca. 15 cm):
+      Laub, Rasenschnitt, Küchenabfaelle, Halbkompost. Hauptlieferant fuer Naehrstoffe
+      und Bodenlebewesen. NIE frischen Rasenschnitt in zu dicken Schichten — Faeulnis.
+
+      Schicht 4 — Reifer Kompost oder gute Gartenerde (ca. 20 cm):
+      Reifer Kompost gemischt mit guter Gartenerde (ca. 50:50). Pflanzschicht,
+      direkt fuer Wurzeln verfügbar.
+
+      Schicht 5 — Pflanzerde (ca. 10 cm):
+      Hochwertige Blumenerde oder spezielle Hochbeet-Erde als Abschluss.
+      Feinkoernig, direkte Aussaatmoeglichkeit.
+
+      Setzung einplanen:
+      Im ersten Jahr setzt sich das Hochbeet um 10-20% (organisches Material
+      verrottet). Regelmaessig mit Kompost nachfuellen, besonders im Herbst.
+
+      Naehrstoffverlauf ueber die Jahre:
+      Jahr 1: Starkzehrer bevorzugen! Tomaten, Kuerbis, Kohl, Zucchini profitieren
+      vom maximalen Naehrstoffangebot aus verrottenden unteren Schichten.
+      Jahr 2: Immer noch gut, aber etwas weniger intensiv. Mittelzehrer — Moehren,
+      Zwiebeln, Rote Bete, Salat — optimal.
+      Jahr 3: Schwachzehrer — Krauter, Bohnen, Erbsen, Radieschen.
+      Jahr 4+: Hochbeet leeren, Inhalt in den Gartenboden einarbeiten und neu
+      befuellen, oder grosse Kompostgabe oben aufbringen.
+
+      Wann nachfuellen:
+      Jedes Jahr im Herbst 5-10 cm Kompost oder verrottetes Laub auffuellen.
+      Hochbeete trocknen schneller aus als Beete — regelmaessiger gießen
+      und mulchen reduziert den Wasserverbrauch stark.
+    metadata:
+      topic: hochbeet_befuellen
+      layers: [gruendrainage, haeckselgut, organik, kompost, pflanzerde]
+      settling_percent: [10, 20]
+      year_1: starkzehrer
+      year_2: mittelzehrer
+      year_3: schwachzehrer
+      difficulty: beginner
+      target_groups: [casual, freiland, gemeinschaftsgarten]

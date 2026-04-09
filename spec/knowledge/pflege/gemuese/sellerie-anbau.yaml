@@ -1,0 +1,115 @@
+---
+title: "Sellerie anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, sellerie, knollensellerie, stangensellerie, apium-graveolens, anbau, garten, starkzehrer, doldenbluetler]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, harvest]
+chunks:
+  - id: sellerie-aussaat
+    title: "Sellerie — Aussaat und Voranzucht"
+    content: |
+      Sellerie ist anspruchsvoll in der Anzucht, aber lohnend. Es gibt
+      drei Typen: Knollensellerie (dicke Knolle), Stangensellerie
+      (dicke Blattstiele) und Schnittsellerie (Blaetter als Suppengruen).
+      Schnittsellerie ist am einfachsten.
+
+      Voranzucht ist Pflicht fuer Knollen- und Stangensellerie. Aussaat
+      ab Mitte Februar bis Anfang Maerz. Sellerie ist ein Lichtkeimer —
+      Samen NUR leicht andruecken, NICHT mit Erde bedecken. Die Samen
+      sind extrem fein.
+
+      Keimtemperatur 18 bis 22 Grad. Keimdauer 14 bis 21 Tage — langsam
+      und ungleichmaessig. Heizmatte und Abdeckfolie bis zur Keimung
+      (Feuchtigkeit halten). Danach Temperatur auf 16 bis 18 Grad senken,
+      14 bis 16 Stunden Licht.
+
+      Pikieren sehr sorgfaeltig (feine Wurzeln). 2 Mal pikieren empfohlen:
+      erst in Saatschale, dann in 9-cm-Topf.
+
+      Vernalisationsgefahr: Jungpflanzen NICHT unter 10 Grad stellen —
+      sonst schiesst der Sellerie und bildet statt Knolle einen
+      Bluetenstiel. Das ist nicht mehr rueckgaengig zu machen.
+
+      Schnittsellerie kann ab Maerz direkt gesaet werden (einfacher).
+
+      Auspflanzen nach Eisheiligen (Mitte Mai). Pflanzabstand: 30 bis
+      40 cm, Reihenabstand 40 bis 50 cm. Knollensellerie flach pflanzen —
+      die Knolle muss ueber der Erde sitzen.
+    metadata:
+      topic: celery_growing
+      species: "Apium graveolens"
+      difficulty: intermediate
+
+  - id: sellerie-pflege
+    title: "Sellerie — Pflege, Giessen und Schaedlinge"
+    content: |
+      Giessen: Sellerie stammt von Sumpfpflanzen ab und braucht VIEL
+      Wasser. Gleichmaessig feucht halten — Trockenstress fuehrt zu
+      holzigen Knollen und faserigen Stielen. Im Hochsommer taeglich
+      giessen.
+
+      Duengen: Starkzehrer! Vor der Pflanzung reichlich Kompost
+      einarbeiten. Alle 2 bis 3 Wochen mit Brennnesseljauche oder
+      fluessigem Gemuese-Duenger nachduengen. Kalium-betont ab der
+      Knollenbildung.
+
+      Knollensellerie-Tipp: Im August die aeusseren Blattstiele bodennah
+      abtrennen und die obersten Seitenwurzeln der Knolle abschneiden.
+      Das foerdert eine runde, glatte Knolle.
+
+      Selleriefliege (Euleia heraclei): Larven minieren in den Blaettern.
+      Kulturschutznetz mit 1,3 mm Maschenweite direkt nach der
+      Pflanzung aufspannen. Befallene Blaetter sofort entfernen.
+
+      Septoria-Blattflecken: Braune Flecken auf Blaettern. Foerdern
+      durch feuchtes Wetter. Weiter Pflanzabstand, gute Luftzirkulation.
+
+      Gute Nachbarn: Kohl (Sellerie vertreibt Kohlfliege), Tomaten,
+      Bohnen, Lauch, Gurken.
+      Schlechte Nachbarn: Moehren, Petersilie, Dill (gleiche Familie —
+      gleiche Schaedlinge), Kartoffeln.
+
+      Allergiker-Hinweis: Sellerie ist eines der 14 Hauptallergene der EU.
+      Sellerie-Beifuss-Birken-Syndrom betrifft viele Pollenallergiker.
+      Hautkontakt mit Blaettern + Sonnenlicht kann phototoxische
+      Reaktionen ausloesen (Handschuhe bei empfindlicher Haut).
+
+      Fruchtfolge: 3 bis 4 Jahre keine Doldenbluetler (Apiaceae).
+    metadata:
+      topic: celery_growing
+      species: "Apium graveolens"
+      difficulty: intermediate
+
+  - id: sellerie-ernte
+    title: "Sellerie — Ernte und Lagerung"
+    content: |
+      Knollensellerie: Ernte September bis November, VOR starkem
+      Frost. Die Knolle sollte mindestens 8 bis 10 cm Durchmesser
+      haben. Mit der Grabegabel vorsichtig heben. Laub und Wurzeln
+      abschneiden (Laub als Suppengruen trocknen!).
+
+      Stangensellerie: Ab Juni bis Oktober aeussere Stiele ernten.
+      Fuer milde Stiele: 2 bis 3 Wochen vor der Ernte die Stiele mit
+      Pappe oder Zeitung einwickeln (Bleichen — blockiert Chlorophyll).
+
+      Schnittsellerie: Laufend aeussere Blaetter pfleuecken
+      (Cut-and-Come-Again). Von Juni bis zum Frost.
+
+      Lagerung Knollensellerie: Hervorragend lagerfaehig! In feuchtem
+      Sand im Keller bei 0 bis 5 Grad haelt die Knolle 4 bis 6 Monate.
+      Im Kuehlschrank in Folie 2 bis 4 Wochen. Auch gut zum Einfrieren:
+      wuerfeln, blanchieren, einfrieren.
+
+      Lagerung Stangensellerie: Im Kuehlschrank in Alufolie gewickelt
+      2 bis 3 Wochen. Stiele in Wasser stellen (wie Schnittblumen)
+      fuer maximale Frische.
+
+      Konservierung: Knollensellerie laesst sich trocknen (als Suppenwuerze),
+      einfrieren und einlegen. Stangensellerie am besten frisch verbrauchen
+      oder als Suppe/Saft einfrieren. Sellerie-Salz: Knollensellerie
+      raspeln, trocknen und mit Salz mischen.
+    metadata:
+      topic: celery_growing
+      species: "Apium graveolens"
+      difficulty: beginner

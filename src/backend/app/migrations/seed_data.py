@@ -6,11 +6,13 @@ All data is loaded from YAML files in the seed_data/ directory.
 import structlog
 
 from app.common.dependencies import (
+    get_db,
     get_family_repo,
     get_graph_repo,
     get_harvest_repo,
     get_ipm_repo,
     get_lifecycle_repo,
+    get_phase_sequence_repo,
     get_species_repo,
     get_task_repo,
 )
@@ -26,7 +28,7 @@ from app.domain.models.harvest import HarvestIndicator
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.species import Cultivar, Species
-from app.domain.models.task import TaskTemplate, WorkflowTemplate
+from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -95,6 +97,52 @@ def _load_harvest_indicators() -> list[dict]:
     return data.get("harvest_indicators", [])
 
 
+def _link_indoor_species_to_default_sequence(
+    species_key_map: dict[str, str],
+) -> None:
+    """Create HAS_PHASE_SEQUENCE edges from indoor species to the indoor_default sequence.
+
+    Idempotent — skips species that already have an edge.
+    """
+    from app.data_access.arango import collections as col
+
+    ps_repo = get_phase_sequence_repo()
+    db = get_db()
+
+    # Find the indoor_default sequence
+    all_seqs, _ = ps_repo.get_all_sequences(0, 200)
+    indoor_seq = next((s for s in all_seqs if s.name == "indoor_default"), None)
+    if not indoor_seq or not indoor_seq.key:
+        logger.warning("indoor_default_sequence_not_found")
+        return
+
+    seq_id = f"{col.PHASE_SEQUENCES}/{indoor_seq.key}"
+    edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
+    linked = 0
+
+    for _sci_name, sp_key in species_key_map.items():
+        species_id = f"{col.SPECIES}/{sp_key}"
+
+        # Check if any HAS_PHASE_SEQUENCE edge already exists for this species
+        existing = list(
+            db.aql.execute(
+                "FOR e IN @@edge_col FILTER e._from == @from_id RETURN 1",
+                bind_vars={
+                    "@edge_col": col.HAS_PHASE_SEQUENCE,
+                    "from_id": species_id,
+                },
+            )
+        )
+        if existing:
+            continue
+
+        edge_col.insert({"_from": species_id, "_to": seq_id})
+        linked += 1
+
+    if linked:
+        logger.info("indoor_species_linked_to_default_sequence", count=linked)
+
+
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     """Seed all reference data into the database. Idempotent (upsert behavior)."""
     # ── Seed location types (REQ-002) — delegated to startup module ──
@@ -107,8 +155,6 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     species_repo = get_species_repo()
     lifecycle_repo = get_lifecycle_repo()
     graph_repo = get_graph_repo()
-    profile_gen = ResourceProfileGenerator()
-
     # ── Load data from YAML ──────────────────────────────────────────
     families = _load_families()
     rotation_edges = _load_rotation_edges()
@@ -117,6 +163,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     cultivar_data = _load_cultivars()
     perennial_species = _load_perennial_species()
     default_phases = _load_default_phases()
+    profile_gen = ResourceProfileGenerator.from_yaml_phases(default_phases)
     companion_data = _load_companion_planting()
     ipm_data = _load_ipm_data()
     workflow_data = _load_workflow_data()
@@ -283,6 +330,9 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             lifecycle_repo.create_nutrient_profile(nut)
 
             logger.info("phase_created", species=sp.scientific_name, phase=phase_data["name"])
+
+    # ── Link indoor species to indoor_default PhaseSequence ─────────
+    _link_indoor_species_to_default_sequence(species_key_map)
 
     # ── Seed cultivars ───────────────────────────────────────────────
     for sci_name, cv_list in cultivar_data.items():
@@ -470,6 +520,32 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             wf_key_map[wt.name] = created.key or ""
             logger.info("workflow_template_created", name=wt.name)
 
+    # Seed workflow phases
+    phase_key_map: dict[str, dict[str, str]] = {}  # {wf_key: {phase_name: phase_key}}
+    for ph_data in workflow_data.get("workflow_phases", []):
+        wf_name = ph_data["workflow_name"]
+        wf_key = wf_key_map.get(wf_name, "")
+        if not wf_key:
+            continue
+        phase = WorkflowPhase(
+            name=ph_data["name"],
+            workflow_template_key=wf_key,
+            phase_order=ph_data.get("phase_order", 0),
+            duration_days=ph_data.get("duration_days", 0),
+            stress_tolerance=ph_data.get("stress_tolerance", ""),
+            trigger_phase=ph_data.get("trigger_phase"),
+        )
+        existing_phases = task_repo.get_phases_for_workflow(wf_key)
+        found_phase = next((p for p in existing_phases if p.name == ph_data["name"]), None)
+        if found_phase:
+            task_repo.update_phase(found_phase.key or "", phase)
+            phase_key_map.setdefault(wf_key, {})[ph_data["name"]] = found_phase.key or ""
+            logger.info("workflow_phase_upserted", name=ph_data["name"], workflow=wf_name)
+        else:
+            created_phase = task_repo.create_phase(phase)
+            phase_key_map.setdefault(wf_key, {})[ph_data["name"]] = created_phase.key or ""
+            logger.info("workflow_phase_created", name=ph_data["name"], workflow=wf_name)
+
     # Build lookup of existing task templates per workflow
     existing_tt_map: dict[str, dict[str, TaskTemplate]] = {}
     for _wf_name, wf_key in wf_key_map.items():
@@ -481,12 +557,16 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         wf_key = wf_key_map.get(wf_name, "")
         if not wf_key:
             continue
+        # Resolve workflow_phase_key from phase_name
+        phase_name = tt_data.get("phase_name") or tt_data.get("trigger_phase")
+        wf_phase_key = phase_key_map.get(wf_key, {}).get(phase_name or "") if phase_name else None
         tt = TaskTemplate(
             name=tt_data["name"],
             instruction=tt_data["instruction"],
             category=tt_data["category"],
             trigger_type=tt_data["trigger_type"],
             trigger_phase=tt_data.get("trigger_phase"),
+            workflow_phase_key=wf_phase_key,
             days_offset=tt_data["days_offset"],
             stress_level=tt_data["stress_level"],
             estimated_duration_minutes=tt_data["estimated_duration_minutes"],

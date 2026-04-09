@@ -2,6 +2,7 @@ from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import Task, WorkflowTemplate
@@ -17,6 +18,7 @@ class ActivityPlanService:
         planting_run_repo: IPlantingRunRepository,
         species_repo=None,
         family_repo=None,
+        phase_seq_repo: IPhaseSequenceRepository | None = None,
     ) -> None:
         self._engine = engine
         self._activity_repo = activity_repo
@@ -25,6 +27,7 @@ class ActivityPlanService:
         self._run_repo = planting_run_repo
         self._species_repo = species_repo
         self._family_repo = family_repo
+        self._phase_seq_repo = phase_seq_repo
 
     def _resolve_species_info(
         self,
@@ -51,9 +54,20 @@ class ActivityPlanService:
         species_key: str,
         lifecycle_key: str | None,
     ) -> str:
-        """Resolve lifecycle key, falling back to species default."""
+        """Resolve lifecycle key, falling back to species default.
+
+        Tries PhaseSequence first for auto-resolution, then LifecycleConfig.
+        """
         if lifecycle_key:
             return lifecycle_key
+
+        # Try PhaseSequence first — use sequence key as lifecycle_key stand-in
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq and seq.key:
+                return seq.key
+
+        # Fallback to LifecycleConfig
         lc = self._phase_repo.get_lifecycle_by_species(species_key)
         if not lc:
             raise ValidationError(
@@ -72,7 +86,38 @@ class ActivityPlanService:
         species, species_name, family_name = self._resolve_species_info(species_key)
 
         lc_key = self._resolve_lifecycle_key(species_key, lifecycle_key)
-        phases = self._phase_repo.get_phases_by_lifecycle(lc_key)
+
+        # Try PhaseSequence first for phase resolution
+        phases = []
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_key(lc_key)
+            if seq:
+                from app.domain.models.lifecycle import GrowthPhase
+
+                entries = self._phase_seq_repo.get_entries_for_sequence(lc_key)
+                for entry in entries:
+                    defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                    if defn:
+                        phases.append(
+                            GrowthPhase(
+                                _key=entry.key,
+                                name=defn.name,
+                                display_name=defn.display_name,
+                                lifecycle_key=lc_key,
+                                typical_duration_days=entry.override_duration_days or defn.typical_duration_days,
+                                sequence_order=entry.sequence_order,
+                                is_terminal=entry.is_terminal,
+                                allows_harvest=entry.allows_harvest,
+                                is_recurring=entry.is_recurring,
+                                stress_tolerance=defn.stress_tolerance,
+                                watering_interval_days=defn.watering_interval_days,
+                            )
+                        )
+
+        # Fallback to LifecycleConfig phases
+        if not phases:
+            phases = self._phase_repo.get_phases_by_lifecycle(lc_key)
+
         if not phases:
             raise ValidationError(
                 f"No growth phases found for lifecycle '{lc_key}'.",

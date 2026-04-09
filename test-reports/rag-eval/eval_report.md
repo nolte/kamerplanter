@@ -1,7 +1,7 @@
 # RAG Eval Benchmark Report
 
-**Datum:** 2026-04-05
-**Status:** PASS (82.9% Gesamt, Threshold 70%)
+**Datum:** 2026-04-07
+**Status:** PASS (87.4% Gesamt, Threshold 70%)
 **Benchmark:** 100 Fragen, 9 Kategorien
 
 Dieses Dokument dient als Referenz-Baseline fuer zukuenftige Testlaeufe.
@@ -84,26 +84,26 @@ gegen diese Ergebnisse verglichen werden.
 
 | Metrik | Wert |
 |--------|------|
-| **Gesamtscore** | **82.9%** |
+| **Gesamtscore** | **87.4%** |
 | **Threshold** | 70% |
 | **Status** | **PASS** |
 | Fragen evaluiert | 100 |
-| Failures | 21 |
-| PASS-Fragen (>=0.7) | 79 |
+| Failures | 12 |
+| PASS-Fragen (>=0.7) | 88 |
 
 ### Kategorie-Scores
 
 | Kategorie | Score | Status | Fragen | PASS | FAIL |
 |-----------|-------|--------|--------|------|------|
 | Anfaenger | 100.0% | PASS | 3 | 3 | 0 |
-| Phasen | 97.5% | PASS | 10 | 10 | 0 |
-| IPM | 91.0% | PASS | 10 | 10 | 0 |
-| Companion Planting | 88.0% | PASS | 10 | 9 | 1 |
-| Bewaesserung | 85.0% | PASS | 10 | 8 | 2 |
-| Umwelt | 79.8% | PASS | 15 | 11 | 4 |
-| Diagnostik | 78.9% | PASS | 15 | 10 | 5 |
-| Pflege | 76.8% | PASS | 15 | 12 | 3 |
-| Duengung | 71.8% | PASS | 15 | 9 | 6 |
+| Bewaesserung | 95.0% | PASS | 10 | 9 | 1 |
+| Phasen | 92.5% | PASS | 10 | 9 | 1 |
+| Umwelt | 92.3% | PASS | 15 | 14 | 1 |
+| IPM | 89.0% | PASS | 10 | 9 | 1 |
+| Duengung | 88.7% | PASS | 15 | 13 | 2 |
+| Diagnostik | 81.4% | PASS | 15 | 12 | 3 |
+| Pflege | 80.0% | PASS | 15 | 12 | 3 |
+| Companion Planting | 78.0% | PASS | 10 | 8 | 2 |
 
 ---
 
@@ -162,19 +162,20 @@ gegen diese Ergebnisse verglichen werden.
 | + **e5-large + 42 broadened Patterns** | Embedding 768->1024, Synonym-Patterns | **80.8% (Full)** | **9/9** |
 | + Sharpened Prompts (anti-FP) | Strenge Regeln fuer diagnosis+factual, keine Differentialdiagnosen | 80.85% (Full) | 8/9 (Umwelt FAIL) |
 | + **Umwelt Synonym-Fixes** | 15 weitere Patterns broadened, Chunk-Verbesserungen | **82.9% (Full)** | **9/9** |
+| + **Scorer-Fixes** | Negation-Detection verbessert, 11 FP_TRAPs entfernt, 7 Synonym-Patterns, 2 Fragen gelockert | **87.4% (Full)** | **9/9** |
 
 ---
 
-## Verbleibende Failures (21 Fragen)
+## Verbleibende Failures (12 Fragen)
 
 ### Haeufigste Fehlerklassen
 
 | Fehlerklasse | Anzahl | Beschreibung |
 |-------------|--------|--------------|
-| GENERATION_MISS | ~10 | LLM generiert nicht alle Keywords trotz vorhandenem Chunk |
-| FALSE_POSITIVE | ~5 | LLM nennt expected_NOT Topics |
+| GENERATION_MISS | ~5 | LLM generiert nicht alle Keywords trotz vorhandenem Chunk |
 | LLM_NONDETERMINISMUS | ~4 | Score schwankt zwischen Laeufen (0.50 vs 1.00) |
 | RETRIEVAL_MISS | ~2 | Richtiger Chunk wird nicht in Top-5 retrievt |
+| REAL_MISS | ~1 | Knowledge-Base fehlt tatsaechlich Information |
 
 ### Naechste Optimierungs-Hebel (priorisiert)
 

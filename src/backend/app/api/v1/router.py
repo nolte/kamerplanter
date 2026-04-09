@@ -18,6 +18,7 @@ from app.api.v1.ipm.router import router as ipm_router
 from app.api.v1.lifecycle_configs.router import router as lifecycle_router
 from app.api.v1.location_types.router import router as location_types_router
 from app.api.v1.observations.router import router as observations_router
+from app.api.v1.phase_sequences.router import router as phase_sequences_router
 from app.api.v1.phases.router import router as phase_control_router
 from app.api.v1.profiles.router import router as profiles_router
 from app.api.v1.species.router import router as species_router
@@ -89,6 +90,7 @@ api_router.include_router(imports_router)
 api_router.include_router(activities_router)
 api_router.include_router(activity_plans_router)
 api_router.include_router(observations_router)
+api_router.include_router(phase_sequences_router)
 
 # ── Knowledge / RAG (conditional on knowledge service) ────────────
 if settings.knowledge_service_enabled:

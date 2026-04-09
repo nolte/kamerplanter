@@ -19,7 +19,8 @@ import GrowthPhaseListSection from './GrowthPhaseListSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
-import type { LifecycleConfig } from '@/api/types';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
+import type { LifecycleConfig, PhaseSequence } from '@/api/types';
 
 const schema = z.object({
   cycle_type: z.enum(['annual', 'biennial', 'perennial']),
@@ -45,6 +46,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const notification = useNotification();
   const { handleError } = useApiError();
   const [lifecycle, setLifecycle] = useState<LifecycleConfig | null>(null);
+  const [phaseSequence, setPhaseSequence] = useState<PhaseSequence | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
@@ -64,7 +66,12 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    phasesApi
+    const psPromise = phaseSequenceApi
+      .getSpeciesPhaseSequence(speciesKey)
+      .then((ps) => { setPhaseSequence(ps); return ps; })
+      .catch(() => { setPhaseSequence(null); return null; });
+
+    const lcPromise = phasesApi
       .getLifecycleConfig(speciesKey)
       .then((lc) => {
         setLifecycle(lc);
@@ -79,8 +86,9 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           critical_day_length_hours: lc.critical_day_length_hours,
         });
       })
-      .catch(() => setExists(false))
-      .finally(() => setLoading(false));
+      .catch(() => setExists(false));
+
+    Promise.all([psPromise, lcPromise]).finally(() => setLoading(false));
   }, [speciesKey, reset]);
 
   const onSubmit = async (data: FormData) => {
@@ -213,7 +221,11 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
       </Box>
 
       {lifecycle && (
-        <GrowthPhaseListSection lifecycleKey={lifecycle.key} />
+        <GrowthPhaseListSection
+          lifecycleKey={lifecycle.key}
+          phaseSequenceKey={lifecycle.phase_sequence_key ?? phaseSequence?.key}
+          phaseSequenceName={phaseSequence?.display_name || phaseSequence?.name}
+        />
       )}
     </Box>
   );

@@ -674,6 +674,10 @@ class KamerplanterPlantCard extends HTMLElement {
     this._built = false;
   }
 
+  connectedCallback() {
+    if (this._config) this._update();
+  }
+
   /* ---- Lifecycle (HA spec) ---------------------------------------- */
 
   static get CONFIG_DEFAULTS() {

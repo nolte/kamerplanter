@@ -26,5 +26,6 @@ class LifecycleResponse(BaseModel):
     vernalization_min_days: int | None
     photoperiod_type: PhotoperiodType
     critical_day_length_hours: float | None
+    phase_sequence_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

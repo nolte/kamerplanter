@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -11,6 +11,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -48,6 +49,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as speciesApi from '@/api/endpoints/species';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -147,6 +149,9 @@ export default function PlantingRunDetailPage() {
   const [speciesDataForTab, setSpeciesDataForTab] = useState<Species | null>(null);
   const [cultivarDataForTab, setCultivarDataForTab] = useState<Cultivar | null>(null);
 
+  // Phase sequence key for linking from phases tab
+  const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
+
   // Derived nutrient data via custom hook
   const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at);
 
@@ -216,6 +221,16 @@ export default function PlantingRunDetailPage() {
       setSpeciesMap(nameMap);
       setSpeciesDataForTab(firstSpecies);
       setCultivarDataForTab(firstCultivar);
+      // Load phase sequence for the first species (monoculture)
+      const primarySpeciesKey = e.length > 0 ? e[0].species_key : null;
+      if (primarySpeciesKey) {
+        phaseSequenceApi
+          .getSpeciesPhaseSequence(primarySpeciesKey)
+          .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
+          .catch(() => setPhaseSequenceKey(null));
+      } else {
+        setPhaseSequenceKey(null);
+      }
       try {
         const p = await runApi.listRunPlants(key, true);
         setPlants(p);
@@ -582,6 +597,18 @@ export default function PlantingRunDetailPage() {
       {/* Tab 2: Phases */}
       {tab === 2 && key && (
         <Box role="tabpanel" aria-labelledby="tab-phases" data-testid="phases-tab-content">
+          {phaseSequenceKey && (
+            <Button
+              component={RouterLink}
+              to={`/phasen/ablaeufe/${phaseSequenceKey}`}
+              variant="outlined"
+              size="small"
+              startIcon={<AccountTreeIcon />}
+              sx={{ mb: 2 }}
+            >
+              {t('pages.phaseSequences.viewPhaseSequence')}
+            </Button>
+          )}
           {/* Prominent phase timeline */}
           {phaseTimelines.length > 0 && phaseTimelines[0].phases.length > 0 && (
             <Box sx={{ mb: 3, p: { xs: 1.5, sm: 2 }, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>

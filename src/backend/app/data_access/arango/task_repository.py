@@ -6,7 +6,15 @@ from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.task_repository import ITaskRepository
-from app.domain.models.task import Task, TaskAuditEntry, TaskComment, TaskTemplate, WorkflowExecution, WorkflowTemplate
+from app.domain.models.task import (
+    Task,
+    TaskAuditEntry,
+    TaskComment,
+    TaskTemplate,
+    WorkflowExecution,
+    WorkflowPhase,
+    WorkflowTemplate,
+)
 
 ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
     "plant_instance": col.PLANT_INSTANCES,
@@ -76,6 +84,15 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         # Delete wf_contains edges
         query = f"FOR e IN {col.WF_CONTAINS} FILTER e._from == @wf_id REMOVE e IN {col.WF_CONTAINS}"
         self._db.aql.execute(query, bind_vars={"wf_id": wf_id})
+        # Delete wf_has_phase edges and phases
+        query = f"FOR e IN {col.WF_HAS_PHASE} FILTER e._from == @wf_id REMOVE e IN {col.WF_HAS_PHASE}"
+        self._db.aql.execute(query, bind_vars={"wf_id": wf_id})
+        query = (
+            f"FOR doc IN {col.WORKFLOW_PHASES} "
+            f"FILTER doc.workflow_template_key == @key "
+            f"REMOVE doc IN {col.WORKFLOW_PHASES}"
+        )
+        self._db.aql.execute(query, bind_vars={"key": key})
         # Delete associated task templates
         query = (
             f"FOR doc IN {col.TASK_TEMPLATES} "
@@ -88,6 +105,92 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
             return True
         except Exception:
             return False
+
+    # ── WorkflowPhase ──
+
+    def get_phases_for_workflow(self, wf_key: WorkflowTemplateKey) -> list[WorkflowPhase]:
+        query = (
+            f"FOR doc IN {col.WORKFLOW_PHASES} "
+            f"FILTER doc.workflow_template_key == @wf_key "
+            f"SORT doc.phase_order "
+            f"RETURN doc"
+        )
+        cursor = self._db.aql.execute(query, bind_vars={"wf_key": wf_key})
+        return [WorkflowPhase(**self._from_doc(doc)) for doc in cursor]
+
+    def get_phase_by_key(self, key: str) -> WorkflowPhase | None:
+        doc = self._db.collection(col.WORKFLOW_PHASES).get(key)
+        return WorkflowPhase(**self._from_doc(doc)) if doc else None
+
+    def create_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
+        coll = self._db.collection(col.WORKFLOW_PHASES)
+        data = self._to_doc(phase)
+        now = self._now()
+        data["created_at"] = now
+        data["updated_at"] = now
+        result = coll.insert(data, return_new=True)
+        created = WorkflowPhase(**self._from_doc(result["new"]))
+        if phase.workflow_template_key:
+            self.create_edge(
+                col.WF_HAS_PHASE,
+                f"{col.WORKFLOW_TEMPLATES}/{phase.workflow_template_key}",
+                f"{col.WORKFLOW_PHASES}/{created.key}",
+            )
+        return created
+
+    def update_phase(self, key: str, phase: WorkflowPhase) -> WorkflowPhase:
+        coll = self._db.collection(col.WORKFLOW_PHASES)
+        data = self._to_doc(phase)
+        data["updated_at"] = self._now()
+        result = coll.update({"_key": key, **data}, return_new=True)
+        return WorkflowPhase(**self._from_doc(result["new"]))
+
+    def delete_phase(self, key: str) -> bool:
+        phase_id = f"{col.WORKFLOW_PHASES}/{key}"
+        # Remove wf_has_phase edges
+        query = f"FOR e IN {col.WF_HAS_PHASE} FILTER e._to == @phase_id REMOVE e IN {col.WF_HAS_PHASE}"
+        self._db.aql.execute(query, bind_vars={"phase_id": phase_id})
+        # Null out workflow_phase_key on task templates
+        query = (
+            f"FOR doc IN {col.TASK_TEMPLATES} "
+            f"FILTER doc.workflow_phase_key == @key "
+            f"UPDATE doc WITH {{ workflow_phase_key: null }} IN {col.TASK_TEMPLATES}"
+        )
+        self._db.aql.execute(query, bind_vars={"key": key})
+        try:
+            self._db.collection(col.WORKFLOW_PHASES).delete(key)
+            return True
+        except Exception:
+            return False
+
+    def reorder_phases(self, phase_orders: list[dict]) -> list[WorkflowPhase]:
+        coll = self._db.collection(col.WORKFLOW_PHASES)
+        now = self._now()
+        for item in phase_orders:
+            coll.update({"_key": item["key"], "phase_order": item["phase_order"], "updated_at": now})
+        if phase_orders:
+            first = coll.get(phase_orders[0]["key"])
+            if first:
+                wf_key = first.get("workflow_template_key", "")
+                return self.get_phases_for_workflow(wf_key)
+        return []
+
+    def get_phase_suggestions(self) -> list[dict]:
+        """Aggregate distinct phase names across all workflows with species info."""
+        query = (
+            f"FOR p IN {col.WORKFLOW_PHASES} "
+            f"  LET wf = DOCUMENT({col.WORKFLOW_TEMPLATES}, p.workflow_template_key) "
+            f"  COLLECT name = p.name, trigger = p.trigger_phase "
+            f"  AGGREGATE dur = MAX(p.duration_days), stress = MAX(p.stress_tolerance), "
+            f"    cnt = LENGTH(1), species = UNIQUE(wf.species_compatible) "
+            f"  SORT cnt DESC "
+            f"  RETURN {{ "
+            f"    name: name, duration_days: dur, stress_tolerance: stress, "
+            f"    trigger_phase: trigger, usage_count: cnt, "
+            f"    used_by_species: FLATTEN(species) "
+            f"  }}"
+        )
+        return list(self._db.aql.execute(query))
 
     # ── TaskTemplate ──
 

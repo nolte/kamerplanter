@@ -1,9 +1,9 @@
-# Quick Start
+# Docker Compose Quick Start
 
 From zero to a running Kamerplanter instance with your first plants in 5 minutes.
 
 !!! info "Prerequisite"
-    Docker and Docker Compose must be installed. If not, follow the [Installation guide](installation.md) first.
+    Docker and Docker Compose must be installed. If not, follow the [Installation guide](docker-installation.md) first.
 
 ---
 
@@ -185,4 +185,4 @@ Your Kamerplanter is running. From here you can:
 
 - [Onboarding Wizard](../user-guide/onboarding.md) — Detailed description of all wizard steps
 - [Light Mode](../user-guide/light-mode.md) — What Light Mode means
-- [First Deployment](first-deployment.md) — Run Kamerplanter permanently on your own server
+- [First Deployment](docker-dauerbetrieb.md) — Run Kamerplanter permanently on your own server

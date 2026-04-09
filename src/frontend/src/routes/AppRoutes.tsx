@@ -111,6 +111,20 @@ const WorkflowTemplateListPage = lazy(
   () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
 );
 
+// REQ-003 Phase Definitions & Sequences
+const PhaseDefinitionListPage = lazy(
+  () => import('@/pages/phasen/PhaseDefinitionListPage'),
+);
+const PhaseDefinitionDetailPage = lazy(
+  () => import('@/pages/phasen/PhaseDefinitionDetailPage'),
+);
+const PhaseSequenceListPage = lazy(
+  () => import('@/pages/phasen/PhaseSequenceListPage'),
+);
+const PhaseSequenceDetailPage = lazy(
+  () => import('@/pages/phasen/PhaseSequenceDetailPage'),
+);
+
 // REQ-015 Kalender
 const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
 // REQ-020 Onboarding
@@ -639,6 +653,40 @@ export const router = createBrowserRouter(
           <Route
             path="aufgaben/activity-plans/:speciesKey"
             element={<Navigate to="/aufgaben/workflows" replace />}
+          />
+
+          {/* REQ-003 Phase Definitions & Sequences */}
+          <Route
+            path="phasen/definitionen"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PhaseDefinitionListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="phasen/definitionen/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <PhaseDefinitionDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="phasen/ablaeufe"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PhaseSequenceListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="phasen/ablaeufe/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <PhaseSequenceDetailPage />
+              </Suspense>
+            }
           />
 
           {/* REQ-013 Durchläufe */}

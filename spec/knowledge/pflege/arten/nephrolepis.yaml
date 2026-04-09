@@ -1,0 +1,136 @@
+---
+title: "Schwertfarn (Nephrolepis exaltata) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [nephrolepis, schwertfarn, bostonfarn, zimmerpflanze, pflege, farn, luftreiniger, haustierfreundlich]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: nephrolepis-standort
+    title: "Schwertfarn — Standort und Licht"
+    content: |
+      Der Schwertfarn (Nephrolepis exaltata, auch Bostonfarn genannt)
+      braucht helles, indirektes Licht. Direkte Sonne verbrennt die
+      zarten Wedel. Ein Nord- oder Ostfenster ist ideal, oder leicht
+      zurueckgesetzt am Westfenster.
+
+      Der Schwertfarn ist einer der besten Luftreiniger unter den
+      Zimmerpflanzen. Er filtert Formaldehyd, Xylol und Benzol aus
+      der Raumluft.
+
+      Temperatur: 16 bis 24 Grad Celsius. Unter 10 Grad leidet die
+      Pflanze deutlich. Nachts nicht unter 14 Grad.
+
+      Luftfeuchtigkeit: Das ist der entscheidende Faktor! Mindestens
+      60 bis 80 Prozent. Normale Heizungsluft (20 bis 30 Prozent)
+      ist die haeufigste Todesursache fuer Farne in Innenraeumen.
+      Luftbefeuchter, Kiesschale oder ein Platz im hellen Badezimmer
+      helfen. Regelmaessig mit kalkarmem Wasser besprühen.
+
+      Tipp: Der Schwertfarn eignet sich hervorragend als
+      Haengepflanze in einer Ampel. Die Wedel koennen 60 bis 150 cm
+      lang werden und haengen elegant herab.
+
+      Haustierfreundlich: Der Schwertfarn ist laut ASPCA nicht giftig
+      fuer Katzen und Hunde.
+    metadata:
+      topic: nephrolepis_care
+      species: "Nephrolepis exaltata"
+      difficulty: beginner
+
+  - id: nephrolepis-giessen
+    title: "Schwertfarn — Giessen und Substrat"
+    content: |
+      Der Schwertfarn braucht gleichmaessig feuchtes Substrat — das
+      ist entscheidend. Die Erde darf nie komplett austrocknen, aber
+      auch nicht stauen.
+
+      Giess-Rhythmus Sommer: Alle 3 bis 5 Tage. Bei hohen Temperaturen
+      und trockener Luft eventuell haeufiger.
+      Giess-Rhythmus Winter: Alle 7 bis 10 Tage. Etwas weniger, aber
+      nie ganz austrocknen lassen.
+
+      Wasserqualitaet: Weiches, kalkarmes Wasser. Regenwasser ist
+      ideal. Kalkreiches Leitungswasser fuehrt zu braunen Blattspitzen.
+      Abgestandenes Leitungswasser ist ein akzeptabler Kompromiss.
+
+      Substrat: Humusreiche, gut wasserhaltende aber lockere Erde.
+      Torffreie Variante: 2 Teile Kokosfaser, 1 Teil Perlite, 1 Teil
+      Kompost. pH-Wert 5,0 bis 6,5 (leicht sauer). Ampelkultivierung
+      ist beliebt.
+
+      Topfgroesse: 3 bis 15 Liter, mindestens 15 cm Topftiefe.
+
+      Haeufigste Fehler:
+      - Substrat austrocknen lassen: Wedel vergilben und fallen ab.
+      - Staunasse Erde: Wurzelfaeule.
+      - Kalkhaltiges Wasser: Braune Blattspitzen.
+    metadata:
+      topic: nephrolepis_care
+      species: "Nephrolepis exaltata"
+      difficulty: beginner
+
+  - id: nephrolepis-duengung
+    title: "Schwertfarn — Duengung und Umtopfen"
+    content: |
+      Duengung: Farne sind Schwachzehrer — nur die halbe Normaldosis
+      verwenden! Von April bis September alle 4 Wochen mit einem
+      Zimmerpflanzen-Fluessigduenger duengen (NPK 7-3-7, etwa 3 ml
+      pro Liter Wasser — also Haelfte der normalen Dosierung).
+
+      Von Oktober bis Maerz: Kein Duenger. Stickstoffbetonte Formel
+      foerdert dichtes, gruenes Laub.
+
+      Umtopfen: Alle 12 bis 24 Monate im Fruehling. Bei Bedarf in
+      den naechstgroesseren Topf. Der Schwertfarn bildet Auslaeufer
+      (Stolonen), die man beim Umtopfen als eigenstaendige Pflanzen
+      abtrennen kann.
+
+      Rueckschnitt: Im Fruehling (Maerz) kann die Pflanze auf 5 bis
+      10 cm zurueckgeschnitten werden. Sie treibt zuverlaessig und
+      dicht neu aus. Gelbe und abgestorbene Wedel regelmaessig
+      entfernen.
+
+      Jahrespflege:
+      - Ganzjaehrig: Luftfeuchtigkeit hochhalten (Luftbefeuchter
+        oder Kiesschale).
+      - April bis September: Regelmaessig duengen und giessen.
+      - Oktober bis Maerz: Weniger giessen, nicht duengen.
+    metadata:
+      topic: nephrolepis_care
+      species: "Nephrolepis exaltata"
+      difficulty: beginner
+
+  - id: nephrolepis-probleme
+    title: "Schwertfarn — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Braune Blattspitzen: Zu trockene Luft oder kalkhaltiges Wasser.
+        Luftfeuchtigkeit erhoehen, weiches Wasser verwenden.
+      - Wedel vergilben und fallen: Substrat zu trocken. Regelmaessiger
+        giessen.
+      - Grauer Schimmel (Botrytis): Schlechte Luftzirkulation. Fuer
+        Luftbewegung sorgen, aber keine Zugluft.
+      - Fauliger Geruch: Wurzelfaeule durch Staunaesse. Substrat
+        wechseln, Drainage verbessern.
+
+      Schaedlinge: Spinnmilben (bei trockener Luft — haeufigster
+      Schaedling!), Schildlaeusen (braune Schilder auf Wedelstielen),
+      Schmierlaeusen und Trauermücken. Alle 10 Tage kontrollieren.
+
+      Behandlung: Neemoel sehr vorsichtig einsetzen (0,3 Prozent,
+      vorher an einem einzelnen Wedel testen — Farne sind empfindlich
+      gegenueber Oelen). Alkohol 70 Prozent mit Wattestäbchen gegen
+      Schildlaeusen. Luftfeuchtigkeit erhoehen gegen Spinnmilben.
+
+      Vermehrung: Einfach durch Teilung beim Umtopfen. Je 3 bis 5
+      Wedel mit eigenem Wurzelballen abtrennen. Auslaeufer an der
+      Pflanzenbasis koennen ebenfalls als eigenstaendige Pflanzen
+      abgetrennt werden.
+
+      Sporenallergiker aufgepasst: Sporen koennen beim Bewegen der
+      Pflanze aufgewirbelt werden und allergische Reaktionen ausloesen.
+    metadata:
+      topic: nephrolepis_care
+      species: "Nephrolepis exaltata"
+      difficulty: beginner

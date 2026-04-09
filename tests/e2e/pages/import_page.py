@@ -459,9 +459,13 @@ class ImportPage(BasePage):
         The file is placed in a temp directory and will persist until the OS
         cleans up the temp folder (or the caller deletes it).
         """
-        # Use a directory inside $HOME so snap-confined Chromium can access it
-        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
-        os.makedirs(base, exist_ok=True)
+        # Use $HOME/.cache if writable (snap-confined Chromium), else /tmp
+        home_cache = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        try:
+            os.makedirs(home_cache, exist_ok=True)
+            base = home_cache
+        except OSError:
+            base = tempfile.gettempdir()
         tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         content = delimiter.join(header.split(",")) + "\n"
@@ -476,8 +480,12 @@ class ImportPage(BasePage):
     @staticmethod
     def create_empty_csv(filename: str = "empty.csv") -> str:
         """Create an empty CSV file and return its path."""
-        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
-        os.makedirs(base, exist_ok=True)
+        home_cache = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        try:
+            os.makedirs(home_cache, exist_ok=True)
+            base = home_cache
+        except OSError:
+            base = tempfile.gettempdir()
         tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         with open(filepath, "w"):
@@ -487,8 +495,12 @@ class ImportPage(BasePage):
     @staticmethod
     def create_large_csv(filename: str = "large.csv", size_mb: int = 11) -> str:
         """Create a CSV file exceeding *size_mb* megabytes."""
-        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
-        os.makedirs(base, exist_ok=True)
+        home_cache = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        try:
+            os.makedirs(home_cache, exist_ok=True)
+            base = home_cache
+        except OSError:
+            base = tempfile.gettempdir()
         tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         header = "scientific_name,common_names,family,genus\n"

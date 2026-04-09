@@ -1,4 +1,4 @@
-# Installation
+# Docker Installation
 
 Before you can start Kamerplanter, you need Docker on your computer. This page explains what Docker is, how to install it, and how to verify everything is ready.
 
@@ -131,7 +131,7 @@ Docker Compose version v2.x.x
 The exact version numbers may differ — what matters is that both commands work without errors.
 
 !!! success "Ready!"
-    Docker is installed? Continue with the [Quick Start](quickstart.md).
+    Docker is installed? Continue with the [Quick Start](docker-quickstart.md).
 
 ---
 
@@ -150,5 +150,5 @@ The exact version numbers may differ — what matters is that both commands work
 
 ## See also
 
-- [Quick Start](quickstart.md) — Start Kamerplanter in 5 minutes
-- [First Deployment](first-deployment.md) — Run permanently on your own server
+- [Quick Start](docker-quickstart.md) — Start Kamerplanter in 5 minutes
+- [First Deployment](docker-dauerbetrieb.md) — Run permanently on your own server

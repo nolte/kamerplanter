@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWateringLogs } from '@/store/slices/wateringLogsSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { WateringLog } from '@/api/types';
+import { formatDateTime, formatNumberWithUnit } from '@/utils/formatting';
 import WateringLogCreateDialog from './WateringLogCreateDialog';
 import { kamiTanks } from '@/assets/brand/illustrations';
 
@@ -35,10 +36,8 @@ export default function WateringLogListPage() {
     {
       id: 'loggedAt',
       label: t('pages.wateringLogs.loggedAt'),
-      render: (r) =>
-        r.logged_at ? new Date(r.logged_at).toLocaleString() : '\u2014',
-      searchValue: (r) =>
-        r.logged_at ? new Date(r.logged_at).toLocaleString() : '',
+      render: (r) => formatDateTime(r.logged_at),
+      searchValue: (r) => formatDateTime(r.logged_at),
     },
     {
       id: 'plants',
@@ -80,7 +79,7 @@ export default function WateringLogListPage() {
       label: t('pages.wateringLogs.volumeLiters'),
       render: (r) => (
         <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-          {r.volume_liters} L
+          {formatNumberWithUnit(r.volume_liters, 'L')}
         </Typography>
       ),
       align: 'right',
@@ -116,10 +115,7 @@ export default function WateringLogListPage() {
       hideBelowBreakpoint: 'md',
       render: (r) => (
         <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-          {r.ec_before != null ? r.ec_before : '\u2014'}
-          {r.ec_before != null && (
-            <Typography component="span" variant="caption" color="text.secondary"> mS/cm</Typography>
-          )}
+          {formatNumberWithUnit(r.ec_before, 'mS/cm')}
         </Typography>
       ),
       align: 'right',
@@ -131,10 +127,7 @@ export default function WateringLogListPage() {
       hideBelowBreakpoint: 'md',
       render: (r) => (
         <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-          {r.ec_after != null ? r.ec_after : '\u2014'}
-          {r.ec_after != null && (
-            <Typography component="span" variant="caption" color="text.secondary"> mS/cm</Typography>
-          )}
+          {formatNumberWithUnit(r.ec_after, 'mS/cm')}
         </Typography>
       ),
       align: 'right',
@@ -168,6 +161,24 @@ export default function WateringLogListPage() {
     },
   ], [t]);
 
+  /** Hide optional columns when ALL rows have empty/null values. */
+  const optionalColumnChecks: Record<string, (r: WateringLog) => boolean> = useMemo(() => ({
+    fertilizers: (r) => (r.resolved_fertilizers ?? []).length > 0,
+    ecBefore: (r) => r.ec_before != null,
+    ecAfter: (r) => r.ec_after != null,
+    phBeforeAfter: (r) => r.ph_before != null || r.ph_after != null,
+    waterSource: (r) => r.water_source != null,
+  }), []);
+
+  const visibleColumns = useMemo(() => {
+    if (logs.length === 0) return columns;
+    return columns.filter((col) => {
+      const check = optionalColumnChecks[col.id as string];
+      if (!check) return true; // always show non-optional columns
+      return logs.some(check);
+    });
+  }, [columns, logs, optionalColumnChecks]);
+
   return (
     <Box data-testid="watering-log-list-page">
       <PageTitle
@@ -187,7 +198,7 @@ export default function WateringLogListPage() {
         {t('pages.wateringLogs.description')}
       </Typography>
       <DataTable
-        columns={columns}
+        columns={visibleColumns}
         rows={logs}
         loading={loading}
         getRowKey={(r) => r.key}
@@ -203,7 +214,7 @@ export default function WateringLogListPage() {
           const ferts = r.resolved_fertilizers ?? [];
           return (
             <MobileCard
-              title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '\u2014'}
+              title={formatDateTime(r.logged_at)}
               subtitle={plantNames || undefined}
               chips={
                 <>
@@ -225,9 +236,9 @@ export default function WateringLogListPage() {
                 </>
               }
               fields={[
-                { label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
+                { label: t('pages.wateringLogs.volumeLiters'), value: formatNumberWithUnit(r.volume_liters, 'L') },
                 ...(r.ec_before != null || r.ec_after != null
-                  ? [{ label: 'EC', value: `${r.ec_before ?? '\u2014'} / ${r.ec_after ?? '\u2014'} mS/cm` }]
+                  ? [{ label: 'EC', value: `${r.ec_before != null ? formatNumberWithUnit(r.ec_before, 'mS/cm') : '\u2014'} / ${r.ec_after != null ? formatNumberWithUnit(r.ec_after, 'mS/cm') : '\u2014'}` }]
                   : []),
               ]}
             />

@@ -1,0 +1,152 @@
+---
+title: "Wein, Kiwi und Kletterfruechte — Anbau und Pflege"
+language: de
+category: pflege
+tags: [wein, kiwi, weinrebe, kletterpflanze, spalier, schnitt, mehltau, obst]
+expertise_level: [intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: weinrebe-anbau
+    title: "Weinrebe — Standort, Schnitt und Rebenerziehung"
+    content: |
+      Weinreben (Vitis vinifera) lassen sich in Mitteleuropa gut im
+      Hausgarten anbauen — an Hauswänden, Pergolen oder freistehenden
+      Spalieren. Voraussetzung: Ein warmer, sonniger Standort.
+
+      Standort: Vollsonnig, mindestens 6 Stunden direkte Sonne. Ideal
+      ist eine nach Sueden oder Suedwesten ausgerichtete Hauswand —
+      die Waerme-Abstrahlung verlaengert die Reifezeit. Geschuetzt
+      vor kaltem Nord- und Ostwind. Boden durchlaessig, kalkhaltig,
+      nicht zu naehrstoffreich (Wein braucht Stress fuer Qualitaet).
+
+      Pflanzung: Im Fruehling (April/Mai) oder Herbst. Veredelte
+      Reben kaufen (Reblaus-resistent). Pflanzabstand am Spalier
+      1,5 bis 2 Meter. Pflanzloch 40 mal 40 cm, Veredelungsstelle
+      5 cm ueber der Erde.
+
+      Schnitt (Grundprinzip): Wein traegt nur am einjährigen Holz,
+      das aus dem vorjährigen Holz waechst. Ohne Schnitt vergreist
+      die Rebe und traegt kaum noch. Zwei Hauptsysteme:
+
+      Zapfenschnitt: Einfach fuer Anfaenger. Im Februar jeden
+      Fruchttrieb auf 2 Augen zurueckschneiden (Zapfen). Aus dem
+      oberen Auge waechst der neue Fruchttrieb, das untere ist Reserve.
+      Nach der Ernte den abgetragenen Trieb auf den neuen Zapfen
+      zurueckschneiden.
+
+      Kordon-Erziehung: Ein oder zwei waagerechte Leitaeste (Kordon)
+      am Draht. Alle 15 bis 20 cm ein Zapfen. Sorgt fuer gleichmaessige
+      Verteilung und gute Durchlueftung.
+
+      Sommerpflege: Geiztriebe (Seitentriebe aus Blattachseln)
+      regelmaessig ausbrechen. Traubenzone entblättern ab Juli —
+      Licht und Luft an die Trauben lassen. Bei ueppigem Behang
+      ueberzaehlige Trauben entfernen (1 Traube pro Trieb bei
+      Tafeltrauben).
+
+      Mehltau: Die groesste Herausforderung. Echter Mehltau (Oidium):
+      weisser Belag auf Blaettern und Trauben. Falscher Mehltau
+      (Peronospora): oelfleckartige Flecken, Unterseite weiss.
+      Praevention: Pilzwiderstandsfaehige Sorten (PIWi) waehlen
+      (Regent, Solaris, Muscaris, Souvignier Gris). Diese brauchen
+      kaum oder keinen Pflanzenschutz.
+    metadata:
+      topic: climbing_fruit
+      species: "Vitis vinifera"
+      difficulty: intermediate
+
+  - id: kiwi-anbau
+    title: "Kiwi — Maennlich und Weiblich, Frost und Rankhilfe"
+    content: |
+      Kiwis lassen sich in Mitteleuropa erfolgreich anbauen — sowohl
+      die grosse, pelzige Kiwi (Actinidia deliciosa) als auch die
+      kleine, glattschalige Mini-Kiwi (Actinidia arguta), die deutlich
+      frosthärter ist.
+
+      Bestaeubung: Kiwis sind zweihaeusig — es gibt maennliche und
+      weibliche Pflanzen. Fuer Fruchtertrag braucht man mindestens
+      eine maennliche Pflanze auf bis zu 6 weibliche. Die maennliche
+      Pflanze muss zur gleichen Zeit bluehen. Ausnahme: Selbstfruchtbare
+      Sorten wie Jenny (A. deliciosa) oder Issai (A. arguta) —
+      diese tragen auch allein, aber der Ertrag ist mit Befruchter
+      deutlich besser.
+
+      Grosse Kiwi (A. deliciosa, z.B. Hayward): Frostempfindlich,
+      nur bis minus 10 bis minus 12 Grad winterhart. Braucht
+      geschuetzten, warmen Standort (Suedwand). In rauen Lagen
+      nicht zuverlaessig. Fruechte reifen in Mitteleuropa oft
+      nicht vollstaendig am Strauch aus — im Oktober ernten und
+      bei Zimmertemperatur nachreifen lassen (neben Aepfeln).
+
+      Mini-Kiwi (A. arguta, z.B. Weiki, Geneva, Issai): Winterhart
+      bis minus 25 bis minus 30 Grad. Fruechte trauben-/stachelbeer-
+      gross, glattschalig, direkt essbar. Reifen September bis Oktober.
+      Deutlich zuverlaessiger in Mitteleuropa als die grosse Kiwi.
+
+      Achtung Spaetfrost: Beide Arten treiben frueh aus (April).
+      Spaetfrost zerstoert den jungen Austrieb. Schutzmassnahmen:
+      Vlies bereithalten, nicht in Frostsenken pflanzen, Nordseite
+      verzoegert den Austrieb (manchmal vorteilhaft).
+
+      Rankhilfe: Kiwis sind Starkschlingpflanzen und werden 5 bis
+      10 Meter lang. T-Spalier ist ideal: 2 Meter hohe Pfosten mit
+      1,5 Meter Querbalken, 4 bis 5 Draehte. Pflanzabstand 3 bis
+      4 Meter. Pergola funktioniert ebenfalls gut — Kiwi als
+      Schattenspender mit Fruchtbonus.
+
+      Schnitt: Im Winter (Januar/Februar) und im Sommer (Juni/Juli).
+      Aehnlich wie Wein: Fruchttriebe auf 5 bis 7 Augen einkuerzen.
+      Sommerschnitt: Ueberlange Triebe einkuerzen, damit die Pflanze
+      nicht verwildert.
+    metadata:
+      topic: climbing_fruit
+      species: "Actinidia deliciosa / Actinidia arguta"
+      difficulty: intermediate
+
+  - id: kletterfrucht-tipps
+    title: "Kletterfruechte allgemein — Spalier, Seilsystem und Winterschutz"
+    content: |
+      Kletternde Fruchtpflanzen (Wein, Kiwi, Brombeere, Passionsfrucht,
+      Spalierobst) brauchen stabile Kletterhilfen und spezielle Pflege.
+      Hier die wichtigsten universellen Tipps.
+
+      Spalier-Systeme: Das einfachste System besteht aus Holzpfosten
+      (Akazie, Laerche oder kesseldruckimpraegniert, 8 bis 10 cm
+      Durchmesser) im Abstand von 3 bis 4 Metern mit gespanntem
+      Edelstahl-Draht (2 bis 3 mm). Draht mit Spannschloessern
+      straff halten — lockerer Draht bietet keinen Halt. Edelstahl
+      rostet nicht und haelt Jahrzehnte.
+
+      Seilsystem an Hauswänden: Edelstahl-Seilsysteme mit Wandabstand-
+      haltern (5 bis 10 cm Abstand zur Wand). Der Abstand ist wichtig
+      fuer Luftzirkulation — ohne Abstand bildet sich Schimmel an der
+      Wand. Fertige Systeme gibt es von Herstellern wie FassadenGruen
+      oder Greencable. Befestigung: Duebel fuer Mauerwerk, nicht in
+      die Daemmung bohren.
+
+      Pergola und Laube: Ideal fuer Wein und Kiwi. Stabiler Aufbau
+      noetig — eine ausgewachsene Kiwi kann 50 kg und mehr wiegen.
+      Mindestens 10 mal 10 cm Pfosten, Querbalken aus Leimholz oder
+      Stahl. Holz mit umweltfreundlichem Holzschutz behandeln.
+
+      Wandhoehe nutzen: Espalier-Technik (Spalierobst an der Wand):
+      Aepfel, Birnen, Kirschen und Pflaumen als U-Spalier, Faecher
+      oder Kordon an der Hauswand erziehen. Platzsparend und durch
+      Wandwaerme fruehe Reife. Spezielle Spalierunterlagen (z.B. M9
+      fuer Apfel, Quitte A fuer Birne) halten die Baeume klein.
+
+      Winterschutz fuer empfindliche Kletterpflanzen: Kiwi-Jungpflanzen
+      und Wein in den ersten 2 bis 3 Jahren im Stammbereich mit
+      Jutesack oder Vlies umwickeln. Wurzelbereich mit 20 cm Laub
+      oder Stroh abdecken. Reben an der Wand profitieren von der
+      Waermeabstrahlung — sie brauchen seltener Schutz als
+      freistehende Pflanzen.
+
+      Giessen: Kletterpflanzen an Hauswänden stehen oft im Regenschatten
+      und bekommen wenig natuerliches Wasser. Im Sommer regelmaessig
+      giessen — 20 bis 30 Liter pro Pflanze und Woche bei Trockenheit.
+      Tropfbewaesserung am Fuß der Pflanze ist die effizienteste Loesung.
+    metadata:
+      topic: climbing_fruit
+      subtopic: general_tips
+      difficulty: beginner

@@ -1,0 +1,126 @@
+---
+title: "Paprika und Chili anbauen — Aussaat bis Ernte"
+language: de
+category: pflege
+tags: [gemuese, paprika, chili, capsicum-annuum, anbau, garten, balkon, gewaechshaus, starkzehrer, nachtschatten]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: paprika-aussaat
+    title: "Paprika und Chili — Aussaat und Voranzucht"
+    content: |
+      Paprika und Chili haben eine sehr lange Kulturzeit von 120 bis 180 Tagen.
+      Deshalb muss die Voranzucht frueh beginnen: Aussaat ab Mitte Februar bis
+      Anfang Maerz. Spaetere Aussaat verkuerzt die Erntephase erheblich.
+
+      Paprika sind Waermekeimer. Die optimale Keimtemperatur liegt bei 25 bis
+      28 Grad — eine Heizmatte ist fast unverzichtbar. Unter 18 Grad keimt
+      das Saatgut nur unzuverlaessig. Samen 0,5 bis 1 cm tief in feuchte
+      Aussaaterde legen und mit Erde bedecken (Dunkelkeimer). Die Keimdauer
+      betraegt 10 bis 21 Tage — Geduld ist noetig.
+
+      Nach dem zweiten echten Blattpaar pikieren: Saemlinge einzeln in
+      9-cm-Toepfe umsetzen. Danach die Temperatur auf 20 bis 22 Grad
+      absenken. Paprika waechst in der Jugend langsamer als Tomaten —
+      Temperaturen unter 15 Grad fuehren zu violetter Blattverfaerbung
+      und Wachstumsstillstand.
+
+      Koenigsbluete: Die erste Bluete, die sich an der Verzweigungsgabel
+      bildet, bei Gemuese-Paprika ausbrechen — das staerkt die Pflanze
+      und bringt mehr Fruechte. Bei Cayenne und Chili stehen lassen.
+
+      7 bis 10 Tage vor dem Auspflanzen abhaerten: taeglich fuer einige
+      Stunden nach draussen stellen, vor direkter Mittagssonne schuetzen.
+    metadata:
+      topic: pepper_growing
+      species: "Capsicum annuum"
+      difficulty: beginner
+
+  - id: paprika-auspflanzen
+    title: "Paprika und Chili — Auspflanzen und Standort"
+    content: |
+      Paprika kommen erst nach den Eisheiligen (ab 15. Mai) ins Freiland.
+      Temperaturen unter 5 Grad sind toedlich, unter 10 Grad stoppen sie
+      das Wachstum. Ein Gewaechshaus bringt deutlich hoehere Ertraege.
+
+      Standort: Voller Sonnenschein, mindestens 6 Stunden taeglich.
+      Windgeschuetzt und warm. Boden naehrstoffreich, humos und gut
+      durchlaessig. pH 6,0 bis 6,8. Vor dem Pflanzen Kompost und
+      Hornspane einarbeiten. Pflanzabstand 40 bis 50 cm.
+
+      Stuetze: Ab dem Fruchtansatz einen Stuetzstab setzen — das
+      Fruchtgewicht knickt sonst die Triebe ab. Paprika verzweigt sich
+      natuerlich und braucht keine Rankhilfe wie Tomaten.
+
+      Gute Nachbarn: Tomaten, Basilikum, Karotten, Salat, Spinat.
+      Schlechte Nachbarn: Kartoffeln (gleiche Familie, gleiche Krankheiten),
+      Fenchel, andere Nachtschattengewaechse.
+
+      Balkon: Paprika eignet sich hervorragend fuer den Kuebelanbau.
+      Mindestens 10 Liter Topfvolumen, sonnig und windgeschuetzt.
+      Regelmessig giessen und woechentlich duengen ab der Bluete.
+      Kompakte Chili-Sorten sind ideal fuer kleine Balkone.
+    metadata:
+      topic: pepper_growing
+      species: "Capsicum annuum"
+      difficulty: beginner
+
+  - id: paprika-pflege
+    title: "Paprika und Chili — Pflege, Giessen und Duengen"
+    content: |
+      Giessen: Paprika braucht gleichmaessige Feuchtigkeit — der Wechsel
+      zwischen trocken und nass verursacht Bluetenendfaeule (BER) und
+      Fruchtplatzer. Morgens giessen, direkt an die Wurzel. Im Hochsommer
+      taeglich, im Kuebel bei Hitze auch zweimal taeglich.
+
+      Duengen: Als Starkzehrer braucht Paprika viel Naehrstoffe. Ab der
+      Bluete woechentlich mit Tomaten-/Paprika-Fluessigduenger oder
+      Brennnesseljauche (1:10) giessen. Ab Fruchtansatz zusaetzlich
+      Beinwell-Jauche (kaliumreich) fuer Farbausreifung und Geschmack.
+      Calcium ist besonders kritisch: CalMag bei jeder Duengung.
+
+      Magnesium-Mangel ist relativ haeufig: gelbe Blaetter mit gruenen
+      Adern (Interkostal-Chlorose). Schnelle Abhilfe: Bittersalz
+      (Epsom Salt) 0,1 Prozent als Blattduengung.
+
+      Haeufige Schaedlinge: Blattlaeuse (Neemoel-Spritzung), Weisse
+      Fliege (Gelbtafeln), Spinnmilben bei trockener Luft (Luftfeuchtigkeit
+      erhoehen, Raubmilben). Thripse verursachen silbrige Flecken.
+
+      Wichtig: Temperaturen ueber 32 Grad verursachen Bluetenabwurf.
+      Bei Hitzewellen die Pflanzen nachmittags schattieren.
+    metadata:
+      topic: pepper_growing
+      species: "Capsicum annuum"
+      difficulty: beginner
+
+  - id: paprika-ernte
+    title: "Paprika und Chili — Ernte und Lagerung"
+    content: |
+      Paprika koennen gruen geerntet werden, sobald sie die sortentypische
+      Groesse erreicht haben. Gruene Paprika sind bereits essbar, haben
+      aber weniger Aroma und Vitamine als voll ausgefaerbte Fruechte.
+
+      Die volle Farbausreifung (rot, gelb, orange) dauert 2 bis 3 Wochen
+      laenger. Voll ausgefaerbte Paprika haben deutlich mehr Vitamin C
+      und mehr Geschmack. Regelmaessiges Ernten foerdert den Neuansatz —
+      die Pflanze blueht und fruchtet gleichzeitig ueber Wochen.
+
+      Ernte mit scharfer Schere oder Messer, den Stiel 1 bis 2 cm
+      stehen lassen. Nicht abreissen — das verletzt die Pflanze.
+
+      Chili-Ernte: Je laenger Chilis an der Pflanze bleiben, desto
+      schaerfer werden sie. Fuer maximale Schaerfe erst bei voller
+      Farbausreifung ernten.
+
+      Lagerung: Frische Paprika halten im Kuehlschrank 1 bis 2 Wochen.
+      Chilis trocknen sich gut: an einer Schnur aufhaengen oder im
+      Doerrautomat bei 50 Grad trocknen. Auch Einlegen in Oel und
+      Einfrieren sind gute Konservierungsmethoden.
+
+      Fruchtfolge: Mindestens 3 Jahre keine Nachtschattengewaechse auf
+      der gleichen Flaeche anbauen.
+    metadata:
+      topic: pepper_growing
+      species: "Capsicum annuum"
+      difficulty: beginner

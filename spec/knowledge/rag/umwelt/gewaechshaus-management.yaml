@@ -1,0 +1,269 @@
+---
+title: Gewaechshaus-Management — Glashaus, Folienhaus und Polytunnel
+language: de
+category: umwelt
+tags: [gewaechshaus, glashaus, folienhaus, polytunnel, fruehbeet, klimafuehrung, schattierung, hitzeschutz, bewaesserung, tropfbewaesserung, lueftung, dachfenster, frostwachter, saisonverlaengerung, gewaechshaus-hygiene, jahresplaner, winterueberbrückung, kuebelplanzen, tomaten-gewaechshaus, gurken-gewaechshaus]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering, harvest]
+chunks:
+  - id: gewaechshaus-typen-vergleich
+    title: Welcher Gewaechshaus-Typ passt zu mir? Glashaus, Folienhaus, Doppelstegplatten und Fruehbeet im Vergleich
+    content: |
+      Das Glashaus (Gewächshaus aus Einscheibensicherheitsglas oder Einscheibenflachglas) ist
+      die hochwertigste und langlebigste Variante. Vorteile: maximale Lichtdurchlaessigkeit
+      (90-92%), robust, langlebig (20-30 Jahre), witterungsbestaendig. Nachteile: teuer
+      (ab 1.500 € aufwaerts fuer Qualitaet), schweres Fundament noetig, wenig flexibel.
+      Ideal fuer dauerhaften, professionellen Anbau.
+
+      Das Folienhaus (Polytunnel) ist die guenstige Alternative. UV-stabile Polyethylenfolie
+      ueber Stahlrohrboegen — einfach aufzubauen, schnell aufgestellt. Vorteile: geringe
+      Kosten (ab 300 €), gute Lichtdurchlaessigkeit (85-88%), flexibel umsetzbar, kein
+      Fundament noetig. Nachteile: Folie alle 3-5 Jahre austauschen, weniger sturmsicher,
+      Kondenswasser tropft von der Folie (Pilzrisiko), optisch weniger ansprechend.
+      Besonders geeignet fuer: Tomaten (Regenschutz!), Salat, Kräuter, Erdbeeren.
+
+      Doppelsteg- oder Hohlkammerplatten (Polycarbonat) bieten den besten Kompromiss aus
+      Isolation und Preis. Lichtdurchlaessigkeit 70-80% (weniger als Glas!), aber deutlich
+      bessere Waermeisolation (U-Wert bis 1.6 W/m²K statt 5.8 bei Einfachglas). Gut fuer
+      Winter-Nutzung und beheizte Gewaechshaeuser, weil Heizkosten sinken.
+
+      Das Fruehbeet (Mini-Gewaechshaus) ist der einfachste Einstieg: Holzrahmen mit altem
+      Fenster oder Acrylhaube, Suedausrichtung. Kostet kaum etwas, eignet sich fuer Frühkultur
+      (Salat, Radieschen, Kohlrabi) ab Februar und als Abhaertungsstation fuer Jungpflanzen.
+
+      Ausrichtung: Ost-West-Ausrichtung (Laengsachse von Ost nach West) maximiert den
+      Lichteinfall im Winter, wenn die Sonne tief steht. Nord-Sued-Ausrichtung gibt
+      gleichmaessigeres Licht im Sommer — weniger Hotspots auf einzelnen Reihen.
+
+      Groesse: Mindestens 6 m² nutzbare Flaeche planen, besser 10-15 m². Ein 2,4 × 4 m
+      Gewaechshaus fuehlt sich schnell zu klein an, sobald Tomaten, Gurken und
+      Ueberwinterungspflanzen gleichzeitig darin stehen.
+    metadata:
+      topic: greenhouse_types
+      types: [glass_house, polytunnel, polycarbonate, cold_frame]
+      difficulty: beginner
+
+  - id: gewaechshaus-klimafuehrung
+    title: Klimafuehrung im Gewaechshaus — Lueftung, Heizung und Nachtabsenkung
+    content: |
+      Der Treibhauseffekt ist im Sommer das groesste Problem: Glas und Folie lassen
+      kurzwellige Sonnenstrahlung herein, halten aber langwellige Waermestrahlung
+      zurueck. Ohne Lueftung steigt die Temperatur in 30 Minuten auf 50°C und mehr.
+
+      Lueftung ist die wichtigste Massnahme und muss gross genug dimensioniert sein.
+      Faustregel: Lueftungsflaeche mindestens 20% der Grundflaeche. Dachfenster sind
+      effektiver als Seitenlueftung, weil warme Luft nach oben steigt. Automatische
+      Fensteröffner mit Wachs-Zylinder (thermostatisch, ohne Strom!) oeffnen selbst-
+      taendig ab ca. 20°C — der einfachste und zuverlaessigste Weg, unkontrollierte
+      Ueberhitzung zu verhindern. Preis: 20-40 € pro Fenster, absolutes Must-Have.
+      Seitenbelueftung zusaetzlich: Folie hochrollen (Polytunnel) oder Seitenfenster
+      oeffnen erzeugt den Kamineffekt — kuehle Luft stroemt unten ein, warme entweicht
+      oben durch Dachfenster.
+
+      Temperaturzonen: Im Gewaechshaus ist es oben waermer als unten. Waermeliebende
+      Kulturen (Tomate, Gurke, Paprika) hoch stellen, kuehlbeduerftiger Salat und
+      Kraeuter am Boden kultivieren.
+
+      Nachtabsenkung: Im Sommer ist das kein Problem, im Winter schon. Bei beheizte
+      Gewaechshaeusern die Heizung nachts auf Minimum (5-8°C Frostwachter) stellen —
+      Energieersparnis 30-50%. Pflanzen verarbeiten Naehrstoffe besser mit einer
+      Temperaturabsenkung (DIF-Effekt).
+
+      Frostwachter (Mindesttemperatur): Fuer die Ueberwinterung von Kuebelplanzen und
+      halbharten Pflanzen reichen +5°C als Mindestziel. Dafuer genuegen oft kleine
+      Petroleum-Heizstrahler, elektrische Heizluefter mit Thermostat oder
+      Warmwasserheizung. Noppenfolie (Luftpolsterfolie) an Waenden und Dach als
+      Isolation im Winter spart Heizenergie erheblich.
+    metadata:
+      topic: greenhouse_climate
+      devices: [roof_vent, side_vent, wax_cylinder_opener, frost_heater]
+      difficulty: beginner
+
+  - id: gewaechshaus-schattierung-hitzeschutz
+    title: Schattierung und Hitzeschutz — das wichtigste Sommer-Thema im Gewaechshaus
+    content: |
+      Ueberhitzung im Sommer ist das haeufigste Problem im Gewaechshaus. Ab 40°C
+      erleiden die meisten Kulturpflanzen Hitzeschaden: Blueten fallen ab (Tomate
+      ab 32-35°C), Pollen werden steril, Blaetter rollen sich, Ertraege brechen ein.
+      Fruehzeitiger Hitzeschutz ist wirtschaftlicher als Schadensbegrenzung.
+
+      Schattiergewebe (40-60% Beschattung): Das robusteste und haltbarste Mittel.
+      Aussen angebracht ist es bis zu 30% effektiver als innen, weil die Strahlung
+      schon ausserhalb des Glases abgefangen wird. Innere Schattiernetze erwaermen
+      trotzdem die Luft zwischen Glas und Netz. Aussen-Schattierung kostet mehr
+      Aufwand bei der Befestigung, lohnt sich aber.
+
+      Schattierfarbe (Weissanstrich): Guenstige und effektive Loesung. Fertige
+      Schattierfarben (z.B. Gartenkalk-Anstrich, "Variogrow" o.ae.) werden im
+      Fruehjahr aufgetragen und sind im Herbst abwaschbar. Reduziert Lichteinfall
+      um 30-50%. Nachteil: Bei bewoelktem Wetter auch gedimmt — macht bei gutem
+      Sommerlicht aber selten einen Unterschied.
+
+      Verdunstungskuehlung: Nassen Boden (Benetzung der Wege und Beete) im
+      Gewaechshaus ergibt durch Verdunstung eine Abkuehlung von 3-6°C. Im Polytunnel
+      kann man die Seitenfolie anlueften und mit Wasser benetzten Flies als
+      Verdunstungsflaeche haengen.
+
+      Lueftungsstrategie fuer heisse Tage: Morgens frueh lueften BEVOR die Temperaturen
+      steigen — am besten bevor die Aussentemperatur die Innentemperatur uebertrifft.
+      Dachfenster und Tueren an beiden Seiten oeffnen (Durchzug). Wer zu spaet lueftet,
+      kaempft den ganzen Tag gegen angestaute Waerme. Tuer und Dachfenster am Abend
+      wieder schliessen um Nachtwaerme zu halten (Frostschutz, bessere Kondensation).
+    metadata:
+      topic: greenhouse_shade_heat_protection
+      temperature_threshold_celsius: 40
+      methods: [shade_cloth, whitewash, evaporative_cooling, ventilation]
+      difficulty: beginner
+
+  - id: gewaechshaus-bewaesserung
+    title: Bewaesserung im Gewaechshaus — kein Regen, also alles manuell oder automatisch
+    content: |
+      Im Gewaechshaus faellt kein Regen — jedes Wasser muss aktiv zugefuehrt werden.
+      Das ist der wichtigste Unterschied zum Freilandanbau und erfordert ein klares
+      Bewaesserungssystem.
+
+      Manuelle Bewaesserung mit Giesskanne oder Schlauch ist fuer kleine Gewaechshaeuser
+      (bis ~10 m²) praktikabel, aber zeitaufwaendig und fehleranfaellig (Urlaub!).
+
+      Tropfbewaesserung mit Timer ist die beste Loesung fuer die meisten Gewaechshaus-
+      Betreiber. Aufbau: Hauptzuleitung, Verteiler, Tropfschlaeuche (1-3 Tropfer pro
+      Pflanze), Batterietimer. Kosten: 50-150 € je nach Groesse. Vorteile: Gleichmaessige
+      Feuchtigkeit, kein nasses Laub (Pilzrisiko!), funktioniert ohne Aufsicht,
+      Wasser direkt an der Wurzelzone. Wichtig: Timer-Laufzeiten saisonal anpassen
+      (Sommer mehr, Winter viel weniger).
+
+      Kapillarmatten: Fuer Topfpflanzen geeignet — Pflanzen sauge sich von unten.
+      Gut fuer Salate, Kraeuter, Jungpflanzen. Nicht geeignet fuer tiefwurzelnde
+      Pflanzen (Tomate, Paprika) die viel Wasser wollen.
+
+      Sprinkler/Beregnung: Nur fuer Salat und Bodenpflanzen sinnvoll. Nasse Blaetter
+      bei Tomaten, Gurken und Paprika foerdern Pilzkrankheiten (Botrytis, Mehltau)
+      massiv. Im Gewaechshaus ohne Regen-Selbstreinigung haeuft sich Befall schneller.
+
+      Wassertemperatur: Kaltes Leitungswasser (10-15°C) stresst Wurzeln.
+      Eine Regentonne oder ein Wasserbehaelter im Gewaechshaus gleicht die Temperatur
+      auf 18-22°C an — die Gewaechshauswaerme erledigt das automatisch.
+
+      Bewaesserungsplanung saisonal: Sommer (Juli-August) oft taeglich oder zweimal
+      taeglich giessen, besonders bei Tomate und Gurke in Torf oder Kokossubstrat.
+      Winter: Sparsam giessen — Wurzelfaeule durch nasses Substrat bei Kaelte ist
+      die haeufigste Ursache fuer Pflanzenverluste bei der Ueberwinterung.
+    metadata:
+      topic: greenhouse_irrigation
+      methods: [drip_irrigation, capillary_mat, manual, sprinkler]
+      difficulty: beginner
+
+  - id: gewaechshaus-hygiene-saison
+    title: Gewaechshaus-Hygiene und Saisonvorbereitung — Reinigung, Desinfektion und Schaedlingsvorbeugung
+    content: |
+      Schlechte Hygiene ist die Hauptursache fuer Schädlings- und Krankheitsprobleme
+      im Gewaechshaus. Da keine Witterung reinigt und Schädlinge ueberwinterungsgeschuetzt
+      sind, baut sich Druck von Jahr zu Jahr auf wenn keine Gegenmassnahmen ergriffen werden.
+
+      Herbstreinigung nach dem Ende der Hauptsaison:
+      Alle Pflanzenreste entfernen — kein Laub, keine alten Fruechte, kein organisches
+      Material zuruecklassen. Pilzsporen und Schädlingseier ueberleben in Resten.
+      Glas oder Folie von innen und aussen reinigen: Schmutz reduziert die
+      Lichtdurchlaessigkeit um bis zu 30%! Algen und Moosbelag auf Glas mit Glasreiniger
+      oder verduennter Essigloesung entfernen.
+      Rahmen und Konstruktion desinfizieren: Kalkwasser oder 10%ige Essigloesung auf
+      alle Oberflaechen, besonders Ecken und Fugen wo Schädlinge ueberwinterern.
+      Bodenbehandlung: Fruchtfolge gilt auch im Gewaechshaus. Tomate und Gurke nicht
+      jahrelang an gleicher Stelle anbauen — Bodenmüdigkeit, Nematoden und Fusarium
+      bauen sich auf. Mindestens alle 3-4 Jahre Standort wechseln oder Substrat erneuern.
+
+      Schaedlingsvorbeugung ganzjaehrig:
+      Insektenschutznetze an allen Lueftungsoeffnungen und Turen (Maschenweite max.
+      0.8 mm) halten Blattlaeuse, Thripse und Weiße Fliege draussen.
+      Gelbtafeln ganzjaehrig aufhaengen: 1 Tafel pro 10-20 m² als Fruehwarnsystem.
+      Bei ersten Schädlingssichtungen sofort biologisch reagieren (Nutzinsekten,
+      Neemoel) — im Gewaechshaus vermehren sich Schädlinge schneller als draussen.
+
+      Ueberwinterungsbereich einrichten: Einen Bereich des Gewaechshauses mit Vlies
+      oder Folie abteilen und dort Kübelpflanzen, Dahlienknollen und halbharte
+      Pflanzen einlagern. Frostwachter-Heizung nur fuer diesen Bereich noetig.
+    metadata:
+      topic: greenhouse_hygiene
+      tasks: [plant_removal, cleaning, disinfection, crop_rotation, pest_prevention]
+      difficulty: beginner
+
+  - id: gewaechshaus-jahresplaner
+    title: Gewaechshaus-Jahresplaner — was wann anbauen und tun
+    content: |
+      Januar-Februar — Frühkulturen und Voranzucht:
+      Unbeheiztes Gewaechshaus: Frostschutz sicherstellen (Frostwachter, Vlies innen),
+      Ueberwinterte Pflanzen kontrollieren. Mit Heizung (min. 12°C): Salat, Radieschen,
+      Spinat saeen. Paprika und Chili bereits im Januar vorziehen (brauchen 10 Wochen).
+
+      Maerz-April — Voranzucht in voller Fahrt:
+      Tomate, Physalis, Aubergine vorziehen (Saatzeit Maerz). Gurken Ende April.
+      Jungpflanzen aus dem Haus ins Gewaechshaus stellen und dort abhaerten —
+      Temperaturen noch tageweise scharf ueberwachen, Nacht-Kälteschutz.
+      Erste Salatpflanzung ins Beet, Radieschen direkt saeen.
+
+      Mai-Juni — Hauptsaison starten:
+      Nach den Eisheiligen (Mitte Mai): Tomate, Gurke, Paprika ins Gewaechshaus.
+      Erste Lueftungs- und Schattierungsmassnahmen pruefen. Tropfbewaesserung
+      einschalten und pruefen. Tomaten anleiten, erste Seitentriebe entfernen.
+
+      Juli-August — Hitzephase:
+      Taegliche Kontrolle: Temperatur, Lueftung, Bewaesserung. Schattierung aktiv.
+      Automatische Fensteröffner auf Funktion pruefen. Bei Tropfbewaesserung:
+      Laufzeiten erhoehen (taeglich oder zweimal taeglich). Folgekultur planen
+      (nach fruehen Radieschen und Salat: Buschbohne, Asiasalate, Herbstspinat).
+
+      September-Oktober — Herbstkulturen:
+      Temperaturen sinken, Tomatenpflanzen auslaufen lassen (Ernte bis Oktober).
+      Feldsalat, Spinat, Asia-Salate saeen — wachsen im unbeheizten Gewaechshaus
+      bis in den Dezember hinein. Reinigung und Desinfektion nach der Hauptsaison.
+      Ueberwinterung von Kuebelplanzen vorbereiten.
+
+      November-Dezember — Ueberwinterung und Ruhe:
+      Kuebelplanzen, Dahlien, Geranien und halbharte Pflanzen einlagern.
+      Frostwachter-Heizung sicherstellen. Wintergemüse (Feldsalat, Postelein) ernten.
+      Saatgutkatalog fuer naechstes Jahr bestellen, Gewaechshaus-Instandhaltung
+      (Dichtungen, Schrauben, Folienrisse) pruefen und reparieren.
+    metadata:
+      topic: greenhouse_annual_calendar
+      months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      difficulty: beginner
+
+  - id: polytunnel-folienhaus
+    title: Polytunnel (Folienhaus) — guenstige Alternative zum Glashaus
+    content: |
+      Ein Polytunnel (Folientunnel, Folienhaus) ist die wirtschaftlichste Loesung fuer
+      grossflaechigen geschuetzten Anbau. Typische Groessen: 3 × 6 m bis 6 × 12 m.
+
+      Aufbau: Verzinkte Stahlrohre als Boegen, die ca. 60-80 cm tief in den Boden
+      eingeschlagen oder in Bodenhülsen gesetzt werden. UV-stabile PE-Folie
+      (200 Mikrometer, 4-Jahres-Garantie UV) wird ueber die Boegen gespannt und
+      an beiden Enden sowie an den Seiten mit Erde oder Klemmprofilen befestigt.
+      Erdanker und Abspannseile sind wichtig fuer Sturmstabilitaet. Aufbau zu zweit:
+      ca. 4-8 Stunden fuer ein 3 × 6 m Tunnel.
+
+      Vorteile des Polytunnels:
+      Guenstig (300-800 € fuer 3 × 6 m, je nach Qualitaet), kein Fundament noetig,
+      schnell auf- und abbaubar, einfach zu verlegen wenn Fruchtwechsel noetig ist,
+      gute Lichtdurchlaessigkeit (85-88%), Innenhoehe gross genug fuer Hochpflanzen.
+
+      Nachteile und Herausforderungen:
+      Folie muss alle 3-5 Jahre getauscht werden (UV-Degradierung, Risse).
+      Kondenswasser tropft von der Folie — besonders morgens. Nasse Blaetter foerdern
+      Pilzkrankheiten, deshalb Pflanzen nicht direkt unter die Folie setzen und
+      ausreichend Abstand zu den Tuenenwanden halten. Im Sturm weniger stabil als
+      Glashaus — Erdanker und Abspannseile sorgfaeltig setzen.
+
+      Lueftung im Polytunnel: Seitenfolie hochrollen (seitliche Liftfolie bestellen!)
+      und Tueren an beiden Enden oeffnen erzeugen ausgezeichneten Durchzug.
+      Ohne Seitenlueftung droht im Sommer Ueberhitzung wie im Glashaus.
+
+      Besonders geeignet fuer: Tomaten (Schutz vor Braunfaeule durch Regen — wichtigster
+      Vorteil!), Gurken, Paprika, Erdbeeren, Salat, Asia-Kräuter, Herbstkulturen.
+      Nicht geeignet fuer: Dauerkulturen ueber viele Jahre (Fruchtwechsel und
+      Folienersatz schraenken Planbarkeit ein), Ueberwinterung sehr frostempfindlicher
+      Pflanzen ohne separate Heizung.
+    metadata:
+      topic: polytunnel
+      cost_eur: [300, 800]
+      foil_lifespan_years: [3, 5]
+      difficulty: beginner

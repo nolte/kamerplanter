@@ -7,6 +7,7 @@ from app.domain.models.task import (
     TaskComment,
     TaskTemplate,
     WorkflowExecution,
+    WorkflowPhase,
     WorkflowTemplate,
 )
 
@@ -33,6 +34,28 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def delete_workflow_template(self, key: WorkflowTemplateKey) -> bool: ...
+
+    # ── WorkflowPhase CRUD ──
+    @abstractmethod
+    def get_phases_for_workflow(self, wf_key: WorkflowTemplateKey) -> list[WorkflowPhase]: ...
+
+    @abstractmethod
+    def get_phase_by_key(self, key: str) -> WorkflowPhase | None: ...
+
+    @abstractmethod
+    def create_phase(self, phase: WorkflowPhase) -> WorkflowPhase: ...
+
+    @abstractmethod
+    def update_phase(self, key: str, phase: WorkflowPhase) -> WorkflowPhase: ...
+
+    @abstractmethod
+    def delete_phase(self, key: str) -> bool: ...
+
+    @abstractmethod
+    def reorder_phases(self, phase_orders: list[dict]) -> list[WorkflowPhase]: ...
+
+    @abstractmethod
+    def get_phase_suggestions(self) -> list[dict]: ...
 
     # ── TaskTemplate CRUD ──
     @abstractmethod

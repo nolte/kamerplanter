@@ -1,0 +1,123 @@
+---
+title: "Flamingoblume (Anthurium andraeanum) — Pflege-Anleitung"
+language: de
+category: pflege
+tags: [anthurium, flamingoblume, zimmerpflanze, pflege, araceae, tropisch, bluehpflanze]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: anthurium-standort
+    title: "Flamingoblume — Standort und Licht"
+    content: |
+      Die Flamingoblume (Anthurium andraeanum) braucht helles, indirektes
+      Licht. Direkte Sonne verbrennt die glaenzenden Blaetter und die
+      farbigen Hochblaetter (Spathen). Ein Platz am Ost- oder Westfenster
+      ist ideal.
+
+      Die bunten "Blueten" sind eigentlich modifizierte Blaetter — die
+      echte Bluete ist der kleine zylindrische Kolben in der Mitte.
+      Bei ausreichend Licht blueht die Pflanze nahezu ganzjaehrig.
+      Zu wenig Licht bedeutet: Keine Blueten.
+
+      Temperatur: 21 bis 29 Grad am Tag, nachts 18 bis 22 Grad. Unter
+      15 Grad leidet die Pflanze deutlich. Zugluft und Kaelte fuehren
+      zu Blatschaeden. Die Flamingoblume stammt aus tropischen
+      Regenwäldern in Kolumbien und Ecuador.
+
+      Luftfeuchtigkeit: 60 bis 80 Prozent — deutlich hoeher als normale
+      Raumluft. Regelmaessiges Besprühen, ein Luftbefeuchter oder ein
+      Platz im hellen Badezimmer helfen. Trockene Heizungsluft ist der
+      groesste Feind.
+
+      Tipp: Fuer mehr Blueten braucht die Pflanze mindestens 12 Stunden
+      helles Licht pro Tag.
+    metadata:
+      topic: anthurium_care
+      species: "Anthurium andraeanum"
+      difficulty: beginner
+
+  - id: anthurium-giessen
+    title: "Flamingoblume — Giessen und Substrat"
+    content: |
+      Die Flamingoblume mag leicht feuchtes Substrat, aber auf keinen
+      Fall Staunaesse. Zwischen den Wassergaben die oberen 2 bis 3
+      Zentimeter antrocknen lassen.
+
+      Giess-Rhythmus Sommer: Alle 5 bis 7 Tage.
+      Giess-Rhythmus Winter: Alle 10 bis 14 Tage.
+
+      Wasserqualitaet: Weiches, kalkfreies Wasser ist wichtig. Kalk
+      fuehrt zu Blattrandnekrosen. Regenwasser, gefiltertes oder
+      abgekochtes Wasser verwenden. Immer zimmerwarm giessen.
+
+      Substrat: Lockeres, luftiges Epiphytensubstrat ist entscheidend.
+      Bewährt: 2 Teile Pinienrinde, 1 Teil Perlite, 1 Teil Torf oder
+      Kokosfaser. pH-Wert 5,5 bis 6,5. Die Luftwurzeln muessen
+      Sauerstoff bekommen — kein schweres, dichtes Substrat verwenden.
+
+      Topfgroesse: 2 bis 8 Liter, mindestens 15 cm Topftiefe.
+
+      Wichtig: Wasser nicht auf die Blaetter oder Spathen giessen.
+      Nasses Laub beguenstigt Blattflecken und bakterielle Infektionen.
+    metadata:
+      topic: anthurium_care
+      species: "Anthurium andraeanum"
+      difficulty: beginner
+
+  - id: anthurium-duengung
+    title: "Flamingoblume — Duengung und Umtopfen"
+    content: |
+      Duengung: Von Maerz bis September alle 6 bis 8 Wochen mit einem
+      Bluehpflanzen-Duenger duengen (phosphorbetonte Formel wie
+      NPK 5-8-10 oder Orchideenduenger NPK 7-5-6, etwa 5 ml pro
+      Liter Wasser). Phosphor foerdert die Bluetenbildung.
+
+      Von November bis Februar: Kein Duenger. Die Pflanze ruht.
+
+      Umtopfen: Alle 2 Jahre im Fruehling. Vorsichtig umtopfen, da
+      die Luftwurzeln empfindlich sind. Handschuhe tragen — der
+      Pflanzensaft enthaelt Kalziumoxalat-Kristalle und kann
+      Hautreizungen verursachen.
+
+      Verblühte Spathen regelmaessig entfernen. Das foerdert neue
+      Blueten. Einfach den gesamten Bluetenstiel an der Basis
+      abschneiden, sobald die Spathe verwelkt ist.
+
+      Tipp: Anthurien sind empfindliche Pflanzen. Nicht zu oft
+      umtopfen oder den Standort wechseln. Sie moegen Stabilitaet.
+    metadata:
+      topic: anthurium_care
+      species: "Anthurium andraeanum"
+      difficulty: beginner
+
+  - id: anthurium-probleme
+    title: "Flamingoblume — Probleme und Vermehrung"
+    content: |
+      Haeufigste Probleme:
+      - Keine Blueten: Zu wenig Licht oder zu wenig Phosphor.
+      - Braune Blattspitzen: Zu trockene Luft oder kalkhaltiges
+        Giesswasser.
+      - Gelbe Blaetter: Ueberwaesserung oder Zugluft.
+      - Braune nasse Flecken: Wasser auf den Blaettern. Immer nur
+        ins Substrat giessen.
+
+      Schaedlinge: Spinnmilben (gelbe Punkte, Gespinste),
+      Schmierlaeusen (Wollflecken) und Schildlaeusen (braune Schilder
+      auf Stielen). Alle 2 Wochen kontrollieren.
+
+      Behandlung: Neemoel (0,5 Prozent) gegen Spinnmilben und
+      Schmierlaeusen, dabei Spathen schuetzen. Alkohol 70 Prozent
+      mit Wattestäbchen gegen Schildlaeusen.
+
+      Vermehrung: Am einfachsten durch Teilung beim Umtopfen im
+      Fruehling. Alternativ Stängelstecklinge mit mindestens 2 bis 3
+      Blaettern und Luftwurzelansatz in Orchideensubstrat stecken.
+      Bewurzelung bei 22 bis 24 Grad Bodentemperatur und 70 bis
+      80 Prozent Luftfeuchtigkeit.
+
+      Achtung: Anthurium ist giftig fuer Katzen, Hunde und Kinder
+      (Kalziumoxalat). Handschuhe beim Umtopfen und Schneiden tragen.
+    metadata:
+      topic: anthurium_care
+      species: "Anthurium andraeanum"
+      difficulty: beginner

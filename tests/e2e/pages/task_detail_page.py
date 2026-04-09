@@ -47,6 +47,7 @@ class TaskDetailPage(BasePage):
         """Navigate to a task detail page by key."""
         self.navigate(f"{self.PATH_PREFIX}/{key}")
         self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
         return self
 
     # ── Page title ─────────────────────────────────────────────────────

@@ -1,0 +1,153 @@
+---
+title: Aussaat — Pflanzen aus Samen ziehen
+language: de
+category: pflege
+tags: [aussaat, samen, keimung, lichtkeimer, dunkelkeimer, stratifikation, pikieren, anzuchterde, vermehrung]
+expertise_level: [beginner, intermediate]
+applicable_phases: [germination, seedling]
+chunks:
+  - id: aussaat-substrat
+    title: Das richtige Aussaat-Substrat waehlen
+    content: |
+      Warum kann ich nicht einfach normale Blumenerde fuer die Aussaat
+      nehmen? Normale Blumenerde ist zu naehrstoffreich und zu grob fuer
+      Keimlinge. Die zarten Wurzeln verbrennen an zu viel Duenger, und
+      in grober Erde trocknen winzige Samen aus, bevor sie keimen koennen.
+      Anforderungen an Aussaat-Substrat:
+      - Naehrstoffarm: Keimlinge ernaehren sich anfangs aus dem Samen.
+        Zu viel Duenger schadet und foerdert Pilze.
+      - Keimfrei (steril): Keine Pilzsporen, keine Unkrautsamen. Fertige
+        Anzuchterde aus dem Handel ist in der Regel sterilisiert.
+      - Feinkruemelig: Gleichmaessiger Bodenkontakt fuer kleine Samen.
+      - Strukturstabil: Darf nicht verklumpen oder verdichten.
+      - Gute Wasserhaltefaehigkeit bei gleichzeitiger Drainage.
+      Gute Optionen:
+      - Fertige Anzuchterde: Einfachste Loesung, ueberall erhaeltlich.
+        Mischung aus Torf/Kokos + Perlit + Sand.
+      - Kokoserde (Coco Coir): Naehrstoffarm, gute Struktur, nachhaltig.
+        Pur oder gemischt mit Perlit (70:30).
+      - Perlit pur: Fuer sehr feine Samen (Begonien, Petunien). Kaum
+        Naehrstoffe, gute Drainage, steril.
+      - Vermiculit: Speichert Feuchtigkeit gut, ideal als Abdeckschicht
+        fuer Samen die Dunkelkeit brauchen.
+      Vorbereitung: Substrat vor der Aussaat gleichmaessig anfeuchten
+      (nicht durchnaessen). Substrat in Schale fuellen, leicht andruecken
+      (nicht festklopfen), Samen auslegen. Giessen nach der Aussaat
+      immer mit feiner Brause oder Spruehflasche — ein harter Wasserstrahl
+      schwemmt Samen weg.
+    metadata:
+      topic: seed_starting_substrate
+      difficulty: easy
+      substrates: [seed_compost, coco_coir, perlite, vermiculite]
+
+  - id: lichtkeimer-dunkelkeimer
+    title: Lichtkeimer und Dunkelkeimer — Saattiefe entscheidet
+    content: |
+      Warum keimen manche Samen auf der Erde und andere muessen tief
+      eingegraben werden? Die Keimung wird bei vielen Arten durch Licht
+      oder Dunkelheit ausgeloest. Falsche Saattiefe ist einer der
+      haeufigsten Gruende, warum Samen nicht aufgehen.
+      Lichtkeimer — Samen brauchen Licht zum Keimen:
+      - Samen nur auf die Erde druecken, NICHT mit Substrat bedecken.
+      - Hoechstens hauchdeunn mit Vermiculit oder Sand uebersieben.
+      - Beispiele: Basilikum, Kopfsalat, Erdbeere, Dill, Kamille,
+        Petunie, Begonie, Sellerie, Bohnenkraut, Majoran, Baldrian.
+      - Merkhilfe: Lichtkeimer haben meist sehr kleine, feine Samen.
+      Dunkelkeimer — Samen brauchen Dunkelheit zum Keimen:
+      - Samen mit 1-2 cm Substrat bedecken (Faustregel: Saattiefe =
+        doppelter Samen-Durchmesser).
+      - Beispiele: Tomate, Paprika, Gurke, Kuerbis, Bohne, Erbse,
+        Sonnenblume, Mais, Zinnie, Rittersporn, Allium.
+      - Merkhilfe: Dunkelkeimer haben meist groessere, kraeftigere Samen.
+      Sonderfaelle:
+      - Manche Samen sind licht-neutral (Radieschen, Moehre) — sie
+        keimen in jeder Tiefe, solange Feuchtigkeit und Temperatur
+        stimmen.
+      - Auf der Samentuete steht fast immer die empfohlene Saattiefe.
+        Im Zweifel: Faustregel doppelter Durchmesser.
+      Generell gilt: Alle Samen brauchen gleichmaessige Feuchtigkeit
+      und Waerme. Abdeckhaube oder Frischhaltefolie drueber, taeglich
+      lueften. Keimtemperatur fuer die meisten Gemuese: 20-25 Grad.
+    metadata:
+      topic: light_dark_germinators
+      difficulty: easy
+      examples_light: [basil, lettuce, strawberry, petunia]
+      examples_dark: [tomato, pepper, cucumber, bean]
+
+  - id: stratifikation
+    title: Stratifikation — Kaeltekeimer zum Keimen bringen
+    content: |
+      Was ist Stratifikation und warum brauchen manche Samen Kaelte?
+      Manche Pflanzensamen haben eine eingebaute Keimsperre: Sie keimen
+      erst, nachdem sie eine Kaelteperiode durchgemacht haben. In der
+      Natur ist das der Winter — die Samen fallen im Herbst, ueberstehen
+      den Winter im Boden und keimen im Fruehling. Ohne diese Kaelteperiode
+      passiert nichts, egal wie warm und feucht es ist.
+      Typische Kaeltekeimer:
+      - Lavendel, Baerenklau, Eisenhut, Enzian, Christrose, Kuechenschelle,
+        Schluesselblume, Veilchen, Baerlauch.
+      - Viele einheimische Wildblumen und alpine Pflanzen.
+      - Obstbaeume: Apfel, Birne, Kirsche (Kerne brauchen Stratifikation).
+      Kuehlschrank-Methode (kuenstliche Stratifikation):
+      1. Samen in feuchtes (nicht nasses) Substrat einbetten — Kokoserde,
+         Vermiculit oder feuchtes Kuechenpapier.
+      2. In verschliessbaren Plastikbeutel oder Dose geben.
+      3. In den Kuehlschrank stellen (4-5 Grad, Gemuese-Fach).
+      4. Dauer: Je nach Art 2-12 Wochen (auf der Samentuete nachschauen).
+         Lavendel: 3-4 Wochen. Baerlauch: 6-8 Wochen.
+      5. Regelmaessig kontrollieren: Substrat feucht halten, auf Schimmel
+         pruefen. Bei Schimmel: betroffene Stellen entfernen, Behaelter
+         oeffnen und lueften.
+      6. Nach der Kaelteperiode: Samen bei Zimmertemperatur aussaeen.
+      Wichtig: Nicht alle Samen, die "schwer keimen", brauchen
+      Stratifikation. Manche haben harte Schalen und brauchen stattdessen
+      Skarifikation (anritzen). Beispiel: Prunkwinde, Lupine — ueber
+      Nacht in lauwarmes Wasser einweichen oder Schale vorsichtig
+      anfeilen.
+    metadata:
+      topic: stratification
+      difficulty: moderate
+      method: cold_stratification
+      temperature_celsius: 4
+
+  - id: pikieren
+    title: Pikieren — Saemlinge vereinzeln und staerken
+    content: |
+      Was bedeutet Pikieren und wann mache ich das? Pikieren heisst,
+      dicht stehende Saemlinge in einzelne Toepfe oder groessere
+      Abstaende umzusetzen. Das gibt jeder Jungpflanze genug Platz
+      fuer Wurzel- und Blattentwicklung.
+      Wann pikieren?
+      - Wenn die Saemlinge das erste echte Blattpaar (nach den
+        Keimblaettern) gebildet haben. Das ist je nach Art 1-3 Wochen
+        nach der Keimung.
+      - Nicht zu lange warten — wenn die Wurzeln sich verfilzen, ist
+        das Vereinzeln stressiger fuer die Pflanzen.
+      So geht's:
+      1. Substrat in den neuen Toepfen (7-9 cm) vorbereiten und
+         anfeuchten.
+      2. Mit einem Pikierstab (oder Bleistift, Esstaebchen) ein Loch
+         in das neue Substrat druecken.
+      3. Saemling vorsichtig mit dem Pikierstab aus der Saatschale
+         hebeln — am Keimblatt anfassen, NIE am Stengel! Ein
+         beschaedigter Stengel ist toedlich, ein verlorenes Keimblatt
+         waechst nach.
+      4. Wurzel kontrollieren: Ist die Hauptwurzel sehr lang, kannst
+         du sie um ein Drittel einkuerzen (Wurzelschnitt). Das regt
+         die Bildung von Seitenwurzeln an und ergibt ein kompakteres
+         Wurzelsystem. Bei Tomaten ist Wurzelschnitt beim Pikieren
+         ueblich und empfehlenswert.
+      5. Saemling bis zu den Keimblaettern einsetzen (etwas tiefer als
+         vorher) — am vergrabenen Stengel bilden sich Zusatzwurzeln,
+         besonders bei Tomaten.
+      6. Substrat leicht andruecken, vorsichtig angiessen.
+      7. Erste 2-3 Tage: Halbschatten, keine direkte Sonne. Danach
+         schrittweise an den Standort gewoehnen.
+      Welche Pflanzen werden NICHT pikiert?
+      Kuerbisgewaechse (Gurke, Kuerbis, Zucchini, Melone) und Bohnen
+      vertragen kein Pikieren — sie reagieren empfindlich auf
+      Wurzelstoerungen. Diese immer direkt einzeln aussaeen.
+    metadata:
+      topic: pricking_out
+      difficulty: easy
+      timing: first_true_leaves

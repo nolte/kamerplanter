@@ -1,0 +1,158 @@
+---
+title: "Obstbaum-Grundpflege — Von der Pflanzung bis zur Ernte"
+language: de
+category: pflege
+tags: [obstbaum, apfel, birne, kirsche, pflaume, pflanzung, duengung, krankheiten, ernte]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: obstbaum-pflanzung
+    title: "Obstbaum — Pflanzung richtig gemacht"
+    content: |
+      Die beste Pflanzzeit fuer Obstbaeume ist der Herbst (Oktober bis
+      November). Der Boden ist noch warm, die Wurzeln wachsen bis zum
+      Winter ein. Frühjahrspflanzung (Maerz bis April) ist moeglich,
+      erfordert aber intensivere Bewässerung im ersten Sommer.
+
+      Pflanzloch: Mindestens doppelt so breit und 1,5-mal so tief wie
+      der Wurzelballen. Den Aushub mit reifem Kompost mischen (1:3
+      Kompost zu Erde). Keine frische Duengung ins Pflanzloch —
+      Hornspane sind in Ordnung, Mist verbrennt die Wurzeln.
+
+      Veredelungsstelle: Bei veredelten Baeumen muss die Veredelungs-
+      stelle (erkennbar als Verdickung am Stamm) 10 cm ueber der
+      Erdoberfläche bleiben. Wird sie eingegraben, treibt der Edelreis
+      eigene Wurzeln und die Unterlage verliert ihre Wirkung (Wuchskontrolle).
+
+      Stuetzpfahl: Immer einen Pfahl setzen — auf der Westseite
+      (Hauptwindrichtung). Pfahl vor dem Baum einschlagen, damit die
+      Wurzeln nicht beschaedigt werden. Mit Kokosstrick oder
+      Baumanbinder befestigen, nicht mit Draht (schneidet in die Rinde).
+
+      Giessrand: Einen 5 cm hohen Erdwall im Radius von 50 cm um den
+      Stamm formen. Beim Giessen laeuft das Wasser nicht weg, sondern
+      versickert direkt an den Wurzeln. Im ersten Jahr 20 bis 30 Liter
+      pro Woche bei Trockenheit.
+
+      Baumscheibe: Den Bereich unter der Krone frei von Gras halten
+      (mindestens 1 Meter Radius). Gras konkurriert stark um Wasser
+      und Naehrstoffe. Mulchen mit Holzhackschnitzeln oder Kompost
+      ist ideal.
+    metadata:
+      topic: fruit_tree_care
+      subtopic: planting
+      difficulty: beginner
+
+  - id: obstbaum-jahreszeitpflege
+    title: "Obstbaum — Pflege im Jahresverlauf"
+    content: |
+      Fruehling (Maerz bis Mai): Hauptduengung mit Kompost (3 bis 5
+      Liter pro Quadratmeter Kronentraufbereich) und Hornspane (80 bis
+      100 g pro Baum). Kaliumbetonter Duenger foerdert Fruchtbildung.
+      Baumscheibe von Unkraut befreihalten und frisch mulchen.
+      Bluetezeit: Nicht spritzen — Bienen schuetzen.
+
+      Sommer (Juni bis August): Fruchtausdunnung im Juni — bei Apfel
+      und Birne ueberzaehlige Fruechte entfernen, sodass pro Fruchtbueschel
+      nur 1 bis 2 Fruechte verbleiben (Handbreit Abstand zwischen den
+      Fruechten). Ohne Ausdunnung: kleine Fruechte, Alternanz (nur
+      jedes zweite Jahr Ertrag) und Astbruch. Sommerschnitt bei Bedarf:
+      Wasserschosse entfernen. Bewässerung in Trockenperioden: 40 bis
+      60 Liter pro Baum und Woche.
+
+      Herbst (September bis November): Ernte — Fruechte pflücken, wenn
+      sie sich leicht vom Ast loesen. Fallobst taeglich aufsammeln
+      (verhindert Schorfbefall). Kaliumduenger (50 g Kalimagnesia pro
+      Baum) staerkt die Frosthärte. Leimringe gegen Frostspanner-
+      Weibchen anbringen (September bis Oktober).
+
+      Winter (Dezember bis Februar): Hauptschnittzeit fuer Kernobst
+      (Apfel, Birne). Nicht bei Frost unter minus 5 Grad schneiden.
+      Stammschutz: Kalkanstrich gegen Frostrisse auftragen. Baumscheibe
+      mit Laub oder Stroh abdecken bei jungen Baeumen. Leimringe
+      kontrollieren und bei Bedarf erneuern.
+    metadata:
+      topic: fruit_tree_care
+      subtopic: seasonal_care
+      difficulty: beginner
+
+  - id: obstbaum-duengung
+    title: "Obstbaum — Duengung und Naehrstoffversorgung"
+    content: |
+      Obstbaeume sind Mittelzehrer und brauchen regelmaessige, aber
+      nicht uebertriebene Duengung. Ueberduengung fuehrt zu weichem,
+      krankheitsanfaelligem Wachstum und schlechterer Fruchtqualitaet.
+
+      Organische Grundduengung (Fruehling): 3 bis 5 Liter reifer Kompost
+      pro Quadratmeter Kronentraufbereich flach einarbeiten oder als
+      Mulch ausbringen. Dazu 80 bis 120 g Hornspane pro Baum fuer
+      langsame Stickstofffreisetzung.
+
+      Kali-Duengung (Herbst): 40 bis 60 g Kalimagnesia (Patentkali)
+      pro Baum im September/Oktober. Kalium foerdert Frosthärte,
+      Fruchtqualitaet und Haltbarkeit. Besonders wichtig fuer
+      Lageraepfel.
+
+      Stickstoff dosiert einsetzen: Zu viel Stickstoff bewirkt starkes
+      Triebwachstum auf Kosten der Fruchtbildung und macht den Baum
+      anfaellig fuer Pilzkrankheiten (besonders Schorf und Mehltau).
+      Faustregel: Ein Baum, der gut traegt und gesundes Laub hat,
+      braucht keinen zusaetzlichen Stickstoff.
+
+      Mulch als Dauerduengung: Eine permanente Mulchschicht aus
+      Holzhackschnitzeln (5 bis 10 cm) oder Rasenschnitt versorgt
+      den Baum langfristig. Achtung bei frischem Holzhackschnitzel:
+      Stickstoff-Fixierung in den ersten Monaten — mit Hornspane
+      ausgleichen.
+
+      Jungbaeume (Jahr 1 bis 3): Zurueckhaltend duengen. Im ersten
+      Jahr nur Kompost, keine Mineraldünger. Ziel ist zuerst ein
+      starkes Wurzelsystem, nicht schnelles Wachstum.
+
+      Bodenanalyse: Alle 3 bis 5 Jahre eine Bodenprobe ans Labor
+      schicken. Kostet 20 bis 40 Euro und zeigt exakt, was fehlt
+      oder im Ueberschuss vorhanden ist. Gezielt duengen statt
+      pauschal ist effektiver und umweltschonender.
+    metadata:
+      topic: fruit_tree_care
+      subtopic: fertilization
+      difficulty: intermediate
+
+  - id: obstbaum-krankheiten
+    title: "Obstbaum — Haeufige Krankheiten erkennen"
+    content: |
+      Schorf (Venturia inaequalis bei Apfel, V. pirina bei Birne):
+      Haeufigste Pilzkrankheit. Olivgruene bis braeunliche, samtige
+      Flecken auf Blaettern und Fruechten. Fruechte werden rissig und
+      unfoermig. Vorbeugung: Resistente Sorten waehlen (Topaz, Florina,
+      Rewena). Laub im Herbst entfernen — der Pilz ueberwintert darauf.
+      Baumkrone offen halten fuer gute Durchlueftung.
+
+      Monilia (Monilinia fructigena und M. laxa): Zwei Formen.
+      Spitzendürre: Triebspitzen und Blueten welken und vertrocknen
+      (braun, gekruemmt). Fruchtfaeule: Konzentrische Schimmelringe
+      auf reifen Fruechten, Frucht mumifiziert. Betroffene Triebe 20 cm
+      ins gesunde Holz zurueckschneiden. Fruchtmumien komplett entfernen —
+      nicht auf dem Boden liegen lassen.
+
+      Feuerbrand (Erwinia amylovora): Meldepflichtige Bakterien-
+      krankheit. Blaetter und Triebe sehen aus wie verbrannt, typischer
+      Hirtenstab-Trieb (gekruemmte Triebspitze). Befaellt vor allem
+      Apfel, Birne, Quitte und Weissdorn. Grosszuegig zurueckschneiden
+      (50 cm ins gesunde Holz), Werkzeug zwischen jedem Schnitt
+      desinfizieren (70-prozentiger Alkohol). Bei starkem Befall
+      Pflanzenschutzamt informieren.
+
+      Krebs (Neonectria ditissima): Eingesunkene, rissige Stellen
+      an Aesten und Stamm mit orangefarbenen Sporenkissen. Befallene
+      Stellen grosszuegig ausschneiden. Wundverschluss auftragen.
+      Nasse, schwere Boeden und Stickstoff-Ueberduengung foerdern
+      den Befall.
+
+      Vorbeugung allgemein: Offene, luftige Krone (Licht und Wind
+      trocknen Blaetter schneller ab), ausgewogene Duengung,
+      resistente Sorten, Falllaub und Fruchtmumien konsequent entfernen.
+    metadata:
+      topic: fruit_tree_care
+      subtopic: diseases
+      difficulty: intermediate
