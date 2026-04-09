@@ -16,7 +16,7 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined';
 import PlaceIcon from '@mui/icons-material/Place';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import type { ExperienceLevel, Site, SiteType } from '@/api/types';
@@ -87,7 +87,7 @@ export default function SiteSetupStep({
       data-testid="onboarding-step-site"
       sx={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 2.5 }}
     >
-      <Typography variant="subtitle1" fontWeight={600}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
         {t('pages.onboarding.site.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary">
@@ -188,11 +188,11 @@ export default function SiteSetupStep({
                   type="number"
                   value={tapWaterEc}
                   onChange={(e) => onTapWaterEcChange(e.target.value)}
-                  inputProps={{ step: 0.01, min: 0, max: 2.0, inputMode: 'decimal' }}
-                  helperText={t('pages.onboarding.tapWaterEcHelper')}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">mS/cm</InputAdornment>,
+                  slotProps={{
+                    htmlInput: { step: 0.01, min: 0, max: 2.0, inputMode: 'decimal' },
+                    input: { endAdornment: <InputAdornment position="end">mS/cm</InputAdornment> },
                   }}
+                  helperText={t('pages.onboarding.tapWaterEcHelper')}
                   data-testid="onboarding-tap-ec"
                 />
                 <TextField
@@ -200,7 +200,7 @@ export default function SiteSetupStep({
                   type="number"
                   value={tapWaterPh}
                   onChange={(e) => onTapWaterPhChange(e.target.value)}
-                  inputProps={{ step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' }}
+                  slotProps={{ htmlInput: { step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' } }}
                   helperText={t('pages.onboarding.tapWaterPhHelper')}
                   data-testid="onboarding-tap-ph"
                 />

@@ -12,7 +12,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type { WaterMixRecommendation } from '@/api/endpoints/nutrient-plans';
@@ -95,7 +95,7 @@ export default function WaterMixRecommendationBox({
               {rec.reasoning}
             </Typography>
 
-            <Stack direction="row" spacing={1} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 1 }} useFlexGap>
               <Chip
                 label={`EC ${rec.effective_ec_ms.toFixed(2)} mS/cm`}
                 size="small"
@@ -138,10 +138,10 @@ export default function WaterMixRecommendationBox({
 
             {rec.alternatives.length > 0 && (
               <Box sx={{ mb: 1 }}>
-                <Typography variant="body2" fontWeight="medium" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 0.5 }}>
                   {t('pages.nutrientPlans.waterMix.alternatives')}
                 </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                   {rec.alternatives.map((alt) => (
                     <Tooltip key={alt.ro_percent} title={alt.trade_off}>
                       <Chip

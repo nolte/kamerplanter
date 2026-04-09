@@ -258,21 +258,23 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                 loading={loadingPlants}
                 value={plants.find((p) => p.key === field.value) ?? null}
                 onChange={(_, value) => field.onChange(value?.key ?? null)}
-                renderInput={(params) => (
+                renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
                   <TextField
                     {...params}
                     label={t('pages.tasks.plant')}
                     sx={{ mb: 2 }}
                     slotProps={{
                       input: {
-                        ...params.InputProps,
+                        ...MuiInputProps,
                         endAdornment: (
                           <>
                             {loadingPlants && <CircularProgress size={16} />}
-                            {params.InputProps.endAdornment}
+                            {MuiInputProps?.endAdornment}
                           </>
                         ),
                       },
+                      htmlInput: muiInputProps,
+                      inputLabel: muiInputLabelProps,
                     }}
                     data-testid="form-field-entity_key"
                   />
@@ -310,10 +312,10 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                   options={[]}
                   value={field.value}
                   onChange={(_, value) => field.onChange(value)}
-                  renderTags={(value, getTagProps) =>
+                  renderValue={(value: string[], getItemProps) =>
                     value.map((tag, idx) => (
                       <Chip
-                        {...getTagProps({ index: idx })}
+                        {...getItemProps({ index: idx })}
                         key={tag}
                         label={tag}
                         size="small"

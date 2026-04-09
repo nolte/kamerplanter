@@ -457,10 +457,7 @@ export default function WorkflowInstantiateDialog({
                   <Box sx={{ width: '100%' }}>
                     <Stack
                       direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      flexWrap="wrap"
-                    >
+                      spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {run.name}
                       </Typography>
@@ -502,10 +499,7 @@ export default function WorkflowInstantiateDialog({
                   <Box sx={{ width: '100%' }}>
                     <Stack
                       direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      flexWrap="wrap"
-                    >
+                      spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {plant.plant_name
                           ? `${plant.instance_id} - ${plant.plant_name}`
@@ -545,7 +539,7 @@ export default function WorkflowInstantiateDialog({
             // tank
             return (
               <li key={liKey} {...restProps}>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography variant="body1" sx={{ fontWeight: 500 }}>
                     {option.tank.name}
                   </Typography>
@@ -558,7 +552,7 @@ export default function WorkflowInstantiateDialog({
               </li>
             );
           }}
-          renderInput={(params) => (
+          renderInput={({ InputProps: MuiInputProps, inputProps: muiInputProps, InputLabelProps: muiInputLabelProps, ...params }) => (
             <TextField
               {...params}
               label={inputLabel}
@@ -566,14 +560,16 @@ export default function WorkflowInstantiateDialog({
               sx={{ mb: 2 }}
               slotProps={{
                 input: {
-                  ...params.InputProps,
+                  ...MuiInputProps,
                   endAdornment: (
                     <>
                       {loading && <CircularProgress size={16} />}
-                      {params.InputProps.endAdornment}
+                      {MuiInputProps?.endAdornment}
                     </>
                   ),
                 },
+                htmlInput: muiInputProps,
+                inputLabel: muiInputLabelProps,
               }}
               data-testid="target-select"
             />

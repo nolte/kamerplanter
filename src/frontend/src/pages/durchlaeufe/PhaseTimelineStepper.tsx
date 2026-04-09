@@ -139,7 +139,7 @@ export default function PhaseTimelineStepper({ runKey }: Props) {
               {tl.phases.map((phase) => (
                 <Step key={phase.phase_key} completed={phase.status === 'completed'}>
                   <StepLabel
-                    StepIconComponent={() => <PhaseStepIcon status={phase.status} />}
+                    slots={{ stepIcon: () => <PhaseStepIcon status={phase.status} /> }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {PHASE_IMAGES[phase.phase_name.toLowerCase()] && (

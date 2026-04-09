@@ -133,7 +133,7 @@ export default function CalculationsPage() {
                 onChange={(e) => setVpdHumidity(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: 0, max: 100 }}
+                slotProps={{ htmlInput: { min: 0, max: 100 } }}
               />
               <Button variant="contained" onClick={calcVpd} fullWidth>
                 {t('pages.calculations.calculate')}
@@ -188,9 +188,9 @@ export default function CalculationsPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>{t('pages.calculations.photoperiod')}</Typography>
-              <TextField type="number" label={t('pages.calculations.currentHours')} value={ppCurrent} onChange={(e) => setPpCurrent(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 0, max: 24 }} />
-              <TextField type="number" label={t('pages.calculations.targetHours')} value={ppTarget} onChange={(e) => setPpTarget(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 0, max: 24 }} />
-              <TextField type="number" label={t('pages.calculations.transitionDays')} value={ppDays} onChange={(e) => setPpDays(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 1 }} />
+              <TextField type="number" label={t('pages.calculations.currentHours')} value={ppCurrent} onChange={(e) => setPpCurrent(Number(e.target.value))} fullWidth sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 0, max: 24 } }} />
+              <TextField type="number" label={t('pages.calculations.targetHours')} value={ppTarget} onChange={(e) => setPpTarget(Number(e.target.value))} fullWidth sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 0, max: 24 } }} />
+              <TextField type="number" label={t('pages.calculations.transitionDays')} value={ppDays} onChange={(e) => setPpDays(Number(e.target.value))} fullWidth sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 1 } }} />
               <TextField
                 type="time"
                 label={t('pages.calculations.lightsOnTime')}
@@ -198,7 +198,7 @@ export default function CalculationsPage() {
                 onChange={(e) => setPpLightsOn(e.target.value)}
                 fullWidth
                 sx={{ mb: 2 }}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <Button variant="contained" onClick={calcPhotoperiod} fullWidth>
                 {t('pages.calculations.calculate')}
@@ -234,8 +234,8 @@ export default function CalculationsPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>{t('pages.calculations.slotCapacity')}</Typography>
-              <TextField type="number" label={t('pages.calculations.areaMsq')} value={scArea} onChange={(e) => setScArea(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 0.1 }} />
-              <TextField type="number" label={t('pages.calculations.plantSpacing')} value={scSpacing} onChange={(e) => setScSpacing(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 1 }} />
+              <TextField type="number" label={t('pages.calculations.areaMsq')} value={scArea} onChange={(e) => setScArea(Number(e.target.value))} fullWidth sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 0.1 } }} />
+              <TextField type="number" label={t('pages.calculations.plantSpacing')} value={scSpacing} onChange={(e) => setScSpacing(Number(e.target.value))} fullWidth sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 1 } }} />
               <Button variant="contained" onClick={calcCapacity} fullWidth>
                 {t('pages.calculations.calculate')}
               </Button>
@@ -262,7 +262,7 @@ export default function CalculationsPage() {
                 onChange={(e) => setSunLat(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: -90, max: 90, step: 0.01 }}
+                slotProps={{ htmlInput: { min: -90, max: 90, step: 0.01 } }}
               />
               <TextField
                 type="number"
@@ -271,7 +271,7 @@ export default function CalculationsPage() {
                 onChange={(e) => setSunLon(Number(e.target.value))}
                 fullWidth
                 sx={{ mb: 2 }}
-                inputProps={{ min: -180, max: 180, step: 0.01 }}
+                slotProps={{ htmlInput: { min: -180, max: 180, step: 0.01 } }}
               />
               <TextField
                 type="date"
@@ -280,7 +280,7 @@ export default function CalculationsPage() {
                 onChange={(e) => setSunDate(e.target.value)}
                 fullWidth
                 sx={{ mb: 2 }}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
                 label={t('pages.sites.timezone')}

@@ -444,9 +444,7 @@ export default function BotanicalFamilyDetailPage() {
             >
               <ListItemText
                 primary={s.scientific_name}
-                secondary={s.common_names.join(', ') || undefined}
-                primaryTypographyProps={{ variant: 'body2' }}
-              />
+                secondary={s.common_names.join(', ') || undefined} slotProps={{ primary: { variant: 'body2' } }} />
               <ParkIcon fontSize="small" sx={{ color: 'text.disabled', ml: 1 }} />
             </ListItemButton>
           ))}

@@ -587,19 +587,19 @@ export default function TankDetailPage() {
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">{t('pages.tanks.tankType')}</Typography>
-                  <Typography variant="body2" fontWeight={500}>{t(`enums.tankType.${tank.tank_type}`)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{t(`enums.tankType.${tank.tank_type}`)}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">{t('pages.tanks.volumeLiters')}</Typography>
-                  <Typography variant="body2" fontWeight={500}>{tank.volume_liters} L</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{tank.volume_liters} L</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">{t('pages.tanks.material')}</Typography>
-                  <Typography variant="body2" fontWeight={500}>{t(`enums.tankMaterial.${tank.material}`)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{t(`enums.tankMaterial.${tank.material}`)}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">{t('pages.tanks.site')} / {t('pages.tanks.location')}</Typography>
-                  <Typography variant="body2" fontWeight={500}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {selectedSiteKey ? (
                       <>
                         <MuiLink component={RouterLink} to={`/standorte/sites/${selectedSiteKey}`} underline="hover">
@@ -630,7 +630,7 @@ export default function TankDetailPage() {
                 ].filter(Boolean);
                 return equipChips.length > 0 ? (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       {t('pages.tanks.equipment')}
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -641,7 +641,7 @@ export default function TankDetailPage() {
               })()}
               {tank.notes && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     {t('pages.tanks.notes')}
                   </Typography>
                   <Typography variant="body2">{tank.notes}</Typography>
@@ -700,7 +700,7 @@ export default function TankDetailPage() {
                               <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
                             </Tooltip>
                           </Box>
-                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                          <Typography variant="h5" color={`${status}.main`} sx={{ fontWeight: 700 }}>
                             {latestState.ph}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">5.5–6.5</Typography>
@@ -727,7 +727,7 @@ export default function TankDetailPage() {
                               <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
                             </Tooltip>
                           </Box>
-                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                          <Typography variant="h5" color={`${status}.main`} sx={{ fontWeight: 700 }}>
                             {latestState.ec_ms}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">mS/cm</Typography>
@@ -748,10 +748,10 @@ export default function TankDetailPage() {
                             bgcolor: 'background.paper',
                           }}
                         >
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                             {t('pages.tanks.waterTempShort')}
                           </Typography>
-                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                          <Typography variant="h5" color={`${status}.main`} sx={{ fontWeight: 700 }}>
                             {latestState.water_temp_celsius}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">°C &nbsp;(18–22)</Typography>
@@ -770,10 +770,10 @@ export default function TankDetailPage() {
                           bgcolor: 'background.paper',
                         }}
                       >
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                           {t('pages.tanks.fillLevel')}
                         </Typography>
-                        <Typography variant="h5" fontWeight={700}>
+                        <Typography variant="h5" sx={{ fontWeight: 700 }}>
                           {latestState.fill_level_percent}%
                         </Typography>
                         {latestState.fill_level_liters != null && (
@@ -801,7 +801,7 @@ export default function TankDetailPage() {
                               <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
                             </Tooltip>
                           </Box>
-                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                          <Typography variant="h5" color={`${status}.main`} sx={{ fontWeight: 700 }}>
                             {latestState.dissolved_oxygen_mgl}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">mg/L &nbsp;(5–8)</Typography>
@@ -826,7 +826,7 @@ export default function TankDetailPage() {
                             <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
                           </Tooltip>
                         </Box>
-                        <Typography variant="h5" fontWeight={700}>
+                        <Typography variant="h5" sx={{ fontWeight: 700 }}>
                           {latestState.orp_mv}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">mV &nbsp;(300–500)</Typography>

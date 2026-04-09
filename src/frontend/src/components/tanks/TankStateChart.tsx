@@ -63,7 +63,7 @@ function CustomTooltip({
         boxShadow: 2,
       }}
     >
-      <Typography variant="caption" display="block" sx={{ mb: 0.5, color: 'text.secondary' }}>
+      <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>
         {d.format('DD.MM.YYYY HH:mm')}
       </Typography>
       {payload.map((p) => (

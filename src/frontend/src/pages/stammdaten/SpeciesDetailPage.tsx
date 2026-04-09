@@ -858,7 +858,7 @@ export default function SpeciesDetailPage() {
                               </Link>
                             }
                             secondary={c.reason || undefined}
-                            secondaryTypographyProps={{ variant: 'caption' }}
+                            slotProps={{ secondary: { variant: 'caption' } }}
                           />
                         </ListItem>
                       ))}
@@ -904,7 +904,7 @@ export default function SpeciesDetailPage() {
                   onChange={(e) => setCompanionScore(Number(e.target.value))}
                   fullWidth
                   helperText={t('pages.companionPlanting.scoreHelper')}
-                  inputProps={{ min: 0, max: 1, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 1, step: 0.1 } }}
                   data-testid="score-input"
                 />
               )}
@@ -1043,7 +1043,7 @@ export default function SpeciesDetailPage() {
                         >
                           <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.25, '&:last-child': { pb: 1.25 } }}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body1" color="text.primary" fontWeight={500}>
+                              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
                                 {s.name ?? s.family_key}
                               </Typography>
                               {s.benefit_reason && (
@@ -1097,7 +1097,7 @@ export default function SpeciesDetailPage() {
                     onChange={(e) => setRotationWaitYears(Number(e.target.value))}
                     fullWidth
                     helperText={t('pages.cropRotation.waitYearsHelper')}
-                    inputProps={{ min: 1, max: 10 }}
+                    slotProps={{ htmlInput: { min: 1, max: 10 } }}
                     data-testid="wait-years-input"
                   />
                 </DialogContent>

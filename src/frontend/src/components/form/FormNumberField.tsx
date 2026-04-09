@@ -60,8 +60,10 @@ export default function FormNumberField<T extends FieldValues>({
           fullWidth
           autoFocus={autoFocus}
           sx={{ mb: 2 }}
-          inputProps={{ min, max, step: step ?? 'any', inputMode: inputMode ?? 'decimal' }}
-          InputProps={adornment ? { endAdornment: adornment } : undefined}
+          slotProps={{
+            htmlInput: { min, max, step: step ?? 'any', inputMode: inputMode ?? 'decimal' },
+            ...(adornment ? { input: { endAdornment: adornment } } : {}),
+          }}
           data-testid={`form-field-${name}`}
         />
       )}

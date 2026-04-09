@@ -76,7 +76,7 @@ function EcBudgetBar({ budget, targetEc }: { budget: EcBudgetSummary; targetEc: 
   return (
     <Box sx={{ mb: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="body2" fontWeight="medium">
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {t('pages.nutrientPlans.dosageCalc.ecBudget')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -228,7 +228,7 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
               {result.dosages.map((d, i) => (
                 <TableRow key={i}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                       {d.product_name}
                     </Typography>
                   </TableCell>
@@ -443,7 +443,7 @@ export default function DosageCalculatorTab({ plan, entries }: Props) {
       {/* Site selection */}
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="subtitle1" fontWeight="medium" sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>
             {t('pages.nutrientPlans.dosageCalc.selectSite')}
           </Typography>
           <Autocomplete
@@ -535,7 +535,7 @@ export default function DosageCalculatorTab({ plan, entries }: Props) {
               >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', width: '100%' }}>
-                    <Typography variant="subtitle2" fontWeight="bold">
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                       {t(`enums.phaseName.${entry.phase_name}`)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -626,7 +626,7 @@ export default function DosageCalculatorTab({ plan, entries }: Props) {
                               calculateForPhase(entry.key, entry.sequence_order);
                             }
                           }}
-                          inputProps={{ min: 0.1, max: 10000, step: 'any' }}
+                          slotProps={{ htmlInput: { min: 0.1, max: 10000, step: 'any' } }}
                           sx={{ width: 160 }}
                           data-testid={`dosage-volume-${entry.sequence_order}`}
                         />

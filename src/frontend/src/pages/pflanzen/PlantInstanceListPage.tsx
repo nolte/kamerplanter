@@ -144,14 +144,14 @@ export default function PlantInstanceListPage() {
             arrow
             title={
               <Box>
-                <Typography variant="caption" display="block">
+                <Typography variant="caption" sx={{ display: 'block' }}>
                   <strong>{t('entities.species')}:</strong> {species.common_names[0] ?? species.scientific_name}
                 </Typography>
-                <Typography variant="caption" display="block" sx={{ fontStyle: 'italic' }}>
+                <Typography variant="caption" sx={{ display: 'block', fontStyle: 'italic' }}>
                   {species.scientific_name}
                 </Typography>
                 {cultivar && (
-                  <Typography variant="caption" display="block">
+                  <Typography variant="caption" sx={{ display: 'block' }}>
                     <strong>{t('entities.cultivar')}:</strong> {cultivar.name}
                   </Typography>
                 )}

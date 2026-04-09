@@ -120,7 +120,7 @@ export default function SummaryStep({
             }}
           >
             <SummaryRow label={t('pages.onboarding.experienceLevel')}>
-              <Typography variant="body2" fontWeight={600}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {t(`enums.experienceLevel.${experienceLevel}`)}
               </Typography>
             </SummaryRow>
@@ -128,7 +128,7 @@ export default function SummaryStep({
             {selectedKit && (
               <SummaryRow label={t('pages.onboarding.selectKit')}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {getKitName(selectedKit)}
                   </Typography>
                   <Chip
@@ -143,7 +143,7 @@ export default function SummaryStep({
             {selectedSite ? (
               <SummaryRow label={t('pages.onboarding.siteName')}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {selectedSite.name}
                   </Typography>
                   <Chip
@@ -157,7 +157,7 @@ export default function SummaryStep({
               <>
                 <SummaryRow label={t('pages.onboarding.siteType')}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {t(`enums.siteType.${siteType}`)}
                     </Typography>
                     <Chip
@@ -171,7 +171,7 @@ export default function SummaryStep({
 
                 {siteName && (
                   <SummaryRow label={t('pages.onboarding.siteName')}>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {siteName}
                     </Typography>
                   </SummaryRow>
@@ -180,7 +180,7 @@ export default function SummaryStep({
             )}
 
             <SummaryRow label={t('pages.onboarding.plantCount')}>
-              <Typography variant="body2" fontWeight={600}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {plantCount}
               </Typography>
             </SummaryRow>
@@ -210,7 +210,7 @@ export default function SummaryStep({
                     }}
                   >
                     <YardIcon fontSize="small" sx={{ color: 'success.main' }} aria-hidden="true" />
-                    <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }} noWrap>
+                    <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>
                       {getSpeciesName(c.species_key)}
                     </Typography>
                     <Chip
@@ -256,7 +256,7 @@ export default function SummaryStep({
                   <SummaryRow label={t('pages.onboarding.favoritesCount')}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <StarIcon fontSize="small" sx={{ color: 'warning.main' }} aria-hidden="true" />
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {t('pages.onboarding.summary.speciesCount', { count: favoriteSpeciesCount })}
                       </Typography>
                     </Box>
@@ -267,7 +267,7 @@ export default function SummaryStep({
                   <SummaryRow label={t('entities.nutrientPlans')}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <ScienceIcon fontSize="small" sx={{ color: 'warning.main' }} aria-hidden="true" />
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {t('pages.onboarding.summary.planCount', { count: favoriteNutrientPlanCount })}
                       </Typography>
                     </Box>
