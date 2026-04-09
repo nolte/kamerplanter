@@ -21,7 +21,7 @@ Du bist ein erfahrener Home Assistant Integration-Entwickler mit tiefem Wissen u
    - Beachte besonders die URL-Struktur: `/api/v1/...` (global) vs. `/api/v1/t/{tenant_slug}/...` (tenant-scoped)
 
 2. **HA-Integration API-Client analysieren:**
-   - Lies `src/ha-integration/custom_components/kamerplanter/api.py`
+   - Lies `custom_components/kamerplanter/api.py`
    - Erfasse alle API-Methoden und deren aufgerufene Endpunkte
    - Pruefe ob `_tenant_prefix` korrekt verwendet wird (tenant-scoped vs. global)
 
@@ -135,10 +135,10 @@ Nach Abschluss der Aenderungen deploye die Integration und verifiziere den Start
 
 ```bash
 # 1. Lint
-cd src/ha-integration && ruff check custom_components/ 2>&1 && ruff format --check custom_components/ 2>&1
+ruff check custom_components/kamerplanter/ 2>&1 && ruff format --check custom_components/ 2>&1
 
 # 2. Deploy (NICHT kubectl delete pod — InitContainer wuerde altes Image kopieren!)
-kubectl cp src/ha-integration/custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/
+kubectl cp custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/
 kubectl exec homeassistant-0 -n default -- rm -rf /config/custom_components/kamerplanter/__pycache__
 kubectl exec homeassistant-0 -n default -- kill 1
 
@@ -154,20 +154,20 @@ Fuehre Deploy ohne zu fragen aus. Bei Fehlern in den Logs: analysiere, behebe, d
 ## Referenz-Dateien
 
 ### HA-Integration (Arbeitsverzeichnis):
-- `src/ha-integration/custom_components/kamerplanter/api.py` — API-Client
-- `src/ha-integration/custom_components/kamerplanter/coordinator.py` — Coordinatoren
-- `src/ha-integration/custom_components/kamerplanter/sensor.py` — Sensor-Entities
-- `src/ha-integration/custom_components/kamerplanter/binary_sensor.py` — Binary Sensors
-- `src/ha-integration/custom_components/kamerplanter/calendar.py` — Calendar Entities
-- `src/ha-integration/custom_components/kamerplanter/todo.py` — Todo Entity
-- `src/ha-integration/custom_components/kamerplanter/button.py` — Button Entities
-- `src/ha-integration/custom_components/kamerplanter/__init__.py` — Setup + Services
-- `src/ha-integration/custom_components/kamerplanter/config_flow.py` — Config Flow
-- `src/ha-integration/custom_components/kamerplanter/const.py` — Konstanten
-- `src/ha-integration/custom_components/kamerplanter/services.yaml` — Service-Definitionen
-- `src/ha-integration/custom_components/kamerplanter/diagnostics.py` — Diagnostics
-- `src/ha-integration/custom_components/kamerplanter/strings.json` — Lokalisierung
-- `src/ha-integration/custom_components/kamerplanter/manifest.json` — Manifest
+- `custom_components/kamerplanter/api.py` — API-Client
+- `custom_components/kamerplanter/coordinator.py` — Coordinatoren
+- `custom_components/kamerplanter/sensor.py` — Sensor-Entities
+- `custom_components/kamerplanter/binary_sensor.py` — Binary Sensors
+- `custom_components/kamerplanter/calendar.py` — Calendar Entities
+- `custom_components/kamerplanter/todo.py` — Todo Entity
+- `custom_components/kamerplanter/button.py` — Button Entities
+- `custom_components/kamerplanter/__init__.py` — Setup + Services
+- `custom_components/kamerplanter/config_flow.py` — Config Flow
+- `custom_components/kamerplanter/const.py` — Konstanten
+- `custom_components/kamerplanter/services.yaml` — Service-Definitionen
+- `custom_components/kamerplanter/diagnostics.py` — Diagnostics
+- `custom_components/kamerplanter/strings.json` — Lokalisierung
+- `custom_components/kamerplanter/manifest.json` — Manifest
 
 ### Backend-API (Referenz — NUR lesen, NICHT aendern):
 - `src/backend/app/api/v1/router.py` — Router-Aggregation

@@ -216,11 +216,11 @@ skaffold dev -m ki --port-forward
 
 ## Home-Assistant-Integration
 
-Die HA-Custom-Component liegt unter `src/ha-integration/custom_components/kamerplanter/`. Sie wird **nicht** automatisch per Skaffold deployt, da sie in den HA-Pod kopiert werden muss:
+Die HA-Custom-Component liegt unter `custom_components/kamerplanter/`. Sie wird **nicht** automatisch per Skaffold deployt, da sie in den HA-Pod kopiert werden muss:
 
 ```bash
 # 1. Dateien in den Pod kopieren
-kubectl cp src/ha-integration/custom_components/kamerplanter/ \
+kubectl cp custom_components/kamerplanter/ \
   default/homeassistant-0:/config/custom_components/kamerplanter/
 
 # 2. Python-Cache löschen (wichtig! sonst lädt HA alten Bytecode)

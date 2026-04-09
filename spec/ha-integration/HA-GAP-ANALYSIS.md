@@ -9,7 +9,7 @@ Quellen:
   - HA-DEVELOPER-DOCS-RESEARCH.md (Agent 1)
   - LOVELACE-CARD-PATTERNS.md (Agent 2)
   - HA-DEVELOPER-PATTERNS.md (Agent 3)
-Analysiert: src/ha-integration/custom_components/kamerplanter/
+Analysiert: custom_components/kamerplanter/
 ```
 
 ---
@@ -718,7 +718,7 @@ async def async_setup_entry(hass, entry):
 
 ### GAP-038: `__pycache__` in Repository (NIEDRIG)
 
-**Ist-Zustand:** `src/ha-integration/custom_components/kamerplanter/__pycache__/` enthaelt `.pyc` Dateien.
+**Ist-Zustand:** `custom_components/kamerplanter/__pycache__/` enthaelt `.pyc` Dateien.
 
 **Fix:** Zu `.gitignore` hinzufuegen.
 

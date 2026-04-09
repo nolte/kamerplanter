@@ -62,9 +62,9 @@ Lies die folgenden Dokumente **bevor** du Code schreibst. Sie definieren den ver
 
 Analysiere den bestehenden Code als Referenz bevor du aenderst:
 
-- `src/ha-integration/custom_components/kamerplanter/` — Alle Python-Dateien
-- `src/ha-integration/www/` — Standalone Lovelace Cards
-- `src/ha-integration/custom_components/kamerplanter/www/` — Integration-gebundene Cards
+- `custom_components/kamerplanter/` — Alle Python-Dateien
+- `custom_components/kamerplanter/www/` — Standalone Lovelace Cards
+- `custom_components/kamerplanter/www/` — Integration-gebundene Cards
 
 ---
 
@@ -132,8 +132,8 @@ Jede Spezifikation enthaelt eine nummerierte Umsetzungsreihenfolge und Akzeptanz
 
 ### Phase 4: Validierung
 
-1. `ruff check src/ha-integration/` — Keine Linting-Fehler
-2. `ruff format --check src/ha-integration/` — Korrekte Formatierung
+1. `ruff check custom_components/kamerplanter/` — Keine Linting-Fehler
+2. `ruff format --check custom_components/kamerplanter/` — Korrekte Formatierung
 3. Akzeptanzkriterien aus der SPEC-Datei als Checkliste abarbeiten
 
 ---
@@ -149,7 +149,7 @@ Jede Spezifikation enthaelt eine nummerierte Umsetzungsreihenfolge und Akzeptanz
 
 ## Scope-Einschraenkungen
 
-- Du aenderst **nur** Dateien unter `src/ha-integration/`
+- Du aenderst **nur** Dateien unter `custom_components/kamerplanter/`
 - Du aenderst **keine** Backend-Dateien unter `src/backend/`
 - Du aenderst **keine** Frontend-Dateien unter `src/frontend/`
 - Wenn Backend-Bulk-Endpoints empfohlen werden (HA-SPEC-COORDINATOR §8), dokumentiere die Empfehlung aber implementiere sie nicht
@@ -165,8 +165,8 @@ Wiederhole die Schleife bis HA fehlerfrei startet (max 3 Iterationen, danach Use
 ### Schritt 1: Lint
 
 ```bash
-cd src/ha-integration && ruff check custom_components/ 2>&1; echo "EXIT:$?"
-cd src/ha-integration && ruff format --check custom_components/ 2>&1; echo "EXIT:$?"
+ruff check custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
+ruff format --check custom_components/kamerplanter/ 2>&1; echo "EXIT:$?"
 ```
 
 Bei Lint-Fehlern: sofort beheben, dann weiter.
@@ -175,7 +175,7 @@ Bei Lint-Fehlern: sofort beheben, dann weiter.
 
 ```bash
 # 1. Dateien kopieren
-kubectl cp src/ha-integration/custom_components/kamerplanter/ \
+kubectl cp custom_components/kamerplanter/ \
   default/homeassistant-0:/config/custom_components/kamerplanter/
 
 # 2. Bytecode-Cache loeschen (PFLICHT — sonst laedt HA alten Code!)

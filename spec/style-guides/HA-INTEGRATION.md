@@ -4,7 +4,7 @@
 > Basiert auf den offiziellen HA Developer Docs (Stand April 2026) und der Gap-Analyse (`spec/ha-integration/HA-GAP-ANALYSIS.md`).
 > Wird durch **ruff** (Linting), **pytest** (Tests) und **HACS-Validation** geprueft.
 
-**Scope:** `src/ha-integration/custom_components/kamerplanter/`
+**Scope:** `custom_components/kamerplanter/`
 
 **Referenzen:**
 - `spec/ha-integration/HA-DEVELOPER-DOCS-RESEARCH.md` — Integration Architecture
@@ -37,8 +37,8 @@ ignore = ["B008"]
 ### 1.2 CI-Pruefung
 
 ```bash
-ruff check src/ha-integration/
-ruff format --check src/ha-integration/
+ruff check custom_components/kamerplanter/
+ruff format --check custom_components/kamerplanter/
 pytest tests/ha-integration/ --cov=custom_components.kamerplanter --cov-report=term-missing
 ```
 
@@ -47,7 +47,7 @@ pytest tests/ha-integration/ --cov=custom_components.kamerplanter --cov-report=t
 ## 2. Verzeichnisstruktur
 
 ```
-src/ha-integration/
+custom_components/kamerplanter/
 ├── custom_components/kamerplanter/
 │   ├── __init__.py              # async_setup_entry, async_unload_entry, Services
 │   ├── api.py                   # REST-Client (KamerplanterApi dataclass)
@@ -834,7 +834,7 @@ from typing import Any, Final
 
 ```bash
 # 1. Dateien kopieren
-kubectl cp src/ha-integration/custom_components/kamerplanter/ \
+kubectl cp custom_components/kamerplanter/ \
   default/homeassistant-0:/config/custom_components/kamerplanter/
 
 # 2. Bytecode-Cache loeschen (PFLICHT)
