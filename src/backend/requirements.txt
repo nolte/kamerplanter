@@ -109,7 +109,7 @@ python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.24
+python-multipart==0.0.26
     # via kamerplanter-backend (pyproject.toml)
 pyyaml==6.0.3
     # via uvicorn
