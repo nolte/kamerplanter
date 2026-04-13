@@ -176,9 +176,6 @@ controllers:
               httpGet:
                 path: /_api/version
                 port: &arangodb-port 8529
-                httpHeaders:
-                  - name: Authorization
-                    value: Basic cm9vdDpyb290cGFzc3dvcmQ=
               initialDelaySeconds: 30
               periodSeconds: 10
               timeoutSeconds: 5
@@ -190,9 +187,6 @@ controllers:
               httpGet:
                 path: /_api/version
                 port: *arangodb-port
-                httpHeaders:
-                  - name: Authorization
-                    value: Basic cm9vdDpyb290cGFzc3dvcmQ=
               initialDelaySeconds: 15
               periodSeconds: 5
               timeoutSeconds: 3
