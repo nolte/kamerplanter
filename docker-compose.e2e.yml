@@ -135,7 +135,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:145.0
+    image: selenium/node-chrome:147.0
     depends_on:
       - selenium-hub
     environment:
