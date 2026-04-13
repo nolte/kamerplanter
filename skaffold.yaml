@@ -1,5 +1,5 @@
 # ── KP (Kamerplanter Core) ──────────────────────────────────────────
-# Backend, Frontend, Celery, ArangoDB, TimescaleDB, Valkey, HA
+# Backend, Frontend, Celery, ArangoDB, TimescaleDB, Valkey
 # Usage: skaffold dev -m kp
 apiVersion: skaffold/v4beta13
 kind: Config
@@ -31,19 +31,9 @@ build:
             dest: /app
           - src: "src/**/*.css"
             dest: /app
-    - image: kamerplanter-ha-integration
-      context: .
-      docker:
-        dockerfile: src/ha-integration/Dockerfile.dev
-
-manifests:
-  kustomize:
-    paths:
-      - deploy/ha
 
 deploy:
   statusCheckDeadlineSeconds: 1800
-  kubectl: {}
   helm:
     releases:
       - name: kamerplanter
@@ -65,11 +55,6 @@ deploy:
           valkey.dataStorage.keepPvc: true
 
 portForward:
-  - resourceType: service
-    resourceName: homeassistant
-    namespace: default
-    port: 8123
-    localPort: 8123
   - resourceType: service
     resourceName: kamerplanter-backend
     namespace: default
@@ -97,18 +82,18 @@ profiles:
       # Remove frontend build artifact (index 1)
       - op: remove
         path: /build/artifacts/1
-      # Remove frontend port forward (index 2: homeassistant=0, backend=1, frontend=2)
+      # Remove frontend port forward (index 1: backend=0, frontend=1)
       - op: remove
-        path: /portForward/2
+        path: /portForward/1
 
   - name: frontend-only
     patches:
       # Remove backend build artifact (index 0)
       - op: remove
         path: /build/artifacts/0
-      # Remove backend port forward (index 1: homeassistant=0, backend=1)
+      # Remove backend port forward (index 0: backend=0)
       - op: remove
-        path: /portForward/1
+        path: /portForward/0
 
   - name: debug
     patches:

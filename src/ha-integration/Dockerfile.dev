@@ -1,8 +1,0 @@
-FROM busybox:1.37.0
-
-LABEL org.opencontainers.image.title="kamerplanter-ha-integration" \
-      org.opencontainers.image.description="Kamerplanter Home Assistant custom integration" \
-      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
-      org.opencontainers.image.vendor="Kamerplanter" \
-      org.opencontainers.image.licenses="MIT"
-COPY custom_components/kamerplanter /ha-integration/custom_components/kamerplanter
