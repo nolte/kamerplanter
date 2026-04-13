@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
 
     # File uploads
-    upload_dir: str = "uploads/tasks"
+    upload_dir: str = "/data/uploads/tasks"
 
     # Home Assistant (optional — for sensor live-query)
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
