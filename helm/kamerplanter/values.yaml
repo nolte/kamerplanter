@@ -606,6 +606,15 @@ persistence:
         main:
           - path: /tmp
 
+  backend-uploads:
+    enabled: true
+    type: emptyDir
+    sizeLimit: 256Mi
+    advancedMounts:
+      backend:
+        main:
+          - path: /data/uploads
+
   backend-tmp:
     enabled: true
     type: emptyDir
