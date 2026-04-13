@@ -29,12 +29,13 @@ controllers:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+        envFrom:
+          - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
@@ -164,8 +165,9 @@ controllers:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-        env:
-          ARANGO_ROOT_PASSWORD: rootpassword
+        envFrom:
+          - secret: kamerplanter-secrets
+        env: {}
         probes:
           liveness:
             enabled: true
@@ -236,12 +238,13 @@ controllers:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+        envFrom:
+          - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
         probes:
           liveness:
@@ -285,12 +288,13 @@ controllers:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+        envFrom:
+          - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
         probes:
           liveness:
