@@ -31,8 +31,6 @@ controllers:
           DEBUG: "true"
           REQUIRE_EMAIL_VERIFICATION: "false"
           KAMERPLANTER_MODE: "light"
-          HA_URL: "http://homeassistant:8123"
-          HA_ACCESS_TOKEN: ""
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"
@@ -161,8 +159,6 @@ controllers:
           ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
-          HA_URL: "http://homeassistant:8123"
-          HA_ACCESS_TOKEN: ""
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"
@@ -406,23 +402,6 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
-        # Home Assistant (in-cluster)
-        - to:
-            - podSelector:
-                matchLabels:
-                  app.kubernetes.io/name: homeassistant
-          ports:
-            - protocol: TCP
-              port: 8123
-        # Home Assistant (external, e.g. DuckDNS on local network)
-        - to:
-            - ipBlock:
-                cidr: 0.0.0.0/0
-          ports:
-            - protocol: TCP
-              port: 8123
-            - protocol: TCP
-              port: 443
         # TimescaleDB
         - to:
             - podSelector:
@@ -492,23 +471,6 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
-        # Home Assistant (in-cluster)
-        - to:
-            - podSelector:
-                matchLabels:
-                  app.kubernetes.io/name: homeassistant
-          ports:
-            - protocol: TCP
-              port: 8123
-        # Home Assistant (external)
-        - to:
-            - ipBlock:
-                cidr: 0.0.0.0/0
-          ports:
-            - protocol: TCP
-              port: 8123
-            - protocol: TCP
-              port: 443
         # TimescaleDB
         - to:
             - podSelector:
