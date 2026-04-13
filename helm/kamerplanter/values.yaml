@@ -635,6 +635,16 @@ persistence:
         main:
           - path: /tmp
 
+  # -- ArangoDB apps directory (required at startup, not persisted)
+  arangodb-apps:
+    enabled: true
+    type: emptyDir
+    sizeLimit: 64Mi
+    advancedMounts:
+      arangodb:
+        main:
+          - path: /var/lib/arangodb3-apps
+
   celery-beat-tmp:
     enabled: true
     type: emptyDir
