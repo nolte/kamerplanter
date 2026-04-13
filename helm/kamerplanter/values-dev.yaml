@@ -31,6 +31,7 @@ controllers:
           DEBUG: "true"
           REQUIRE_EMAIL_VERIFICATION: "false"
           KAMERPLANTER_MODE: "light"
+          JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
           HA_URL: "http://homeassistant:8123"
           HA_ACCESS_TOKEN: ""
           TIMESCALEDB_ENABLED: "true"
@@ -161,6 +162,7 @@ controllers:
           ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
+          JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
           HA_URL: "http://homeassistant:8123"
           HA_ACCESS_TOKEN: ""
           TIMESCALEDB_ENABLED: "true"
@@ -209,6 +211,7 @@ controllers:
           ARANGODB_PASSWORD: rootpassword
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
+          JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"

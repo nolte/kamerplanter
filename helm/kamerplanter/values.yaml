@@ -615,6 +615,17 @@ persistence:
         main:
           - path: /data/uploads
 
+  # -- Fontconfig writable cache (suppresses "No writable cache directories" warning)
+  backend-fontconfig:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 8Mi
+    advancedMounts:
+      backend:
+        main:
+          - path: /var/cache/fontconfig
+
   backend-tmp:
     enabled: true
     type: emptyDir
