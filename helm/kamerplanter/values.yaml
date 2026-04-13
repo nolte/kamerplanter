@@ -173,9 +173,8 @@ controllers:
             enabled: true
             custom: true
             spec:
-              httpGet:
-                path: /_api/version
-                port: &arangodb-port 8529
+              exec:
+                command: ["sh", "-c", "wget -qO- --header=\"Authorization: Basic $(echo -n root:$ARANGO_ROOT_PASSWORD | base64)\" http://localhost:8529/_api/version"]
               initialDelaySeconds: 30
               periodSeconds: 10
               timeoutSeconds: 5
@@ -184,9 +183,8 @@ controllers:
             enabled: true
             custom: true
             spec:
-              httpGet:
-                path: /_api/version
-                port: *arangodb-port
+              exec:
+                command: ["sh", "-c", "wget -qO- --header=\"Authorization: Basic $(echo -n root:$ARANGO_ROOT_PASSWORD | base64)\" http://localhost:8529/_api/version"]
               initialDelaySeconds: 15
               periodSeconds: 5
               timeoutSeconds: 3
