@@ -11,7 +11,7 @@ anyio==4.13.0
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
-authlib==1.6.10
+authlib==1.7.0
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)
@@ -92,7 +92,7 @@ mypy-extensions==1.1.0
     # via
     #   black
     #   mypy
-packaging==26.0
+packaging==26.1
     # via
     #   black
     #   kombu
@@ -157,7 +157,7 @@ requests==2.33.1
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.10
+ruff==0.15.11
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
