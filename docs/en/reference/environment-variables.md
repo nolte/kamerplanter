@@ -147,7 +147,7 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `MDNS_ENABLED` | `true` | No | Enable mDNS service announcement (`_kamerplanter._tcp.local.`) |
+| `MDNS_ENABLED` | `false` | No | Enable mDNS service announcement (`_kamerplanter._tcp.local.`) |
 | `INSTANCE_ID` | *(auto)* | No | Unique instance ID (e.g. `kp-abc123`). Auto-generated at startup if empty. |
 
 When enabled, the backend announces a `_kamerplanter._tcp.local.` service on the local network. Home Assistant detects this service automatically and offers to set up the Kamerplanter integration.
@@ -164,7 +164,7 @@ mDNS relies on Multicast UDP (port 5353) within the local Layer 2 network. In st
 
 | Deployment | `MDNS_ENABLED` | Rationale |
 |------------|:-----------:|-----------|
-| Docker Compose / Bare Metal | `true` | Backend runs directly on the LAN — works out of the box |
+| Docker Compose / Bare Metal | `true` | Backend runs directly on the LAN — set `MDNS_ENABLED=true` |
 | K3s / MicroK8s single-node + `hostNetwork: true` | `true` | Pod shares host network — multicast reaches the LAN |
 | Standard K8s Cluster | `false` | Overlay network blocks multicast — use manual config flow in HA as fallback |
 | Cloud (AWS, GCP, Azure) | `false` | No local network available |
@@ -245,9 +245,9 @@ DEBUG=false
 # Email (development)
 EMAIL_ADAPTER=console
 
-# mDNS Discovery (LAN only, disable in K8s)
-MDNS_ENABLED=true
-INSTANCE_ID=
+# mDNS Discovery (LAN only, opt-in)
+# MDNS_ENABLED=false
+# INSTANCE_ID=
 
 # Optional external APIs
 PERENUAL_API_KEY=

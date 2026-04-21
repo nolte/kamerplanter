@@ -6,7 +6,6 @@ can auto-discover the backend via Zeroconf.
 
 from __future__ import annotations
 
-import socket
 import uuid
 
 import structlog
@@ -41,14 +40,12 @@ def create_service_info(
     if tenant:
         properties["tenant"] = tenant
 
-    hostname = socket.gethostname()
-
     return ServiceInfo(
         type_=MDNS_SERVICE_TYPE,
-        name=f"Kamerplanter ({hostname}).{MDNS_SERVICE_TYPE}",
+        name=f"Kamerplanter ({instance_id}).{MDNS_SERVICE_TYPE}",
         port=port,
         properties=properties,
-        server=f"{hostname}.local.",
+        server=f"{instance_id}.local.",
     )
 
 

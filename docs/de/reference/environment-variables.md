@@ -147,7 +147,7 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `MDNS_ENABLED` | `true` | Nein | mDNS-Service-Announcement aktivieren (`_kamerplanter._tcp.local.`) |
+| `MDNS_ENABLED` | `false` | Nein | mDNS-Service-Announcement aktivieren (`_kamerplanter._tcp.local.`) |
 | `INSTANCE_ID` | *(auto)* | Nein | Eindeutige Instanz-ID (z. B. `kp-abc123`). Wird beim Start automatisch generiert, wenn leer. |
 
 Wenn aktiviert, annonciert das Backend einen `_kamerplanter._tcp.local.`-Service im lokalen Netzwerk. Home Assistant erkennt diesen Service automatisch und bietet die Einrichtung der Kamerplanter-Integration an.
@@ -164,7 +164,7 @@ mDNS basiert auf Multicast-UDP (Port 5353) im lokalen Layer-2-Netzwerk. In Stand
 
 | Deployment | `MDNS_ENABLED` | Begruendung |
 |------------|:-----------:|-------------|
-| Docker Compose / Bare Metal | `true` | Backend laeuft direkt im LAN — funktioniert out-of-the-box |
+| Docker Compose / Bare Metal | `true` | Backend laeuft direkt im LAN — `MDNS_ENABLED=true` setzen |
 | K3s / MicroK8s Single-Node + `hostNetwork: true` | `true` | Pod teilt Host-Netzwerk — Multicast erreicht das LAN |
 | Standard K8s Cluster | `false` | Overlay-Netzwerk blockiert Multicast — manueller Config Flow in HA als Fallback |
 | Cloud (AWS, GCP, Azure) | `false` | Kein lokales Netzwerk vorhanden |
@@ -245,9 +245,9 @@ DEBUG=false
 # E-Mail (Entwicklung)
 EMAIL_ADAPTER=console
 
-# mDNS Discovery (LAN-only, in K8s deaktivieren)
-MDNS_ENABLED=true
-INSTANCE_ID=
+# mDNS Discovery (LAN-only, opt-in)
+# MDNS_ENABLED=false
+# INSTANCE_ID=
 
 # Optionale externe APIs
 PERENUAL_API_KEY=
