@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     knowledge_service_enabled: bool = False
     knowledge_service_url: str = "http://knowledge-service:8000"
 
+    # mDNS / Zeroconf Discovery
+    mdns_enabled: bool = True
+    instance_id: str = ""  # Auto-generated UUID prefix if empty
+
     # Rate limiting
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"

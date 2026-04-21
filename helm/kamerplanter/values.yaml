@@ -39,6 +39,7 @@ controllers:
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
+          MDNS_ENABLED: "false"  # mDNS is LAN-only, disable in K8s
         probes:
           liveness:
             enabled: true

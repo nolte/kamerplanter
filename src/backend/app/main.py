@@ -147,6 +147,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     NotificationChannelRegistry.register(AppriseNotificationChannel())
     logger.info("notification_channel_registered", channel="apprise")
 
+    # mDNS / Zeroconf Discovery (optional)
+    mdns_announcer = None
+    if settings.mdns_enabled:
+        from app.common.mdns import MdnsAnnouncer, create_service_info, generate_instance_id
+
+        instance_id = settings.instance_id or generate_instance_id()
+        info = create_service_info(
+            port=8000,
+            version=settings.app_version,
+            mode=settings.kamerplanter_mode,
+            instance_id=instance_id,
+        )
+        mdns_announcer = MdnsAnnouncer(info)
+        mdns_announcer.start()
+
     # TimescaleDB init (optional)
     if settings.timescaledb_enabled:
         from app.common.dependencies import get_timescale_connection
@@ -162,6 +177,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
+    if mdns_announcer:
+        mdns_announcer.stop()
     close_connection()
     logger.info("shutdown")
 

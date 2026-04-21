@@ -28,6 +28,7 @@ dependencies = [
     "jinja2>=3.1",
     "weasyprint>=62.0",
     "qrcode[pil]>=8.0",
+    "zeroconf>=0.131.0",
 ]
 
 [project.optional-dependencies]
