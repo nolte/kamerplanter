@@ -81,7 +81,7 @@ limits==5.8.0
     # via slowapi
 markdownify==1.2.2
     # via kamerplanter-backend (pyproject.toml)
-packaging==26.1
+packaging==26.2
     # via
     #   kombu
     #   limits
