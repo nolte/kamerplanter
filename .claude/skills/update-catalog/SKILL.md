@@ -60,7 +60,7 @@ Ordne ZUSAETZLICH jeden Agent und Skill einem Typ zu:
 
 | Typ | Kriterium | Beispiele |
 |-----|-----------|-----------|
-| **Technisch** | Allgemeine Softwareentwicklung, Testing, CI/CD, Security, Architektur, Release-Management. Wiederverwendbar in jedem Softwareprojekt. | `fullstack-developer`, `code-security-reviewer`, `unit-test-runner`, `pr-to-develop`, `/check-quality`, `/pre-pr` |
+| **Technisch** | Allgemeine Softwareentwicklung, Testing, CI/CD, Security, Architektur, Release-Management. Wiederverwendbar in jedem Softwareprojekt. | `fullstack-developer`, `code-security-reviewer`, `unit-test-runner`, `pr-to-develop`, `/nolte-shared:quality-gate`, `/pre-pr` |
 | **Fachlich** | Domaenenspezifisch fuer Pflanzenpflege, Agrobiologie, Indoor-Growing, Home-Assistant-Integration, RAG-Pflanzenwissen. Nur im Kamerplanter-Kontext sinnvoll. | `agrobiology-requirements-reviewer`, `cannabis-indoor-grower-reviewer`, `growing-phase-auditor`, `ha-integration-developer`, `plant-info-document-generator`, `/gen-knowledge`, `/deploy-ha` |
 
 **Entscheidungsregel:** Waere der Agent/Skill in einem beliebigen anderen Softwareprojekt (z.B. E-Commerce, Fintech) nuetzlich? → **Technisch**. Bezieht er sich auf Pflanzen, Botanik, Growing, Home-Assistant-fuer-Pflanzen, oder Kamerplanter-spezifisches Domaenenwissen? → **Fachlich**.
@@ -179,7 +179,7 @@ Dokumentations-Erstellung und -Pflege.
     | Anforderungen spezifizieren | `tech-stack-architect`, ... |
     | Anforderungen reviewen | `agrobiology-requirements-reviewer`, ... |
     | Implementieren | `fullstack-developer`, `/implement` |
-    | Lokal testen | `unit-test-runner`, `/check-quality` |
+    | Lokal testen | `unit-test-runner`, `/nolte-shared:quality-gate` |
     | Code reviewen | `code-security-reviewer`, ... |
     | Doku schreiben | `mkdocs-documentation` |
     | PR vorbereiten | `pr-to-develop`, `/pre-pr` |
@@ -193,7 +193,7 @@ Dokumentations-Erstellung und -Pflege.
 
 1. Spezifikation pruefen: `tech-stack-architect` + `it-security-requirements-reviewer`
 2. Code schreiben: `fullstack-developer`
-3. Tests ausfuehren: `/check-quality`
+3. Tests ausfuehren: `/nolte-shared:quality-gate`
 4. Security reviewen: `code-security-reviewer`
 5. UI optimieren: `frontend-usability-optimizer`
 6. Dokumentation: `mkdocs-documentation`
@@ -258,7 +258,7 @@ Dokumentations-Erstellung und -Pflege.
 - **Alphabetisch sortieren:** Agents innerhalb jeder Kategorie nach Name
 - **Max. 10 Woerter** pro Fokus/Aufgabe in den Tabellen
 - **Keine Wiederholung** des vollstaendigen Agent/Skill-Inhalts
-- **Skills mit `/` Praefix** in der Entscheidungshilfe (`/deploy-ha`, `/check-quality`)
+- **Skills mit `/` Praefix** in der Entscheidungshilfe (`/deploy-ha`, `/nolte-shared:quality-gate`). Projekt-interne Skills ohne Praefix (`/deploy-ha`), Shared-Skills mit Plugin-Praefix (`/nolte-shared:<name>`).
 - **Deutsch** -- konsistent mit Projekt-Dokumentationssprache
 - **Keine Umlaute in der Datei** -- verwende ae, oe, ue, ss (MkDocs-Kompatibilitaet)
 
