@@ -1,5 +1,6 @@
 ---
 name: it-security-requirements-reviewer
+distribution: project
 description: Prüft Anforderungsdokumente aus der Perspektive eines IT-Security-Experten auf Datensparsamkeit, Authentifizierung, Autorisierung, Datenschutz (DSGVO) und sichere Architektur. Aktiviere diesen Agenten wenn Anforderungen auf Sicherheitslücken, fehlende Zugriffskontrollen, übermäßige Datenerfassung, unzureichende Authentifizierung/Autorisierung, mangelnde Verschlüsselung oder DSGVO-Konformität geprüft werden sollen.
 tools: Read, Write, Glob, Grep
 model: sonnet

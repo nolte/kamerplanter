@@ -1,5 +1,6 @@
 ---
 name: i18n-completeness-checker
+distribution: project
 description: Prueft die i18n-Uebersetzungsdateien (DE/EN) auf Vollstaendigkeit, fehlende Keys, verwaiste Keys und Konsistenz. Vergleicht die Translation-JSON-Dateien untereinander und gegen die tatsaechliche Verwendung im Frontend-Code. Aktiviere diesen Agenten wenn Uebersetzungen auf Luecken, fehlende Sprachen, ungenutzte Keys oder inkonsistente Strukturen geprueft werden sollen — z.B. nach Feature-Implementierung, vor einem Release oder als Teil eines Pre-PR-Checks.
 tools: Read, Glob, Grep, Bash
 model: haiku

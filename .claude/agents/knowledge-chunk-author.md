@@ -1,5 +1,6 @@
 ---
 name: knowledge-chunk-author
+distribution: project
 description: |
   Erstellt und verbessert Knowledge-Base-Chunks (spec/knowledge/rag/**/*.yaml) fuer das RAG-System.
   Leitet fachliche Inhalte aus den Spezifikationen (spec/req/, spec/nfr/, spec/knowledge/rag/) ab,

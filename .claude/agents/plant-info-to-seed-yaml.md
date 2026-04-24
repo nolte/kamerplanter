@@ -1,5 +1,6 @@
 ---
 name: plant-info-to-seed-yaml
+distribution: project
 description: Konvertiert Pflanzen-Informationsdokumente (spec/knowledge/plants/*.md) in schema-konforme YAML-Seed-Eintraege (plant_info.schema.yaml). Extrahiert ausschliesslich Daten aus den Quelldokumenten — erfindet KEINE Werte. Fehlende Informationen werden als Kommentar markiert. Aktiviere diesen Agenten wenn fertige Pflanzendokumente in importierbare YAML-Seed-Daten konvertiert werden sollen.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet

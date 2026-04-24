@@ -1,5 +1,6 @@
 ---
 name: plant-info-document-generator
+distribution: project
 description: Generiert detaillierte Pflanzen-Informationsdokumente anhand einer Nutzereingabe (Pflanzenname, Art oder Liste). Recherchiert botanische Daten, Pflegehinweise, Düngung, Phasen, Schädlinge, Nützlinge, Fruchtfolge und Mischkultur. Die Dokumente dienen als Grundlage für den Datenimport nach Kamerplanter (REQ-012) und decken alle relevanten Entitäten ab (Species, Cultivar, GrowthPhases, NutrientProfiles, CareProfile, IPM, Companion Planting). Aktiviere diesen Agenten wenn der Nutzer Pflanzen-Steckbriefe, Import-Dokumente, Pflegeanleitungen oder Kulturanleitungen für bestimmte Pflanzen erstellen lassen möchte.
 tools: Read, Write, Glob, Grep, WebSearch, WebFetch
 model: sonnet

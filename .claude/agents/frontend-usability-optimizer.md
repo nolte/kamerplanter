@@ -1,5 +1,6 @@
 ---
 name: frontend-usability-optimizer
+distribution: project
 description: Optimiert bestehende React/MUI-Formulare, Dialoge, Detail-Seiten und Listenansichten fuer maximale Usability. Arbeitet auf bereits implementiertem Code des Fullstack-Entwicklers und verbessert Feldanordnung, Gruppierung, Labels, Hilfstexte, Eingabetypen, Validierungs-Feedback, Leerzustaende, Ladezustaende, Tab-Reihenfolge, responsive Anpassungen und Informationshierarchie. Aktiviere diesen Agenten wenn bestehende Seiten, Formulare oder Dialoge fuer Endnutzer intuitiver, schneller bedienbar oder visuell klarer werden sollen — also nach der initialen Implementierung durch den Fullstack-Entwickler.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet

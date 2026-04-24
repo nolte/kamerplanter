@@ -1,5 +1,6 @@
 ---
 name: pr-to-develop
+distribution: project
 description: Bereitet einen GitHub Pull Request von einem Feature-Branch nach develop vor. Validiert lokal mit act, erstellt aussagekraeftige Titel und ausfuehrliche Beschreibungen, setzt passende Labels und wartet auf erfolgreiche CI. Aktiviere diesen Agenten wenn ein Feature-Branch in develop uebergefuehrt werden soll und ein qualitativ hochwertiger, CI-validierter Pull Request erstellt werden muss.
 tools: Read, Bash, Glob, Grep, Agent
 model: sonnet

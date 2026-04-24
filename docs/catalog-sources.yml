@@ -1,0 +1,20 @@
+# Source roots for the MkDocs skill/agent catalog.
+# Consumed by scripts/docs/gen_catalog.py via mkdocs-gen-files.
+# Spec: https://github.com/nolte/claude-shared/blob/main/spec/claude/skill-agent-catalog/en.md
+#
+# Each source declares a directory containing `skills/` and `agents/` subdirectories
+# (overridable via `skills_path` / `agents_path`) plus the public repo URL used to
+# link back to each artifact's source file.
+sources:
+  - name: kamerplanter
+    local: .claude
+    skills_path: skills
+    agents_path: agents
+    repo_url: https://github.com/nolte/kamerplanter
+    branch: develop
+  - name: nolte-shared
+    local: ../claude-shared
+    skills_path: skills
+    agents_path: agents
+    repo_url: https://github.com/nolte/claude-shared
+    branch: main

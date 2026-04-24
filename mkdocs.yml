@@ -126,7 +126,7 @@ plugins:
             Code-Standards: Code Standards
             Testen: Testing
             Debugging: Debugging
-            Agent-Katalog: Agent Catalog
+            Workflows: Workflows
             API: API
             Authentifizierung: Authentication
             Fehlerbehandlung: Error Handling
@@ -155,6 +155,12 @@ plugins:
             ADR: ADR
             Changelog: Changelog
             Unveröffentlicht: Unreleased
+            Claude Skills: Claude Skills
+            Claude Agents: Claude Agents
+            Claude Tags: Claude Tags
+
+  - literate-nav:
+      nav_file: SUMMARY.md
 
   - git-revision-date-localized:
       enable_creation_date: true
@@ -275,7 +281,7 @@ nav:
       - Code-Standards: de/development/code-standards.md
       - Testen: de/development/testing.md
       - Debugging: de/development/debugging.md
-      - Agent-Katalog: de/development/agent-catalog.md
+      - Workflows: de/development/workflows.md
   - API:
       - de/api/index.md
       - Überblick: de/api/overview.md
@@ -314,3 +320,6 @@ nav:
   - Changelog:
       - de/changelog/index.md
       - Unveröffentlicht: de/changelog/unreleased.md
+  - Claude Skills: de/skills/
+  - Claude Agents: de/agents/
+  - Claude Tags: de/tags.md
