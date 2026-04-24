@@ -1,5 +1,6 @@
 ---
 name: code-security-reviewer
+distribution: project
 description: Prueft implementierten Backend- und Frontend-Code auf Sicherheitsschwachstellen (OWASP Top 10, Injection, Auth-Bypass, Tenant-Isolation, Secret Leaks, unsichere Kryptographie). Arbeitet auf tatsaechlichem Code, nicht auf Spezifikationen. Aktiviere diesen Agenten wenn implementierter Code auf Security-Probleme, Injection-Risiken, fehlende Zugriffskontrolle, unsichere Token-/Passwort-Behandlung, fehlende Input-Validierung, Information Disclosure oder Tenant-Isolation-Verletzungen geprueft werden soll — also nach der Implementierung durch den Fullstack-Entwickler.
 tools: Read, Edit, Bash, Glob, Grep
 model: sonnet

@@ -1,5 +1,6 @@
 ---
 name: ha-integration-developer
+distribution: project
 description: Dedizierter Home Assistant Integration- und Custom Card-Entwickler. Implementiert und refactored die Kamerplanter HA Custom Integration und Lovelace Cards nach den verbindlichen HA Best Practices. Arbeitet ausschliesslich auf Basis der HA-SPEC-Dokumente (HA-SPEC-CONFIG-LIFECYCLE, HA-SPEC-ENTITY-ARCHITECTURE, HA-SPEC-COORDINATOR-OPTIMIZATION, HA-SPEC-LOVELACE-CARDS, HA-SPEC-TESTING) und dem HA-INTEGRATION Style Guide. Aktiviere diesen Agenten wenn HA-Integration-Code implementiert, refactored, Entities migriert, Config Flows erweitert, Coordinators optimiert, Custom Cards verbessert oder HA-Integration-Tests geschrieben werden sollen.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus

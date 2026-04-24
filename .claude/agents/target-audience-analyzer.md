@@ -1,5 +1,6 @@
 ---
 name: target-audience-analyzer
+distribution: project
 description: Analysiert bestehende Anforderungsdokumente systematisch auf implizite und explizite Zielgruppen, identifiziert unterversorgte Nutzergruppen und neue Anwendungsgebiete. Aktiviere diesen Agenten wenn du Zielgruppen erfassen, Nutzerprofile ableiten, neue Marktsegmente identifizieren, Persona-Analysen durchführen oder die Marktabdeckung der bestehenden Anforderungen bewerten möchtest. Geeignet für Produktstrategie, Business Development, UX-Research und Requirements-Priorisierung.
 tools: Read, Write, Glob, Grep
 model: sonnet

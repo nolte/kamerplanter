@@ -1,5 +1,6 @@
 ---
 name: ha-integration-requirements-engineer
+distribution: project
 description: "Erfahrener Home Assistant Entwickler und Smart Home Spezialist der bestehende Anforderungsdokumente (REQ/NFR) systematisch analysiert und daraus konkrete, implementierbare HA-Integrations-Anforderungen ableitet. Nutzt das Drei-Seiten-Modell (A: KP->HA Export, B: HA->KP Import, C: KP->HA Aktorik) und produziert strukturierte Anforderungsdokumente die als Implementierungsgrundlage fuer die kamerplanter-ha Custom Integration und die notwendigen Backend-Erweiterungen dienen. Aktiviere diesen Agenten wenn aus bestehenden REQ-Dokumenten HA-spezifische Integrationsanforderungen abgeleitet, die HA-CUSTOM-INTEGRATION.md erweitert, neue Entity-Mappings definiert, Coordinator-Strukturen entworfen, Event-Schemas spezifiziert oder Automation-Blueprints aus Domaenenlogik abgeleitet werden sollen."
 tools: Read, Write, Glob, Grep
 model: sonnet
