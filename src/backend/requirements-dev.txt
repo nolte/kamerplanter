@@ -11,7 +11,7 @@ anyio==4.13.0
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
-authlib==1.6.10
+authlib==1.7.0
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)
@@ -23,7 +23,7 @@ black==26.3.1
     # via kamerplanter-backend (pyproject.toml)
 celery==5.6.3
     # via kamerplanter-backend (pyproject.toml)
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   httpcore
     #   httpx
@@ -32,7 +32,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.3.2
+click==8.3.3
     # via
     #   black
     #   celery
@@ -70,7 +70,7 @@ httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
     # via kamerplanter-backend (pyproject.toml)
-idna==3.11
+idna==3.13
     # via
     #   anyio
     #   email-validator
@@ -86,20 +86,20 @@ limits==5.8.0
     # via slowapi
 markdownify==1.2.2
     # via kamerplanter-backend (pyproject.toml)
-mypy==1.20.1
+mypy==1.20.2
     # via kamerplanter-backend (pyproject.toml)
 mypy-extensions==1.1.0
     # via
     #   black
     #   mypy
-packaging==26.0
+packaging==26.1
     # via
     #   black
     #   kombu
     #   limits
     #   pytest
     #   python-arango
-pathspec==1.0.4
+pathspec==1.1.0
     # via
     #   black
     #   mypy
@@ -120,7 +120,7 @@ pydantic==2.13.3
     #   pydantic-settings
 pydantic-core==2.46.3
     # via pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via kamerplanter-backend (pyproject.toml)
 pygments==2.20.0
     # via pytest
@@ -157,7 +157,7 @@ requests==2.33.1
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.10
+ruff==0.15.12
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
@@ -185,7 +185,7 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.1
+tzdata==2026.2
     # via kombu
 tzlocal==5.3.1
     # via celery
@@ -193,7 +193,7 @@ urllib3==2.6.3
     # via
     #   python-arango
     #   requests
-uvicorn==0.44.0
+uvicorn==0.46.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
