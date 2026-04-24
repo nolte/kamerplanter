@@ -1,5 +1,6 @@
 ---
 name: ha-integration-sync
+distribution: project
 description: Synchronisiert die Home Assistant Custom Integration (kamerplanter-ha) mit der aktuellen Backend-API-Implementierung. Erkennt API-Aenderungen (neue/geaenderte/entfernte Endpunkte, geaenderte Response-Schemas, neue tenant-scoped Routen), passt api.py, coordinator.py, sensor.py, binary_sensor.py, calendar.py, todo.py, button.py, services.yaml, config_flow.py und const.py entsprechend an — ohne bestehende Fachlogik zu veraendern. Aktiviere diesen Agenten wenn Backend-Endpunkte hinzugefuegt, geaendert oder auf tenant-scoped Routing umgestellt wurden und die HA-Integration nachgezogen werden muss.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus

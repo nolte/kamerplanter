@@ -1,5 +1,6 @@
 ---
 name: tech-stack-architect
+distribution: project
 description: Erfahrener Software- und Infrastruktur-Architekt der den definierten Technologie-Stack systematisch gegen alle funktionalen Anforderungen (REQ-*), nicht-funktionalen Anforderungen (NFR-*) und UI-NFRs prüft. Identifiziert Lücken, Widersprüche, Überarchitektur, fehlende Komponenten und Technologierisiken. Aktiviere diesen Agenten wenn der Tech-Stack validiert, erweitert, konsolidiert oder gegen neue/geänderte Anforderungen geprüft werden soll — oder wenn eine Technologie-Entscheidung (z.B. Datenbankwahl, Framework-Auswahl, Infrastruktur-Komponente) fundiert bewertet werden muss.
 tools: Read, Write, Glob, Grep, WebSearch, WebFetch
 model: sonnet

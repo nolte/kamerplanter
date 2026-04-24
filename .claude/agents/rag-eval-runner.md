@@ -1,5 +1,6 @@
 ---
 name: rag-eval-runner
+distribution: project
 description: |
   Fuehrt den RAG-Quality-Benchmark (Smoke oder Full) aus, interpretiert die Ergebnisse,
   klassifiziert Fehler nach Ursache (Retrieval, Generation, Synonym-Luecke, Knowledge-Gap)

@@ -86,12 +86,19 @@ tasks:
 
   # ── Documentation ───────────────────────────────────────────
 
+  docs:catalog:
+    desc: Regenerate the Claude skill & agent catalog pages (docs/<locale>/skills/, agents/, tags.md)
+    cmds:
+      - python scripts/docs/gen_catalog.py
+
   docs:serve:
-    desc: Serve MkDocs documentation locally
+    desc: Serve MkDocs documentation locally (regenerates the Claude catalog first)
+    deps: [docs:catalog]
     cmds:
       - mkdocs serve
 
   docs:build:
-    desc: Build MkDocs documentation
+    desc: Build MkDocs documentation (regenerates the Claude catalog first)
+    deps: [docs:catalog]
     cmds:
       - mkdocs build

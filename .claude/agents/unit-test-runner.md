@@ -1,5 +1,6 @@
 ---
 name: unit-test-runner
+distribution: project
 description: Fuehrt alle Unit-Tests (Backend pytest + Frontend vitest) und statische Analyse (Ruff, ESLint, TypeScript) aus, analysiert Fehler, schlaegt Fixes vor und stellt sicher, dass der Code merge-faehig ist. Aktiviere diesen Agenten nach Feature-Implementierung durch den Fullstack-Developer oder bei fehlgeschlagenen Tests.
 tools: Read, Edit, Bash, Glob, Grep
 model: sonnet

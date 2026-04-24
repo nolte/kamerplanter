@@ -1,5 +1,6 @@
 ---
 name: mkdocs-documentation
+distribution: project
 description: Erstellt und pflegt endnutzerfreundliche, mehrsprachige Dokumentation im MkDocs-Material-Format gemaess NFR-005. Aktiviere diesen Agenten wenn Dokumentationsseiten erstellt, aktualisiert oder uebersetzt werden sollen, wenn ADRs (Architecture Decision Records) geschrieben, die mkdocs.yml konfiguriert, API-Docs aus Docstrings generiert, Guides/Tutorials verfasst, oder die Docs-CI/CD-Pipeline eingerichtet werden soll. Auch geeignet fuer Changelog-Pflege, Versionierung mit mike, und Custom-Styling der Dokumentation.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
@@ -587,6 +588,7 @@ mike serve
 ```yaml
 # .github/workflows/docs.yml
 name: Deploy Documentation
+distribution: project
 
 on:
   push:
