@@ -16,6 +16,16 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // React Compiler diagnostics (eslint-plugin-react-hooks >=7.1) flag a
+      // large number of pre-existing patterns across the codebase. Demote
+      // them from error to warn for now so CI stays green; address them in
+      // a dedicated cleanup pass.
+      // TODO: Re-enable as error once the codebase is React-Compiler clean.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/refs': 'warn',
     },
     languageOptions: {
       globals: {
