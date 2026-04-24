@@ -11,7 +11,7 @@ anyio==4.13.0
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
-authlib==1.6.10
+authlib==1.7.0
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)
@@ -21,7 +21,7 @@ billiard==4.2.4
     # via celery
 celery==5.6.3
     # via kamerplanter-backend (pyproject.toml)
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   httpcore
     #   httpx
@@ -30,7 +30,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.3.2
+click==8.3.3
     # via
     #   celery
     #   click-didyoumean
@@ -45,7 +45,7 @@ click-repl==0.3.0
     # via celery
 croniter==6.2.2
     # via kamerplanter-backend (pyproject.toml)
-cryptography==46.0.7
+cryptography==47.0.0
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
@@ -67,7 +67,7 @@ httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
     # via kamerplanter-backend (pyproject.toml)
-idna==3.11
+idna==3.13
     # via
     #   anyio
     #   email-validator
@@ -81,7 +81,7 @@ limits==5.8.0
     # via slowapi
 markdownify==1.2.2
     # via kamerplanter-backend (pyproject.toml)
-packaging==26.0
+packaging==26.1
     # via
     #   kombu
     #   limits
@@ -97,7 +97,7 @@ pydantic==2.13.3
     #   pydantic-settings
 pydantic-core==2.46.3
     # via pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via kamerplanter-backend (pyproject.toml)
 pyjwt==2.12.1
     # via python-arango
@@ -146,7 +146,7 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.1
+tzdata==2026.2
     # via kombu
 tzlocal==5.3.1
     # via celery
@@ -154,7 +154,7 @@ urllib3==2.6.3
     # via
     #   python-arango
     #   requests
-uvicorn==0.44.0
+uvicorn==0.46.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
