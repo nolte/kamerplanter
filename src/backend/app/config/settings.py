@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 
@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     # Knowledge Service (optional — standalone RAG microservice)
     knowledge_service_enabled: bool = False
     knowledge_service_url: str = "http://knowledge-service:8000"
+
+    # mDNS / Zeroconf Discovery
+    mdns_enabled: bool = False  # Enable only for local/on-premise deployments (opt-in)
+    # Auto-generated UUID prefix if empty; alphanumeric + hyphens only, max 64 chars
+    instance_id: Annotated[str, Field(max_length=64, pattern=r"^[a-zA-Z0-9\-]*$")] = ""
 
     # Rate limiting
     rate_limit_auth: str = "20/minute"

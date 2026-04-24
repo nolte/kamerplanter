@@ -143,6 +143,39 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 
 ---
 
+## mDNS / Zeroconf Discovery
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `MDNS_ENABLED` | `false` | No | Enable mDNS service announcement (`_kamerplanter._tcp.local.`) |
+| `INSTANCE_ID` | *(auto)* | No | Unique instance ID (e.g. `kp-abc123`). Auto-generated at startup if empty. |
+
+When enabled, the backend announces a `_kamerplanter._tcp.local.` service on the local network. Home Assistant detects this service automatically and offers to set up the Kamerplanter integration.
+
+!!! info "Stable Instance ID"
+    The `INSTANCE_ID` is used for duplicate detection in Home Assistant. If left empty, a new ID is generated on every restart. For stable discovery, set a fixed value, e.g. `INSTANCE_ID=kp-my-server`.
+
+### mDNS and Kubernetes
+
+mDNS relies on Multicast UDP (port 5353) within the local Layer 2 network. In standard Kubernetes clusters, mDNS **does not work** because:
+
+1. **Overlay network blocks multicast** — Standard CNIs (Calico, Cilium, Flannel) only route L3 traffic. Multicast packets from a pod never reach the physical LAN — Home Assistant cannot see the announcements.
+2. **Pod IP is not LAN-reachable** — Even if multicast worked, the announced pod IP (e.g. `10.42.x.x`) would not be reachable from outside the cluster.
+
+| Deployment | `MDNS_ENABLED` | Rationale |
+|------------|:-----------:|-----------|
+| Docker Compose / Bare Metal | `true` | Backend runs directly on the LAN — set `MDNS_ENABLED=true` |
+| K3s / MicroK8s single-node + `hostNetwork: true` | `true` | Pod shares host network — multicast reaches the LAN |
+| Standard K8s Cluster | `false` | Overlay network blocks multicast — use manual config flow in HA as fallback |
+| Cloud (AWS, GCP, Azure) | `false` | No local network available |
+
+!!! warning "hostNetwork is a trade-off"
+    With `hostNetwork: true`, the pod shares the host's network namespace. Multicast works, but at the cost of network isolation (port conflicts possible, no NetworkPolicy enforcement). Only recommended for homelab / Raspberry Pi scenarios.
+
+The Helm chart sets `MDNS_ENABLED` to `false` by default. The manual config flow in Home Assistant (URL input) works in every deployment scenario as a fallback.
+
+---
+
 ## Home Assistant Integration (REQ-005)
 
 | Variable | Default | Required | Description |
@@ -211,6 +244,10 @@ DEBUG=false
 
 # Email (development)
 EMAIL_ADAPTER=console
+
+# mDNS Discovery (LAN only, opt-in)
+# MDNS_ENABLED=false
+# INSTANCE_ID=
 
 # Optional external APIs
 PERENUAL_API_KEY=

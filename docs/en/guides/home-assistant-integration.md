@@ -78,9 +78,62 @@ flowchart LR
 
 ---
 
-## Setup
+## Auto-Discovery via mDNS (recommended)
 
-After installation, a 4-step wizard guides you through configuration:
+With mDNS announcement enabled, Home Assistant automatically detects the Kamerplanter backend on the local network — no manual URL entry required. The config flow starts directly at the authentication step.
+
+```mermaid
+flowchart LR
+    KP["Kamerplanter backend\nMDNS_ENABLED=true"]
+    KP -->|_kamerplanter._tcp.local.| HA["Home Assistant"]
+    HA --> D["Discovery notification\nConfigure"]
+    D --> CF["Config flow\nURL pre-filled\nAPI key only"]
+```
+
+### Requirements
+
+- Backend and Home Assistant run on the **same L2 network** (multicast UDP 5353 reachable).
+- `MDNS_ENABLED=true` is set on the backend (default is `false`).
+- Recommended: set a stable `INSTANCE_ID` (for example `INSTANCE_ID=kp-homelab-01`) so the HA config entry stays stable across backend restarts.
+
+### Enabling
+
+**Docker Compose / bare metal:**
+
+```yaml
+services:
+  kamerplanter:
+    environment:
+      MDNS_ENABLED: "true"
+      INSTANCE_ID: "kp-homelab-01"
+```
+
+**Kubernetes (homelab with `hostNetwork: true`):**
+
+```yaml
+# values.yaml
+env:
+  MDNS_ENABLED: "true"
+  INSTANCE_ID: "kp-homelab-01"
+hostNetwork: true
+```
+
+!!! warning "mDNS compatibility by deployment"
+    mDNS only works on the local network (multicast). Standard Kubernetes clusters and cloud deployments drop the announcements via overlay networks or lack of a LAN altogether. See the decision matrix: [Environment Variables — mDNS/Zeroconf](../reference/environment-variables.md#mdns-zeroconf-discovery).
+
+### Flow
+
+1. After the backend starts, Home Assistant shows a "Kamerplanter discovered" notification under **Settings** > **Devices & Services**.
+2. Clicking **Configure** opens the config flow with **pre-filled URL** and **pre-filled instance ID**.
+3. Only the authentication step remains — enter the API key (`kp_...`) and finish.
+
+If the discovery notification does not appear, use the manual setup wizard below.
+
+---
+
+## Setup (manual)
+
+When auto-discovery is not available (cloud, Kubernetes without `hostNetwork`, segmented networks), a 4-step wizard guides you through configuration:
 
 ### Step 1: Kamerplanter URL
 

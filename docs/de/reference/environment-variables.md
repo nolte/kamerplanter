@@ -143,6 +143,39 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 
 ---
 
+## mDNS / Zeroconf Discovery
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `MDNS_ENABLED` | `false` | Nein | mDNS-Service-Announcement aktivieren (`_kamerplanter._tcp.local.`) |
+| `INSTANCE_ID` | *(auto)* | Nein | Eindeutige Instanz-ID (z. B. `kp-abc123`). Wird beim Start automatisch generiert, wenn leer. |
+
+Wenn aktiviert, annonciert das Backend einen `_kamerplanter._tcp.local.`-Service im lokalen Netzwerk. Home Assistant erkennt diesen Service automatisch und bietet die Einrichtung der Kamerplanter-Integration an.
+
+!!! info "Stabile Instanz-ID"
+    Die `INSTANCE_ID` wird fuer die Duplikat-Erkennung in Home Assistant verwendet. Wenn sie leer bleibt, wird bei jedem Neustart eine neue ID generiert. Fuer stabile Discovery sollte ein fester Wert gesetzt werden, z. B. `INSTANCE_ID=kp-mein-server`.
+
+### mDNS und Kubernetes
+
+mDNS basiert auf Multicast-UDP (Port 5353) im lokalen Layer-2-Netzwerk. In Standard-Kubernetes-Clustern funktioniert mDNS **nicht**, da:
+
+1. **Overlay-Netzwerk blockiert Multicast** — Standard-CNIs (Calico, Cilium, Flannel) routen nur L3-Traffic. Multicast-Pakete aus einem Pod erreichen das physische LAN nicht — Home Assistant sieht die Announcements nie.
+2. **Pod-IP ist nicht LAN-erreichbar** — Selbst bei funktionierendem Multicast wuerde die annoncierte Pod-IP (z. B. `10.42.x.x`) von ausserhalb des Clusters nicht erreichbar sein.
+
+| Deployment | `MDNS_ENABLED` | Begruendung |
+|------------|:-----------:|-------------|
+| Docker Compose / Bare Metal | `true` | Backend laeuft direkt im LAN — `MDNS_ENABLED=true` setzen |
+| K3s / MicroK8s Single-Node + `hostNetwork: true` | `true` | Pod teilt Host-Netzwerk — Multicast erreicht das LAN |
+| Standard K8s Cluster | `false` | Overlay-Netzwerk blockiert Multicast — manueller Config Flow in HA als Fallback |
+| Cloud (AWS, GCP, Azure) | `false` | Kein lokales Netzwerk vorhanden |
+
+!!! warning "hostNetwork ist ein Trade-off"
+    Mit `hostNetwork: true` teilt der Pod den Netzwerk-Namespace des Hosts. Multicast funktioniert, aber auf Kosten der Netzwerk-Isolation (Port-Konflikte moeglich, keine NetworkPolicy-Enforcement). Nur fuer Homelab-/Raspberry-Pi-Szenarien empfohlen.
+
+Im Helm-Chart ist `MDNS_ENABLED` standardmaessig auf `false` gesetzt. Der manuelle Config Flow in Home Assistant (URL-Eingabe) funktioniert in jedem Deployment-Szenario als Fallback.
+
+---
+
 ## Home Assistant Integration (REQ-005)
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -211,6 +244,10 @@ DEBUG=false
 
 # E-Mail (Entwicklung)
 EMAIL_ADAPTER=console
+
+# mDNS Discovery (LAN-only, opt-in)
+# MDNS_ENABLED=false
+# INSTANCE_ID=
 
 # Optionale externe APIs
 PERENUAL_API_KEY=

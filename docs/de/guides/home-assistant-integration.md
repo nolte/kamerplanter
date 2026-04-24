@@ -78,9 +78,62 @@ flowchart LR
 
 ---
 
-## Einrichtung
+## Auto-Discovery via mDNS (empfohlen)
 
-Nach der Installation fuehrt ein 4-Schritte-Assistent durch die Konfiguration:
+Mit aktivierter mDNS-Ankuendigung erkennt Home Assistant das Kamerplanter-Backend automatisch im lokalen Netzwerk — die URL muss nicht mehr manuell eingegeben werden. Der Config Flow startet direkt beim Authentifizierungs-Schritt.
+
+```mermaid
+flowchart LR
+    KP["Kamerplanter Backend\nMDNS_ENABLED=true"]
+    KP -->|_kamerplanter._tcp.local.| HA["Home Assistant"]
+    HA --> D["Discovery-Benachrichtigung\nKonfigurieren"]
+    D --> CF["Config Flow\nURL vorausgefuellt\nnur API-Key eingeben"]
+```
+
+### Voraussetzungen
+
+- Backend und Home Assistant laufen im **gleichen L2-Netzwerk** (Multicast UDP 5353 erreichbar).
+- `MDNS_ENABLED=true` im Backend gesetzt (Default ist `false`).
+- Empfohlen: feste `INSTANCE_ID` setzen (z. B. `INSTANCE_ID=kp-homelab-01`), damit der HA-Config-Entry ueber Backend-Neustarts hinweg stabil bleibt.
+
+### Aktivierung
+
+**Docker Compose / Bare Metal:**
+
+```yaml
+services:
+  kamerplanter:
+    environment:
+      MDNS_ENABLED: "true"
+      INSTANCE_ID: "kp-homelab-01"
+```
+
+**Kubernetes (Homelab mit `hostNetwork: true`):**
+
+```yaml
+# values.yaml
+env:
+  MDNS_ENABLED: "true"
+  INSTANCE_ID: "kp-homelab-01"
+hostNetwork: true
+```
+
+!!! warning "mDNS-Kompatibilitaet je Deployment"
+    mDNS funktioniert nur im lokalen Netzwerk (Multicast). In Standard-Kubernetes-Clustern und Cloud-Deployments verwerfen Overlay-Netze bzw. fehlende LANs die Announcements. Details zur Entscheidungsmatrix: [Umgebungsvariablen — mDNS/Zeroconf](../reference/environment-variables.md#mdns-zeroconf-discovery).
+
+### Ablauf
+
+1. Nach Backend-Start zeigt Home Assistant unter **Einstellungen** > **Geraete & Dienste** eine Benachrichtigung "Kamerplanter entdeckt".
+2. Klick auf **Konfigurieren** oeffnet den Config Flow mit **vorausgefuellter URL** und **vorausgefuellter Instanz-ID**.
+3. Es bleibt nur der Authentifizierungs-Schritt — API-Key (`kp_...`) eingeben, fertig.
+
+Sollte die Discovery-Benachrichtigung nicht erscheinen, nutze den manuellen Einrichtungs-Assistenten unten.
+
+---
+
+## Einrichtung (manuell)
+
+Wenn Auto-Discovery nicht verfuegbar ist (Cloud, Kubernetes ohne `hostNetwork`, getrennte Netzwerksegmente), fuehrt ein 4-Schritte-Assistent durch die Konfiguration:
 
 ### Schritt 1: Kamerplanter-URL
 
