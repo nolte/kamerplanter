@@ -561,10 +561,9 @@ export default function WorkflowDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={workflow.name}
+        meta={<OriginChip isSystem={workflow.is_system} />}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {/* UI-NFR-018 R-001: Origin chip in meta row (replaces ad-hoc system chip) */}
-            <OriginChip isSystem={workflow.is_system} />
             {/* UI-NFR-018 R-015: copy-as-template for system workflows */}
             {canCopyAsTemplate && (
               <Button

@@ -362,6 +362,7 @@ export default function SpeciesDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={current?.scientific_name ?? t('entities.species')}
+        meta={<OriginChip origin={speciesOrigin} />}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {key && (
@@ -378,8 +379,6 @@ export default function SpeciesDetailPage() {
             <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
               {t('pages.species.createPlantInstance')}
             </Button>
-            {/* UI-NFR-018 R-001: Origin chip in meta row */}
-            <OriginChip origin={speciesOrigin} />
             {/* UI-NFR-018 R-012: hide delete button for system data */}
             {!isDeletionProtected && (
               <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
