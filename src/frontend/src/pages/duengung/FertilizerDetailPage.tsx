@@ -60,6 +60,11 @@ import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
 
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
+
 const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
 const phEffects = ['acidic', 'alkaline', 'neutral'] as const;
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress', 'any'] as const;
@@ -839,42 +844,76 @@ export default function FertilizerDetailPage() {
 
       {/* ── Tab 2: Edit ── */}
       {tab === 2 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.fertilizers.editIntro')}
           </Typography>
 
-          {/* Section: Identification */}
-          <EditSection
-            title={t('pages.fertilizers.sectionIdentification')}
-            intro={t('pages.fertilizers.sectionIdentificationIntro')}
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = Identification (master,
+              capped at reading width), right column = stacked compact panels (Properties).
+              NPK/Mixing/Storage/Notes remain full-width below to give the numeric inputs and
+              the multiline notes their natural breathing room. */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: 4,
+              alignItems: 'start',
+            }}
           >
-            <FormRow>
-              <FormTextField
-                name="product_name"
+            {/* Section: Identification (master column) */}
+            <EditSection
+              title={t('pages.fertilizers.sectionIdentification')}
+              intro={t('pages.fertilizers.sectionIdentificationIntro')}
+            >
+              <FormRow>
+                <FormTextField
+                  name="product_name"
+                  control={control}
+                  label={t('pages.fertilizers.productName')}
+                  required
+                  autoFocus
+                />
+                <FormTextField
+                  name="brand"
+                  control={control}
+                  label={t('pages.fertilizers.brand')}
+                />
+              </FormRow>
+              <FormSelectField
+                name="fertilizer_type"
                 control={control}
-                label={t('pages.fertilizers.productName')}
-                required
-                autoFocus
+                label={t('pages.fertilizers.fertilizerType')}
+                options={fertilizerTypes.map((v) => ({
+                  value: v,
+                  label: t(`enums.fertilizerType.${v}`),
+                }))}
               />
-              <FormTextField
-                name="brand"
-                control={control}
-                label={t('pages.fertilizers.brand')}
-              />
-            </FormRow>
-            <FormSelectField
-              name="fertilizer_type"
-              control={control}
-              label={t('pages.fertilizers.fertilizerType')}
-              options={fertilizerTypes.map((v) => ({
-                value: v,
-                label: t(`enums.fertilizerType.${v}`),
-              }))}
-            />
-          </EditSection>
+            </EditSection>
 
-          {/* Section: NPK & Nutrient Profile */}
+            {/* Detail column: Properties (compact, R-057) */}
+            <EditSection
+              title={t('pages.fertilizers.sectionProperties')}
+              intro={t('pages.fertilizers.sectionPropertiesIntro')}
+            >
+              <FormRow>
+                <FormSwitchField
+                  name="is_organic"
+                  control={control}
+                  label={t('pages.fertilizers.isOrganic')}
+                  helperText={t('pages.fertilizers.isOrganicHelper')}
+                />
+                <FormSwitchField
+                  name="tank_safe"
+                  control={control}
+                  label={t('pages.fertilizers.tankSafe')}
+                  helperText={t('pages.fertilizers.tankSafeHelper')}
+                />
+              </FormRow>
+            </EditSection>
+          </Box>
+
+          {/* Section: NPK & Nutrient Profile (full-width below master-detail) */}
           <EditSection
             title={t('pages.fertilizers.sectionNutrients')}
             intro={t('pages.fertilizers.sectionNutrientsIntro')}
@@ -998,27 +1037,6 @@ export default function FertilizerDetailPage() {
             </FormRow>
           </EditSection>
 
-          {/* Section: Properties */}
-          <EditSection
-            title={t('pages.fertilizers.sectionProperties')}
-            intro={t('pages.fertilizers.sectionPropertiesIntro')}
-          >
-            <FormRow>
-              <FormSwitchField
-                name="is_organic"
-                control={control}
-                label={t('pages.fertilizers.isOrganic')}
-                helperText={t('pages.fertilizers.isOrganicHelper')}
-              />
-              <FormSwitchField
-                name="tank_safe"
-                control={control}
-                label={t('pages.fertilizers.tankSafe')}
-                helperText={t('pages.fertilizers.tankSafeHelper')}
-              />
-            </FormRow>
-          </EditSection>
-
           {/* Section: Storage */}
           <EditSection
             title={t('pages.fertilizers.sectionStorage')}
@@ -1051,18 +1069,22 @@ export default function FertilizerDetailPage() {
             />
           </EditSection>
 
-          {/* Notes */}
+          {/* Notes (full-width, R-058 — multiline prose belongs single-column) */}
           <EditSection
             title={t('pages.fertilizers.notes')}
             intro={t('pages.fertilizers.sectionNotesIntro')}
           >
-            <FormTextField
-              name="notes"
-              control={control}
-              label={t('pages.fertilizers.notes')}
-              multiline
-              rows={3}
-            />
+            {/* UI-NFR-008 R-054: prose field capped at reading width */}
+            <Box sx={{ maxWidth: READING_COL_MAX }}>
+              <FormTextField
+                name="notes"
+                control={control}
+                label={t('pages.fertilizers.notes')}
+                multiline
+                minRows={4}
+                maxRows={14}
+              />
+            </Box>
           </EditSection>
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>

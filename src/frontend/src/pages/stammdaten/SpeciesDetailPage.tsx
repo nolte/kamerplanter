@@ -113,6 +113,10 @@ type FormData = z.infer<typeof schema>;
 
 /** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
 const PANEL_GAP = 4;
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
 
 export default function SpeciesDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -397,7 +401,7 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.species.editIntro')}
@@ -415,105 +419,126 @@ export default function SpeciesDetailPage() {
             )}
           </Box>
 
-          {/* ── Panel 1: Taxonomie (intermediate — Pflichtfelder) ── */}
-          {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.species.sectionTaxonomy')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.species.editIntro')}
-              </Typography>
-              <FormTextField
-                name="scientific_name"
-                control={control}
-                label={t('pages.species.scientificName')}
-                helperText={t('pages.species.scientificNameHelper')}
-                required
-                autoFocus
-              />
-              <FormChipInput
-                name="common_names"
-                control={control}
-                label={t('pages.species.commonNames')}
-                helperText={t('pages.species.commonNamesHelper')}
-              />
-              <FormRow>
-                <Box>
-                  <FormSelectField
-                    name="family_key"
-                    control={control}
-                    label={t('pages.species.family')}
-                    helperText={t('pages.species.familyHelper')}
-                    options={[
-                      { value: '', label: '—' },
-                      ...families.map((f) => ({ value: f.key, label: f.name })),
-                    ]}
-                  />
-                  {current?.family_key && (
-                    <Link
-                      component={RouterLink}
-                      to={`/stammdaten/botanical-families/${current.family_key}`}
-                      variant="body2"
-                      sx={{ display: 'inline-block', mt: -1, mb: 1 }}
-                    >
-                      {t('pages.species.viewFamily')}
-                    </Link>
-                  )}
-                </Box>
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = reading-width prose
+              panel (Taxonomy + Description), right column = stacked compact meta panels
+              (Growth + Cultivation). On xs/sm everything stacks vertically. R-063: DOM
+              order matches visual reading order (left-column first, then right-column). */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: PANEL_GAP,
+              alignItems: 'start',
+            }}
+          >
+            {/* ── Panel 1: Taxonomie (master column, reading-width) ── */}
+            {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.species.sectionTaxonomy')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.species.editIntro')}
+                </Typography>
                 <FormTextField
-                  name="genus"
+                  name="scientific_name"
                   control={control}
-                  label={t('pages.species.genus')}
-                  helperText={t('pages.species.genusHelper')}
+                  label={t('pages.species.scientificName')}
+                  helperText={t('pages.species.scientificNameHelper')}
+                  required
+                  autoFocus
                 />
-              </FormRow>
-              <FormTextField
-                name="description"
-                control={control}
-                label={t('pages.species.description')}
-                helperText={t('pages.species.descriptionHelper')}
-                multiline
-                rows={3}
-              />
-            </CardContent>
-          </Card>
-
-          {/* ── Panel 2: Wachstum (intermediate) ── */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-                {t('pages.species.sectionGrowth')}
-              </Typography>
-              <FormRow>
-                <FormSelectField
-                  name="growth_habit"
+                <FormChipInput
+                  name="common_names"
                   control={control}
-                  label={t('pages.species.growthHabit')}
-                  helperText={t('pages.species.growthHabitHelper')}
-                  options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
-                    value: v,
-                    label: t(`enums.growthHabit.${v}`),
-                  }))}
+                  label={t('pages.species.commonNames')}
+                  helperText={t('pages.species.commonNamesHelper')}
                 />
-                <ExpertiseFieldWrapper minLevel="expert">
-                  <FormSelectField
-                    name="root_type"
+                <FormRow>
+                  <Box>
+                    <FormSelectField
+                      name="family_key"
+                      control={control}
+                      label={t('pages.species.family')}
+                      helperText={t('pages.species.familyHelper')}
+                      options={[
+                        { value: '', label: '—' },
+                        ...families.map((f) => ({ value: f.key, label: f.name })),
+                      ]}
+                    />
+                    {current?.family_key && (
+                      <Link
+                        component={RouterLink}
+                        to={`/stammdaten/botanical-families/${current.family_key}`}
+                        variant="body2"
+                        sx={{ display: 'inline-block', mt: -1, mb: 1 }}
+                      >
+                        {t('pages.species.viewFamily')}
+                      </Link>
+                    )}
+                  </Box>
+                  <FormTextField
+                    name="genus"
                     control={control}
-                    label={t('pages.species.rootType')}
-                    helperText={t('pages.species.rootTypeHelper')}
-                    options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
-                      value: v,
-                      label: t(`enums.rootType.${v}`),
-                    }))}
+                    label={t('pages.species.genus')}
+                    helperText={t('pages.species.genusHelper')}
                   />
-                </ExpertiseFieldWrapper>
-              </FormRow>
-            </CardContent>
-          </Card>
+                </FormRow>
+                {/* UI-NFR-008 R-054 + R-055: prose field capped at reading width */}
+                <Box sx={{ maxWidth: READING_COL_MAX }}>
+                  <FormTextField
+                    name="description"
+                    control={control}
+                    label={t('pages.species.description')}
+                    helperText={t('pages.species.descriptionHelper')}
+                    multiline
+                    minRows={4}
+                    maxRows={14}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
 
-          {/* ── Panel 3: Anbaubedingungen (intermediate — key cultivation info) ── */}
+            {/* ── Detail column: stacked compact panels (Growth + Cultivation) ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+              {/* ── Panel 2: Wachstum (compact, R-057) ── */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                    {t('pages.species.sectionGrowth')}
+                  </Typography>
+                  <FormRow>
+                    <FormSelectField
+                      name="growth_habit"
+                      control={control}
+                      label={t('pages.species.growthHabit')}
+                      helperText={t('pages.species.growthHabitHelper')}
+                      options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                        value: v,
+                        label: t(`enums.growthHabit.${v}`),
+                      }))}
+                    />
+                    <ExpertiseFieldWrapper minLevel="expert">
+                      <FormSelectField
+                        name="root_type"
+                        control={control}
+                        label={t('pages.species.rootType')}
+                        helperText={t('pages.species.rootTypeHelper')}
+                        options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
+                          value: v,
+                          label: t(`enums.rootType.${v}`),
+                        }))}
+                      />
+                    </ExpertiseFieldWrapper>
+                  </FormRow>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+
+          {/* ── Panel 3: Anbaubedingungen (full-width below master-detail, R-058 — expert
+              expansion makes this panel tall and unsuited for the right-column stack) ── */}
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
               <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
