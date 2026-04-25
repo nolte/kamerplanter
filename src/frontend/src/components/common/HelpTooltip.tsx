@@ -100,11 +100,21 @@ export default function HelpTooltip({
   );
 
   // The Tooltip needs a focusable / hoverable trigger. Box with tabIndex satisfies WCAG 2.1 AA.
+  // WCAG 2.5.5 / UI-NFR-002: minimum touch-target of 24×24 px (32 px effective via padding)
+  // even on the smallest expert-level icon.
   const trigger = iconOnly ? (
     <Box
       component="span"
       tabIndex={0}
-      sx={{ display: 'inline-flex', alignItems: 'center', cursor: 'help' }}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 24,
+        minHeight: 24,
+        p: '4px',
+        cursor: 'help',
+      }}
       aria-label={t(`glossary.${term}.short`, { defaultValue: term })}
     >
       {icon}
@@ -113,7 +123,13 @@ export default function HelpTooltip({
     <Box
       component="span"
       tabIndex={0}
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'help' }}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        minHeight: 24,
+        cursor: 'help',
+      }}
     >
       {children}
       {icon}
