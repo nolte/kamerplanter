@@ -108,50 +108,66 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
   // Load species list and suggestions when dialog opens in create mode
   useEffect(() => {
     if (!open || isEdit) return;
-
-    setSelectedSpecies(null);
-    setGrowthPhases([]);
-
-    setSpeciesLoading(true);
-    speciesApi
-      .listSpecies(0, 500)
-      .then((res) => {
-        setSpeciesOptions(
-          res.items.map((s) => ({
-            key: s.key,
-            scientific_name: s.scientific_name,
-            common_names: s.common_names,
-          })),
-        );
-      })
-      .catch(() => setSpeciesOptions([]))
-      .finally(() => setSpeciesLoading(false));
-
-    setSuggestionsLoading(true);
-    taskApi
-      .listPhaseSuggestions()
-      .then(setSuggestions)
-      .catch(() => setSuggestions([]))
-      .finally(() => setSuggestionsLoading(false));
+    let cancelled = false;
+    void (async () => {
+      setSelectedSpecies(null);
+      setGrowthPhases([]);
+      setSpeciesLoading(true);
+      setSuggestionsLoading(true);
+      try {
+        const res = await speciesApi.listSpecies(0, 500);
+        if (!cancelled) {
+          setSpeciesOptions(
+            res.items.map((s) => ({
+              key: s.key,
+              scientific_name: s.scientific_name,
+              common_names: s.common_names,
+            })),
+          );
+        }
+      } catch {
+        if (!cancelled) setSpeciesOptions([]);
+      } finally {
+        if (!cancelled) setSpeciesLoading(false);
+      }
+      try {
+        const sugg = await taskApi.listPhaseSuggestions();
+        if (!cancelled) setSuggestions(sugg);
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, isEdit]);
 
   // Load growth phases when species changes
   useEffect(() => {
-    if (!selectedSpecies) {
-      setGrowthPhases([]);
-      return;
-    }
-
-    setGrowthPhasesLoading(true);
-    phasesApi
-      .getLifecycleConfig(selectedSpecies.key)
-      .then((lc) => phasesApi.listGrowthPhases(lc.key))
-      .then((phases) => {
-        const sorted = [...phases].sort((a, b) => a.sequence_order - b.sequence_order);
+    let cancelled = false;
+    void (async () => {
+      if (!selectedSpecies) {
+        setGrowthPhases([]);
+        return;
+      }
+      setGrowthPhasesLoading(true);
+      try {
+        const lc = await phasesApi.getLifecycleConfig(selectedSpecies.key);
+        const gphases = await phasesApi.listGrowthPhases(lc.key);
+        if (cancelled) return;
+        const sorted = [...gphases].sort((a, b) => a.sequence_order - b.sequence_order);
         setGrowthPhases(sorted);
-      })
-      .catch(() => setGrowthPhases([]))
-      .finally(() => setGrowthPhasesLoading(false));
+      } catch {
+        if (!cancelled) setGrowthPhases([]);
+      } finally {
+        if (!cancelled) setGrowthPhasesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedSpecies]);
 
   const fillFromGrowthPhase = useCallback(
@@ -231,24 +247,29 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               loading={speciesLoading}
               value={selectedSpecies}
               onChange={(_e, value) => setSelectedSpecies(value)}
-              getOptionLabel={(option) =>
-                option.common_names.length > 0
-                  ? `${option.scientific_name} (${option.common_names[0]})`
-                  : option.scientific_name
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                const sn = option.scientific_name ?? '';
+                const cn = Array.isArray(option.common_names) ? option.common_names : [];
+                const firstCn = cn.find((n) => typeof n === 'string' && n.length > 0);
+                return firstCn ? `${sn} (${firstCn})` : sn;
+              }}
+              isOptionEqualToValue={(option, value) =>
+                option != null && value != null && option.key === value.key
               }
-              isOptionEqualToValue={(option, value) => option.key === value.key}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label={t('pages.tasks.selectSpecies')}
                   size="small"
                   slotProps={{
+                    ...params.slotProps,
                     input: {
-                      ...params.slotProps?.input,
+                      ...params.slotProps.input,
                       endAdornment: (
                         <>
                           {speciesLoading ? <CircularProgress size={20} /> : null}
-                          {params.slotProps?.input?.endAdornment}
+                          {params.slotProps.input.endAdornment}
                         </>
                       ),
                     },

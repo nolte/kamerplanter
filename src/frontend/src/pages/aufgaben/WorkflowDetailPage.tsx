@@ -781,55 +781,36 @@ export default function WorkflowDetailPage() {
 
           {phaseGroups.map((group) => {
             const enabledCount = group.templates.filter((tt) => tt.enabled).length;
+            const hasActions = group.phaseKey !== '_unassigned';
             return (
-              <Accordion key={group.phaseKey} defaultExpanded>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {group.displayName}
-                    </Typography>
-                    {group.durationDays > 0 && (
-                      <Chip label={`${group.durationDays}d`} size="small" variant="outlined" />
-                    )}
-                    <Chip
-                      label={`${enabledCount}/${group.templates.length}`}
-                      size="small"
-                      color={enabledCount > 0 ? 'primary' : 'default'}
-                    />
-                    {group.stressTolerance && (
+              <Box key={group.phaseKey} sx={{ position: 'relative' }}>
+                <Accordion defaultExpanded>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={hasActions ? { '& .MuiAccordionSummary-content': { mr: 18 } } : undefined}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        {group.displayName}
+                      </Typography>
+                      {group.durationDays > 0 && (
+                        <Chip label={`${group.durationDays}d`} size="small" variant="outlined" />
+                      )}
                       <Chip
-                        label={t(`enums.stressLevel.${group.stressTolerance}`, group.stressTolerance)}
+                        label={`${enabledCount}/${group.templates.length}`}
                         size="small"
-                        variant="outlined"
-                        color={stressColors[group.stressTolerance] ?? 'default'}
+                        color={enabledCount > 0 ? 'primary' : 'default'}
                       />
-                    )}
-                    {group.phaseKey !== '_unassigned' && (
-                      <Box sx={{ ml: 'auto', display: 'flex', gap: 0 }}>
-                        <Tooltip title={t('pages.tasks.movePhaseUp')}>
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMovePhase(group.phaseKey, -1); }}>
-                            <ArrowUpwardIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('pages.tasks.movePhaseDown')}>
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMovePhase(group.phaseKey, 1); }}>
-                            <ArrowDownwardIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('pages.tasks.editPhase')}>
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditPhase(phases.find((p) => p.key === group.phaseKey)); setPhaseDialogOpen(true); }}>
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('pages.tasks.deletePhase')}>
-                          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeletePhaseKey(group.phaseKey); }}>
-                            <DeleteIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    )}
-                  </Box>
-                </AccordionSummary>
+                      {group.stressTolerance && (
+                        <Chip
+                          label={t(`enums.stressLevel.${group.stressTolerance}`, group.stressTolerance)}
+                          size="small"
+                          variant="outlined"
+                          color={stressColors[group.stressTolerance] ?? 'default'}
+                        />
+                      )}
+                    </Box>
+                  </AccordionSummary>
                 <AccordionDetails>
                   <TableContainer>
                     <Table size="small">
@@ -957,6 +938,60 @@ export default function WorkflowDetailPage() {
                   </Box>
                 </AccordionDetails>
               </Accordion>
+              {hasActions && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 48,
+                    display: 'flex',
+                    gap: 0,
+                    zIndex: 1,
+                  }}
+                >
+                  <Tooltip title={t('pages.tasks.movePhaseUp')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMovePhase(group.phaseKey, -1)}
+                      aria-label={t('pages.tasks.movePhaseUp')}
+                    >
+                      <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('pages.tasks.movePhaseDown')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMovePhase(group.phaseKey, 1)}
+                      aria-label={t('pages.tasks.movePhaseDown')}
+                    >
+                      <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('pages.tasks.editPhase')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setEditPhase(phases.find((p) => p.key === group.phaseKey));
+                        setPhaseDialogOpen(true);
+                      }}
+                      aria-label={t('pages.tasks.editPhase')}
+                    >
+                      <EditIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('pages.tasks.deletePhase')}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setDeletePhaseKey(group.phaseKey)}
+                      aria-label={t('pages.tasks.deletePhase')}
+                    >
+                      <DeleteIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
+            </Box>
             );
           })}
         </Box>

@@ -47,6 +47,7 @@ export default function FormNumberField<T extends FieldValues>({
       render={({ field, fieldState: { error } }) => (
         <TextField
           {...field}
+          value={field.value ?? ''}
           onChange={(e) => {
             const val = e.target.value;
             field.onChange(val === '' ? '' : Number(val));
