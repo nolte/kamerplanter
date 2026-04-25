@@ -60,28 +60,34 @@ export default function PhaseDefinitionDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!key) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const [defData, seqData] = await Promise.all([
-        phaseSequenceApi.getPhaseDefinition(key),
-        phaseSequenceApi.listSequencesForDefinition(key).catch(() => []),
-      ]);
-      setDefinition(defData);
-      setSequences(seqData);
-    } catch (err) {
-      setError(t('errors.notFound'));
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [key, t, handleError]);
+  const [reloadCounter, setReloadCounter] = useState(0);
+  const reload = useCallback(() => setReloadCounter((c) => c + 1), []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!key) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [defData, seqData] = await Promise.all([
+          phaseSequenceApi.getPhaseDefinition(key),
+          phaseSequenceApi.listSequencesForDefinition(key).catch(() => [] as PhaseSequence[]),
+        ]);
+        if (cancelled) return;
+        setDefinition(defData);
+        setSequences(seqData);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(t('errors.notFound'));
+        handleError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, t, handleError, reloadCounter]);
 
   // Breadcrumbs
   useEffect(() => {
@@ -116,7 +122,7 @@ export default function PhaseDefinitionDetailPage() {
 
   const handleEditSaved = () => {
     setEditOpen(false);
-    loadData();
+    reload();
   };
 
   const canDelete =
@@ -141,7 +147,7 @@ export default function PhaseDefinitionDetailPage() {
         </Button>
         <ErrorDisplay
           error={error ?? t('errors.notFound')}
-          onRetry={loadData}
+          onRetry={reload}
         />
       </Box>
     );
