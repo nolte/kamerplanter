@@ -1101,7 +1101,7 @@ export default function TankDetailPage() {
         <Box
           component="form"
           onSubmit={handleSubmit(onSave)}
-          sx={{ maxWidth: { xs: '100%', md: 900, xl: 1100 }, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: { xs: '100%', md: 1280, xl: 1440 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tanks.editIntro')}

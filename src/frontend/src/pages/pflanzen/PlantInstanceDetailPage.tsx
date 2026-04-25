@@ -1789,7 +1789,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 4: Care Profile */}
       {tab === 4 && (
-        <Box sx={{ maxWidth: 900 }}>
+        <Box sx={{ maxWidth: 1280 }}>
           {careProfile ? (
             <>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -2145,7 +2145,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>

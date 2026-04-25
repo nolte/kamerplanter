@@ -102,7 +102,7 @@ export default function SlotDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
         <FormRow>
           <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required autoFocus />
           <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} helperText={t('pages.slots.capacityHelper')} min={1} max={20} />

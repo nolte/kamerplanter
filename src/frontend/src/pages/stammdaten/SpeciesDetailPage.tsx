@@ -387,7 +387,7 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.species.editIntro')}

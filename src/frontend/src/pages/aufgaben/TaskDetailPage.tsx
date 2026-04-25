@@ -917,7 +917,7 @@ export default function TaskDetailPage() {
         <Box
           component="form"
           onSubmit={handleCompletionSubmit(handleComplete)}
-          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tasks.completeIntro')}
@@ -1166,7 +1166,7 @@ export default function TaskDetailPage() {
         <Box
           component="form"
           onSubmit={handleEditSubmit(onSave)}
-          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tasks.editIntro')}

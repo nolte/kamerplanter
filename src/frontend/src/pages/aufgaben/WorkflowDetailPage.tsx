@@ -1166,7 +1166,7 @@ export default function WorkflowDetailPage() {
       </Dialog>
 
       {tab === 2 && (
-        <Box sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.tasks.workflowEditIntro')}
           </Typography>

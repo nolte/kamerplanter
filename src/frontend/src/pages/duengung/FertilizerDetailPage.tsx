@@ -826,7 +826,7 @@ export default function FertilizerDetailPage() {
 
       {/* ── Tab 2: Edit ── */}
       {tab === 2 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.fertilizers.editIntro')}
           </Typography>
