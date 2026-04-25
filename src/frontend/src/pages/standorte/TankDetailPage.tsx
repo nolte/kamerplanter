@@ -396,7 +396,7 @@ export default function TankDetailPage() {
   const sensorColumns: Column<Sensor>[] = [
     { id: 'name', label: t('pages.tanks.sensorColumnName'), render: (r) => r.name },
     { id: 'metric_type', label: t('pages.tanks.sensorColumnMetric'), render: (r) => r.metric_type },
-    { id: 'ha_entity_id', label: t('pages.tanks.sensorColumnEntity'), render: (r) => r.ha_entity_id || '\u2014', hideBelowBreakpoint: 'md' },
+    { id: 'ha_entity_id', label: t('pages.tanks.sensorColumnEntity'), render: (r) => r.ha_entity_id || '—', hideBelowBreakpoint: 'md' },
     {
       id: 'actions', label: '', sortable: false, searchable: false, render: (r: Sensor) => (
         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
@@ -900,7 +900,7 @@ export default function TankDetailPage() {
                   fields={[
                     ...(r.ph != null ? [{ label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
                     ...(r.ec_ms != null ? [{ label: t('enums.sensorMetricType.ec_ms'), value: String(r.ec_ms) }] : []),
-                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
+                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} °C` }] : []),
                     ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
                   ]}
                 />

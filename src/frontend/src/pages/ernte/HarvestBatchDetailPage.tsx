@@ -267,7 +267,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell component="th">
                     {t('pages.harvest.batchId')}
                   </TableCell>
-                  <TableCell>{batch.batch_id || '\u2014'}</TableCell>
+                  <TableCell>{batch.batch_id || '—'}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell component="th">
@@ -282,7 +282,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.harvest_date
                       ? new Date(batch.harvest_date).toLocaleDateString()
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -300,7 +300,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.wet_weight_g != null
                       ? `${batch.wet_weight_g} g`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -310,7 +310,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.estimated_dry_weight_g != null
                       ? `${batch.estimated_dry_weight_g} g`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -320,7 +320,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.actual_dry_weight_g != null
                       ? `${batch.actual_dry_weight_g} g`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -334,14 +334,14 @@ export default function HarvestBatchDetailPage() {
                         size="small"
                         color="primary"
                       />
-                    ) : '\u2014'}
+                    ) : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell component="th">
                     {t('pages.harvest.harvester')}
                   </TableCell>
-                  <TableCell>{batch.harvester || '\u2014'}</TableCell>
+                  <TableCell>{batch.harvester || '—'}</TableCell>
                 </TableRow>
                 {batch.notes && (
                   <TableRow>
@@ -384,7 +384,7 @@ export default function HarvestBatchDetailPage() {
                       <TableCell>
                         {quality.assessed_at
                           ? new Date(quality.assessed_at).toLocaleString()
-                          : '\u2014'}
+                          : '—'}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -688,7 +688,7 @@ export default function HarvestBatchDetailPage() {
                       label={t('pages.harvest.yieldPerM2')}
                       min={0}
                       inputMode="decimal"
-                      suffix="g/m\u00b2"
+                      suffix="g/m²"
                     />
                   </FormRow>
                   <FormRow>
@@ -765,7 +765,7 @@ export default function HarvestBatchDetailPage() {
                   control={editControl}
                   label={t('pages.harvest.qualityGrade')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...qualityGrades.map((v) => ({
                       value: v,
                       label: t(`enums.qualityGrade.${v}`),

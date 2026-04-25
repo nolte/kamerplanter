@@ -61,9 +61,9 @@ export default function PlantingRunListPage() {
       id: 'phase',
       label: t('pages.plantingRuns.currentPhase'),
       render: (r) => {
-        if (!r.phase_summary || r.status === 'planned') return '\u2014';
+        if (!r.phase_summary || r.status === 'planned') return '—';
         const { dominant_phase, dominant_phase_count, total_plant_count } = r.phase_summary;
-        if (!dominant_phase) return '\u2014';
+        if (!dominant_phase) return '—';
         return (
           <Chip
             label={`${t(`enums.phase.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
@@ -89,7 +89,7 @@ export default function PlantingRunListPage() {
     {
       id: 'startedAt',
       label: t('pages.plantingRuns.startedAt'),
-      render: (r) => (r.started_at ? new Date(r.started_at).toLocaleDateString() : '\u2014'),
+      render: (r) => (r.started_at ? new Date(r.started_at).toLocaleDateString() : '—'),
     },
   ];
 

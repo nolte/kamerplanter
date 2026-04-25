@@ -75,7 +75,7 @@ export default function SubstrateListPage() {
     {
       id: 'name',
       label: t('pages.substrates.name'),
-      render: (r) => (lang === 'en' ? r.name_en : r.name_de) || r.brand || '\u2014',
+      render: (r) => (lang === 'en' ? r.name_en : r.name_de) || r.brand || '—',
       searchValue: (r) => `${r.name_de} ${r.name_en} ${r.brand ?? ''}`,
     },
     { id: 'ph', label: t('pages.substrates.phBase'), render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },

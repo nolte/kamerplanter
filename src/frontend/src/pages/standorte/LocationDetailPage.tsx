@@ -242,7 +242,8 @@ export default function LocationDetailPage() {
     }
   };
 
-  useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, [key]);
 
   // Push dynamic breadcrumbs to global store
   useEffect(() => {
@@ -476,11 +477,11 @@ export default function LocationDetailPage() {
                 <DataTable<PlantInstance>
                   columns={[
                     { id: 'instance_id', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
-                    { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => r.plant_name || '\u2014' },
+                    { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => r.plant_name || '—' },
                     { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
                       <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
                     ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
-                    { id: 'planted_on', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '\u2014' },
+                    { id: 'planted_on', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '—' },
                   ]}
                   rows={standaloneInstances}
                   getRowKey={(r) => r.key}
@@ -534,7 +535,7 @@ export default function LocationDetailPage() {
                 title={r.name}
                 subtitle={r.location_type_key || undefined}
                 fields={[
-                  { label: t('pages.locations.area'), value: `${r.area_m2} m\u00B2` },
+                  { label: t('pages.locations.area'), value: `${r.area_m2} m²` },
                 ]}
               />
             )}
@@ -669,7 +670,7 @@ export default function LocationDetailPage() {
           ariaLabel={t('pages.wateringEvents.title')}
           mobileCardRenderer={(r) => (
             <MobileCard
-              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '\u2014'}
+              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
               chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
               fields={[
                 { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },

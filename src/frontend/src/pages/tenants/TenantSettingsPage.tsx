@@ -109,7 +109,7 @@ export default function TenantSettingsPage() {
 
   const memberColumns: Column<Membership>[] = useMemo(() => {
     const cols: Column<Membership>[] = [
-      { id: 'display_name', label: t('pages.tenants.memberName'), render: (r) => r.display_name || '\u2014' },
+      { id: 'display_name', label: t('pages.tenants.memberName'), render: (r) => r.display_name || '—' },
       { id: 'email', label: t('pages.tenants.memberEmail'), render: (r) => r.email },
       {
         id: 'role', label: t('pages.tenants.memberRole'), render: (r) => (
@@ -148,7 +148,7 @@ export default function TenantSettingsPage() {
         </Typography>
       ), searchValue: (r) => t(`enums.invitationType.${r.invitation_type}`, { defaultValue: r.invitation_type }),
     },
-    { id: 'email', label: t('pages.auth.email'), render: (r) => r.email ?? '\u2014' },
+    { id: 'email', label: t('pages.auth.email'), render: (r) => r.email ?? '—' },
     {
       id: 'role', label: t('pages.tenants.memberRole'), render: (r) => (
         <Chip label={t(`enums.tenantRole.${r.role}`)} size="small" />
@@ -201,7 +201,7 @@ export default function TenantSettingsPage() {
           emptyMessage={t('pages.tenants.noMembers')}
           mobileCardRenderer={(m) => (
             <MobileCard
-              title={m.display_name || '\u2014'}
+              title={m.display_name || '—'}
               subtitle={m.email}
               chips={
                 <Chip

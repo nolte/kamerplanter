@@ -84,7 +84,7 @@ export default function LocationTreeSelect<T extends FieldValues>({
           data-testid={`form-field-${name}`}
         >
           <MenuItem value="">
-            {'\u2014'}
+            {'—'}
           </MenuItem>
           {options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>

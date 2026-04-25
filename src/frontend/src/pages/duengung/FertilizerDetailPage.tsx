@@ -814,7 +814,7 @@ export default function FertilizerDetailPage() {
                       ? [{ label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
                       : []),
                     ...(r.cost_per_liter != null
-                      ? [{ label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} \u20ac/L` }]
+                      ? [{ label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
                       : []),
                   ]}
                 />

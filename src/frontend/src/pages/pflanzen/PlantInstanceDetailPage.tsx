@@ -283,7 +283,7 @@ export default function PlantInstanceDetailPage() {
       // Load next pending watering task
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wateringTask = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
         setNextWateringTask(null);
@@ -417,7 +417,7 @@ export default function PlantInstanceDetailPage() {
       // Refresh next watering task (confirming creates a new one)
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wt = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wt = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wt ?? null);
       } catch {
         setNextWateringTask(null);

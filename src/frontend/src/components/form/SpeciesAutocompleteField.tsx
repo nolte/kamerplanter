@@ -110,7 +110,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
                     noWrap
                   >
                     {sp.scientific_name}
-                    {sp.family_name && ` \u00B7 ${sp.family_name}`}
+                    {sp.family_name && ` · ${sp.family_name}`}
                   </Typography>
                 </Box>
               );

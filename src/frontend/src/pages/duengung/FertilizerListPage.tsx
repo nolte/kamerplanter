@@ -132,7 +132,7 @@ export default function FertilizerListPage() {
     {
       id: 'brand',
       label: t('pages.fertilizers.brand'),
-      render: (r) => r.brand || '\u2014',
+      render: (r) => r.brand || '—',
     },
     {
       id: 'fertilizer_type',

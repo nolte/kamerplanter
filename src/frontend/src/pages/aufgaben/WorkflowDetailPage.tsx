@@ -893,7 +893,7 @@ export default function WorkflowDetailPage() {
                               <TableCell>
                                 {tt.estimated_duration_minutes != null
                                   ? `${tt.estimated_duration_minutes} min`
-                                  : '\u2014'}
+                                  : '—'}
                               </TableCell>
                               <TableCell>
                                 <Box sx={{ display: 'flex', gap: 0 }}>

@@ -12,9 +12,9 @@ function activeLocale(): string {
  * Example EN: "4/4/2026, 12:04 PM"
  */
 export function formatDateTime(value: string | Date | null | undefined): string {
-  if (!value) return '\u2014';
+  if (!value) return '—';
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(date.getTime())) return '\u2014';
+  if (isNaN(date.getTime())) return '—';
   return date.toLocaleString(activeLocale(), {
     year: 'numeric',
     month: '2-digit',
@@ -30,9 +30,9 @@ export function formatDateTime(value: string | Date | null | undefined): string 
  * Example EN: "4/4/2026"
  */
 export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '\u2014';
+  if (!value) return '—';
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(date.getTime())) return '\u2014';
+  if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(activeLocale(), {
     year: 'numeric',
     month: '2-digit',
@@ -48,7 +48,7 @@ export function formatNumber(
   value: number | null | undefined,
   options?: { minimumFractionDigits?: number; maximumFractionDigits?: number },
 ): string {
-  if (value == null) return '\u2014';
+  if (value == null) return '—';
   return value.toLocaleString(activeLocale(), {
     minimumFractionDigits: options?.minimumFractionDigits ?? 0,
     maximumFractionDigits: options?.maximumFractionDigits ?? 3,
@@ -64,6 +64,6 @@ export function formatNumberWithUnit(
   unit: string,
   options?: { minimumFractionDigits?: number; maximumFractionDigits?: number },
 ): string {
-  if (value == null) return '\u2014';
+  if (value == null) return '—';
   return `${formatNumber(value, options)} ${unit}`;
 }

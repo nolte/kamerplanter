@@ -97,7 +97,7 @@ export default function LocationListSection({ siteKey }: Props) {
               </>
             }
             fields={[
-              { label: t('pages.locations.area'), value: `${r.area_m2} m\u00B2` },
+              { label: t('pages.locations.area'), value: `${r.area_m2} m²` },
             ]}
           />
         )}

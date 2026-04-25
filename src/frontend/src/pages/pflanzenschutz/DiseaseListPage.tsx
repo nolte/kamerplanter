@@ -66,7 +66,7 @@ export default function DiseaseListPage() {
       render: (r) =>
         r.incubation_period_days != null
           ? `${r.incubation_period_days}\u202f${t('pages.ipm.days')}`
-          : '\u2014',
+          : '—',
       align: 'right',
       searchValue: (r) =>
         r.incubation_period_days != null ? String(r.incubation_period_days) : '',

@@ -36,7 +36,7 @@ function toDateInputValue(iso: string | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014';
+  if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
 }
 
@@ -179,7 +179,7 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
         if (r.status === 'projected') {
           return (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              {r.projected_start ? `~${formatDate(r.projected_start)}` : '\u2014'}
+              {r.projected_start ? `~${formatDate(r.projected_start)}` : '—'}
             </Typography>
           );
         }
@@ -212,7 +212,7 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
         if (r.status === 'projected') {
           return (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              {r.projected_end ? `~${formatDate(r.projected_end)}` : '\u2014'}
+              {r.projected_end ? `~${formatDate(r.projected_end)}` : '—'}
             </Typography>
           );
         }
@@ -332,7 +332,7 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
                   />
                 }
                 fields={[
-                  { label: t('pages.plantingRuns.actualStart'), value: r.actual_entered_at ? formatDate(r.actual_entered_at) : r.projected_start ? `~${formatDate(r.projected_start)}` : '\u2014' },
+                  { label: t('pages.plantingRuns.actualStart'), value: r.actual_entered_at ? formatDate(r.actual_entered_at) : r.projected_start ? `~${formatDate(r.projected_start)}` : '—' },
                   { label: t('pages.plantingRuns.durationDays'), value: r.actual_duration_days != null ? `${r.actual_duration_days} ${t('pages.plantingRuns.daysShort')}` : `~${r.typical_duration_days} ${t('pages.plantingRuns.daysShort')}` },
                 ]}
               />

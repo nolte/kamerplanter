@@ -374,7 +374,7 @@ export default function CultivarDetailPage() {
                   <TableCell>
                     {gp.watering_interval_days
                       ? `${gp.watering_interval_days} ${t('common.days')}`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                   <TableCell>
                     <TextField

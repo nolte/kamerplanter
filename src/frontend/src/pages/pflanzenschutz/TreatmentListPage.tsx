@@ -58,7 +58,7 @@ export default function TreatmentListPage() {
     {
       id: 'activeIngredient',
       label: t('pages.ipm.activeIngredient'),
-      render: (r) => r.active_ingredient ?? '\u2014',
+      render: (r) => r.active_ingredient ?? '—',
       hideBelowBreakpoint: 'md',
     },
     {
@@ -72,7 +72,7 @@ export default function TreatmentListPage() {
             color="warning"
             variant="outlined"
           />
-        ) : '\u2014',
+        ) : '—',
       align: 'right',
       searchValue: (r) =>
         r.safety_interval_days > 0 ? String(r.safety_interval_days) : '',

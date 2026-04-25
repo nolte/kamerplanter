@@ -64,7 +64,7 @@ export default function PestListPage() {
       id: 'lifecycleDays',
       label: t('pages.ipm.lifecycleDays'),
       render: (r) =>
-        r.lifecycle_days != null ? `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` : '\u2014',
+        r.lifecycle_days != null ? `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` : '—',
       align: 'right',
       searchValue: (r) => (r.lifecycle_days != null ? String(r.lifecycle_days) : ''),
       hideBelowBreakpoint: 'md',
