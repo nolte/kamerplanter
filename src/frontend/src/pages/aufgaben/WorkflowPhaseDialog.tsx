@@ -247,24 +247,29 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               loading={speciesLoading}
               value={selectedSpecies}
               onChange={(_e, value) => setSelectedSpecies(value)}
-              getOptionLabel={(option) =>
-                option.common_names.length > 0
-                  ? `${option.scientific_name} (${option.common_names[0]})`
-                  : option.scientific_name
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                const sn = option.scientific_name ?? '';
+                const cn = Array.isArray(option.common_names) ? option.common_names : [];
+                const firstCn = cn.find((n) => typeof n === 'string' && n.length > 0);
+                return firstCn ? `${sn} (${firstCn})` : sn;
+              }}
+              isOptionEqualToValue={(option, value) =>
+                option != null && value != null && option.key === value.key
               }
-              isOptionEqualToValue={(option, value) => option.key === value.key}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label={t('pages.tasks.selectSpecies')}
                   size="small"
                   slotProps={{
+                    ...params.slotProps,
                     input: {
-                      ...params.slotProps?.input,
+                      ...params.slotProps.input,
                       endAdornment: (
                         <>
                           {speciesLoading ? <CircularProgress size={20} /> : null}
-                          {params.slotProps?.input?.endAdornment}
+                          {params.slotProps.input.endAdornment}
                         </>
                       ),
                     },
