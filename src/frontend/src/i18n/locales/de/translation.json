@@ -250,6 +250,8 @@
       "sectionPhaseRestrictionsDesc": "Wachstumsphasen, in denen diese Tätigkeit verboten oder eingeschränkt ist.",
       "sectionMeta": "Tags & Sortierung",
       "sectionMetaDesc": "Freitext-Tags und Sortierreihenfolge für die Darstellung in Listen.",
+      "sectionAdvanced": "Erweitert",
+      "sectionAdvancedDesc": "Phasenbeschränkungen, Tags und Sortierreihenfolge.",
       "editIntro": "Bearbeiten Sie die Eigenschaften dieser Tätigkeit. Änderungen wirken sich auf zukünftige Aufgaben aus.",
       "listIntro": "Tätigkeiten definieren Aktionen, die an Pflanzen ausgeführt werden können (z. B. Schnitt, Umpflanzen, Trainingsmaßnahmen). System-Tätigkeiten werden automatisch befüllt.",
       "noActivities": "Noch keine Tätigkeiten angelegt."
