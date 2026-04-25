@@ -6,10 +6,10 @@ Kategorie: UI-Verhalten Unterkategorie: Formulare, Eingaben, Validierung
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.2
+Version: 1.3
 Autor: Business Analyst - Agrotech
-Datum: 2026-03-17
-Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown]
+Datum: 2026-04-25
+Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown, layout, panel-grid, content-density]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-004, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
 ---
@@ -204,6 +204,124 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 
 > **Begründung:** Unicode-Escapes in JSX/TypeScript werden zwar zur Compile-Zeit korrekt aufgelöst, sind aber (a) schwer lesbar im Code-Review, (b) fehleranfällig bei Copy-Paste und (c) in Edge-Cases (Hot-Module-Replacement, SSR-Hydration-Mismatch) als Rohtext sichtbar. Direkte UTF-8-Zeichen sind in modernen Editoren und Toolchains problemlos und eindeutig.
 
+### 2.11 Inhaltsdichte & Mehrspalten-Layout
+
+> **Motivation:** Detail- und Edit-Seiten mit vielen kleinen Form-Panels nebeneinander wirken auf grossen Viewports „leer", wenn das gesamte Formular auf eine schmale Lesespalte begrenzt ist. Gleichzeitig muss langer Fliesstext (Beschreibungen, Notizen) eine Lese-Breite behalten, die nicht ueberschreitet, was Augen ohne Sakkaden komfortabel lesen koennen. Diese Regeln definieren das Spannungsfeld – und lassen dem Implementierer bewusst Spielraum bei der konkreten Card-Anordnung pro Seite.
+
+#### Container- und Spaltenbreiten
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-053 | Der aeussere Form-Container von Detail-/Edit-Seiten MUSS auf `md+` mindestens `1280px` `maxWidth` zulassen, damit kompakte Panels horizontal nebeneinander Platz finden. Ein pauschales `maxWidth: 900` ist NICHT akzeptabel. | MUSS |
+| R-054 | Felder mit Fliesstext (Beschreibungen, Notizen, Multiline-Textareas mit `minRows >= 4`) MUESSEN eine eigene `maxWidth` von `760px` (entspricht ~70-80 Zeichen pro Zeile) erhalten, unabhaengig von der Container-Breite. Diese Lesbarkeits-Bremse gilt auch dann, wenn die Card selbst breiter ist. | MUSS |
+| R-055 | Mehrzeilige Eingaben in der gleichen Sprachgruppe (z.B. `description_en` + `description_de`) MUESSEN vertikal untereinander gestapelt werden, NIEMALS in einer 50/50-`FormRow` mit Fliesstext. Kurze Felder (Name, Slug) DUERFEN dagegen weiter nebeneinander stehen. | MUSS |
+
+#### Panel-Verteilung auf grossen Viewports
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-056 | Form-Panels (`Card`/`Paper` aus R-037) DUERFEN auf `md+` in einem 2- oder 3-spaltigen CSS-Grid angeordnet werden, sofern jedes betroffene Panel die Bedingungen aus R-057 erfuellt. Die konkrete Spaltenzahl und Anordnung waehlt der Implementierer pro Seite. | KANN |
+| R-057 | Ein Panel ist „kompakt" und damit grid-faehig, wenn es **alle** der folgenden Bedingungen erfuellt: (a) keine Multiline-Textfelder mit `minRows >= 4`, (b) keine `Autocomplete`-Felder mit erwartet langer Optionsliste, (c) maximal sechs aktive Form-Felder, (d) keine eingebetteten Tabellen oder Listen mit dynamischer Hoehe. | MUSS |
+| R-058 | Panels mit Fliesstext-Feldern (Beschreibungen) oder freier Listen-Komponente (`Autocomplete`, dynamischem `FormChipInput` mit erwartet vielen Eintraegen) MUESSEN auf voller Container-Breite einspaltig stehen — sie duerfen NICHT in das Mehrspalten-Grid einsortiert werden. | MUSS |
+| R-059 | Auf `xs`-Viewports MUESSEN ALLE Panels einspaltig untereinander stehen (das Grid kollabiert auf `gridTemplateColumns: '1fr'`). Auf `sm` SOLL maximal zweispaltig gerastert werden, auf `md+` sind drei Spalten zulaessig. | MUSS |
+| R-060 | Innerhalb eines Panels MUSS die bisherige `FormRow` (zwei Spalten ab `md`, eine Spalte auf `xs`) weiterhin verwendet werden, um zusammengehoerige Kurzfelder (z.B. Min/Max, Wert/Einheit, Name-EN/Name-DE) nebeneinander zu zeigen. | MUSS |
+
+#### Implementierer-Freiheit
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-061 | Welche kompakten Panels konkret in welcher Spalte stehen, ist eine Implementierer-Entscheidung pro Seite. Die Spec gibt nur die Spielregeln vor (R-053 bis R-060). Es gibt KEINE pauschale Vorgabe wie „Klassifizierung links, Ausfuehrung rechts". | MUSS |
+| R-062 | Die fachliche Reihenfolge (R-040: Pflichtfelder oben, optionale unten) MUSS auch im Mehrspalten-Layout erkennbar bleiben. Lese-Reihenfolge in CSS-Grid ist links-nach-rechts, dann zeilenweise — Panels mit hoher Prioritaet stehen also oben links. | MUSS |
+| R-063 | Wechselt eine Seite vom Einspalten- in ein Mehrspalten-Layout, MUSS der Implementierer die Tab-Reihenfolge (R-011) gegenpruefen — die DOM-Reihenfolge muss der visuellen Lese-Reihenfolge entsprechen. | MUSS |
+| R-064 | Sticky-FormActions oder andere Navigations-Hilfen sind KEINE Pflicht aus dieser Sektion und KOENNEN seitenweise abgewogen werden. | KANN |
+
+#### Wireframe: Detail-Seite mit Mehrspalten-Layout (md+)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Titel-Header  ☆                                       [Aktion]    │
+│  [Chip] [Chip]  Meta-Info                                           │
+│  ────────────────────────────────────────────────────────────────   │
+│                                                                     │
+│  ┌─ Identifikation (full-width Panel, Fliesstext-Felder) ───────┐  │
+│  │  Name (EN)              │  Name (DE)                          │  │
+│  │  ┌────────────────────┐ │ ┌────────────────────┐              │  │
+│  │  └────────────────────┘ │ └────────────────────┘              │  │
+│  │                                                               │  │
+│  │  Beschreibung (EN)        ← maxWidth 760, auto-grow          │  │
+│  │  ┌────────────────────────────────────────────┐               │  │
+│  │  │ Mehrzeiliger Fliesstext bis 14 Zeilen…    │               │  │
+│  │  └────────────────────────────────────────────┘               │  │
+│  │  Beschreibung (DE)                                            │  │
+│  │  ┌────────────────────────────────────────────┐               │  │
+│  │  └────────────────────────────────────────────┘               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─ Klassifizierung (kompakt) ──┐ ┌─ Ausfuehrung (kompakt) ─────┐  │
+│  │  Kategorie  │  Skill         │ │  Dauer  │  Foto-Pflicht     │  │
+│  │  Stress     │  Recovery-Days │ │  Werkzeuge (Chip-Input)     │  │
+│  └───────────────────────────────┘ └─────────────────────────────┘  │
+│                                                                     │
+│  ┌─ Geltungsbereich (Autocomplete, einspaltig) ──────────────────┐  │
+│  │  ⓘ Diese Tatigkeit ist auf 3 Arten beschrankt.                │  │
+│  │  Kompatible Arten  [Apium ⓧ] [Sellerie ⓧ] [Celeriac ⓧ]      │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─ Erweitert (kompakt) ────────────────────────────────────────┐  │
+│  │  Verbotene Phasen        │  Eingeschraenkte Sub-Phasen        │  │
+│  │  Tags                    │  Sortierreihenfolge                │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│       [Abbrechen]  [Speichern]                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Wireframe: Master-Detail-Variante (md+)
+
+Alternative zur reinen Spalten-Verteilung: Eine Hauptspalte in Lesebreite (`READING_COL_MAX = 760 px`) traegt das Identifikations-Panel mit Fliesstext, daneben steht eine schmalere „Detail"-Spalte mit gestapelten kompakten Panels. Tradeoff: ausgewogener Visual Balance ohne abgehackt wirkende Lese-Spalte, aber Tab-Reihenfolge springt nach dem letzten Fliesstext-Feld in die rechte obere Ecke.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Titel-Header  ☆                                       [Aktion]    │
+│  ────────────────────────────────────────────────────────────────   │
+│                                                                     │
+│  ┌─ Identifikation (760 px) ────────┐ ┌─ Klassifizierung ────────┐  │
+│  │  Name (EN) │ Name (DE)            │ │  Kategorie │ Skill        │  │
+│  │  Beschreibung (EN)                │ │  Stress    │ Recovery     │  │
+│  │  ┌────────────────────────────┐  │ └───────────────────────────┘  │
+│  │  │ Mehrzeiliger Fliesstext   │  │ ┌─ Ausfuehrung ─────────────┐  │
+│  │  └────────────────────────────┘  │ │  Dauer │ Foto-Pflicht     │  │
+│  │  Beschreibung (DE)                │ │  Werkzeuge                │  │
+│  │  ┌────────────────────────────┐  │ └───────────────────────────┘  │
+│  │  └────────────────────────────┘  │                                │
+│  └───────────────────────────────────┘                                │
+│                                                                     │
+│  ┌─ Geltungsbereich (full-width, R-058) ───────────────────────────┐ │
+│  └──────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ┌─ Erweitert (full-width) ────────────────────────────────────────┐ │
+│  └──────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+```tsx
+// Master-Detail: gridTemplateColumns: { md: `minmax(0, ${READING_COL_MAX}px) 1fr` }
+// Linke Spalte: Identifikation (Card)
+// Rechte Spalte: <Box flex column gap={PANEL_GAP}> mit Klassifizierung + Ausfuehrung
+// Darunter (ausserhalb des Master-Detail-Grids): Scope und Advanced full-width
+```
+
+R-063 erinnert: bei Master-Detail springt der Fokus nach dem letzten Fliesstext-Feld in die rechte obere Ecke (`Klassifizierung > Kategorie`). Das ist akzeptabel, solange die DOM-Reihenfolge der visuellen Lese-Reihenfolge folgt (links-Spalte komplett vor rechts-Spalte komplett).
+
+#### Anti-Pattern-Beispiele
+
+| Anti-Pattern | Warum verboten | Korrektur |
+|--------------|----------------|-----------|
+| Komplette Form auf `maxWidth: 900` | Verschwendet auf grossen Bildschirmen 600-800 px Whitespace neben den Cards | R-053: Container `maxWidth: 1280` + selektives R-054 fuer Fliesstext |
+| `description_en` + `description_de` in `FormRow` (50/50) mit `rows={3}` | Lange Beschreibung ist in halbierter Spalte praktisch unlesbar (~30 Zeichen pro Zeile, internes Scrollen) | R-055: vertikal stapeln + R-054: maxWidth 760 + auto-grow (`minRows`/`maxRows`) |
+| Drei kompakte Cards (je 2 Felder) untereinander auf 1920×1080-Display | Erzwingt Scrollen, obwohl alle drei nebeneinander passen | R-056: 3-spaltiges Grid auf `md+` |
+| Identification + Beschreibung in 2-Spalten-Grid neben Klassifizierung | Verletzt R-058 (Fliesstext-Panel im Grid) | R-058: Identification bleibt full-width, Klassifizierung steht in eigener Grid-Reihe |
+
 ### 2.9 Formular-Reset
 
 | # | Regel | Stufe |
@@ -355,6 +473,14 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
     - [ ] Jedes Panel hat eine Überschrift und optional einen Einleitungstext
     - [ ] Panels sind durch visuellen Abstand (24px) klar getrennt
     - [ ] Panel-Reihenfolge folgt der fachlichen Priorität (Pflichtfelder oben)
+- [ ] **Inhaltsdichte & Mehrspalten-Layout (Sektion 2.11)**
+    - [ ] Form-Container nutzt `maxWidth >= 1280` auf `md+` (kein pauschales `900`)
+    - [ ] Multiline-Fließtext-Felder sind auf `maxWidth: 760` gecappt (Lese-Spalte)
+    - [ ] Sprachgruppen mit Multiline-Textareas (EN+DE-Beschreibung) sind vertikal gestapelt, nicht in `FormRow`
+    - [ ] Kompakte Panels (R-057) auf `md+` in 2- oder 3-spaltigem Grid platziert
+    - [ ] Panels mit Fließtext oder freier Listen-Komponente bleiben einspaltig (R-058)
+    - [ ] Auf `xs` kollabiert das Panel-Grid auf eine Spalte (R-059)
+    - [ ] Tab-Reihenfolge entspricht visueller Lese-Reihenfolge auch im Mehrspalten-Layout (R-063)
 - [ ] **Kontextuelle Hilfetext-Icons**
     - [ ] Nicht-offensichtliche Felder haben ein Info-Icon (ⓘ) neben dem Label
     - [ ] Info-Icon zeigt Tooltip mit Hilfetext bei Hover/Tap
@@ -390,8 +516,11 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 
 **Dokumenten-Ende**
 
-**Version**: 1.2
+**Version**: 1.3
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-03-17
+**Letzte Aktualisierung**: 2026-04-25
+**Changelog**:
+- 1.3 (2026-04-25): Sektion 2.11 „Inhaltsdichte & Mehrspalten-Layout" ergänzt (R-053–R-064): Container-Breite, Lese-Spalten-Limit für Fließtext, optionales 2-/3-Spalten-Grid für kompakte Panels, Implementierer-Freiheit bei der konkreten Card-Anordnung pro Seite. Master-Detail-Wireframe als zweite zulässige Layout-Variante zu R-061 ergänzt.
+- 1.2 (2026-03-17): Vorherige Fassung.
 **Review**: Pending
 **Genehmigung**: Pending

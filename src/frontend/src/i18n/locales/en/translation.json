@@ -250,6 +250,8 @@
       "sectionPhaseRestrictionsDesc": "Growth phases where this activity is forbidden or restricted.",
       "sectionMeta": "Tags & Sorting",
       "sectionMetaDesc": "Free-text tags and sort order for display in lists.",
+      "sectionAdvanced": "Advanced",
+      "sectionAdvancedDesc": "Phase restrictions, tags, and sort order.",
       "editIntro": "Edit the properties of this activity. Changes affect future tasks.",
       "listIntro": "Activities define actions that can be performed on plants (e.g. pruning, transplanting, training). System activities are pre-populated.",
       "noActivities": "No activities created yet."

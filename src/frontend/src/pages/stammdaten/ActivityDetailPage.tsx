@@ -9,7 +9,9 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -53,6 +55,10 @@ type FormData = z.infer<typeof schema>;
 
 /** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
 const PANEL_GAP = 4;
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
 
 export default function ActivityDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -199,7 +205,16 @@ export default function ActivityDetailPage() {
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {activity.is_system && (
-              <Chip label={t('pages.activities.systemActivity')} color="info" size="small" />
+              // UI-NFR-018 R-001/R-005/R-006/R-009: Origin chip with icon and explanatory tooltip
+              <Tooltip title={t('pages.activities.systemHint')} arrow>
+                <Chip
+                  icon={<SettingsIcon fontSize="small" />}
+                  label={t('pages.activities.systemActivity')}
+                  color="info"
+                  size="small"
+                  variant="outlined"
+                />
+              </Tooltip>
             )}
             {!activity.is_system && (
               <Button color="error" onClick={() => setDeleteOpen(true)}>
@@ -210,105 +225,136 @@ export default function ActivityDetailPage() {
         }
       />
 
-      {activity.is_system && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {t('pages.activities.systemHint')}
-        </Alert>
-      )}
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+      >
+        {/* UI-NFR-008 R-061: Master-detail layout — left column = reading-width prose panel
+            (Identification), right column = stacked compact meta panels (Classification + Execution).
+            On xs/sm everything stacks vertically. UI-NFR-008 R-063: DOM order matches visual
+            reading order (left-column first, then right-column top-to-bottom). */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+            gap: PANEL_GAP,
+            alignItems: 'start',
+          }}
+        >
+          {/* ── Panel 1: Bezeichnung ── master column, capped at reading width by parent grid */}
+          {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.activities.sectionIdentification')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.activities.sectionIdentificationDesc')}
+              </Typography>
+              <FormRow>
+                <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required autoFocus />
+                <FormTextField name="name_de" control={control} label={t('pages.activities.nameDe')} />
+              </FormRow>
+              {/* UI-NFR-008 R-054 + R-055: prose fields stacked vertically AND
+                  capped at reading width directly on the field group, not just via
+                  the parent grid column — the reading limit must hold even if a
+                  future layout change widens the column. */}
+              <Box sx={{ maxWidth: READING_COL_MAX }}>
+                <FormTextField
+                  name="description"
+                  control={control}
+                  label={t('pages.activities.descriptionEn')}
+                  multiline
+                  minRows={4}
+                  maxRows={14}
+                />
+                <FormTextField
+                  name="description_de"
+                  control={control}
+                  label={t('pages.activities.descriptionDe')}
+                  multiline
+                  minRows={4}
+                  maxRows={14}
+                />
+              </Box>
+            </CardContent>
+          </Card>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
-        <Typography variant="body2" color="text.secondary">
-          {t('pages.activities.editIntro')}
-        </Typography>
+          {/* ── Detail column: stacked compact panels (Classification + Execution) ── */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+            {/* ── Panel 2: Klassifizierung ── compact (R-057) */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.activities.sectionClassification')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.activities.sectionClassificationDesc')}
+                </Typography>
+                <FormRow>
+                  <FormSelectField name="category" control={control} label={t('pages.activities.category')} options={categoryOptions} />
+                  <FormSelectField name="skill_level" control={control} label={t('pages.activities.skillLevel')} options={skillOptions} />
+                </FormRow>
+                <FormRow>
+                  <FormSelectField
+                    name="stress_level"
+                    control={control}
+                    label={t('pages.activities.stressLevel')}
+                    helperText={t('pages.activities.stressLevelHint')}
+                    options={stressOptions}
+                  />
+                  <FormNumberField
+                    name="recovery_days_default"
+                    control={control}
+                    label={t('pages.activities.recoveryDays')}
+                    helperText={t('pages.activities.recoveryDaysHint')}
+                    min={0}
+                    suffix="d"
+                    step={1}
+                    inputMode="numeric"
+                  />
+                </FormRow>
+              </CardContent>
+            </Card>
 
-        {/* ── Panel 1: Bezeichnung ── */}
-        {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
-        <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-              {t('pages.activities.sectionIdentification')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.activities.sectionIdentificationDesc')}
-            </Typography>
-            <FormRow>
-              <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required autoFocus />
-              <FormTextField name="name_de" control={control} label={t('pages.activities.nameDe')} />
-            </FormRow>
-            <FormRow>
-              <FormTextField name="description" control={control} label={t('pages.activities.descriptionEn')} multiline rows={3} />
-              <FormTextField name="description_de" control={control} label={t('pages.activities.descriptionDe')} multiline rows={3} />
-            </FormRow>
-          </CardContent>
-        </Card>
+            {/* ── Panel 3: Ausführung ── compact (R-057) */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.activities.sectionExecution')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.activities.sectionExecutionDesc')}
+                </Typography>
+                <FormRow>
+                  <FormNumberField
+                    name="estimated_duration_minutes"
+                    control={control}
+                    label={t('pages.activities.estimatedDuration')}
+                    min={1}
+                    suffix="min"
+                  />
+                  <FormSwitchField
+                    name="requires_photo"
+                    control={control}
+                    label={t('pages.activities.requiresPhoto')}
+                    helperText={t('pages.activities.requiresPhotoHint')}
+                  />
+                </FormRow>
+                <FormChipInput
+                  name="tools_required"
+                  control={control}
+                  label={t('pages.activities.toolsRequired')}
+                  helperText={t('pages.activities.toolsRequiredHint')}
+                />
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
 
-        {/* ── Panel 2: Klassifizierung ── */}
-        <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-              {t('pages.activities.sectionClassification')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.activities.sectionClassificationDesc')}
-            </Typography>
-            <FormRow>
-              <FormSelectField name="category" control={control} label={t('pages.activities.category')} options={categoryOptions} />
-              <FormSelectField name="skill_level" control={control} label={t('pages.activities.skillLevel')} options={skillOptions} />
-            </FormRow>
-            <FormRow>
-              <FormSelectField
-                name="stress_level"
-                control={control}
-                label={t('pages.activities.stressLevel')}
-                helperText={t('pages.activities.stressLevelHint')}
-                options={stressOptions}
-              />
-              <FormNumberField
-                name="recovery_days_default"
-                control={control}
-                label={t('pages.activities.recoveryDays')}
-                helperText={t('pages.activities.recoveryDaysHint')}
-                min={0}
-                suffix="d"
-              />
-            </FormRow>
-          </CardContent>
-        </Card>
-
-        {/* ── Panel 3: Ausführung ── */}
-        <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-              {t('pages.activities.sectionExecution')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.activities.sectionExecutionDesc')}
-            </Typography>
-            <FormRow>
-              <FormNumberField
-                name="estimated_duration_minutes"
-                control={control}
-                label={t('pages.activities.estimatedDuration')}
-                min={1}
-                suffix="min"
-              />
-              <FormSwitchField
-                name="requires_photo"
-                control={control}
-                label={t('pages.activities.requiresPhoto')}
-                helperText={t('pages.activities.requiresPhotoHint')}
-              />
-            </FormRow>
-            <FormChipInput
-              name="tools_required"
-              control={control}
-              label={t('pages.activities.toolsRequired')}
-              helperText={t('pages.activities.toolsRequiredHint')}
-            />
-          </CardContent>
-        </Card>
-
-        {/* ── Panel 4: Geltungsbereich ── */}
+        {/* ── Panel 4: Geltungsbereich ── full-width below master-detail (R-058) */}
         <Card variant="outlined">
           <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
@@ -355,53 +401,47 @@ export default function ActivityDetailPage() {
           </CardContent>
         </Card>
 
-        {/* ── Panel 5: Phasenbeschränkungen ── */}
+        {/* ── Panel 5: Erweitert ── full-width below master-detail */}
+        {/* Merged from two thin panels to reduce cognitive load and scroll depth */}
         <Card variant="outlined">
           <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-              {t('pages.activities.sectionPhaseRestrictions')}
+              {t('pages.activities.sectionAdvanced')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.activities.sectionPhaseRestrictionsDesc')}
+              {t('pages.activities.sectionAdvancedDesc')}
             </Typography>
-            <FormChipInput
-              name="forbidden_phases"
-              control={control}
-              label={t('pages.activities.forbiddenPhases')}
-              helperText={t('pages.activities.forbiddenPhasesHint')}
-            />
-            <FormChipInput
-              name="restricted_sub_phases"
-              control={control}
-              label={t('pages.activities.restrictedSubPhases')}
-              helperText={t('pages.activities.restrictedSubPhasesHint')}
-            />
-          </CardContent>
-        </Card>
-
-        {/* ── Panel 6: Tags & Sortierung ── */}
-        <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-              {t('pages.activities.sectionMeta')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.activities.sectionMetaDesc')}
-            </Typography>
-            <FormChipInput
-              name="tags"
-              control={control}
-              label={t('pages.activities.tags')}
-              helperText={t('pages.activities.tagsHint')}
-            />
-            <FormNumberField
-              name="sort_order"
-              control={control}
-              label={t('pages.activities.sortOrder')}
-              helperText={t('pages.activities.sortOrderHint')}
-              min={0}
-              step={1}
-            />
+            <FormRow>
+              <FormChipInput
+                name="forbidden_phases"
+                control={control}
+                label={t('pages.activities.forbiddenPhases')}
+                helperText={t('pages.activities.forbiddenPhasesHint')}
+              />
+              <FormChipInput
+                name="restricted_sub_phases"
+                control={control}
+                label={t('pages.activities.restrictedSubPhases')}
+                helperText={t('pages.activities.restrictedSubPhasesHint')}
+              />
+            </FormRow>
+            <FormRow>
+              <FormChipInput
+                name="tags"
+                control={control}
+                label={t('pages.activities.tags')}
+                helperText={t('pages.activities.tagsHint')}
+              />
+              <FormNumberField
+                name="sort_order"
+                control={control}
+                label={t('pages.activities.sortOrder')}
+                helperText={t('pages.activities.sortOrderHint')}
+                min={0}
+                step={1}
+                inputMode="numeric"
+              />
+            </FormRow>
           </CardContent>
         </Card>
 
