@@ -14,9 +14,11 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormRow from '@/components/form/FormRow';
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
 import FormActions from '@/components/form/FormActions';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -244,39 +246,51 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
             />
           </Collapse>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.fertilizers.sectionNutrients')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('pages.fertilizers.sectionNutrients')}
+            </Typography>
+            <HelpTooltip term="npk" iconOnly />
+          </Box>
           <FormRow>
-            <FormNumberField
-              name="npk_n"
-              control={control}
-              label={t('pages.fertilizers.npkN')}
-              helperText={t('pages.fertilizers.npkNHelper')}
-              min={0}
-              suffix="%"
-              inputMode="decimal"
-            />
-            <FormNumberField
-              name="npk_p"
-              control={control}
-              label={t('pages.fertilizers.npkP')}
-              helperText={t('pages.fertilizers.npkPHelper')}
-              min={0}
-              suffix="%"
-              inputMode="decimal"
-            />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="npk_n"
+                control={control}
+                label={t('pages.fertilizers.npkN')}
+                helperText={t('pages.fertilizers.npkNHelper')}
+                min={0}
+                suffix="%"
+                inputMode="decimal"
+              />
+              <HelpTooltip term="npk" iconOnly />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="npk_p"
+                control={control}
+                label={t('pages.fertilizers.npkP')}
+                helperText={t('pages.fertilizers.npkPHelper')}
+                min={0}
+                suffix="%"
+                inputMode="decimal"
+              />
+              <HelpTooltip term="npk" iconOnly />
+            </Box>
           </FormRow>
           <FormRow>
-            <FormNumberField
-              name="npk_k"
-              control={control}
-              label={t('pages.fertilizers.npkK')}
-              helperText={t('pages.fertilizers.npkKHelper')}
-              min={0}
-              suffix="%"
-              inputMode="decimal"
-            />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="npk_k"
+                control={control}
+                label={t('pages.fertilizers.npkK')}
+                helperText={t('pages.fertilizers.npkKHelper')}
+                min={0}
+                suffix="%"
+                inputMode="decimal"
+              />
+              <HelpTooltip term="npk" iconOnly />
+            </Box>
             <FormNumberField
               name="water_mix_ratio_ro_percent"
               control={control}
@@ -302,23 +316,29 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           )}
 
           <FormRow>
-            <FormNumberField
-              name="calcium_ppm"
-              control={control}
-              label={t('pages.nutrientPlans.calciumPpm')}
-              min={0}
-              suffix="ppm"
-              inputMode="decimal"
-              helperText={t('pages.nutrientPlans.ppmHelper')}
-            />
-            <FormNumberField
-              name="magnesium_ppm"
-              control={control}
-              label={t('pages.nutrientPlans.magnesiumPpm')}
-              min={0}
-              suffix="ppm"
-              inputMode="decimal"
-            />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="calcium_ppm"
+                control={control}
+                label={t('pages.nutrientPlans.calciumPpm')}
+                min={0}
+                suffix="ppm"
+                inputMode="decimal"
+                helperText={t('pages.nutrientPlans.ppmHelper')}
+              />
+              <HelpTooltip term="calmag" iconOnly />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="magnesium_ppm"
+                control={control}
+                label={t('pages.nutrientPlans.magnesiumPpm')}
+                min={0}
+                suffix="ppm"
+                inputMode="decimal"
+              />
+              <HelpTooltip term="calmag" iconOnly />
+            </Box>
           </FormRow>
           <FormTextField
             name="notes"

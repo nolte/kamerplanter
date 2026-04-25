@@ -51,6 +51,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
@@ -885,42 +886,54 @@ export default function FertilizerDetailPage() {
                 columnGap: 2,
               }}
             >
-              <FormNumberField
-                name="npk_n"
-                control={control}
-                label={t('pages.fertilizers.npkN')}
-                min={0}
-                suffix="%"
-                inputMode="decimal"
-                helperText={t('pages.fertilizers.npkNHelper')}
-              />
-              <FormNumberField
-                name="npk_p"
-                control={control}
-                label={t('pages.fertilizers.npkP')}
-                min={0}
-                suffix="%"
-                inputMode="decimal"
-              />
-              <FormNumberField
-                name="npk_k"
-                control={control}
-                label={t('pages.fertilizers.npkK')}
-                min={0}
-                suffix="%"
-                inputMode="decimal"
-              />
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                <FormNumberField
+                  name="npk_n"
+                  control={control}
+                  label={t('pages.fertilizers.npkN')}
+                  min={0}
+                  suffix="%"
+                  inputMode="decimal"
+                  helperText={t('pages.fertilizers.npkNHelper')}
+                />
+                <HelpTooltip term="npk" iconOnly />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                <FormNumberField
+                  name="npk_p"
+                  control={control}
+                  label={t('pages.fertilizers.npkP')}
+                  min={0}
+                  suffix="%"
+                  inputMode="decimal"
+                />
+                <HelpTooltip term="npk" iconOnly />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                <FormNumberField
+                  name="npk_k"
+                  control={control}
+                  label={t('pages.fertilizers.npkK')}
+                  min={0}
+                  suffix="%"
+                  inputMode="decimal"
+                />
+                <HelpTooltip term="npk" iconOnly />
+              </Box>
             </Box>
             <FormRow>
-              <FormNumberField
-                name="ec_contribution_per_ml"
-                control={control}
-                label={t('pages.fertilizers.ecContribution')}
-                min={0}
-                suffix="mS/ml"
-                inputMode="decimal"
-                helperText={t('pages.fertilizers.ecContributionHelper')}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                <FormNumberField
+                  name="ec_contribution_per_ml"
+                  control={control}
+                  label={t('pages.fertilizers.ecContribution')}
+                  min={0}
+                  suffix="mS/ml"
+                  inputMode="decimal"
+                  helperText={t('pages.fertilizers.ecContributionHelper')}
+                />
+                <HelpTooltip term="ec" iconOnly />
+              </Box>
               <FormNumberField
                 name="max_dose_ml_per_liter"
                 control={control}

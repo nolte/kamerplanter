@@ -46,6 +46,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
@@ -272,12 +273,15 @@ function PhaseTimelineTab({
               <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                 {t('pages.gantt.week')}{entry.week_start}–{entry.week_end} ({duration} {t('pages.nutrientPlans.weeks')})
               </Typography>
-              <Chip
-                label={`NPK ${entry.npk_ratio[0]}-${entry.npk_ratio[1]}-${entry.npk_ratio[2]}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 600 }}
-              />
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                <Chip
+                  label={`NPK ${entry.npk_ratio[0]}-${entry.npk_ratio[1]}-${entry.npk_ratio[2]}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontWeight: 600 }}
+                />
+                <HelpTooltip term="npk" iconOnly />
+              </Box>
               {(() => {
                 const ecValues = entry.delivery_channels
                   .filter((ch) => ch.target_ec_ms != null)
@@ -288,13 +292,16 @@ function PhaseTimelineTab({
                   ? `EC ${unique[0]} mS/cm`
                   : `EC ${Math.min(...unique)}–${Math.max(...unique)} mS/cm`;
                 return (
-                  <Chip
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    color="info"
-                    sx={{ fontWeight: 600 }}
-                  />
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                    <Chip
+                      label={label}
+                      size="small"
+                      variant="outlined"
+                      color="info"
+                      sx={{ fontWeight: 600 }}
+                    />
+                    <HelpTooltip term="ec" iconOnly />
+                  </Box>
                 );
               })()}
               {entry.is_recurring && (
