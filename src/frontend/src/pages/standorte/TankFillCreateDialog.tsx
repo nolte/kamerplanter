@@ -116,8 +116,9 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="tank-fill-create-dialog">
-      <DialogTitle>{t('pages.tanks.recordFill')}</DialogTitle>
+      data-testid="tank-fill-create-dialog"
+      aria-labelledby="tank-fill-create-dialog-title">
+      <DialogTitle id="tank-fill-create-dialog-title">{t('pages.tanks.recordFill')}</DialogTitle>
       <DialogContent>
         {warnings.length > 0 && warnings.map((w, i) => (
           <Alert key={i} severity="warning" sx={{ mb: 1 }}>{w}</Alert>
@@ -152,7 +153,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
               control={control}
               label={t('pages.tanks.waterSource')}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...waterSources.map((v) => ({
                   value: v,
                   label: t(`enums.waterSource.${v}`),

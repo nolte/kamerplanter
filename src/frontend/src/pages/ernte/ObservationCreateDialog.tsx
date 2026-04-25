@@ -108,8 +108,8 @@ export default function ObservationCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.harvest.createObservation')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="observation-create-dialog-title" data-testid="observation-create-dialog">
+      <DialogTitle id="observation-create-dialog-title">{t('pages.harvest.createObservation')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.harvest.createObservationIntro')}
@@ -124,7 +124,7 @@ export default function ObservationCreateDialog({
             disabled={loadingIndicators}
             options={indicators.map((i) => ({
               value: i.key,
-              label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '\u2014'})`,
+              label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '—'})`,
             }))}
           />
           <FormTextField

@@ -169,8 +169,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-entry-dialog-title" data-testid="phase-entry-dialog">
+      <DialogTitle id="phase-entry-dialog-title">
         {isEdit
           ? t('pages.nutrientPlans.editEntry')
           : t('pages.nutrientPlans.addEntry')}

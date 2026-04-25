@@ -114,8 +114,8 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
     : t('pages.locations.create');
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{dialogTitle}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="location-create-dialog-title" data-testid="location-create-dialog">
+      <DialogTitle id="location-create-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="name" control={control} label={t('pages.locations.name')} required />

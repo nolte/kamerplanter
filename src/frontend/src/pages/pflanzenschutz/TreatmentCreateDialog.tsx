@@ -92,8 +92,8 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.ipm.createTreatment')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="treatment-create-dialog-title" data-testid="treatment-create-dialog">
+      <DialogTitle id="treatment-create-dialog-title">{t('pages.ipm.createTreatment')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.ipm.treatmentCreateIntro')}

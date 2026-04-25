@@ -129,8 +129,8 @@ export default function AdoptPlantsDialog({
       maxWidth="sm"
       fullWidth
       data-testid="adopt-plants-dialog"
-    >
-      <DialogTitle>{t('pages.plantingRuns.adoptPlants')}</DialogTitle>
+      aria-labelledby="adopt-plants-dialog-title">
+      <DialogTitle id="adopt-plants-dialog-title">{t('pages.plantingRuns.adoptPlants')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.plantingRuns.adoptPlantsDesc')}

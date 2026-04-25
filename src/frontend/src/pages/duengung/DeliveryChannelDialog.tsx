@@ -214,8 +214,8 @@ export default function DeliveryChannelDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="delivery-channel-dialog-title" data-testid="delivery-channel-dialog">
+      <DialogTitle id="delivery-channel-dialog-title">
         {isEdit
           ? t('pages.deliveryChannels.editChannel')
           : t('pages.deliveryChannels.addChannel')}
@@ -367,7 +367,7 @@ export default function DeliveryChannelDialog({
                   size="small"
                   slotProps={{
                     htmlInput: { min: 0, step: 0.5, inputMode: 'decimal' },
-                    input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g/m{'\u00B2'}</Typography> },
+                    input: { endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g/m{'²'}</Typography> },
                   }}
                 />
               </>

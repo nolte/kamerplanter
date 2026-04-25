@@ -419,8 +419,10 @@ export default function WorkflowInstantiateDialog({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby="workflow-instantiate-dialog-title"
+      data-testid="workflow-instantiate-dialog"
     >
-      <DialogTitle>{t('pages.tasks.instantiateWorkflow')}</DialogTitle>
+      <DialogTitle id="workflow-instantiate-dialog-title">{t('pages.tasks.instantiateWorkflow')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.instantiateIntroNew')}

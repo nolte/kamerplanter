@@ -160,8 +160,8 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEdit ? t('pages.sensors.edit') : t('pages.sensors.add')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="sensor-create-dialog-title" data-testid="sensor-create-dialog">
+      <DialogTitle id="sensor-create-dialog-title">{isEdit ? t('pages.sensors.edit') : t('pages.sensors.add')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {haEntities.length > 0 && (

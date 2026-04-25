@@ -119,8 +119,9 @@ export default function PlantingRunEditDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      data-testid="planting-run-edit-dialog">
-      <DialogTitle>{t('pages.plantingRuns.editTitle')}</DialogTitle>
+      data-testid="planting-run-edit-dialog"
+      aria-labelledby="planting-run-edit-dialog-title">
+      <DialogTitle id="planting-run-edit-dialog-title">{t('pages.plantingRuns.editTitle')}</DialogTitle>
       <DialogContent>
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
@@ -155,7 +156,7 @@ export default function PlantingRunEditDialog({
                   control={control}
                   label={t('entities.site')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...sitesList.map((s) => ({ value: s.key, label: s.name })),
                   ]}
                 />

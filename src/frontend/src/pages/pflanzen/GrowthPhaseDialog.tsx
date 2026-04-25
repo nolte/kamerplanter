@@ -115,8 +115,9 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="growth-phase-dialog"
+      aria-labelledby="growth-phase-dialog-title">
+      <DialogTitle id="growth-phase-dialog-title">
         {isEdit ? t('common.edit') : t('pages.growthPhases.create')}
       </DialogTitle>
       <DialogContent>

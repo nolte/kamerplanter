@@ -116,8 +116,8 @@ export default function HarvestCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.harvest.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="harvest-create-dialog-title" data-testid="harvest-create-dialog">
+      <DialogTitle id="harvest-create-dialog-title">{t('pages.harvest.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.harvest.createIntro')}

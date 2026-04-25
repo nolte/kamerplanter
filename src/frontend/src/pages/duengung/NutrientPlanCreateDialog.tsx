@@ -158,8 +158,8 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.nutrientPlans.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="nutrient-plan-create-dialog-title" data-testid="nutrient-plan-create-dialog">
+      <DialogTitle id="nutrient-plan-create-dialog-title">{t('pages.nutrientPlans.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.nutrientPlans.createIntro')}

@@ -187,8 +187,8 @@ export default function CareConfirmDialog({
   );
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{dialogTitle}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="care-confirm-dialog-title" data-testid="care-confirm-dialog">
+      <DialogTitle id="care-confirm-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
         <TextField
           label={t('common.notes')}

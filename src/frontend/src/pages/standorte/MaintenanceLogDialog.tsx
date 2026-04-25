@@ -91,8 +91,8 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.tanks.logMaintenance')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-log-dialog-title" data-testid="maintenance-log-dialog">
+      <DialogTitle id="maintenance-log-dialog-title">{t('pages.tanks.logMaintenance')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormSelectField

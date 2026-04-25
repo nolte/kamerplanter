@@ -143,8 +143,8 @@ export default function FeedingEventCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.feedingEvents.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
+      <DialogTitle id="feeding-event-create-dialog-title">{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {plantKey ? (

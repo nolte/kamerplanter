@@ -154,8 +154,8 @@ export default function ChannelFertilizerDialog({
   }, [existingDosage, fertilizers]);
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="channel-fertilizer-dialog-title" data-testid="channel-fertilizer-dialog">
+      <DialogTitle id="channel-fertilizer-dialog-title">
         {isEdit
           ? t('pages.nutrientPlans.editFertilizer')
           : t('pages.nutrientPlans.addFertilizer')}

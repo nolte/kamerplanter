@@ -230,6 +230,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
       maxWidth="sm"
       fullWidth
       aria-labelledby="workflow-phase-dialog-title"
+      data-testid="workflow-phase-dialog"
     >
       <DialogTitle id="workflow-phase-dialog-title">
         {isEdit ? t('pages.tasks.editPhase') : t('pages.tasks.createPhase')}
@@ -401,7 +402,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
             control={control}
             label={t('pages.tasks.phaseTriggerPhase')}
             options={[
-              { value: '', label: '\u2014' },
+              { value: '', label: '—' },
               ...lifecyclePhases.map((v) => ({
                 value: v,
                 label: t(`enums.phaseName.${v}`),

@@ -137,8 +137,9 @@ export default function BatchPhaseTransitionDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="batch-phase-transition-dialog">
-      <DialogTitle>{t('pages.plantingRuns.batchTransition')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="batch-phase-transition-dialog"
+      aria-labelledby="batch-phase-transition-dialog-title">
+      <DialogTitle id="batch-phase-transition-dialog-title">{t('pages.plantingRuns.batchTransition')}</DialogTitle>
       <DialogContent>
         {loadingPhases ? (
           <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />

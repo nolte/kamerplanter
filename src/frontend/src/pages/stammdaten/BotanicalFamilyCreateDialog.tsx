@@ -146,8 +146,9 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
   ];
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
-      <DialogTitle>{t('pages.botanicalFamilies.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="botanical-family-create-dialog"
+      aria-labelledby="botanical-family-create-dialog-title">
+      <DialogTitle id="botanical-family-create-dialog-title">{t('pages.botanicalFamilies.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.botanicalFamilies.createIntro')}

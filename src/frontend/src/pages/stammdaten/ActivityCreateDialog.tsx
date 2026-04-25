@@ -118,8 +118,9 @@ export default function ActivityCreateDialog({ open, onClose, onCreated }: Props
   }));
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="md" fullWidth data-testid="create-dialog">
-      <DialogTitle>{t('pages.activities.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="md" fullWidth data-testid="activity-create-dialog"
+      aria-labelledby="activity-create-dialog-title">
+      <DialogTitle id="activity-create-dialog-title">{t('pages.activities.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
 

@@ -92,8 +92,8 @@ export default function PhaseTransitionDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="phase-transition-dialog">
-      <DialogTitle>{t('pages.phases.transition')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-transition-dialog-title" data-testid="phase-transition-dialog">
+      <DialogTitle id="phase-transition-dialog-title">{t('pages.phases.transition')}</DialogTitle>
       <DialogContent>
         <TextField
           select

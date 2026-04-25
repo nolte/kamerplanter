@@ -158,7 +158,7 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
           label={t('entities.cultivar')}
           disabled={!speciesKey || cultivarsLoading}
           options={[
-            { value: '', label: '\u2014' },
+            { value: '', label: '—' },
             ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
           ]}
         />
@@ -367,8 +367,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const fc = plantingRunFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>{t('pages.plantingRuns.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
+      <DialogTitle id="planting-run-create-dialog-title">{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
@@ -396,7 +396,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
               control={control}
               label={t('entities.site')}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />

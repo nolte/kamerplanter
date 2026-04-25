@@ -111,8 +111,9 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="tank-create-dialog">
-      <DialogTitle>{t('pages.tanks.create')}</DialogTitle>
+      data-testid="tank-create-dialog"
+      aria-labelledby="tank-create-dialog-title">
+      <DialogTitle id="tank-create-dialog-title">{t('pages.tanks.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tanks.createIntro')}
@@ -170,7 +171,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
             sx={{ mb: 2 }}
             data-testid="form-field-site"
           >
-            <MenuItem value="">{'\u2014'}</MenuItem>
+            <MenuItem value="">{'—'}</MenuItem>
             {sites.map((s) => (
               <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
             ))}
