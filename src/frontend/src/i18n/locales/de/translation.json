@@ -2591,7 +2591,8 @@
       "stepIndicator": "Schritt {{current}} von {{total}}: {{label}}",
       "plantCountAriaValue": "{{count}} Pflanzen",
       "noKitsAvailable": "Für diesen Garten sind keine vorkonfigurierten Szenarien verfügbar.",
-      "customSetupHint": "Du kannst deine Pflanzen manuell einrichten."
+      "customSetupHint": "Du kannst deine Pflanzen manuell einrichten.",
+      "waterValidationError": "Wasser-Konfiguration ungültig: {{field}} liegt außerhalb des zulässigen Bereichs."
     },
     "wateringSchedule": {
       "title": "Gießplan",
