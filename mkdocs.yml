@@ -126,6 +126,7 @@ plugins:
             Code-Standards: Code Standards
             Testen: Testing
             Debugging: Debugging
+            MCP-Werkzeuge: MCP Tools
             Workflows: Workflows
             API: API
             Authentifizierung: Authentication
@@ -281,6 +282,7 @@ nav:
       - Code-Standards: de/development/code-standards.md
       - Testen: de/development/testing.md
       - Debugging: de/development/debugging.md
+      - MCP-Werkzeuge: de/development/mcp-tools.md
       - Workflows: de/development/workflows.md
   - API:
       - de/api/index.md
