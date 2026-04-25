@@ -699,10 +699,24 @@ def screenshot(
 def pytest_runtest_makereport(item: pytest.Item) -> None:
     """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4).
 
-    Also record results for the protocol generator.
+    Also record results for the protocol generator and capture failure
+    diagnostics across all phases (setup/call/teardown).
     """
     outcome = yield
     report = outcome.get_result()
+
+    # ── Failure diagnostics across ALL phases ─────────────────────────
+    # Catches setup-phase crashes (e.g. autouse-fixture failures) that the
+    # screenshot fixture's post-test capture would otherwise miss because
+    # ``call`` was never reached.  Without this, REQ-020 wizard tests can
+    # crash inside ``reset_onboarding_state`` or ``_ensure_step_one`` with
+    # zero artefacts on disk.
+    if report.failed:
+        try:
+            _capture_failure_diagnostics(item, report)
+        except Exception as exc:  # noqa: BLE001 — diagnostics must never break the run
+            print(f"[diagnostics] capture failed for {item.nodeid}: {exc}")
+
     if report.when == "call":
         item._report = report  # type: ignore[attr-defined]
 
@@ -730,6 +744,128 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             # Incremental checkpoint — append to JSONL so partial results
             # survive interrupts (Ctrl+C, crash, timeout).
             _write_checkpoint(result)
+    elif report.when == "setup" and report.failed and _protocol_generator is not None:
+        # Surface setup-phase failures in the protocol/checkpoint as well
+        # so REQ-020 crashes are no longer invisible to the report.
+        message = str(report.longrepr) if report.longrepr else ""
+        docstring = ""
+        if item.obj and item.obj.__doc__:
+            docstring = item.obj.__doc__.strip().split("\n")[0]
+        screenshots = getattr(item, "_protocol_screenshots", [])
+        result = TestResult(
+            nodeid=item.nodeid,
+            outcome="failed",
+            duration=report.duration,
+            message=f"[SETUP FAILURE] {message}",
+            docstring=docstring,
+            screenshots=screenshots,
+        )
+        _protocol_generator.add_result(result)
+        _write_checkpoint(result)
+
+
+def _capture_failure_diagnostics(item: pytest.Item, report) -> None:
+    """Persist a postmortem bundle for a failed test phase.
+
+    Writes ``diagnostics/<test_name>__<phase>.md`` with URL, title, the last
+    8 KB of page_source, browser console errors and a full-page screenshot
+    next to it (``FAILURE_<test_name>__<phase>.png``).  Fully defensive —
+    each driver call is isolated so a dead Selenium session still leaves a
+    stub diagnostics file behind.
+    """
+    import json
+
+    funcargs = getattr(item, "funcargs", {}) or {}
+    driver = funcargs.get("browser")
+
+    screenshot_dir = funcargs.get("screenshot_dir")
+    if screenshot_dir is None and _protocol_output_dir is not None:
+        screenshot_dir = _protocol_output_dir / "screenshots"
+    if screenshot_dir is None:
+        return
+    diagnostics_dir = Path(screenshot_dir).parent / "diagnostics"
+    diagnostics_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = item.name.replace("[", "_").replace("]", "_").replace("/", "_")
+    phase = report.when or "unknown"
+    base = f"FAILURE_{safe_name}__{phase}"
+
+    diag: dict[str, str] = {
+        "nodeid": item.nodeid,
+        "phase": phase,
+        "duration": f"{report.duration:.3f}s" if report.duration else "n/a",
+    }
+
+    if driver is not None:
+        try:
+            diag["current_url"] = driver.current_url
+        except Exception as exc:  # noqa: BLE001
+            diag["current_url"] = f"<unreachable: {exc!r}>"
+
+        try:
+            diag["title"] = driver.title
+        except Exception as exc:  # noqa: BLE001
+            diag["title"] = f"<unreachable: {exc!r}>"
+
+        screenshot_path = Path(screenshot_dir) / f"{base}.png"
+        try:
+            _cdp_full_page_screenshot(driver, screenshot_path)
+            diag["screenshot"] = screenshot_path.name
+        except Exception as exc:  # noqa: BLE001
+            diag["screenshot"] = f"<failed: {exc!r}>"
+
+        try:
+            source = driver.page_source or ""
+            diag["page_source_tail"] = source[-8192:]
+        except Exception as exc:  # noqa: BLE001
+            diag["page_source_tail"] = f"<unreachable: {exc!r}>"
+
+        try:
+            console = driver.get_log("browser")
+            errors = [e for e in console if e.get("level") in ("SEVERE", "WARNING")]
+            diag["console_errors"] = json.dumps(errors[-30:], ensure_ascii=False, indent=2)
+        except Exception as exc:  # noqa: BLE001
+            diag["console_errors"] = f"<not available: {exc!r}>"
+    else:
+        diag["browser"] = "<not instantiated — failure happened before the browser fixture ran>"
+
+    checkpoints = getattr(item, "_protocol_screenshots", [])
+    diag["checkpoints_before_failure"] = (
+        ", ".join(s.filename for s in checkpoints) if checkpoints else "<none>"
+    )
+
+    try:
+        longrepr = str(report.longrepr) if report.longrepr else ""
+    except Exception as exc:  # noqa: BLE001
+        longrepr = f"<longrepr unreadable: {exc!r}>"
+    diag["traceback_excerpt"] = longrepr[-4096:]
+
+    md_path = diagnostics_dir / f"{base}.md"
+    with md_path.open("w", encoding="utf-8") as f:
+        f.write(f"# Failure diagnostics — {item.nodeid}\n\n")
+        f.write(f"- **Phase:** `{phase}`\n")
+        f.write(f"- **Duration:** {diag['duration']}\n")
+        if "current_url" in diag:
+            f.write(f"- **Current URL:** `{diag['current_url']}`\n")
+        if "title" in diag:
+            f.write(f"- **Page title:** `{diag['title']}`\n")
+        if "screenshot" in diag:
+            f.write(f"- **Screenshot:** `../screenshots/{diag['screenshot']}`\n")
+        f.write(f"- **Checkpoints before failure:** {diag['checkpoints_before_failure']}\n")
+        if "browser" in diag:
+            f.write(f"- **Browser:** {diag['browser']}\n")
+        f.write("\n## Console errors (last 30, severe/warning)\n\n")
+        f.write("```json\n")
+        f.write(diag.get("console_errors", "<none>"))
+        f.write("\n```\n\n")
+        f.write("## page_source (last 8 KB)\n\n")
+        f.write("```html\n")
+        f.write(diag.get("page_source_tail", "<unavailable>"))
+        f.write("\n```\n\n")
+        f.write("## Traceback excerpt (last 4 KB)\n\n")
+        f.write("```\n")
+        f.write(diag["traceback_excerpt"])
+        f.write("\n```\n")
 
 
 def _write_checkpoint(result: TestResult) -> None:

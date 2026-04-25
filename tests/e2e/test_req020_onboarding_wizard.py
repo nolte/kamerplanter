@@ -41,6 +41,14 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.onboarding_wizard_page import OnboardingWizardPage
 
+# Pin all REQ-020 tests to a single xdist worker.  Both REQ-020 test files
+# write to the *shared* light-mode onboarding state of the system-user, so
+# parallel execution causes cross-worker contamination (one worker's
+# wizard.click_skip() flips ``skipped=True`` for another worker's in-flight
+# test, which then renders the "Du hast die Einrichtung bereits abgeschlossen"
+# card mid-flow).  Effective when xdist runs with --dist=loadgroup.
+pytestmark = pytest.mark.xdist_group("req020_onboarding")
+
 
 # -- Fixtures -----------------------------------------------------------------
 

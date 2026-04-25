@@ -167,7 +167,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend:80
@@ -326,7 +326,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend-full:80
@@ -370,7 +370,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend:80
@@ -399,7 +399,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend:80
@@ -428,7 +428,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend-full:80
@@ -457,7 +457,7 @@ services:
       - pytest
       - -n
       - "4"
-      - --dist=loadfile
+      - --dist=loadgroup
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend-full:80

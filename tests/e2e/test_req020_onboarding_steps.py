@@ -20,6 +20,12 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.onboarding_wizard_page import OnboardingWizardPage
 
+# Pin all REQ-020 tests to a single xdist worker — see
+# test_req020_onboarding_wizard.py for the rationale (shared light-mode
+# system-user onboarding state is written by skip/restart actions across
+# workers).  Effective when xdist runs with --dist=loadgroup.
+pytestmark = pytest.mark.xdist_group("req020_onboarding")
+
 
 # -- Fixtures -----------------------------------------------------------------
 

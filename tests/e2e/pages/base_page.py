@@ -132,12 +132,45 @@ class BasePage:
             pass
 
     def scroll_and_click(self, element: WebElement) -> None:
-        """Scroll an element into view and click it, falling back to JS click."""
-        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        """Scroll an element into view and click it, falling back to JS click.
+
+        Tolerates StaleElementReferenceException on the scroll/click path:
+        on stale, we cannot re-find the element here (no locator), so the
+        caller must use ``click_locator_with_retry`` for stale-prone paths.
+        """
         try:
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
             element.click()
         except (ElementNotInteractableException, ElementClickInterceptedException):
             self.driver.execute_script("arguments[0].click();", element)
+        except StaleElementReferenceException:
+            # Element was re-rendered between scrollIntoView and click.
+            # Re-raise so the caller (click_locator_with_retry) can re-find
+            # the element and retry.
+            raise
+
+    def click_locator_with_retry(
+        self,
+        locator: tuple[str, str],
+        timeout: int = DEFAULT_TIMEOUT,
+        attempts: int = 3,
+    ) -> None:
+        """Click an element resolved from *locator*, retrying on stale references.
+
+        React re-renders frequently invalidate elements between the moment
+        ``wait_for_element_clickable`` resolves them and the moment
+        ``element.click()`` fires.  This helper re-resolves the locator on
+        each attempt so a single re-render does not abort the test.
+        """
+        for attempt in range(attempts):
+            try:
+                btn = self.wait_for_element_clickable(locator, timeout=timeout)
+                self.scroll_and_click(btn)
+                return
+            except StaleElementReferenceException:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(0.25)
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.

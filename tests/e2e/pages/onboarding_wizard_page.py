@@ -274,34 +274,28 @@ class OnboardingWizardPage(BasePage):
     # ── Button interactions ────────────────────────────────────────────
 
     def click_next(self) -> None:
-        """Click the Next button."""
-        btn = self.wait_for_element_clickable(self.NEXT_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Next button (retries on stale element re-renders)."""
+        self.click_locator_with_retry(self.NEXT_BUTTON)
 
     def click_back(self) -> None:
-        """Click the Back button."""
-        btn = self.wait_for_element_clickable(self.BACK_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Back button (retries on stale element re-renders)."""
+        self.click_locator_with_retry(self.BACK_BUTTON)
 
     def click_skip(self) -> None:
         """Click the Skip Onboarding button."""
-        btn = self.wait_for_element_clickable(self.SKIP_BUTTON)
-        self.scroll_and_click(btn)
+        self.click_locator_with_retry(self.SKIP_BUTTON)
 
     def click_complete(self) -> None:
         """Click the Complete/Finish button."""
-        btn = self.wait_for_element_clickable(self.COMPLETE_BUTTON)
-        self.scroll_and_click(btn)
+        self.click_locator_with_retry(self.COMPLETE_BUTTON)
 
     def click_restart(self) -> None:
         """Click the Restart button on the completed card."""
-        btn = self.wait_for_element_clickable(self.RESTART_BUTTON)
-        self.scroll_and_click(btn)
+        self.click_locator_with_retry(self.RESTART_BUTTON)
 
     def click_go_dashboard(self) -> None:
         """Click the Go-to-Dashboard button on the completed card."""
-        btn = self.wait_for_element_clickable(self.GO_DASHBOARD_BUTTON)
-        self.scroll_and_click(btn)
+        self.click_locator_with_retry(self.GO_DASHBOARD_BUTTON)
 
     # ── Step 1: Experience Level interactions ──────────────────────────
 
