@@ -45,6 +45,8 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -150,6 +152,9 @@ export default function SpeciesDetailPage() {
   const [rotationWaitYears, setRotationWaitYears] = useState(3);
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
+  // TODO: REQ-001 v5.0 origin field — backend pending; treat tenant as default until implemented.
+  const speciesOrigin = (current as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: speciesOrigin });
 
   const {
     control,
@@ -369,9 +374,14 @@ export default function SpeciesDetailPage() {
             <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
               {t('pages.species.createPlantInstance')}
             </Button>
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-              {t('common.delete')}
-            </Button>
+            {/* UI-NFR-018 R-001: Origin chip in meta row */}
+            <OriginChip origin={speciesOrigin} />
+            {/* UI-NFR-018 R-012: hide delete button for system data */}
+            {!isDeletionProtected && (
+              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+                {t('common.delete')}
+              </Button>
+            )}
           </Box>
         }
       />
@@ -759,7 +769,13 @@ export default function SpeciesDetailPage() {
             * {t('common.required')}
           </Typography>
 
-          <FormActions onCancel={() => navigate(-1)} loading={saving} />
+          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+          {!isReadOnly && <FormActions onCancel={() => navigate(-1)} loading={saving} />}
+          {isReadOnly && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.origin.readOnlyHint')}
+            </Typography>
+          )}
         </Box>
       )}
 

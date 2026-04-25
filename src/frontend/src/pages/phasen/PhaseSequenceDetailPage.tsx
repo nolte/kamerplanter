@@ -42,6 +42,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
@@ -195,6 +197,8 @@ export default function PhaseSequenceDetailPage() {
   );
   const [deleteEntryKey, setDeleteEntryKey] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  // UI-NFR-018: PhaseSequence carries only is_system; treat true as origin='system'.
+  const { isReadOnly } = useOriginProtection({ isSystem: sequence?.is_system });
   const [linkedSpecies, setLinkedSpecies] = useState<{ key: string; scientific_name: string; common_names: string[] }[]>([]);
   const [showAllSpecies, setShowAllSpecies] = useState(false);
 
@@ -350,15 +354,21 @@ export default function PhaseSequenceDetailPage() {
       <PageTitle
         title={(lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name}
         action={
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => setEditOpen(true)}
-            disabled={sequence.is_system}
-            data-testid="edit-sequence-button"
-          >
-            {t('pages.phaseSequences.editSequence')}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* UI-NFR-018 R-001: Origin chip in meta row */}
+            <OriginChip isSystem={sequence.is_system} />
+            {/* UI-NFR-018 R-011: hide edit button entirely for read-only data */}
+            {!isReadOnly && (
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => setEditOpen(true)}
+                data-testid="edit-sequence-button"
+              >
+                {t('pages.phaseSequences.editSequence')}
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -376,9 +386,6 @@ export default function PhaseSequenceDetailPage() {
             color="secondary"
             variant="outlined"
           />
-        )}
-        {sequence.is_system && (
-          <Chip label={t('pages.phaseSequences.system')} color="info" variant="outlined" />
         )}
         <Chip
           label={t('pages.phaseSequences.totalDurationDays', { count: totalDuration })}

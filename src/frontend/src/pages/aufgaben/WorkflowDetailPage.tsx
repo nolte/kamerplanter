@@ -51,6 +51,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -109,6 +111,10 @@ export default function WorkflowDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'templates', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // UI-NFR-018: workflow templates carry only is_system; treat as origin='system' when set.
+  const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({
+    isSystem: workflow?.is_system,
+  });
   const [deleteTemplateKey, setDeleteTemplateKey] = useState<string | null>(null);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<TaskTemplate | undefined>(undefined);
@@ -556,7 +562,23 @@ export default function WorkflowDetailPage() {
       <PageTitle
         title={workflow.name}
         action={
-          workflow.is_system ? <Chip label={t('pages.tasks.systemWorkflow')} color="info" variant="outlined" /> : undefined
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* UI-NFR-018 R-001: Origin chip in meta row (replaces ad-hoc system chip) */}
+            <OriginChip isSystem={workflow.is_system} />
+            {/* UI-NFR-018 R-015: copy-as-template for system workflows */}
+            {canCopyAsTemplate && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  // TODO: implement workflow copy endpoint; placeholder until backend ready
+                  notification.info(t('common.origin.copyAsTemplate'));
+                }}
+                data-testid="copy-workflow-as-template-button"
+              >
+                {t('common.origin.copyAsTemplate')}
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -1294,22 +1316,32 @@ export default function WorkflowDetailPage() {
                   />
                 </Box>
                 <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
-                <FormActions onCancel={() => { reset(); setSelectedSpecies(allSpecies.filter((s) => (workflow?.species_compatible ?? []).includes(s.scientific_name) || (workflow?.species_compatible ?? []).includes(s.key))); }} loading={saving} disabled={!isDirty && selectedSpecies.map((s) => s.scientific_name).sort().join(',') === (workflow?.species_compatible ?? []).sort().join(',')} />
+                {/* UI-NFR-018 R-011: hide save/cancel for read-only system data */}
+                {!isReadOnly && (
+                  <FormActions onCancel={() => { reset(); setSelectedSpecies(allSpecies.filter((s) => (workflow?.species_compatible ?? []).includes(s.scientific_name) || (workflow?.species_compatible ?? []).includes(s.key))); }} loading={saving} disabled={!isDirty && selectedSpecies.map((s) => s.scientific_name).sort().join(',') === (workflow?.species_compatible ?? []).sort().join(',')} />
+                )}
+                {isReadOnly && (
+                  <Typography variant="body2" color="text.secondary">
+                    {t('common.origin.readOnlyHint')}
+                  </Typography>
+                )}
               </form>
             </CardContent>
           </Card>
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteOpen(true)}
-              disabled={workflow.is_system}
-            >
-              {workflow.is_system ? t('pages.tasks.systemTemplateDeleteDisabled') : t('pages.tasks.deleteWorkflow')}
-            </Button>
-          </Box>
+          {/* UI-NFR-018 R-012: hide delete button entirely for system data */}
+          {!isDeletionProtected && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteOpen(true)}
+              >
+                {t('pages.tasks.deleteWorkflow')}
+              </Button>
+            </Box>
+          )}
         </Box>
       )}
 

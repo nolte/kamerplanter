@@ -37,6 +37,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -205,6 +207,9 @@ export default function FertilizerDetailPage() {
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
   const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
+  // TODO: REQ-001 v5.0 origin field — backend pending; fertilizers currently have no origin field.
+  const fertilizerOrigin = (fertilizer as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: fertilizerOrigin });
 
   const stocksTableState = useTableLocalState({ defaultSort: { column: 'purchase_date', direction: 'desc' } });
 
@@ -509,15 +514,22 @@ export default function FertilizerDetailPage() {
             )}
           </Box>
         </Box>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-          data-testid="delete-button"
-        >
-          {t('common.delete')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* UI-NFR-018 R-001: Origin chip in meta row */}
+          <OriginChip origin={fertilizerOrigin} />
+          {/* UI-NFR-018 R-012: hide delete button for system data */}
+          {!isDeletionProtected && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="delete-button"
+            >
+              {t('common.delete')}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       <Tabs
@@ -1041,11 +1053,19 @@ export default function FertilizerDetailPage() {
           </EditSection>
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
-          <FormActions
-            onCancel={() => reset()}
-            loading={saving}
-            disabled={!isDirty}
-          />
+          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+          {!isReadOnly && (
+            <FormActions
+              onCancel={() => reset()}
+              loading={saving}
+              disabled={!isDirty}
+            />
+          )}
+          {isReadOnly && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.origin.readOnlyHint')}
+            </Typography>
+          )}
         </Box>
       )}
 
