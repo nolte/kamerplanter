@@ -1,389 +1,251 @@
-# Spezifikation: REQ-031 - KI-Assistent & Pflanzenberatung
+# Spezifikation: REQ-031 - KI-Assistent & Wissensvermittlung
 
 ```yaml
 ID: REQ-031
-Titel: KI-Assistent & Pflanzenberatung
+Titel: KI-Assistent & Wissensvermittlung (RAG-basiert)
 Kategorie: KI & Beratung
 Fokus: Beides
-Technologie: Python, FastAPI, Celery, ArangoDB, TimescaleDB (pgvector), Redis, React, TypeScript, MUI, Ollama, OpenAI API
+Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, Redis, PostgreSQL 17 + pgvector 0.8, ONNX Embedding Service, bge-reranker-v2-m3, React 19, TypeScript 5.9, MUI 7, Ollama / Anthropic / OpenAI-kompatible APIs
 Status: Entwurf
-Version: 1.0
-Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Dünge-Logik), REQ-005 v2.3 (Sensorik), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO)
+Version: 2.0
+Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Düngung), REQ-005 v2.3 (Sensorik), REQ-006 v2.7 (Aufgabenplanung), REQ-009 v1.0 (Dashboard), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-027 v1.2 (Light-Modus), NFR-007 (LLM-Sicherheit), NFR-011 (Retention)
+Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), REQ-036 (Diagnose-Assistent)
 ```
+
+## Versionshistorie
+
+| Version | Datum | Aenderung |
+|---------|-------|-----------|
+| 1.0 | 2026-03-28 | Initialer Entwurf: pgvector-im-Backend, MiniLM-L6-v2, Ollama/OpenAI/Anthropic Adapter, TipCardsPanel, AiChatDrawer |
+| **2.0** | **2026-04-25** | **Major Refactor: Knowledge Service als externes Microservice, multilingual-e5-large + Hybrid Search + bge-reranker, Backend wird zum duennen KnowledgeServiceAdapter, neue Features "Warum?"-Buttons (`POST /ai/explain`) und expliziter Tipp-des-Tages, dreistufiger Feature-Toggle (Deployment / Tenant / User-Consent), Light-Modus-Verhalten, Multilingual-Vorbereitung, neuer Consent-Typ `ai_tenant_data_access`, Abgrenzung zu REQ-033/REQ-035/REQ-036** |
 
 ## 1. Business Case
 
 **User Story (Casual User — Tipp-Karten):** "Als Zimmerpflanzen-Besitzer ohne Fachkenntnisse moechte ich auf der Detailseite meiner Pflanze kontextabhaengige Pflegehinweise als kompakte Karten sehen — damit ich sofort weiß, was zu tun ist, ohne in Foren oder Buechern nachschlagen zu muessen."
 
-**User Story (Grower — Diagnose):** "Als erfahrener Grower moechte ich bei ungewoehnlichen Symptomen (gelbe Blaetter, EC-Drift, VPD-Abweichung) eine KI-gestuetzte Analyse mit konkreten Handlungsempfehlungen erhalten — damit ich schnell die Ursache identifiziere und Ernteverluste vermeide."
+**User Story (Casual User — Tipp des Tages):** "Als Casual-User moechte ich beim Oeffnen des Dashboards einen einzelnen, fuer mich relevanten KI-Tipp sehen — damit ich mit einem Blick weiss, worauf ich heute achten sollte, ohne mich durch Listen zu klicken."
+
+**User Story (Grower — Diagnose):** "Als erfahrener Grower moechte ich bei ungewoehnlichen Symptomen eine KI-gestuetzte Analyse mit konkreten Handlungsempfehlungen erhalten — damit ich schnell die Ursache identifiziere und Ernteverluste vermeide."
+
+**User Story (Grower — "Warum?"-Buttons):** "Als Grower moechte ich auf einer KI-generierten Pflegeaufgabe oder einem Phasenuebergangs-Vorschlag einen 'Warum?'-Button finden — damit ich auf Wunsch in 1-2 Saetzen erfahre, warum das System mir genau diese Empfehlung gibt, und entscheiden kann, ob ich folge."
 
 **User Story (Self-Hosted-Nutzer — Datenschutz):** "Als Self-Hosted-Nutzer moechte ich den KI-Assistenten vollstaendig lokal betreiben koennen (Ollama + lokales Modell) — damit keine meiner Pflanzen- und Messdaten an externe Cloud-Dienste uebertragen werden."
 
 **User Story (Pro-Nutzer — Chat):** "Als fortgeschrittener Nutzer moechte ich einen Chat-Dialog mit KI-Kontext fuehren koennen, in dem das System meine aktuelle Pflanzenphase, Messwerte und Duengehistorie kennt — damit ich komplexe Fragen wie 'Soll ich in Woche 4 der Bluete den PK-Boost schon starten?' beantworten lassen kann."
 
-**User Story (Datenschutz-bewusster Nutzer):** "Als datenschutzbewusster Nutzer moechte ich transparent sehen, welche Daten an welchen KI-Provider gesendet werden und meine Einwilligung jederzeit widerrufen koennen — damit ich die Kontrolle ueber meine Daten behalte und DSGVO-konform handeln kann."
+**User Story (Datenschutz-bewusster Nutzer):** "Als datenschutzbewusster Nutzer moechte ich transparent sehen, welche Daten an welchen KI-Provider gesendet werden, ob meine Pflanzdaten als Kontext mitgesendet werden und meine Einwilligung jederzeit widerrufen koennen — damit ich die Kontrolle ueber meine Daten behalte."
 
-**User Story (Admin — Provider-Konfiguration):** "Als Tenant-Admin moechte ich per Einstellungsseite zwischen verschiedenen KI-Providern wechseln koennen (Ollama, OpenAI, Anthropic) und eigene API-Keys hinterlegen — damit ich den besten Kompromiss aus Qualitaet, Kosten und Datenschutz fuer meinen Anwendungsfall waehlen kann."
+**User Story (Tenant-Admin — Provider und Feature-Toggle):** "Als Tenant-Admin moechte ich auf Tenant-Ebene entscheiden koennen, ob KI-Funktionen fuer meinen Tenant aktiviert sind, und welche Provider verwendet werden — damit ich KI fuer einen Schul- oder Kindergartens-Tenant deaktivieren oder fuer einen Profi-Tenant gezielt einen leistungsfaehigen Cloud-Provider freischalten kann."
+
+**User Story (Light-Modus-Nutzer):** "Als anonymer Light-Modus-Nutzer moechte ich KI-gestuetzte Wissens-Antworten zu Fachbegriffen (z. B. 'Was ist VPD?') bekommen, aber keine personalisierten Tipps — damit die Anwendung auch ohne Login einen Mehrwert bietet, ohne meinen Sitzungs-Context an Cloud-Provider zu senden."
 
 **Beschreibung:**
 
-Das Feature integriert einen KI-gestuetzten Assistenten in das bestehende Kamerplanter-System. Der Assistent liefert kontextbezogene Pflegehinweise (Tipp-Karten), eine interaktive Chat-Funktion und diagnostische Analyse auf Basis der vorhandenen Stamm- und Messdaten. Die Architektur nutzt das etablierte Adapter-Pattern (REQ-011) fuer austauschbare Provider-Backends und **Retrieval-Augmented Generation (RAG)** ueber die eigene ArangoDB-Wissensbasis.
+REQ-031 v2.0 stellt einen KI-gestuetzten Assistenten in Kamerplanter bereit, der ueber das eigenstaendige **Knowledge Service Microservice** (`src/knowledge-service/`) eine kuratierte, RAG-basierte Wissensvermittlung anbietet und in der App vier sichtbare Funktionen liefert:
 
-**Grundprinzipien:**
+1. **Tipp-Karten (Pflanzen-/Run-Kontext)** — wie v1.0, ueberarbeitet auf Knowledge-Service-Backend
+2. **Tipp des Tages (Dashboard)** — neuer expliziter Use-Case, on-first-load lazy
+3. **"Warum?"-Buttons (Aufgaben, Erinnerungen, Phasenwechsel)** — neuer Endpoint, kontext-injiziert
+4. **Chat-Dialog (kontextbewusst)** — wie v1.0, ueberarbeitet auf Knowledge-Service-Backend
 
-- **Local-First:** Vollstaendig ohne externe API-Keys nutzbar (Ollama + lokale Modelle). Cloud-Provider sind optional und erfordern explizite Konfiguration.
-- **Adapter-Pattern:** Austauschbare Provider-Backends ueber eine einheitliche `IAiProvider`-Schnittstelle — analog zum `ExternalSourceAdapter` in REQ-011.
-- **RAG ueber eigene Daten:** Die Wissensbasis besteht ausschliesslich aus Kamerplanter-Stammdaten und Nutzer-Pflanzdaten. Keine allgemeine Internetsuche, keine halluzinierten Fakten.
-- **Consent-basiert:** Externe Cloud-APIs (OpenAI, Anthropic) erfordern explizite DSGVO-Einwilligung (REQ-025). Lokale Provider benoetigen keinen Consent.
-- **Graceful Degradation:** Bei fehlendem oder ausgefallenen Provider werden regelbasierte Fallback-Tips generiert — das System ist nie ohne Empfehlungen.
-- **Kontext-bewusst:** Jede Antwort kennt die aktuelle Phase, EC/pH-Werte, Messdaten, aktive IPM-Events und die Pflegehistorie des Nutzers.
-- **Erfahrungsstufen-sensitiv:** Beginner sehen vereinfachte Tipp-Karten, Chat ist ab Intermediate verfuegbar, Expert-Nutzer erhalten technische Details (REQ-021).
+Die strukturierte Diagnose-Funktion (Multi-Step-Form, Symptom-Katalog) wird in **REQ-036** ausgelagert und nutzt REQ-031 nur als Wissens-Backend. Die Fachbegriff-Tooltips werden in **REQ-035** ausgelagert. Die externe MCP-Schnittstelle ist in **REQ-033** beschrieben.
 
-### 1.1 Provider-Architektur
+**Grundprinzipien (revidiert):**
 
-| Prio | Provider | Typ | Datenschutz-Level | API-Key | Kosten | Empfohlene Modelle |
-|------|----------|-----|-------------------|---------|--------|--------------------|
-| 1 | **Ollama (lokal)** | Lokale Inference | Keine Datenweitergabe | Nicht erforderlich | Kostenlos (eigene Hardware) | `llama3.2:3b`, `gemma3:4b`, `mistral:7b` |
-| 2 | **llama.cpp HTTP Server** | Lokale Inference | Keine Datenweitergabe | Nicht erforderlich | Kostenlos (eigene Hardware) | Beliebig (GGUF-Format) |
-| 3 | **OpenAI API** | Cloud | Datenuebertragung an OpenAI (USA) | Erforderlich | Pay-per-Token | `gpt-4o-mini`, `gpt-4o` |
-| 4 | **Anthropic Claude API** | Cloud | Datenuebertragung an Anthropic (USA) | Erforderlich | Pay-per-Token | `claude-haiku-3-5`, `claude-sonnet-4` |
-| 5 | **OpenAI-kompatible APIs** | Cloud oder Lokal | Abhaengig vom Anbieter | Abhaengig vom Anbieter | Variabel | LM Studio, vLLM, Together AI, Mistral AI |
+- **Wissens-Backend als Microservice:** Die RAG-Pipeline (Embedding, Hybrid Search, Reranking, LLM-Adapter) lebt in `src/knowledge-service/` als eigenstaendiger FastAPI-Service mit eigener PostgreSQL+pgvector-Persistenz. Das Kamerplanter-Backend ruft den Knowledge Service ueber HTTP auf — analog dem Adapter-Pattern aus REQ-011.
+- **Optional auf drei Ebenen:** Deployment-Flag (Operator) → Tenant-Setting (Tenant-Admin) → User-Consent (Endnutzer). Jede Ebene kann KI separat abschalten.
+- **Local-First moeglich, Cloud-Provider freiwillig:** Default-Konfiguration laeuft mit Ollama lokal. Cloud-Provider sind optional und erfordern explizite Einwilligung (REQ-025, neuer Consent-Purpose `ai_cloud_processing`).
+- **Tenant-Daten-Zugriff explizit:** Wenn KI-Antworten Pflanzendaten des Nutzers als Kontext nutzen, ist der Consent-Typ `ai_tenant_data_access` erforderlich. Reine Wissensfragen (z. B. "Was ist VPD?") erfordern diesen Consent NICHT.
+- **Quellenpflicht:** Jede LLM-Antwort enthaelt Verweise auf die zitierten Knowledge-Chunks (`source_key`, `source_type`, `score`). Frontend rendert sie aufklappbar.
+- **Klares KI-Labeling:** Jede generierte Antwort traegt einen sichtbaren KI-Badge inkl. Modell-Angabe und Datum. Nutzer wissen jederzeit, dass eine KI gesprochen hat.
+- **Tenant-Daten-Indikator:** Wenn die Antwort Tenant-Kontext enthaelt, zeigt das UI einen separaten Indikator ("Diese Antwort nutzt Daten deiner Pflanze X").
+- **Multilingual-Vorbereitung:** Wissensbasis liefert `language`-Metadaten pro Chunk (heute "de", spaeter "en"). Antwortet ein Provider in falscher Sprache, kennzeichnet das Frontend dies als Hinweis. Knowledge Service akzeptiert bereits `prompt_language` und `doc_language` als Parameter.
+- **Graceful Degradation:** Bei nicht erreichbarem Knowledge Service oder Provider werden regelbasierte Fallback-Tipps generiert. Die App bleibt nutzbar.
+- **Erfahrungsstufen-sensitiv:** Beginner sehen vereinfachte Karten, Chat ist ab Intermediate verfuegbar, Expert-Nutzer erhalten technische Details und Quellen-Anker per Default offen (REQ-021).
 
-### 1.1.1 Hardware-Anforderungen fuer lokale Inference
-
-Die lokale KI-Nutzung (Ollama, llama.cpp) ist auf Consumer-Hardware realistisch. Der strukturierte Kontext aus ArangoDB + RAG-Chunks (§2.3) kompensiert die geringere Modellgroesse — ein 3B-Modell mit praezisem Kontext liefert bessere Pflanzen-Tips als ein 70B-Modell ohne Kontext.
-
-**Modell-Empfehlungen nach Hardware:**
-
-| Hardware-Profil | RAM/VRAM | Empfohlenes Modell | Quantisierung | Tip-Qualitaet | Chat-Qualitaet | Antwortzeit (Tip-Karten) |
-|----------------|----------|-------------------|---------------|---------------|----------------|--------------------------|
-| **Minimal** (Raspberry Pi 5, alte NUCs) | 8 GB RAM (CPU) | `llama3.2:3b` | Q4_K_M | Basis-Empfehlungen | Kurze Antworten, einfache Diagnosen | 15-30s |
-| **Standard** (Desktop/Laptop, 2020+) | 16 GB RAM (CPU) | `gemma3:4b` | Q4_K_M | Gute kontextbezogene Tips | Differenzierte Antworten | 10-20s |
-| **GPU-Einstieg** (GTX 1060 6GB, RX 580 8GB) | 6-8 GB VRAM | `mistral:7b` | Q4_K_M | Sehr gute Qualitaet | Nuancierte Diagnosen mit Fachbegriffen | 2-5s |
-| **GPU-Mittel** (RTX 3060 12GB, RX 6700 XT) | 12 GB VRAM | `llama3.1:8b` | Q6_K | Sehr gute Qualitaet | Detaillierte Erklaerungen, Mehrschritt-Diagnosen | 1-3s |
-| **GPU-Hoch** (RTX 3090/4070 Ti, 16GB+) | 16+ GB VRAM | `mistral-small:22b` | Q4_K_M | Nahe Cloud-Qualitaet | Komplexe Zusammenhaenge, Langzeitplanung | 2-5s |
-| **Cloud-Fallback** (kein lokales Modell) | — | `gpt-4o-mini` / `claude-haiku-3-5` | — | Cloud-Qualitaet | Beste Qualitaet | <1s |
-
-**Leistungscharakteristik nach Feature:**
-
-| Feature | Tokens (Input) | Tokens (Output) | CPU-only (7B) | GPU (7B) | Bewertung |
-|---------|---------------|-----------------|---------------|----------|-----------|
-| Tip-Karten (2-4 Tips, JSON) | ~800 (Kontext + RAG) | ~200 | 10-20s | 1-3s | Gut — Caching (4h Redis) reduziert Aufrufe massiv |
-| Chat-Einzelfrage | ~1.500 (System + RAG + Frage) | ~300 | 15-30s | 2-5s | Akzeptabel — Streaming (SSE) kaschiert Latenz |
-| Chat mit Historie (10 Nachrichten) | ~3.000 (System + RAG + History) | ~400 | 30-60s | 3-8s | Grenzwertig auf CPU — Context-Window-Limit beachten |
-| Celery Batch (50 Runs taeglich) | ~800 pro Run | ~200 pro Run | ~25 Min gesamt | ~3 Min gesamt | CPU problematisch bei vielen Runs |
-
-**Empfehlungen fuer Self-Hosted-Deployments:**
-
-1. **Onboarding-Default:** `gemma3:4b` — bester Kompromiss aus Qualitaet, Geschwindigkeit und RAM-Bedarf. Funktioniert auf den meisten Rechnern ab 2020 ohne GPU.
-2. **Raspberry Pi / NAS:** `llama3.2:3b` — einziges Modell das mit 8 GB RAM auf ARM64 zuverlaessig laeuft. Tips dauern laenger, aber Caching macht es tragbar.
-3. **GPU vorhanden:** `mistral:7b` oder `llama3.1:8b` — deutlich bessere Qualitaet und Geschwindigkeit. Lohnt sich ab 6 GB VRAM.
-4. **Batch-Generierung (Celery):** Bei >20 aktiven Runs und CPU-only Inference den Celery-Task `generate_daily_tips` auf Nachtzeit (bestehend: 06:00 UTC) verschieben und `max_concurrent_tips` konfigurierbar machen (Default: 5 parallel, CPU: 1 sequentiell).
-5. **Graceful Degradation:** Bei `AI_DEFAULT_PROVIDER=none` oder nicht erreichbarem Ollama werden regelbasierte Fallback-Tips generiert (§4.6 `_rule_based_fallback`) — das System ist nie ohne Empfehlungen.
-
-**Helm-Konfiguration fuer ressourcenbeschraenkte Umgebungen:**
-
-```yaml
-# helm/kamerplanter/values.yaml — Profil "minimal" (CPU-only, 8 GB RAM)
-ollama:
-  enabled: true
-  controllers:
-    main:
-      containers:
-        main:
-          env:
-            OLLAMA_MODELS: /models
-            OLLAMA_NUM_PARALLEL: "1"        # Keine parallelen Anfragen
-            OLLAMA_MAX_LOADED_MODELS: "1"   # Nur ein Modell im RAM
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2Gi
-            limits:
-              cpu: "4"          # Alle CPU-Kerne fuer Inference nutzen
-              memory: 4Gi       # 3B-Modell Q4 + Overhead
-```
-
-**Abgrenzung zu REQ-029:**
-- REQ-029 **identifiziert unbekannte** Pflanzen anhand von **Bildern** (Plant.id, PlantNet).
-- REQ-031 **beraet** zu bekannten Pflanzen auf Basis von **Stammdaten, Messwerten und Kontext** (LLM-basiert).
-- Beide sind unabhaengig voneinander nutzbar. Synergie: REQ-029-Diagnose kann als Kontext in REQ-031-Chat einfliessen.
-
-### 1.2 Request-Flow
+### 1.1 Architekturueberblick
 
 ```
-Nutzer stellt Frage / oeffnet Pflanze
-        |
-        v
-+---------------------+
-|  Frontend           |---> TipCardsPanel oder AiChatDrawer
-|  (React/MUI)        |
-+---------------------+
-        |
-        v  REST API (SSE fuer Streaming)
-+---------------------+
-|  API-Layer          |---> /api/v1/t/{slug}/ai/...
-|  (FastAPI Router)   |---> Auth + Consent-Check + Rate-Limit
-+---------------------+
-        |
-        v
-+---------------------+
-|  AiAssistantService |---> Orchestrierung
-|  (Business Logic)   |
-+---------------------+
-        |
-   +----+----+
-   |         |
-   v         v
-+----------+ +------------------+
-| Context  | | RagRetriever     |
-| Builder  | | (pgvector Search)|
-+----------+ +------------------+
-   |         |
-   v         v
-+---------------------+
-|  System-Prompt       |---> Kontext + RAG-Chunks + Chat-History
-|  zusammenbauen       |
-+---------------------+
-        |
-        v
-+---------------------+
-|  IAiProvider         |---> Ollama / OpenAI / Anthropic / llama.cpp
-|  (Adapter)           |
-+---------------------+
-        |
-        v
-+---------------------+
-|  Antwort parsen      |---> Tips (JSON) oder Chat-Text (Streaming)
-|  cachen + speichern  |
-+---------------------+
-        |
-        v
-   Antwort an Frontend
++-----------------------+      +------------------------+
+|  Frontend (React)     |      | LLM-Client (extern)    |
+|  - TipCardsPanel      |      | (REQ-033 MCP-Server)   |
+|  - DailyTipCard       |      +-----------+------------+
+|  - WhyButton + Drawer |                  |
+|  - AiChatDrawer       |                  |
+|  - AIResponse-Hülle   |                  |
++-----------+-----------+                  |
+            | REST (JSON, SSE für Chat)    |
+            v                              |
++-----------------------+                  |
+|  Kamerplanter Backend |                  |
+|  /api/v1/.../ai/...   |                  |
+|                       |                  |
+|  AiAssistantService   |                  |
+|    + ContextBuilder   |  <-- Tenant-Daten aus ArangoDB (Plant, Phase, Sensor, IPM)
+|    + ConsentGuard     |  <-- REQ-025
+|    + FeatureGuard     |  <-- 3-Stufen-Toggle
+|    + AuditLogger      |  <-- ai_audit_log
+|                       |                  |
+|  KnowledgeServiceAdapter (HTTP)          |
++-----------+-----------+                  |
+            |                              |
+            v                              v
++-----------------------------------------------------+
+|  Knowledge Service Microservice                     |
+|  (src/knowledge-service/, eigenes Helm-Release)     |
+|                                                     |
+|  /search   /ask   /classify   /ingest   /health     |
+|                                                     |
+|  EmbeddingEngine (multilingual-e5-large, ONNX)      |
+|  HybridSearch (Vector 0.4 + BM25 0.6) + RRF (k=60)  |
+|  RerankerEngine (bge-reranker-v2-m3, 20 -> 5)       |
+|  PromptEngine (typ-spezifische DE/EN-Prompts)       |
+|  LlmAdapter (Ollama | Anthropic | OpenAI-kompat.)   |
+|                                                     |
+|  PostgreSQL 17 + pgvector 0.8 (1024-dim)            |
+|  Knowledge YAMLs (spec/knowledge/rag/, 9 Cats,      |
+|  ~267 Chunks, 87.4% RAG-Eval-Score Stand 2026-04)   |
++-----------------------------------------------------+
 ```
 
-### 1.3 Provider-Konfiguration (Beispiel)
+**Kerntrennung:**
 
-```json
-{
-  "_key": "ollama-local",
-  "tenant_key": null,
-  "provider_type": "ollama",
-  "display_name": "Lokales Modell (Ollama)",
-  "base_url": "http://ollama:11434",
-  "model_name": "llama3.2:3b",
-  "api_key_encrypted": null,
-  "requires_consent": false,
-  "is_active": true,
-  "is_default": true,
-  "max_tokens": 1024,
-  "temperature": 0.3,
-  "timeout_seconds": 30,
-  "created_at": "2026-03-28T00:00:00Z",
-  "updated_at": "2026-03-28T00:00:00Z"
-}
+- **Knowledge Service** ist ein **autonomes Microservice**. Es kennt weder Kamerplanter-Tenants noch Nutzer noch Pflanzen-Detaildaten. Sein Vertrag ist: "Frage rein, Antwort + Quellen raus."
+- **Kamerplanter-Backend** ist die **Tenant-, Auth- und Kontext-Schicht**. Es entscheidet, ob ein Aufruf zulaessig ist, reichert die Frage mit Tenant-Kontext an, ruft den Knowledge Service, persistiert Konversationen und Audit-Eintraege.
+- **Frontend** zeigt Antworten mit klarem KI-Labeling und Quellenangaben.
+
+### 1.2 Bestehender Knowledge Service (Stand 2026-04)
+
+Der Microservice unter `src/knowledge-service/` ist bereits implementiert und produktiv im Cluster:
+
+| Komponente | Realisierung |
+|------------|--------------|
+| Embedding | `multilingual-e5-large` (1024 Dim), ONNX-Runtime in eigenem Embedding-Service-Pod, CPU-only |
+| Vector Store | PostgreSQL 17 + pgvector 0.8, Tabelle `knowledge_chunks`, IVFFlat-Index `vector_cosine_ops` |
+| Volltextindex | tsvector mit Umlaut-Varianten (ae/oe/ue + Umlaute) |
+| Retrieval | Hybrid Search (Vector-Score 0.4 + BM25-Score 0.6) + Reciprocal Rank Fusion (k=60) |
+| Reranker | `bge-reranker-v2-m3` (eigener Pod), 20 Kandidaten -> Top 5 |
+| LLM-Adapter | `app/llm/ollama.py`, `app/llm/anthropic.py`, `app/llm/openai_compatible.py` |
+| Default-LLM | `gemma3:12b` via Ollama (Empfehlung Stand 2026-04, 87.4% RAG-Eval-Score) |
+| Knowledge | `spec/knowledge/rag/**/*.yaml`, 9 Kategorien (diagnostik, duengung, bewaesserung, umwelt, ipm, phasen, outdoor/companion_planting, pflege, allgemein/anfaenger), 267 Chunks |
+| Endpoints | `GET /search`, `POST /ask`, `POST /classify`, `POST /ingest`, `GET /health`, `GET /ready` |
+| Multilingual | `prompt_language` und `doc_language` Parameter in `/search` und `/ask` (de/en/all) |
+
+REQ-031 v2.0 dokumentiert diese Realitaet als verbindlichen Zustand. Aenderungen am Knowledge Service erfolgen ueber separate Pull Requests gegen `src/knowledge-service/` und werden in dessen eigener README dokumentiert; sie aendern dann die Tabelle in §1.2.
+
+<!-- Quelle: Knowledge-Service-Realität 2026-04, RAG-Eval Report 2026-04-07 -->
+
+### 1.3 Drei-Stufen-Feature-Toggle (revidiert v2.0)
+
+KI-Funktionen sind auf drei Ebenen zuschaltbar. Nur wenn alle drei zustimmen, ist eine konkrete KI-Funktion fuer einen konkreten Nutzer aktiv:
+
+```
+[1] Deployment-Flag         AI_FEATURES_ENABLED  (Helm value, Operator)
+                                        |
+                                  true? +------> nein -> komplette KI-API liefert HTTP 404 (so als gaebe es sie nicht)
+                                        |
+                                        v
+[2] Tenant-Setting          tenant.settings.ai_features_enabled  (Tenant-Admin via UI)
+                                        |
+                                  true? +------> nein -> KI-Endpoints liefern HTTP 403 + i18n-Hinweis
+                                        |
+                                        v
+[3] User-Consent            ConsentRecord per ProcessingPurpose
+                                        |
+                       welcher Endpoint?+
+                                        |
+       ----------------+-----------------+----------------+
+       |               |                 |                |
+   Wissensfrage    "Warum?"         Pflanzen-Tipp     Cloud-Provider
+   (Glossar,       (mit Tenant-     (Plant/Run-       (statt lokal)
+   factual,        Kontext)         Kontext)
+   ohne Tenant-
+   daten)
+       |               |                 |                |
+   KEIN Consent    ai_tenant_data    ai_tenant_data   ai_cloud_processing
+   noetig          _access           _access          (zusaetzlich zu den
+                                                       anderen)
 ```
 
-## 2. RAG-Architektur (Retrieval-Augmented Generation)
+**Default-Werte:**
 
-Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigenen Wissensbasis zu gruenden und Halluzinationen zu minimieren. Die Wissensbasis wird nicht mit allgemeinem Internet-Wissen vermischt.
+| Ebene | Default | Begruendung |
+|-------|---------|-------------|
+| `AI_FEATURES_ENABLED` | `false` | Operator muss aktiv einschalten — KI-Komponenten brauchen Ressourcen |
+| `tenant.settings.ai_features_enabled` | `false` | Opt-in pro Tenant — Schulen, Kindergarten, Behoerden bleiben out-of-the-box ohne KI |
+| `ai_tenant_data_access` Consent | nicht erteilt | Datensparsamkeit — Wissensfragen ohne Kontext brauchen keinen Consent |
+| `ai_cloud_processing` Consent | nicht erteilt | DSGVO — Cloud-Provider sind Drittland-Datenuebermittlung |
+
+### 1.4 Abgrenzung zu benachbarten REQs
+
+| REQ | Beziehung |
+|-----|-----------|
+| **REQ-029** (Bilderkennung) | Komplementaer. REQ-029 identifiziert unbekannte Pflanzen / Krankheiten per Bild. REQ-031 beraet auf Basis von Text + Stammdaten. Beide unabhaengig nutzbar. Synergie: REQ-029-Ergebnis kann als Kontext in REQ-031-Chat einfliessen, REQ-036 verwendet REQ-029 fuer optionale Foto-Analyse. |
+| **REQ-030** (Notifications) | Komplementaer. REQ-030 stellt Notifications zu (HA, E-Mail, etc.). REQ-031 generiert KI-Tipps; relevante Tipps koennen als Notification verschickt werden — der entsprechende Notification-Typ wird von REQ-030 spezifiziert. |
+| **REQ-033** (MCP-Server) | REQ-033 ist die externe LLM-Schnittstelle. Tool `search_plant_knowledge` ruft denselben Knowledge Service wie REQ-031. Tool-Antworten enthalten dieselben Quellen-Referenzen. |
+| **REQ-035** (Fachbegriff-Glossar) | Baut auf REQ-031 auf. Glossar nutzt `POST /knowledge/term/{slug}` (definiert in REQ-035), das intern den Knowledge Service `/ask` mit fixer Frage-Vorlage aufruft. Light-mode-faehig. |
+| **REQ-036** (Diagnose-Assistent) | Baut auf REQ-031 auf. Strukturierte Diagnose-Form mit Symptom-Katalog. Endgueltige LLM-Auswertung erfolgt ueber den Knowledge Service. |
+| **REQ-027** (Light-Modus) | Im Light-Modus sind nur Wissensfragen ohne Tenant-Kontext (Glossar via REQ-035, allgemeine Fachfragen) verfuegbar. Tipp-Karten und "Warum?"-Buttons sind ausgeblendet, weil sie Tenant-Kontext brauchen. |
+
+## 2. RAG-Architektur (Knowledge Service)
+
+Diese Sektion fasst die Architektur des Knowledge Service zusammen, soweit sie fuer das Verstaendnis von REQ-031 noetig ist. Detaillierte Implementierungsdokumentation lebt in `src/knowledge-service/README.md`.
 
 ### 2.1 Wissensbasis-Quellen (4 Ebenen)
 
-| Ebene | Datenquelle | Umfang | Personenbezug | Aktualisierung |
-|-------|-------------|--------|---------------|----------------|
-| 1. **Globale Stammdaten** | Species, Cultivar, GrowthPhase, NutrientProfile, Pest, Disease | Tenant-unabhaengig | Kein Personenbezug | Woechentlich (Celery) |
-| 2. **Regelwissen (Thematische Guides)** | Querschnittswissen aus `spec/knowledge/rag/` (§2.3): Diagnostik, Duengung, Bewaesserung, Phasen-Best-Practices, Outdoor-Planung, Anfaenger-Tipps | Kuratierte YAML-Dateien (~30-50 Guides) | Kein Personenbezug | Bei Deployment + woechentlicher Reindex |
-| 3. **Tenant-Kontext** | Aktiver PlantingRun, Phase, Messwerte (EC, pH, VPD), aktive IPM-Events, letzte FeedingEvents | Tenant-scoped | Indirekt (Nutzer-Aktivitaet) | Echtzeit (pro Anfrage) |
-| 4. **Nutzer-Pflanzdaten** | Pflegehistorie, Ernteresultate, CareConfirmations, PlantDiaryEntry | Tenant- + User-scoped | Ja (Consent erforderlich) | Echtzeit (pro Anfrage) |
+| Ebene | Datenquelle | Personenbezug | Wo gespeichert |
+|-------|-------------|---------------|----------------|
+| 1. **Globale Stammdaten** | Species, Cultivar, GrowthPhase, Pest, Disease (read-only Sicht) | Kein Personenbezug | Knowledge Service-Index (vektorisierte Snapshots) |
+| 2. **Kuratierte Knowledge-Base** | YAMLs unter `spec/knowledge/rag/` (9 Kategorien) | Kein Personenbezug | Knowledge Service-Index |
+| 3. **Tenant-Kontext** | Aktiver PlantingRun, Phase, Messwerte (EC, pH, VPD), aktive IPM-Events, letzte FeedingEvents | Indirekt | Im Backend pro Anfrage gebaut, als `context`-Objekt an Knowledge Service uebergeben |
+| 4. **Nutzer-Pflanzdaten** | Pflegehistorie, Ernteresultate, CareConfirmations, PlantDiaryEntry | Ja (Consent erforderlich) | Im Backend pro Anfrage gebaut, als Teil von `context` uebergeben — NUR wenn `ai_tenant_data_access` Consent vorhanden |
 
-**Ebene 1 + 2** werden als Vektoren in pgvector eingebettet (offline, Celery Task).
-**Ebene 3 + 4** werden zur Laufzeit als strukturierter Kontext in den System-Prompt injiziert.
+**Ebene 1 + 2** werden vom Knowledge Service intern als Vektoren gehalten. Ebene 1 wird durch einen periodischen `POST /ingest` aktualisiert (s. §4.6). Ebene 2 wird mit Deployment ausgerollt und bei Aenderungen durch erneuten `/ingest` neu indexiert.
 
-### 2.2 Vektorisierung
+**Ebene 3 + 4** werden zur Laufzeit im Backend zusammengestellt (`AiContextBuilder`) und ueber das `context`-Feld der Knowledge-Service-API beigegeben. Das `context`-Feld entspricht dem `QuestionContext`-Schema des Microservice (`species`, `phase`, `substrate`, `ec`, `ph` — siehe `src/knowledge-service/app/schemas.py`).
 
-- **Embedding-Modell:** `sentence-transformers/all-MiniLM-L6-v2` (384 Dimensionen, lokal, kein API-Key, ~23 MB Modellgroesse)
-- **Vektorspeicher:** pgvector-Extension auf TimescaleDB (bereits im Stack, kein zusaetzlicher Service)
-- **Einzubettende Inhalte:**
+### 2.2 Retrieval-Strategie (im Knowledge Service)
 
-| Quell-Collection | Chunk-Inhalt | Geschaetzte Chunks |
-|------------------|--------------|--------------------|
-| `species` | Wissenschaftlicher Name, Familie, Gattung, Beschreibung, Pflegeanforderungen | ~500 |
-| `cultivars` | Sortenname, Genetik, spezifische Eigenschaften | ~1.000 |
-| `growth_phases` | Phasenname, Dauer, VPD-Ziele, Licht-/Temperatur-Anforderungen | ~200 |
-| `pests` | Name, Symptome, Bekaempfungsmethoden | ~100 |
-| `diseases` | Name, Symptome, Behandlung, Praevention | ~100 |
-| `care_rules` (YAML) | Thematische Guides aus `spec/knowledge/rag/` (Diagnostik, Duengung, Phasen, Outdoor, etc.) — siehe §2.3 | ~200 |
+1. Frage wird vom Embedding-Service in 1024-dim-Vektor verwandelt (multilingual-e5-large, mit `query: ` Prefix gemaess E5-Konvention).
+2. Hybrid Search: Vector-Score (`<=>` Cosine) gewichtet 0.4, BM25-Score gewichtet 0.6.
+3. Reciprocal Rank Fusion (k=60) merged beide Ranglisten.
+4. Top 20 Kandidaten gehen in den Reranker (`bge-reranker-v2-m3`).
+5. Top 5 finale Chunks werden als Kontext in den LLM-Prompt eingefuegt.
+6. Antwort enthaelt finale Chunks als `sources` mit `source_key`, `source_type`, `title`, `score`, `language`.
 
-- **Chunk-Groesse:** 512 Tokens, Overlap: 64 Tokens
-- **Aktualisierung:** Woechentlich via Celery-Task (`reindex_vector_chunks`)
+Optionaler `doc_language`-Filter (de/en/all) beschraenkt die Vektor-Suche auf Chunks der gewuenschten Sprache.
 
-### 2.3 Architekturentscheidung: Strukturierter Kontext statt pflanzenspezifischer RAG-Dokumente
+### 2.3 Multilingual-Vorbereitung
 
-**Entscheidung:** Die Wissensbasis besteht NICHT aus hunderten separater RAG-Dokumente pro Pflanzenart (z.B. "Tomate-Duengung.md", "Basilikum-Licht.md"). Stattdessen wird ein zweistufiger Ansatz verfolgt:
+Heute sind alle Knowledge-Chunks deutschsprachig (`language: "de"`). Die API-Vertraege auf beiden Seiten unterstuetzen bereits Mehrsprachigkeit:
 
-1. **Pflanzenspezifisches Wissen** kommt aus den **strukturierten Stammdaten** in ArangoDB (Species, Cultivar, GrowthPhase, NutrientProfile, CareProfile, IPM-Daten) — diese werden zur Laufzeit als Kontext in den System-Prompt injiziert (Ebene 3+4 in §2.1) und als Vektoren indexiert (Ebene 1 in §2.1).
+| Komponente | Status |
+|------------|--------|
+| Knowledge Service `AskRequest.doc_language` | umgesetzt (de / en / all) |
+| Knowledge Service `AskRequest.prompt_language` | umgesetzt (de / en) — bestimmt System-Prompt-Sprache |
+| Knowledge Service `KnowledgeChunkResponse.language` | umgesetzt — pro Chunk |
+| Embedding-Modell | bereits multilingual (e5-large) — Englisch-Suche funktioniert technisch sofort, sobald englische Chunks indexiert sind |
+| YAMLs `spec/knowledge/rag/**/*.yaml` | nur Deutsch — englische Varianten werden in einer separaten zukuenftigen Iteration ergaenzt (kein Spec-Bruch) |
 
-2. **Querschnittswissen** (themenuebergreifende Expertise, die nicht pflanzenspezifisch ist) wird als kuratierte **Thematische Guides** in YAML-Dateien gepflegt und als "Regelwissen" (Ebene 2 in §2.1) in pgvector vektorisiert.
+Solange keine englischen Chunks vorhanden sind, antwortet der Knowledge Service bei englischer User-Locale entweder weiterhin auf Basis deutscher Chunks (wenn `doc_language="all"`) oder liefert keine Treffer (wenn `doc_language="en"`). Das Backend setzt deshalb pro Anfrage:
 
-**Begruendung:**
+- `prompt_language` = User-Locale (de oder en)
+- `doc_language` = `"all"` (bis EN-Chunks verfuegbar sind, danach `prompt_language`)
+- Liefert die Antwort in einer anderen Sprache als die User-Locale, fuegt das Backend eine Markierung `language_mismatch_warning: true` hinzu, die das Frontend rendert ("Antwort auf Deutsch, weil die englische Wissensbasis noch im Aufbau ist.").
 
-| Ansatz | Pflanzenspezifische RAG-Dokumente | Strukturierter Kontext + Thematische Guides |
-|--------|-----------------------------------|---------------------------------------------|
-| Datenmenge | ~500 Arten × ~10 Themen = 5.000+ Dokumente | ~500 ArangoDB-Dokumente (existieren bereits) + ~30-50 Guides |
-| Pflege | Jede Sorte/Art einzeln aktuell halten | Stammdaten zentral in ArangoDB, Guides thematisch |
-| Duplikation | Hohe Redundanz (z.B. "VPD in Bluete" in jedem Nachtschatten-Dokument) | Keine — ein Guide "VPD-Optimierung" fuer alle Arten |
-| Praezision | Generische Texte, keine Nutzerdaten | LLM kombiniert allgemeines Wissen mit konkreten IST-Werten des Nutzers |
-| Konsistenz | Kann von Stammdaten abweichen | Stammdaten = Single Source of Truth |
+## 3. Datenmodell (Backend-Seite)
 
-**Thematische Guides (`spec/knowledge/rag/`):**
+Die Vektordatenbank lebt im Knowledge Service. Im Kamerplanter-Backend werden lediglich KI-spezifische Tenant-/Nutzer-Daten persistiert.
 
-Kuratierte YAML-Dateien mit Expertenwissen, das sich NICHT aus den Stammdaten ableiten laesst. Geschaetzter Umfang: 30-50 Dateien, ~200 Chunks nach Vektorisierung.
+### 3.1 Document Collections (ArangoDB)
 
-```
-spec/knowledge/rag/
-├── diagnostik/
-│   ├── naehrstoffmangel-symptome.yaml       # N/P/K/Ca/Mg/Fe Mangel- und Ueberschuss-Erkennung
-│   ├── ph-ec-abweichungen.yaml              # Ursachen und Massnahmen bei pH/EC-Drift
-│   ├── schaedlings-fruehzeichen.yaml        # Optische Indikatoren fuer Befall
-│   └── wurzelgesundheit.yaml                # Wurzelfaeule, Sauerstoffmangel, Biofilm
-├── umwelt/
-│   ├── vpd-optimierung.yaml                 # VPD-Zonen, Leaf-Temperature-Offset, Entfeuchtung
-│   ├── licht-grundlagen.yaml                # PPFD, DLI, Lichtspektren, Photoperiode
-│   ├── temperatur-steuerung.yaml            # Tag/Nacht-Differenz, Hitze-/Kaeltestress
-│   ├── co2-anreicherung.yaml                # Schwellenwerte, Sicherheit, Kosten-Nutzen
-│   └── luftzirkulation.yaml                 # Ventilator-Platzierung, Schimmelpr√§vention
-├── duengung/
-│   ├── ec-management-hydroponik.yaml        # EC-Ziele pro Phase, Flush-Protokoll
-│   ├── ec-management-erde.yaml              # Boden-EC, Auswaschen, Nachdüngung
-│   ├── organische-duengung-freiland.yaml    # Kompost, Mulch, Gruenduengung, Bodenanalyse
-│   ├── calmag-korrektur.yaml                # Wasserhaerte, RO-Wasser, CalMag-Bedarf
-│   ├── mischsicherheit.yaml                 # Faellungsreaktionen, Mischreihenfolge
-│   └── pk-boost-timing.yaml                 # Bluete-Phasen, Trichom-Reife, Flush-Zeitpunkt
-├── bewaesserung/
-│   ├── giess-strategien-substrat.yaml       # Frequenz nach Substrat (Erde, Coco, Hydro, Pon)
-│   ├── ueberwaesserung-erkennen.yaml        # Symptome, Drainage, Topfgroesse
-│   └── wasserqualitaet.yaml                 # Chlor, Schwermetalle, RO-Aufbereitung
-├── phasen/
-│   ├── keimung-best-practices.yaml          # Methoden, Temperatur, Feuchtigkeit
-│   ├── vegetative-optimierung.yaml          # Training (LST, Topping, FIM), Wachstumsraten
-│   ├── bluete-management.yaml               # Lichtumstellung, Stretch, Trichom-Kontrolle
-│   ├── ernte-timing.yaml                    # Reifeindikatoren, Trocknungsmethoden
-│   └── ueberwintern-freiland.yaml           # Winterschutz, Einlagern, Fruehjahrspflege
-├── outdoor/
-│   ├── saisonplanung.yaml                   # Voranzucht, Eisheilige, Aussaatkalender
-│   ├── mischkultur-praxis.yaml              # Companion Planting, Beetplanung
-│   ├── fruchtfolge-grundlagen.yaml          # Starkzehrer-Rotation, Gruenduengung
-│   └── wetter-reaktionen.yaml              # Frost, Hitze, Sturm — Sofortmassnahmen
-└── allgemein/
-    ├── anfaenger-erste-schritte.yaml        # Einstieg ohne Vorkenntnisse
-    ├── fehler-vermeiden.yaml                # Top-10 Anfaengerfehler
-    └── ertragsoptimierung.yaml              # Fortgeschrittene Techniken
-```
-
-**YAML-Format der Guides:**
-
-```yaml
-# spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
----
-title: Naehrstoffmangel und -ueberschuss erkennen
-category: diagnostik
-tags: [naehrstoffe, mangel, ueberschuss, blaetter, symptome]
-expertise_level: [beginner, intermediate, expert]  # Fuer welche Levels relevant
-applicable_phases: [seedling, vegetative, flowering]  # Phasenrelevanz
-chunks:
-  - id: mangel-stickstoff
-    title: Stickstoff (N) Mangel
-    content: |
-      Symptome: Aeltere (untere) Blaetter werden gleichmaessig hellgruen bis gelb.
-      Fortschreitet von unten nach oben. Wachstum verlangsamt sich deutlich.
-      Ursachen: Zu niedriger EC, pH ausserhalb 5.5-6.5 (Hydro) / 6.0-7.0 (Erde),
-      zu seltene Duengung, Wurzelprobleme.
-      Massnahmen:
-      - EC um 0.2-0.4 mS/cm erhoehen
-      - pH pruefen und korrigieren
-      - Stickstoffbetonte Naehrloesung verwenden (hoeherer N-Anteil)
-      - In Erde: Hornmehl oder Blutmehl als Sofortmassnahme
-    metadata:
-      nutrient: nitrogen
-      deficiency_type: mobile
-      severity_indicator: lower_leaves_yellowing
-
-  - id: mangel-phosphor
-    title: Phosphor (P) Mangel
-    content: |
-      Symptome: Blaetter werden dunkelgruen mit violetten/purpurnen Verfaerbungen,
-      besonders an Stielen und Blattunterseiten. Wachstum stockt.
-      Haeufig bei niedrigen Temperaturen (< 18°C Wurzelzone).
-      Massnahmen:
-      - Wurzelzonen-Temperatur pruefen (> 18°C)
-      - pH auf 6.0-6.5 korrigieren (P-Verfuegbarkeit)
-      - Phosphorbetonte Naehrloesung
-    metadata:
-      nutrient: phosphorus
-      deficiency_type: mobile
-      severity_indicator: purple_stems
-
-  # ... weitere Naehrstoffe (K, Ca, Mg, Fe, Mn, Zn, B, Cu, Mo, S)
-```
-
-**Vektorisierung der Guides:**
-
-Die YAML-Guides werden durch den Celery-Task `reindex_vector_chunks` (§4.8) gelesen und als `source_type: 'care_rule'` in `ai_vector_chunks` indexiert. Jeder `chunk` in der YAML-Datei wird zu einem separaten Vektor-Eintrag:
-
-- `source_type`: `'care_rule'`
-- `source_key`: `'{category}/{filename}#{chunk_id}'` (z.B. `'diagnostik/naehrstoffmangel-symptome#mangel-stickstoff'`)
-- `chunk_text`: Zusammenfuegung von `title` + `content`
-- `metadata`: Merge aus Guide-Level-Tags und Chunk-Level-Metadata
-
-**Wie das Zusammenspiel funktioniert (Beispiel):**
-
-```
-Nutzer fragt: "Meine unteren Blätter werden gelb, was kann ich tun?"
-
-1. Context-Builder (Ebene 3): Holt IST-Zustand aus ArangoDB
-   → Art: Cannabis sativa 'Northern Lights'
-   → Phase: Flowering, Tag 21
-   → EC: 1.2 mS/cm, pH: 5.8, VPD: 1.1 kPa
-
-2. RAG-Retriever (Ebene 1+2): Findet relevante Vektoren
-   → Stammdaten-Chunk: "Cannabis sativa, Solanaceae, Flowering-Phase NPK 5-15-14"
-   → Guide-Chunk: "Stickstoff-Mangel: untere Blaetter gelb, EC erhoehen..."
-   → Guide-Chunk: "Bluete-Management: N-Bedarf sinkt ab Woche 3..."
-
-3. LLM kombiniert:
-   → "Deine Northern Lights ist in Woche 3 der Blüte. Gelbe untere
-      Blätter können auf N-Mangel hindeuten, ABER: In der späten Blüte
-      ist ein natürlicher N-Abbau in den unteren Blättern normal.
-      Dein EC liegt bei 1.2 — das ist für Woche 3 Flowering etwas
-      niedrig. Empfehlung: EC auf 1.4-1.6 anheben, NICHT den
-      N-Anteil erhöhen (PK-Phase). Wenn mehr als 30% der Blätter
-      betroffen sind, leichten N-Boost erwägen."
-```
-
-Ohne die Thematischen Guides wuerde der LLM nur die Stammdaten kennen (Art, Phase, EC) aber nicht das Expertenwissen (N-Abbau ist in Bluete normal, EC-Ziele pro Woche). Ohne den strukturierten Kontext wuerde der LLM nur generische Tipps geben (N-Mangel = mehr duengen) ohne die konkrete Situation des Nutzers zu kennen.
-
-### 2.4 Retrieval-Strategie
-
-1. Nutzer-Frage (oder Kontext-Beschreibung fuer Tips) wird mit demselben Embedding-Modell vektorisiert
-2. Cosine-Similarity-Suche auf `ai_vector_chunks` (pgvector `<=>` Operator)
-3. Optionaler `source_type`-Filter (z.B. nur `pest` + `disease` bei Diagnose-Fragen)
-4. Top-K Chunks (Standard: 5) werden als Kontext in den System-Prompt eingefuegt
-5. Chunk-Referenzen (`source_key`, `source_type`) werden in der Antwort mitgeliefert (Transparenz)
-
-## 3. Datenmodell-Erweiterung
-
-### 3.1 Neue Document Collections (ArangoDB)
-
-**`ai_provider_configs` — Provider-Konfigurationen:**
-
-Tenant-scoped fuer Tenant-eigene API-Keys, `tenant_key = null` fuer System-Defaults (Platform-Admin).
+**`ai_provider_configs`** — Provider-Konfigurationen (unveraendert ggu. v1.0, ergaenzt um `language_default`):
 
 ```json
 {
   "_key": "uuid",
   "tenant_key": "string | null",
-  "provider_type": "ollama | llamacpp | openai | anthropic | openai_compatible",
+  "provider_type": "ollama | anthropic | openai_compatible",
   "display_name": "string",
   "base_url": "string",
   "model_name": "string",
@@ -391,22 +253,20 @@ Tenant-scoped fuer Tenant-eigene API-Keys, `tenant_key = null` fuer System-Defau
   "requires_consent": "boolean",
   "is_active": "boolean",
   "is_default": "boolean",
-  "max_tokens": "int (default: 1024)",
-  "temperature": "float (default: 0.3)",
-  "timeout_seconds": "int (default: 30)",
+  "max_tokens": "int (default: 2048)",
+  "temperature": "float (default: 0.1)",
+  "timeout_seconds": "int (default: 60)",
+  "language_default": "de | en (default: de)",
   "created_at": "datetime",
   "updated_at": "datetime"
 }
 ```
 
 **Indexes:**
-- Persistent Index auf `tenant_key` (Tenant-Filterung)
-- Persistent Index auf `provider_type` (Typ-Abfrage)
-- Persistent Unique Index auf `tenant_key` + `is_default` WHERE `is_default == true` (ein Default pro Tenant)
+- Persistent auf `tenant_key`
+- Persistent Unique auf `tenant_key + is_default` WHERE `is_default = true`
 
-**`ai_conversations` — Chat-Verlaeufe:**
-
-Tenant-scoped, DSGVO-Retention (Standard: 90 Tage).
+**`ai_conversations`** — Chat-Verlaeufe (unveraendert struktur, Retention-Default 90 Tage, NFR-011):
 
 ```json
 {
@@ -414,17 +274,20 @@ Tenant-scoped, DSGVO-Retention (Standard: 90 Tage).
   "tenant_key": "string",
   "user_key": "string",
   "title": "string | null",
-  "context_type": "plant_instance | planting_run | general | diagnosis",
+  "context_type": "plant_instance | planting_run | general | term | explain",
   "context_key": "string | null",
   "provider_key": "string",
   "model_name": "string",
+  "language": "de | en",
   "message_count": "int",
   "messages": [
     {
       "role": "user | assistant | system",
       "content": "string",
       "timestamp": "datetime",
-      "source_chunks": ["vector_id1", "vector_id2"]
+      "source_chunks": [
+        {"source_key": "string", "source_type": "string", "score": "float", "language": "string"}
+      ]
     }
   ],
   "created_at": "datetime",
@@ -433,27 +296,25 @@ Tenant-scoped, DSGVO-Retention (Standard: 90 Tage).
 }
 ```
 
-**Indexes:**
-- Persistent Index auf `tenant_key` + `user_key` (Nutzer-Konversationen)
-- Persistent Index auf `expires_at` (Retention-Cleanup)
-- Persistent Index auf `context_type` + `context_key` (Kontext-Suche)
-
-**`ai_tip_cache` — Gecachte Tipp-Karten:**
-
-Redis fuer Hot-Cache (4h TTL), ArangoDB fuer Persistenz (7 Tage).
+**`ai_tip_cache`** — Gecachte Tipp-Karten und "Warum?"-Erklaerungen:
 
 ```json
 {
   "_key": "uuid",
   "tenant_key": "string",
-  "context_type": "plant_instance | planting_run | phase | general",
+  "context_type": "plant_instance | planting_run | general | daily | explain",
   "context_key": "string",
-  "tip_type": "care | warning | optimization | diagnosis | milestone",
+  "tip_type": "care | warning | optimization | diagnosis | milestone | explanation",
   "priority": "critical | high | medium | low",
   "title": "string",
   "body": "string",
   "action_url": "string | null",
-  "source_chunks": ["vector_id1", "vector_id2"],
+  "sources": [
+    {"source_key": "string", "source_type": "string", "score": "float", "language": "string"}
+  ],
+  "language": "de | en",
+  "language_mismatch_warning": "boolean (default: false)",
+  "uses_tenant_data": "boolean (default: false)",
   "provider_key": "string",
   "model_name": "string",
   "generated_at": "datetime",
@@ -464,2093 +325,851 @@ Redis fuer Hot-Cache (4h TTL), ArangoDB fuer Persistenz (7 Tage).
 }
 ```
 
-**Indexes:**
-- Persistent Index auf `tenant_key` + `context_type` + `context_key` (Kontext-Abfrage)
-- Persistent Index auf `valid_until` (Ablauf-Cleanup)
-- Persistent Index auf `priority` (Sortierung)
-
-### 3.2 Neue Tabelle (TimescaleDB / pgvector)
-
-**`ai_vector_chunks` — Vektordatenbank fuer RAG:**
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-
-CREATE TABLE ai_vector_chunks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_type VARCHAR(64) NOT NULL,   -- 'species', 'cultivar', 'growth_phase', 'care_rule', 'pest', 'disease'
-    source_key VARCHAR(128) NOT NULL,   -- ArangoDB _key der Quell-Entitaet
-    chunk_index INT NOT NULL DEFAULT 0, -- Position innerhalb eines Dokuments (bei mehreren Chunks)
-    chunk_text TEXT NOT NULL,
-    embedding vector(384) NOT NULL,     -- all-MiniLM-L6-v2: 384 Dimensionen
-    metadata JSONB DEFAULT '{}',        -- z.B. {"family": "Solanaceae", "phase": "flowering"}
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- IVFFlat-Index fuer schnelle Cosine-Similarity-Suche
-CREATE INDEX idx_ai_vector_chunks_embedding
-    ON ai_vector_chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
-
--- Funktionaler Index fuer Source-Filterung
-CREATE INDEX idx_ai_vector_chunks_source
-    ON ai_vector_chunks (source_type, source_key);
-
--- Unique Constraint: Ein Chunk pro Source + Index
-CREATE UNIQUE INDEX idx_ai_vector_chunks_unique
-    ON ai_vector_chunks (source_type, source_key, chunk_index);
-```
-
-### 3.3 Neue Edge Collections (ArangoDB)
-
-```
-// Edge Collection: ai_tip_references_plant (ai_tip_cache -> plant_instances)
-//   Verbindet einen Tip mit der referenzierten Pflanze
-//   Felder: created_at
-
-// Edge Collection: ai_tip_references_run (ai_tip_cache -> planting_runs)
-//   Verbindet einen Tip mit dem referenzierten Pflanzdurchlauf
-//   Felder: created_at
-
-// Edge Collection: ai_conversation_about (ai_conversations -> plant_instances / planting_runs)
-//   Verbindet eine Konversation mit ihrem Kontext-Objekt
-//   Felder: context_type, created_at
-```
-
-### 3.4 AQL-Beispielabfragen
-
-**Aktuelle Tips fuer einen PlantingRun:**
-```aql
-FOR tip IN ai_tip_cache
-    FILTER tip.tenant_key == @tenant_key
-       AND tip.context_type == "planting_run"
-       AND tip.context_key == @run_key
-       AND tip.valid_until > DATE_NOW()
-       AND tip.dismissed_at == null
-    SORT tip.priority == "critical" ? 0 :
-         tip.priority == "high" ? 1 :
-         tip.priority == "medium" ? 2 : 3 ASC,
-         tip.generated_at DESC
-    LIMIT 4
-    RETURN tip
-```
-
-**Konversationen eines Nutzers:**
-```aql
-FOR conv IN ai_conversations
-    FILTER conv.tenant_key == @tenant_key
-       AND conv.user_key == @user_key
-    SORT conv.updated_at DESC
-    LIMIT @limit
-    RETURN {
-        _key: conv._key,
-        title: conv.title,
-        context_type: conv.context_type,
-        message_count: conv.message_count,
-        model_name: conv.model_name,
-        updated_at: conv.updated_at
-    }
-```
-
-**Provider-Konfiguration mit Fallback (Tenant -> Global):**
-```aql
-LET tenant_providers = (
-    FOR p IN ai_provider_configs
-        FILTER p.tenant_key == @tenant_key AND p.is_active == true
-        RETURN p
-)
-LET global_providers = (
-    FOR p IN ai_provider_configs
-        FILTER p.tenant_key == null AND p.is_active == true
-        RETURN p
-)
-LET all_providers = APPEND(tenant_providers, global_providers)
-FOR p IN all_providers
-    SORT p.is_default DESC
-    RETURN DISTINCT p
-```
-
-**Abgelaufene Konversationen (DSGVO-Cleanup):**
-```aql
-FOR conv IN ai_conversations
-    FILTER conv.expires_at < DATE_NOW()
-    RETURN conv._key
-```
-
-## 4. Technische Umsetzung (Python)
-
-### 4.1 Provider-Interface
-
-```python
-# app/domain/interfaces/ai_provider.py
-
-from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
-from pydantic import BaseModel, Field
-from datetime import datetime
-
-
-class ChatMessage(BaseModel):
-    """Einzelne Nachricht in einer Chat-Konversation."""
-
-    role: str  # "user" | "assistant" | "system"
-    content: str
-    timestamp: datetime | None = None
-
-
-class AiResponse(BaseModel):
-    """Antwort eines KI-Providers."""
-
-    content: str
-    model: str
-    provider_type: str
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-    total_tokens: int | None = None
-    response_time_ms: int | None = None
-
-
-class IAiProvider(ABC):
-    """Abstraktes Interface fuer KI-Provider.
-
-    Jeder Provider (Ollama, OpenAI, Anthropic, etc.) implementiert
-    dieses Interface. Neue Provider koennen ohne Aenderung am
-    bestehenden Code hinzugefuegt werden (Adapter-Pattern, REQ-011).
-    """
-
-    @abstractmethod
-    async def chat(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AiResponse:
-        """Sendet eine Chat-Anfrage und gibt die vollstaendige Antwort zurueck."""
-        ...
-
-    @abstractmethod
-    async def chat_stream(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AsyncIterator[str]:
-        """Sendet eine Chat-Anfrage und streamt die Antwort Token-fuer-Token."""
-        ...
-
-    @abstractmethod
-    async def health_check(self) -> bool:
-        """Prueft ob der Provider erreichbar und funktionsfaehig ist."""
-        ...
-```
-
-### 4.2 Adapter-Implementierungen
-
-**Dateistruktur:**
-```
-app/data_access/ai/
-    __init__.py
-    ollama_adapter.py
-    llamacpp_adapter.py
-    openai_adapter.py
-    anthropic_adapter.py
-    openai_compatible_adapter.py
-    provider_registry.py
-```
-
-**OllamaAdapter (`data_access/ai/ollama_adapter.py`):**
-```python
-import time
-
-import httpx
-import structlog
-
-from app.domain.interfaces.ai_provider import AiResponse, ChatMessage, IAiProvider
-
-logger = structlog.get_logger()
-
-
-class OllamaAdapter(IAiProvider):
-    """Adapter fuer Ollama (lokale LLM-Inference).
-
-    Dokumentation: https://github.com/ollama/ollama/blob/main/docs/api.md
-    Endpunkt: POST /api/chat
-    Streaming: POST /api/chat mit stream=true
-    Kein API-Key erforderlich, keine Datenweitergabe.
-    """
-
-    def __init__(self, base_url: str, model_name: str, timeout_seconds: int = 30) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._model_name = model_name
-        self._timeout = timeout_seconds
-
-    async def chat(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AiResponse:
-        start = time.monotonic()
-        payload = {
-            "model": self._model_name,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
-            "stream": False,
-            "options": {
-                "num_predict": max_tokens,
-                "temperature": temperature,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(f"{self._base_url}/api/chat", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-
-        return AiResponse(
-            content=data.get("message", {}).get("content", ""),
-            model=self._model_name,
-            provider_type="ollama",
-            prompt_tokens=data.get("prompt_eval_count"),
-            completion_tokens=data.get("eval_count"),
-            total_tokens=(data.get("prompt_eval_count") or 0) + (data.get("eval_count") or 0),
-            response_time_ms=elapsed_ms,
-        )
-
-    async def chat_stream(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AsyncIterator[str]:
-        payload = {
-            "model": self._model_name,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
-            "stream": True,
-            "options": {
-                "num_predict": max_tokens,
-                "temperature": temperature,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if line:
-                        import json
-                        chunk = json.loads(line)
-                        content = chunk.get("message", {}).get("content", "")
-                        if content:
-                            yield content
-
-    async def health_check(self) -> bool:
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{self._base_url}/api/tags")
-                return resp.status_code == 200
-        except httpx.HTTPError:
-            return False
-```
-
-**OpenAiAdapter (`data_access/ai/openai_adapter.py`):**
-```python
-import time
-
-import structlog
-
-from app.domain.interfaces.ai_provider import AiResponse, ChatMessage, IAiProvider
-
-logger = structlog.get_logger()
-
-
-class OpenAiAdapter(IAiProvider):
-    """Adapter fuer OpenAI API (GPT-4o-mini, GPT-4o).
-
-    Erfordert API-Key und DSGVO-Einwilligung (Cloud-Provider).
-    Nutzt das offizielle openai Python SDK (async client).
-    """
-
-    def __init__(
-        self,
-        api_key: str,
-        model_name: str = "gpt-4o-mini",
-        timeout_seconds: int = 30,
-    ) -> None:
-        from openai import AsyncOpenAI
-
-        self._client = AsyncOpenAI(api_key=api_key, timeout=timeout_seconds)
-        self._model_name = model_name
-
-    async def chat(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AiResponse:
-        start = time.monotonic()
-
-        response = await self._client.chat.completions.create(
-            model=self._model_name,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        choice = response.choices[0]
-        usage = response.usage
-
-        return AiResponse(
-            content=choice.message.content or "",
-            model=response.model,
-            provider_type="openai",
-            prompt_tokens=usage.prompt_tokens if usage else None,
-            completion_tokens=usage.completion_tokens if usage else None,
-            total_tokens=usage.total_tokens if usage else None,
-            response_time_ms=elapsed_ms,
-        )
-
-    async def chat_stream(
-        self,
-        messages: list[ChatMessage],
-        *,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> AsyncIterator[str]:
-        stream = await self._client.chat.completions.create(
-            model=self._model_name,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
-            max_tokens=max_tokens,
-            temperature=temperature,
-            stream=True,
-        )
-
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
-
-    async def health_check(self) -> bool:
-        try:
-            await self._client.models.retrieve(self._model_name)
-            return True
-        except Exception:
-            return False
-```
-
-**AnthropicAdapter (`data_access/ai/anthropic_adapter.py`):**
-```python
-class AnthropicAdapter(IAiProvider):
-    """Adapter fuer Anthropic Claude API (Haiku, Sonnet).
-
-    Erfordert API-Key und DSGVO-Einwilligung (Cloud-Provider).
-    Nutzt das offizielle anthropic Python SDK (async client).
-    Besonderheit: System-Prompt wird separat uebergeben (nicht als Message).
-    """
-
-    def __init__(
-        self,
-        api_key: str,
-        model_name: str = "claude-haiku-3-5",
-        timeout_seconds: int = 30,
-    ) -> None:
-        from anthropic import AsyncAnthropic
-
-        self._client = AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)
-        self._model_name = model_name
-
-    async def chat(self, messages: list[ChatMessage], *, max_tokens: int = 1024, temperature: float = 0.3) -> AiResponse:
-        # Anthropic: system prompt separat, nicht in messages
-        system_prompt = None
-        chat_messages = []
-        for m in messages:
-            if m.role == "system":
-                system_prompt = m.content
-            else:
-                chat_messages.append({"role": m.role, "content": m.content})
-
-        start = time.monotonic()
-        response = await self._client.messages.create(
-            model=self._model_name,
-            system=system_prompt or "",
-            messages=chat_messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-
-        return AiResponse(
-            content=response.content[0].text,
-            model=response.model,
-            provider_type="anthropic",
-            prompt_tokens=response.usage.input_tokens,
-            completion_tokens=response.usage.output_tokens,
-            total_tokens=response.usage.input_tokens + response.usage.output_tokens,
-            response_time_ms=elapsed_ms,
-        )
-
-    # chat_stream und health_check analog
-```
-
-**LlamaCppAdapter (`data_access/ai/llamacpp_adapter.py`):**
-```python
-class LlamaCppAdapter(IAiProvider):
-    """Adapter fuer llama.cpp HTTP Server.
-
-    Implementiert das OpenAI-kompatible Interface (/v1/chat/completions).
-    Kein API-Key erforderlich, lokale Inference.
-    """
-
-    # Nutzt OpenAI-kompatibles Interface via httpx
-    # POST {base_url}/v1/chat/completions
-```
-
-**OpenAiCompatibleAdapter (`data_access/ai/openai_compatible_adapter.py`):**
-```python
-class OpenAiCompatibleAdapter(IAiProvider):
-    """Generischer Adapter fuer OpenAI-kompatible APIs.
-
-    Unterstuetzt: LM Studio, vLLM, Together AI, Mistral AI, Groq.
-    Nutzt das openai Python SDK mit custom base_url.
-    """
-
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-        model_name: str,
-        timeout_seconds: int = 30,
-    ) -> None:
-        from openai import AsyncOpenAI
-
-        self._client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=api_key,
-            timeout=timeout_seconds,
-        )
-        self._model_name = model_name
-
-    # chat, chat_stream, health_check analog zu OpenAiAdapter
-```
-
-### 4.3 Provider-Registry
-
-```python
-# app/data_access/ai/provider_registry.py
-
-from typing import ClassVar
-
-import structlog
-
-from app.domain.interfaces.ai_provider import IAiProvider
-
-logger = structlog.get_logger()
-
-
-class AiProviderRegistry:
-    """Registry fuer KI-Provider-Adapter.
-
-    Analog zur AdapterRegistry in REQ-011.
-    Registriert Provider-Typen und instanziiert sie anhand der Konfiguration.
-    """
-
-    _providers: ClassVar[dict[str, type[IAiProvider]]] = {}
-
-    @classmethod
-    def register(cls, provider_type: str):
-        """Dekorator zum Registrieren eines Provider-Adapters."""
-        def decorator(provider_cls: type[IAiProvider]) -> type[IAiProvider]:
-            cls._providers[provider_type] = provider_cls
-            return provider_cls
-        return decorator
-
-    @classmethod
-    def create(cls, provider_type: str, **kwargs) -> IAiProvider:
-        """Instanziiert einen Provider anhand des Typs und der Konfiguration."""
-        provider_cls = cls._providers.get(provider_type)
-        if not provider_cls:
-            raise KeyError(
-                f"Unknown AI provider type '{provider_type}'. "
-                f"Available: {list(cls._providers.keys())}"
-            )
-        return provider_cls(**kwargs)
-
-    @classmethod
-    def available_types(cls) -> list[str]:
-        return list(cls._providers.keys())
-```
-
-### 4.4 RAG-Retriever
-
-```python
-# app/domain/engines/ai_rag_retriever.py
-
-import structlog
-from pydantic import BaseModel
-
-logger = structlog.get_logger()
-
-
-class RagChunk(BaseModel):
-    """Ein Chunk aus der Vektordatenbank mit Similarity-Score."""
-
-    chunk_id: str
-    source_type: str
-    source_key: str
-    chunk_text: str
-    similarity_score: float
-    metadata: dict = {}
-
-
-class RagRetriever:
-    """Retrieval-Engine fuer RAG auf Basis von pgvector.
-
-    Nutzt sentence-transformers (lokal) fuer Embedding-Generierung
-    und pgvector auf TimescaleDB fuer Similarity-Search.
-    """
-
-    def __init__(self, timescale_pool, embedding_model_name: str = "all-MiniLM-L6-v2") -> None:
-        self._pool = timescale_pool
-        self._model_name = embedding_model_name
-        self._model = None  # Lazy-loaded
-
-    def _get_model(self):
-        """Lazy-Load des Embedding-Modells (einmalig, ~23 MB)."""
-        if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self._model_name)
-        return self._model
-
-    async def embed_text(self, text: str) -> list[float]:
-        """Generiert ein Embedding fuer den gegebenen Text (lokal, kein API-Key)."""
-        model = self._get_model()
-        embedding = model.encode(text, normalize_embeddings=True)
-        return embedding.tolist()
-
-    async def retrieve(
-        self,
-        query: str,
-        *,
-        source_types: list[str] | None = None,
-        top_k: int = 5,
-    ) -> list[RagChunk]:
-        """Sucht die relevantesten Chunks fuer eine Anfrage.
-
-        1. Query-Embedding via SentenceTransformer (lokal)
-        2. pgvector Cosine-Similarity-Suche auf ai_vector_chunks
-        3. Optionaler source_type Filter
-        4. Gibt top_k Chunks mit Scores zurueck
-        """
-        query_embedding = await self.embed_text(query)
-
-        # pgvector Cosine-Distance: 1 - cosine_similarity
-        # Operator <=> gibt Distanz zurueck, wir wollen Similarity
-        sql = """
-            SELECT id, source_type, source_key, chunk_text, metadata,
-                   1 - (embedding <=> $1::vector) AS similarity_score
-            FROM ai_vector_chunks
-        """
-        params = [str(query_embedding)]
-        conditions = []
-
-        if source_types:
-            placeholders = ", ".join(f"${i+2}" for i in range(len(source_types)))
-            conditions.append(f"source_type IN ({placeholders})")
-            params.extend(source_types)
-
-        if conditions:
-            sql += " WHERE " + " AND ".join(conditions)
-
-        sql += " ORDER BY embedding <=> $1::vector LIMIT $" + str(len(params) + 1)
-        params.append(top_k)
-
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(sql, *params)
-
-        return [
-            RagChunk(
-                chunk_id=str(row["id"]),
-                source_type=row["source_type"],
-                source_key=row["source_key"],
-                chunk_text=row["chunk_text"],
-                similarity_score=row["similarity_score"],
-                metadata=row["metadata"] or {},
-            )
-            for row in rows
-        ]
-
-    async def index_chunk(
-        self,
-        source_type: str,
-        source_key: str,
-        chunk_text: str,
-        chunk_index: int = 0,
-        metadata: dict | None = None,
-    ) -> str:
-        """Indexiert einen neuen Chunk in der Vektordatenbank."""
-        embedding = await self.embed_text(chunk_text)
-
-        sql = """
-            INSERT INTO ai_vector_chunks (source_type, source_key, chunk_index, chunk_text, embedding, metadata)
-            VALUES ($1, $2, $3, $4, $5::vector, $6)
-            ON CONFLICT (source_type, source_key, chunk_index)
-            DO UPDATE SET chunk_text = $4, embedding = $5::vector, metadata = $6, updated_at = now()
-            RETURNING id
-        """
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, source_type, source_key, chunk_index, chunk_text, str(embedding), metadata or {})
-            return str(row["id"])
-```
-
-### 4.5 Context-Builder
-
-```python
-# app/domain/engines/ai_context_builder.py
-
-from pydantic import BaseModel
-import structlog
-
-logger = structlog.get_logger()
-
-
-class PlantContext(BaseModel):
-    """Aggregierter Kontext einer PlantInstance fuer den System-Prompt."""
-
-    species_name: str
-    cultivar_name: str | None = None
-    family_name: str | None = None
-    current_phase: str | None = None
-    phase_day: int | None = None
-    latest_ec_ms: float | None = None
-    latest_ph: float | None = None
-    latest_vpd_kpa: float | None = None
-    latest_temperature_c: float | None = None
-    latest_humidity_pct: float | None = None
-    active_ipm_events: list[str] = []
-    last_feeding_events: list[dict] = []
-    open_tasks: list[str] = []
-    run_key: str | None = None
-    run_name: str | None = None
-
-
-class RunContext(BaseModel):
-    """Aggregierter Kontext eines PlantingRun fuer den System-Prompt."""
-
-    run_name: str
-    species_name: str
-    cultivar_name: str | None = None
-    current_phase: str | None = None
-    phase_day: int | None = None
-    plant_count: int = 0
-    latest_ec_ms: float | None = None
-    latest_ph: float | None = None
-    latest_vpd_kpa: float | None = None
-    latest_temperature_c: float | None = None
-    active_ipm_events: list[str] = []
-    last_feeding_events: list[dict] = []
-    nutrient_plan_name: str | None = None
-    open_tasks: list[str] = []
-
-
-class AiContextBuilder:
-    """Baut strukturierten Kontext fuer KI-Anfragen auf.
-
-    Aggregiert Daten aus verschiedenen ArangoDB-Collections
-    in ein kompaktes Format fuer den System-Prompt.
-    """
-
-    def __init__(self, db) -> None:
-        self._db = db
-
-    async def build_plant_context(self, plant_instance_key: str, tenant_key: str) -> PlantContext:
-        """Aggregiert den vollstaendigen Kontext einer Pflanze.
-
-        Laedt: PlantInstance, Species, Cultivar, aktuelle Phase,
-        letzte 5 FeedingEvents, letzte Messwerte, aktive IPM-Events,
-        offene Tasks.
-        """
-        # AQL-Query aggregiert alle relevanten Daten in einem Aufruf
-        aql = """
-        LET plant = DOCUMENT(CONCAT("plant_instances/", @plant_key))
-        LET species = FIRST(
-            FOR s IN species
-                FOR e IN instance_of_species
-                    FILTER e._from == plant._id AND e._to == s._id
-                    RETURN s
-        )
-        LET cultivar = FIRST(
-            FOR c IN cultivars
-                FOR e IN instance_of_cultivar
-                    FILTER e._from == plant._id AND e._to == c._id
-                    RETURN c
-        )
-        LET current_phase = FIRST(
-            FOR ph IN phase_histories
-                FOR e IN plant_in_phase
-                    FILTER e._from == plant._id AND e._to == ph._id
-                    SORT ph.started_at DESC
-                    LIMIT 1
-                    RETURN ph
-        )
-        LET feeding_events = (
-            FOR fe IN feeding_events
-                FOR e IN feeding_for_plant
-                    FILTER e._to == plant._id
-                    SORT fe.applied_at DESC
-                    LIMIT 5
-                    RETURN { ec_ms: fe.ec_ms, ph: fe.ph, applied_at: fe.applied_at }
-        )
-        LET ipm_events = (
-            FOR te IN treatment_applications
-                FOR e IN treatment_on_plant
-                    FILTER e._to == plant._id AND te.status == "active"
-                    RETURN te.treatment_name
-        )
-        RETURN {
-            species_name: species.scientific_name,
-            cultivar_name: cultivar.name,
-            family_name: species.family,
-            current_phase: current_phase.phase,
-            phase_day: current_phase ? DATE_DIFF(current_phase.started_at, DATE_NOW(), "day") : null,
-            last_feeding_events: feeding_events,
-            active_ipm_events: ipm_events
-        }
-        """
-        cursor = await self._db.aql.execute(aql, bind_vars={"plant_key": plant_instance_key})
-        result = await cursor.next()
-        return PlantContext(**result) if result else PlantContext(species_name="Unbekannt")
-
-    async def build_run_context(self, run_key: str, tenant_key: str) -> RunContext:
-        """Aggregiert den vollstaendigen Kontext eines Pflanzdurchlaufs."""
-        # Analog zu build_plant_context, aber Run-zentriert
-        ...
-
-    def format_system_prompt(self, context: PlantContext | RunContext, language: str = "de") -> str:
-        """Erstellt den System-Prompt aus dem aggregierten Kontext.
-
-        Sprache wird aus den User-Preferences abgeleitet (REQ-021).
-        Der Prompt enthaelt KEINE PII (Nutzername, Tenant-Name).
-        """
-        if language == "de":
-            prompt = "Du bist ein erfahrener Pflanzenberater im Kamerplanter-System.\n"
-            prompt += "Antworte praeise, praktisch und auf Deutsch.\n\n"
-        else:
-            prompt = "You are an experienced plant advisor in the Kamerplanter system.\n"
-            prompt += "Answer precisely, practically and in English.\n\n"
-
-        prompt += "=== Aktueller Pflanzenkontext ===\n"
-
-        if isinstance(context, PlantContext):
-            prompt += f"Art: {context.species_name}\n"
-            if context.cultivar_name:
-                prompt += f"Sorte: {context.cultivar_name}\n"
-            if context.current_phase:
-                prompt += f"Phase: {context.current_phase} (Tag {context.phase_day})\n"
-            if context.latest_ec_ms is not None:
-                prompt += f"EC: {context.latest_ec_ms} mS/cm\n"
-            if context.latest_ph is not None:
-                prompt += f"pH: {context.latest_ph}\n"
-            if context.latest_vpd_kpa is not None:
-                prompt += f"VPD: {context.latest_vpd_kpa} kPa\n"
-            if context.active_ipm_events:
-                prompt += f"Aktive IPM-Events: {', '.join(context.active_ipm_events)}\n"
-        elif isinstance(context, RunContext):
-            prompt += f"Durchlauf: {context.run_name}\n"
-            prompt += f"Art: {context.species_name}\n"
-            prompt += f"Pflanzen: {context.plant_count}\n"
-            if context.current_phase:
-                prompt += f"Phase: {context.current_phase} (Tag {context.phase_day})\n"
-
-        prompt += "\n=== Anweisungen ===\n"
-        prompt += "- Beziehe dich auf den obigen Kontext.\n"
-        prompt += "- Gib konkrete, umsetzbare Empfehlungen.\n"
-        prompt += "- Nenne Grenzwerte und Referenzbereiche wenn relevant.\n"
-        prompt += "- Wenn du dir unsicher bist, sage es ehrlich.\n"
-
-        return prompt
-```
-
-### 4.6 Tip-Engine
-
-```python
-# app/domain/engines/ai_tip_engine.py
-
-from datetime import datetime, timedelta, timezone
-from enum import StrEnum
-
-import structlog
-from pydantic import BaseModel
-
-logger = structlog.get_logger()
-
-
-class TipType(StrEnum):
-    """Typ eines KI-generierten Tips."""
-    CARE = "care"
-    WARNING = "warning"
-    OPTIMIZATION = "optimization"
-    DIAGNOSIS = "diagnosis"
-    MILESTONE = "milestone"
-
-
-class TipPriority(StrEnum):
-    """Prioritaet eines Tips."""
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
-class AiTip(BaseModel):
-    """Ein einzelner KI-generierter Tip."""
-    tip_type: TipType
-    priority: TipPriority
-    title: str
-    body: str
-    action_url: str | None = None
-    source_chunks: list[str] = []
-
-
-class TipEngine:
-    """Generiert kontextbezogene Tips fuer Pflanzen und Durchlaeufe.
-
-    Nutzt den KI-Provider fuer LLM-basierte Tips mit RAG-Kontext.
-    Bei Provider-Ausfall oder -Fehlen werden regelbasierte Fallback-Tips
-    generiert (Graceful Degradation).
-    """
-
-    def __init__(
-        self,
-        context_builder: "AiContextBuilder",
-        rag_retriever: "RagRetriever",
-        tip_cache_repo: "AiTipCacheRepository",
-        provider_config_repo: "AiProviderConfigRepository",
-        redis_client,
-    ) -> None:
-        self._context_builder = context_builder
-        self._rag_retriever = rag_retriever
-        self._tip_cache_repo = tip_cache_repo
-        self._provider_config_repo = provider_config_repo
-        self._redis = redis_client
-
-    async def generate_tips(
-        self,
-        context_type: str,
-        context_key: str,
-        tenant_key: str,
-        *,
-        force_refresh: bool = False,
-    ) -> list[AiTip]:
-        """Generiert Tips fuer einen gegebenen Kontext.
-
-        Ablauf:
-        1. Cache-Check (Redis 4h TTL, ArangoDB 24h)
-        2. Kontext aufbauen via ContextBuilder
-        3. RAG-Retrieval (top 3 relevante Chunks)
-        4. Provider aus Konfiguration laden
-        5. Strukturiertes Prompt senden (JSON-Output-Format)
-        6. Tips parsen, validieren, cachen
-        7. Bei Provider-Fehler: regelbasierte Fallback-Tips
-        """
-        # 1. Cache-Check
-        if not force_refresh:
-            cache_key = f"ai:tips:{tenant_key}:{context_type}:{context_key}"
-            cached = await self._redis.get(cache_key)
-            if cached:
-                import json
-                return [AiTip(**t) for t in json.loads(cached)]
-
-            cached_db = await self._tip_cache_repo.find_valid_tips(
-                tenant_key, context_type, context_key
-            )
-            if cached_db:
-                return cached_db
-
-        # 2. Kontext aufbauen
-        if context_type == "plant_instance":
-            context = await self._context_builder.build_plant_context(context_key, tenant_key)
-        elif context_type == "planting_run":
-            context = await self._context_builder.build_run_context(context_key, tenant_key)
-        else:
-            context = None
-
-        # 3. RAG-Retrieval
-        query = self._build_tip_query(context)
-        rag_chunks = await self._rag_retriever.retrieve(query, top_k=3)
-
-        # 4. Provider laden
-        try:
-            provider_config = await self._provider_config_repo.get_default(tenant_key)
-            provider = AiProviderRegistry.create(
-                provider_config["provider_type"],
-                base_url=provider_config["base_url"],
-                model_name=provider_config["model_name"],
-                # api_key entschluesseln wenn vorhanden
-            )
-        except Exception:
-            logger.warning("ai_provider_unavailable", tenant_key=tenant_key)
-            return await self._rule_based_fallback(context)
-
-        # 5. Prompt zusammenbauen
-        system_prompt = self._context_builder.format_system_prompt(context)
-        system_prompt += "\n\n=== Wissensbasis ===\n"
-        for chunk in rag_chunks:
-            system_prompt += f"- {chunk.chunk_text}\n"
-
-        system_prompt += """
-=== Aufgabe ===
-Generiere 2-4 praxisnahe Tips als JSON-Array. Jeder Tip hat:
-- "tip_type": "care" | "warning" | "optimization" | "diagnosis" | "milestone"
-- "priority": "critical" | "high" | "medium" | "low"
-- "title": kurzer Titel (max 60 Zeichen)
-- "body": Erklaerung + Handlungsempfehlung (max 200 Zeichen)
-
-Antworte NUR mit dem JSON-Array, kein anderer Text.
-"""
-
-        messages = [
-            ChatMessage(role="system", content=system_prompt),
-            ChatMessage(role="user", content="Generiere aktuelle Tips fuer diese Pflanze."),
-        ]
-
-        # 6. Provider aufrufen
-        try:
-            response = await provider.chat(messages, max_tokens=512, temperature=0.3)
-            tips = self._parse_tips(response.content, rag_chunks)
-        except Exception as exc:
-            logger.error("ai_tip_generation_failed", error=str(exc))
-            tips = await self._rule_based_fallback(context)
-
-        # 7. Cachen
-        await self._cache_tips(tips, tenant_key, context_type, context_key)
-        return tips
-
-    async def _rule_based_fallback(self, context: PlantContext | RunContext | None) -> list[AiTip]:
-        """Deterministischer Fallback ohne KI.
-
-        Generiert regelbasierte Tips anhand der bekannten Grenzwerte:
-        - EC zu hoch/niedrig -> Warnung
-        - VPD ausserhalb Zielbereich -> Empfehlung
-        - Phasentransition ueberfaellig -> Hinweis
-        - Naechste Pflege-Aktion -> Info
-        """
-        tips = []
-
-        if context is None:
-            return [AiTip(
-                tip_type=TipType.CARE,
-                priority=TipPriority.LOW,
-                title="Willkommen bei Kamerplanter",
-                body="Lege deine erste Pflanze an, um personalisierte Tips zu erhalten.",
-            )]
-
-        if isinstance(context, (PlantContext, RunContext)):
-            # EC-Warnung
-            if context.latest_ec_ms is not None:
-                if context.latest_ec_ms > 2.5:
-                    tips.append(AiTip(
-                        tip_type=TipType.WARNING,
-                        priority=TipPriority.HIGH,
-                        title="EC-Wert zu hoch",
-                        body=f"EC liegt bei {context.latest_ec_ms} mS/cm. Ueberduengung moeglich. Spuelen oder mit Frischwasser verduennen.",
-                    ))
-                elif context.latest_ec_ms < 0.5 and context.current_phase not in ("germination", "seedling"):
-                    tips.append(AiTip(
-                        tip_type=TipType.WARNING,
-                        priority=TipPriority.MEDIUM,
-                        title="EC-Wert niedrig",
-                        body=f"EC liegt bei {context.latest_ec_ms} mS/cm. Naehrstoffversorgung pruefen.",
-                    ))
-
-            # VPD-Warnung
-            if context.latest_vpd_kpa is not None:
-                if context.latest_vpd_kpa > 1.6:
-                    tips.append(AiTip(
-                        tip_type=TipType.WARNING,
-                        priority=TipPriority.HIGH,
-                        title="VPD zu hoch",
-                        body=f"VPD bei {context.latest_vpd_kpa} kPa. Luftfeuchtigkeit erhoehen oder Temperatur senken.",
-                    ))
-                elif context.latest_vpd_kpa < 0.4:
-                    tips.append(AiTip(
-                        tip_type=TipType.WARNING,
-                        priority=TipPriority.MEDIUM,
-                        title="VPD zu niedrig",
-                        body=f"VPD bei {context.latest_vpd_kpa} kPa. Schimmelgefahr. Lueften oder Entfeuchter einsetzen.",
-                    ))
-
-            # Phasen-Tipp
-            if context.current_phase and context.phase_day:
-                tips.append(AiTip(
-                    tip_type=TipType.CARE,
-                    priority=TipPriority.LOW,
-                    title=f"Tag {context.phase_day} in {context.current_phase}",
-                    body="Pruefen ob die Pflanze bereit fuer die naechste Phase ist.",
-                ))
-
-            # Aktive IPM-Events
-            if context.active_ipm_events:
-                tips.append(AiTip(
-                    tip_type=TipType.DIAGNOSIS,
-                    priority=TipPriority.HIGH,
-                    title="Aktive Schaedlingsbehandlung",
-                    body=f"{len(context.active_ipm_events)} aktive IPM-Massnahmen. Behandlungsfortschritt pruefen.",
-                ))
-
-        return tips if tips else [AiTip(
-            tip_type=TipType.CARE,
-            priority=TipPriority.LOW,
-            title="Alles im gruenen Bereich",
-            body="Keine auffaelligen Werte. Weiter so!",
-        )]
-
-    def _parse_tips(self, response_text: str, rag_chunks: list) -> list[AiTip]:
-        """Parst die LLM-Antwort (JSON-Array) in AiTip-Objekte."""
-        import json
-        try:
-            # Versuche JSON direkt zu parsen
-            data = json.loads(response_text)
-            if not isinstance(data, list):
-                data = [data]
-            chunk_ids = [c.chunk_id for c in rag_chunks]
-            return [
-                AiTip(
-                    tip_type=t.get("tip_type", "care"),
-                    priority=t.get("priority", "medium"),
-                    title=t.get("title", "")[:60],
-                    body=t.get("body", "")[:200],
-                    source_chunks=chunk_ids,
-                )
-                for t in data[:4]  # Max 4 Tips
-            ]
-        except json.JSONDecodeError:
-            logger.warning("ai_tip_parse_failed", response=response_text[:200])
-            return []
-
-    async def _cache_tips(
-        self,
-        tips: list[AiTip],
-        tenant_key: str,
-        context_type: str,
-        context_key: str,
-    ) -> None:
-        """Cached Tips in Redis (4h) und ArangoDB (24h)."""
-        import json
-        cache_key = f"ai:tips:{tenant_key}:{context_type}:{context_key}"
-        await self._redis.setex(
-            cache_key,
-            timedelta(hours=4),
-            json.dumps([t.model_dump() for t in tips]),
-        )
-        await self._tip_cache_repo.save_tips(tips, tenant_key, context_type, context_key)
-
-    def _build_tip_query(self, context: PlantContext | RunContext | None) -> str:
-        """Baut eine Suchanfrage fuer RAG-Retrieval aus dem Kontext."""
-        if context is None:
-            return "allgemeine Pflanzenpflege Tips"
-
-        parts = [context.species_name if hasattr(context, "species_name") else "Pflanze"]
-        if hasattr(context, "current_phase") and context.current_phase:
-            parts.append(f"Phase {context.current_phase}")
-        if hasattr(context, "active_ipm_events") and context.active_ipm_events:
-            parts.append("Schaedlingsbehandlung")
-        return " ".join(parts) + " Pflege Empfehlung"
-```
-
-### 4.7 Assistant-Service
-
-```python
-# app/domain/services/ai_assistant_service.py
-
-from datetime import datetime, timedelta, timezone
-
-import structlog
-
-from app.domain.engines.ai_context_builder import AiContextBuilder
-from app.domain.engines.ai_rag_retriever import RagRetriever
-from app.domain.engines.ai_tip_engine import AiTip, TipEngine
-from app.domain.interfaces.ai_provider import ChatMessage
-
-logger = structlog.get_logger()
-
-
-class ChatResponse(BaseModel):
-    """Antwort auf eine Chat-Nachricht."""
-
-    conversation_key: str
-    content: str
-    model: str
-    provider_type: str
-    source_chunks: list[str] = []
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-
-
-class AiAssistantService:
-    """Orchestrierungs-Service fuer den KI-Assistenten.
-
-    Koordiniert ContextBuilder, RagRetriever, Provider und Persistenz.
-    Erzwingt Consent-Checks fuer Cloud-Provider (REQ-025).
-    Implementiert Tenant-Isolation (REQ-024).
-    """
-
-    def __init__(
-        self,
-        context_builder: AiContextBuilder,
-        rag_retriever: RagRetriever,
-        tip_engine: TipEngine,
-        conversation_repo: "AiConversationRepository",
-        provider_config_repo: "AiProviderConfigRepository",
-        consent_service: "ConsentService",
-    ) -> None:
-        self._context_builder = context_builder
-        self._rag_retriever = rag_retriever
-        self._tip_engine = tip_engine
-        self._conversation_repo = conversation_repo
-        self._provider_config_repo = provider_config_repo
-        self._consent_service = consent_service
-
-    async def chat(
-        self,
-        tenant_key: str,
-        user_key: str,
-        message: str,
-        conversation_key: str | None = None,
-        context_type: str = "general",
-        context_key: str | None = None,
-    ) -> ChatResponse:
-        """Fuehrt einen Chat-Turn mit dem KI-Assistenten durch.
-
-        Ablauf:
-        1. Provider laden + Consent-Check (Cloud-Provider)
-        2. Bestehende Conversation laden oder neu erstellen
-        3. Kontext aufbauen (falls context_key gesetzt)
-        4. RAG-Retrieval fuer aktuelle Frage
-        5. Messages zusammenbauen (System + History + RAG + User)
-        6. Provider.chat() aufrufen
-        7. Conversation speichern
-        8. Response zurueckgeben
-        """
-        # 1. Provider + Consent
-        provider_config = await self._provider_config_repo.get_default(tenant_key)
-        if provider_config["requires_consent"]:
-            has_consent = await self._consent_service.check_consent(
-                user_key, "ai_cloud_processing"
-            )
-            if not has_consent:
-                raise ConsentRequiredError(
-                    "ai_cloud_processing",
-                    f"DSGVO-Einwilligung fuer {provider_config['display_name']} erforderlich.",
-                )
-
-        provider = AiProviderRegistry.create(
-            provider_config["provider_type"],
-            base_url=provider_config["base_url"],
-            model_name=provider_config["model_name"],
-            api_key=self._decrypt_key(provider_config.get("api_key_encrypted")),
-        )
-
-        # 2. Conversation
-        if conversation_key:
-            conversation = await self._conversation_repo.get(conversation_key, tenant_key)
-        else:
-            conversation = await self._conversation_repo.create(
-                tenant_key=tenant_key,
-                user_key=user_key,
-                context_type=context_type,
-                context_key=context_key,
-                provider_key=provider_config["_key"],
-                model_name=provider_config["model_name"],
-            )
-
-        # 3. Kontext
-        context = None
-        if context_key:
-            if context_type == "plant_instance":
-                context = await self._context_builder.build_plant_context(context_key, tenant_key)
-            elif context_type == "planting_run":
-                context = await self._context_builder.build_run_context(context_key, tenant_key)
-
-        # 4. RAG
-        rag_chunks = await self._rag_retriever.retrieve(message, top_k=5)
-
-        # 5. Messages
-        system_prompt = self._context_builder.format_system_prompt(context) if context else ""
-        system_prompt += "\n\n=== Wissensbasis ===\n"
-        for chunk in rag_chunks:
-            system_prompt += f"- {chunk.chunk_text}\n"
-
-        messages = [ChatMessage(role="system", content=system_prompt)]
-        # Chat-History (letzte 10 Nachrichten)
-        for msg in conversation.get("messages", [])[-10:]:
-            if msg["role"] != "system":
-                messages.append(ChatMessage(role=msg["role"], content=msg["content"]))
-        messages.append(ChatMessage(role="user", content=message))
-
-        # 6. Provider aufrufen
-        response = await provider.chat(messages)
-
-        # 7. Conversation speichern
-        now = datetime.now(tz=timezone.utc)
-        await self._conversation_repo.append_messages(
-            conversation["_key"],
-            [
-                {"role": "user", "content": message, "timestamp": now.isoformat()},
-                {
-                    "role": "assistant",
-                    "content": response.content,
-                    "timestamp": now.isoformat(),
-                    "source_chunks": [c.chunk_id for c in rag_chunks],
-                },
-            ],
-        )
-
-        # 8. Response
-        return ChatResponse(
-            conversation_key=conversation["_key"],
-            content=response.content,
-            model=response.model,
-            provider_type=response.provider_type,
-            source_chunks=[c.chunk_id for c in rag_chunks],
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-        )
-
-    async def get_tips(
-        self,
-        tenant_key: str,
-        context_type: str,
-        context_key: str,
-        *,
-        force_refresh: bool = False,
-    ) -> list[AiTip]:
-        """Delegiert an TipEngine."""
-        return await self._tip_engine.generate_tips(
-            context_type, context_key, tenant_key, force_refresh=force_refresh
-        )
-
-    async def dismiss_tip(self, tip_key: str, tenant_key: str, user_key: str) -> None:
-        """Markiert einen Tip als weggeklickt."""
-        await self._tip_engine._tip_cache_repo.dismiss(tip_key, tenant_key, user_key)
-
-    async def mark_tip_acted_on(self, tip_key: str, tenant_key: str) -> None:
-        """Markiert einen Tip als umgesetzt."""
-        await self._tip_engine._tip_cache_repo.mark_acted_on(tip_key, tenant_key)
-
-    async def delete_conversation(self, conversation_key: str, tenant_key: str, user_key: str) -> None:
-        """Loescht eine Konversation sofort (DSGVO Art. 17 Loeschrecht)."""
-        await self._conversation_repo.delete(conversation_key, tenant_key, user_key)
-        logger.info("ai_conversation_deleted", conversation_key=conversation_key, user_key=user_key)
-
-    async def configure_provider(
-        self,
-        tenant_key: str,
-        provider_data: dict,
-    ) -> dict:
-        """Erstellt oder aktualisiert eine Provider-Konfiguration."""
-        if provider_data.get("api_key"):
-            provider_data["api_key_encrypted"] = self._encrypt_key(provider_data.pop("api_key"))
-        return await self._provider_config_repo.upsert(tenant_key, provider_data)
-
-    def _encrypt_key(self, api_key: str) -> str:
-        """Verschluesselt einen API-Key fuer die Speicherung."""
-        # Fernet-Verschluesselung mit K8s-Secret als Master-Key
-        ...
-
-    def _decrypt_key(self, encrypted_key: str | None) -> str | None:
-        """Entschluesselt einen gespeicherten API-Key."""
-        if not encrypted_key:
-            return None
-        # Fernet-Entschluesselung
-        ...
-```
-
-### 4.8 Celery-Tasks
-
-```python
-# app/tasks/ai_tasks.py
-
-from celery import shared_task
-
-import structlog
-
-logger = structlog.get_logger()
-
-
-@shared_task(
-    name="ai.generate_daily_tips",
-    bind=True,
-    max_retries=2,
-    default_retry_delay=600,
-)
-def generate_daily_tips(self) -> dict:
-    """Generiert Tips fuer alle aktiven PlantingRuns (taeglich, 06:00 UTC).
-
-    Iteriert ueber alle Tenants und aktive Runs, generiert 2-4 Tips
-    pro Run via TipEngine. Bei Provider-Fehler werden regelbasierte
-    Fallback-Tips generiert.
-    """
-    import asyncio
-    from app.dependencies import get_ai_assistant_service, get_planting_run_repo
-
-    async def _generate():
-        service = get_ai_assistant_service()
-        run_repo = get_planting_run_repo()
-        active_runs = await run_repo.find_active_runs()
-
-        results = {"total": 0, "success": 0, "fallback": 0, "error": 0}
-        for run in active_runs:
-            results["total"] += 1
-            try:
-                tips = await service.get_tips(
-                    run["tenant_key"], "planting_run", run["_key"]
-                )
-                if tips:
-                    results["success"] += 1
-            except Exception as exc:
-                results["error"] += 1
-                logger.error("daily_tip_generation_failed", run_key=run["_key"], error=str(exc))
-
-        return results
-
-    return asyncio.run(_generate())
-
-
-@shared_task(
-    name="ai.reindex_vector_chunks",
-    bind=True,
-    max_retries=1,
-    default_retry_delay=1800,
-)
-def reindex_vector_chunks(self) -> dict:
-    """Reindexiert die Vektordatenbank (woechentlich).
-
-    Zwei Quellen werden indexiert:
-    1. Globale Stammdaten (Ebene 1): Species, Cultivars, GrowthPhases,
-       Pests, Diseases aus ArangoDB — source_type je nach Collection.
-    2. Thematische Guides (Ebene 2): YAML-Dateien aus spec/knowledge/rag/ —
-       source_type='care_rule', source_key='{category}/{file}#{chunk_id}'.
-       Jeder chunks[]-Eintrag wird als separater Vektor indexiert.
-    """
-    import asyncio
-    from app.dependencies import get_rag_retriever, get_species_repo
-
-    async def _reindex():
-        retriever = get_rag_retriever()
-        # 1. ArangoDB-Stammdaten: Species, Cultivars, Pests, Diseases laden,
-        #    Text zusammenbauen, in 512-Token-Chunks teilen,
-        #    embedden und in ai_vector_chunks speichern (UPSERT)
-        # 2. YAML-Guides: spec/knowledge/rag/**/*.yaml lesen,
-        #    chunks[]-Eintraege als einzelne Vektoren indexieren
-        #    (source_type='care_rule', metadata aus Guide + Chunk merged)
-        ...
-
-    return asyncio.run(_reindex())
-
-
-@shared_task(name="ai.cleanup_expired_conversations")
-def cleanup_expired_conversations() -> dict:
-    """Loescht abgelaufene Konversationen (taeglich, DSGVO-Compliance).
-
-    Entfernt alle Konversationen deren expires_at < now().
-    Loescht auch zugehoerige Edge-Dokumente.
-    """
-    import asyncio
-    from app.dependencies import get_conversation_repo
-
-    async def _cleanup():
-        repo = get_conversation_repo()
-        deleted = await repo.delete_expired()
-        logger.info("ai_conversations_cleanup", deleted_count=deleted)
-        return {"deleted": deleted}
-
-    return asyncio.run(_cleanup())
-
-
-@shared_task(name="ai.health_check_providers")
-def health_check_providers() -> dict:
-    """Prueft Provider-Availability (alle 15 Minuten).
-
-    Testet alle aktiven Provider via health_check().
-    Aktualisiert den Status in ai_provider_configs.
-    Exportiert Ergebnis als Prometheus-Gauge.
-    """
-    import asyncio
-    from app.dependencies import get_provider_config_repo
-
-    async def _check():
-        repo = get_provider_config_repo()
-        configs = await repo.find_all_active()
-        results = {}
-
-        for config in configs:
-            try:
-                provider = AiProviderRegistry.create(
-                    config["provider_type"],
-                    base_url=config["base_url"],
-                    model_name=config["model_name"],
-                )
-                healthy = await provider.health_check()
-                results[config["_key"]] = healthy
-            except Exception:
-                results[config["_key"]] = False
-
-        return results
-
-    return asyncio.run(_check())
-```
-
-### 4.9 Celery-Beat Schedule
-
-```python
-# In app/celery_config.py (Ergaenzung)
-
-CELERY_BEAT_SCHEDULE = {
-    # ... bestehende Tasks ...
-
-    "ai-generate-daily-tips": {
-        "task": "ai.generate_daily_tips",
-        "schedule": crontab(hour=6, minute=0),  # 06:00 UTC taeglich
-    },
-    "ai-reindex-vectors-weekly": {
-        "task": "ai.reindex_vector_chunks",
-        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sonntag 03:00 UTC
-    },
-    "ai-cleanup-conversations-daily": {
-        "task": "ai.cleanup_expired_conversations",
-        "schedule": crontab(hour=2, minute=30),  # 02:30 UTC taeglich
-    },
-    "ai-health-check-providers": {
-        "task": "ai.health_check_providers",
-        "schedule": 900.0,  # Alle 15 Minuten
-    },
+Neue Felder ggu. v1.0:
+- `tip_type: explanation` — fuer "Warum?"-Antworten
+- `context_type: daily` — fuer Tipp des Tages
+- `context_type: explain` — fuer "Warum?"-Antworten
+- `language` und `language_mismatch_warning` — Multilingual-Vorbereitung
+- `sources` als strukturierte Liste statt nur `source_chunks: string[]` — enthaelt jetzt source_type, score und language pro Quelle
+- `uses_tenant_data` — fuer den UI-Indikator
+
+**`ai_audit_log`** (NEU) — Audit-Eintraege fuer alle KI-Aufrufe (NFR-007, NFR-011):
+
+```json
+{
+  "_key": "uuid",
+  "tenant_key": "string",
+  "user_key": "string | null",
+  "endpoint": "string",
+  "context_type": "string | null",
+  "context_key": "string | null",
+  "question_hash": "string (sha256 ueber Frage)",
+  "answer_length": "int",
+  "model_name": "string",
+  "provider_type": "string",
+  "kb_version": "string (Knowledge-Service-Version + Index-Hash)",
+  "language": "string",
+  "uses_tenant_data": "boolean",
+  "uses_cloud_provider": "boolean",
+  "latency_ms": "int",
+  "status": "ok | denied | provider_error | knowledge_service_error | timeout",
+  "error_class": "string | null",
+  "created_at": "datetime"
 }
 ```
 
-## 5. API-Endpunkte (FastAPI)
+Retention 30 Tage (NFR-011). Inhalte (Frage / Antwort) werden NICHT im Klartext geloggt — nur Hash und Laenge. Auskunftsexport (REQ-025) liefert die Audit-Daten gehasht.
 
-### 5.1 Tenant-scoped Endpunkte (`/api/v1/t/{tenant_slug}/ai/`)
+**`ai_tenant_settings`** (NEU) — KI-Einstellungen pro Tenant (Stufe 2 des Feature-Toggles):
 
-**Provider-Konfiguration:**
+Tenant-Settings sind kein eigenes Document, sondern leben als Sub-Objekt am `tenants`-Document (REQ-024):
+
+```json
+{
+  // ... bestehendes tenants-Doc ...
+  "settings": {
+    // ... andere Settings ...
+    "ai_features_enabled": "boolean (default: false)",
+    "ai_default_provider_key": "string | null",
+    "ai_allow_cloud_providers": "boolean (default: false)",
+    "ai_daily_tip_enabled": "boolean (default: true wenn ai_features_enabled)"
+  }
+}
+```
+
+### 3.2 Edge Collections (ArangoDB)
+
+```
+ai_tip_references_plant   ai_tip_cache -> plant_instances
+ai_tip_references_run     ai_tip_cache -> planting_runs
+ai_conversation_about     ai_conversations -> plant_instances | planting_runs
+ai_audit_about            ai_audit_log -> plant_instances | planting_runs (optional)
+```
+
+### 3.3 Verzicht auf eigene Vektor-Tabellen im Backend
+
+Im Gegensatz zu v1.0 enthaelt das Backend KEINE Tabelle `ai_vector_chunks` mehr. Vektoren leben ausschliesslich im Knowledge Service (PostgreSQL+pgvector). Der Backend-Code spricht den Knowledge Service ueber HTTP an. TimescaleDB im Kamerplanter-Backend wird damit von der KI-Last entkoppelt.
+
+## 4. Technische Umsetzung (Backend)
+
+### 4.1 KnowledgeServiceAdapter (neu)
+
+Backend-Komponente in `src/backend/app/data_access/external/knowledge_service_adapter.py`. Implementiert ein Interface aus `src/backend/app/domain/interfaces/knowledge_service.py`:
+
+```python
+class IKnowledgeService(ABC):
+    @abstractmethod
+    async def search(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+        doc_language: str | None = None,
+    ) -> list[KnowledgeChunk]: ...
+
+    @abstractmethod
+    async def ask(
+        self,
+        question: str,
+        *,
+        top_k: int = 10,
+        context: QuestionContext | None = None,
+        doc_language: str | None = None,
+        prompt_language: str | None = None,
+    ) -> AskResult: ...
+
+    @abstractmethod
+    async def health_check(self) -> bool: ...
+```
+
+Default-Implementierung `HttpKnowledgeServiceAdapter` nutzt `httpx.AsyncClient` mit Timeout (`AI_KNOWLEDGE_SERVICE_TIMEOUT_S`, default 60), Retry-Logik (max 2 Wiederholungen bei `5xx`) und circuit-breaker-aehnlichem Verhalten (nach 3 Fehlern in 60s wird der Adapter fuer 60s als unhealthy markiert).
+
+### 4.2 AiContextBuilder (vereinfacht)
+
+Liefert ein `QuestionContext` und einen optionalen erweiterten Context-Block (Pflegehistorie, IPM-Events). Trennt strikt zwischen:
+
+- **`base_context: QuestionContext`** — wird IMMER an den Knowledge Service uebermittelt, enthaelt nur Stammwerte (species, phase, substrate, ec, ph). Diese Felder enthalten keine PII.
+- **`extended_context: dict | None`** — wird NUR an den Knowledge Service uebermittelt, wenn der User den Consent `ai_tenant_data_access` erteilt hat. Enthaelt zusaetzliche Felder (letzte_pflege, aktive_ipm_events, juengste_diary_einträge, etc.).
+
+Der Context-Builder darf KEINE Felder mit direktem Personenbezug aufnehmen (Tenant-Name, Nutzername, E-Mail) — siehe NFR-007 §LLM-Sicherheit.
+
+### 4.3 AiAssistantService (Orchestrierung)
+
+Service-Klasse in `src/backend/app/domain/services/ai_assistant_service.py`. Methoden:
+
+| Methode | Zweck |
+|---------|-------|
+| `get_tips(tenant_key, context_type, context_key, user_key)` | Tipp-Karten fuer Plant/Run, Cache-First, Fallback regelbasiert |
+| `get_daily_tip(tenant_key, user_key)` | Ein einziger Tipp fuer das Dashboard, on-first-load lazy, Cache bis Mitternacht Tenant-Zeitzone |
+| `explain(tenant_key, user_key, *, subject_type, subject_key, question_template_id)` | "Warum?"-Antwort fuer eine konkrete Aufgabe / Erinnerung / Phasentransition |
+| `chat(tenant_key, user_key, message, conversation_key=None, ...)` | Chat-Turn (SSE-streaming) |
+| `dismiss_tip(tip_key, ...)` / `mark_tip_acted_on(tip_key, ...)` | UI-Aktionen |
+| `delete_conversation(conversation_key, ...)` | DSGVO Art. 17, sofortige Loeschung |
+| `configure_provider(...)` / `list_providers(...)` | Provider-CRUD |
+
+Vor jedem Aufruf laeuft die Reihenfolge:
+
+1. `FeatureGuard.require_ai_enabled(tenant_key)` — wirft `AiDisabledError` (HTTP 403) wenn Stufe 1 oder 2 deaktiviert
+2. `ConsentGuard.require_consent(user_key, purpose)` — wirft `ConsentRequiredError` (HTTP 403, mit `consent_purpose` im Body) wenn benoetigter Consent fehlt
+3. `AuditLogger.start(...)` — bereitet Audit-Eintrag vor (status=pending)
+4. Eigentliche Logik — Cache-Check, KontextBuild, KnowledgeService-Aufruf
+5. `AuditLogger.complete(...)` — schreibt Audit-Eintrag final
+
+### 4.4 TipEngine (ueberarbeitet)
+
+Wesentliche Aenderungen:
+
+- Default-Cache-TTL bleibt 4h (Redis) / 24h (ArangoDB).
+- RAG-Retrieval erfolgt nicht mehr lokal, sondern via `KnowledgeServiceAdapter.ask(...)`.
+- Prompt fuer "Generiere 2-4 Tipps" wandert in den `PromptEngine` des Knowledge Service ALS NEUER PROMPT-TYP (`"tips"`) — die Spec dafuer liegt im Knowledge-Service-Repo, REQ-031 verlangt nur den Endpunkt-Vertrag.
+- Fallback-Logik (regelbasiert) bleibt im Backend, weil sie Tenant-Daten kennt.
+
+**`get_daily_tip(...)`** ist eine neue Methode mit eigenem Cache-Schluessel `ai:daily-tip:{tenant_key}:{date_local}` (TTL: bis Mitternacht Tenant-Zeitzone). Sie waehlt einen Tenant-spezifischen Aspekt:
+
+1. Hat der Tenant Pflanzen mit auffaelligen Werten (EC out-of-range, VPD ausser Ziel, ueberfaellige Tasks)? -> warning-Tipp
+2. Sonst: Hat eine Pflanze einen kommenden Phasenuebergang? -> milestone-Tipp
+3. Sonst: Saison-Tipp basierend auf User-Locale + Hemisphaere
+4. Sonst: Allgemeiner Beginner-/Optimierungs-Tipp aus der Knowledge Base
+
+### 4.5 ExplainEngine (NEU)
+
+Neue Komponente `src/backend/app/domain/engines/ai_explain_engine.py`. Generiert "Warum?"-Antworten zu konkreten Subjekten (Task / Reminder / Phase-Transition / FeedingEvent).
+
+Ein **Question-Template** ist ein YAML-Eintrag in `spec/knowledge/explain-templates/` mit:
+
+```yaml
+- id: care_reminder_watering
+  applies_to: care.watering
+  question_de: |
+    Warum sollte ich {{plant_display}} jetzt giessen?
+    Pflanze: {{species}} in Phase {{phase}}, Substrat {{substrate}}.
+    Letzter Giesstermin: {{last_watering_iso}}.
+    Aktuelles Substratgewicht-Delta: {{substrate_weight_delta}}%.
+  question_en: |
+    Why should I water {{plant_display}} now?
+    Plant: {{species}} in phase {{phase}}, substrate {{substrate}}.
+    Last watering: {{last_watering_iso}}.
+    Current substrate weight delta: {{substrate_weight_delta}}%.
+  expected_length_words_max: 80
+```
+
+Templates sind versioniert und werden mit dem Backend-Code mitgeliefert. Vorteil: kuratiertes, deterministisches Frageschema; das LLM bekommt kompakte, klare Fragen statt Freitext.
+
+`ExplainEngine.explain(...)`:
+
+1. Template laden anhand `question_template_id` (z. B. `care_reminder_watering`).
+2. Slots aus dem Backend-Kontext fuellen (Plant, Phase, History).
+3. KnowledgeService `/ask` aufrufen mit `prompt_language` = User-Locale.
+4. Antwort cachen unter `ai:explain:{tenant_key}:{template_id}:{plant_state_hash}` (TTL 24h).
+5. Audit-Log mit `endpoint=explain`, `context_type=...`, etc.
+
+### 4.6 Celery-Tasks
+
+| Task | Schedule | Zweck |
+|------|----------|-------|
+| `ai.refresh_planting_run_tips` | taeglich 06:00 UTC | Generiert Tipps fuer alle aktiven Runs aller Tenants mit `ai_features_enabled=true` |
+| `ai.cleanup_expired_conversations` | taeglich 02:30 UTC | Entfernt `ai_conversations` mit `expires_at < now()` |
+| `ai.cleanup_expired_audit_log` | taeglich 02:35 UTC | Entfernt `ai_audit_log` aelter als 30 Tage |
+| `ai.health_check_providers` | alle 15 Minuten | Health-Check fuer alle aktiven Provider, exportiert Prometheus-Gauge `ai_provider_healthy{provider_key=...}` |
+| `ai.knowledge_service_ingest` | woechentlich Sonntag 03:00 UTC | Triggert `POST /ingest` am Knowledge Service zur Aktualisierung der Stammdaten-Snapshots |
+
+### 4.7 Provider-Konfiguration und API-Key-Schutz
+
+API-Keys werden mit Fernet (symmetrisch, K8s-Secret als Master-Key) verschluesselt in `api_key_encrypted` abgelegt. Schluessel werden in keinem Log, in keiner Fehlermeldung und in keinem Audit-Eintrag erwaehnt — auch nicht teilweise. Der `display_name` darf den Provider-Namen enthalten, NICHT aber Schluesselfragmente.
+
+## 5. API-Endpunkte (FastAPI, Backend)
+
+Alle KI-Endpunkte sind unter dem Pfadpraefix `/api/v1/.../ai/` erreichbar. Sie liefern HTTP 404 zurueck, wenn `AI_FEATURES_ENABLED=false`. Sie liefern HTTP 403 mit Body `{ "detail": "ai.disabled_for_tenant" }`, wenn die Tenant-Stufe deaktiviert ist. Sie liefern HTTP 403 mit Body `{ "detail": "consent_required", "consent_purpose": "..." }` bei fehlendem Consent.
+
+### 5.1 Tenant-scoped (`/api/v1/t/{tenant_slug}/ai/`)
+
+**Tipp-Karten:**
+
+| Methode | Pfad | Beschreibung | Berechtigung | Consent |
+|---------|------|-------------|--------------|---------|
+| `GET` | `/tips` | Aktuelle Tipps fuer Kontext (`?context_type=&context_key=`) | Viewer, Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/tips/refresh` | Tipps neu generieren (force) | Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/tips/{key}/dismiss` | Tip wegklicken | Viewer, Grower, Admin | — |
+| `POST` | `/tips/{key}/acted-on` | Tip als umgesetzt markieren | Grower, Admin | — |
+
+**Tipp des Tages (NEU):**
+
+| Methode | Pfad | Beschreibung | Berechtigung | Consent |
+|---------|------|-------------|--------------|---------|
+| `GET` | `/daily-tip` | Ein einziger personalisierter Tipp fuer Dashboard | Viewer, Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/daily-tip/dismiss` | Heutigen Daily-Tip wegklicken | Viewer, Grower, Admin | — |
+
+**"Warum?" / Explain (NEU):**
+
+| Methode | Pfad | Beschreibung | Berechtigung | Consent |
+|---------|------|-------------|--------------|---------|
+| `POST` | `/explain` | Erklaert eine konkrete Empfehlung. Body: `{ subject_type: "task"|"reminder"|"phase_transition"|"feeding_event", subject_key: "...", question_template_id: "..." }` | Viewer, Grower, Admin | `ai_tenant_data_access` |
+
+**Chat (unveraendert, ergaenzt um `language`):**
+
+| Methode | Pfad | Beschreibung | Berechtigung | Consent |
+|---------|------|-------------|--------------|---------|
+| `GET` | `/conversations` | Liste der Konversationen | Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/conversations` | Neue Konversation starten (`{ context_type, context_key?, language? }`) | Grower, Admin | `ai_tenant_data_access` |
+| `GET` | `/conversations/{key}` | Konversation laden | Grower, Admin | `ai_tenant_data_access` |
+| `POST` | `/conversations/{key}/messages` | Nachricht senden (SSE Streaming) | Grower, Admin | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
+| `DELETE` | `/conversations/{key}` | DSGVO Art. 17, sofortige Loeschung | Grower, Admin | — |
+
+**Provider-Konfiguration (Tenant-eigene Keys):**
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
-| `GET` | `/providers` | Liste aller konfigurierten Provider (Tenant + System-Defaults) | Grower, Admin |
-| `POST` | `/providers` | Neuen Provider konfigurieren (Tenant-eigener API-Key) | Admin |
-| `PUT` | `/providers/{key}` | Provider-Konfiguration aktualisieren | Admin |
-| `DELETE` | `/providers/{key}` | Provider deaktivieren (Soft-Delete) | Admin |
-| `GET` | `/providers/{key}/health` | Provider-Availability testen | Grower, Admin |
+| `GET` | `/providers` | Provider auflisten (Tenant + System-Defaults) | Grower, Admin |
+| `POST` | `/providers` | Neuen Provider konfigurieren | Admin |
+| `PUT` | `/providers/{key}` | Aktualisieren | Admin |
+| `DELETE` | `/providers/{key}` | Soft-Delete | Admin |
+| `GET` | `/providers/{key}/health` | Health testen (proxied an KnowledgeService) | Grower, Admin |
 
-**Tips:**
-
-| Methode | Pfad | Beschreibung | Berechtigung |
-|---------|------|-------------|--------------|
-| `GET` | `/tips` | Aktuelle Tips fuer Kontext (`?context_type=&context_key=`) | Viewer, Grower, Admin |
-| `POST` | `/tips/refresh` | Tips neu generieren (force_refresh) | Grower, Admin |
-| `POST` | `/tips/{key}/dismiss` | Tip wegklicken | Viewer, Grower, Admin |
-| `POST` | `/tips/{key}/acted-on` | Tip als umgesetzt markieren | Grower, Admin |
-
-**Chat:**
+**Tenant-Settings (NEU):**
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
-| `GET` | `/conversations` | Liste der Chat-Verlaeufe des Nutzers | Grower, Admin |
-| `POST` | `/conversations` | Neue Konversation starten | Grower, Admin |
-| `GET` | `/conversations/{key}` | Konversation laden (mit Messages) | Grower, Admin |
-| `POST` | `/conversations/{key}/messages` | Neue Nachricht senden (SSE Streaming-Response) | Grower, Admin |
-| `DELETE` | `/conversations/{key}` | Konversation loeschen (DSGVO Art. 17) | Grower, Admin |
+| `GET` | `/settings` | Aktuelle KI-Einstellungen des Tenants | Viewer, Grower, Admin |
+| `PUT` | `/settings` | KI-Einstellungen aendern (`ai_features_enabled`, `ai_default_provider_key`, `ai_allow_cloud_providers`, `ai_daily_tip_enabled`) | Admin |
 
-### 5.2 Globale Endpunkte (Platform-Admin)
+### 5.2 Globale Endpunkte
 
 | Methode | Pfad | Beschreibung | Berechtigung |
 |---------|------|-------------|--------------|
 | `GET` | `/api/v1/ai/system-providers` | System-Default-Provider verwalten | Platform-Admin |
-| `POST` | `/api/v1/ai/system-providers` | System-Default-Provider erstellen | Platform-Admin |
-| `PUT` | `/api/v1/ai/system-providers/{key}` | System-Default-Provider aktualisieren | Platform-Admin |
-| `POST` | `/api/v1/ai/reindex` | Vektordatenbank komplett neu aufbauen | Platform-Admin |
-| `GET` | `/api/v1/ai/reindex/status` | Reindex-Status abfragen | Platform-Admin |
+| `POST` | `/api/v1/ai/system-providers` | Anlegen | Platform-Admin |
+| `PUT` | `/api/v1/ai/system-providers/{key}` | Aktualisieren | Platform-Admin |
+| `POST` | `/api/v1/ai/knowledge-service/ingest` | Manuelles Reingest des Knowledge Service ausloesen | Platform-Admin |
+| `GET` | `/api/v1/ai/knowledge-service/health` | Health des Knowledge Service | Platform-Admin |
 
-**Gesamt: 16 Endpunkte** (11 Tenant-scoped + 5 Global)
+### 5.3 Light-Modus Endpunkte (REQ-027)
 
-### 5.3 Streaming-Response (SSE)
+Im Light-Modus existieren KEINE Tenants und kein User-Login. KI-Nutzung beschraenkt sich auf rein wissensbezogene Anfragen ohne Personenbezug:
 
-Der Chat-Endpunkt `POST /conversations/{key}/messages` unterstuetzt **Server-Sent Events (SSE)** fuer Echtzeit-Streaming:
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/api/v1/public/ai/ask` | Frei formulierte Frage gegen die Wissensbasis. KEIN Tenant-Kontext, KEIN extended_context. Mit Rate-Limit pro IP (10/min). | keine |
+| `GET` | `/api/v1/public/ai/health` | Knowledge-Service-Verfuegbarkeit | keine |
 
-```python
-from fastapi.responses import StreamingResponse
+`/api/v1/public/ai/ask` setzt im Knowledge-Service-Aufruf strikt `context = null`. Antworten enthalten weder Tenant- noch User-bezogene Daten. Die Glossar-Endpoint aus REQ-035 baut auf demselben Light-Pfad auf.
 
+### 5.4 Streaming-Response (SSE)
 
-@router.post("/conversations/{key}/messages")
-async def send_message(
-    key: str,
-    body: ChatMessageRequest,
-    tenant: Tenant = Depends(get_current_tenant),
-    user: User = Depends(get_current_user),
-    service: AiAssistantService = Depends(get_ai_assistant_service),
-):
-    """Sendet eine Nachricht und streamt die Antwort via SSE."""
+Der Chat-Endpunkt `POST /conversations/{key}/messages` liefert die LLM-Antwort als Server-Sent-Events (`text/event-stream`) Token-fuer-Token. Streaming ist transparent durchgereicht — sowohl der Knowledge Service als auch die LLM-Adapter unterstuetzen Streaming. Andere Endpunkte (`/tips`, `/daily-tip`, `/explain`) liefern komplette JSON-Antworten mit Spinner-Anzeige im Frontend.
 
-    async def event_stream():
-        async for token in service.chat_stream(
-            tenant_key=tenant.key,
-            user_key=user.key,
-            message=body.content,
-            conversation_key=key,
-            context_type=body.context_type,
-            context_key=body.context_key,
-        ):
-            yield f"data: {json.dumps({'token': token})}\n\n"
-        yield "data: [DONE]\n\n"
+**Begruendung der UX-Entscheidung:** Tipp-Karten und "Warum?"-Antworten sind kurz und werden gecacht — Spinner ist akzeptabel und macht die Antwort kompakter. Chat-Antworten sind potentiell laenger und profitieren von Streaming.
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+### 5.5 Antwortstruktur
+
+Jede LLM-Antwort des Backends folgt einem gemeinsamen Schema:
+
+```json
+{
+  "answer_text": "string",
+  "sources": [
+    { "source_key": "string", "source_type": "string", "title": "string", "score": 0.87, "language": "de" }
+  ],
+  "language": "de",
+  "language_mismatch_warning": false,
+  "uses_tenant_data": true,
+  "uses_cloud_provider": false,
+  "model_name": "gemma3:12b",
+  "provider_type": "ollama",
+  "kb_version": "ks-1.4.2-idx-20260420",
+  "generated_at": "2026-04-25T10:15:00Z"
+}
 ```
+
+Frontend rendert das mit einer einheitlichen `<AIResponse>`-Komponente (s. §6.1).
 
 ## 6. Frontend-Komponenten (React/MUI)
 
-### 6.1 TipCardsPanel
+### 6.1 `<AIResponse>` (NEU, gemeinsame Huelle)
 
-**Pfad:** `src/frontend/src/components/ai/TipCardsPanel.tsx`
+Pfad: `src/frontend/src/components/ai/AIResponse.tsx`
 
-**Beschreibung:** Widget mit 2-4 Tipp-Karten, eingebaut in PlantingRunDetailPage, PlantInstanceDetailPage und Dashboard.
+Pflicht-Wrapper fuer alle KI-generierten Inhalte (Tipps, Daily Tip, "Warum?"-Antworten, Chat-Bubbles). Eigenschaften:
 
-**Verhalten:**
-- Laedt Tips via `GET /ai/tips?context_type=&context_key=`
-- MUI `Card`-Komponenten mit Icon nach Typ:
-  - `warning` → Warning-Icon (gelb/orange)
-  - `care` → WaterDrop-Icon (blau)
-  - `optimization` → TrendingUp-Icon (gruen)
-  - `diagnosis` → BugReport-Icon (rot)
-  - `milestone` → EmojiEvents-Icon (gruen)
-- Priority-Anzeige als farbiger Balken am Kartenrand
-- Dismiss-Button (X) pro Karte → `POST /tips/{key}/dismiss`
-- "Mehr erfahren"-Button → oeffnet AiChatDrawer mit vorgetragenem Kontext
-- `LoadingSkeleton` waehrend Generierung (MUI Skeleton, 4 Karten-Platzhalter)
-- `EmptyState` wenn keine Tips vorhanden ("Keine Empfehlungen verfuegbar")
-- Erfahrungsstufe Beginner: Vereinfachte Darstellung (kein "Mehr erfahren")
-- Alle Texte via i18n: `pages.aiAssistant.tips.*`
+- **KI-Badge oben links:** kleiner Chip mit Icon `SparkleIcon` und Text "KI-generiert" (i18n `common.ai.badge`). Tooltip beim Hover: Modell + Provider.
+- **Sprach-Badge** (nur bei `language_mismatch_warning=true`): Hinweis "Antwort auf Deutsch — englische Wissensbasis im Aufbau".
+- **Tenant-Daten-Indikator** (nur bei `uses_tenant_data=true`): kleiner Chip "Nutzt deine Pflanzendaten" mit Tooltip-Erklaerung und Link zu Datenschutz-Einstellungen.
+- **Cloud-Provider-Indikator** (nur bei `uses_cloud_provider=true`): Chip "Verarbeitet via Cloud-Provider [Name]".
+- **Antwort-Body:** Kinder-Komponente.
+- **Quellen-Footer:** Aufklappbarer `Accordion` mit Liste der Quellen-Chunks (Titel, Kategorie, Score, Sprach-Flag). Bei Beginner-Erfahrungsstufe zugeklappt, bei Expert offen (REQ-021).
+- **Disclaimer-Footer:** Kleiner grauer Text "KI-Antworten koennen fehlerhaft sein. Bei kritischen Entscheidungen Quellen pruefen." (i18n `common.ai.disclaimer`).
 
-### 6.2 AiChatDrawer
+Alle KI-Antworten in der App **muessen** durch diese Huelle gerendert werden. Code-Reviews lehnen KI-Inhalte ohne `<AIResponse>`-Wrapper ab.
 
-**Pfad:** `src/frontend/src/components/ai/AiChatDrawer.tsx`
+### 6.2 `<TipCardsPanel>` (ueberarbeitet)
 
-**Beschreibung:** Slide-in Chat-Drawer von rechts, verfuegbar ab ExpertiseLevel `intermediate`.
+Pfad: `src/frontend/src/components/ai/TipCardsPanel.tsx`
 
-**Verhalten:**
-- MUI `Drawer` (anchor: right, Breite: 420px Desktop, 100% Mobile)
-- Chat-Verlauf mit Bubbles:
-  - User-Nachrichten: rechts, primaere Hintergrundfarbe
-  - Assistent-Nachrichten: links, Surface-Hintergrundfarbe
-- Streaming-Anzeige: Typing-Indicator (animierte Punkte) waehrend der Antwortgenerierung, dann Token-fuer-Token einblenden via SSE (`EventSource`)
-- Kontextbadge oben im Drawer: "Chat ueber: Tomate Run #3" (mit Link zum Kontext)
-- Modell-Anzeige im Footer: "Ollama - llama3.2:3b" (Chip, kleine Schrift)
-- Konversationsliste: Hamburger-Menu fuer aeltere Konversationen
-- Neue Konversation: "+" Button
-- Konversation loeschen: Kontextmenu mit ConfirmDialog
-- Tastatur: Enter sendet Nachricht, Shift+Enter fuer Zeilenumbruch
-- Double-Submit-Schutz: Sende-Button disabled waehrend Streaming
-- i18n: `pages.aiAssistant.chat.*`
-- ExpertiseLevel Check: Nicht sichtbar fuer Beginner (REQ-021)
+Wesentliche Aenderungen ggu. v1.0:
 
-### 6.3 ProviderSettingsPage
+- Jede Karte ist eine `<AIResponse>` mit kompaktem Body.
+- Erfahrungsstufe Beginner: Quellen-Footer ist eingeklappt und Karten sind kompakter (max 2 statt 4).
+- "Mehr erfahren"-Button startet Chat-Drawer mit dem aktiven Tip als Initial-Kontext.
+- Sichtbarkeit gebunden an Stufe-2-Toggle (Tenant-Setting). Wenn Tenant `ai_features_enabled=false`, wird das Panel komplett ausgeblendet (kein leerer Container).
 
-**Pfad:** `src/frontend/src/pages/einstellungen/AiProviderSettingsPage.tsx`
+### 6.3 `<DailyTipCard>` (NEU)
 
-**Beschreibung:** Verwaltung der KI-Provider-Konfigurationen.
+Pfad: `src/frontend/src/components/ai/DailyTipCard.tsx`
 
-**Verhalten:**
-- Erreichbar unter `/einstellungen/ki-provider` (nur Admin/Grower, intermediate+)
-- DataTable mit Providern:
-  - Spalten: Name, Typ, Modell, Status (Chip: Aktiv/Inaktiv), Health (Chip: Online/Offline), Default (Stern-Icon)
-  - Zeilenklick oeffnet Edit-Dialog
-- "Provider hinzufuegen"-Dialog:
-  - Schritt 1: Typ-Auswahl (Radio-Buttons mit Beschreibung + Datenschutz-Level)
-  - Schritt 2: Dynamisches Formular je nach Typ:
-    - Ollama: `base_url`, `model_name`
-    - OpenAI: `api_key` (Password-Feld), `model_name` (Select: gpt-4o-mini, gpt-4o)
-    - Anthropic: `api_key`, `model_name` (Select: claude-haiku-3-5, claude-sonnet-4)
-    - OpenAI-kompatibel: `base_url`, `api_key`, `model_name`
-  - Schritt 3: Erweiterte Einstellungen (`max_tokens`, `temperature`, `timeout_seconds`)
-- Test-Button pro Provider: "Verbindung testen" → `GET /providers/{key}/health`
-- Hinweis bei Cloud-Providern (MUI Alert, severity=info):
-  "Daten werden an [Name] uebertragen. Dies erfordert eine DSGVO-Einwilligung aller Nutzer."
-- Default-Provider setzen (Stern-Icon klickbar)
-- Alle Texte via i18n: `pages.settings.aiProviders.*`
+Eigene Karte am Top des Dashboards (REQ-009), eigene Position (nicht im TipCardsPanel-Grid):
 
-### 6.4 Consent-Dialog fuer Cloud-Provider
+- Laedt einmalig pro Session via `GET /api/v1/t/{slug}/ai/daily-tip`.
+- Wird durch `<AIResponse>` gerendert (KI-Badge sichtbar).
+- "Schliessen"-Button (X) ruft `POST /daily-tip/dismiss` und blendet die Karte fuer den Rest des Tages aus (Persistenz via API + Local-Storage).
+- Empty-State (wenn KI-deaktiviert oder Knowledge-Service down): nicht sichtbar.
+- Sichtbarkeit: ab Beginner.
 
-**Pfad:** `src/frontend/src/components/ai/AiConsentDialog.tsx`
+### 6.4 `<WhyButton>` und `<WhyDrawer>` (NEU)
 
-**Beschreibung:** DSGVO-Einwilligungsdialog, erscheint automatisch beim ersten Chat mit Cloud-Provider.
+Pfade:
+- `src/frontend/src/components/ai/WhyButton.tsx`
+- `src/frontend/src/components/ai/WhyDrawer.tsx`
 
-**Verhalten:**
-- MUI `Dialog` mit:
-  - Titel: "KI-Assistent — Datenverarbeitung durch [Provider]"
-  - Erklaerungstext: Welche Daten, wohin, warum
-  - Checkbox: "Ich stimme der Verarbeitung meiner Pflanzendaten durch [Provider] zu."
-  - Link zu Datenschutz-Einstellungen
-- Ablehnung → Fallback auf lokalen Provider (falls vorhanden) oder Fehlermeldung
-- Einwilligung wird als `ConsentRecord` gespeichert (REQ-025)
-- i18n: `pages.aiAssistant.consent.*`
+`<WhyButton>` ist ein kleiner Icon-Button (`HelpOutlineIcon`) mit Tooltip "Warum?". Wird auf folgenden Komponenten platziert:
 
-### 6.5 Integration in bestehende Seiten
+| Komponente | Template-ID | Quelle (REQ) |
+|------------|-------------|--------------|
+| `TaskCard` (Aufgabenliste) | `task_explain` | REQ-006 |
+| `CareReminderCard` (Pflege-Dashboard) | `care_reminder_{type}` (z. B. `care_reminder_watering`) | REQ-022 |
+| `PhaseTransitionSuggestionCard` | `phase_transition_explain` | REQ-003 |
+| `FeedingEventSuggestionCard` | `feeding_event_explain` | REQ-004 |
+
+Klick oeffnet `<WhyDrawer>` (rechter MUI Drawer, 360px). Drawer:
+
+1. Zeigt Spinner mit Text "KI denkt nach…" waehrend `POST /ai/explain` laeuft.
+2. Rendert Antwort als `<AIResponse>`.
+3. Footer: "Diese Empfehlung folgen" (Primary-Action wenn anwendbar) und "Schliessen".
+
+Sichtbarkeit gebunden an Stufe-2 + Stufe-3 (Consent). Wenn Stufe-2 false: Button unsichtbar. Wenn Stufe-2 true aber Consent fehlt: Button sichtbar, Klick oeffnet Consent-Dialog statt Drawer.
+
+### 6.5 `<AiChatDrawer>` (ueberarbeitet)
+
+Wesentliche Aenderungen:
+
+- Bubbles werden durch `<AIResponse>` gerendert.
+- Im Footer: aktueller Provider + Modell + KB-Version (Chips).
+- Wenn `language_mismatch_warning` in der letzten Antwort: persistenter Banner oben "Antwort in Deutsch — englische Wissensbasis im Aufbau".
+- Cloud-Provider-Wechsel (z. B. Default ist Ollama, User waehlt manuell OpenAI fuer eine Frage): Confirm-Dialog "Diese Frage geht an [Provider] in [Land]. Fortfahren?" mit Persist-Option "Diese Wahl fuer diese Konversation merken".
+
+### 6.6 `<AiProviderSettingsPage>` (ueberarbeitet)
+
+Tab in `AccountSettingsPage`. Aenderungen:
+
+- Neue Sektion oben: **Tenant-KI-Einstellungen** (nur fuer Admin sichtbar):
+  - Toggle `ai_features_enabled`
+  - Toggle `ai_allow_cloud_providers`
+  - Toggle `ai_daily_tip_enabled`
+  - Auswahl `ai_default_provider_key`
+- Neue Sektion: **Knowledge-Service-Status** (nur Platform-Admin):
+  - URL, Health, Index-Version, letzter Reingest
+- Provider-CRUD wie v1.0, mit Hinweis dass Cloud-Provider erst bei `ai_allow_cloud_providers=true` waehlbar sind.
+
+### 6.7 `<AiConsentDialog>` (erweitert)
+
+Drei Consent-Typen, wahlweise einzeln oder kombiniert:
+
+- `ai_tenant_data_access` — Pflanzendaten als Kontext
+- `ai_cloud_processing` — Cloud-Provider statt lokal
+
+Dialog beschreibt jeden Punkt einzeln, mit Checkboxen pro Punkt. Ablehnung eines Punkts blockiert nur die entsprechenden Endpoints, andere bleiben nutzbar. Einwilligungen werden als `ConsentRecord` (REQ-025) persistiert.
+
+### 6.8 Integration in bestehende Seiten
 
 | Seite | Komponente | Bedingung |
 |-------|-----------|-----------|
-| `PlantingRunDetailPage` | `TipCardsPanel` | Immer sichtbar (auch Beginner) |
-| `PlantInstanceDetailPage` | `TipCardsPanel` | Immer sichtbar (auch Beginner) |
-| `Dashboard` (REQ-009) | `TipCardsPanel` (allgemeine Tips) | Immer sichtbar |
-| `MainLayout` (Sidebar/AppBar) | FAB oder AppBar-Button fuer `AiChatDrawer` | Ab Intermediate |
-| `AccountSettingsPage` | Tab "KI-Assistent" | Alle |
+| `Dashboard` (REQ-009) | `DailyTipCard` (oben) + `TipCardsPanel` (allgemein) | Stufe 1+2 aktiv |
+| `PlantingRunDetailPage` | `TipCardsPanel` (kontext-spezifisch) | Stufe 1+2 aktiv |
+| `PlantInstanceDetailPage` | `TipCardsPanel` (kontext-spezifisch) | Stufe 1+2 aktiv |
+| `Pflege-Dashboard` (REQ-022) | `<WhyButton>` auf jeder `CareReminderCard` | Stufe 1+2 aktiv |
+| `Aufgabenliste` (REQ-006) | `<WhyButton>` auf jeder KI-erzeugten oder workflow-erzeugten Task | Stufe 1+2 aktiv |
+| `MainLayout` | FAB / AppBar-Button fuer `AiChatDrawer` | Stufe 1+2 aktiv und User Intermediate+ |
+| `AccountSettingsPage` | Tab "KI-Assistent" (`AiProviderSettingsPage`) | Stufe 1 aktiv |
 
 ## 7. DSGVO & Datenschutz (REQ-025)
 
-### 7.1 Consent-Anforderungen
+### 7.1 Consent-Anforderungen (revidiert)
 
-| Provider-Typ | Consent erforderlich | Consent-Purpose | Datenweitergabe |
-|-------------|---------------------|-----------------|-----------------|
-| Ollama (lokal) | Nein | — | Keine |
-| llama.cpp (lokal) | Nein | — | Keine |
-| OpenAI API | Ja | `ai_cloud_processing` | Pflanzenkontext + Chat-Nachrichten an OpenAI (USA) |
-| Anthropic API | Ja | `ai_cloud_processing` | Pflanzenkontext + Chat-Nachrichten an Anthropic (USA) |
-| OpenAI-kompatibel | Abhaengig | `ai_cloud_processing` (wenn Cloud) | Abhaengig vom Anbieter |
+| Endpoint-Klasse | Consent | Begruendung |
+|-----------------|---------|-------------|
+| Wissensfrage ohne Tenant-Kontext (Light-Modus, Glossar via REQ-035) | Keiner | Frage und Antwort enthalten keine personenbezogenen Daten |
+| Tipp-Karten, Daily Tip, "Warum?"-Buttons, Chat | `ai_tenant_data_access` | Antwort wird auf Basis der Pflanzdaten des Tenants generiert |
+| Nutzung eines Cloud-Providers | `ai_cloud_processing` (zusaetzlich) | Drittland-Datenuebermittlung, nichtlokales Inference-Backend |
 
-### 7.2 Datensparsamkeit im System-Prompt
+Local-Provider (Ollama, llamacpp) erfordern KEIN `ai_cloud_processing`.
 
-Der System-Prompt fuer externe Provider darf **NICHT** enthalten:
+### 7.2 Datensparsamkeit im Knowledge-Service-Prompt
+
+Der `context`-Block, der an den Knowledge Service uebermittelt wird, darf NICHT enthalten:
+
 - Tenant-Name oder Tenant-Slug
-- Nutzername, E-Mail oder andere PII
-- IP-Adressen oder Hostnames
-- API-Keys oder Secrets
-- Interne System-IDs (`_key`, `_id`)
+- Nutzername, E-Mail, Telefonnummer, Adresse
+- IP-Adresse oder Geraete-Identifikatoren
+- Freitext-Kommentare aus PlantDiaryEntries (potentielle PII)
 
-Erlaubt im System-Prompt (Pflanzendaten, kein Personenbezug):
-- Artname, Sortenname, Familie
-- Phase, Tag in Phase
-- Messwerte (EC, pH, VPD, Temperatur)
-- Aktive IPM-Events (Name, nicht Nutzer-Kontext)
-- Naehrstoffplan-Werte
+Erlaubt sind:
 
-### 7.3 Consent-Entzug
+- Wissenschaftlicher Pflanzenname
+- Phase und Phasen-Tag
+- Substrat-Typ
+- Numerische Messwerte (EC, pH, VPD)
+- Aggregierte Zaehler ("3 ueberfaellige Tasks")
 
-Bei Widerruf des Consents `ai_cloud_processing`:
-1. Laufende Streaming-Antwort wird unterbrochen
-2. Provider-Auswahl wird auf lokal zurueckgesetzt
-3. Bestehende Konversationen bleiben erhalten (keine Bilddaten)
-4. Weitere Cloud-Anfragen werden blockiert (HTTP 403 + Consent-Hinweis)
-5. Nutzer kann Consent jederzeit erneut erteilen
+Diary-Eintraege werden nur als anonymisierte Aggregate ("zuletzt vor 5 Tagen gegossen") in den `extended_context` aufgenommen — niemals der Originaltext.
+
+### 7.3 Consent-Widerruf
+
+Bei Widerruf:
+
+- `ai_tenant_data_access` widerrufen: Tipps werden ausgeblendet, "Warum?"-Buttons unsichtbar, Chat verweigert neue Nachrichten (`HTTP 403`). Bestehende Konversationen bleiben sichtbar (kein Personenbezug-Verlust durch Loeschung). Caches werden invalidiert.
+- `ai_cloud_processing` widerrufen: Cloud-Provider werden bis zum naechsten Browser-Refresh aus der Auswahl entfernt; aktive SSE-Streaming-Antwort wird unterbrochen.
 
 ### 7.4 Retention (NFR-011)
 
-| Datentyp | Aufbewahrungsfrist | Cleanup-Mechanismus |
-|----------|-------------------|---------------------|
-| Chat-Konversationen | 90 Tage (konfigurierbar, Minimum: 30 Tage) | Celery-Task `cleanup_expired_conversations` (taeglich) |
-| Tip-Cache | 7 Tage | `valid_until`-basiert, Celery-Cleanup |
-| Provider-Konfigurationen | Permanent (kein Personenbezug) | Manuelles Loeschen |
-| Vektordatenbank-Chunks | Permanent (Stammdaten, kein Personenbezug) | Reindex ueberschreibt |
+| Datentyp | Default-Retention | Cleanup |
+|----------|------------------|---------|
+| `ai_conversations` | 90 Tage (Min: 30) | `ai.cleanup_expired_conversations` taeglich |
+| `ai_tip_cache` | 7 Tage (`valid_until`) | per Cache-TTL |
+| `ai_audit_log` | 30 Tage (Min: 14) | `ai.cleanup_expired_audit_log` taeglich |
+| `ai_provider_configs` | Permanent | manuelles Loeschen |
+| Knowledge-Service `knowledge_chunks` | Permanent (kein Personenbezug) | Reingest ueberschreibt |
 
 ### 7.5 DSGVO Art. 17 (Loeschrecht)
 
-- `DELETE /conversations/{key}` loescht die Konversation **sofort** (nicht erst bei naechstem Cleanup)
-- Alle zugehoerigen Edge-Dokumente (`ai_conversation_about`) werden mitgeloescht
-- Redis-Cache-Eintraege fuer die Konversation werden invalidiert
-- Loeschung wird geloggt (structlog, ohne PII im Log)
+- `DELETE /conversations/{key}` loescht sofort.
+- DSGVO-Loeschung eines Users (REQ-025): kaskadiert auf alle `ai_conversations`, `ai_tip_cache` (sofern `dismissed_by` oder `tenant_key` zum User-Tenant gehoert), `ai_audit_log` (User-Eintraege werden anonymisiert: `user_key` -> null, Hashes bleiben).
+
+### 7.6 Auskunftsrecht (Art. 15)
+
+Auskunftsexport enthaelt:
+
+- Alle `ai_conversations` des Users (inkl. Messages)
+- Alle `ai_tip_cache`-Eintraege, die der User dismissed oder als acted-on markiert hat
+- Alle `ai_audit_log`-Eintraege des Users der letzten 30 Tage (gehasht, ohne Frage-/Antwort-Klartext)
+- Erteilte und widerrufene `ConsentRecord` zu `ai_*` Purposes
+
+KI-generierte Tipps gelten als abgeleitete Daten (Art. 4 Nr. 1 DSGVO eng ausgelegt). Sie werden im Export NUR aufgefuehrt, wenn der User explizit auf sie reagiert hat (dismissed/acted-on); sonst sind sie ephemerer Cache.
 
 ## 8. Helm Chart Erweiterungen
 
-### 8.1 Neuer Controller: Ollama (optional)
+### 8.1 Knowledge Service als eigenes Helm-Release
+
+Der Knowledge Service hat ein eigenes Helm-Chart `helm/kamerplanter-knowledge-service/`. Es wird unabhaengig vom Backend ausgerollt und kann separat skaliert werden. Backend-Werte:
 
 ```yaml
-# helm/kamerplanter/values.yaml (Ergaenzung)
-
-ollama:
-  enabled: false  # Default: deaktiviert — explizite Aktivierung erforderlich
-  controllers:
-    main:
-      containers:
-        main:
-          image:
-            repository: ollama/ollama
-            tag: latest
-          env:
-            OLLAMA_MODELS: /models
-            OLLAMA_HOST: "0.0.0.0:11434"
-          resources:
-            requests:
-              cpu: 500m
-              memory: 4Gi
-            limits:
-              memory: 8Gi
-          probes:
-            liveness:
-              spec:
-                httpGet:
-                  path: /api/tags
-                  port: 11434
-                initialDelaySeconds: 30
-                periodSeconds: 30
-            readiness:
-              spec:
-                httpGet:
-                  path: /api/tags
-                  port: 11434
-                initialDelaySeconds: 10
-                periodSeconds: 10
-  service:
-    main:
-      ports:
-        http:
-          port: 11434
-  persistence:
-    models:
-      enabled: true
-      size: 20Gi
-      accessMode: ReadWriteOnce
-      mountPath: /models
-```
-
-### 8.2 Backend-Umgebungsvariablen
-
-```yaml
-# helm/kamerplanter/values.yaml (Backend-Controller Ergaenzung)
-
+# helm/kamerplanter/values.yaml (Backend-Controller)
 controllers:
   main:
     containers:
       main:
         env:
-          # KI-Assistent Konfiguration
-          AI_DEFAULT_PROVIDER: "none"  # "ollama" | "llamacpp" | "openai" | "anthropic" | "none"
-          OLLAMA_BASE_URL: "http://kamerplanter-ollama:11434"
-          AI_EMBEDDING_MODEL: "all-MiniLM-L6-v2"
-          AI_TIPS_CACHE_TTL_HOURS: "4"
-          AI_CONVERSATION_RETENTION_DAYS: "90"
-          # Cloud-Provider API-Keys via K8s Secrets (NICHT in values.yaml)
-          # OPENAI_API_KEY: secretKeyRef: ...
-          # ANTHROPIC_API_KEY: secretKeyRef: ...
+          AI_FEATURES_ENABLED: "false"            # Stufe 1 — Operator
+          AI_KNOWLEDGE_SERVICE_URL: "http://kamerplanter-knowledge-service:8090"
+          AI_KNOWLEDGE_SERVICE_TIMEOUT_S: "60"
+          AI_PUBLIC_RATE_LIMIT_PER_MIN: "10"      # Light-Modus public endpoint
 ```
 
-### 8.3 pgvector Extension
+### 8.2 Optional: Ollama-Pod
 
-TimescaleDB benoetigt die pgvector Extension. Aktivierung via Init-Container oder Migration-Job:
+Bleibt wie in v1.0 (siehe §8.1 v1.0), aber im Knowledge-Service-Chart anstatt im Backend-Chart:
 
 ```yaml
-# Migration-Job (einmalig bei Erstinstallation)
-initContainers:
-  - name: pgvector-init
-    image: timescale/timescaledb:latest-pg16
-    command:
-      - psql
-      - -h
-      - $(TIMESCALE_HOST)
-      - -U
-      - $(TIMESCALE_USER)
-      - -d
-      - $(TIMESCALE_DB)
-      - -c
-      - "CREATE EXTENSION IF NOT EXISTS vector;"
+# helm/kamerplanter-knowledge-service/values.yaml
+ollama:
+  enabled: false
+  image: { repository: ollama/ollama, tag: latest }
+  persistence: { models: { size: 30Gi } }
+  resources:
+    requests: { cpu: "1", memory: 8Gi }
+    limits: { memory: 16Gi }
 ```
 
-### 8.4 Sentence-Transformers Modell
+Modellempfehlungen und Hardware-Tabellen aus v1.0 §1.1.1 bleiben in Kraft, aber der Default-LLM ist jetzt `gemma3:12b` statt `llama3.2:3b` (siehe §1.2). Fuer ressourcenschwache Umgebungen bleibt `gemma3:4b` der empfohlene Fallback.
 
-Das Embedding-Modell (`all-MiniLM-L6-v2`, ~23 MB) wird beim ersten Start automatisch heruntergeladen und im Backend-Container gecacht. Bei Air-Gapped-Deployments:
+### 8.3 Embedding- und Reranker-Service
 
-```yaml
-# Optional: Modell als Volume vorinstallieren
-persistence:
-  models:
-    enabled: true
-    size: 1Gi
-    mountPath: /app/.cache/torch/sentence_transformers
-```
+Bereits im Cluster vorhanden:
+- `kamerplanter-ki-embedding-service:8080` (multilingual-e5-large, ONNX)
+- `kamerplanter-ki-reranker-service:8081` (bge-reranker-v2-m3)
+
+Beide werden vom Knowledge Service angesprochen, NICHT vom Backend. Backend muss sie nicht kennen.
+
+### 8.4 pgvector
+
+Lebt in der Knowledge-Service-Postgres-Instanz, NICHT mehr im TimescaleDB des Backends. TimescaleDB des Backends wird damit von KI-Last entkoppelt.
 
 ## 9. Authentifizierung & Autorisierung
 
-> **Hinweis (SEC-H-001):** Dieser Abschnitt dokumentiert die Auth-Anforderungen
-> gemaess REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung).
+> **Hinweis (SEC-H-001):** Auth-Anforderungen gemaess REQ-023 v1.7 (Auth) und REQ-024 v1.4 (RBAC).
 
-**Standardregel:** Alle Endpunkte erfordern Authentifizierung (JWT Bearer Token)
-und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+**Standardregel:** Alle Tenant-scoped Endpunkte erfordern JWT + Tenant-Mitgliedschaft. Light-Modus-Endpunkte sind ohne Auth, aber rate-limited.
 
 | Ressource/Endpoint-Gruppe | Viewer | Grower | Admin | Platform-Admin |
 |---------------------------|--------|--------|-------|----------------|
-| Tips lesen | Ja | Ja | Ja | — |
-| Tips dismiss/acted-on | Ja | Ja | Ja | — |
-| Tips refresh | — | Ja | Ja | — |
-| Chat (Conversations) | — | Ja | Ja | — |
-| Chat loeschen (DSGVO) | — | Ja (eigene) | Ja (alle im Tenant) | — |
+| Tipps lesen / dismiss / acted-on | Ja | Ja | Ja | — |
+| Tipps refresh | — | Ja | Ja | — |
+| Daily Tip | Ja | Ja | Ja | — |
+| Explain | Ja | Ja | Ja | — |
+| Chat | — | Ja | Ja | — |
+| Chat loeschen | — | Ja (eigene) | Ja (alle im Tenant) | — |
 | Provider lesen | — | Ja | Ja | — |
 | Provider konfigurieren | — | — | Ja | — |
+| Tenant-KI-Settings lesen | Ja | Ja | Ja | — |
+| Tenant-KI-Settings schreiben | — | — | Ja | — |
 | System-Provider verwalten | — | — | — | Ja |
-| Reindex Vektordatenbank | — | — | — | Ja |
+| Knowledge-Service-Reingest / Health | — | — | — | Ja |
+| `/api/v1/public/ai/ask` | Anonym (Light-Modus) | — | — | — |
 
 **ExpertiseLevel-Einschraenkungen (REQ-021):**
-- **Beginner:** Nur TipCardsPanel sichtbar. Kein Chat-Zugang, keine Provider-Einstellungen.
-- **Intermediate:** TipCardsPanel + AiChatDrawer. Provider-Einstellungen sichtbar (lesen).
-- **Expert:** Alle Features. Voller Zugang zu Provider-Konfiguration.
+
+- **Beginner:** Nur `TipCardsPanel` + `DailyTipCard` + `<WhyButton>` (Antworten in einfacher Sprache, Quellen eingeklappt). Kein Chat-Zugang. Provider-Settings nicht sichtbar.
+- **Intermediate:** Alle Beginner-Features + `AiChatDrawer` + Provider-Settings (lesen).
+- **Expert:** Alle Features. Quellen sind in `<AIResponse>` per Default ausgeklappt.
 
 ## 10. Abhaengigkeiten
 
 ### 10.1 Direkte Abhaengigkeiten (MUSS vorhanden sein)
 
-- **REQ-001** v5.0 (Stammdatenverwaltung) — Species, Cultivar als Wissensbasis fuer RAG
-- **REQ-011** v1.0 (Adapter-Pattern) — Architektur-Vorbild fuer IAiProvider + Registry
-- **REQ-023** v1.7 (Auth) — `user_key` fuer Conversations, JWT-Validierung
-- **REQ-024** v1.4 (Mandantenverwaltung) — `tenant_key` fuer Isolation, `require_permission()`
+- **REQ-001** v5.0 — Species/Cultivar als Indexierungs-Quelle fuer Knowledge Service
+- **REQ-011** v1.0 — Adapter-Pattern als Vorbild
+- **REQ-023** v1.7 — Auth + Service Accounts (letztere fuer REQ-033)
+- **REQ-024** v1.4 — Mandantenverwaltung + Permission-Matrix
+- **REQ-025** v1.0 — DSGVO + ConsentRecord
+- **NFR-007** — LLM-Sicherheit (Prompt-Injection-Schutz, PII-Stripping)
+- **NFR-011** — Retention
 
 ### 10.2 Optionale Abhaengigkeiten (Synergie)
 
-- **REQ-003** v1.0 (Phasensteuerung) — Phase als Kontext-Input fuer Tips
-- **REQ-004** v3.1 (Duenge-Logik) — EC/pH-Abweichungen als Diagnose-Trigger
-- **REQ-005** v2.3 (Sensorik) — Messwerte (VPD, Temperatur) als Kontext
-- **REQ-010** v1.0 (IPM) — Aktive Schaedlingsbehandlungen als Kontext
-- **REQ-013** v2.0 (Pflanzdurchlauf) — PlantingRun als primaerer Tip-Kontext
-- **REQ-021** v1.0 (Erfahrungsstufen) — UI-Anpassung pro Level
-- **REQ-022** v2.3 (Pflegeerinnerungen) — Tips ergaenzen Pflegeerinnerungen
-- **REQ-025** v1.0 (DSGVO) — ConsentRecord fuer Cloud-Provider, Retention
+- **REQ-003**, **REQ-004**, **REQ-005**, **REQ-006**, **REQ-010**, **REQ-013**, **REQ-022** — Liefern Tenant-Kontext fuer Tipp- und Explain-Engines.
+- **REQ-009** (Dashboard) — Hostet `DailyTipCard` und Allgemein-`TipCardsPanel`.
+- **REQ-021** — Bestimmt UI-Ausspielung pro Erfahrungsstufe.
+- **REQ-027** — Light-Modus-Endpunkte.
+- **REQ-029** — Bilderkennung; ihr Ergebnis kann optional als `extended_context` in einer `/explain`- oder Chat-Anfrage genutzt werden.
+- **REQ-030** — Notifications; Tipps koennen optional als Notification verschickt werden.
 
-### 10.3 Systemabhaengigkeiten
+### 10.3 REQs, die REQ-031 v2.0 voraussetzen
 
-- **ArangoDB** — Persistenz von Provider-Configs, Conversations, Tip-Cache
-- **TimescaleDB + pgvector** — Vektordatenbank fuer RAG
-- **Redis** — Hot-Cache fuer Tips (4h TTL), Celery-Broker
-- **Celery + Redis** — Periodische Tasks (daily tips, reindex, cleanup, health)
-- **sentence-transformers** — Lokales Embedding-Modell (Python-Paket)
-- **httpx** — Async HTTP-Client fuer Ollama/llama.cpp
-- **openai** — Python SDK fuer OpenAI + kompatible APIs (optional)
-- **anthropic** — Python SDK fuer Anthropic Claude API (optional)
-- **cryptography (Fernet)** — API-Key-Verschluesselung
+- **REQ-033** v1.1 (MCP-Server) — `search_plant_knowledge` Tool ruft denselben Knowledge Service.
+- **REQ-035** (Glossar) — Glossar-Endpoint nutzt Knowledge-Service ueber dieselbe Adapter-Schicht.
+- **REQ-036** (Diagnose) — Diagnose-Engine nutzt Knowledge-Service ueber dieselbe Adapter-Schicht.
 
-### 10.4 Externe Abhaengigkeiten (alle optional)
+### 10.4 Systemabhaengigkeiten
 
-- **Ollama** — Lokale LLM-Inference (Docker-Image, kein API-Key)
-- **OpenAI API** — Cloud-LLM (API-Key erforderlich, kostenpflichtig)
-- **Anthropic API** — Cloud-LLM (API-Key erforderlich, kostenpflichtig)
-- **Netzwerkzugang** — Nur fuer Cloud-Provider erforderlich
+- **Knowledge Service** (`src/knowledge-service/`) — eigenstaendiger FastAPI-Microservice
+- **PostgreSQL 17 + pgvector 0.8** — im Knowledge-Service-Pod
+- **Embedding-Service** (`kamerplanter-ki-embedding-service:8080`)
+- **Reranker-Service** (`kamerplanter-ki-reranker-service:8081`)
+- **ArangoDB** — Persistenz von Provider-Configs, Conversations, Tip-Cache, Audit-Log
+- **Redis** — Hot-Cache fuer Tipps und Daily-Tip
+- **Celery + Redis** — Periodische Tasks
+- **httpx** — HTTP-Client gegen Knowledge Service
 
-### 10.5 Wird benoetigt von
+### 10.5 Externe Abhaengigkeiten (alle optional)
 
-- Keine bestehende REQ haengt von REQ-031 ab (vollstaendig optional)
-- Zukuenftiges REQ-009 (Dashboard) kann TipCardsPanel integrieren
+- **Ollama** — lokale LLM-Inference
+- **Anthropic Claude API** — Cloud
+- **OpenAI / OpenAI-kompatible APIs** — Cloud (LM Studio, vLLM, Together AI, Mistral AI)
 
 ## 11. Akzeptanzkriterien
 
-### Definition of Done (DoD):
+### Definition of Done (DoD)
 
-- [ ] **IAiProvider-Interface:** Abstraktes Provider-Interface mit `chat()`, `chat_stream()`, `health_check()` implementiert
-- [ ] **Mindestens 3 Adapter:** OllamaAdapter, OpenAiAdapter, AnthropicAdapter funktionsfaehig
-- [ ] **Provider-Registry:** Neue Provider durch Registrierung anbindbar, ohne bestehenden Code zu aendern
-- [ ] **RAG-Pipeline:** pgvector-basierte Vektordatenbank mit sentence-transformers Embedding funktionsfaehig
-- [ ] **TipEngine:** Generiert 2-4 kontextbezogene Tips pro Anfrage
-- [ ] **Regelbasierter Fallback:** Funktioniert ohne jeglichen KI-Provider
-- [ ] **Chat mit Streaming:** SSE-basierte Streaming-Antworten im Frontend
-- [ ] **Consent-Check:** Cloud-Provider blockiert ohne DSGVO-Einwilligung
-- [ ] **Tenant-Isolation:** Conversations und Provider-Configs sind tenant-scoped
-- [ ] **DSGVO-Loeschrecht:** `DELETE /conversations/{key}` loescht sofort
-- [ ] **Celery-Tasks:** Taeglich Tips + Cleanup, woechentlich Reindex, 15-min Health-Check
-- [ ] **Frontend-Komponenten:** TipCardsPanel, AiChatDrawer, ProviderSettingsPage, ConsentDialog
-- [ ] **ExpertiseLevel-Integration:** Beginner nur Tips, Chat ab Intermediate
-- [ ] **i18n:** Alle Texte in DE und EN
-- [ ] **REST-Endpunkte:** 16 Endpunkte (11 Tenant-scoped + 5 Global)
-- [ ] **Testabdeckung:** Unit-Tests fuer alle Adapter (gemockte Responses), Engines und Services
+- [ ] **KnowledgeServiceAdapter** im Backend implementiert und alle KI-Endpunkte sprechen NUR ueber diesen Adapter mit dem Knowledge Service (kein direkter pgvector-Zugriff im Backend).
+- [ ] **Drei-Stufen-Toggle** funktioniert: `AI_FEATURES_ENABLED=false` -> alle Endpunkte 404; Tenant-Setting false -> 403 mit `ai.disabled_for_tenant`; fehlender Consent -> 403 mit `consent_required` und `consent_purpose`.
+- [ ] **TipCardsPanel** zeigt Tipps fuer Plant/Run, alle gerendert in `<AIResponse>` mit Quellen-Footer.
+- [ ] **DailyTipCard** auf Dashboard generiert genau einen Tipp pro Tag pro Tenant, Cache bis Mitternacht Tenant-Zeitzone.
+- [ ] **WhyButton + WhyDrawer** auf TaskCard, CareReminderCard, PhaseTransitionSuggestionCard, FeedingEventSuggestionCard funktional, mit kuratierten Frage-Templates.
+- [ ] **AiChatDrawer** ueberarbeitet: nutzt KnowledgeServiceAdapter, SSE-Streaming, neue `<AIResponse>`-Huelle.
+- [ ] **AiProviderSettingsPage** zeigt neue Tenant-KI-Settings-Sektion.
+- [ ] **AiConsentDialog** unterstuetzt drei Consent-Typen (`ai_tenant_data_access`, `ai_cloud_processing`).
+- [ ] **Light-Modus-Endpunkte** (`/api/v1/public/ai/*`) liefern Wissensantworten ohne Tenant-Kontext, mit Rate-Limit pro IP.
+- [ ] **Multilingual-Felder** (`language`, `language_mismatch_warning`) in allen Antworten gesetzt; UI rendert Sprach-Badge.
+- [ ] **Audit-Log** (`ai_audit_log`) fuer jeden KI-Aufruf mit gehashter Frage; KEIN Klartext.
+- [ ] **PII-Stripping** im Context-Builder (Test: Tenant-Name, Nutzername, Diary-Freitext erscheinen NIE im Knowledge-Service-Aufruf).
+- [ ] **Graceful Degradation**: Knowledge Service nicht erreichbar -> Backend liefert regelbasierte Fallback-Tipps und HTTP 200 (statt 5xx); im Audit-Log status=`knowledge_service_error`.
+- [ ] **Retention-Tasks**: `cleanup_expired_conversations`, `cleanup_expired_audit_log` laufen taeglich und entfernen abgelaufene Eintraege.
+- [ ] **Reingest-Task**: `ai.knowledge_service_ingest` triggert wochentlich `POST /ingest` am Knowledge Service.
+- [ ] **i18n**: Alle Texte in DE und EN, inkl. KI-Badge, Disclaimer, Tenant-Daten-Indikator, Cloud-Provider-Indikator, Consent-Dialog-Texte.
+- [ ] **Testabdeckung Backend**: Unit-Tests fuer Engines, Services, Adapter (mit gemocktem Knowledge Service); Integrationstest mit echtem Knowledge Service in Test-Compose.
+- [ ] **Testabdeckung Frontend**: Vitest-Tests fuer `<AIResponse>`, `<DailyTipCard>`, `<WhyButton>`, ueberarbeitete `<TipCardsPanel>`.
 
-### Testszenarien:
+### Testszenarien
 
-**Szenario 1: Ollama lokal verfuegbar — Tips werden generiert**
+**Szenario 1: Drei-Stufen-Toggle (Stufe 1 deaktiviert)**
 ```
-GIVEN: Ollama laeuft lokal auf http://ollama:11434 mit Modell "llama3.2:3b"
-  AND: Provider-Config "ollama-local" ist als Default konfiguriert (is_default=true)
-  AND: PlantingRun "Tomate-2026" ist aktiv in Phase "flowering", Tag 12
-  AND: Letzte EC-Messung: 1.8 mS/cm, pH: 6.2
-WHEN: Frontend ruft GET /api/v1/t/{slug}/ai/tips?context_type=planting_run&context_key=run_key auf
+GIVEN: AI_FEATURES_ENABLED=false
+WHEN: GET /api/v1/t/demo/ai/tips
 THEN:
-  - TipEngine baut PlantingRun-Kontext auf
-  - RAG-Retrieval findet relevante Chunks (z.B. "Tomate Bluete VPD-Ziele")
-  - Ollama generiert 2-4 Tips als JSON-Array
-  - Tips werden in Redis (4h TTL) und ArangoDB (24h) gecacht
-  - Response enthaelt Tips mit tip_type, priority, title, body
+  - HTTP 404 Not Found
+  - Frontend rendert TipCardsPanel nicht (kein leerer Container)
+  - kein Audit-Eintrag (Endpoint existiert quasi nicht)
 ```
 
-**Szenario 2: Kein Provider konfiguriert — regelbasierte Fallback-Tips**
+**Szenario 2: Drei-Stufen-Toggle (Stufe 2 deaktiviert)**
 ```
-GIVEN: AI_DEFAULT_PROVIDER = "none"
-  AND: Keine Provider in ai_provider_configs eingetragen
-  AND: PlantingRun "Basilikum-2026" ist aktiv, EC = 3.2 mS/cm (zu hoch)
-WHEN: Frontend ruft GET /tips auf
+GIVEN: AI_FEATURES_ENABLED=true
+  AND: tenant.settings.ai_features_enabled=false
+WHEN: GET /api/v1/t/demo/ai/tips
 THEN:
-  - TipEngine erkennt: kein Provider verfuegbar
-  - _rule_based_fallback() wird aufgerufen
-  - Generiert Warning-Tip: "EC-Wert zu hoch" mit priority "high"
-  - Kein LLM-Aufruf erfolgt
-  - Response wird normal gecacht
+  - HTTP 403 Forbidden, body: { detail: "ai.disabled_for_tenant" }
+  - Audit-Eintrag mit status=denied
+  - Frontend rendert Hinweis "KI ist fuer diesen Tenant nicht aktiviert"
 ```
 
-**Szenario 3: OpenAI konfiguriert, kein Consent — Fehlermeldung mit Fallback**
+**Szenario 3: Wissensfrage im Light-Modus**
 ```
-GIVEN: Provider "openai-gpt4o" ist als Default konfiguriert (requires_consent=true)
-  AND: Nutzer hat KEINEN Consent "ai_cloud_processing" erteilt
-  AND: Ollama ist als Fallback-Provider vorhanden (is_default=false)
-WHEN: Nutzer startet Chat-Nachricht
+GIVEN: KAMERPLANTER_MODE=light
+  AND: AI_FEATURES_ENABLED=true
+  AND: Knowledge Service verfuegbar
+WHEN: POST /api/v1/public/ai/ask  body={ "question": "Was ist VPD?" }
 THEN:
-  - ConsentService.check_consent() gibt false zurueck
-  - ConsentRequiredError wird geworfen
-  - Frontend zeigt AiConsentDialog
-  - Bei Ablehnung: System wechselt auf Ollama-Provider
-  - Bei Zustimmung: ConsentRecord wird gespeichert, Chat wird fortgesetzt
+  - HTTP 200 mit AnswerResponse
+  - context an Knowledge Service ist null (kein Tenant-Kontext)
+  - response.uses_tenant_data == false
+  - response.uses_cloud_provider == false (Default-Provider lokal)
+  - kein User-Login noetig
 ```
 
-**Szenario 4: Chat-Nachricht mit Pflanzen-Kontext**
+**Szenario 4: Tipp-Karten mit Tenant-Kontext und Default-Provider Ollama**
 ```
-GIVEN: Nutzer hat Conversation offen fuer PlantingRun "Cannabis-Bluete-R3"
-  AND: Run ist in Phase "flowering", Tag 28
-  AND: Letzte EC: 2.1 mS/cm, VPD: 1.1 kPa
-WHEN: Nutzer fragt "Soll ich den PK-Boost schon starten?"
+GIVEN: Tenant "home" hat ai_features_enabled=true
+  AND: User "anna" hat Consent ai_tenant_data_access erteilt
+  AND: PlantingRun "tomate-2026" in Phase flowering, EC=1.8, pH=6.2
+  AND: Default-Provider ist ollama:gemma3:12b (lokal)
+WHEN: GET /api/v1/t/home/ai/tips?context_type=planting_run&context_key=tomate-2026
 THEN:
-  - ContextBuilder aggregiert Run-Kontext (Phase, EC, VPD)
-  - RAG findet Chunks zu "Cannabis flowering PK-Boost Timing"
-  - System-Prompt enthaelt Phase, Tag, Messwerte — KEIN Nutzername/Tenant
-  - Provider-Antwort bezieht sich auf Tag 28 Flowering und aktuelle EC
-  - Conversation wird mit User- und Assistant-Nachricht aktualisiert
+  - HTTP 200, 2-4 Tipps
+  - jeder Tipp hat sources mit source_key/source_type/score/language
+  - response.uses_tenant_data == true
+  - response.uses_cloud_provider == false
+  - <AIResponse>-Huelle zeigt Tenant-Daten-Indikator
+  - Audit-Log: status=ok, uses_tenant_data=true, uses_cloud_provider=false
 ```
 
-**Szenario 5: Provider-Health-Check — inaktiver Provider wird nicht verwendet**
+**Szenario 5: "Warum?"-Button auf Pflegeerinnerung**
 ```
-GIVEN: Ollama-Provider ist konfiguriert und als Default gesetzt
-  AND: Ollama-Container ist gestoppt (Port 11434 nicht erreichbar)
-WHEN: health_check_providers Celery-Task laeuft
+GIVEN: User hat Care-Reminder "Monstera giessen, faellig heute"
+  AND: Stufe 1+2 aktiv, Consent ai_tenant_data_access vorhanden
+WHEN: User klickt <WhyButton>
 THEN:
-  - OllamaAdapter.health_check() gibt false zurueck
-  - Provider-Status wird als "unhealthy" markiert
-  - Prometheus-Gauge "ai_provider_healthy" wird auf 0 gesetzt
-  - Naechste Tip-Anfrage faellt auf regelbasierten Fallback zurueck
-```
-
-**Szenario 6: Tip-Cache-Hit — keine neue LLM-Anfrage**
-```
-GIVEN: Tips fuer PlantingRun "run_123" wurden vor 2 Stunden generiert
-  AND: Redis-Cache enthaelt gueltige Tips (TTL 4h)
-WHEN: Frontend ruft GET /tips?context_type=planting_run&context_key=run_123 auf
+  - WhyDrawer oeffnet mit Spinner
+  - POST /api/v1/t/.../ai/explain body={ subject_type: "reminder", subject_key: "...", question_template_id: "care_reminder_watering" }
+  - Backend laedt Template, fuellt Slots (species, phase, last_watering_iso, substrate_weight_delta)
+  - Knowledge Service liefert Antwort + Quellen
+  - Drawer zeigt Antwort in <AIResponse> mit Quellen-Footer
+  - Cache-Schluessel ai:explain:home:care_reminder_watering:{plant_state_hash} gesetzt
+WHEN: User klickt erneut binnen 24h
 THEN:
-  - TipEngine findet Cache-Hit in Redis
-  - Kein ContextBuilder-Aufruf, kein RAG-Retrieval, kein LLM-Aufruf
-  - Gecachte Tips werden direkt zurueckgegeben
-  - Response-Time < 50ms
+  - Sofortantwort aus Cache (Latency < 50ms)
 ```
 
-**Szenario 7: Conversation loeschen (DSGVO Art. 17)**
+**Szenario 6: Daily Tip on-first-load**
 ```
-GIVEN: Nutzer hat Conversation "conv_abc" mit 15 Nachrichten
-WHEN: Nutzer ruft DELETE /conversations/conv_abc auf
+GIVEN: User oeffnet Dashboard zum ersten Mal heute
+  AND: Stufe 1+2 aktiv, Consent vorhanden, Tenant hat 3 Pflanzen
+WHEN: Frontend ruft GET /api/v1/t/.../ai/daily-tip
 THEN:
-  - Conversation wird sofort aus ArangoDB geloescht (kein Soft-Delete)
-  - Edge "ai_conversation_about" wird mitgeloescht
-  - Redis-Cache fuer diese Conversation wird invalidiert
-  - structlog-Eintrag: "ai_conversation_deleted" (ohne Nachrichteninhalte)
-  - Response: HTTP 204 No Content
-```
-
-**Szenario 8: Vektordatenbank leer (erstes Setup) — Fallback**
-```
-GIVEN: TimescaleDB ai_vector_chunks-Tabelle ist leer (frische Installation)
-  AND: Ollama-Provider ist konfiguriert und erreichbar
-WHEN: Frontend ruft GET /tips auf
+  - Backend prueft Cache fuer ai:daily-tip:{tenant_key}:{date_local}
+  - Cache-Miss -> Generierung
+  - Auswahl-Heuristik findet "Pflanze X EC out-of-range"
+  - LLM generiert Warning-Tipp
+  - Response: tip_type=warning, language=de, uses_tenant_data=true
+  - Cache mit TTL bis Mitternacht Tenant-Zeitzone gesetzt
+WHEN: User dismissed via POST /daily-tip/dismiss
 THEN:
-  - RAG-Retrieval findet keine Chunks (leere Tabelle)
-  - System-Prompt enthaelt nur Pflanzen-Kontext, keine RAG-Wissensbasis
-  - Ollama generiert Tips nur auf Basis des Kontext (ohne RAG)
-  - ODER bei niedrigem Konfidenz-Level: regelbasierte Fallback-Tips
-  - Hinweis im Response: "Wissensbasis wird aufgebaut (naechster Reindex: Sonntag 03:00)"
+  - Cache wird invalidiert; LocalStorage-Flag setzt UI-Sichtbarkeit auf false bis morgen
 ```
 
-**Szenario 9: Streaming — Antwort wird Token-fuer-Token angezeigt**
+**Szenario 7: Cloud-Provider mit Consent**
 ```
-GIVEN: Nutzer hat aktive Conversation mit Ollama-Provider
-WHEN: Nutzer sendet POST /conversations/{key}/messages mit Nachricht
+GIVEN: Tenant erlaubt Cloud-Provider (ai_allow_cloud_providers=true)
+  AND: Default-Provider ist anthropic:claude-haiku-3-5
+  AND: User hat Consent ai_tenant_data_access aber NICHT ai_cloud_processing
+WHEN: User sendet Chat-Nachricht
 THEN:
-  - Server antwortet mit Content-Type: text/event-stream
-  - Tokens werden einzeln als SSE-Events gesendet: "data: {"token": "Das"}\n\n"
-  - Frontend zeigt Typing-Indicator, dann Token-fuer-Token die Antwort
-  - Letztes Event: "data: [DONE]\n\n"
-  - Conversation wird erst nach vollstaendiger Antwort in ArangoDB gespeichert
+  - HTTP 403 Body { detail: "consent_required", consent_purpose: "ai_cloud_processing" }
+  - Frontend oeffnet AiConsentDialog mit Cloud-Provider-Erklaerung
+  - User stimmt zu -> ConsentRecord wird gespeichert
+  - Frontend wiederholt Anfrage automatisch
+  - Antwort wird via SSE gestreamt, response.uses_cloud_provider=true
+  - <AIResponse> zeigt Cloud-Provider-Indikator
 ```
 
-**Szenario 10: Mehrmandantenfaehigkeit — Tenant-Isolation**
+**Szenario 8: Knowledge Service nicht erreichbar (Graceful Degradation)**
 ```
-GIVEN: Tenant A hat 5 Conversations und eigenen OpenAI-Provider
-  AND: Tenant B hat 3 Conversations und nutzt System-Default Ollama
-WHEN: Nutzer von Tenant B ruft GET /conversations auf
+GIVEN: Knowledge-Service-Pod ist down
+  AND: Stufe 1+2 aktiv, Consent vorhanden
+WHEN: GET /api/v1/t/.../ai/tips
 THEN:
-  - Nur die 3 Conversations von Tenant B werden zurueckgegeben
-  - Provider-Liste zeigt: System-Default Ollama (kein OpenAI von Tenant A)
-  - Tips von Tenant A sind nicht sichtbar
-  - AQL-Queries filtern immer auf tenant_key
+  - KnowledgeServiceAdapter wirft KnowledgeServiceUnavailable
+  - TipEngine faellt zurueck auf _rule_based_fallback
+  - Generiert Warning-Tipp basierend auf EC/VPD-Werten ohne LLM
+  - HTTP 200 mit Fallback-Tipps
+  - response.model_name = "rule-based"
+  - response.uses_cloud_provider = false
+  - <AIResponse> zeigt KI-Badge mit Hinweis "Regelbasiert — KI-Wissensbasis derzeit nicht erreichbar"
+  - Audit-Log: status=knowledge_service_error
 ```
 
-**Szenario 11: ExpertiseLevel Beginner — nur TipCards, kein Chat**
+**Szenario 9: Multilingual — englische Frage gegen deutsche KB**
 ```
-GIVEN: Nutzer hat ExpertiseLevel "beginner" (REQ-021)
-  AND: KI-Provider ist konfiguriert und verfuegbar
-WHEN: Nutzer oeffnet PlantingRunDetailPage
+GIVEN: User-Locale = "en", doc_language = "all"
+  AND: Knowledge Service hat aktuell nur deutsche Chunks
+WHEN: POST /api/v1/t/.../ai/explain (Template englisch)
 THEN:
-  - TipCardsPanel wird angezeigt (vereinfacht: kein "Mehr erfahren"-Button)
-  - AiChatDrawer-FAB ist nicht sichtbar
-  - Provider-Einstellungen sind nicht im Menue
-  - API-Endpunkte /conversations/* geben 403 bei Beginner-Level zurueck
-```
-
-**Szenario 12: Cloud-Provider-Timeout — Fehler-Handling mit Fallback**
-```
-GIVEN: OpenAI ist als Default-Provider konfiguriert
-  AND: OpenAI API antwortet nicht innerhalb von 30 Sekunden (Timeout)
-  AND: Ollama ist als Fallback-Provider vorhanden
-WHEN: Nutzer sendet Chat-Nachricht
+  - Knowledge Service liefert deutsche Chunks als sources
+  - LLM antwortet mit prompt_language=en — Antwort auf Englisch
+  - Backend setzt language_mismatch_warning=false (Antwort und Locale matchen, nur Quellen-Sprache differiert)
+WHEN: doc_language=en (kuenstlich, fuer Test)
 THEN:
-  - httpx.TimeoutException wird gefangen
-  - structlog.warning("ai_provider_timeout", provider="openai", timeout_seconds=30)
-  - Automatischer Fallback auf Ollama-Provider
-  - Antwort wird ueber Ollama generiert (ggf. langsamere/kuerzere Antwort)
-  - UI zeigt Hinweis: "Antwort vom lokalen Modell (Cloud-Provider nicht verfuegbar)"
+  - Knowledge Service liefert leere Treffer
+  - Backend faellt auf Fallback zurueck
+  - language_mismatch_warning=true
+  - <AIResponse> zeigt Sprach-Badge
 ```
 
-**Szenario 13: API-Key-Verschluesselung**
+**Szenario 10: PII-Stripping**
 ```
-GIVEN: Admin konfiguriert OpenAI-Provider mit API-Key "sk-abc123..."
-WHEN: Provider wird gespeichert
+GIVEN: Tenant-Name = "Anna's Garten", User-Name = "Anna Mueller"
+  AND: PlantDiaryEntry mit Freitext "Heute hat Anna gegossen, sehr gut"
+  AND: User stellt Chat-Frage "Wie geht es meiner Tomate?"
+WHEN: Backend baut context und uebermittelt an Knowledge Service
 THEN:
-  - API-Key wird mit Fernet (Master-Key aus K8s Secret) verschluesselt
-  - ai_provider_configs enthaelt api_key_encrypted (nicht Klartext)
-  - GET /providers gibt api_key_encrypted NICHT zurueck (nur "has_api_key: true")
-  - Bei Provider-Nutzung wird der Key entschluesselt und an den Adapter uebergeben
+  - context.species = "Solanum lycopersicum"
+  - context.phase = "flowering"
+  - context.ec = 1.8
+  - context enthaelt KEIN "Anna", "Mueller", "Anna's Garten"
+  - extended_context (falls aktiv) enthaelt "letzter_diary_eintrag_alter_tage": 0 (NICHT den Freitext)
+  - Test mocked Knowledge Service und assertet Inhalt der Anfrage
 ```
 
-**Szenario 14: Gleichzeitige Tip-Generierung (Concurrency)**
+**Szenario 11: Audit-Log ohne PII**
 ```
-GIVEN: Celery-Task "generate_daily_tips" laeuft fuer 50 aktive Runs
-WHEN: Nutzer fragt gleichzeitig Tips fuer denselben Run an
+WHEN: Beliebiger KI-Aufruf laeuft
 THEN:
-  - Redis-Lock verhindert doppelte Generierung fuer denselben Kontext
-  - Zweite Anfrage wartet auf Cache oder nutzt Lock-Timeout-Fallback
-  - Kein doppelter LLM-Aufruf fuer identischen Kontext
+  - ai_audit_log-Eintrag entsteht
+  - question_hash ist sha256 ueber die Frage
+  - Frage und Antwort erscheinen NICHT im Klartext im Eintrag
+  - kb_version wird mitgeschrieben (z. B. "ks-1.4.2-idx-20260420")
+WHEN: User ruft Auskunftsexport (REQ-025) ab
+THEN:
+  - Audit-Eintraege erscheinen mit gehashter Frage und Laenge, ohne Frage-Klartext
 ```
 
----
+**Szenario 12: DSGVO-Loeschung des Users**
+```
+GIVEN: User "anna" mit 5 Conversations, 12 dismissed Tipps, 87 Audit-Eintraegen
+WHEN: User triggert DSGVO-Loeschung (REQ-025)
+THEN:
+  - alle 5 Conversations werden hard-deleted
+  - 12 Tipp-Cache-Eintraege mit dismissed_by=anna werden anonymisiert (dismissed_by=null)
+  - 87 Audit-Eintraege werden anonymisiert (user_key=null), Hashes bleiben fuer Statistik
+  - structlog: "ai_user_data_purged" ohne PII
+```
 
-**Hinweise fuer RAG-Integration:**
-- Keywords: KI-Assistent, Chat, Pflanzenberatung, Tips, LLM, Ollama, OpenAI, Anthropic, RAG, Vektordatenbank, pgvector, Embedding, Streaming, SSE
-- Fachbegriffe: Retrieval-Augmented Generation, Cosine-Similarity, Adapter-Pattern, Graceful Degradation, Consent, Provider-Registry, System-Prompt, Token-Streaming
-- Verknuepfung: Nutzt REQ-011 (Adapter-Pattern), REQ-023/024 (Auth/Tenant), REQ-025 (DSGVO). Liefert Kontext-Tips fuer REQ-003 (Phase), REQ-004 (Duengung), REQ-010 (IPM), REQ-022 (Pflege).
+**Szenario 13: Erfahrungsstufen-Sensitivitaet**
+```
+GIVEN: User ist Beginner
+WHEN: TipCardsPanel laedt Tipps
+THEN:
+  - max 2 Karten statt 4
+  - <AIResponse> Quellen-Footer ist eingeklappt
+  - Body-Text in einfacher Sprache (Knowledge Service erhaelt expertise_level="beginner" als Hinweis im Prompt)
+  - keine Fachbegriffe ohne Erklaerung
+  - Chat-Drawer NICHT zugaenglich (FAB ausgeblendet)
+GIVEN: User ist Expert
+WHEN: TipCardsPanel laedt Tipps
+THEN:
+  - bis zu 4 Karten
+  - <AIResponse> Quellen-Footer ist offen
+  - Body enthaelt technische Werte (EC, VPD-Zahlen etc.)
+```
+
+**Szenario 14: Reingest-Task**
+```
+GIVEN: ai.knowledge_service_ingest laeuft Sonntag 03:00 UTC
+WHEN: Task ausgefuehrt
+THEN:
+  - Backend ruft POST /ingest am Knowledge Service
+  - Antwort enthaelt files=N, chunks=M
+  - structlog: "ai_kb_reingest_done", files=N, chunks=M
+  - Bei Fehler: Retry maximal 1x mit 30 Min Delay; danach Pager-Alert
+```
+
+## 12. Migration von v1.0
+
+Da REQ-031 v1.0 noch nicht implementiert war (Status "Entwurf" mit `Wird benoetigt von: Keine bestehende REQ`), gibt es keinen Code-Migrationspfad. v2.0 ersetzt v1.0 vollstaendig als Implementierungsgrundlage. Der Knowledge Service unter `src/knowledge-service/` ist bereits konform zu v2.0.
+
+Folgende Backend-Komponenten werden mit der Implementierung von v2.0 NEU angelegt (keine bestehenden zu migrieren):
+
+- `app/data_access/external/knowledge_service_adapter.py`
+- `app/domain/interfaces/knowledge_service.py`
+- `app/domain/services/ai_assistant_service.py`
+- `app/domain/engines/ai_context_builder.py`
+- `app/domain/engines/ai_tip_engine.py`
+- `app/domain/engines/ai_explain_engine.py`
+- `app/domain/repositories/ai_*` (Provider, Conversation, Tip-Cache, Audit-Log)
+- `app/api/v1/ai/` (Router fuer Tenant-scoped + Light-Modus + Global)
+- `app/tasks/ai_tasks.py`
+
+Folgende Frontend-Komponenten werden NEU angelegt:
+
+- `src/components/ai/AIResponse.tsx`
+- `src/components/ai/TipCardsPanel.tsx`
+- `src/components/ai/DailyTipCard.tsx`
+- `src/components/ai/WhyButton.tsx`
+- `src/components/ai/WhyDrawer.tsx`
+- `src/components/ai/AiChatDrawer.tsx`
+- `src/components/ai/AiConsentDialog.tsx`
+- `src/pages/einstellungen/AiProviderSettingsPage.tsx`
+
+## 13. Offene Punkte
+
+- **Englischer Knowledge-Base-Aufbau:** Wann werden YAMLs unter `spec/knowledge/rag/` ins Englische uebersetzt? Vorschlag: nach erstem produktiven Einsatz, mit Translator-Agent oder kuratierter Uebersetzung.
+- **Pro-Tenant-Cost-Tracking:** Cloud-Provider-Aufrufe sollten pro Tenant pro Monat sichtbar sein (Token-Counter im Audit-Log -> Aggregation). In v2.0 als Nice-to-have, nicht im DoD.
+- **A/B-Testing alternativer LLMs:** Wechsel auf Qwen2.5:14b oder Mistral-Nemo:12b zur Verbesserung der RAG-Eval-Score; gehoert in den Knowledge-Service-Backlog, nicht in REQ-031.
+- **Notification-Integration:** Wann wird ein "Daily Tip" als REQ-030-Notification verschickt (z. B. morgens an HA)? Erfordert Co-Spec mit REQ-030; nicht in v2.0.
+- **Foto-Anhang im Chat:** REQ-029 liefert Bilderkennung. Soll der Chat-Drawer Foto-Uploads erlauben, deren Erkennungs-Ergebnis als Kontext in den Chat einfliesst? Vorschlag: in eigenem Folge-REQ.

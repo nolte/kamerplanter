@@ -9,9 +9,8 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import SettingsIcon from '@mui/icons-material/Settings';
+import OriginChip from '@/components/common/OriginChip';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -202,26 +201,13 @@ export default function ActivityDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={displayName}
+        meta={<OriginChip isSystem={activity.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {activity.is_system && (
-              // UI-NFR-018 R-001/R-005/R-006/R-009: Origin chip with icon and explanatory tooltip
-              <Tooltip title={t('pages.activities.systemHint')} arrow>
-                <Chip
-                  icon={<SettingsIcon fontSize="small" />}
-                  label={t('pages.activities.systemActivity')}
-                  color="info"
-                  size="small"
-                  variant="outlined"
-                />
-              </Tooltip>
-            )}
-            {!activity.is_system && (
-              <Button color="error" onClick={() => setDeleteOpen(true)}>
-                {t('common.delete')}
-              </Button>
-            )}
-          </Box>
+          !activity.is_system ? (
+            <Button color="error" onClick={() => setDeleteOpen(true)}>
+              {t('common.delete')}
+            </Button>
+          ) : undefined
         }
       />
 

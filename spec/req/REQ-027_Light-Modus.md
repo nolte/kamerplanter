@@ -238,6 +238,18 @@ Phase 4 — Erneuter Upgrade auf Full:
 | **Phasensteuerung** | Vollständig | Vollständig |
 | **Stammdaten-Import** | Vollständig | Vollständig |
 | **Externe Anreicherung** | Deaktiviert (Standard) — aktivierbar per `ENABLE_ENRICHMENT_LIGHTMODE=true` | Vollständig (mit Consent) |
+| **KI-Glossar (REQ-035)** | Vollständig (kein Login, kein Consent) — wenn `AI_FEATURES_ENABLED=true` | Vollständig |
+| **KI-Wissensfragen public (`/api/v1/public/ai/ask`, REQ-031 v2.0 §5.3)** | Vollständig (Rate-Limit pro IP) — wenn `AI_FEATURES_ENABLED=true` | Vollständig (über tenant-scoped Endpoints) |
+| **KI-Tipp-Karten (REQ-031 §6.2)** | Ausgeblendet — braucht Tenant-Kontext | Vollständig |
+| **KI-Daily-Tip (REQ-031 §6.3)** | Ausgeblendet — braucht Tenant-Kontext | Vollständig |
+| **"Warum?"-Buttons (REQ-031 §6.4)** | Ausgeblendet | Vollständig |
+| **KI-Chat-Drawer (REQ-031 §6.5)** | Ausgeblendet | Vollständig (ab Intermediate) |
+| **KI-Diagnose-Assistent (REQ-036)** | Ausgeblendet — Hinweis "Anmelden, um Diagnose zu nutzen" | Vollständig |
+| **KI-Provider-Settings (REQ-031 §6.6)** | Ausgeblendet (System-Default-Provider wird genutzt) | Vollständig (Tenant-Admin) |
+
+<!-- Quelle: REQ-031 v2.0 -->
+
+**KI-Verhalten im Light-Modus:** Im Light-Modus laufen KI-Anfragen ausschließlich über System-Default-Provider (typischerweise lokales Ollama). `AI_PUBLIC_PROVIDER_KEY` muss auf einen lokalen Provider zeigen — Cloud-Provider sind im Light-Modus NICHT verwendbar, weil kein Nutzer einen Consent erteilen kann. Der Knowledge-Service-Aufruf erfolgt strikt mit `context = null` (kein Tenant-Kontext). Audit-Eintrag wird mit `tenant_key=null` und `user_key=null` geschrieben.
 
 ### 2.2 Ausgeblendete UI-Elemente im Light-Modus
 

@@ -2590,7 +2590,8 @@
       "stepIndicator": "Step {{current}} of {{total}}: {{label}}",
       "plantCountAriaValue": "{{count}} plants",
       "noKitsAvailable": "No starter kits available for this garden.",
-      "customSetupHint": "You can set up your plants manually."
+      "customSetupHint": "You can set up your plants manually.",
+      "waterValidationError": "Water configuration invalid: {{field}} is outside the allowed range."
     },
     "wateringSchedule": {
       "title": "Watering Schedule",

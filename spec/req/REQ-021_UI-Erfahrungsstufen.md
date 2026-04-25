@@ -274,6 +274,24 @@ interface ExpertiseFieldWrapperProps {
  */
 ```
 
+### 3.4.1 KI-Antwortlängen-Sensitivität (REQ-031 v2.0)
+
+<!-- Quelle: REQ-031 v2.0 -->
+
+Alle KI-generierten Antworten (Tipp-Karten, Daily Tip, "Warum?"-Drawer, Chat, Glossar-Tooltips, Diagnose-Begründungen) werden auf die Erfahrungsstufe des Nutzers angepasst. Backend gibt der Knowledge-Service-Anfrage einen `expertise_level`-Hinweis im System-Prompt mit, sodass das LLM passend formuliert. Frontend rendert die Antworten zusätzlich unterschiedlich:
+
+| Aspekt | Beginner | Intermediate | Expert |
+|--------|----------|--------------|--------|
+| **Antwortlänge** | max ~80 Wörter, Alltagssprache, keine Fachbegriffe ohne Erklärung | bis ~200 Wörter, Fachbegriffe erlaubt mit kurzer Klammer-Erklärung | bis ~400 Wörter, Fachsprache, konkrete Wertebereiche, Phasen-Differenzierung |
+| **Quellen-Footer in `<AIResponse>`** | Eingeklappt | Eingeklappt | Aufgeklappt per Default |
+| **Anzahl Tipp-Karten pro Panel** | max 2 | max 3 | max 4 |
+| **Chat-Drawer (REQ-031 §6.5)** | Nicht sichtbar (FAB ausgeblendet) | Sichtbar | Sichtbar |
+| **Provider-Settings (REQ-031 §6.6)** | Nicht sichtbar | Lesen erlaubt | Lesen + Schreiben erlaubt (sofern Admin-Rolle) |
+| **Glossar-Tooltip (REQ-035)** | Eingeklappt mit "Mehr erfahren"-Link | Eingeklappt | Aufgeklappt |
+| **Diagnose-Wizard (REQ-036)** | Verfügbar — vereinfachte Symptom-Labels | Verfügbar | Verfügbar — zeigt Konfidenz-Werte numerisch |
+
+Das `expertise_level` wird beim KI-Endpunkt-Aufruf im Backend ermittelt (aus `UserPreference.experience_level`) und an die Engines weitergegeben. Beim Wechsel der Erfahrungsstufe werden bestehende KI-Caches NICHT invalidiert — nur neue Anfragen erhalten die neue Stufe. Begründung: Cache-Effizienz; ein Tag Übergangs-Inkonsistenz ist akzeptabel.
+
 ### 3.5 Einsteiger-spezifische Dünge-Ansicht
 
 Im Einsteiger-Modus wird die gesamte Dünge-Logik auf eine vereinfachte Ansicht reduziert:

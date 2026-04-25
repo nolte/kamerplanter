@@ -15,6 +15,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchNutrientPlans } from '@/store/slices/nutrientPlansSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -114,6 +115,16 @@ export default function NutrientPlanListPage() {
       id: 'version',
       label: t('pages.nutrientPlans.version'),
       render: (r) => r.version || '—',
+    },
+    {
+      // UI-NFR-018 R-002/R-019/R-020: Origin column (secondary, hidden below md)
+      // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (r) => <OriginChip origin={(r as unknown as { origin?: DataOrigin }).origin} />,
+      hideBelowBreakpoint: 'md',
+      sortable: false,
+      searchable: false,
     },
     {
       id: 'tags',

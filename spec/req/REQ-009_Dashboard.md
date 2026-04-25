@@ -1230,6 +1230,15 @@ und Tenant-Mitgliedschaft.
 - Redis (Caching für Performance)
 - TimescaleDB (Zeitreihen für Charts)
 
+**Optionale Integration mit REQ-031 v2.0 (KI-Assistent):** <!-- Quelle: REQ-031 v2.0 -->
+
+Wenn `AI_FEATURES_ENABLED=true` und `tenant.settings.ai_features_enabled=true`, hostet das Dashboard zwei zusätzliche Karten als feste Bestandteile:
+
+- **`<DailyTipCard>`** (REQ-031 v2.0 §6.3) am oberen Rand des Dashboards. Generiert genau einen personalisierten Tipp pro Tag pro Tenant (lazy on-first-load). Karte ist tagesweise schließbar (`POST /ai/daily-tip/dismiss`) und blendet sich bis zum nächsten Tag aus. Pflicht-Wrapper `<AIResponse>` zeigt KI-Badge und Quellen.
+- **`<TipCardsPanel>` (allgemein)** (REQ-031 v2.0 §6.2) als eigenes Widget, das tenant-übergreifende Tipps (`context_type=general`) anzeigt — komplementär zu den Plant- und Run-spezifischen `TipCardsPanel`-Instanzen auf den Detailseiten.
+
+Beide Karten sind im Dashboard-Layout fix positioniert (nicht über React-Grid-Layout verschiebbar), damit das KI-Labeling konsistent erkennbar bleibt. Bei `ai_features_enabled=false` werden beide Karten komplett ausgeblendet (kein leerer Container). Bei fehlendem User-Consent `ai_tenant_data_access` zeigen beide Karten stattdessen eine kleine Hinweisbox mit Link zu den Datenschutz-Einstellungen.
+
 **Frontend-Technologien:**
 - React 18+ mit Hooks
 - Recharts oder D3.js für Charts

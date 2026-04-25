@@ -36,7 +36,25 @@ import {
 } from '@/store/slices/onboardingSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { z } from 'zod';
 import type { ExperienceLevel, PlantConfig, SiteType } from '@/api/types';
+
+/**
+ * UI-NFR-008 §2.1 + audit finding D-010: validate the optional water-config
+ * fields collected by the SiteSetupStep before submitting to the backend.
+ * Rather than wiring the wizard's plain useState chain into a full
+ * react-hook-form, this schema is run inline at submit time.
+ */
+const waterConfigSchema = z.object({
+  tap_water_ec_ms: z.number().min(0).max(2.0).optional(),
+  tap_water_ph: z.number().min(3).max(10).optional(),
+});
+
+function parseOptionalFloat(value: string): number | undefined {
+  if (!value || value.trim() === '') return undefined;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 import ExperienceLevelStep from './steps/ExperienceLevelStep';
 import StarterKitStep from './steps/StarterKitStep';
@@ -279,6 +297,18 @@ export default function OnboardingWizard() {
         ? selectedKit.plant_count_suggestion
         : Math.max(totalPlants, 1);
 
+    // Validate optional water configuration before submitting (D-010).
+    const waterParsed = waterConfigSchema.safeParse({
+      tap_water_ec_ms: parseOptionalFloat(tapWaterEc),
+      tap_water_ph: parseOptionalFloat(tapWaterPh),
+    });
+    if (!waterParsed.success) {
+      const issue = waterParsed.error.issues[0];
+      const field = issue.path[0] === 'tap_water_ec_ms' ? 'EC (0–2.0 mS/cm)' : 'pH (3–10)';
+      notification.error(t('pages.onboarding.waterValidationError', { field }));
+      return;
+    }
+
     try {
       setSubmitting(true);
       await dispatch(
@@ -290,8 +320,8 @@ export default function OnboardingWizard() {
           plant_count: finalPlantCount,
           plant_configs: plantConfigs.filter((c) => c.count > 0),
           has_ro_system: hasRoSystem || undefined,
-          tap_water_ec_ms: tapWaterEc ? parseFloat(tapWaterEc) : undefined,
-          tap_water_ph: tapWaterPh ? parseFloat(tapWaterPh) : undefined,
+          tap_water_ec_ms: waterParsed.data.tap_water_ec_ms,
+          tap_water_ph: waterParsed.data.tap_water_ph,
           favorite_species_keys:
             favoriteSpeciesKeys.length > 0 ? favoriteSpeciesKeys : undefined,
           favorite_nutrient_plan_keys:

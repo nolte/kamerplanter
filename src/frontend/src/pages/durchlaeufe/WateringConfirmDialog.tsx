@@ -14,6 +14,7 @@ import { z } from 'zod';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { confirmWatering } from '@/api/endpoints/wateringConfirm';
@@ -148,24 +149,30 @@ export default function WateringConfirmDialog({
               {t('pages.wateringSchedule.confirmDescription')}
             </Typography>
             <FormRow>
-              <FormNumberField
-                name="measured_ec"
-                control={control}
-                label={t('pages.wateringSchedule.measuredEc')}
-                min={0}
-                max={20}
-                helperText={t('pages.wateringSchedule.measuredEcHelper')}
-                suffix="mS/cm"
-                autoFocus
-              />
-              <FormNumberField
-                name="measured_ph"
-                control={control}
-                label={t('pages.wateringSchedule.measuredPh')}
-                min={0}
-                max={14}
-                helperText={t('pages.wateringSchedule.measuredPhHelper')}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                <FormNumberField
+                  name="measured_ec"
+                  control={control}
+                  label={t('pages.wateringSchedule.measuredEc')}
+                  min={0}
+                  max={20}
+                  helperText={t('pages.wateringSchedule.measuredEcHelper')}
+                  suffix="mS/cm"
+                  autoFocus
+                />
+                <HelpTooltip term="ec" iconOnly />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                <FormNumberField
+                  name="measured_ph"
+                  control={control}
+                  label={t('pages.wateringSchedule.measuredPh')}
+                  min={0}
+                  max={14}
+                  helperText={t('pages.wateringSchedule.measuredPhHelper')}
+                />
+                <HelpTooltip term="ph" iconOnly />
+              </Box>
             </FormRow>
             <FormNumberField
               name="volume_liters"

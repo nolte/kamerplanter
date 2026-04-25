@@ -33,6 +33,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -44,6 +46,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
@@ -123,6 +126,11 @@ const editSchema = z.object({
 type EditFormData = z.infer<typeof editSchema>;
 
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
 
 /** ISO week number (1-based). */
 function PhaseTimelineTab({
@@ -270,12 +278,15 @@ function PhaseTimelineTab({
               <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                 {t('pages.gantt.week')}{entry.week_start}–{entry.week_end} ({duration} {t('pages.nutrientPlans.weeks')})
               </Typography>
-              <Chip
-                label={`NPK ${entry.npk_ratio[0]}-${entry.npk_ratio[1]}-${entry.npk_ratio[2]}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 600 }}
-              />
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                <Chip
+                  label={`NPK ${entry.npk_ratio[0]}-${entry.npk_ratio[1]}-${entry.npk_ratio[2]}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontWeight: 600 }}
+                />
+                <HelpTooltip term="npk" iconOnly />
+              </Box>
               {(() => {
                 const ecValues = entry.delivery_channels
                   .filter((ch) => ch.target_ec_ms != null)
@@ -286,13 +297,16 @@ function PhaseTimelineTab({
                   ? `EC ${unique[0]} mS/cm`
                   : `EC ${Math.min(...unique)}–${Math.max(...unique)} mS/cm`;
                 return (
-                  <Chip
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    color="info"
-                    sx={{ fontWeight: 600 }}
-                  />
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                    <Chip
+                      label={label}
+                      size="small"
+                      variant="outlined"
+                      color="info"
+                      sx={{ fontWeight: 600 }}
+                    />
+                    <HelpTooltip term="ec" iconOnly />
+                  </Box>
                 );
               })()}
               {entry.is_recurring && (
@@ -590,6 +604,10 @@ export default function NutrientPlanDetailPage() {
   const [tab, setTab] = useTabUrl(['phases', 'validation', 'dosage', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // TODO: REQ-001 v5.0 origin field — backend pending; nutrient plans currently have no origin field.
+  const planOrigin = (plan as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({ origin: planOrigin });
 
   // Phase entry dialog state
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
@@ -1028,15 +1046,35 @@ export default function NutrientPlanDetailPage() {
             />
           )}
         </Box>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-          data-testid="delete-nutrient-plan-button"
-        >
-          {t('common.delete')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* UI-NFR-018 R-001: Origin chip in meta row */}
+          <OriginChip origin={planOrigin} />
+          {/* UI-NFR-018 R-015: copy-as-template for system plans */}
+          {canCopyAsTemplate && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                // TODO: implement plan copy endpoint; placeholder until backend ready
+                notification.info(t('common.origin.copyAsTemplate'));
+              }}
+              data-testid="copy-as-template-button"
+            >
+              {t('common.origin.copyAsTemplate')}
+            </Button>
+          )}
+          {/* UI-NFR-018 R-012: hide delete button for system data */}
+          {!isDeletionProtected && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="delete-nutrient-plan-button"
+            >
+              {t('common.delete')}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -1225,130 +1263,146 @@ export default function NutrientPlanDetailPage() {
 
       {/* Tab 3: Edit */}
       {tab === 3 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.nutrientPlans.editIntro')}
           </Typography>
 
-          {/* Section: General */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.nutrientPlans.sectionGeneral')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.nutrientPlans.sectionGeneralDesc')}
-              </Typography>
-              <FormTextField
-                name="name"
-                control={control}
-                label={t('pages.nutrientPlans.name')}
-                required
-                autoFocus
-              />
-              <FormTextField
-                name="description"
-                control={control}
-                label={t('pages.nutrientPlans.description')}
-                multiline
-                rows={3}
-              />
-              <FormSelectField
-                name="recommended_substrate_type"
-                control={control}
-                label={t('pages.nutrientPlans.substrateType')}
-                options={substrateTypes.map((v) => ({
-                  value: v,
-                  label: t(`enums.substrateType.${v}`),
-                }))}
-              />
-              <ExpertiseFieldWrapper minLevel="expert">
-                <FormSelectField
-                  name="reference_substrate_type"
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = General (identification +
+              description, reading-width), right column = stacked compact panel (Advanced).
+              Schedule and the phases timeline remain full-width below (R-058). */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: 4,
+              alignItems: 'start',
+            }}
+          >
+            {/* ── Section: General (master column, reading-width) ── */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.nutrientPlans.sectionGeneral')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.nutrientPlans.sectionGeneralDesc')}
+                </Typography>
+                <FormTextField
+                  name="name"
                   control={control}
-                  label={t('pages.nutrientPlans.referenceSubstrateType')}
+                  label={t('pages.nutrientPlans.name')}
+                  required
+                  autoFocus
+                />
+                {/* UI-NFR-008 R-054 + R-055: prose field capped at reading width */}
+                <Box sx={{ maxWidth: READING_COL_MAX }}>
+                  <FormTextField
+                    name="description"
+                    control={control}
+                    label={t('pages.nutrientPlans.description')}
+                    multiline
+                    minRows={4}
+                    maxRows={14}
+                  />
+                </Box>
+                <FormSelectField
+                  name="recommended_substrate_type"
+                  control={control}
+                  label={t('pages.nutrientPlans.substrateType')}
                   options={substrateTypes.map((v) => ({
                     value: v,
                     label: t(`enums.substrateType.${v}`),
                   }))}
                 />
-              </ExpertiseFieldWrapper>
-              <FormTextField
-                name="author"
-                control={control}
-                label={t('pages.nutrientPlans.author')}
-              />
-              <FormSwitchField
-                name="is_template"
-                control={control}
-                label={t('pages.nutrientPlans.isTemplate')}
-              />
-              <FormTextField
-                name="version"
-                control={control}
-                label={t('pages.nutrientPlans.version')}
-              />
-              <FormChipInput
-                name="tags"
-                control={control}
-                label={t('pages.nutrientPlans.tags')}
-                placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Section: Advanced */}
-          <ExpertiseFieldWrapper minLevel="intermediate">
-            <Card variant="outlined">
-              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                  {t('pages.nutrientPlans.sectionAdvanced')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {t('pages.nutrientPlans.sectionAdvancedDesc')}
-                </Typography>
-
-                {/* Water Mix Ratio */}
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {t('pages.nutrientPlans.waterMixRatio')}
-                  </Typography>
-                  <Controller
-                    name="water_mix_ratio_ro_percent"
+                <ExpertiseFieldWrapper minLevel="expert">
+                  <FormSelectField
+                    name="reference_substrate_type"
                     control={control}
-                    render={({ field }) => (
-                      <Slider
-                        value={field.value ?? 0}
-                        onChange={(_, val) => field.onChange(val as number || null)}
-                        min={0}
-                        max={100}
-                        step={5}
-                        valueLabelDisplay="auto"
-                        valueLabelFormat={(v) => `${v}%`}
-                        marks={[
-                          { value: 0, label: '0%' },
-                          { value: 50, label: '50%' },
-                          { value: 100, label: '100%' },
-                        ]}
-                        data-testid="water-mix-slider"
-                      />
-                    )}
+                    label={t('pages.nutrientPlans.referenceSubstrateType')}
+                    options={substrateTypes.map((v) => ({
+                      value: v,
+                      label: t(`enums.substrateType.${v}`),
+                    }))}
                   />
-                </Box>
-
-                {/* Cycle Restart */}
-                <FormNumberField
-                  name="cycle_restart_from_sequence"
+                </ExpertiseFieldWrapper>
+                <FormTextField
+                  name="author"
                   control={control}
-                  label={t('pages.nutrientPlans.cycleRestartFromSequence')}
-                  min={1}
-                  helperText={t('pages.nutrientPlans.cycleRestartHelper')}
+                  label={t('pages.nutrientPlans.author')}
+                />
+                <FormSwitchField
+                  name="is_template"
+                  control={control}
+                  label={t('pages.nutrientPlans.isTemplate')}
+                />
+                <FormTextField
+                  name="version"
+                  control={control}
+                  label={t('pages.nutrientPlans.version')}
+                />
+                <FormChipInput
+                  name="tags"
+                  control={control}
+                  label={t('pages.nutrientPlans.tags')}
+                  placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
                 />
               </CardContent>
             </Card>
-          </ExpertiseFieldWrapper>
 
-          {/* Section: Watering Schedule */}
+            {/* ── Detail column: Advanced (compact, R-057) ── */}
+            <ExpertiseFieldWrapper minLevel="intermediate">
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.nutrientPlans.sectionAdvanced')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.nutrientPlans.sectionAdvancedDesc')}
+                  </Typography>
+
+                  {/* Water Mix Ratio */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {t('pages.nutrientPlans.waterMixRatio')}
+                    </Typography>
+                    <Controller
+                      name="water_mix_ratio_ro_percent"
+                      control={control}
+                      render={({ field }) => (
+                        <Slider
+                          value={field.value ?? 0}
+                          onChange={(_, val) => field.onChange(val as number || null)}
+                          min={0}
+                          max={100}
+                          step={5}
+                          valueLabelDisplay="auto"
+                          valueLabelFormat={(v) => `${v}%`}
+                          marks={[
+                            { value: 0, label: '0%' },
+                            { value: 50, label: '50%' },
+                            { value: 100, label: '100%' },
+                          ]}
+                          data-testid="water-mix-slider"
+                        />
+                      )}
+                    />
+                  </Box>
+
+                  {/* Cycle Restart */}
+                  <FormNumberField
+                    name="cycle_restart_from_sequence"
+                    control={control}
+                    label={t('pages.nutrientPlans.cycleRestartFromSequence')}
+                    min={1}
+                    helperText={t('pages.nutrientPlans.cycleRestartHelper')}
+                  />
+                </CardContent>
+              </Card>
+            </ExpertiseFieldWrapper>
+          </Box>
+
+          {/* Section: Watering Schedule (full-width below master-detail, R-058) */}
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
               <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
@@ -1498,11 +1552,19 @@ export default function NutrientPlanDetailPage() {
           </Card>
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
-          <FormActions
-            onCancel={() => reset()}
-            loading={saving}
-            disabled={!isDirty}
-          />
+          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+          {!isReadOnly && (
+            <FormActions
+              onCancel={() => reset()}
+              loading={saving}
+              disabled={!isDirty}
+            />
+          )}
+          {isReadOnly && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.origin.readOnlyHint')}
+            </Typography>
+          )}
         </Box>
       )}
 
