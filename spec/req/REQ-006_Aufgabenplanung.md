@@ -2409,6 +2409,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - REQ-009 (Dashboard): Task-Queue-Widget
 - REQ-014 (Tankmanagement): **HOCH** — Automatische Wartungs-Tasks aus MaintenanceSchedule; Gießplan-Bestätigungsflow (`confirm`/`quick-confirm`) nutzt Task-Key für Completion + WateringEvent-Erzeugung
 
+**Optionale Integration mit REQ-031 v2.0 (KI-Assistent):** <!-- Quelle: REQ-031 v2.0 -->
+
+Wenn `AI_FEATURES_ENABLED=true` und `tenant.settings.ai_features_enabled=true`, rendert die Frontend-`TaskCard` einen kleinen `<WhyButton>` (REQ-031 v2.0 §6.4) auf jeder Task. Klick öffnet einen Drawer mit einer kuratierten KI-Erklärung, warum diese Task fällig ist (Question-Template `task_explain`). Der Button bleibt unsichtbar, wenn KI deaktiviert ist oder der User-Consent `ai_tenant_data_access` fehlt. Die Task-Datenstruktur und alle Endpunkte aus REQ-006 bleiben unverändert; KI ist eine reine UI-Erweiterung über separate Endpoints aus REQ-031 v2.0 §5.1.
+
 **Neue/verstärkte Abhängigkeiten (v3.0):**
 - REQ-003 (Phasen): **HOCH** — Phase-Transition-Hook muss `activate_dormant_tasks_for_phase()` aufrufen, um dormante Workflow-Tasks bei Phasenwechsel zu aktivieren
 - REQ-024 (Mandantenverwaltung): **HOCH** — `assigned_to_user_key` erfordert Membership-Prüfung (nur Tenant-Mitglieder zuweisbar)

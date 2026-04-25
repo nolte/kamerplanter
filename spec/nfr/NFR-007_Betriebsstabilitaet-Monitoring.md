@@ -713,6 +713,108 @@ service_degraded = Gauge(
 
 ---
 
+### 4.7 LLM-Sicherheit (REQ-031, REQ-035, REQ-036)
+
+<!-- Quelle: REQ-031 v2.0 -->
+
+KI-gestützte Endpoints (REQ-031 v2.0 KI-Assistent, REQ-035 Glossar, REQ-036 Diagnose-Assistent, REQ-033 MCP-Server) bringen eine eigene Klasse von Sicherheits- und Stabilitätsrisiken mit. Sie werden durch die folgenden zusätzlichen Maßnahmen abgesichert.
+
+#### 4.7.1 Prompt-Injection-Schutz
+
+**MUSS**: Freier Nutzer-Input darf NIE direkt als System-Prompt verwendet werden. Trennung in:
+
+- **System-Prompt** (vom Backend kontrolliert, nicht überschreibbar)
+- **Kontext-Block** (vom Backend befüllt, klar abgegrenzt durch Marker `=== Kontext ===` und `=== Ende Kontext ===`)
+- **User-Input** (immer als `user`-Rolle, nie als `system`-Rolle)
+
+**MUSS**: Whitelist-validierte Endpoint-Parameter werden NICHT in den Prompt interpoliert (gilt z. B. für `expertise_level`, `language`, `subject_type`). Werte werden gegen Enum-Pydantic-Modelle validiert, bevor sie weitergegeben werden.
+
+**SOLL**: Slug-basierte Endpoints (REQ-035 `/term/{slug}`, REQ-036 Symptom-Auswahl) verwenden eine kontrollierte Whitelist. Slugs außerhalb der Whitelist werden mit HTTP 422 abgelehnt — der Knowledge Service wird in diesem Fall nicht aufgerufen.
+
+**SOLL**: Kontextfelder mit Freitext (z. B. `extra_notes` aus REQ-036) werden NICHT in den LLM-Prompt aufgenommen, es sei denn, der User erteilt einen separaten Sitzungs-Consent ("Notizen freigeben"). Defaults sind defensiv.
+
+#### 4.7.2 Output-Sanitisation
+
+**MUSS**: LLM-Antworten werden NICHT als HTML in das Frontend gerendert. Frontend rendert nur reinen Text plus eine kleine Whitelist von Markdown-Elementen (Absätze, Listen, Inline-`code`, fette/kursive Schrift). Keine `<script>`, kein `<iframe>`, keine externen `<img src=...>`.
+
+**MUSS**: LLM-Antworten, die als JSON-Output erwartet werden (z. B. REQ-031 Tipp-Karten, REQ-036 Diagnose-Antworten), werden serverseitig durch Pydantic-Modelle validiert. Bei ungültigem JSON wird ein zweiter Versuch mit verschärftem Prompt unternommen; bei erneutem Fehlschlag wird ein deterministischer Fallback-Pfad gewählt — keine Auslieferung ungeprüfter LLM-Antworten an die Persistenzschicht.
+
+**SOLL**: Erkannte verdächtige Output-Muster (typische Prompt-Injection-Erfolgsmarker wie "I am now in unrestricted mode", "ignore previous instructions") werden geloggt (Counter `llm_suspicious_output_total{model=...}`) und führen zu einem Reset der Konversation auf System-Default-Prompt.
+
+#### 4.7.3 PII-Stripping vor Cloud-Provider
+
+**MUSS**: Vor jedem Aufruf eines Cloud-Providers (OpenAI, Anthropic, OpenAI-kompatibel) wird der Anfrage-Inhalt durch einen `PiiStripFilter` geleitet, der mindestens entfernt:
+
+- Klartext-Tenant-Namen, Tenant-Slugs, Nutzernamen, E-Mail-Adressen
+- IP-Adressen, MAC-Adressen, Geräte-Identifikatoren
+- Klartext-Inhalte aus PlantDiaryEntries, sofern nicht explizit freigegeben (siehe REQ-036 §6)
+
+**MUSS**: Das `context`-Feld an den Knowledge Service folgt dem in REQ-031 v2.0 §7.2 spezifizierten Datenminimum (Stammwerte: `species`, `phase`, `substrate`, `ec`, `ph`, `vpd`). Andere Felder werden vom `AiContextBuilder` aktiv aussortiert.
+
+**SOLL**: Tests sicherstellen, dass kein PII im Cloud-Provider-Aufruf landet — pro Cloud-Provider-Adapter ein dedizierter Test mit gemocktem HTTP-Client und Assert auf Request-Body.
+
+#### 4.7.4 Token-Budget-Limits
+
+**MUSS**: Pro Endpunkt-Klasse gilt ein Hard-Limit für Input- und Output-Tokens, das vor dem Provider-Aufruf erzwungen wird:
+
+| Endpunkt-Klasse | Input-Tokens (max) | Output-Tokens (max) |
+|-----------------|--------------------|---------------------|
+| `/ai/tips`, `/ai/daily-tip` | 4.000 | 512 |
+| `/ai/explain` | 3.000 | 256 |
+| `/ai/conversations/.../messages` (Chat) | 8.000 | 1.024 |
+| `/knowledge/term/{slug}` (REQ-035) | 2.000 | 256 |
+| `/diagnosis/sessions/{key}/analyze` (REQ-036) | 6.000 | 1.024 |
+| MCP-Tools (REQ-033) | 4.000 | 1.024 |
+
+Überschreitung des Input-Limits führt zu HTTP 422 mit `error_code: "ai.input_too_large"`. Output-Limit wird via Provider-Parameter `max_tokens` durchgesetzt.
+
+**MUSS**: Token-Verbrauch wird pro Anfrage als Prometheus-Counter erfasst (`llm_tokens_total{direction=input|output, provider=..., endpoint=...}`). Pro Tenant aggregierbar für Cost-Tracking.
+
+#### 4.7.5 Rate-Limits für LLM-Endpoints
+
+Zusätzlich zu §4.6 gelten dedizierte LLM-Limits, weil ein einzelner Aufruf erheblich teurer (Latenz, Kosten) ist als ein normaler API-Aufruf:
+
+| Scope | Limit | Zeitfenster | Bemerkung |
+|---|---|---|---|
+| Per User — `/ai/explain`, `/ai/tips/refresh`, `/diagnosis/.../analyze` | 30 | 5 Minuten | Antwort-Generation ist teuer |
+| Per User — Chat-Messages | 60 | 5 Minuten | Streaming-Anfragen |
+| Per Tenant (Cloud-Provider gesamt) | 1.000 | 1 Stunde | Cost-Cap, konfigurierbar via Tenant-Setting `ai_cloud_hourly_token_budget` |
+| Per IP — `/api/v1/public/ai/ask` (Light-Modus) | 10 | 1 Minute | Anti-Abuse |
+| Per IP — `/api/v1/public/knowledge/term/{slug}` | 30 | 1 Minute | Glossar darf großzügiger sein |
+
+**MUSS**: Bei Tenant-Cost-Cap-Überschreitung wird der weitere Cloud-Provider-Aufruf für den Rest der Stunde abgewiesen (HTTP 429 mit `error_code: "ai.tenant_token_budget_exhausted"`). Tenant-Admin erhält eine Notification (REQ-030).
+
+#### 4.7.6 Audit & Beobachtbarkeit
+
+**MUSS**: Jeder LLM-Aufruf erzeugt einen Eintrag in `ai_audit_log` (REQ-031 v2.0 §3.1) mit gehashter Frage, gehashter Antwort, Token-Counts, Latenz und Status. **Keine Klartext-Inhalte im Audit-Log.**
+
+**MUSS**: Folgende Prometheus-Metriken werden exportiert:
+
+- `llm_request_duration_seconds{provider, endpoint}` (Histogram)
+- `llm_tokens_total{direction, provider, endpoint}` (Counter)
+- `llm_errors_total{provider, error_class}` (Counter)
+- `llm_provider_healthy{provider_key}` (Gauge 0/1)
+- `llm_suspicious_output_total{model}` (Counter)
+- `llm_consent_denied_total{purpose}` (Counter)
+- `knowledge_service_request_duration_seconds{endpoint}` (Histogram)
+- `knowledge_service_errors_total{error_class}` (Counter)
+
+**SOLL**: Grafana-Dashboard "KI-Operations" zeigt diese Metriken im Standard-Layout, inkl. Top-Tenants nach Token-Verbrauch (Cost-Visibility).
+
+#### 4.7.7 Modell- und KB-Versionierung
+
+**MUSS**: Jede LLM-Antwort enthält `model_name`, `provider_type` und `kb_version` im Response-Body (REQ-031 v2.0 §5.5). Damit ist nachvollziehbar, mit welchem Modell und welchem KB-Stand eine Antwort erzeugt wurde.
+
+**SOLL**: KB-Reindex (REQ-031 v2.0 §4.6) versioniert den `kb_version`-String automatisch (z. B. Hash über alle YAML-Dateien). Caches mit veralteter `kb_version` werden bei Bedarf vom Glossar-Cache-Invalidator (REQ-035 §4.3) und Tipp-Cache regeneriert.
+
+#### 4.7.8 Knowledge-Service-Resilience
+
+**MUSS**: Der Backend-Adapter (`KnowledgeServiceAdapter`, REQ-031 v2.0 §4.1) implementiert Circuit-Breaker (3 Fehler in 60s → 60s Pause), Timeout (default 60s, konfigurierbar via `AI_KNOWLEDGE_SERVICE_TIMEOUT_S`) und Retry mit exponentiellem Backoff für 5xx-Antworten (max 2 Wiederholungen).
+
+**MUSS**: Ist der Knowledge Service nicht erreichbar (Circuit offen oder finaler Timeout), liefert das Backend regelbasierte Fallback-Antworten oder einen klar gekennzeichneten Fehlerzustand — niemals 5xx an den Endnutzer.
+
+---
+
 ## 5. Incident Management
 
 ### 5.1 Incident-Schweregrade

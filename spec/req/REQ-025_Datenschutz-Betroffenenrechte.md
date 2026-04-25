@@ -790,9 +790,31 @@ pages.privacy.objection.title: "Widerspruch"
     "label_en": "External Data Enrichment",
     "required": false,
     "legal_basis": "Art. 6(1)(a)"
+  },
+  {
+    "key": "ai_tenant_data_access",
+    "label_de": "KI-Assistent darf meine Pflanzendaten als Kontext nutzen",
+    "label_en": "AI assistant may use my plant data as context",
+    "required": false,
+    "legal_basis": "Art. 6(1)(a)",
+    "description_de": "Erlaubt dem KI-Assistenten (REQ-031), bei Tipp-Karten, 'Warum?'-Erklärungen, Chat und Diagnose-Sessions auf Stammwerte deiner Pflanzen (Art, Phase, Substrat, EC, pH, VPD, IPM-Status) zuzugreifen, um personalisierte Empfehlungen zu generieren. Ohne diese Einwilligung sind nur allgemeine Wissensfragen (Glossar, REQ-035) verfügbar. Personenbezogene Daten (Name, E-Mail, Tagebuch-Freitexte) werden NIE übertragen.",
+    "description_en": "Allows the AI assistant (REQ-031) to access stem values of your plants (species, phase, substrate, EC, pH, VPD, IPM status) when generating tip cards, 'Why?' explanations, chat answers and diagnosis sessions. Without this consent only general knowledge questions (Glossary, REQ-035) are available. Personal data (name, email, diary free text) is NEVER transmitted."
+  },
+  {
+    "key": "ai_cloud_processing",
+    "label_de": "KI-Anfragen dürfen über Cloud-Provider verarbeitet werden",
+    "label_en": "AI requests may be processed via cloud providers",
+    "required": false,
+    "legal_basis": "Art. 6(1)(a) + Art. 49 (Drittland)",
+    "description_de": "Erlaubt die Verarbeitung deiner KI-Anfragen über Cloud-Provider (OpenAI, Anthropic, OpenAI-kompatible Anbieter). Dabei werden anonymisierte Pflanzdaten und deine Frage an den Cloud-Anbieter (typischerweise USA) übermittelt. Lokale Provider (Ollama im eigenen Cluster) erfordern diesen Consent NICHT.",
+    "description_en": "Allows your AI requests to be processed via cloud providers (OpenAI, Anthropic, OpenAI-compatible). Anonymized plant data and your question are transmitted to the cloud provider (typically USA). Local providers (Ollama in own cluster) do NOT require this consent."
   }
 ]
 ```
+
+<!-- Quelle: REQ-031 v2.0 -->
+
+**Hinweis zur Verkettung:** `ai_cloud_processing` ist eine Zusatz-Einwilligung. Wenn ein Tenant-Admin einen Cloud-Provider als Default konfiguriert hat, brauchen Endpoints, die Tenant-Daten mit Cloud-Verarbeitung kombinieren, beide Einwilligungen (`ai_tenant_data_access` UND `ai_cloud_processing`). Light-Modus-Endpoints (`/api/v1/public/ai/*` aus REQ-031 v2.0 §5.3 und das Glossar aus REQ-035) brauchen weder den einen noch den anderen Consent, da sie keine personenbezogenen Daten verarbeiten.
 
 ---
 

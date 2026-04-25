@@ -1405,6 +1405,7 @@ Kartenbasierte Übersicht aller fälligen Erinnerungen. Primäre Seite für Eins
 | Gießmethode (nur bei `watering`) | Anleitungstext aus `watering_method` (i18n) — z.B. "Tauchbad: Topf 10–15 Min. in Wasser stellen" |
 | Wasserqualität (wenn `water_quality_hint` gesetzt) | Tooltip/Hinweis: z.B. "Kalkempfindlich! Regenwasser oder gefiltertes Wasser verwenden." |
 | Symptom-Check (nur bei `repotting`) | Hinweistext mit Prüfkriterien: Wurzeln aus Ablaufloch, schnelle Austrocknung, verlangsamtes Wachstum |
+| **"Warum?"-Button** (KI optional) | Kleiner `<WhyButton>` (REQ-031 v2.0 §6.4) öffnet `<WhyDrawer>` mit kontextbezogener Begründung der Erinnerung. Sichtbar nur wenn `AI_FEATURES_ENABLED=true`, `tenant.settings.ai_features_enabled=true` und User-Consent `ai_tenant_data_access` erteilt. Question-Template: `care_reminder_{type}` (z.B. `care_reminder_watering`). <!-- Quelle: REQ-031 v2.0 --> |
 
 **Farbcodierung:**
 - Überfällig (`days_overdue > 0`): Rot (`error.main`)
