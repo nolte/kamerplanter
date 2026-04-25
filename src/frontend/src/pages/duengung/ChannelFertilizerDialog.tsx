@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -9,14 +9,17 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import FormNumberField from '@/components/form/FormNumberField';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import type { Fertilizer, FertilizerDosage } from '@/api/types';
 
 export interface DosageEntry {
@@ -34,13 +37,25 @@ interface Props {
   existingDosage?: FertilizerDosage | null;
 }
 
-interface DraftDosage {
-  fertilizerKey: string;
-  productName: string;
-  brand: string;
-  mlPerLiter: string;
-  optional: boolean;
-}
+// ── Edit-mode schema (single dosage) ─────────────────────────────
+const editSchema = z.object({
+  ml_per_liter: z.number().gt(0).max(50),
+  optional: z.boolean(),
+});
+type EditFormData = z.infer<typeof editSchema>;
+
+// ── Add-mode schema (draft list) ─────────────────────────────────
+const draftSchema = z.object({
+  fertilizer_key: z.string().min(1),
+  product_name: z.string(),
+  brand: z.string(),
+  ml_per_liter: z.number().gt(0).max(50),
+  optional: z.boolean(),
+});
+const addSchema = z.object({
+  drafts: z.array(draftSchema).min(1),
+});
+type AddFormData = z.infer<typeof addSchema>;
 
 export default function ChannelFertilizerDialog({
   open,
@@ -55,45 +70,197 @@ export default function ChannelFertilizerDialog({
   const { t } = useTranslation();
   const isEdit = !!existingDosage;
 
-  // Edit mode: single fertilizer state
-  const [editMlPerLiter, setEditMlPerLiter] = useState<string>('1.0');
-  const [editOptional, setEditOptional] = useState(false);
+  return isEdit ? (
+    <EditDialog
+      open={open}
+      onClose={onClose}
+      onSave={onSave}
+      fullScreen={fullScreen}
+      t={t}
+      fertilizers={fertilizers}
+      existingDosage={existingDosage}
+    />
+  ) : (
+    <AddDialog
+      open={open}
+      onClose={onClose}
+      onSave={onSave}
+      fullScreen={fullScreen}
+      t={t}
+      fertilizers={fertilizers}
+      existingFertilizerKeys={existingFertilizerKeys}
+    />
+  );
+}
 
-  // Add mode: multi-select state
-  const [drafts, setDrafts] = useState<DraftDosage[]>([]);
+// ─────────────────────────────────────────────────────────────────
+// Edit mode — single fertilizer dosage
+// ─────────────────────────────────────────────────────────────────
 
-  // Reset form state when dialog opens — standard dialog reset pattern
+interface EditDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: DosageEntry[]) => void;
+  fullScreen: boolean;
+  t: (key: string) => string;
+  fertilizers: Fertilizer[];
+  existingDosage: FertilizerDosage;
+}
+
+function EditDialog({
+  open,
+  onClose,
+  onSave,
+  fullScreen,
+  t,
+  fertilizers,
+  existingDosage,
+}: EditDialogProps) {
+  const { control, handleSubmit, reset, formState } = useForm<EditFormData>({
+    resolver: zodResolver(editSchema),
+    defaultValues: {
+      ml_per_liter: existingDosage.ml_per_liter,
+      optional: existingDosage.optional,
+    },
+  });
+
   useEffect(() => {
     if (open) {
-      /* eslint-disable react-hooks/set-state-in-effect -- dialog open/close reset */
-      if (existingDosage) {
-        setEditMlPerLiter(existingDosage.ml_per_liter.toString());
-        setEditOptional(existingDosage.optional);
-        setDrafts([]);
-      } else {
-        setEditMlPerLiter('1.0');
-        setEditOptional(false);
-        setDrafts([]);
-      }
-      /* eslint-enable react-hooks/set-state-in-effect */
+      reset({
+        ml_per_liter: existingDosage.ml_per_liter,
+        optional: existingDosage.optional,
+      });
     }
-  }, [open, existingDosage]);
+  }, [open, existingDosage, reset]);
 
-  const existingSet = useMemo(() => {
-    const set = new Set(existingFertilizerKeys);
-    if (existingDosage) {
-      set.delete(existingDosage.fertilizer_key);
+  const editFertName = useMemo(() => {
+    const f = fertilizers.find((fert) => fert.key === existingDosage.fertilizer_key);
+    return f ? `${f.product_name} (${f.brand})` : existingDosage.fertilizer_key;
+  }, [existingDosage, fertilizers]);
+
+  const onSubmit = (data: EditFormData) => {
+    onSave([
+      {
+        fertilizer_key: existingDosage.fertilizer_key,
+        ml_per_liter: data.ml_per_liter,
+        optional: data.optional,
+      },
+    ]);
+  };
+
+  return (
+    <Dialog
+      fullScreen={fullScreen}
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="channel-fertilizer-dialog-title"
+      data-testid="channel-fertilizer-dialog"
+    >
+      <DialogTitle id="channel-fertilizer-dialog-title">
+        {t('pages.nutrientPlans.editFertilizer')}
+      </DialogTitle>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label={t('entities.fertilizer')}
+              value={editFertName}
+              size="small"
+              disabled
+            />
+            <FormNumberField
+              name="ml_per_liter"
+              control={control}
+              label={t('pages.nutrientPlans.mlPerLiter')}
+              required
+              min={0.1}
+              max={50}
+              step={0.1}
+              inputMode="decimal"
+              helperText={t('pages.nutrientPlans.mlPerLiterHelper')}
+            />
+            <FormSwitchField
+              name="optional"
+              control={control}
+              label={t('common.optional')}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={formState.isSubmitting}
+          >
+            {t('common.save')}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Add mode — multi-select with draft list
+// ─────────────────────────────────────────────────────────────────
+
+interface AddDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: DosageEntry[]) => void;
+  fullScreen: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  fertilizers: Fertilizer[];
+  existingFertilizerKeys: string[];
+}
+
+function AddDialog({
+  open,
+  onClose,
+  onSave,
+  fullScreen,
+  t,
+  fertilizers,
+  existingFertilizerKeys,
+}: AddDialogProps) {
+  const { control, handleSubmit, reset, formState } = useForm<AddFormData>({
+    resolver: zodResolver(addSchema),
+    defaultValues: { drafts: [] },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'drafts',
+  });
+
+  // Watch drafts so the save-button label can show the count.
+  const draftsWatched = useWatch({ control, name: 'drafts' });
+  const draftCount = draftsWatched?.length ?? 0;
+
+  useEffect(() => {
+    if (open) {
+      reset({ drafts: [] });
     }
-    return set;
-  }, [existingFertilizerKeys, existingDosage]);
+  }, [open, reset]);
+
+  const existingSet = useMemo(
+    () => new Set(existingFertilizerKeys),
+    [existingFertilizerKeys],
+  );
 
   const draftKeySet = useMemo(
-    () => new Set(drafts.map((d) => d.fertilizerKey)),
-    [drafts],
+    () => new Set((draftsWatched ?? []).map((d) => d.fertilizer_key)),
+    [draftsWatched],
   );
 
   const availableFertilizers = useMemo(
-    () => fertilizers.filter((f) => !existingSet.has(f.key) && !draftKeySet.has(f.key)),
+    () =>
+      fertilizers.filter(
+        (f) => !existingSet.has(f.key) && !draftKeySet.has(f.key),
+      ),
     [fertilizers, existingSet, draftKeySet],
   );
 
@@ -102,96 +269,42 @@ export default function ChannelFertilizerDialog({
       const newDrafts = selected
         .filter((f) => !draftKeySet.has(f.key))
         .map((f) => ({
-          fertilizerKey: f.key,
-          productName: f.product_name,
+          fertilizer_key: f.key,
+          product_name: f.product_name,
           brand: f.brand,
-          mlPerLiter: '1.0',
+          ml_per_liter: 1.0,
           optional: false,
         }));
-      setDrafts((prev) => [...prev, ...newDrafts]);
+      newDrafts.forEach((d) => append(d));
     },
-    [draftKeySet],
+    [draftKeySet, append],
   );
 
-  const updateDraft = (fertKey: string, field: 'mlPerLiter' | 'optional', value: string | boolean) => {
-    setDrafts((prev) =>
-      prev.map((d) =>
-        d.fertilizerKey === fertKey ? { ...d, [field]: value } : d,
-      ),
+  const onSubmit = (data: AddFormData) => {
+    onSave(
+      data.drafts.map((d) => ({
+        fertilizer_key: d.fertilizer_key,
+        ml_per_liter: d.ml_per_liter,
+        optional: d.optional,
+      })),
     );
   };
 
-  const removeDraft = (fertKey: string) => {
-    setDrafts((prev) => prev.filter((d) => d.fertilizerKey !== fertKey));
-  };
-
-  const canSave = isEdit
-    ? parseFloat(editMlPerLiter) > 0
-    : drafts.length > 0 && drafts.every((d) => parseFloat(d.mlPerLiter) > 0);
-
-  const handleSave = () => {
-    if (isEdit && existingDosage) {
-      onSave([{
-        fertilizer_key: existingDosage.fertilizer_key,
-        ml_per_liter: parseFloat(editMlPerLiter),
-        optional: editOptional,
-      }]);
-    } else {
-      onSave(
-        drafts.map((d) => ({
-          fertilizer_key: d.fertilizerKey,
-          ml_per_liter: parseFloat(d.mlPerLiter),
-          optional: d.optional,
-        })),
-      );
-    }
-  };
-
-  const editFertName = useMemo(() => {
-    if (!existingDosage) return '';
-    const f = fertilizers.find((fert) => fert.key === existingDosage.fertilizer_key);
-    return f ? `${f.product_name} (${f.brand})` : existingDosage.fertilizer_key;
-  }, [existingDosage, fertilizers]);
-
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="channel-fertilizer-dialog-title" data-testid="channel-fertilizer-dialog">
+    <Dialog
+      fullScreen={fullScreen}
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="channel-fertilizer-dialog-title"
+      data-testid="channel-fertilizer-dialog"
+    >
       <DialogTitle id="channel-fertilizer-dialog-title">
-        {isEdit
-          ? t('pages.nutrientPlans.editFertilizer')
-          : t('pages.nutrientPlans.addFertilizer')}
+        {t('pages.nutrientPlans.addFertilizer')}
       </DialogTitle>
-      <DialogContent>
-        {isEdit ? (
-          /* ── Edit mode: single fertilizer ─────────────────────── */
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label={t('entities.fertilizer')}
-              value={editFertName}
-              size="small"
-              disabled
-            />
-            <TextField
-              label={t('pages.nutrientPlans.mlPerLiter')}
-              type="number"
-              value={editMlPerLiter}
-              onChange={(e) => setEditMlPerLiter(e.target.value)}
-              size="small"
-              required
-              slotProps={{ htmlInput: { min: 0.1, max: 50, step: 0.1 } }}
-              helperText={t('pages.nutrientPlans.mlPerLiterHelper')}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={editOptional}
-                  onChange={(e) => setEditOptional(e.target.checked)}
-                />
-              }
-              label={t('common.optional')}
-            />
-          </Box>
-        ) : (
-          /* ── Add mode: multi-select ───────────────────────────── */
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Autocomplete
               multiple
@@ -204,22 +317,26 @@ export default function ChannelFertilizerDialog({
                   {...params}
                   label={t('entities.fertilizer')}
                   size="small"
-                  placeholder={drafts.length === 0
-                    ? t('pages.nutrientPlans.selectFertilizers')
-                    : undefined}
+                  placeholder={
+                    draftCount === 0
+                      ? t('pages.nutrientPlans.selectFertilizers')
+                      : undefined
+                  }
                 />
               )}
               isOptionEqualToValue={(option, value) => option.key === value.key}
               renderValue={() => null}
             />
 
-            {drafts.length > 0 && (
+            {fields.length > 0 && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  {t('pages.nutrientPlans.selectedFertilizers', { count: drafts.length })}
+                  {t('pages.nutrientPlans.selectedFertilizers', {
+                    count: fields.length,
+                  })}
                 </Typography>
-                {drafts.map((draft) => (
-                  <Box key={draft.fertilizerKey}>
+                {fields.map((field, index) => (
+                  <Box key={field.id}>
                     <Box
                       sx={{
                         display: 'flex',
@@ -229,7 +346,7 @@ export default function ChannelFertilizerDialog({
                       }}
                     >
                       <Chip
-                        label={`${draft.productName} (${draft.brand})`}
+                        label={`${field.product_name} (${field.brand})`}
                         size="small"
                         variant="outlined"
                         sx={{ flexShrink: 0 }}
@@ -238,34 +355,28 @@ export default function ChannelFertilizerDialog({
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => removeDraft(draft.fertilizerKey)}
+                        onClick={() => remove(index)}
+                        aria-label={t('common.delete')}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <TextField
-                        label={t('pages.nutrientPlans.mlPerLiter')}
-                        type="number"
-                        value={draft.mlPerLiter}
-                        onChange={(e) =>
-                          updateDraft(draft.fertilizerKey, 'mlPerLiter', e.target.value)
-                        }
-                        size="small"
-                        required
-                        slotProps={{ htmlInput: { min: 0.1, max: 50, step: 0.1 } }}
-                        sx={{ width: 120 }}
-                      />
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={draft.optional}
-                            onChange={(e) =>
-                              updateDraft(draft.fertilizerKey, 'optional', e.target.checked)
-                            }
-                            size="small"
-                          />
-                        }
+                      <Box sx={{ width: 140 }}>
+                        <FormNumberField
+                          name={`drafts.${index}.ml_per_liter`}
+                          control={control}
+                          label={t('pages.nutrientPlans.mlPerLiter')}
+                          required
+                          min={0.1}
+                          max={50}
+                          step={0.1}
+                          inputMode="decimal"
+                        />
+                      </Box>
+                      <FormSwitchField
+                        name={`drafts.${index}.optional`}
+                        control={control}
                         label={t('common.optional')}
                       />
                     </Box>
@@ -275,15 +386,19 @@ export default function ChannelFertilizerDialog({
               </Box>
             )}
           </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!canSave}>
-          {t('common.save')}
-          {!isEdit && drafts.length > 1 && ` (${drafts.length})`}
-        </Button>
-      </DialogActions>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={formState.isSubmitting || draftCount === 0}
+          >
+            {t('common.save')}
+            {draftCount > 1 && ` (${draftCount})`}
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   );
 }
