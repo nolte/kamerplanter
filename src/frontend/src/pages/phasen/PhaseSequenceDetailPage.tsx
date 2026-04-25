@@ -353,10 +353,9 @@ export default function PhaseSequenceDetailPage() {
 
       <PageTitle
         title={(lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name}
+        meta={<OriginChip isSystem={sequence.is_system} />}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {/* UI-NFR-018 R-001: Origin chip in meta row */}
-            <OriginChip isSystem={sequence.is_system} />
             {/* UI-NFR-018 R-011: hide edit button entirely for read-only data */}
             {!isReadOnly && (
               <Button
