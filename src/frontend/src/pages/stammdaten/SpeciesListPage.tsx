@@ -19,6 +19,7 @@ import YardIcon from '@mui/icons-material/Yard';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpeciesList } from '@/store/slices/speciesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -192,7 +193,7 @@ export default function SpeciesListPage() {
     {
       id: 'commonNames',
       label: t('pages.species.commonNames'),
-      render: (r) => r.common_names.join(', ') || '\u2014',
+      render: (r) => r.common_names.join(', ') || '—',
     },
     {
       id: 'family',
@@ -207,7 +208,7 @@ export default function SpeciesListPage() {
             {r.family_name ?? r.family_key}
           </Link>
         ) : (
-          '\u2014'
+          '—'
         ),
       searchValue: (r) => r.family_name ?? '',
       hideBelowBreakpoint: 'md',
@@ -236,6 +237,16 @@ export default function SpeciesListPage() {
       render: (r) => t(`enums.rootType.${r.root_type}`),
       searchValue: (r) => t(`enums.rootType.${r.root_type}`),
       hideBelowBreakpoint: 'md',
+    },
+    {
+      // UI-NFR-018 R-002/R-019/R-020: Origin column (secondary, hidden below md)
+      // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (r) => <OriginChip origin={(r as unknown as { origin?: DataOrigin }).origin} />,
+      hideBelowBreakpoint: 'md',
+      sortable: false,
+      searchable: false,
     },
   ];
 

@@ -10,6 +10,8 @@ interface FormTextFieldProps<T extends FieldValues> {
   rows?: number;
   /** Minimum visible rows for multiline fields (allows growing beyond). */
   minRows?: number;
+  /** Maximum visible rows before scrolling kicks in. Pair with minRows for auto-grow. */
+  maxRows?: number;
   disabled?: boolean;
   type?: string;
   helperText?: string;
@@ -25,6 +27,7 @@ export default function FormTextField<T extends FieldValues>({
   multiline,
   rows,
   minRows,
+  maxRows,
   disabled,
   type = 'text',
   helperText,
@@ -44,6 +47,7 @@ export default function FormTextField<T extends FieldValues>({
           multiline={multiline}
           rows={rows}
           minRows={minRows}
+          maxRows={maxRows}
           disabled={disabled}
           type={type}
           autoFocus={autoFocus}

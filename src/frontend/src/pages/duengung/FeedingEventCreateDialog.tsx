@@ -143,8 +143,8 @@ export default function FeedingEventCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.feedingEvents.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
+      <DialogTitle id="feeding-event-create-dialog-title">{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {plantKey ? (
@@ -154,7 +154,8 @@ export default function FeedingEventCreateDialog({
               label={t('pages.feedingEvents.plantKey')}
               disabled
               required
-            />
+        autoFocus
+      />
           ) : (
             <FormSelectField
               name="plant_key"
@@ -285,7 +286,7 @@ export default function FeedingEventCreateDialog({
                 label={t('pages.feedingEvents.mlApplied')}
                 min={0.01}
               />
-              <IconButton onClick={() => remove(index)} sx={{ mt: 1 }}>
+              <IconButton aria-label={t('common.delete')} onClick={() => remove(index)} sx={{ mt: 1 }}>
                 <DeleteIcon />
               </IconButton>
             </Box>

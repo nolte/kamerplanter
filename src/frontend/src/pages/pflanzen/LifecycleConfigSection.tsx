@@ -115,7 +115,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   return (
     <Box>
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
 
         {/* ── Panel 1: Lebenszyklus ── */}
         {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading */}

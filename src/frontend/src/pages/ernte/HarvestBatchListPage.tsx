@@ -63,7 +63,7 @@ export default function HarvestBatchListPage() {
     {
       id: 'batchId',
       label: t('pages.harvest.batchId'),
-      render: (r) => r.batch_id || '\u2014',
+      render: (r) => r.batch_id || '—',
     },
     {
       id: 'plantKey',
@@ -82,7 +82,7 @@ export default function HarvestBatchListPage() {
       id: 'harvestDate',
       label: t('pages.harvest.harvestDate'),
       render: (r) =>
-        r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '\u2014',
+        r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '—',
       sortFn: (a, b) => {
         const aDate = a.harvest_date ? new Date(a.harvest_date).getTime() : 0;
         const bDate = b.harvest_date ? new Date(b.harvest_date).getTime() : 0;
@@ -105,7 +105,7 @@ export default function HarvestBatchListPage() {
     {
       id: 'wetWeight',
       label: t('pages.harvest.wetWeightG'),
-      render: (r) => (r.wet_weight_g != null ? `${r.wet_weight_g}\u202fg` : '\u2014'),
+      render: (r) => (r.wet_weight_g != null ? `${r.wet_weight_g}\u202fg` : '—'),
       align: 'right',
       searchValue: (r) =>
         r.wet_weight_g != null ? String(r.wet_weight_g) : '',
@@ -120,7 +120,7 @@ export default function HarvestBatchListPage() {
             size="small"
             color={qualityGradeColor[r.quality_grade] ?? 'default'}
           />
-        ) : '\u2014',
+        ) : '—',
       searchValue: (r) =>
         r.quality_grade
           ? t(`enums.qualityGrade.${r.quality_grade}`)

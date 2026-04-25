@@ -107,8 +107,8 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.fertilizers.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="fertilizer-create-dialog-title" data-testid="fertilizer-create-dialog">
+      <DialogTitle id="fertilizer-create-dialog-title">{t('pages.fertilizers.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.fertilizers.createIntro')}

@@ -23,6 +23,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
@@ -71,6 +73,10 @@ export default function CultivarDetailPage() {
   const [saving, setSaving] = useState(false);
   const [savingOverrides, setSavingOverrides] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // TODO: REQ-001 v5.0 origin field — backend pending; cultivars currently have no origin field.
+  const cultivarOrigin = (cultivar as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: cultivarOrigin });
 
   const {
     control,
@@ -230,14 +236,20 @@ export default function CultivarDetailPage() {
 
       <PageTitle
         title={cultivar?.name ?? t('entities.cultivar')}
+        meta={<OriginChip origin={cultivarOrigin} />}
         action={
-          <Button
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-          >
-            {t('common.delete')}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* UI-NFR-018 R-012: hide delete button for system data */}
+            {!isDeletionProtected && (
+              <Button
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteOpen(true)}
+              >
+                {t('common.delete')}
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -255,7 +267,7 @@ export default function CultivarDetailPage() {
       <Box
         component="form"
         onSubmit={handleSubmit(onSubmit)}
-        sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
         <Typography variant="body2" color="text.secondary">
           {t('pages.cultivars.editIntro')}
@@ -339,10 +351,18 @@ export default function CultivarDetailPage() {
           * {t('common.required')}
         </Typography>
 
-        <FormActions
-          onCancel={() => navigate(`/stammdaten/species/${speciesKey}`)}
-          loading={saving}
-        />
+        {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+        {!isReadOnly && (
+          <FormActions
+            onCancel={() => navigate(`/stammdaten/species/${speciesKey}`)}
+            loading={saving}
+          />
+        )}
+        {isReadOnly && (
+          <Typography variant="body2" color="text.secondary">
+            {t('common.origin.readOnlyHint')}
+          </Typography>
+        )}
       </Box>
 
       {/* Phase watering overrides */}
@@ -374,7 +394,7 @@ export default function CultivarDetailPage() {
                   <TableCell>
                     {gp.watering_interval_days
                       ? `${gp.watering_interval_days} ${t('common.days')}`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                   <TableCell>
                     <TextField

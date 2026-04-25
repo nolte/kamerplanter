@@ -44,7 +44,7 @@ interface Props {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014';
+  if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
 }
 
@@ -86,7 +86,7 @@ function PhaseDetail({ phase, t }: { phase: PhaseTimelineEntry; t: (key: string,
   return (
     <Typography variant="body2" color="text.secondary">
       {phase.projected_start && `${t('pages.plantingRuns.projectedStart')}: ${formatDate(phase.projected_start)}`}
-      {phase.projected_start && phase.projected_end && ' \u2013 '}
+      {phase.projected_start && phase.projected_end && ' – '}
       {phase.projected_end && `${t('pages.plantingRuns.projectedEnd')}: ${formatDate(phase.projected_end)}`}
       {!phase.projected_start && !phase.projected_end && `~${phase.typical_duration_days}d`}
     </Typography>

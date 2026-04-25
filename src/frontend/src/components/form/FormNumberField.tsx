@@ -63,7 +63,15 @@ export default function FormNumberField<T extends FieldValues>({
           margin="dense"
           sx={{ mb: 1.5 }}
           slotProps={{
-            htmlInput: { min, max, step: step ?? 'any', inputMode: inputMode ?? 'decimal' },
+            htmlInput: {
+              // Only pass min/max when explicitly set — omitting them prevents
+              // MUI from emitting aria-valuemin/aria-valuemax="0" as a fallback,
+              // which would mislead screen readers into reporting a wrong range.
+              ...(min !== undefined ? { min } : {}),
+              ...(max !== undefined ? { max } : {}),
+              step: step ?? 'any',
+              inputMode: inputMode ?? 'decimal',
+            },
             ...(adornment ? { input: { endAdornment: adornment } } : {}),
           }}
           data-testid={`form-field-${name}`}

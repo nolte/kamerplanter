@@ -142,8 +142,8 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{t('pages.substrates.createMix')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="md" fullWidth aria-labelledby="substrate-mix-dialog-title" data-testid="substrate-mix-dialog">
+      <DialogTitle id="substrate-mix-dialog-title">{t('pages.substrates.createMix')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.substrates.mixIntro')}
@@ -217,6 +217,7 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
             </Typography>
             <IconButton
               size="small"
+              aria-label={t('common.delete')}
               onClick={() => removeRow(index)}
               disabled={rows.length <= 2}
             >

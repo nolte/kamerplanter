@@ -25,7 +25,7 @@ interface Props {
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '\u2014';
+  if (!iso) return '—';
   return new Date(iso).toLocaleString();
 }
 
@@ -151,13 +151,13 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
     {
       id: 'duration',
       label: t('pages.plantingRuns.duration'),
-      render: (r) => (r.actual_duration_days != null ? `${r.actual_duration_days}d` : '\u2014'),
+      render: (r) => (r.actual_duration_days != null ? `${r.actual_duration_days}d` : '—'),
       align: 'right',
     },
     {
       id: 'reason',
       label: t('pages.phases.reason'),
-      render: (r) => r.transition_reason || '\u2014',
+      render: (r) => r.transition_reason || '—',
     },
     {
       id: 'actions',

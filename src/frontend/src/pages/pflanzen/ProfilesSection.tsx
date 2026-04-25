@@ -127,7 +127,7 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
                     {t('pages.profiles.nutrients')}
                   </Typography>
-                  <ProfileRow label={t('pages.profiles.npkRatio')} value={nutProfile.npk_ratio.join(' \u2013 ')} />
+                  <ProfileRow label={t('pages.profiles.npkRatio')} value={nutProfile.npk_ratio.join(' – ')} />
                   <Divider sx={{ my: 1 }} />
                   <ProfileRow label="EC" value={`${nutProfile.target_ec_ms} mS/cm`} />
                   <ProfileRow label="pH" value={nutProfile.target_ph} />

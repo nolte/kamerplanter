@@ -97,6 +97,11 @@ const editSchema = z.object({
 
 type EditFormData = z.infer<typeof editSchema>;
 
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
+
 
 export default function PlantInstanceDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -283,7 +288,7 @@ export default function PlantInstanceDetailPage() {
       // Load next pending watering task
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wateringTask = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
         setNextWateringTask(null);
@@ -417,7 +422,7 @@ export default function PlantInstanceDetailPage() {
       // Refresh next watering task (confirming creates a new one)
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wt = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wt = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wt ?? null);
       } catch {
         setNextWateringTask(null);
@@ -1789,7 +1794,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 4: Care Profile */}
       {tab === 4 && (
-        <Box sx={{ maxWidth: 900 }}>
+        <Box sx={{ maxWidth: 1280 }}>
           {careProfile ? (
             <>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -2145,37 +2150,81 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>
 
-          {/* Panel 1: General */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.plantInstances.sectionGeneral')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.plantInstances.sectionGeneralDesc')}
-              </Typography>
-              <FormRow>
-                <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} autoFocus />
-                <FormSelectField
-                  name="cultivar_key"
-                  control={control}
-                  label={t('pages.plantInstances.cultivarKey')}
-                  helperText={t('pages.plantInstances.cultivarKeyHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
-                  ]}
-                />
-              </FormRow>
-            </CardContent>
-          </Card>
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = General (master,
+              capped at reading width), right column = compact Planting Setup panel.
+              Location stays full-width below to give the LocationTreeSelect (R-057d
+              dynamic-height tree) the room it needs (R-058). */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: 4,
+              alignItems: 'start',
+            }}
+          >
+            {/* Panel 1: General (master column) */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.plantInstances.sectionGeneral')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.plantInstances.sectionGeneralDesc')}
+                </Typography>
+                <FormRow>
+                  <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} autoFocus />
+                  <FormSelectField
+                    name="cultivar_key"
+                    control={control}
+                    label={t('pages.plantInstances.cultivarKey')}
+                    helperText={t('pages.plantInstances.cultivarKeyHelper')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+                    ]}
+                  />
+                </FormRow>
+              </CardContent>
+            </Card>
 
-          {/* Panel 2: Location */}
+            {/* Detail column: Planting Setup (compact, R-057) */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.plantInstances.sectionSetup')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.plantInstances.sectionSetupDesc')}
+                </Typography>
+                <FormRow>
+                  <FormNumberField
+                    name="container_volume_liters"
+                    control={control}
+                    label={t('pages.plantInstances.containerVolumeLiters')}
+                    helperText={t('pages.plantInstances.containerVolumeLitersHelper')}
+                    min={0.1}
+                    max={500}
+                    suffix="L"
+                  />
+                  <SubstrateSelectField
+                    name="substrate_key"
+                    control={control}
+                    label={t('pages.plantInstances.substrate')}
+                    helperText={t('pages.plantInstances.substrateHelper')}
+                    substrates={substratesList}
+                  />
+                </FormRow>
+                <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
+              </CardContent>
+            </Card>
+          </Box>
+
+          {/* Panel 3: Location (full-width below master-detail, R-058 — tree component) */}
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
               <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
@@ -2220,37 +2269,6 @@ export default function PlantInstanceDetailPage() {
                   ]}
                 />
               </FormRow>
-            </CardContent>
-          </Card>
-
-          {/* Panel 3: Planting Setup */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.plantInstances.sectionSetup')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.plantInstances.sectionSetupDesc')}
-              </Typography>
-              <FormRow>
-                <FormNumberField
-                  name="container_volume_liters"
-                  control={control}
-                  label={t('pages.plantInstances.containerVolumeLiters')}
-                  helperText={t('pages.plantInstances.containerVolumeLitersHelper')}
-                  min={0.1}
-                  max={500}
-                  suffix="L"
-                />
-                <SubstrateSelectField
-                  name="substrate_key"
-                  control={control}
-                  label={t('pages.plantInstances.substrate')}
-                  helperText={t('pages.plantInstances.substrateHelper')}
-                  substrates={substratesList}
-                />
-              </FormRow>
-              <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
             </CardContent>
           </Card>
 

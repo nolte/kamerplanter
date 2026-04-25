@@ -68,8 +68,8 @@ export default function SlotCreateDialog({ locationKey, open, onClose, onCreated
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.slots.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="slot-create-dialog-title" data-testid="slot-create-dialog">
+      <DialogTitle id="slot-create-dialog-title">{t('pages.slots.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />

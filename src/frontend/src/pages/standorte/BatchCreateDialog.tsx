@@ -75,8 +75,8 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.batches.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="batch-create-dialog-title" data-testid="batch-create-dialog">
+      <DialogTitle id="batch-create-dialog-title">{t('pages.batches.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />

@@ -123,8 +123,8 @@ export default function NutrientPlanAssignDialog({
       maxWidth="sm"
       fullWidth
       data-testid="assign-plan-dialog"
-    >
-      <DialogTitle>{t('pages.nutrientPlans.assignPlan')}</DialogTitle>
+      aria-labelledby="nutrient-plan-assign-dialog-title">
+      <DialogTitle id="nutrient-plan-assign-dialog-title">{t('pages.nutrientPlans.assignPlan')}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.nutrientPlans.assignPlanIntro')}

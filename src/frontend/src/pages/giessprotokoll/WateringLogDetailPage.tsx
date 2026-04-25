@@ -163,7 +163,7 @@ export default function WateringLogDetailPage() {
   const plants = log.resolved_plants ?? [];
   const loggedAtFormatted = log.logged_at
     ? new Date(log.logged_at).toLocaleString()
-    : '\u2014';
+    : '—';
 
   return (
     <Box data-testid="watering-log-detail-page">
@@ -290,7 +290,7 @@ export default function WateringLogDetailPage() {
                       {t('pages.wateringLogs.ecBefore')} / {t('pages.wateringLogs.ecAfter')}
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace' }}>
-                      {log.ec_before ?? '\u2014'} / {log.ec_after ?? '\u2014'}
+                      {log.ec_before ?? '—'} / {log.ec_after ?? '—'}
                       {(log.ec_before != null || log.ec_after != null) && (
                         <Typography component="span" variant="body2" color="text.secondary"> mS/cm</Typography>
                       )}
@@ -301,7 +301,7 @@ export default function WateringLogDetailPage() {
                       {t('pages.wateringLogs.phBefore')} / {t('pages.wateringLogs.phAfter')}
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace' }}>
-                      {log.ph_before ?? '\u2014'} / {log.ph_after ?? '\u2014'}
+                      {log.ph_before ?? '—'} / {log.ph_after ?? '—'}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -320,7 +320,7 @@ export default function WateringLogDetailPage() {
                           {t('pages.wateringLogs.runoffEc')} / {t('pages.wateringLogs.runoffPh')}
                         </TableCell>
                         <TableCell sx={{ fontFamily: 'monospace' }}>
-                          {log.runoff_ec ?? '\u2014'} / {log.runoff_ph ?? '\u2014'}
+                          {log.runoff_ec ?? '—'} / {log.runoff_ph ?? '—'}
                           {log.runoff_ec != null && (
                             <Typography component="span" variant="body2" color="text.secondary"> mS/cm</Typography>
                           )}

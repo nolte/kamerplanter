@@ -271,7 +271,7 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
               <Chip label={site.climate_zone} size="small" variant="outlined" />
             )}
             {site.total_area_m2 ? (
-              <Chip label={`${site.total_area_m2}\u00A0m\u00B2`} size="small" variant="outlined" />
+              <Chip label={`${site.total_area_m2}\u00A0m²`} size="small" variant="outlined" />
             ) : null}
             {locationCount != null && locationCount > 0 && (
               <Chip

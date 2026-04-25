@@ -112,8 +112,9 @@ export default function PlantTagDialog({ open, onClose, plantKey, plantName }: P
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="plant-tag-dialog">
-      <DialogTitle>{t('pages.plantInstances.tag.title')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="plant-tag-dialog"
+      aria-labelledby="plant-tag-dialog-title">
+      <DialogTitle id="plant-tag-dialog-title">{t('pages.plantInstances.tag.title')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.plantInstances.tag.description', { name: plantName })}

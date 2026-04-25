@@ -411,7 +411,7 @@ export default function WateringEventListPage() {
           else if (r.target_ph != null) ecPhParts.push(`pH ${r.target_ph}*`);
           return (
             <MobileCard
-              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '\u2014'}
+              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
               subtitle={plants.length > 0 ? plants.map((p) => p.plant_name || p.instance_id).join(', ') : undefined}
               chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
               fields={[

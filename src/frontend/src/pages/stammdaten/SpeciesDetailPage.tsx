@@ -45,6 +45,8 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -111,6 +113,10 @@ type FormData = z.infer<typeof schema>;
 
 /** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
 const PANEL_GAP = 4;
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
 
 export default function SpeciesDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -150,6 +156,9 @@ export default function SpeciesDetailPage() {
   const [rotationWaitYears, setRotationWaitYears] = useState(3);
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
+  // TODO: REQ-001 v5.0 origin field — backend pending; treat tenant as default until implemented.
+  const speciesOrigin = (current as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: speciesOrigin });
 
   const {
     control,
@@ -353,6 +362,7 @@ export default function SpeciesDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={current?.scientific_name ?? t('entities.species')}
+        meta={<OriginChip origin={speciesOrigin} />}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {key && (
@@ -369,9 +379,12 @@ export default function SpeciesDetailPage() {
             <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
               {t('pages.species.createPlantInstance')}
             </Button>
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-              {t('common.delete')}
-            </Button>
+            {/* UI-NFR-018 R-012: hide delete button for system data */}
+            {!isDeletionProtected && (
+              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+                {t('common.delete')}
+              </Button>
+            )}
           </Box>
         }
       />
@@ -387,7 +400,19 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        // UI-NFR-018 R-027: when read-only the whole form must reject input,
+        // not just hide the save button. fieldset[disabled] grays out and
+        // disables every native form control beneath it (HTML5 spec).
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        >
+        <Box
+          component="fieldset"
+          disabled={isReadOnly}
+          sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.species.editIntro')}
@@ -405,105 +430,126 @@ export default function SpeciesDetailPage() {
             )}
           </Box>
 
-          {/* ── Panel 1: Taxonomie (intermediate — Pflichtfelder) ── */}
-          {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.species.sectionTaxonomy')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.species.editIntro')}
-              </Typography>
-              <FormTextField
-                name="scientific_name"
-                control={control}
-                label={t('pages.species.scientificName')}
-                helperText={t('pages.species.scientificNameHelper')}
-                required
-                autoFocus
-              />
-              <FormChipInput
-                name="common_names"
-                control={control}
-                label={t('pages.species.commonNames')}
-                helperText={t('pages.species.commonNamesHelper')}
-              />
-              <FormRow>
-                <Box>
-                  <FormSelectField
-                    name="family_key"
-                    control={control}
-                    label={t('pages.species.family')}
-                    helperText={t('pages.species.familyHelper')}
-                    options={[
-                      { value: '', label: '\u2014' },
-                      ...families.map((f) => ({ value: f.key, label: f.name })),
-                    ]}
-                  />
-                  {current?.family_key && (
-                    <Link
-                      component={RouterLink}
-                      to={`/stammdaten/botanical-families/${current.family_key}`}
-                      variant="body2"
-                      sx={{ display: 'inline-block', mt: -1, mb: 1 }}
-                    >
-                      {t('pages.species.viewFamily')}
-                    </Link>
-                  )}
-                </Box>
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = reading-width prose
+              panel (Taxonomy + Description), right column = stacked compact meta panels
+              (Growth + Cultivation). On xs/sm everything stacks vertically. R-063: DOM
+              order matches visual reading order (left-column first, then right-column). */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: PANEL_GAP,
+              alignItems: 'start',
+            }}
+          >
+            {/* ── Panel 1: Taxonomie (master column, reading-width) ── */}
+            {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.species.sectionTaxonomy')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.species.editIntro')}
+                </Typography>
                 <FormTextField
-                  name="genus"
+                  name="scientific_name"
                   control={control}
-                  label={t('pages.species.genus')}
-                  helperText={t('pages.species.genusHelper')}
+                  label={t('pages.species.scientificName')}
+                  helperText={t('pages.species.scientificNameHelper')}
+                  required
+                  autoFocus
                 />
-              </FormRow>
-              <FormTextField
-                name="description"
-                control={control}
-                label={t('pages.species.description')}
-                helperText={t('pages.species.descriptionHelper')}
-                multiline
-                rows={3}
-              />
-            </CardContent>
-          </Card>
-
-          {/* ── Panel 2: Wachstum (intermediate) ── */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-                {t('pages.species.sectionGrowth')}
-              </Typography>
-              <FormRow>
-                <FormSelectField
-                  name="growth_habit"
+                <FormChipInput
+                  name="common_names"
                   control={control}
-                  label={t('pages.species.growthHabit')}
-                  helperText={t('pages.species.growthHabitHelper')}
-                  options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
-                    value: v,
-                    label: t(`enums.growthHabit.${v}`),
-                  }))}
+                  label={t('pages.species.commonNames')}
+                  helperText={t('pages.species.commonNamesHelper')}
                 />
-                <ExpertiseFieldWrapper minLevel="expert">
-                  <FormSelectField
-                    name="root_type"
+                <FormRow>
+                  <Box>
+                    <FormSelectField
+                      name="family_key"
+                      control={control}
+                      label={t('pages.species.family')}
+                      helperText={t('pages.species.familyHelper')}
+                      options={[
+                        { value: '', label: '—' },
+                        ...families.map((f) => ({ value: f.key, label: f.name })),
+                      ]}
+                    />
+                    {current?.family_key && (
+                      <Link
+                        component={RouterLink}
+                        to={`/stammdaten/botanical-families/${current.family_key}`}
+                        variant="body2"
+                        sx={{ display: 'inline-block', mt: -1, mb: 1 }}
+                      >
+                        {t('pages.species.viewFamily')}
+                      </Link>
+                    )}
+                  </Box>
+                  <FormTextField
+                    name="genus"
                     control={control}
-                    label={t('pages.species.rootType')}
-                    helperText={t('pages.species.rootTypeHelper')}
-                    options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
-                      value: v,
-                      label: t(`enums.rootType.${v}`),
-                    }))}
+                    label={t('pages.species.genus')}
+                    helperText={t('pages.species.genusHelper')}
                   />
-                </ExpertiseFieldWrapper>
-              </FormRow>
-            </CardContent>
-          </Card>
+                </FormRow>
+                {/* UI-NFR-008 R-054 + R-055: prose field capped at reading width */}
+                <Box sx={{ maxWidth: READING_COL_MAX }}>
+                  <FormTextField
+                    name="description"
+                    control={control}
+                    label={t('pages.species.description')}
+                    helperText={t('pages.species.descriptionHelper')}
+                    multiline
+                    minRows={4}
+                    maxRows={14}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
 
-          {/* ── Panel 3: Anbaubedingungen (intermediate — key cultivation info) ── */}
+            {/* ── Detail column: stacked compact panels (Growth + Cultivation) ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+              {/* ── Panel 2: Wachstum (compact, R-057) ── */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                    {t('pages.species.sectionGrowth')}
+                  </Typography>
+                  <FormRow>
+                    <FormSelectField
+                      name="growth_habit"
+                      control={control}
+                      label={t('pages.species.growthHabit')}
+                      helperText={t('pages.species.growthHabitHelper')}
+                      options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                        value: v,
+                        label: t(`enums.growthHabit.${v}`),
+                      }))}
+                    />
+                    <ExpertiseFieldWrapper minLevel="expert">
+                      <FormSelectField
+                        name="root_type"
+                        control={control}
+                        label={t('pages.species.rootType')}
+                        helperText={t('pages.species.rootTypeHelper')}
+                        options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
+                          value: v,
+                          label: t(`enums.rootType.${v}`),
+                        }))}
+                      />
+                    </ExpertiseFieldWrapper>
+                  </FormRow>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+
+          {/* ── Panel 3: Anbaubedingungen (full-width below master-detail, R-058 — expert
+              expansion makes this panel tall and unsuited for the right-column stack) ── */}
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
               <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
@@ -516,7 +562,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.containerSuitable')}
                   helperText={t('pages.species.containerSuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -529,7 +575,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.indoorSuitable')}
                   helperText={t('pages.species.indoorSuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -544,7 +590,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.balconySuitable')}
                   helperText={t('pages.species.balconySuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -557,7 +603,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.defaultNutrientPlan')}
                   helperText={t('pages.species.defaultNutrientPlanHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...nutrientPlans.map((p) => ({
                       value: p.key,
                       label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
@@ -759,7 +805,14 @@ export default function SpeciesDetailPage() {
             * {t('common.required')}
           </Typography>
 
-          <FormActions onCancel={() => navigate(-1)} loading={saving} />
+          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+          {!isReadOnly && <FormActions onCancel={() => navigate(-1)} loading={saving} />}
+          {isReadOnly && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.origin.readOnlyHint')}
+            </Typography>
+          )}
+        </Box>
         </Box>
       )}
 

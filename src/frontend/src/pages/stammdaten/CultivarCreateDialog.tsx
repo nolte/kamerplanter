@@ -84,8 +84,9 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
-      <DialogTitle>{t('pages.cultivars.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="cultivar-create-dialog"
+      aria-labelledby="cultivar-create-dialog-title">
+      <DialogTitle id="cultivar-create-dialog-title">{t('pages.cultivars.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}

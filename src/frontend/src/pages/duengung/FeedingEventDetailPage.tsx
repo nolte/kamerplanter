@@ -229,7 +229,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.ecBefore')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ec_before != null ? `${event.measured_ec_before} mS/cm` : '\u2014'}
+                      {event.measured_ec_before != null ? `${event.measured_ec_before} mS/cm` : '—'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -237,7 +237,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.ecAfter')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ec_after != null ? `${event.measured_ec_after} mS/cm` : '\u2014'}
+                      {event.measured_ec_after != null ? `${event.measured_ec_after} mS/cm` : '—'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -245,7 +245,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.phBefore')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ph_before ?? '\u2014'}
+                      {event.measured_ph_before ?? '—'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -253,7 +253,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.phAfter')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ph_after ?? '\u2014'}
+                      {event.measured_ph_after ?? '—'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -261,7 +261,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.runoffEc')}
                     </TableCell>
                     <TableCell>
-                      {event.runoff_ec != null ? `${event.runoff_ec} mS/cm` : '\u2014'}
+                      {event.runoff_ec != null ? `${event.runoff_ec} mS/cm` : '—'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -269,7 +269,7 @@ export default function FeedingEventDetailPage() {
                       {t('pages.feedingEvents.runoffPh')}
                     </TableCell>
                     <TableCell>
-                      {event.runoff_ph ?? '\u2014'}
+                      {event.runoff_ph ?? '—'}
                     </TableCell>
                   </TableRow>
                   {event.notes && (
@@ -333,7 +333,7 @@ export default function FeedingEventDetailPage() {
       )}
 
       {tab === 1 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.feedingEvents.editIntro')}
           </Typography>

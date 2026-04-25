@@ -44,7 +44,7 @@ export default function WateringLogListPage() {
       label: t('pages.wateringLogs.plants'),
       render: (r) => {
         const plants = r.resolved_plants ?? [];
-        if (plants.length === 0) return <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>;
+        if (plants.length === 0) return <Typography variant="body2" color="text.secondary">{'—'}</Typography>;
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             {plants.slice(0, 3).map((p) => (
@@ -104,7 +104,7 @@ export default function WateringLogListPage() {
             ))}
           </Box>
         ) : (
-          <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>
+          <Typography variant="body2" color="text.secondary">{'—'}</Typography>
         );
       },
       searchValue: (r) => (r.resolved_fertilizers ?? []).map((rf) => rf.name).join(' '),
@@ -138,8 +138,8 @@ export default function WateringLogListPage() {
       label: `${t('pages.wateringLogs.phBefore')} / ${t('pages.wateringLogs.phAfter')}`,
       hideBelowBreakpoint: 'lg',
       render: (r) => {
-        const before = r.ph_before != null ? `${r.ph_before}` : '\u2014';
-        const after = r.ph_after != null ? `${r.ph_after}` : '\u2014';
+        const before = r.ph_before != null ? `${r.ph_before}` : '—';
+        const after = r.ph_after != null ? `${r.ph_after}` : '—';
         return (
           <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
             {before} / {after}
@@ -154,7 +154,7 @@ export default function WateringLogListPage() {
       hideBelowBreakpoint: 'md',
       render: (r) =>
         r.water_source ? t(`enums.waterSource.${r.water_source}`) : (
-          <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>
+          <Typography variant="body2" color="text.secondary">{'—'}</Typography>
         ),
       searchValue: (r) =>
         r.water_source ? t(`enums.waterSource.${r.water_source}`) : '',
@@ -238,7 +238,7 @@ export default function WateringLogListPage() {
               fields={[
                 { label: t('pages.wateringLogs.volumeLiters'), value: formatNumberWithUnit(r.volume_liters, 'L') },
                 ...(r.ec_before != null || r.ec_after != null
-                  ? [{ label: 'EC', value: `${r.ec_before != null ? formatNumberWithUnit(r.ec_before, 'mS/cm') : '\u2014'} / ${r.ec_after != null ? formatNumberWithUnit(r.ec_after, 'mS/cm') : '\u2014'}` }]
+                  ? [{ label: 'EC', value: `${r.ec_before != null ? formatNumberWithUnit(r.ec_before, 'mS/cm') : '—'} / ${r.ec_after != null ? formatNumberWithUnit(r.ec_after, 'mS/cm') : '—'}` }]
                   : []),
               ]}
             />

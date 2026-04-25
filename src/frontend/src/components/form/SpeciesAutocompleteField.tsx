@@ -15,6 +15,7 @@ interface SpeciesAutocompleteFieldProps<T extends FieldValues> {
   helperText?: string;
   disabled?: boolean;
   required?: boolean;
+  autoFocus?: boolean;
 }
 
 /** Flattened representation used by createFilterOptions to search across all relevant fields. */
@@ -45,6 +46,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
   helperText,
   disabled,
   required,
+  autoFocus,
 }: SpeciesAutocompleteFieldProps<T>) {
   const { t } = useTranslation();
 
@@ -108,7 +110,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
                     noWrap
                   >
                     {sp.scientific_name}
-                    {sp.family_name && ` \u00B7 ${sp.family_name}`}
+                    {sp.family_name && ` · ${sp.family_name}`}
                   </Typography>
                 </Box>
               );
@@ -118,6 +120,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
                 {...params}
                 label={label}
                 required={required}
+                autoFocus={autoFocus}
                 error={!!error}
                 helperText={error?.message ?? helperText ?? t('pages.plantInstances.speciesSearchHelper')}
                 data-testid={`form-field-${name}`}

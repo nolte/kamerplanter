@@ -260,7 +260,7 @@ export default function PhaseDefinitionDetailPage() {
                     {t('pages.phaseSequences.displayName')} (EN)
                   </TableCell>
                   <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.display_name || '\u2014'}
+                    {definition.display_name || '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -272,7 +272,7 @@ export default function PhaseDefinitionDetailPage() {
                     {t('pages.phaseSequences.displayNameDe')}
                   </TableCell>
                   <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.display_name_de || '\u2014'}
+                    {definition.display_name_de || '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -332,7 +332,7 @@ export default function PhaseDefinitionDetailPage() {
                       ? t('pages.phaseSequences.wateringIntervalDays', {
                           count: definition.watering_interval_days,
                         })
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -351,7 +351,7 @@ export default function PhaseDefinitionDetailPage() {
                         ))}
                       </Box>
                     ) : (
-                      '\u2014'
+                      '—'
                     )}
                   </TableCell>
                 </TableRow>
@@ -417,7 +417,7 @@ export default function PhaseDefinitionDetailPage() {
                             <LoopIcon fontSize="small" color="secondary" aria-label={t('pages.phaseSequences.isRepeating')} />
                           </Tooltip>
                         ) : (
-                          '\u2014'
+                          '—'
                         )}
                       </TableCell>
                     </TableRow>

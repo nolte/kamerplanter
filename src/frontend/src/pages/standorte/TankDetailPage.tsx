@@ -68,6 +68,11 @@ import MaintenanceScheduleDialog from './MaintenanceScheduleDialog';
 import TankFillCreateDialog from './TankFillCreateDialog';
 import SensorCreateDialog from './SensorCreateDialog';
 
+/** Form container max width on md+ (UI-NFR-008 R-053). */
+const FORM_MAX_WIDTH = 1280;
+/** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
+const READING_COL_MAX = 760;
+
 const tankTypes = ['nutrient', 'irrigation', 'reservoir', 'recirculation', 'stock_solution'] as const;
 const materials = ['plastic', 'stainless_steel', 'glass', 'ibc'] as const;
 
@@ -396,7 +401,7 @@ export default function TankDetailPage() {
   const sensorColumns: Column<Sensor>[] = [
     { id: 'name', label: t('pages.tanks.sensorColumnName'), render: (r) => r.name },
     { id: 'metric_type', label: t('pages.tanks.sensorColumnMetric'), render: (r) => r.metric_type },
-    { id: 'ha_entity_id', label: t('pages.tanks.sensorColumnEntity'), render: (r) => r.ha_entity_id || '\u2014', hideBelowBreakpoint: 'md' },
+    { id: 'ha_entity_id', label: t('pages.tanks.sensorColumnEntity'), render: (r) => r.ha_entity_id || '—', hideBelowBreakpoint: 'md' },
     {
       id: 'actions', label: '', sortable: false, searchable: false, render: (r: Sensor) => (
         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
@@ -900,7 +905,7 @@ export default function TankDetailPage() {
                   fields={[
                     ...(r.ph != null ? [{ label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
                     ...(r.ec_ms != null ? [{ label: t('enums.sensorMetricType.ec_ms'), value: String(r.ec_ms) }] : []),
-                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
+                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} °C` }] : []),
                     ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
                   ]}
                 />
@@ -1101,94 +1106,107 @@ export default function TankDetailPage() {
         <Box
           component="form"
           onSubmit={handleSubmit(onSave)}
-          sx={{ maxWidth: { xs: '100%', md: 900, xl: 1100 }, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: { xs: '100%', md: FORM_MAX_WIDTH, xl: 1440 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tanks.editIntro')}
           </Typography>
 
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.tanks.sectionIdentification')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.tanks.sectionIdentificationDesc')}
-              </Typography>
-              <FormTextField
-                name="name"
-                control={control}
-                label={t('pages.tanks.name')}
-                required
-                autoFocus
-              />
-              <FormRow>
-                <FormSelectField
-                  name="tank_type"
+          {/* UI-NFR-008 R-061: Master-detail layout — left column = Identification (master,
+              capped at reading width), right column = stacked compact panel (Location).
+              Equipment, Notes and Sensors remain full-width below to preserve the natural
+              rhythm of switch grids and the sensors DataTable (R-058). */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+              gap: 4,
+              alignItems: 'start',
+            }}
+          >
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.tanks.sectionIdentification')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.tanks.sectionIdentificationDesc')}
+                </Typography>
+                <FormTextField
+                  name="name"
                   control={control}
-                  label={t('pages.tanks.tankType')}
-                  helperText={t('pages.tanks.tankTypeHelper')}
+                  label={t('pages.tanks.name')}
                   required
-                  options={tankTypes.map((v) => ({
-                    value: v,
-                    label: t(`enums.tankType.${v}`),
-                  }))}
+                  autoFocus
                 />
-                <FormSelectField
-                  name="material"
+                <FormRow>
+                  <FormSelectField
+                    name="tank_type"
+                    control={control}
+                    label={t('pages.tanks.tankType')}
+                    helperText={t('pages.tanks.tankTypeHelper')}
+                    required
+                    options={tankTypes.map((v) => ({
+                      value: v,
+                      label: t(`enums.tankType.${v}`),
+                    }))}
+                  />
+                  <FormSelectField
+                    name="material"
+                    control={control}
+                    label={t('pages.tanks.material')}
+                    helperText={t('pages.tanks.materialHelper')}
+                    required
+                    options={materials.map((v) => ({
+                      value: v,
+                      label: t(`enums.tankMaterial.${v}`),
+                    }))}
+                  />
+                </FormRow>
+                <FormNumberField
+                  name="volume_liters"
                   control={control}
-                  label={t('pages.tanks.material')}
-                  helperText={t('pages.tanks.materialHelper')}
+                  label={t('pages.tanks.volumeLiters')}
+                  helperText={t('pages.tanks.volumeLitersHelper')}
+                  suffix="L"
+                  inputMode="decimal"
+                  min={0.1}
                   required
-                  options={materials.map((v) => ({
-                    value: v,
-                    label: t(`enums.tankMaterial.${v}`),
-                  }))}
                 />
-              </FormRow>
-              <FormNumberField
-                name="volume_liters"
-                control={control}
-                label={t('pages.tanks.volumeLiters')}
-                helperText={t('pages.tanks.volumeLitersHelper')}
-                suffix="L"
-                inputMode="decimal"
-                min={0.1}
-                required
-              />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.tanks.sectionLocation')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.tanks.sectionLocationDesc')}
-              </Typography>
-              <TextField
-                select
-                label={t('pages.tanks.site')}
-                value={selectedSiteKey}
-                onChange={(e) => handleSiteChange(e.target.value)}
-                fullWidth
-                sx={{ mb: 2 }}
-                data-testid="form-field-site"
-              >
-                <MenuItem value="">—</MenuItem>
-                {sites.map((s) => (
-                  <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
-                ))}
-              </TextField>
-              <LocationTreeSelect
-                name="location_key"
-                control={control}
-                siteKey={selectedSiteKey || null}
-                label={t('pages.tanks.location')}
-              />
-            </CardContent>
-          </Card>
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.tanks.sectionLocation')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.tanks.sectionLocationDesc')}
+                </Typography>
+                <TextField
+                  select
+                  label={t('pages.tanks.site')}
+                  value={selectedSiteKey}
+                  onChange={(e) => handleSiteChange(e.target.value)}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  data-testid="form-field-site"
+                >
+                  <MenuItem value="">—</MenuItem>
+                  {sites.map((s) => (
+                    <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
+                  ))}
+                </TextField>
+                <LocationTreeSelect
+                  name="location_key"
+                  control={control}
+                  siteKey={selectedSiteKey || null}
+                  label={t('pages.tanks.location')}
+                />
+              </CardContent>
+            </Card>
+          </Box>
 
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
@@ -1257,13 +1275,17 @@ export default function TankDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tanks.sectionNotesDesc')}
               </Typography>
-              <FormTextField
-                name="notes"
-                control={control}
-                label={t('pages.tanks.notes')}
-                multiline
-                rows={3}
-              />
+              {/* UI-NFR-008 R-054: prose field capped at reading width */}
+              <Box sx={{ maxWidth: READING_COL_MAX }}>
+                <FormTextField
+                  name="notes"
+                  control={control}
+                  label={t('pages.tanks.notes')}
+                  multiline
+                  minRows={4}
+                  maxRows={14}
+                />
+              </Box>
             </CardContent>
           </Card>
 

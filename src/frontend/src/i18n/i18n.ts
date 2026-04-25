@@ -23,4 +23,14 @@ i18n
     },
   });
 
+if (import.meta.hot) {
+  import.meta.hot.accept(
+    ['./locales/de/translation.json', './locales/en/translation.json'],
+    ([deModule, enModule]) => {
+      if (deModule) i18n.addResourceBundle('de', 'translation', deModule.default, true, true);
+      if (enModule) i18n.addResourceBundle('en', 'translation', enModule.default, true, true);
+    },
+  );
+}
+
 export default i18n;

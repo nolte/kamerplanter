@@ -419,18 +419,18 @@ export default function PlantingRunDetailPage() {
 
   const entryColumns: Column<PlantingRunEntry>[] = [
     { id: 'species', label: t('entities.species'), render: (r) => speciesMap.get(r.species_key) ?? r.species_key, searchValue: (r) => speciesMap.get(r.species_key) ?? r.species_key },
-    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : '\u2014', searchValue: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? '') : '' },
+    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : '—', searchValue: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? '') : '' },
     { id: 'quantity', label: t('pages.plantingRuns.quantity'), render: (r) => r.quantity, align: 'right' },
     { id: 'idPrefix', label: t('pages.plantingRuns.idPrefix'), render: (r) => r.id_prefix },
-    { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '\u2014', align: 'right' },
+    { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '—', align: 'right' },
   ];
 
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
-    { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '\u2014', searchValue: (r) => r.current_phase ?? '' },
+    { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '—', searchValue: (r) => r.current_phase ?? '' },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
-    { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '\u2014' },
-    { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '\u2014' },
+    { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '—' },
+    { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '—' },
     {
       id: 'open', label: '', width: 48, sortable: false, searchable: false,
       render: (r) => (

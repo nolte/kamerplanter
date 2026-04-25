@@ -20,6 +20,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFertilizers } from '@/store/slices/fertilizersSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -132,7 +133,7 @@ export default function FertilizerListPage() {
     {
       id: 'brand',
       label: t('pages.fertilizers.brand'),
-      render: (r) => r.brand || '\u2014',
+      render: (r) => r.brand || '—',
     },
     {
       id: 'fertilizer_type',
@@ -182,6 +183,16 @@ export default function FertilizerListPage() {
         />
       ),
       searchValue: (r) => (r.is_organic ? t('common.yes') : t('common.no')),
+    },
+    {
+      // UI-NFR-018 R-002/R-019/R-020: Origin column (secondary, hidden below md)
+      // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (r) => <OriginChip origin={(r as unknown as { origin?: DataOrigin }).origin} />,
+      hideBelowBreakpoint: 'md',
+      sortable: false,
+      searchable: false,
     },
   ];
 

@@ -159,6 +159,22 @@ Pfade:
 - [ ] Dialoge: Mobile fullscreen, Tablet 80%, Desktop feste Breite
 - [ ] Listen/Tabellen: Auf Mobile Card-Ansicht oder horizontales Scrollen, auf Desktop volle Tabellenbreite nutzen
 
+### Layout-Container & Lese-Spalte (UI-NFR-008 §2.11 — Inhaltsdichte & Mehrspalten-Layout)
+
+> **Hinweis:** Diese Stichpunkte sind eine Kurzfassung. Die verbindlichen Regeln stehen in `spec/ui-nfr/UI-NFR-008_Formulare.md` Abschnitt 2.11 (R-053–R-064). Bei Konflikt hat die Spec Vorrang — pruefe sie immer live.
+
+- [ ] **R-053 (MUSS):** Form-Container auf md+ erlaubt `maxWidth >= 1280px` — ein pauschales `maxWidth: 900` ist verboten
+- [ ] **R-054 (MUSS):** Multiline-Fliesstext-Felder (`minRows >= 4`) sind explizit auf `maxWidth: 760px` gecappt — auch wenn die umgebende Card breiter ist (`<Box sx={{ maxWidth: READING_COL_MAX }}>`-Wrapper oder gleichwertig)
+- [ ] **R-055 (MUSS):** Sprachgruppen mit Multiline-Textareas (z.B. `description_en` + `description_de`) sind vertikal gestapelt, NIEMALS in einer 50/50-`FormRow` mit Fliesstext. Kurzfelder (Name, Slug) duerfen weiterhin nebeneinander stehen.
+- [ ] **R-056 + R-057 (KANN/MUSS):** Kompakte Panels (kein Multiline, kein Autocomplete mit langer Optionsliste, max. 6 Felder, keine eingebettete Tabelle) duerfen auf md+ in einem 2- oder 3-spaltigen Grid platziert werden
+- [ ] **R-058 (MUSS):** Panels mit Fliesstext-Feldern oder freier Listen-Komponente (Autocomplete, viele Chip-Inputs) bleiben einspaltig in voller Container-Breite (`gridColumn: '1 / -1'` oder ausserhalb des Grids)
+- [ ] **R-059 (MUSS):** xs = 1 Spalte; sm SOLL max. 2 Spalten; md+ erlaubt bis zu 3 Spalten
+- [ ] **R-060 (MUSS):** Innerhalb eines Panels weiterhin `FormRow` fuer zusammengehoerige Kurzfelder (Min/Max, EN/DE, Wert/Einheit)
+- [ ] **R-062 (MUSS):** Pflichtfelder/haeufig genutzte Felder gehoeren oben links — die fachliche Reihenfolge muss auch im Mehrspalten-Layout erkennbar bleiben
+- [ ] **R-063 (MUSS):** Bei Mehrspalten-Layout muss die DOM-Reihenfolge der visuellen Lese-Reihenfolge (links-nach-rechts, zeilenweise) entsprechen — Tab-Sprung darf nicht visuell zurueckspringen
+- [ ] **Master-Detail (R-061):** Alternative Anordnung mit linker Lese-Spalte (`READING_COL_MAX`) und gestapelter Detail-Spalte rechts ist zulaessig — siehe Wireframe in §2.11
+- [ ] Anti-Patterns aktiv suchen: pauschales `maxWidth: 900`, `description_en`+`description_de` in `FormRow` mit `rows={3}`, drei kompakte Cards untereinander auf 1920×1080-Display
+
 ---
 
 ## Checkliste: Darstellungs-Usability

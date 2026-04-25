@@ -345,14 +345,10 @@ export default function WorkflowInstantiateDialog({
 
         if (failures.length > 0 && successCount > 0) {
           notification.warning(
-            `${t('pages.tasks.instantiatedCount', { count: successCount })} ${failures.length} ${t('common.failed', { defaultValue: 'failed' })}.`,
+            t('pages.tasks.instantiatePartial', { success: successCount, failed: failures.length }),
           );
         } else if (failures.length > 0 && successCount === 0) {
-          notification.error(
-            t('pages.tasks.instantiateError', {
-              defaultValue: 'Workflow instantiation failed for all plants.',
-            }),
-          );
+          notification.error(t('pages.tasks.instantiateError'));
         } else {
           notification.success(
             t('pages.tasks.instantiatedCount', { count: successCount }),
@@ -419,8 +415,10 @@ export default function WorkflowInstantiateDialog({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby="workflow-instantiate-dialog-title"
+      data-testid="workflow-instantiate-dialog"
     >
-      <DialogTitle>{t('pages.tasks.instantiateWorkflow')}</DialogTitle>
+      <DialogTitle id="workflow-instantiate-dialog-title">{t('pages.tasks.instantiateWorkflow')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.instantiateIntroNew')}

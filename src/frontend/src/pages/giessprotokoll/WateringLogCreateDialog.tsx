@@ -208,8 +208,9 @@ export default function WateringLogCreateDialog({
       maxWidth="sm"
       fullWidth
       fullScreen={fullScreen}
-    >
-      <DialogTitle sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, borderBottom: 1, borderColor: 'divider' }}>
+      data-testid="watering-log-create-dialog"
+      aria-labelledby="watering-log-create-dialog-title">
+      <DialogTitle sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, borderBottom: 1, borderColor: 'divider' }} id="watering-log-create-dialog-title">
         {t('pages.wateringLogs.create')}
       </DialogTitle>
       <DialogContent sx={{ overflowY: 'auto' }}>

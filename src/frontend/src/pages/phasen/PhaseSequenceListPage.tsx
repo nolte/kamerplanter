@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -8,25 +8,14 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import Skeleton from '@mui/material/Skeleton';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LoopIcon from '@mui/icons-material/Loop';
-import SearchIcon from '@mui/icons-material/Search';
-import SettingsIcon from '@mui/icons-material/Settings';
+import OriginChip from '@/components/common/OriginChip';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,10 +26,14 @@ import FormActions from '@/components/form/FormActions';
 import PageTitle from '@/components/layout/PageTitle';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import MobileCard from '@/components/common/MobileCard';
+import DataTable, { type Column } from '@/components/common/DataTable';
+import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { PhaseSequence } from '@/api/types';
+import { kamiPhaseVegetative } from '@/assets/brand/illustrations';
 
 const cycleTypes = ['annual', 'biennial', 'perennial'] as const;
 
@@ -52,35 +45,6 @@ const createSchema = z.object({
 });
 
 type CreateFormData = z.infer<typeof createSchema>;
-
-function LoadingSkeletonTable() {
-  return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table>
-        <TableHead>
-          <TableRow>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableCell key={i}>
-                <Skeleton variant="text" width={80} />
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <TableRow key={i}>
-              {Array.from({ length: 5 }).map((_, j) => (
-                <TableCell key={j}>
-                  <Skeleton variant="text" width={j === 0 ? 120 : 60} />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-}
 
 function CreateSequenceDialog({
   open,
@@ -191,17 +155,24 @@ function CreateSequenceDialog({
   );
 }
 
+function computeTotalDuration(seq: PhaseSequence): number {
+  return seq.entries.reduce((sum, e) => sum + e.effective_duration_days, 0);
+}
+
 export default function PhaseSequenceListPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const tableState = useTableUrlState({
+    defaultSort: { column: 'name', direction: 'asc' },
+    pageSizeStorageKey: 'phaseSequences.pageSize',
+  });
 
   const [sequences, setSequences] = useState<PhaseSequence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
 
@@ -223,17 +194,7 @@ export default function PhaseSequenceListPage() {
     loadSequences();
   }, [loadSequences]);
 
-  const filteredSequences = useMemo(() => {
-    if (!searchQuery.trim()) return sequences;
-    const query = searchQuery.toLowerCase();
-    return sequences.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        s.display_name.toLowerCase().includes(query) ||
-        s.display_name_de.toLowerCase().includes(query) ||
-        s.tags.some((tag) => tag.toLowerCase().includes(query)),
-    );
-  }, [sequences, searchQuery]);
+  const deleteTarget = sequences.find((s) => s.key === deleteKey);
 
   const handleDelete = async () => {
     if (!deleteKey) return;
@@ -247,10 +208,100 @@ export default function PhaseSequenceListPage() {
     }
   };
 
-  const computeTotalDuration = (seq: PhaseSequence): number =>
-    seq.entries.reduce((sum, e) => sum + e.effective_duration_days, 0);
+  const getDisplayName = (seq: PhaseSequence): string =>
+    (lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name;
 
-  const deleteTarget = sequences.find((s) => s.key === deleteKey);
+  const columns: Column<PhaseSequence>[] = [
+    {
+      id: 'name',
+      label: t('common.name'),
+      render: (seq) => getDisplayName(seq),
+      searchValue: (seq) => `${getDisplayName(seq)} ${seq.name} ${seq.tags.join(' ')}`,
+      sortFn: (a, b) => getDisplayName(a).localeCompare(getDisplayName(b)),
+    },
+    {
+      id: 'cycleType',
+      label: t('pages.phaseSequences.cycleType'),
+      render: (seq) => (
+        <Chip
+          label={t(`enums.cycleType.${seq.cycle_type}`)}
+          size="small"
+          variant="outlined"
+        />
+      ),
+      searchValue: (seq) => t(`enums.cycleType.${seq.cycle_type}`),
+      sortFn: (a, b) => a.cycle_type.localeCompare(b.cycle_type),
+    },
+    {
+      id: 'isRepeating',
+      label: t('pages.phaseSequences.isRepeating'),
+      render: (seq) =>
+        seq.is_repeating ? (
+          <Chip
+            icon={<LoopIcon />}
+            label={t('pages.phaseSequences.isRepeating')}
+            size="small"
+            color="secondary"
+            variant="outlined"
+          />
+        ) : null,
+      searchValue: (seq) => (seq.is_repeating ? t('pages.phaseSequences.isRepeating') : ''),
+      sortFn: (a, b) => Number(a.is_repeating) - Number(b.is_repeating),
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'entryCount',
+      label: t('pages.phaseSequences.sequenceEntries'),
+      render: (seq) => t('pages.phaseSequences.entryCount', { count: seq.entries.length }),
+      searchValue: (seq) => String(seq.entries.length),
+      sortFn: (a, b) => a.entries.length - b.entries.length,
+      align: 'right',
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'totalDuration',
+      label: t('pages.phaseSequences.totalDuration'),
+      render: (seq) =>
+        t('pages.phaseSequences.totalDurationDays', { count: computeTotalDuration(seq) }),
+      searchValue: (seq) => String(computeTotalDuration(seq)),
+      sortFn: (a, b) => computeTotalDuration(a) - computeTotalDuration(b),
+      align: 'right',
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      // UI-NFR-018 R-002/R-019: Origin column
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (seq) => <OriginChip isSystem={seq.is_system} />,
+      sortable: false,
+      searchable: false,
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'actions',
+      label: t('common.actions'),
+      align: 'right',
+      sortable: false,
+      searchable: false,
+      render: (seq) => (
+        <Box onClick={(e) => e.stopPropagation()}>
+          {/* UI-NFR-018 R-013: hide delete action for system data */}
+          {!seq.is_system && (
+            <Tooltip title={t('common.delete')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteKey(seq.key)}
+                aria-label={t('common.delete')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
 
   return (
     <Box data-testid="phase-sequence-list-page">
@@ -272,139 +323,60 @@ export default function PhaseSequenceListPage() {
         {t('pages.phaseSequences.sequencesIntro')}
       </Typography>
 
-      <TextField
-        size="small"
-        placeholder={t('pages.phaseSequences.searchSequences')}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
-          },
-        }}
-        sx={{ mb: 2, maxWidth: 400, width: '100%' }}
-        data-testid="sequence-search"
-        aria-label={t('pages.phaseSequences.searchSequences')}
-      />
-
       {error && <ErrorDisplay error={error} onRetry={loadSequences} />}
 
-      {loading ? (
-        <LoadingSkeletonTable />
-      ) : filteredSequences.length === 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            py: 8,
-            px: 2,
-          }}
-        >
-          <Typography variant="h6" color="text.secondary" align="center">
-            {searchQuery
-              ? t('common.noSearchResults')
-              : t('pages.phaseSequences.noSequences')}
-          </Typography>
-        </Box>
-      ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('common.name')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.cycleType')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.isRepeating')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.sequenceEntries')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.totalDuration')}</TableCell>
-                <TableCell align="right">{t('common.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredSequences.map((seq) => (
-                <TableRow
-                  key={seq.key}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/phasen/ablaeufe/${seq.key}`)}
-                  data-testid={`sequence-row-${seq.key}`}
-                >
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
-                      {seq.is_system && (
-                        <Chip
-                          icon={<SettingsIcon />}
-                          label={t('pages.phaseSequences.system')}
-                          size="small"
-                          color="info"
-                          variant="outlined"
-                        />
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={t(`enums.cycleType.${seq.cycle_type}`)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {seq.is_repeating && (
-                      <Chip
-                        icon={<LoopIcon />}
-                        label={t('pages.phaseSequences.isRepeating')}
-                        size="small"
-                        color="secondary"
-                        variant="outlined"
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {t('pages.phaseSequences.entryCount', {
-                      count: seq.entries.length,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    {t('pages.phaseSequences.totalDurationDays', {
-                      count: computeTotalDuration(seq),
-                    })}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip
-                      title={
-                        seq.is_system
-                          ? t('pages.phaseSequences.system')
-                          : t('common.delete')
-                      }
-                    >
-                      <span>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          disabled={seq.is_system}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteKey(seq.key);
-                          }}
-                          aria-label={t('common.delete')}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable
+        columns={columns}
+        rows={sequences}
+        loading={loading}
+        getRowKey={(seq) => seq.key}
+        onRowClick={(seq) => navigate(`/phasen/ablaeufe/${seq.key}`)}
+        tableState={tableState}
+        ariaLabel={t('pages.phaseSequences.sequencesTitle')}
+        emptyMessage={t('pages.phaseSequences.noSequences')}
+        emptyActionLabel={t('pages.phaseSequences.createSequence')}
+        onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiPhaseVegetative}
+        mobileCardRenderer={(seq) => (
+          <MobileCard
+            title={getDisplayName(seq)}
+            subtitle={seq.name}
+            trailing={<OriginChip isSystem={seq.is_system} />}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.cycleType.${seq.cycle_type}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                {seq.is_repeating && (
+                  <Chip
+                    icon={<LoopIcon />}
+                    label={t('pages.phaseSequences.isRepeating')}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                )}
+              </>
+            }
+            fields={[
+              {
+                label: t('pages.phaseSequences.sequenceEntries'),
+                value: t('pages.phaseSequences.entryCount', {
+                  count: seq.entries.length,
+                }),
+              },
+              {
+                label: t('pages.phaseSequences.totalDuration'),
+                value: t('pages.phaseSequences.totalDurationDays', {
+                  count: computeTotalDuration(seq),
+                }),
+              },
+            ]}
+          />
+        )}
+      />
 
       <CreateSequenceDialog
         open={createOpen}
