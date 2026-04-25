@@ -355,8 +355,9 @@ export default function CareProfileEditDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="care-profile-edit-dialog">
-      <DialogTitle>{t('pages.pflege.editProfile')}</DialogTitle>
+      data-testid="care-profile-edit-dialog"
+      aria-labelledby="care-profile-edit-dialog-title">
+      <DialogTitle id="care-profile-edit-dialog-title">{t('pages.pflege.editProfile')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
 

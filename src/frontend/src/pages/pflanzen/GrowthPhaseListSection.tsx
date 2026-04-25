@@ -148,7 +148,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
     {
       id: 'watering',
       label: t('pages.growthPhases.wateringInterval'),
-      render: (r) => r.wateringIntervalDays != null ? `${r.wateringIntervalDays}d` : '\u2014',
+      render: (r) => r.wateringIntervalDays != null ? `${r.wateringIntervalDays}d` : '—',
       align: 'right' as const,
       searchValue: (r: PhaseRow) => r.wateringIntervalDays != null ? String(r.wateringIntervalDays) : '',
     },
@@ -224,7 +224,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.displayName}
-            subtitle={`#${r.sequenceOrder} \u2014 ${r.durationDays}d`}
+            subtitle={`#${r.sequenceOrder} — ${r.durationDays}d`}
             chips={
               <>
                 {r.isTerminal && <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" />}

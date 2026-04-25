@@ -87,8 +87,8 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.substrates.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="substrate-create-dialog-title" data-testid="substrate-create-dialog">
+      <DialogTitle id="substrate-create-dialog-title">{t('pages.substrates.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.substrates.createIntro')}

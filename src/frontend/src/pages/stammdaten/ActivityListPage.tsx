@@ -107,7 +107,7 @@ export default function ActivityListPage() {
     {
       id: 'recovery',
       label: t('pages.activities.recoveryDays'),
-      render: (r) => r.recovery_days_default > 0 ? `${r.recovery_days_default}d` : '\u2014',
+      render: (r) => r.recovery_days_default > 0 ? `${r.recovery_days_default}d` : '—',
       align: 'right',
     },
     {

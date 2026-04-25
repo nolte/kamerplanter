@@ -88,8 +88,8 @@ export default function DiseaseCreateDialog({ open, onClose, onCreated }: Props)
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.ipm.createDisease')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="disease-create-dialog-title" data-testid="disease-create-dialog">
+      <DialogTitle id="disease-create-dialog-title">{t('pages.ipm.createDisease')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.ipm.diseaseCreateIntro')}
@@ -101,7 +101,8 @@ export default function DiseaseCreateDialog({ open, onClose, onCreated }: Props)
             label={t('pages.ipm.scientificName')}
             required
             helperText={t('pages.ipm.diseaseScientificNameHelper')}
-          />
+        autoFocus
+      />
           <FormTextField
             name="common_name"
             control={control}

@@ -91,8 +91,8 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const fc = siteFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.sites.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth aria-labelledby="site-create-dialog-title" data-testid="site-create-dialog">
+      <DialogTitle id="site-create-dialog-title">{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.sites.createIntro')}

@@ -136,8 +136,9 @@ export default function ProfileEditDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="profile-edit-dialog">
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="profile-edit-dialog"
+      aria-labelledby="profile-edit-dialog-title">
+      <DialogTitle id="profile-edit-dialog-title">
         {phaseName} — {t('pages.profiles.editTitle')}
       </DialogTitle>
       <DialogContent>
@@ -156,7 +157,7 @@ export default function ProfileEditDialog({
                 {t('pages.profiles.requirementsDesc')}
               </Typography>
               <FormRow>
-                <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 \u03BCmol/m\u00B2/s" autoFocus />
+                <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 μmol/m²/s" autoFocus />
                 <FormNumberField name="req.photoperiod_hours" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
               </FormRow>
               <FormRow>
@@ -169,7 +170,7 @@ export default function ProfileEditDialog({
               </FormRow>
               <FormRow>
                 <FormNumberField name="req.vpd_target_kpa" control={control} label={t('pages.profiles.vpdTarget')} min={0} step={0.1} suffix="kPa" helperText="0.8–1.5 kPa" />
-                <FormNumberField name="req.co2_ppm" control={control} label="CO\u2082 (ppm)" min={0} suffix="ppm" helperText="400–1500 ppm" />
+                <FormNumberField name="req.co2_ppm" control={control} label="CO₂ (ppm)" min={0} suffix="ppm" helperText="400–1500 ppm" />
               </FormRow>
               <FormRow>
                 <FormNumberField name="req.irrigation_frequency_days" control={control} label={t('pages.profiles.irrigationFrequency')} min={0} step={0.5} suffix={t('common.days')} />

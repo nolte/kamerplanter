@@ -111,8 +111,9 @@ export default function WateringConfirmDialog({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      data-testid="watering-confirm-dialog">
-      <DialogTitle>{t('pages.wateringSchedule.confirm')}</DialogTitle>
+      data-testid="watering-confirm-dialog"
+      aria-labelledby="watering-confirm-dialog-title">
+      <DialogTitle id="watering-confirm-dialog-title">{t('pages.wateringSchedule.confirm')}</DialogTitle>
       <DialogContent>
         {result ? (
           <Box sx={{ py: 2 }}>
@@ -155,6 +156,7 @@ export default function WateringConfirmDialog({
                 max={20}
                 helperText={t('pages.wateringSchedule.measuredEcHelper')}
                 suffix="mS/cm"
+                autoFocus
               />
               <FormNumberField
                 name="measured_ph"

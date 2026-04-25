@@ -257,8 +257,8 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{duplicateFrom ? t('pages.plantInstances.duplicateTitle') : t('pages.plantInstances.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="plant-instance-create-dialog-title" data-testid="plant-instance-create-dialog">
+      <DialogTitle id="plant-instance-create-dialog-title">{duplicateFrom ? t('pages.plantInstances.duplicateTitle') : t('pages.plantInstances.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}
@@ -267,6 +267,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
             control={control}
             label={t('entities.species')}
             required
+            autoFocus
             disabled={!!initialSpeciesKey || !!duplicateFrom}
             species={speciesList}
           />
@@ -278,7 +279,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
               helperText={t('pages.plantInstances.cultivarKeyHelper')}
               disabled={!speciesKey || cultivarsLoading}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
               ]}
             />
@@ -330,7 +331,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
               label={t('entities.site')}
               helperText={t('pages.plantInstances.siteHelper')}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
@@ -348,7 +349,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
             helperText={t('pages.plantInstances.slotHelper')}
             disabled={slotsList.length === 0}
             options={[
-              { value: '', label: '\u2014' },
+              { value: '', label: '—' },
               ...slotsList.map((s) => ({
                 value: s.key,
                 label: s.currently_occupied

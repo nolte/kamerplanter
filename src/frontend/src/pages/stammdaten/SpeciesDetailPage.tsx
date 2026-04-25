@@ -387,7 +387,7 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.species.editIntro')}
@@ -437,7 +437,7 @@ export default function SpeciesDetailPage() {
                     label={t('pages.species.family')}
                     helperText={t('pages.species.familyHelper')}
                     options={[
-                      { value: '', label: '\u2014' },
+                      { value: '', label: '—' },
                       ...families.map((f) => ({ value: f.key, label: f.name })),
                     ]}
                   />
@@ -516,7 +516,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.containerSuitable')}
                   helperText={t('pages.species.containerSuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -529,7 +529,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.indoorSuitable')}
                   helperText={t('pages.species.indoorSuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -544,7 +544,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.balconySuitable')}
                   helperText={t('pages.species.balconySuitableHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...['yes', 'limited', 'no'].map((v) => ({
                       value: v,
                       label: t(`enums.suitability.${v}`),
@@ -557,7 +557,7 @@ export default function SpeciesDetailPage() {
                   label={t('pages.species.defaultNutrientPlan')}
                   helperText={t('pages.species.defaultNutrientPlanHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...nutrientPlans.map((p) => ({
                       value: p.key,
                       label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,

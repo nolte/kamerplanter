@@ -138,8 +138,9 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const fc = speciesFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="create-dialog">
-      <DialogTitle>{t('pages.species.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="species-create-dialog"
+      aria-labelledby="species-create-dialog-title">
+      <DialogTitle id="species-create-dialog-title">{t('pages.species.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.species.createIntro')}
@@ -173,7 +174,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               label={t('pages.species.family')}
               helperText={t('pages.species.familyHelper')}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...families.map((f) => ({ value: f.key, label: f.name })),
               ]}
             />
@@ -307,7 +308,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
                 label={t('pages.species.containerSuitable')}
                 helperText={t('pages.species.containerSuitableHelper')}
                 options={[
-                  { value: '', label: '\u2014' },
+                  { value: '', label: '—' },
                   ...['yes', 'limited', 'no'].map((v) => ({
                     value: v,
                     label: t(`enums.suitability.${v}`),
@@ -320,7 +321,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
                 label={t('pages.species.indoorSuitable')}
                 helperText={t('pages.species.indoorSuitableHelper')}
                 options={[
-                  { value: '', label: '\u2014' },
+                  { value: '', label: '—' },
                   ...['yes', 'limited', 'no'].map((v) => ({
                     value: v,
                     label: t(`enums.suitability.${v}`),
@@ -336,7 +337,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               label={t('pages.species.balconySuitable')}
               helperText={t('pages.species.balconySuitableHelper')}
               options={[
-                { value: '', label: '\u2014' },
+                { value: '', label: '—' },
                 ...['yes', 'limited', 'no'].map((v) => ({
                   value: v,
                   label: t(`enums.suitability.${v}`),

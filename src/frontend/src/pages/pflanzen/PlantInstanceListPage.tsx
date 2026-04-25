@@ -137,7 +137,7 @@ export default function PlantInstanceListPage() {
       render: (r) => {
         const species = speciesMap.get(r.species_key);
         const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
-        const displayName = r.plant_name ?? '\u2014';
+        const displayName = r.plant_name ?? '—';
         if (!species) return displayName;
         return (
           <Tooltip
@@ -199,7 +199,7 @@ export default function PlantInstanceListPage() {
           const site = siteMap.get(r.site_key);
           if (site) return site.name;
         }
-        return '\u2014';
+        return '—';
       },
       searchValue: (r) => {
         if (r.slot_key) {
@@ -228,13 +228,13 @@ export default function PlantInstanceListPage() {
     {
       id: 'plantedOn',
       label: t('pages.plantInstances.plantedOn'),
-      render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '\u2014',
+      render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '—',
     },
     {
       id: 'currentPhase',
       label: t('pages.plantInstances.currentPhase'),
       render: (r) => {
-        if (!r.current_phase) return <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>;
+        if (!r.current_phase) return <Typography variant="body2" color="text.secondary">{'—'}</Typography>;
         const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
           germination: 'info',
           seedling: 'success',
@@ -257,7 +257,7 @@ export default function PlantInstanceListPage() {
       label: t('entities.plantingRun'),
       render: (r) => {
         const runInfo = plantRunMap.get(r.key);
-        if (!runInfo) return '\u2014';
+        if (!runInfo) return '—';
         return (
           <Chip
             label={runInfo.runName}
@@ -278,7 +278,7 @@ export default function PlantInstanceListPage() {
       id: 'removedOn',
       label: t('pages.plantInstances.removedOn'),
       render: (r) =>
-        r.removed_on ? new Date(r.removed_on).toLocaleDateString() : '\u2014',
+        r.removed_on ? new Date(r.removed_on).toLocaleDateString() : '—',
     },
     {
       id: 'actions',
@@ -323,7 +323,7 @@ export default function PlantInstanceListPage() {
     return (
       <MobileCard
         title={r.plant_name ?? r.instance_id}
-        subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` \u2014 ${cultivar.name}` : ''}` : undefined}
+        subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` — ${cultivar.name}` : ''}` : undefined}
         chips={
           <>
             {r.current_phase ? (

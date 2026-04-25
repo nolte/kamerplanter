@@ -62,7 +62,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
 
   const columns: Column<Cultivar>[] = [
     { id: 'name', label: t('pages.cultivars.name'), render: (r) => r.name },
-    { id: 'breeder', label: t('pages.cultivars.breeder'), render: (r) => r.breeder ?? '\u2014' },
+    { id: 'breeder', label: t('pages.cultivars.breeder'), render: (r) => r.breeder ?? '—' },
     {
       id: 'traits',
       label: t('pages.cultivars.traits'),
@@ -77,7 +77,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
     {
       id: 'maturity',
       label: t('pages.cultivars.daysToMaturity'),
-      render: (r) => r.days_to_maturity ?? '\u2014',
+      render: (r) => r.days_to_maturity ?? '—',
       align: 'right',
     },
     {

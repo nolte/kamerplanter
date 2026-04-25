@@ -98,8 +98,8 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.tasks.createWorkflow')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="workflow-create-dialog-title" data-testid="workflow-create-dialog">
+      <DialogTitle id="workflow-create-dialog-title">{t('pages.tasks.createWorkflow')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.createWorkflowIntro')}

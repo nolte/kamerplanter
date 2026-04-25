@@ -169,8 +169,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-entry-dialog-title" data-testid="phase-entry-dialog">
+      <DialogTitle id="phase-entry-dialog-title">
         {isEdit
           ? t('pages.nutrientPlans.editEntry')
           : t('pages.nutrientPlans.addEntry')}
@@ -191,7 +191,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               label: t(`enums.phaseName.${v}`),
             }))}
             required
-          />
+        autoFocus
+      />
           <FormNumberField
             name="sequence_order"
             control={control}
@@ -251,6 +252,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               name="npk_n"
               control={control}
               label={t('pages.fertilizers.npkN')}
+              helperText={t('pages.fertilizers.npkNHelper')}
               min={0}
               suffix="%"
               inputMode="decimal"
@@ -259,6 +261,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               name="npk_p"
               control={control}
               label={t('pages.fertilizers.npkP')}
+              helperText={t('pages.fertilizers.npkPHelper')}
               min={0}
               suffix="%"
               inputMode="decimal"
@@ -269,6 +272,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               name="npk_k"
               control={control}
               label={t('pages.fertilizers.npkK')}
+              helperText={t('pages.fertilizers.npkKHelper')}
               min={0}
               suffix="%"
               inputMode="decimal"

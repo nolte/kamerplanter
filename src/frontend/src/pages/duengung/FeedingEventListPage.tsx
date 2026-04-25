@@ -61,7 +61,7 @@ export default function FeedingEventListPage() {
       id: 'timestamp',
       label: t('pages.feedingEvents.timestamp'),
       render: (r) =>
-        r.timestamp ? new Date(r.timestamp).toLocaleString() : '\u2014',
+        r.timestamp ? new Date(r.timestamp).toLocaleString() : '—',
       searchValue: (r) =>
         r.timestamp ? new Date(r.timestamp).toLocaleString() : '',
     },
@@ -115,7 +115,7 @@ export default function FeedingEventListPage() {
       id: 'ecAfter',
       label: t('pages.feedingEvents.ecAfter'),
       render: (r) =>
-        r.measured_ec_after != null ? `${r.measured_ec_after} mS/cm` : '\u2014',
+        r.measured_ec_after != null ? `${r.measured_ec_after} mS/cm` : '—',
       align: 'right',
       searchValue: (r) => r.measured_ec_after != null ? String(r.measured_ec_after) : '',
     },

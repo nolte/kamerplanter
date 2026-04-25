@@ -112,8 +112,8 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-schedule-dialog-title" data-testid="maintenance-schedule-dialog">
+      <DialogTitle id="maintenance-schedule-dialog-title">
         {isEdit ? t('pages.tanks.editSchedule') : t('pages.tanks.createSchedule')}
       </DialogTitle>
       <DialogContent>
@@ -129,7 +129,8 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
               value: v,
               label: t(`enums.maintenanceType.${v}`),
             }))}
-          />
+        autoFocus
+      />
           <FormSelectField
             name="priority"
             control={control}

@@ -92,8 +92,8 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.ipm.createPest')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="pest-create-dialog-title" data-testid="pest-create-dialog">
+      <DialogTitle id="pest-create-dialog-title">{t('pages.ipm.createPest')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.ipm.pestCreateIntro')}
@@ -138,14 +138,14 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
               label={t('pages.ipm.optimalTempMin')}
               helperText={t('pages.ipm.optimalTempHelper')}
               inputMode="decimal"
-              suffix="\u00b0C"
+              suffix="°C"
             />
             <FormNumberField
               name="optimal_temp_max"
               control={control}
               label={t('pages.ipm.optimalTempMax')}
               inputMode="decimal"
-              suffix="\u00b0C"
+              suffix="°C"
             />
           </FormRow>
           <FormSelectField

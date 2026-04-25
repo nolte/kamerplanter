@@ -192,7 +192,7 @@ export default function SpeciesListPage() {
     {
       id: 'commonNames',
       label: t('pages.species.commonNames'),
-      render: (r) => r.common_names.join(', ') || '\u2014',
+      render: (r) => r.common_names.join(', ') || '—',
     },
     {
       id: 'family',
@@ -207,7 +207,7 @@ export default function SpeciesListPage() {
             {r.family_name ?? r.family_key}
           </Link>
         ) : (
-          '\u2014'
+          '—'
         ),
       searchValue: (r) => r.family_name ?? '',
       hideBelowBreakpoint: 'md',

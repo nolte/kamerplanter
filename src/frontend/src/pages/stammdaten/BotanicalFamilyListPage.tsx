@@ -35,8 +35,8 @@ export default function BotanicalFamilyListPage() {
       label: t('pages.botanicalFamilies.commonName'),
       render: (r) =>
         i18n.language === 'en'
-          ? r.common_name_en || r.common_name_de || '\u2014'
-          : r.common_name_de || r.common_name_en || '\u2014',
+          ? r.common_name_en || r.common_name_de || '—'
+          : r.common_name_de || r.common_name_en || '—',
       searchValue: (r) => `${r.common_name_de} ${r.common_name_en}`,
     },
     {
@@ -67,7 +67,7 @@ export default function BotanicalFamilyListPage() {
     {
       id: 'rotationCategory',
       label: t('pages.botanicalFamilies.rotationCategory'),
-      render: (r) => r.rotation_category || '\u2014',
+      render: (r) => r.rotation_category || '—',
     },
   ];
 

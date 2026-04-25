@@ -115,7 +115,7 @@ export default function BatchDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.batches.editIntro')}
         </Typography>

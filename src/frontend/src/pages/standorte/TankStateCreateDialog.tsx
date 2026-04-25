@@ -93,8 +93,9 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="tank-state-create-dialog">
-      <DialogTitle>{t('pages.tanks.recordState')}</DialogTitle>
+      data-testid="tank-state-create-dialog"
+      aria-labelledby="tank-state-create-dialog-title">
+      <DialogTitle id="tank-state-create-dialog-title">{t('pages.tanks.recordState')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>

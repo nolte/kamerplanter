@@ -283,7 +283,7 @@ export default function PlantInstanceDetailPage() {
       // Load next pending watering task
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wateringTask = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
         setNextWateringTask(null);
@@ -417,7 +417,7 @@ export default function PlantInstanceDetailPage() {
       // Refresh next watering task (confirming creates a new one)
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        const wt = tasks.find((t) => t.name.endsWith('\u2014 watering'));
+        const wt = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wt ?? null);
       } catch {
         setNextWateringTask(null);
@@ -1789,7 +1789,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 4: Care Profile */}
       {tab === 4 && (
-        <Box sx={{ maxWidth: 900 }}>
+        <Box sx={{ maxWidth: 1280 }}>
           {careProfile ? (
             <>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -2145,7 +2145,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>

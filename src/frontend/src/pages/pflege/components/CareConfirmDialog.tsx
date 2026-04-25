@@ -187,8 +187,8 @@ export default function CareConfirmDialog({
   );
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{dialogTitle}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="care-confirm-dialog-title" data-testid="care-confirm-dialog">
+      <DialogTitle id="care-confirm-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
         <TextField
           label={t('common.notes')}
@@ -290,7 +290,7 @@ export default function CareConfirmDialog({
                     slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                     sx={{ flex: 1 }}
                   />
-                  <IconButton size="small" onClick={() => handleRemoveFertilizer(index)}>
+                  <IconButton size="small" aria-label={t('common.delete')} onClick={() => handleRemoveFertilizer(index)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Box>

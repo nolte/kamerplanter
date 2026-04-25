@@ -84,7 +84,7 @@ export default function NutrientPlanListPage() {
     {
       id: 'author',
       label: t('pages.nutrientPlans.author'),
-      render: (r) => r.author || '\u2014',
+      render: (r) => r.author || '—',
     },
     {
       id: 'recommended_substrate_type',
@@ -92,7 +92,7 @@ export default function NutrientPlanListPage() {
       render: (r) =>
         r.recommended_substrate_type
           ? t(`enums.substrateType.${r.recommended_substrate_type}`)
-          : '\u2014',
+          : '—',
       searchValue: (r) =>
         r.recommended_substrate_type
           ? t(`enums.substrateType.${r.recommended_substrate_type}`)
@@ -113,7 +113,7 @@ export default function NutrientPlanListPage() {
     {
       id: 'version',
       label: t('pages.nutrientPlans.version'),
-      render: (r) => r.version || '\u2014',
+      render: (r) => r.version || '—',
     },
     {
       id: 'tags',

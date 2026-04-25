@@ -255,7 +255,7 @@ export default function CultivarDetailPage() {
       <Box
         component="form"
         onSubmit={handleSubmit(onSubmit)}
-        sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
         <Typography variant="body2" color="text.secondary">
           {t('pages.cultivars.editIntro')}
@@ -374,7 +374,7 @@ export default function CultivarDetailPage() {
                   <TableCell>
                     {gp.watering_interval_days
                       ? `${gp.watering_interval_days} ${t('common.days')}`
-                      : '\u2014'}
+                      : '—'}
                   </TableCell>
                   <TableCell>
                     <TextField

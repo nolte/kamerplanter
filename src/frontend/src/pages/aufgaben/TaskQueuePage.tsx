@@ -461,7 +461,7 @@ export default function TaskQueuePage() {
     const taskNameTypes = new Set<string>();
     for (const t of taskQueue) {
       if (t.category !== 'care_reminder') continue;
-      const parts = t.name?.split('\u2014');
+      const parts = t.name?.split('—');
       const reminderType = parts && parts.length > 1 ? parts[1].trim() : undefined;
       if (!reminderType) continue;
 

@@ -244,7 +244,7 @@ export default function PlantingRunDetailsTab({
               variant="body1"
               sx={{ display: 'block' }}
             >
-              {(assignedPlan as { name?: string }).name ?? '\u2014'}
+              {(assignedPlan as { name?: string }).name ?? '—'}
             </Link>
           </Grid>
         )}

@@ -56,7 +56,24 @@
     "langEN": "Englisch",
     "open": "Öffnen",
     "showAll": "Alle anzeigen ({{count}})",
-    "showLess": "Weniger anzeigen"
+    "showLess": "Weniger anzeigen",
+    "origin": {
+      "system": "System",
+      "enrichment": "Angereichert",
+      "import": "Importiert",
+      "tenant": "Eigene",
+      "tooltipSystem": "Vom System bereitgestellt. Kann nicht bearbeitet oder gelöscht werden.",
+      "tooltipEnrichment": "Automatisch über externe Quellen angereichert. Kann nicht direkt bearbeitet werden.",
+      "tooltipImport": "Über CSV-Import hinzugefügt. Kann bearbeitet und gelöscht werden.",
+      "filterLabel": "Herkunft",
+      "copyAsTemplate": "Als Vorlage kopieren",
+      "readOnlyHint": "Systemdaten können nicht bearbeitet werden."
+    },
+    "glossary": {
+      "unit": "Einheit",
+      "typical": "Typisch"
+    },
+    "failed": "Fehlgeschlagen"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -736,7 +753,7 @@
       "collapseSite": "Bereiche ausblenden",
       "addSublocation": "Bereich hinzufügen",
       "create": "Standort erstellen",
-      "createIntro": "Erstelle einen neuen Standort — z.\u00a0B. ein Growzelt, Gewächshaus oder Gartenbeet.",
+      "createIntro": "Erstelle einen neuen Standort — z. B. ein Growzelt, Gewächshaus oder Gartenbeet.",
       "noRuns": "Noch keine Pflanzdurchläufe an diesem Standort",
       "name": "Name",
       "nameHelper": "z.B. 'Growzelt 1', 'Gewächshaus', 'Garten Nord', 'Balkon'",
@@ -1300,11 +1317,11 @@
       "volumeLitersHelper": "Gesamtvolumen des Tanks in Litern",
       "phHelper": "Optimaler Bereich: 5.5–6.5",
       "ecHelper": "Typisch: 0.5–3.0 mS/cm",
-      "tdsHelper": "Typisch: 250–1500 ppm",
+      "tdsHelper": "Gesamtgelöste Stoffe – Feststoffanteil im Tankwasser.",
       "waterTempHelper": "Optimal: 18–22 °C",
       "fillLevelPercentHelper": "0% = leer, 100% = voll",
-      "dissolvedOxygenHelper": "Optimal: 5–8 mg/L",
-      "orpHelper": "Optimal: 300–500 mV",
+      "dissolvedOxygenHelper": "Gelöster Sauerstoff – essenziell für Wurzelaktivität in Hydroponik.",
+      "orpHelper": "Redoxpotenzial – elektrochemisches Maß der Wasserqualität.",
       "roPercentHelper": "Anteil Osmosewasser in der Mischung",
       "targetEcHelper": "Gewünschter EC nach Befüllung",
       "targetPhHelper": "Gewünschter pH nach Befüllung",
@@ -1447,7 +1464,7 @@
       "isOrganicHelper": "Zertifiziert biologisch / nicht-synthetisch",
       "shelfLifeHelper": "Ab Kaufdatum",
       "noProperties": "Keine besonderen Eigenschaften",
-      "npkNHelper": "Stickstoff-Anteil in Prozent",
+      "npkNHelper": "Stickstoff – fördert Blattwachstum.",
       "detailsIntro": "Übersicht aller Eigenschaften dieses Düngemittels – von Nährstoffprofil bis Lagerungsempfehlung.",
       "sectionNutrientsDetail": "Nährstoffprofil",
       "sectionNutrientsDetailIntro": "NPK-Verhältnis, EC-Beitrag und pH-Wirkung des Düngers.",
@@ -1484,7 +1501,9 @@
       "ecUncertainHint": "Der EC-Beitrag dieses Düngers ist geschätzt und kann abweichen.",
       "incompCritical": "Kritisch",
       "addStockIntro": "Erfassen Sie einen neuen Bestandseintrag für dieses Düngemittel.",
-      "stockCount": "Einträge"
+      "stockCount": "Einträge",
+      "npkPHelper": "Phosphor – fördert Wurzeln und Blütenbildung.",
+      "npkKHelper": "Kalium – fördert Frucht und Widerstandskraft."
     },
     "nutrientPlans": {
       "title": "Nährstoffpläne",
@@ -1769,7 +1788,8 @@
       "noSensors": "Keine Sensoren zugeordnet",
       "created": "Sensor erstellt",
       "deleted": "Sensor gelöscht",
-      "liveState": "Live-Status"
+      "liveState": "Live-Status",
+      "metricTypeHelper": "ph = Säuregrad · ec_ms = Leitfähigkeit · vpd_kpa = Dampfdruckdefizit · ppfd = Lichtintensität · orp_mv = Redoxpotenzial · tds_ppm = Gesamtgelöste Stoffe · dissolved_oxygen_mgl = Gelöster Sauerstoff"
     },
     "nutrientCalc": {
       "title": "Nährstoff-Berechnungen",
@@ -1903,7 +1923,7 @@
       "sourceWateringSchedule": "Gießplan",
       "sourcePlantingRun": "Pflanzdurchlauf",
       "sourceCareReminder": "Pflegeerinnerung",
-      "sourceManual": "Manuell erstellt",
+      "sourceManual": "Manuell",
       "taskTemplates": "Aufgabenvorlagen",
       "tabDetails": "Details",
       "tabComplete": "Abschließen",
@@ -1997,7 +2017,6 @@
       "systemTemplateDeleteDisabled": "System-Vorlagen können nicht gelöscht werden.",
       "createManually": "Manuell erstellen",
       "sourceCatalog": "Katalog",
-      "sourceManual": "Manuell",
       "compatibleOnly": "Passend zu Arten",
       "addActivityFromCatalog": "Tätigkeit aus Katalog hinzufügen",
       "addActivityToPhase": "Tätigkeit zu {{phase}} hinzufügen",
@@ -2087,7 +2106,9 @@
         "planting_run": "Durchlauf",
         "location": "Standort",
         "tank": "Tank"
-      }
+      },
+      "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
+      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",
@@ -3513,6 +3534,17 @@
       "beginner": "Anfänger",
       "intermediate": "Fortgeschritten",
       "advanced": "Erfahren"
+    },
+    "plantPhase": {
+      "germination": "Keimung",
+      "seedling": "Keimling",
+      "vegetative": "Wachstum",
+      "flowering": "Blüte",
+      "harvest": "Ernte",
+      "post_harvest": "Nachernte",
+      "dormancy": "Ruhephase",
+      "early_flower": "Frühblüte",
+      "late_flower": "Spätblüte"
     }
   },
   "sensorChart": {
@@ -3554,5 +3586,58 @@
     "layoutGrid3x3Helper": "Sehr kompakt — optimal für viele Pflanzen auf einmal.",
     "printLabels": "Infokarten drucken",
     "printLabelsShort": "Etiketten"
+  },
+  "glossary": {
+    "ec": {
+      "short": "Leitfähigkeit — wie viel Dünger im Wasser ist",
+      "long": "EC misst die Nährstoffkonzentration im Gießwasser. Gesamt-EC = Leitungswasser-EC + Dünger-EC. Deutsches Leitungswasser hat ca. 0,3–0,8 mS/cm. Für Topfpflanzen Gesamt-EC 1,0–2,0 mS/cm anstreben. Hydroponik präziser: Netto-EC (nur Dünger) nach Pflanzenart einstellen.",
+      "beginnerTip": "Ohne EC-Messgerät: Halte dich an die Dosierungsempfehlung auf der Dünger-Flasche. Lieber etwas weniger als zu viel.",
+      "unit": "mS/cm",
+      "typicalRange": "0,5–3,5 mS/cm"
+    },
+    "ph": {
+      "short": "Säuregrad des Bodens oder Gießwassers",
+      "long": "Der pH-Wert gibt an, wie sauer oder basisch ein Medium ist. Skala 0–14: unter 7 = sauer, 7 = neutral, über 7 = basisch. Die meisten Pflanzen mögen leicht sauren bis neutralen Boden (pH 5,5–7,0). Heidelbeeren brauchen sauren Boden (pH 4,0–5,0).",
+      "beginnerTip": "Normale Blumenerde hat meist den richtigen pH-Wert. Erst bei Problemen (gelbe Blätter trotz Düngung) den pH prüfen.",
+      "unit": "pH",
+      "typicalRange": "5,5–7,0"
+    },
+    "vpd": {
+      "short": "Dampfdruckdefizit — wie „durstig\" die Luft ist",
+      "long": "Das VPD misst, wie stark die Luft Feuchtigkeit aufnehmen kann. Hoher VPD = trockene Luft = Pflanze verdunstet mehr. Optimale Werte sind artabhängig: Tropische Pflanzen mögen 0,4–0,8 kPa, Nutzpflanzen im Wachstum 0,8–1,2 kPa, Kakteen tolerieren über 1,5 kPa.",
+      "beginnerTip": "Im Zimmer normalerweise kein Problem. Nur bei geschlossenen Growzelten relevant.",
+      "unit": "kPa",
+      "typicalRange": "0,4–1,6 kPa"
+    },
+    "ppfd": {
+      "short": "Lichtmenge für Pflanzen — wie hell es wirklich ist",
+      "long": "PPFD misst die Lichtintensität, die Pflanzen tatsächlich nutzen können. Anders als Lux (für menschliche Augen) erfasst PPFD nur das pflanzenrelevante Lichtspektrum.",
+      "beginnerTip": "Faustregel: Südfenster mit Direktsonne im Sommer ≈ 200–400. Ost-/Westfenster: 100–200. Nordfenster: unter 50.",
+      "unit": "µmol/m²/s",
+      "typicalRange": "100–1500 µmol/m²/s"
+    },
+    "npk": {
+      "short": "Stickstoff-Phosphor-Kalium — die drei Hauptnährstoffe",
+      "long": "Die drei Zahlen auf jeder Düngerflasche: N (Stickstoff, für Blattwachstum), P (Phosphor, für Wurzeln und Blüten), K (Kalium, für Fruchtbildung und Widerstandskraft).",
+      "beginnerTip": "Für Anfänger reicht ein Universaldünger — die NPK-Werte stehen auf der Flasche."
+    },
+    "calmag": {
+      "short": "Calcium-Magnesium-Ergänzung zum Basisdünger",
+      "long": "Weiches Wasser enthält wenig Calcium und Magnesium. CalMag gleicht das aus und wird IMMER VOR dem Basisdünger ins Wasser gegeben (Reihenfolge wichtig!).",
+      "beginnerTip": "Nur bei Hydroponik oder sehr weichem Wasser nötig. Die meisten Leitungswässer haben genug."
+    },
+    "gdd": {
+      "short": "Wachstumsgradtage — akkumulierte Wärme seit dem Pflanzen",
+      "long": "GDD misst, wie viel verwertbare Wärme eine Pflanze seit dem Start erhalten hat. Jeder Tag über einer Basistemperatur (z.B. 10°C) trägt Gradtage bei. Tomaten brauchen ca. 1000–1500 GDD bis zur Ernte.",
+      "beginnerTip": "Musst du nicht selbst berechnen — das System trackt das automatisch.",
+      "unit": "GDD"
+    },
+    "dli": {
+      "short": "Tageslichtmenge — wie viel Licht pro Tag",
+      "long": "DLI fasst die gesamte Lichtmenge eines Tages zusammen. Wichtig für die Lichtplanung: Kräuter brauchen 12–20, Tomaten 20–40 mol/m²/d.",
+      "beginnerTip": "Sonnige Fensterbank im Sommer ≈ 10–15 mol/m²/d. Im Winter nur 3–5.",
+      "unit": "mol/m²/d",
+      "typicalRange": "5–40 mol/m²/d"
+    }
   }
 }

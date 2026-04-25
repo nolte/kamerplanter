@@ -151,8 +151,8 @@ export default function WateringEventCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.wateringEvents.create')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="watering-event-create-dialog-title" data-testid="watering-event-create-dialog">
+      <DialogTitle id="watering-event-create-dialog-title">{t('pages.wateringEvents.create')}</DialogTitle>
       <DialogContent>
         {warnings.map((w, i) => (
           <Alert key={i} severity="warning" sx={{ mb: 1 }}>
@@ -170,7 +170,8 @@ export default function WateringEventCreateDialog({
             helperText={t('pages.wateringEvents.plantKeysHelper')}
             required
             disabled={!!plantKeys}
-          />
+        autoFocus
+      />
           <FormSelectField
             name="application_method"
             control={control}
@@ -290,7 +291,7 @@ export default function WateringEventCreateDialog({
                 label={t('pages.wateringEvents.mlPerLiter')}
                 min={0.01}
               />
-              <IconButton onClick={() => remove(index)} sx={{ mt: 1 }}>
+              <IconButton aria-label={t('common.delete')} onClick={() => remove(index)} sx={{ mt: 1 }}>
                 <DeleteIcon />
               </IconButton>
             </Box>

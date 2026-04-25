@@ -151,8 +151,8 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.tasks.createTask')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
+      <DialogTitle id="task-create-dialog-title">{t('pages.tasks.createTask')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.createIntro')}
@@ -350,6 +350,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                           <IconButton
                             edge="end"
                             size="small"
+                            aria-label={t('common.delete')}
                             onClick={() => {
                               const next = field.value.filter((_, i) => i !== idx);
                               field.onChange(next.map((it, i) => ({ ...it, order: i })));

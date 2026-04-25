@@ -630,7 +630,7 @@ export default function AccountSettingsPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '\u2014'}</Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>

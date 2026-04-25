@@ -112,7 +112,7 @@ export default function TankStateChart({ states }: TankStateChartProps) {
         label: t('pages.tanks.waterTempShort'),
         color: theme.palette.info.main,
         yAxisId: 'right',
-        unit: ' \u00B0C',
+        unit: ' °C',
       },
       fill_level_percent: {
         label: t('pages.tanks.fillLevel'),

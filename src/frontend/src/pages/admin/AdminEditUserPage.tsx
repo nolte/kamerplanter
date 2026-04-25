@@ -232,7 +232,7 @@ export default function AdminEditUserPage() {
                 <TextField label="Key" value={user.key} disabled sx={{ flex: 1 }} />
                 <TextField
                   label={t('pages.auth.adminUserLastLogin')}
-                  value={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '\u2014'}
+                  value={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '—'}
                   disabled
                   sx={{ flex: 1 }}
                 />
