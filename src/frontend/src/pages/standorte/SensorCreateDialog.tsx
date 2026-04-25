@@ -207,6 +207,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
             name="metric_type"
             control={control}
             label={t('pages.sensors.metricType')}
+            helperText={t('pages.sensors.metricTypeHelper')}
             options={metricTypes.map((v) => ({
               value: v,
               label: t(`enums.sensorMetricType.${v}`, { defaultValue: v }),

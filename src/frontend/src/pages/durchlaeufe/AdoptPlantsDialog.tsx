@@ -212,7 +212,7 @@ export default function AdoptPlantsDialog({
                       secondary={plant.instance_id !== (plant.plant_name ?? plant.instance_id) ? plant.instance_id : undefined}
                     />
                     <Chip
-                      label={plant.current_phase}
+                      label={t(`enums.plantPhase.${plant.current_phase}`, { defaultValue: plant.current_phase })}
                       size="small"
                       color="primary"
                       variant="outlined"

@@ -217,6 +217,7 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
             </Typography>
             <IconButton
               size="small"
+              aria-label={t('common.delete')}
               onClick={() => removeRow(index)}
               disabled={rows.length <= 2}
             >

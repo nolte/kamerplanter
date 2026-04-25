@@ -103,7 +103,8 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
               value: v,
               label: t(`enums.maintenanceType.${v}`),
             }))}
-          />
+        autoFocus
+      />
           <FormRow>
             <FormTextField
               name="performed_by"

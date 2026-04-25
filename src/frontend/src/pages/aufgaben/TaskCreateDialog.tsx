@@ -350,6 +350,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
                           <IconButton
                             edge="end"
                             size="small"
+                            aria-label={t('common.delete')}
                             onClick={() => {
                               const next = field.value.filter((_, i) => i !== idx);
                               field.onChange(next.map((it, i) => ({ ...it, order: i })));

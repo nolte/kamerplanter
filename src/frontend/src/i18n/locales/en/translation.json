@@ -72,7 +72,8 @@
     "glossary": {
       "unit": "Unit",
       "typical": "Typical"
-    }
+    },
+    "failed": "Failed"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -1316,11 +1317,11 @@
       "volumeLitersHelper": "Total tank volume in liters",
       "phHelper": "Optimal range: 5.5–6.5",
       "ecHelper": "Typical: 0.5–3.0 mS/cm",
-      "tdsHelper": "Typical: 250–1500 ppm",
+      "tdsHelper": "Total dissolved solids – particulate load in tank water.",
       "waterTempHelper": "Optimal: 18–22 °C",
       "fillLevelPercentHelper": "0% = empty, 100% = full",
-      "dissolvedOxygenHelper": "Optimal: 5–8 mg/L",
-      "orpHelper": "Optimal: 300–500 mV",
+      "dissolvedOxygenHelper": "Dissolved oxygen – essential for root activity in hydroponics.",
+      "orpHelper": "Redox potential – electrochemical water quality indicator.",
       "roPercentHelper": "Percentage of RO water in the mix",
       "targetEcHelper": "Desired EC after filling",
       "targetPhHelper": "Desired pH after filling",
@@ -1463,7 +1464,7 @@
       "isOrganicHelper": "Certified organic / non-synthetic",
       "shelfLifeHelper": "From purchase date",
       "noProperties": "No special properties",
-      "npkNHelper": "Nitrogen content in percent",
+      "npkNHelper": "Nitrogen – drives leaf growth.",
       "detailsIntro": "Overview of all properties of this fertilizer – from nutrient profile to storage recommendations.",
       "sectionNutrientsDetail": "Nutrient Profile",
       "sectionNutrientsDetailIntro": "NPK ratio, EC contribution and pH effect of this fertilizer.",
@@ -1500,7 +1501,9 @@
       "ecUncertainHint": "The EC contribution of this fertilizer is estimated and may vary.",
       "incompCritical": "Critical",
       "addStockIntro": "Record a new stock entry for this fertilizer.",
-      "stockCount": "Entries"
+      "stockCount": "Entries",
+      "npkPHelper": "Phosphorus – supports roots and flower formation.",
+      "npkKHelper": "Potassium – improves fruiting and resilience."
     },
     "nutrientPlans": {
       "title": "Nutrient Plans",
@@ -1785,7 +1788,8 @@
       "noSensors": "No sensors assigned",
       "created": "Sensor created",
       "deleted": "Sensor deleted",
-      "liveState": "Live state"
+      "liveState": "Live state",
+      "metricTypeHelper": "ph = acidity · ec_ms = conductivity · vpd_kpa = vapour pressure deficit · ppfd = light intensity · orp_mv = redox potential · tds_ppm = total dissolved solids · dissolved_oxygen_mgl = dissolved oxygen"
     },
     "nutrientCalc": {
       "title": "Nutrient Calculations",
@@ -2102,7 +2106,9 @@
         "planting_run": "Planting Run",
         "location": "Location",
         "tank": "Tank"
-      }
+      },
+      "instantiateError": "Workflow instantiation failed for all plants.",
+      "instantiatePartial": "{{success}} succeeded, {{failed}} failed."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",
@@ -3527,6 +3533,17 @@
       "beginner": "Beginner",
       "intermediate": "Intermediate",
       "advanced": "Advanced"
+    },
+    "plantPhase": {
+      "germination": "Germination",
+      "seedling": "Seedling",
+      "vegetative": "Vegetative",
+      "flowering": "Flowering",
+      "harvest": "Harvest",
+      "post_harvest": "Post-Harvest",
+      "dormancy": "Dormancy",
+      "early_flower": "Early Flower",
+      "late_flower": "Late Flower"
     }
   },
   "sensorChart": {

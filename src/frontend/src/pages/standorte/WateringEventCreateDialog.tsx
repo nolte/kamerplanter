@@ -170,7 +170,8 @@ export default function WateringEventCreateDialog({
             helperText={t('pages.wateringEvents.plantKeysHelper')}
             required
             disabled={!!plantKeys}
-          />
+        autoFocus
+      />
           <FormSelectField
             name="application_method"
             control={control}
@@ -290,7 +291,7 @@ export default function WateringEventCreateDialog({
                 label={t('pages.wateringEvents.mlPerLiter')}
                 min={0.01}
               />
-              <IconButton onClick={() => remove(index)} sx={{ mt: 1 }}>
+              <IconButton aria-label={t('common.delete')} onClick={() => remove(index)} sx={{ mt: 1 }}>
                 <DeleteIcon />
               </IconButton>
             </Box>

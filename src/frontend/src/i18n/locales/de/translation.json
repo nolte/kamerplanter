@@ -72,7 +72,8 @@
     "glossary": {
       "unit": "Einheit",
       "typical": "Typisch"
-    }
+    },
+    "failed": "Fehlgeschlagen"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -1316,11 +1317,11 @@
       "volumeLitersHelper": "Gesamtvolumen des Tanks in Litern",
       "phHelper": "Optimaler Bereich: 5.5–6.5",
       "ecHelper": "Typisch: 0.5–3.0 mS/cm",
-      "tdsHelper": "Typisch: 250–1500 ppm",
+      "tdsHelper": "Gesamtgelöste Stoffe – Feststoffanteil im Tankwasser.",
       "waterTempHelper": "Optimal: 18–22 °C",
       "fillLevelPercentHelper": "0% = leer, 100% = voll",
-      "dissolvedOxygenHelper": "Optimal: 5–8 mg/L",
-      "orpHelper": "Optimal: 300–500 mV",
+      "dissolvedOxygenHelper": "Gelöster Sauerstoff – essenziell für Wurzelaktivität in Hydroponik.",
+      "orpHelper": "Redoxpotenzial – elektrochemisches Maß der Wasserqualität.",
       "roPercentHelper": "Anteil Osmosewasser in der Mischung",
       "targetEcHelper": "Gewünschter EC nach Befüllung",
       "targetPhHelper": "Gewünschter pH nach Befüllung",
@@ -1463,7 +1464,7 @@
       "isOrganicHelper": "Zertifiziert biologisch / nicht-synthetisch",
       "shelfLifeHelper": "Ab Kaufdatum",
       "noProperties": "Keine besonderen Eigenschaften",
-      "npkNHelper": "Stickstoff-Anteil in Prozent",
+      "npkNHelper": "Stickstoff – fördert Blattwachstum.",
       "detailsIntro": "Übersicht aller Eigenschaften dieses Düngemittels – von Nährstoffprofil bis Lagerungsempfehlung.",
       "sectionNutrientsDetail": "Nährstoffprofil",
       "sectionNutrientsDetailIntro": "NPK-Verhältnis, EC-Beitrag und pH-Wirkung des Düngers.",
@@ -1500,7 +1501,9 @@
       "ecUncertainHint": "Der EC-Beitrag dieses Düngers ist geschätzt und kann abweichen.",
       "incompCritical": "Kritisch",
       "addStockIntro": "Erfassen Sie einen neuen Bestandseintrag für dieses Düngemittel.",
-      "stockCount": "Einträge"
+      "stockCount": "Einträge",
+      "npkPHelper": "Phosphor – fördert Wurzeln und Blütenbildung.",
+      "npkKHelper": "Kalium – fördert Frucht und Widerstandskraft."
     },
     "nutrientPlans": {
       "title": "Nährstoffpläne",
@@ -1785,7 +1788,8 @@
       "noSensors": "Keine Sensoren zugeordnet",
       "created": "Sensor erstellt",
       "deleted": "Sensor gelöscht",
-      "liveState": "Live-Status"
+      "liveState": "Live-Status",
+      "metricTypeHelper": "ph = Säuregrad · ec_ms = Leitfähigkeit · vpd_kpa = Dampfdruckdefizit · ppfd = Lichtintensität · orp_mv = Redoxpotenzial · tds_ppm = Gesamtgelöste Stoffe · dissolved_oxygen_mgl = Gelöster Sauerstoff"
     },
     "nutrientCalc": {
       "title": "Nährstoff-Berechnungen",
@@ -2102,7 +2106,9 @@
         "planting_run": "Durchlauf",
         "location": "Standort",
         "tank": "Tank"
-      }
+      },
+      "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
+      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",
@@ -3528,6 +3534,17 @@
       "beginner": "Anfänger",
       "intermediate": "Fortgeschritten",
       "advanced": "Erfahren"
+    },
+    "plantPhase": {
+      "germination": "Keimung",
+      "seedling": "Keimling",
+      "vegetative": "Wachstum",
+      "flowering": "Blüte",
+      "harvest": "Ernte",
+      "post_harvest": "Nachernte",
+      "dormancy": "Ruhephase",
+      "early_flower": "Frühblüte",
+      "late_flower": "Spätblüte"
     }
   },
   "sensorChart": {

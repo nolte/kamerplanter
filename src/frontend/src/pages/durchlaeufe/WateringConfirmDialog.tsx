@@ -156,6 +156,7 @@ export default function WateringConfirmDialog({
                 max={20}
                 helperText={t('pages.wateringSchedule.measuredEcHelper')}
                 suffix="mS/cm"
+                autoFocus
               />
               <FormNumberField
                 name="measured_ph"

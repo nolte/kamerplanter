@@ -101,7 +101,8 @@ export default function DiseaseCreateDialog({ open, onClose, onCreated }: Props)
             label={t('pages.ipm.scientificName')}
             required
             helperText={t('pages.ipm.diseaseScientificNameHelper')}
-          />
+        autoFocus
+      />
           <FormTextField
             name="common_name"
             control={control}

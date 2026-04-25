@@ -345,14 +345,10 @@ export default function WorkflowInstantiateDialog({
 
         if (failures.length > 0 && successCount > 0) {
           notification.warning(
-            `${t('pages.tasks.instantiatedCount', { count: successCount })} ${failures.length} ${t('common.failed', { defaultValue: 'failed' })}.`,
+            t('pages.tasks.instantiatePartial', { success: successCount, failed: failures.length }),
           );
         } else if (failures.length > 0 && successCount === 0) {
-          notification.error(
-            t('pages.tasks.instantiateError', {
-              defaultValue: 'Workflow instantiation failed for all plants.',
-            }),
-          );
+          notification.error(t('pages.tasks.instantiateError'));
         } else {
           notification.success(
             t('pages.tasks.instantiatedCount', { count: successCount }),

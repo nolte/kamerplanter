@@ -129,7 +129,8 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
               value: v,
               label: t(`enums.maintenanceType.${v}`),
             }))}
-          />
+        autoFocus
+      />
           <FormSelectField
             name="priority"
             control={control}

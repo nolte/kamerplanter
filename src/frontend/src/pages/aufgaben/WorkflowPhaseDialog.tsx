@@ -371,7 +371,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
             control={control}
             label={t('pages.tasks.phaseName')}
             required
-            autoFocus={isEdit}
+            autoFocus
           />
           <FormTextField
             name="description"

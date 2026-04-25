@@ -154,7 +154,8 @@ export default function FeedingEventCreateDialog({
               label={t('pages.feedingEvents.plantKey')}
               disabled
               required
-            />
+        autoFocus
+      />
           ) : (
             <FormSelectField
               name="plant_key"
@@ -285,7 +286,7 @@ export default function FeedingEventCreateDialog({
                 label={t('pages.feedingEvents.mlApplied')}
                 min={0.01}
               />
-              <IconButton onClick={() => remove(index)} sx={{ mt: 1 }}>
+              <IconButton aria-label={t('common.delete')} onClick={() => remove(index)} sx={{ mt: 1 }}>
                 <DeleteIcon />
               </IconButton>
             </Box>

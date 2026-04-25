@@ -267,6 +267,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
             control={control}
             label={t('entities.species')}
             required
+            autoFocus
             disabled={!!initialSpeciesKey || !!duplicateFrom}
             species={speciesList}
           />

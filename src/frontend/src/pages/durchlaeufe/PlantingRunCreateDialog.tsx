@@ -374,7 +374,9 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.plantingRuns.sectionBasics')}
           </Typography>
-          <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
+          <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required
+        autoFocus
+      />
           <FormDateField
             name="planned_start_date"
             control={control}

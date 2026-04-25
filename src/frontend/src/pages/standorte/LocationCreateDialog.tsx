@@ -118,7 +118,9 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
       <DialogTitle id="location-create-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField name="name" control={control} label={t('pages.locations.name')} required />
+          <FormTextField name="name" control={control} label={t('pages.locations.name')} required
+        autoFocus
+      />
           <FormSelectField
             name="location_type_key"
             control={control}

@@ -290,7 +290,7 @@ export default function CareConfirmDialog({
                     slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
                     sx={{ flex: 1 }}
                   />
-                  <IconButton size="small" onClick={() => handleRemoveFertilizer(index)}>
+                  <IconButton size="small" aria-label={t('common.delete')} onClick={() => handleRemoveFertilizer(index)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Box>
