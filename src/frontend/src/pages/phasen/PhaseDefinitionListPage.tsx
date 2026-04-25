@@ -1,64 +1,28 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import Skeleton from '@mui/material/Skeleton';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import SearchIcon from '@mui/icons-material/Search';
 import PageTitle from '@/components/layout/PageTitle';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import OriginChip from '@/components/common/OriginChip';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import MobileCard from '@/components/common/MobileCard';
+import DataTable, { type Column } from '@/components/common/DataTable';
+import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { PhaseDefinition } from '@/api/types';
+import { kamiPhaseGermination } from '@/assets/brand/illustrations';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
-
-function LoadingSkeletonTable() {
-  return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table>
-        <TableHead>
-          <TableRow>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <TableCell key={i}>
-                <Skeleton variant="text" width={80} />
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <TableRow key={i}>
-              {Array.from({ length: 6 }).map((_, j) => (
-                <TableCell key={j}>
-                  <Skeleton variant="text" width={j === 0 ? 120 : 60} />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-}
 
 export default function PhaseDefinitionListPage() {
   const navigate = useNavigate();
@@ -66,11 +30,14 @@ export default function PhaseDefinitionListPage() {
   const lang = i18n.language;
   const notification = useNotification();
   const { handleError } = useApiError();
+  const tableState = useTableUrlState({
+    defaultSort: { column: 'name', direction: 'asc' },
+    pageSizeStorageKey: 'phaseDefinitions.pageSize',
+  });
 
   const [definitions, setDefinitions] = useState<PhaseDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDefinition, setEditDefinition] = useState<PhaseDefinition | undefined>(
     undefined,
@@ -94,18 +61,6 @@ export default function PhaseDefinitionListPage() {
   useEffect(() => {
     loadDefinitions();
   }, [loadDefinitions]);
-
-  const filteredDefinitions = useMemo(() => {
-    if (!searchQuery.trim()) return definitions;
-    const query = searchQuery.toLowerCase();
-    return definitions.filter(
-      (d) =>
-        d.name.toLowerCase().includes(query) ||
-        d.display_name.toLowerCase().includes(query) ||
-        d.display_name_de.toLowerCase().includes(query) ||
-        d.tags.some((tag) => tag.toLowerCase().includes(query)),
-    );
-  }, [definitions, searchQuery]);
 
   const handleDelete = async () => {
     if (!deleteKey) return;
@@ -137,6 +92,113 @@ export default function PhaseDefinitionListPage() {
 
   const deleteTarget = definitions.find((d) => d.key === deleteKey);
 
+  const getDisplayName = (def: PhaseDefinition): string =>
+    (lang === 'de' ? def.display_name_de : def.display_name) || def.name;
+
+  const columns: Column<PhaseDefinition>[] = [
+    {
+      id: 'name',
+      label: t('common.name'),
+      render: (def) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {getDisplayName(def)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {def.name}
+          </Typography>
+        </Box>
+      ),
+      searchValue: (def) => `${getDisplayName(def)} ${def.name} ${def.tags.join(' ')}`,
+      sortFn: (a, b) => getDisplayName(a).localeCompare(getDisplayName(b)),
+    },
+    {
+      id: 'stressTolerance',
+      label: t('pages.phaseSequences.stressTolerance'),
+      render: (def) => (
+        <Chip
+          label={t(`enums.stressLevel.${def.stress_tolerance}`)}
+          size="small"
+          variant="outlined"
+        />
+      ),
+      searchValue: (def) => t(`enums.stressLevel.${def.stress_tolerance}`),
+      sortFn: (a, b) => a.stress_tolerance.localeCompare(b.stress_tolerance),
+    },
+    {
+      id: 'typicalDuration',
+      label: t('pages.phaseSequences.typicalDuration'),
+      render: (def) =>
+        t('pages.phaseSequences.durationDays', { count: def.typical_duration_days }),
+      searchValue: (def) => String(def.typical_duration_days),
+      sortFn: (a, b) => a.typical_duration_days - b.typical_duration_days,
+      align: 'right',
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'usageCount',
+      label: t('pages.phaseSequences.usageCount'),
+      render: (def) => def.usage_count,
+      searchValue: (def) => String(def.usage_count),
+      sortFn: (a, b) => a.usage_count - b.usage_count,
+      align: 'right',
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      // UI-NFR-018 R-002/R-019: Origin column
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (def) => <OriginChip isSystem={def.is_system} />,
+      sortable: false,
+      searchable: false,
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'actions',
+      label: t('common.actions'),
+      align: 'right',
+      sortable: false,
+      searchable: false,
+      render: (def) => (
+        <Box onClick={(e) => e.stopPropagation()}>
+          {/* UI-NFR-018 R-011/R-013: hide edit/delete actions for system data */}
+          {!def.is_system && (
+            <Tooltip title={t('common.edit')}>
+              <IconButton
+                size="small"
+                onClick={() => handleOpenEdit(def)}
+                aria-label={t('common.edit')}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {!def.is_system && (
+            <Tooltip
+              title={
+                def.usage_count > 0
+                  ? t('pages.phaseSequences.definitionInUse')
+                  : t('common.delete')
+              }
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  disabled={def.usage_count > 0}
+                  onClick={() => setDeleteKey(def.key)}
+                  aria-label={t('common.delete')}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
+
   return (
     <Box data-testid="phase-definition-list-page">
       <PageTitle
@@ -157,137 +219,47 @@ export default function PhaseDefinitionListPage() {
         {t('pages.phaseSequences.definitionsIntro')}
       </Typography>
 
-      <TextField
-        size="small"
-        placeholder={t('pages.phaseSequences.searchDefinitions')}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
-          },
-        }}
-        sx={{ mb: 2, maxWidth: 400, width: '100%' }}
-        data-testid="definition-search"
-        aria-label={t('pages.phaseSequences.searchDefinitions')}
-      />
-
       {error && <ErrorDisplay error={error} onRetry={loadDefinitions} />}
 
-      {loading ? (
-        <LoadingSkeletonTable />
-      ) : filteredDefinitions.length === 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            py: 8,
-            px: 2,
-          }}
-        >
-          <Typography variant="h6" color="text.secondary" align="center">
-            {searchQuery
-              ? t('common.noSearchResults')
-              : t('pages.phaseSequences.noDefinitions')}
-          </Typography>
-        </Box>
-      ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('common.name')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.typicalDuration')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.stressTolerance')}</TableCell>
-                <TableCell>{t('pages.phaseSequences.usageCount')}</TableCell>
-                {/* UI-NFR-018 R-002: Origin column header */}
-                <TableCell>{t('common.origin.filterLabel')}</TableCell>
-                <TableCell align="right">{t('common.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredDefinitions.map((def) => (
-                <TableRow
-                  key={def.key}
-                  hover
-                  onClick={() => navigate(`/phasen/definitionen/${def.key}`)}
-                  sx={{ cursor: 'pointer' }}
-                  data-testid={`definition-row-${def.key}`}
-                >
-                  <TableCell>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {(lang === 'de' ? def.display_name_de : def.display_name) || def.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {def.name}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {t('pages.phaseSequences.durationDays', {
-                      count: def.typical_duration_days,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={t(`enums.stressLevel.${def.stress_tolerance}`)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{def.usage_count}</TableCell>
-                  {/* UI-NFR-018 R-019: Origin chip cell */}
-                  <TableCell>
-                    <OriginChip isSystem={def.is_system} />
-                  </TableCell>
-                  <TableCell align="right">
-                    {/* UI-NFR-018 R-011/R-013: hide edit action entirely for system data */}
-                    {!def.is_system && (
-                      <Tooltip title={t('common.edit')}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenEdit(def)}
-                          aria-label={t('common.edit')}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {/* UI-NFR-018 R-013: hide delete action entirely for system data */}
-                    {!def.is_system && (
-                      <Tooltip
-                        title={
-                          def.usage_count > 0
-                            ? t('pages.phaseSequences.definitionInUse')
-                            : t('common.delete')
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={def.usage_count > 0}
-                            onClick={() => setDeleteKey(def.key)}
-                            aria-label={t('common.delete')}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable
+        columns={columns}
+        rows={definitions}
+        loading={loading}
+        getRowKey={(def) => def.key}
+        onRowClick={(def) => navigate(`/phasen/definitionen/${def.key}`)}
+        tableState={tableState}
+        ariaLabel={t('pages.phaseSequences.definitionsTitle')}
+        emptyMessage={t('pages.phaseSequences.noDefinitions')}
+        emptyActionLabel={t('pages.phaseSequences.createDefinition')}
+        onEmptyAction={handleOpenCreate}
+        emptyIllustration={kamiPhaseGermination}
+        mobileCardRenderer={(def) => (
+          <MobileCard
+            title={getDisplayName(def)}
+            subtitle={def.name}
+            trailing={<OriginChip isSystem={def.is_system} />}
+            chips={
+              <Chip
+                label={t(`enums.stressLevel.${def.stress_tolerance}`)}
+                size="small"
+                variant="outlined"
+              />
+            }
+            fields={[
+              {
+                label: t('pages.phaseSequences.typicalDuration'),
+                value: t('pages.phaseSequences.durationDays', {
+                  count: def.typical_duration_days,
+                }),
+              },
+              {
+                label: t('pages.phaseSequences.usageCount'),
+                value: def.usage_count,
+              },
+            ]}
+          />
+        )}
+      />
 
       <PhaseDefinitionDialog
         open={dialogOpen}
