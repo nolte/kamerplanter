@@ -56,7 +56,23 @@
     "langEN": "English",
     "open": "Open",
     "showAll": "Show all ({{count}})",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "origin": {
+      "system": "System",
+      "enrichment": "Enriched",
+      "import": "Imported",
+      "tenant": "Custom",
+      "tooltipSystem": "Provided by the system. Cannot be edited or deleted.",
+      "tooltipEnrichment": "Automatically enriched from external sources. Cannot be edited directly.",
+      "tooltipImport": "Added via CSV import. Can be edited and deleted.",
+      "filterLabel": "Origin",
+      "copyAsTemplate": "Copy as template",
+      "readOnlyHint": "System data cannot be edited."
+    },
+    "glossary": {
+      "unit": "Unit",
+      "typical": "Typical"
+    }
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -1903,7 +1919,7 @@
       "sourceWateringSchedule": "Watering Schedule",
       "sourcePlantingRun": "Planting Run",
       "sourceCareReminder": "Care Reminder",
-      "sourceManual": "Manually Created",
+      "sourceManual": "Manual",
       "taskTemplates": "Task Templates",
       "tabDetails": "Details",
       "tabComplete": "Complete",
@@ -1997,7 +2013,6 @@
       "systemTemplateDeleteDisabled": "System templates cannot be deleted.",
       "createManually": "Create manually",
       "sourceCatalog": "Catalog",
-      "sourceManual": "Manual",
       "compatibleOnly": "Compatible species",
       "addActivityFromCatalog": "Add activity from catalog",
       "addActivityToPhase": "Add activity to {{phase}}",
@@ -3553,5 +3568,58 @@
     "layoutGrid3x3Helper": "Very compact — best for labelling many plants at once.",
     "printLabels": "Print info cards",
     "printLabelsShort": "Labels"
+  },
+  "glossary": {
+    "ec": {
+      "short": "Conductivity — how much fertiliser is in the water",
+      "long": "EC measures nutrient concentration in irrigation water. Total EC = tap water EC + fertiliser EC. German tap water sits around 0.3–0.8 mS/cm. For potted plants aim for total EC 1.0–2.0 mS/cm. Hydroponics work with net EC (fertiliser only) tuned to the species.",
+      "beginnerTip": "Without an EC meter: stick to the dosing on the bottle. Slightly less is safer than too much.",
+      "unit": "mS/cm",
+      "typicalRange": "0.5–3.5 mS/cm"
+    },
+    "ph": {
+      "short": "Acidity of soil or irrigation water",
+      "long": "The pH value tells you how acidic or alkaline a medium is. Scale 0–14: below 7 = acidic, 7 = neutral, above 7 = alkaline. Most plants prefer slightly acidic to neutral soil (pH 5.5–7.0). Blueberries need acidic soil (pH 4.0–5.0).",
+      "beginnerTip": "Standard potting soil is usually fine. Only check the pH if you see problems (yellow leaves despite fertilising).",
+      "unit": "pH",
+      "typicalRange": "5.5–7.0"
+    },
+    "vpd": {
+      "short": "Vapour pressure deficit — how 'thirsty' the air is",
+      "long": "VPD measures how much moisture the air can still absorb. High VPD = dry air = the plant transpires more. Optimal values are species-dependent: tropicals like 0.4–0.8 kPa, vegetative crops 0.8–1.2 kPa, cacti tolerate >1.5 kPa.",
+      "beginnerTip": "Usually not an issue indoors. Mainly relevant inside sealed grow tents.",
+      "unit": "kPa",
+      "typicalRange": "0.4–1.6 kPa"
+    },
+    "ppfd": {
+      "short": "Plant-relevant light — how bright it really is",
+      "long": "PPFD measures the light intensity plants can actually use. Unlike lux (for the human eye) PPFD covers only the photosynthetically active spectrum.",
+      "beginnerTip": "Rule of thumb: south-facing window with direct sun ≈ 200–400. East/west ≈ 100–200. North-facing < 50.",
+      "unit": "µmol/m²/s",
+      "typicalRange": "100–1500 µmol/m²/s"
+    },
+    "npk": {
+      "short": "Nitrogen-phosphorus-potassium — the three macro nutrients",
+      "long": "The three numbers on every fertiliser bottle: N (nitrogen, leafy growth), P (phosphorus, roots & flowers), K (potassium, fruiting & resilience).",
+      "beginnerTip": "For beginners a universal fertiliser is enough — the NPK numbers are printed on the bottle."
+    },
+    "calmag": {
+      "short": "Calcium-magnesium supplement on top of the base feed",
+      "long": "Soft water lacks calcium and magnesium. CalMag compensates and is ALWAYS added BEFORE the base feed (mixing order matters!).",
+      "beginnerTip": "Only needed in hydroponics or with very soft water. Most tap water already has enough."
+    },
+    "gdd": {
+      "short": "Growing-degree days — accumulated heat since planting",
+      "long": "GDD measures how much usable heat a plant has accumulated since the start. Every day above a base temperature (e.g. 10°C) adds degree days. Tomatoes need around 1000–1500 GDD until harvest.",
+      "beginnerTip": "You don't have to calculate this yourself — the system tracks it automatically.",
+      "unit": "GDD"
+    },
+    "dli": {
+      "short": "Daily light integral — how much light per day",
+      "long": "DLI sums up the total light a surface receives over a day. Important for grow planning: herbs need 12–20, tomatoes 20–40 mol/m²/d.",
+      "beginnerTip": "Sunny windowsill in summer ≈ 10–15 mol/m²/d. In winter only 3–5.",
+      "unit": "mol/m²/d",
+      "typicalRange": "5–40 mol/m²/d"
+    }
   }
 }
