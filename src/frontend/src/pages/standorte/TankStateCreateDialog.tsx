@@ -9,9 +9,11 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Box from '@mui/material/Box';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/tanks';
@@ -102,25 +104,31 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
             {t('pages.tanks.sectionWaterQuality')}
           </Typography>
           <FormRow>
-            <FormNumberField
-              name="ph"
-              control={control}
-              label="pH"
-              helperText={t('pages.tanks.phHelper')}
-              min={0}
-              max={14}
-              inputMode="decimal"
-              autoFocus
-            />
-            <FormNumberField
-              name="ec_ms"
-              control={control}
-              label="EC"
-              helperText={t('pages.tanks.ecHelper')}
-              suffix="mS/cm"
-              inputMode="decimal"
-              min={0}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="ph"
+                control={control}
+                label="pH"
+                helperText={t('pages.tanks.phHelper')}
+                min={0}
+                max={14}
+                inputMode="decimal"
+                autoFocus
+              />
+              <HelpTooltip term="ph" iconOnly />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+              <FormNumberField
+                name="ec_ms"
+                control={control}
+                label="EC"
+                helperText={t('pages.tanks.ecHelper')}
+                suffix="mS/cm"
+                inputMode="decimal"
+                min={0}
+              />
+              <HelpTooltip term="ec" iconOnly />
+            </Box>
           </FormRow>
           <FormRow>
             <FormNumberField
