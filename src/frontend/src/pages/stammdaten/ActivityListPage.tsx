@@ -15,6 +15,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import OriginChip from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchActivities } from '@/store/slices/activitiesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -111,16 +112,13 @@ export default function ActivityListPage() {
       align: 'right',
     },
     {
-      id: 'system',
-      label: t('pages.activities.system'),
-      render: (r) => (
-        <Chip
-          label={r.is_system ? t('common.yes') : t('common.no')}
-          size="small"
-          color={r.is_system ? 'info' : 'default'}
-          variant="outlined"
-        />
-      ),
+      // UI-NFR-018 R-002/R-019/R-020: Origin column (replaces ad-hoc system Yes/No chip)
+      id: 'origin',
+      label: t('common.origin.filterLabel'),
+      render: (r) => <OriginChip isSystem={r.is_system} />,
+      hideBelowBreakpoint: 'md',
+      sortable: false,
+      searchable: false,
     },
   ];
 

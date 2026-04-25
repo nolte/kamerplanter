@@ -33,6 +33,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import { useOriginProtection } from '@/hooks/useOriginProtection';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -591,6 +593,10 @@ export default function NutrientPlanDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // TODO: REQ-001 v5.0 origin field — backend pending; nutrient plans currently have no origin field.
+  const planOrigin = (plan as unknown as { origin?: DataOrigin } | null)?.origin;
+  const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({ origin: planOrigin });
+
   // Phase entry dialog state
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<NutrientPlanPhaseEntry | null>(null);
@@ -1028,15 +1034,35 @@ export default function NutrientPlanDetailPage() {
             />
           )}
         </Box>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-          data-testid="delete-nutrient-plan-button"
-        >
-          {t('common.delete')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* UI-NFR-018 R-001: Origin chip in meta row */}
+          <OriginChip origin={planOrigin} />
+          {/* UI-NFR-018 R-015: copy-as-template for system plans */}
+          {canCopyAsTemplate && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                // TODO: implement plan copy endpoint; placeholder until backend ready
+                notification.info(t('common.origin.copyAsTemplate'));
+              }}
+              data-testid="copy-as-template-button"
+            >
+              {t('common.origin.copyAsTemplate')}
+            </Button>
+          )}
+          {/* UI-NFR-018 R-012: hide delete button for system data */}
+          {!isDeletionProtected && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="delete-nutrient-plan-button"
+            >
+              {t('common.delete')}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -1498,11 +1524,19 @@ export default function NutrientPlanDetailPage() {
           </Card>
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
-          <FormActions
-            onCancel={() => reset()}
-            loading={saving}
-            disabled={!isDirty}
-          />
+          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+          {!isReadOnly && (
+            <FormActions
+              onCancel={() => reset()}
+              loading={saving}
+              disabled={!isDirty}
+            />
+          )}
+          {isReadOnly && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.origin.readOnlyHint')}
+            </Typography>
+          )}
         </Box>
       )}
 

@@ -26,7 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LoopIcon from '@mui/icons-material/Loop';
 import SearchIcon from '@mui/icons-material/Search';
-import SettingsIcon from '@mui/icons-material/Settings';
+import OriginChip from '@/components/common/OriginChip';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,7 +59,7 @@ function LoadingSkeletonTable() {
       <Table>
         <TableHead>
           <TableRow>
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <TableCell key={i}>
                 <Skeleton variant="text" width={80} />
               </TableCell>
@@ -69,7 +69,7 @@ function LoadingSkeletonTable() {
         <TableBody>
           {Array.from({ length: 5 }).map((_, i) => (
             <TableRow key={i}>
-              {Array.from({ length: 5 }).map((_, j) => (
+              {Array.from({ length: 6 }).map((_, j) => (
                 <TableCell key={j}>
                   <Skeleton variant="text" width={j === 0 ? 120 : 60} />
                 </TableCell>
@@ -321,6 +321,8 @@ export default function PhaseSequenceListPage() {
                 <TableCell>{t('pages.phaseSequences.isRepeating')}</TableCell>
                 <TableCell>{t('pages.phaseSequences.sequenceEntries')}</TableCell>
                 <TableCell>{t('pages.phaseSequences.totalDuration')}</TableCell>
+                {/* UI-NFR-018 R-002: Origin column header */}
+                <TableCell>{t('common.origin.filterLabel')}</TableCell>
                 <TableCell align="right">{t('common.actions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -334,18 +336,7 @@ export default function PhaseSequenceListPage() {
                   data-testid={`sequence-row-${seq.key}`}
                 >
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
-                      {seq.is_system && (
-                        <Chip
-                          icon={<SettingsIcon />}
-                          label={t('pages.phaseSequences.system')}
-                          size="small"
-                          color="info"
-                          variant="outlined"
-                        />
-                      )}
-                    </Box>
+                    {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -375,19 +366,17 @@ export default function PhaseSequenceListPage() {
                       count: computeTotalDuration(seq),
                     })}
                   </TableCell>
+                  {/* UI-NFR-018 R-019: Origin chip cell */}
+                  <TableCell>
+                    <OriginChip isSystem={seq.is_system} />
+                  </TableCell>
                   <TableCell align="right">
-                    <Tooltip
-                      title={
-                        seq.is_system
-                          ? t('pages.phaseSequences.system')
-                          : t('common.delete')
-                      }
-                    >
-                      <span>
+                    {/* UI-NFR-018 R-013: hide delete action entirely for system data */}
+                    {!seq.is_system && (
+                      <Tooltip title={t('common.delete')}>
                         <IconButton
                           size="small"
                           color="error"
-                          disabled={seq.is_system}
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteKey(seq.key);
@@ -396,8 +385,8 @@ export default function PhaseSequenceListPage() {
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </span>
-                    </Tooltip>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

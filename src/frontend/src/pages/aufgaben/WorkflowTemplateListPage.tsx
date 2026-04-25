@@ -27,10 +27,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import SearchIcon from '@mui/icons-material/Search';
-import SettingsIcon from '@mui/icons-material/Settings';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PageTitle from '@/components/layout/PageTitle';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWorkflows } from '@/store/slices/tasksSlice';
 import { useNotification } from '@/hooks/useNotification';
@@ -148,15 +148,8 @@ function WorkflowCard({
 
           {/* Badges row */}
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-            {workflow.is_system && (
-              <Chip
-                icon={<SettingsIcon />}
-                label={t('pages.tasks.systemWorkflow')}
-                size="small"
-                color="info"
-                variant="outlined"
-              />
-            )}
+            {/* UI-NFR-018 R-002/R-019: Origin chip in list (replaces ad-hoc system chip) */}
+            <OriginChip isSystem={workflow.is_system} />
             {workflow.auto_generated && (
               <Chip
                 icon={<SmartToyIcon />}
@@ -221,25 +214,19 @@ function WorkflowCard({
             <ContentCopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip
-          title={
-            workflow.is_system
-              ? t('pages.tasks.systemTemplateDeleteDisabled')
-              : t('common.delete')
-          }
-        >
-          <span>
+        {/* UI-NFR-018 R-013: hide delete action entirely for system data */}
+        {!workflow.is_system && (
+          <Tooltip title={t('common.delete')}>
             <IconButton
               size="small"
               color="error"
-              disabled={workflow.is_system}
               onClick={() => onDelete(workflow.key)}
               aria-label={t('common.delete')}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
-          </span>
-        </Tooltip>
+          </Tooltip>
+        )}
       </CardActions>
     </Card>
   );

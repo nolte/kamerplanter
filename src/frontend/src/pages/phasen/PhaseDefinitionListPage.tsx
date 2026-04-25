@@ -21,9 +21,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
-import SettingsIcon from '@mui/icons-material/Settings';
 import PageTitle from '@/components/layout/PageTitle';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OriginChip from '@/components/common/OriginChip';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -37,7 +37,7 @@ function LoadingSkeletonTable() {
       <Table>
         <TableHead>
           <TableRow>
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <TableCell key={i}>
                 <Skeleton variant="text" width={80} />
               </TableCell>
@@ -47,7 +47,7 @@ function LoadingSkeletonTable() {
         <TableBody>
           {Array.from({ length: 5 }).map((_, i) => (
             <TableRow key={i}>
-              {Array.from({ length: 5 }).map((_, j) => (
+              {Array.from({ length: 6 }).map((_, j) => (
                 <TableCell key={j}>
                   <Skeleton variant="text" width={j === 0 ? 120 : 60} />
                 </TableCell>
@@ -205,6 +205,8 @@ export default function PhaseDefinitionListPage() {
                 <TableCell>{t('pages.phaseSequences.typicalDuration')}</TableCell>
                 <TableCell>{t('pages.phaseSequences.stressTolerance')}</TableCell>
                 <TableCell>{t('pages.phaseSequences.usageCount')}</TableCell>
+                {/* UI-NFR-018 R-002: Origin column header */}
+                <TableCell>{t('common.origin.filterLabel')}</TableCell>
                 <TableCell align="right">{t('common.actions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -218,24 +220,13 @@ export default function PhaseDefinitionListPage() {
                   data-testid={`definition-row-${def.key}`}
                 >
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {(lang === 'de' ? def.display_name_de : def.display_name) || def.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {def.name}
-                        </Typography>
-                      </Box>
-                      {def.is_system && (
-                        <Chip
-                          icon={<SettingsIcon />}
-                          label={t('pages.phaseSequences.system')}
-                          size="small"
-                          color="info"
-                          variant="outlined"
-                        />
-                      )}
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {(lang === 'de' ? def.display_name_de : def.display_name) || def.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {def.name}
+                      </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
@@ -251,38 +242,45 @@ export default function PhaseDefinitionListPage() {
                     />
                   </TableCell>
                   <TableCell>{def.usage_count}</TableCell>
+                  {/* UI-NFR-018 R-019: Origin chip cell */}
+                  <TableCell>
+                    <OriginChip isSystem={def.is_system} />
+                  </TableCell>
                   <TableCell align="right">
-                    <Tooltip title={t('common.edit')}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenEdit(def)}
-                        aria-label={t('common.edit')}
-                        disabled={def.is_system}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip
-                      title={
-                        def.usage_count > 0
-                          ? t('pages.phaseSequences.definitionInUse')
-                          : def.is_system
-                            ? t('pages.phaseSequences.system')
-                            : t('common.delete')
-                      }
-                    >
-                      <span>
+                    {/* UI-NFR-018 R-011/R-013: hide edit action entirely for system data */}
+                    {!def.is_system && (
+                      <Tooltip title={t('common.edit')}>
                         <IconButton
                           size="small"
-                          color="error"
-                          disabled={def.usage_count > 0 || def.is_system}
-                          onClick={() => setDeleteKey(def.key)}
-                          aria-label={t('common.delete')}
+                          onClick={() => handleOpenEdit(def)}
+                          aria-label={t('common.edit')}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <EditIcon fontSize="small" />
                         </IconButton>
-                      </span>
-                    </Tooltip>
+                      </Tooltip>
+                    )}
+                    {/* UI-NFR-018 R-013: hide delete action entirely for system data */}
+                    {!def.is_system && (
+                      <Tooltip
+                        title={
+                          def.usage_count > 0
+                            ? t('pages.phaseSequences.definitionInUse')
+                            : t('common.delete')
+                        }
+                      >
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            disabled={def.usage_count > 0}
+                            onClick={() => setDeleteKey(def.key)}
+                            aria-label={t('common.delete')}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
