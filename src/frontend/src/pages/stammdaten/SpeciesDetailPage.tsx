@@ -400,7 +400,19 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        // UI-NFR-018 R-027: when read-only the whole form must reject input,
+        // not just hide the save button. fieldset[disabled] grays out and
+        // disables every native form control beneath it (HTML5 spec).
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        >
+        <Box
+          component="fieldset"
+          disabled={isReadOnly}
+          sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('pages.species.editIntro')}
@@ -800,6 +812,7 @@ export default function SpeciesDetailPage() {
               {t('common.origin.readOnlyHint')}
             </Typography>
           )}
+        </Box>
         </Box>
       )}
 
