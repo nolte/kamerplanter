@@ -5,8 +5,9 @@ Titel: Ladezeiten & Performance
 Kategorie: UI-Verhalten Unterkategorie: Performance, Ladezeiten
 Technologie: React, TypeScript, Vite, Flutter
 Status: Entwurf
+Datum: 2026-04-27
 Priorität: Hoch
-Version: 1.0
+Version: 1.1 (Bundle-Budget harmonisiert auf 300KB, W-016)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [performance, loading, lazy-loading, bundle-size, core-web-vitals, skeleton]
@@ -167,7 +168,7 @@ Performance hat direkten Einfluss auf Nutzerzufriedenheit und Konversion:
     - [ ] Bilder unterhalb des Viewports laden lazy
     - [ ] Initiales Bundle enthält nur die aktuelle Route
 - [ ] **Bundle-Size**
-    - [ ] Initiales JS-Bundle < 200KB gzipped
+    - [ ] Initiales JS-Bundle < 300KB gzipped (W-016: harmonisiert mit §2.4 R-013; realistischer Zielwert 250–350KB für MUI + Redux Toolkit + KI-Features REQ-031)
     - [ ] Bundle-Size-Check in CI-Pipeline integriert
     - [ ] Kein ungenutzter Code im Bundle (Tree-Shaking aktiv)
 - [ ] **Rendering-Stabilität**

@@ -5,10 +5,18 @@ ID: REQ-009
 Titel: Zentrales Monitoring-Dashboard & Analytics
 Kategorie: Visualisierung
 Fokus: Beides
-Technologie: FastAPI, React, ArangoDB, Plotly/D3.js, WebSocket
+Technologie: FastAPI, React 19, ArangoDB, Recharts (v1), Polling (v1) / WebSocket (Phase 2)
 Status: Entwurf
-Version: 2.0 (Maximal Erweitert)
+Version: 2.1 (Konsolidierung mit jüngeren Specs, W-020)
+Abhängigkeit: REQ-021 (Erfahrungsstufen), REQ-022 (Pflegeerinnerungen), REQ-024 v1.3 (Multi-Tenant), REQ-027 v1.4 (Light-Modus), REQ-031 v2.1 (KI-Daily-Tip), REQ-032 (Drucksicht), UI-NFR-001, UI-NFR-003 (Bundle-Budget), UI-NFR-012 (PWA-Offline), UI-NFR-019 (Kiosk-Variante), NFR-007 (Performance)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.1 | 2026-04-27 | **W-020 Konsolidierung:** Konflikte mit jüngeren Specs aufgelöst (siehe §1.4). v1-Scope: REST-Polling statt WebSocket (UI-NFR-012 Konsistenz, W-011), festes Layout pro Erfahrungsstufe (REQ-021) statt Drag-and-Drop, Recharts statt Plotly+D3.js (UI-NFR-003 Bundle-Budget W-016). WebSocket + Drag-Drop + ML-Optimierungs-Suggestions in Phase 2. Cross-Refs zu REQ-022, REQ-024, REQ-027, UI-NFR-019 ergänzt. Neue Sektionen: §1.4 Konsolidierung, §1.5 Erfahrungsstufen-Sets, §1.6 Light-Modus-Verhalten. |
+| 2.0 | (vorher) | Maximal Erweitert — 6 Dashboard-Typen, Drag&Drop, WebSocket, Plotly/D3, ML-Forecasts. |
 
 ## 1. Business Case
 
@@ -119,9 +127,76 @@ Das System implementiert ein hochgradig konfigurierbares, Echtzeit-Dashboard mit
 
 **Performance-Optimierung:**
 - **Lazy Loading:** Widgets laden nur wenn sichtbar
-- **Data Aggregation:** Backend gruppiert Daten vor Übertragung
+- **Data Aggregation:** Backend gruppiert Daten vor Übertragung (Aggregations-Endpoint, siehe §1.4)
 - **Caching:** Redis für häufig abgerufene Metriken
-- **WebSocket:** Nur Deltas werden übertragen, nicht komplette Datasets
+- **REST-Polling pro Widget (v1)** mit Per-Widget-Intervallen (siehe §1.4 Konsolidierung); WebSocket-Live-Deltas als Phase-2-Erweiterung
+
+<!-- Quelle: Widerspruchsanalyse W-020 -->
+### 1.4 Konsolidierung mit jüngeren Specs (v2.1)
+
+REQ-009 v2.0 wurde vor mehreren jüngeren Specs erstellt (REQ-021 Erfahrungsstufen, REQ-022 Pflegeerinnerungen, REQ-024 Multi-Tenant, REQ-027 Light-Modus, REQ-031 KI-Assistent, UI-NFR-012 PWA-Offline, UI-NFR-019 Kiosk-Modus). v2.1 löst die entstandenen Konflikte auf und legt fest, was **v1-Scope** ist und was **Phase 2** wird.
+
+| Bereich | v2.0 (ursprünglich) | v2.1 v1-Scope | v2.1 Phase 2 | Begründung |
+|---------|---------------------|---------------|--------------|-----------|
+| Real-Time-Updates | WebSocket-Deltas | **REST-Polling** mit Per-Widget-Intervallen (siehe §1.5 Tabelle) | WebSocket für `sensor_live`, `ipm_alerts` | UI-NFR-012 PWA-Offline (Service-Worker-Komplexität bei Offline-Reconnect); W-011 (KI-Features Online-only); 100-User-Last-Schätzung 30 req/s ist akzeptabel |
+| Layout | Drag-and-Drop pro User | **Festes Layout** pro Erfahrungsstufe (REQ-021); Show/Hide einzelner Widgets pro User | Drag-and-Drop-Reorder | Reduziert Frontend-Komplexität; konsistent zu Beginner-/Expert-Differenzierung in fieldConfigs.ts (REQ-021) |
+| Charts | Plotly + D3.js + Recharts | **Recharts** (MUI-Theme-konsistent) | Plotly für komplexe Analytics-Dashboards | UI-NFR-003 W-016 Bundle-Budget 300KB; Plotly+D3 schießen das Budget allein |
+| ML-Optimierungs-Suggestions (§1 „6. Analytics Dashboard") | ML-basierte Empfehlungen | KI-Daily-Tip via REQ-031 §6.3 (deterministisch via Knowledge Service) | Eigenständige ML-Korrelations-Engine | REQ-031 deckt KI-Empfehlungen ab; eigene ML-Pipeline ist out-of-scope für v1 |
+| PDF-Export | im DoD erwähnt | **Verweis auf REQ-032** (Druckansichten & Export) | — | REQ-032 ist Single Source of Truth für Druck/Export |
+| Multi-User-Rollen | Viewer/Editor/Admin | **Tenant-scoped Permission-Matrix** (REQ-024 v1.3) | — | REQ-024 hat granulare Permission-Matrix mit Admin/Grower/Viewer |
+| KI-Daily-Tip | „TipCardsPanel" als Widget (§5) | **Konkretisiert:** `daily_tip`-Widget (REQ-031 §6.3 + ADR-002 confidence-Badge) | — | REQ-031 v2.1 spezifiziert Komponente und Verhalten |
+| CareReminder-Anzeige | implizit unter „Task Queue" | **Separates `care_reminders`-Widget** (REQ-022) | — | REQ-022 ist eigene Spec; Verzahnung explizit |
+
+### 1.5 Polling-Intervalle pro Widget-Typ (v1)
+
+| Widget-Kategorie | Polling-Intervall | Cache-Strategie | Begründung |
+|------------------|-------------------|-----------------|-----------|
+| Sensor-Live (`sensor_live`, `tank_status`) | 30s | NetworkFirst | Live-Bedeutung für Expert-User |
+| Tasks/Reminders (`tasks_today`, `care_reminders`, `active_plants_summary`, `ipm_alerts`) | 60s | StaleWhileRevalidate | UX-akzeptabel, geringe Last |
+| Vorhersagen (`harvest_forecast`, `next_calendar_events`, `phase_timeline`) | 5min | StaleWhileRevalidate | Ändern sich selten |
+| Wetter (`weather_forecast`) | 5min | StaleWhileRevalidate | Externe API-Limit |
+| KI-Tipp (`daily_tip`) | 1×/Tag (06:00 lokale Zeit) | NetworkFirst | REQ-031 Cache bis Mitternacht |
+| Onboarding (`onboarding_progress`) | 30s während aktivem Onboarding | StaleWhileRevalidate | REQ-020 |
+
+**Polling pausiert** bei Tab-Wechsel (Page Visibility API) und im Offline-Zustand (UI-NFR-012). Cached Daten werden weiter angezeigt.
+
+**Aggregations-Endpoint:** `GET /api/v1/t/{slug}/dashboard/aggregated?widgets=...` liefert beim Initial-Load Payloads aller aktiven Widgets in einem Call — vermeidet N+1-Polling. Frontend nutzt diesen Endpoint nur initial; danach individuelle Polls.
+
+### 1.6 Erfahrungsstufen-Sets (REQ-021-Konsistenz)
+
+Pro Erfahrungsstufe ein Default-Set von Widgets. User kann einzelne Widgets via Toggle ausblenden, aber nicht über das Set hinaus aktivieren (Beginner sieht keine Sensor-Live-Werte automatisch — kann es aber in Settings → Dashboard-Widgets manuell aktivieren).
+
+```python
+DEFAULT_VISIBILITY_BY_EXPERTISE: dict[ExpertiseLevel, list[str]] = {
+    ExpertiseLevel.BEGINNER: [
+        "tasks_today", "care_reminders", "daily_tip",
+        "active_plants_summary", "weather_forecast",
+        "onboarding_progress",  # nur solange unvollständig
+    ],
+    ExpertiseLevel.INTERMEDIATE: [
+        # alle Beginner-Widgets, plus:
+        "ipm_alerts", "harvest_forecast", "next_calendar_events",
+        "community_activity",  # nur Multi-Tenant
+    ],
+    ExpertiseLevel.EXPERT: [
+        # alle Intermediate-Widgets, plus:
+        "sensor_live", "tank_status", "phase_timeline",
+    ],
+}
+```
+
+Bei Erfahrungsstufen-Wechsel werden neue Default-Widgets sichtbar; explizite User-Overrides bleiben erhalten (z.B. Beginner hat `ipm_alerts` manuell aktiviert → bleibt nach Wechsel zu Intermediate aktiv).
+
+### 1.7 Light-Modus-Verhalten (REQ-027 v1.4)
+
+| Widget | Light-Modus | Begründung |
+|--------|-------------|-----------|
+| Alle Pflanzen-/Sensor-/Tank-/Phase-/Aufgaben-Widgets | **Verfügbar** (mit System-User) | Light-Modus = funktional gleichwertig (REQ-027 §2.1) |
+| `daily_tip` | **Verfügbar** (mit Whitelist-AI-Provider, REQ-027 §6.1.1, ADR-002) | KI-Antworten nutzen lokales Ollama oder lokalen openai_compatible-Endpoint |
+| `community_activity` | **Ausgeblendet** | Multi-Tenant-Feature ohne Bedeutung im Light-Modus (W-015 / REQ-027 §2.1) |
+
+Im Light-Modus bekommt der System-User automatisch ein Default-Layout (Intermediate-Set mit `community_activity` gefiltert).
+<!-- /Quelle: Widerspruchsanalyse W-020 -->
 
 ## 2. ArangoDB-Modellierung
 
@@ -1227,8 +1302,22 @@ und Tenant-Mitgliedschaft.
 
 **Erforderliche Module:**
 - REQ-001 bis REQ-008: Alle (Dashboard aggregiert Daten aus allen Modulen)
+- **REQ-021** (Erfahrungsstufen) — Widget-Set-Auswahl pro Stufe (siehe §1.6) <!-- W-020 -->
+- **REQ-022** (Pflegeerinnerungen) — `care_reminders`-Widget <!-- W-020 -->
+- **REQ-024 v1.3** (Multi-Tenant) — Tenant-scoped Permission-Matrix, `community_activity`-Widget <!-- W-020 -->
+- **REQ-027 v1.4** (Light-Modus) — Widget-Visibility-Filter (siehe §1.7) <!-- W-020 -->
+- **REQ-031 v2.1** (KI-Assistent) — `daily_tip`-Widget <!-- W-020 -->
+- **REQ-032** (Drucksicht) — PDF-Export (statt eigener Implementierung) <!-- W-020 -->
+- **UI-NFR-001** — Responsive-Breakpoints für Layout
+- **UI-NFR-003** (Performance) — Bundle-Budget 300KB (W-016) — Charts via Recharts statt Plotly
+- **UI-NFR-012** (PWA-Offline) — Polling-Pause bei Offline; KI-Widgets online-only (W-011)
+- **UI-NFR-019** (Kiosk-Modus) — Kiosk-Variante des Dashboards (siehe Querverweis unten)
+- **NFR-007** — Performance-Ziele (P95 < 800ms Initial-Load)
 - Redis (Caching für Performance)
 - TimescaleDB (Zeitreihen für Charts)
+
+**Querverweis Kiosk-Dashboard (UI-NFR-019):**
+Das Kiosk-Dashboard unter `/kiosk` ist in **UI-NFR-019** spezifiziert. Es teilt sich Datenquellen mit REQ-009, hat aber reduzierte Widget-Auswahl, Quick-Action-Kacheln (≥80×80px), High-Contrast-Theme und Auto-Timeout. REQ-009 spezifiziert das **Standard-Office-Dashboard**; UI-NFR-019 das Kiosk-Pendant.
 
 **Optionale Integration mit REQ-031 v2.0 (KI-Assistent):** <!-- Quelle: REQ-031 v2.0 -->
 
@@ -1239,39 +1328,59 @@ Wenn `AI_FEATURES_ENABLED=true` und `tenant.settings.ai_features_enabled=true`, 
 
 Beide Karten sind im Dashboard-Layout fix positioniert (nicht über React-Grid-Layout verschiebbar), damit das KI-Labeling konsistent erkennbar bleibt. Bei `ai_features_enabled=false` werden beide Karten komplett ausgeblendet (kein leerer Container). Bei fehlendem User-Consent `ai_tenant_data_access` zeigen beide Karten stattdessen eine kleine Hinweisbox mit Link zu den Datenschutz-Einstellungen.
 
-**Frontend-Technologien:**
-- React 18+ mit Hooks
-- Recharts oder D3.js für Charts
-- React-Grid-Layout für Drag & Drop
-- TanStack Query für Data-Fetching
-- WebSocket-Client
+**Frontend-Technologien (v2.1, W-020-konsolidiert):**
+- React 19 mit Hooks (Tech-Stack)
+- **Recharts** für Charts — MUI-Theme-konsistent, Bundle-budget-tauglich (UI-NFR-003 W-016)
+- **MUI Grid + Breakpoints** für Layout (UI-NFR-001) — kein React-Grid-Layout in v1
+- **TanStack Query** (alias react-query) für Data-Fetching mit Per-Widget-Polling
+- **Page Visibility API** für Polling-Pause bei Tab-Wechsel
+- WebSocket-Client: **Phase 2** (für `sensor_live` und `ipm_alerts`)
+- React-Grid-Layout für Drag & Drop: **Phase 2** — v1 nutzt festes Layout pro Erfahrungsstufe (REQ-021)
 
-**Python-Bibliotheken:**
+**Python-Bibliotheken (Backend):**
 - `fastapi` - REST API
-- `websockets` - Real-Time Updates
-- `plotly` - Chart-Generierung (Server-Side)
-- `redis` - Caching
+- `websockets` - **Phase 2** für Live-Updates
+- ~~`plotly` - Chart-Generierung Server-Side~~ — **entfällt v1**, Charts sind Frontend-only via Recharts
+- `redis` - Caching (Tenant-scoped Aggregations)
 - `pydantic` - Validierung
 
 ## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 
-- [ ] **Sub-Second Ladezeit:** Initial Load <1s
-- [ ] **WebSocket Live-Updates:** Keine Page-Refreshes nötig
-- [ ] **Mobile-Responsive:** Touch-optimiert für Tablets
-- [ ] **Dark-Mode:** Automatisch basierend auf System-Preference
-- [ ] **Customizable Widgets:** Drag & Drop Neuanordnung
-- [ ] **6+ Widget-Typen:** Plant Grid, VPD, Tasks, Harvest, Climate, Yield
+**v1-Scope (W-020-konsolidiert, v2.1):**
+
+- [ ] **Performance:** Initial Load Aggregations-Call P95 < 800ms (NFR-007); Widget-Refresh < 300ms
+- [ ] **REST-Polling:** Per-Widget-Intervalle gemäß §1.5; Polling pausiert bei Tab-Wechsel (Page Visibility API) und im Offline-Modus (UI-NFR-012)
+- [ ] **Mobile-Responsive:** Touch-optimiert; auf Smartphones (< 600px) Widgets vertikal gestapelt; Touch-Targets ≥ 44px (UI-NFR-001)
+- [ ] **Dark-Mode:** Automatisch basierend auf System-Preference (UI-NFR-009)
+- [ ] **Festes Layout pro Erfahrungsstufe (REQ-021):** Beginner sieht 5–6 Widgets, Intermediate 9–10, Expert alle 13 (kontextuell gefiltert) — Show/Hide einzelner Widgets pro User möglich
+- [ ] **13 Widget-Typen:** tasks_today, care_reminders, daily_tip, weather_forecast, active_plants_summary, ipm_alerts, harvest_forecast, next_calendar_events, community_activity, sensor_live, tank_status, phase_timeline, onboarding_progress (siehe §1.5)
 - [ ] **VPD Calculator:** Live-Berechnung mit Zielbereich-Anzeige
-- [ ] **Alert Center:** Kritische Warnungen prominent
-- [ ] **Harvest Calendar:** 4-Wochen-Vorschau
-- [ ] **Yield Forecasting:** ML-basierte Schätzungen
-- [ ] **PDF-Export:** Dashboard als Report speichern
-- [ ] **Multi-User:** Rollen (Viewer/Editor/Admin)
-- [ ] **PWA:** Offline-Modus mit Sync
-- [ ] **Keyboard Shortcuts:** Power-User-Features
-- [ ] **Color-Blind-Mode:** Accessibility
+- [ ] **Alert Center:** Kritische Warnungen prominent (`ipm_alerts` mit Karenz-Snapshot ADR-001)
+- [ ] **Harvest Calendar:** Wochen-Vorschau (`harvest_forecast`)
+- [ ] **KI-Daily-Tip:** `daily_tip`-Widget integriert (REQ-031 §6.3)
+- [ ] **Care-Reminders:** `care_reminders`-Widget integriert (REQ-022)
+- [ ] **PDF-Export:** Verweis auf REQ-032 (Drucksicht) — kein eigener Export-Code
+- [ ] **Multi-Tenant:** Bei Tenant-Wechsel (REQ-024 Tenant-Switcher) lädt Dashboard mit Daten des neuen Tenants neu; Permissions via REQ-024 Permission-Matrix
+- [ ] **Light-Modus (REQ-027):** Dashboard funktional verfügbar; `community_activity` ausgeblendet; `daily_tip` nur mit Whitelist-AI-Provider
+- [ ] **PWA:** Lesefähigkeit der Widget-Daten offline aus Cache (UI-NFR-012); KI-Widgets zeigen „Online erforderlich" (W-011)
+- [ ] **Empty-States:** Jedes Widget hat einen verständlichen Empty-State
+- [ ] **Error-Resilienz:** Einzelne Widget-Fehler blockieren nicht das ganze Dashboard; Inline-Error mit Retry-Button
+- [ ] **Bundle:** Dashboard-Code lazy-loaded als separater Chunk; UI-NFR-003 W-016 300KB-Budget eingehalten — Recharts statt Plotly
+- [ ] **Kiosk-Variante:** Querverweis auf UI-NFR-019; eigenes `/kiosk`-Layout
+- [ ] **Color-Blind-Mode:** Accessibility (UI-NFR-002)
+- [ ] **i18n:** Alle Widget-Titel, Empty-States, Tooltips in DE + EN
+
+**Phase 2 (nicht v1):**
+
+- WebSocket-Live-Updates für `sensor_live` und `ipm_alerts`
+- Drag-and-Drop-Widget-Anordnung
+- ML-basierte Yield-Forecasts (eigene ML-Pipeline)
+- Plotly für komplexe Analytics-Dashboards
+- Custom-Widgets via Plugin-API
+- Multi-Dashboard mit Tabs
+- Keyboard Shortcuts
 
 ### Testszenarien:
 

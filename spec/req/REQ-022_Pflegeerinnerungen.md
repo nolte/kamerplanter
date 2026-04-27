@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.4 (Agrarbiologie-Review Korrekturen)
+Version: 2.5 (Run-Owned CareProfile mit Detach-Snapshot, W-010)
 ```
 
 ## 1. Business Case
@@ -41,8 +41,20 @@ REQ-022 ist eine **spezialisierte Vereinfachungsschicht** auf dem bestehenden Ta
 
 **Kernkonzepte:**
 
-**CareProfile — Pflegekonfiguration pro Pflanze:**
-Jede `PlantInstance` erhält ein `CareProfile`, das die Pflegeintervalle für diese spezifische Pflanze definiert. Das Profil wird beim ersten Zugriff automatisch aus den Species-Stammdaten generiert (via `RequirementProfile` und `care_style`-Preset) und kann vom Nutzer nachträglich angepasst werden.
+**CareProfile — Pflegekonfiguration pro PlantingRun oder standalone PlantInstance (Dual-Support, REQ-013 v2.0):**
+
+<!-- Quelle: Widerspruchsanalyse W-010 -->
+Das `CareProfile` ist analog zur Phase (REQ-003) und zu IPM-Treatments (ADR-001) **Run-Owned**, wenn die Pflanze Mitglied eines aktiven `PlantingRun` ist:
+
+| Zustand der PlantInstance | CareProfile-Eigentümer |
+|--------------------------|------------------------|
+| Mitglied eines aktiven Runs (`run_contains.detached_at = null` UND `run.status = 'active'`) | **Run** — alle Pflanzen im Run teilen das CareProfile; eine Pflege-Erinnerung pro Run, nicht pro Plant (UX-Konsistenz) |
+| Standalone (kein Run, oder `detached_at != null`, oder Run nicht `active`) | **Plant** — eigenes CareProfile, individuell editierbar |
+
+Das Profil wird beim ersten Zugriff automatisch aus den Species-Stammdaten generiert (via `RequirementProfile` und `care_style`-Preset) und kann vom Nutzer nachträglich angepasst werden — am Run für Run-Mitglieder, an der Plant für Standalone.
+
+**Detach-Snapshot (W-010, analog ADR-001 Karenz):** Beim Detach einer Plant aus einem Run wird das aktuelle Run-CareProfile als **Plant-CareProfile-Snapshot** auf die nun-standalone Plant kopiert (mit allen aktuellen Intervallen und Multiplikatoren). Die Plant kann ab diesem Moment ihr CareProfile individuell anpassen, ohne Auswirkung auf die im Run verbleibenden Schwesterpflanzen.
+<!-- /Quelle: Widerspruchsanalyse W-010 -->
 
 **Care-Style-Presets:**
 Vordefinierte Pflegeprofile für typische Zimmerpflanzen-Kategorien:

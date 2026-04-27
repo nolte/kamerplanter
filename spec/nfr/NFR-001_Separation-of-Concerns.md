@@ -502,11 +502,12 @@ data:
 > Das nachfolgende Code-Beispiel dient nur noch als historische Referenz.
 
 ```python
-# DEPRECATED — siehe REQ-023 für aktuelle Spezifikation
+# DEPRECATED — superseded by REQ-023 (W-022, 2026-04-27)
+# Use authlib.jose + bcrypt directly. python-jose is unmaintained since 2022.
 # backend/auth/jwt.py
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from jose import JWTError, jwt        # ← ALT (python-jose), NICHT mehr verwenden
+from passlib.context import CryptContext   # ← ALT, durch direktes bcrypt ersetzt
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -1343,7 +1344,7 @@ const aql = `
 - **FastAPI** >= 0.109.0 (REST API)
 - **Pydantic** >= 2.0 (Schema Validation)
 - **python-arango** >= 2.0 (ArangoDB Driver)
-- **JWT Libraries** (jose, passlib)
+- **JWT Libraries** (Authlib >=1.3, bcrypt direkt — superseded REQ-023; `python-jose` ist NICHT mehr Bestandteil) <!-- W-022 -->
 - **Prometheus Client** (Monitoring)
 
 ---

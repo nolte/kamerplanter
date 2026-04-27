@@ -60,7 +60,7 @@ Ohne rechtskonformes Einwilligungsmanagement drohen Bußgelder nach DSGVO Art. 8
 | `localStorage`: Sprache (`i18nextLng`) | Spracheinstellung (UI-NFR-007) | TTDSG § 25 Abs. 2 Nr. 2 |
 | `localStorage`: Theme (`theme-mode`) | Light/Dark-Modus | TTDSG § 25 Abs. 2 Nr. 2 |
 | `localStorage`: Tenant-Auswahl (`active-tenant`) | Mandantenkontext (REQ-024) | TTDSG § 25 Abs. 2 Nr. 2 |
-| `localStorage`: Kiosk-Modus-Präferenz (UI-NFR-011) | Betriebsmodus | TTDSG § 25 Abs. 2 Nr. 2 |
+| `localStorage`: Kiosk-Modus-Präferenz (UI-NFR-019) | Betriebsmodus | TTDSG § 25 Abs. 2 Nr. 2 |
 | Session-State (Redux, In-Memory) | Anwendungsbetrieb | Kein Endgerätzugriff |
 
 **Einwilligung erforderlich:**

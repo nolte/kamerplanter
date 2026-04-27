@@ -915,7 +915,7 @@ Vermeiden (in jeden Prompt einbauen):
 | Responsive Breakpoints | UI-NFR-001 |
 | Barrierefreiheit / WCAG | UI-NFR-002 |
 | Lottie-Animations-Specs (Dauer, Dateigr.) | UI-NFR-009 §3.3 R-019 |
-| Kiosk-Modus-Design | UI-NFR-011 |
+| Kiosk-Modus-Design | UI-NFR-019 |
 | Konkrete Midjourney-Prompts (toolspezifisch) | `spec/ui-nfr/assets/midjourney-prompts.md` |
 
 ---

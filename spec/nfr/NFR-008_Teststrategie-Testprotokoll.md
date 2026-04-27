@@ -6,13 +6,20 @@ Kategorie: Qualitätssicherung Unterkategorie: Teststrategie, E2E-Testing, Testd
 Technologie: pytest, vitest, Selenium WebDriver, testcontainers, httpx, factory_boy
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1 (Coverage-Schwellen messbar + CI-Gate, W-018)
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-26
+Datum: 2026-04-27
 Tags: [testing, test-strategy, test-pyramid, e2e, selenium, test-protocol, quality-assurance, screenshots]
 Abhängigkeiten: [NFR-001, NFR-003, NFR-006, NFR-007]
 Betroffene Module: [ALL]
 ---
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-04-27 | **W-018:** Coverage-Schwellen pro Test-Stufe und pro Layer messbar gemacht (≥80% Line / ≥75% Branch gesamt; ≥85% Line für Business Logic; 100% API-Coverage). CI-Gate-Beschreibung mit Tooling, Aufruf und Build-Verhalten ergänzt. SOLL-Anforderungen für Coverage-Report-Aufbewahrung (30 Tage) und PR-Template-Checkbox. |
+| 1.0 | 2026-02-26 | Erstversion — Testpyramide, E2E-Selenium, Testprotokoll-Struktur. |
 
 # NFR-008: Teststrategie & Testprotokoll
 
@@ -94,18 +101,34 @@ Praktisches Beispiel:
 
 | Stufe | Werkzeuge | Coverage-Ziel | Ausführung |
 |---|---|---|---|
-| **Unit-Tests** | pytest (Backend), vitest (Frontend) | ≥80% (vgl. NFR-003) | Lokal + CI |
-| **Integrationstests** | pytest + testcontainers (ArangoDB, Redis), vitest + MSW | Kritische Pfade | Lokal + CI |
-| **API-/Contract-Tests** | pytest + httpx (TestClient), Pydantic-Schema-Validation | Alle Endpunkte | Lokal + CI |
-| **E2E-Tests (Selenium)** | Selenium WebDriver, pytest-selenium, pytest-html | Kernfunktionen | Lokal |
+| **Unit-Tests** | pytest (Backend), vitest (Frontend) | ≥80% Line / ≥75% Branch (gesamt); ≥85% Line für Business-Logic-Layer (`services/`, `engines/`) | Lokal + CI |
+| **Integrationstests** | pytest + testcontainers (ArangoDB, Redis), vitest + MSW | ≥70% kritische Pfade (Service-Public-API, Engine-Public-API) | Lokal + CI |
+| **API-/Contract-Tests** | pytest + httpx (TestClient), Pydantic-Schema-Validation | 100% der öffentlichen Endpunkte (mind. Happy-Path + 1 Error-Path je Endpunkt) | Lokal + CI |
+| **E2E-Tests (Selenium)** | Selenium WebDriver, pytest-selenium, pytest-html | Kernfunktionen pro REQ (siehe NFR-008a §3.3 Liste) | Lokal |
 
 ### 2.3 Stufe 1: Unit-Tests
 
 **Scope**: Einzelne Funktionen, Klassen und Module isoliert von externen Abhängigkeiten.
 
-**MUSS**: Unit-Tests erreichen ≥80% Line-Coverage für Backend und Frontend (vgl. NFR-003).
+**MUSS**: Unit-Tests erreichen ≥80% Line-Coverage und ≥75% Branch-Coverage für Backend und Frontend (gesamt). <!-- W-018 -->
+**MUSS**: Business-Logic-Layer (Backend: `app/services/`, `app/engines/`; Frontend: Custom Hooks, Pure-Functions in `src/utils/`) erreicht ≥85% Line-Coverage. <!-- W-018 -->
 **MUSS**: Unit-Tests verwenden Mocks/Stubs für Datenbank-, Netzwerk- und Dateisystem-Zugriffe.
 **MUSS**: Jeder Unit-Test ist unabhängig und deterministisch — keine Reihenfolge-Abhängigkeiten.
+
+<!-- Quelle: Widerspruchsanalyse W-018 -->
+**MUSS — CI-Gate (W-018):** Die CI-Pipeline (GitHub Actions) MUSS Coverage messen und den Build bei Unterschreitung der oben genannten Schwellen fehlschlagen lassen.
+
+| Komponente | Tooling | Aufruf | CI-Verhalten bei Verstoß |
+|------------|---------|--------|--------------------------|
+| Backend | `pytest --cov=app --cov-fail-under=80 --cov-branch` (`pyproject.toml` `[tool.coverage]`-Sektion) | `pytest` | Build fails — kein Merge möglich |
+| Backend Business-Logic | `pytest --cov=app/services --cov=app/engines --cov-fail-under=85` (separater CI-Step) | `pytest` | Build fails |
+| Frontend | `vitest run --coverage` mit `coverage.thresholds.lines=80, branches=75` in `vitest.config.ts` | `npm run test:coverage` | Build fails |
+| Frontend Hooks/Utils | `vitest --coverage --coverage.include='src/hooks/**' --coverage.include='src/utils/**'` mit `lines=85` | separater CI-Step | Build fails |
+
+**SOLL**: Coverage-Reports als CI-Artefakt (HTML + Cobertura-XML) für 30 Tage aufbewahren — Pull-Request-Diff zeigt Coverage-Delta, regression alerts Slack-Notification.
+
+**SOLL**: PR-Template enthält Checkbox „Coverage-Schwellen geprüft (siehe CI-Output)".
+<!-- /Quelle: Widerspruchsanalyse W-018 -->
 
 **Backend-Beispiel** (vgl. NFR-001 Abschnitt 9 für weitere Beispiele):
 

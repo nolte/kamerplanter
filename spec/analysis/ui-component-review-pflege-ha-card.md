@@ -67,7 +67,7 @@ Besser: Timeline-Labels ab einer Kartenbreite unter 300px ausblenden und nur Mar
 **Datei:** `src/frontend/src/pages/pflege/PflegeDashboardPage.tsx`, Zeile 276-318
 **Bedienkontext:** Kiosk, Mobile, Tablet
 **Problem:**
-Alle drei Aktionsbuttons pro Pflegekarte (Profil bearbeiten, Bestaetigen, Snooze) verwenden `size="small"` IconButtons. MUI IconButton small hat eine Standardgroesse von 24px Icon + minimales Padding = effektiv ca. 28-32px Touch-Target. Das ist weit unter dem empfohlenen Minimum von 48px (Standard-Mobile) und erst recht unter 64px (Kiosk-Modus gemaess UI-NFR-011).
+Alle drei Aktionsbuttons pro Pflegekarte (Profil bearbeiten, Bestaetigen, Snooze) verwenden `size="small"` IconButtons. MUI IconButton small hat eine Standardgroesse von 24px Icon + minimales Padding = effektiv ca. 28-32px Touch-Target. Das ist weit unter dem empfohlenen Minimum von 48px (Standard-Mobile) und erst recht unter 64px (Kiosk-Modus gemaess UI-NFR-019).
 
 Im Gewaechshaus mit nassen oder schmutzigen Haenden sind diese Buttons kaum treffsicher bedienbar. Der Abstand zwischen den drei Buttons betraegt `gap: 0.5` = 4px — auch das ist mit Handschuhen nicht differenzierbar.
 
@@ -85,7 +85,7 @@ Im Gewaechshaus mit nassen oder schmutzigen Haenden sind diese Buttons kaum tref
   // IconButton medium = 40px Touch-Target — Mindeststandard Mobile
 ```
 
-Fuer Kiosk-Modus gemaess UI-NFR-011 zusaetzlich:
+Fuer Kiosk-Modus gemaess UI-NFR-019 zusaetzlich:
 ```tsx
 // Wenn kiosk-Modus aktiv (z.B. via URL-Parameter oder User-Setting):
 <IconButton sx={{ minWidth: 64, minHeight: 64 }} ...>
@@ -430,7 +430,7 @@ Die Quick-Marks (1, 7, 14, 30) im Slider koennen alternativ als separate ToggleB
 
 ### Langfristig / Strategisch
 
-1. **Kiosk-Modus fuer Pflege-Dashboard**: Gemaess UI-NFR-011 einen dedizierten Kiosk-Darstellungsmodus implementieren. Die wichtigsten Kiosk-Aktionen (Giessen bestaetigen, Snooze) als grosse Kacheln (min. 80x80px) auf einer vereinfachten Ansicht.
+1. **Kiosk-Modus fuer Pflege-Dashboard**: Gemaess UI-NFR-019 einen dedizierten Kiosk-Darstellungsmodus implementieren. Die wichtigsten Kiosk-Aktionen (Giessen bestaetigen, Snooze) als grosse Kacheln (min. 80x80px) auf einer vereinfachten Ansicht.
 
 2. **HA-Card i18n**: Sprache aus HA-Frontend (`hass.language`) auslesen und Labels entsprechend setzen. Das ermoeglicht internationale Nutzung ohne Code-Aenderung.
 
@@ -443,8 +443,8 @@ Die Quick-Marks (1, 7, 14, 30) im Slider koennen alternativ als separate ToggleB
 | Thema | Beschreibung | Empfehlung |
 |-------|-------------|------------|
 | HA-Card: Mindest-Schriftgroessen | Keine Vorgabe in UI-NFR-015 fuer lesbare Karteninhalte | Ergaenzung in UI-NFR-015: min. 11px fuer sekundaere Labels, min. 13px fuer primaere Inhalte |
-| Kiosk-Modus: Pflege-Dashboard | UI-NFR-011 definiert Kiosk-Anforderungen, aber PflegeDashboardPage hat keine kiosk-spezifische Variante | Kiosk-Ansicht als separate Route oder URL-Parameter dokumentieren |
-| Touch-Target-Groessen: HA-Cards | UI-NFR-011 gilt fuer das React-Frontend; kein aequivalentes Dokument fuer HA-Cards | UI-NFR-015 um Display-Lesbarkeits-Anforderungen fuer HA-Cards erweitern |
+| Kiosk-Modus: Pflege-Dashboard | UI-NFR-019 definiert Kiosk-Anforderungen, aber PflegeDashboardPage hat keine kiosk-spezifische Variante | Kiosk-Ansicht als separate Route oder URL-Parameter dokumentieren |
+| Touch-Target-Groessen: HA-Cards | UI-NFR-019 gilt fuer das React-Frontend; kein aequivalentes Dokument fuer HA-Cards | UI-NFR-015 um Display-Lesbarkeits-Anforderungen fuer HA-Cards erweitern |
 | CareConfirmDialog: Validierung | Keine Validierungsregeln fuer Volume (max. realistischer Wert?), EC (0-10?), pH (0-14 ist definiert) | Validierungsregeln in REQ-022 ergaenzen |
 | Reset-Aktion: Bestaetigungspflicht | Kein UI-NFR das destruktive Aktionen (Reset Learning) unter Bestaetigungspflicht stellt | In UI-NFR-004 (Feedback) ergaenzen: destruktive Aktionen mit Confirmation-Dialog |
 
@@ -453,7 +453,7 @@ Die Quick-Marks (1, 7, 14, 30) im Slider koennen alternativ als separate ToggleB
 ## Glossar
 
 - **Touch-Target**: Beruhrbarer Bereich eines interaktiven UI-Elements. Bei MUI IconButton "small" ist der Touch-Target die gesamte Box inklusive Padding, typisch 28-34px je nach Browser-Rendering.
-- **Kiosk-Modus**: Vereinfachte Bedienoberfaeche fuer Standort-Tablets im Gewaechshaus. Definiert in UI-NFR-011 mit Mindest-Touch-Target von 64px.
+- **Kiosk-Modus**: Vereinfachte Bedienoberfaeche fuer Standort-Tablets im Gewaechshaus. Definiert in UI-NFR-019 mit Mindest-Touch-Target von 64px.
 - **CSS Custom Properties**: Variablen in CSS (`--primary-color`). Home Assistant definiert ein Set von Theme-Variablen die von Custom Cards konsumiert werden sollen.
 - **Shadow DOM**: Web-Komponenten-Isolation. Der interne DOM einer Card ist vom Seiten-DOM getrennt — CSS-Variablen werden aber durch das Shadow DOM hindurch geerbt.
 - **fullScreen-Dialog**: MUI-Dialog der auf kleinen Viewports den gesamten Bildschirm belegt. Korrekte Pattern fuer mobile Formulareingabe.
