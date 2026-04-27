@@ -7,8 +7,15 @@ Kategorie: Erntezyklus
 Fokus: Beides
 Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
-Version: 2.3 (W-007 Ernte-Fenster-Vorhersage integriert)
+Version: 2.4 (Karenz-Detach-Bypass-Schutz, ADR-001)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.4 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `karenz_check_passed`-Feld nutzt jetzt explizit `SafetyIntervalValidator.collect_relevant_treatments()` aus REQ-010 §3, der für detachte PlantInstances geerbte Run-Treatments einbezieht. Direkter Karenz-Bypass über Detach ist ausgeschlossen. |
+| 2.3 | (vorher) | Ernte-Fenster-Vorhersage integriert. |
 
 ## 1. Business Case
 
@@ -1943,7 +1950,12 @@ class HarvestBatch(BaseModel):
         description="Karenzzeit-Prüfung gegen REQ-010 IPM-Treatment-Log. "
                     "Batch-Erstellung wird blockiert wenn letzte chemische Behandlung "
                     "< Karenzzeit (PHI) zurückliegt. Force-Override nur für "
-                    "nicht-essbare Kulturen (Zierpflanzen) mit Dokumentation."
+                    "nicht-essbare Kulturen (Zierpflanzen) mit Dokumentation. "
+                    "ADR-001 (W-009): Der Karenz-Check verwendet "
+                    "SafetyIntervalValidator.collect_relevant_treatments() (REQ-010 §3), "
+                    "der bei detachten PlantInstances auch geerbte Run-Level-Treatments "
+                    "(Snapshot beim Detach via inherited_from_run-Edge-Property) einbezieht. "
+                    "Direkter Karenz-Bypass über Detach ist damit ausgeschlossen."
     )
 
     @staticmethod
@@ -2533,6 +2545,9 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Tablet-Spaltenprioritäten:** HarvestBatch-ListPage blendet auf Tablet Pflanzen-Key aus; Primärspalten: Batch-ID, Datum, Gewicht (UI-NFR-010 §8.1)
 - [ ] **Compliance-Export:** HarvestBatch-Liste bietet CSV- und PDF-Export der gefilterten Ansicht für CanG-Dokumentation (Erntemengen, Qualität, Seed-to-Shelf-Rückverfolgbarkeit); UI-NFR-010 §9.2
 - [ ] **Karenzzeit-Gate:** Batch-Erstellung prüft automatisch REQ-010 IPM-Treatment-Log auf offene Karenzzeiten
+<!-- Quelle: ADR-001 / W-009 -->
+- [ ] **Karenz-Detach-Bypass-Schutz (ADR-001):** Der Karenz-Check für eine PlantInstance verwendet `SafetyIntervalValidator.collect_relevant_treatments()` aus REQ-010 §3 — der direkte, run-aktive UND geerbte Treatments (Snapshot beim Detach) einbezieht. Ein automatisierter Test stellt sicher: detachen mit aktiver Karenz → Direkt-Ernte wird mit `KarenzViolationError` blockiert.
+<!-- /Quelle: ADR-001 / W-009 -->
 - [ ] **Paprika bedingt klimakterisch:** WEAKLY_CLIMACTERIC-Kategorie für Paprika im Farbumschlag
 - [ ] **Melonen-Differenzierung:** Wassermelone → nicht-klimakterisch, Cantaloupe/Honeydew → klimakterisch
 - [ ] **Trichom degraded_percent:** Vierte Kategorie für abgestorbene/abgebrochene Trichome
