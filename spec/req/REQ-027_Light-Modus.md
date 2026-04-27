@@ -7,14 +7,16 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.2 (Bidirektionaler Moduswechsel Light↔Full)
-Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025
+Version: 1.4 (W-012 DSGVO-Klarstellung + W-015 Service Accounts + W-017 iCal)
+Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-04-27 | **W-012 + W-015 + W-017:** §1 Klarstellungs-Tabelle „Was deaktiviert / was aktiv bleibt" — technische Datenschutz-Maßnahmen (GPS-Rundung, IP-Anonymisierung, EXIF-Strip, HTTPS, Rate Limiting) bleiben aktiv (W-012). Service Accounts in §2.1 als deaktiviert markiert; §1.1 Szenario 5 um Migrations-Hinweis für externe Integrationen erweitert (W-015). §6.1 Lifespan ruft `ensure_system_user_calendar_feed_token()` auf; §6.2 Klarstellung dass CalendarFeed-Endpunkt in beiden Modi aktiv ist (W-017). |
+| 1.3 | 2026-04-27 | **W-001 Fix (AI-Provider-Guard):** Startup-Validierung `validate_light_mode_ai_config()` ergänzt (§6.1). Whitelist `LIGHT_MODE_ALLOWED_PROVIDER_TYPES = {'ollama', 'openai_compatible'}` + Loopback-Heuristik für `base_url` bei `openai_compatible`. Hard-Crash bei Cloud-Provider-Konfiguration im Light-Modus. Kein Override-Flag. Sechs neue Abnahmekriterien (AK-29 bis AK-34). |
 | 1.2 | 2026-03-16 | **Bidirektionaler Moduswechsel:** Upgrade Light→Full (System-Tenant-Übernahme durch ersten registrierten User, Platform-Admin-Transfer), Downgrade Full→Light (Datenverlust akzeptabel, System-User/Tenant-Reaktivierung, Multi-Tenant-Daten verwaist). Neue Szenarien 5–8, Upgrade-/Downgrade-API, Abnahmekriterien. |
 | 1.1 | 2026-03-16 | **Platform-Tenant im Light-Modus:** System-User erhält automatisch admin-Membership im Platform-Tenant. Alle globalen Stammdaten (Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans) werden via `tenant_has_access`-Kanten dem System-Tenant zugewiesen. Seed-Logik erweitert um Platform-Tenant-Erstellung und Auto-Assign. |
 | 1.0 | 2026-02-27 | Erstversion — Light-Modus als Deployment-Option für lokale Instanzen |
@@ -50,6 +52,30 @@ Der Light-Modus stützt sich auf die **Haushaltsausnahme** der DSGVO: Die Verord
 - VPN-geschütztes LAN
 
 **Wenn der Light-Modus außerhalb der Haushaltsausnahme betrieben wird** (öffentlich erreichbar, gewerblicher Einsatz, Cloud-Hosting), MUSS der Betreiber auf den Full-Modus wechseln. Das System kann dies nicht automatisch erzwingen, aber die Deployment-Dokumentation MUSS diesen Sachverhalt prominent darstellen.
+
+<!-- Quelle: Widerspruchsanalyse W-012 -->
+**Was im Light-Modus deaktiviert ist (DSGVO-Mechanismen):**
+
+| Mechanismus | Status |
+|-------------|--------|
+| Consent-Banner und Consent-Erfassung | Deaktiviert (kein User → kein Consent möglich) |
+| DSGVO-Self-Service-Endpunkte unter `/api/v1/privacy/` | Nicht registriert |
+| Erasure-Workflow (REQ-025 §3.1) | Inaktiv (kein User → keine Löschung) |
+| Audit-Logs für personenbezogene Verarbeitung | Inaktiv |
+
+**Was im Light-Modus AKTIV BLEIBT (technische Datenschutz-Maßnahmen):**
+
+| Maßnahme | Status | Begründung |
+|----------|--------|-----------|
+| **GPS-Rundung auf 2 Dezimalstellen** vor Wetter-API-Aufruf (REQ-025 DP-002) | **Aktiv** | Schützt vor Klartext-Standortübertragung an Drittland-Provider — implementierungsseitig, nicht consent-abhängig |
+| **IP-Anonymisierung** in Logs (NFR-011 R-03) | **Aktiv** | Reduziert Log-Größe und respektiert Privacy auch im LAN-Betrieb |
+| **EXIF-Strip beim Foto-Upload** (NFR-013 §6.4 Default) | **Aktiv** | Verhindert versehentliche Übertragung von GPS-/Geräte-Identifiern in Backups |
+| **HTTPS-Enforcement** | **Aktiv** | Auch im LAN: schützt vor Mitlesen durch andere Geräte |
+| **Rate Limiting** (slowapi) | **Aktiv** | Schutz vor Bot-Scans, falls Light-Modus aus Versehen exponiert wird |
+| **Input-Validation** (Pydantic + ORM-Parameterisierung) | **Aktiv** | Generelle Sicherheit, unabhängig von DSGVO |
+
+Begründung: Diese Maßnahmen sind **implementierungsseitig**, nicht consent-abhängig. Sie schützen vor Drittland-Datenübermittlung und passiven Mitlese-Angriffen unabhängig vom DSGVO-Consent-Mechanismus.
+<!-- /Quelle: Widerspruchsanalyse W-012 -->
 
 **Kernkonzepte:**
 
@@ -147,6 +173,7 @@ Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen, 3 Standorte, 5 Nährstoffp
    e) Neuer User erhält admin-Membership im Platform-Tenant (= erster KA-Admin)
 8. Alle 30 Pflanzen, Standorte, Nährstoffpläne etc. gehören jetzt dem neuen User
 9. Neuer User kann jetzt weitere Mitglieder einladen (REQ-024)
+10. **Externe Integrationen (W-015):** Home Assistant, Grafana, CI/CD und ähnliche M2M-Clients riefen die API im Light-Modus ohne Auth auf. Nach dem Upgrade müssen sie auf **Service-Account-API-Keys** umgestellt werden (REQ-023 §3.7). Tenant-Admin generiert die Keys über die Settings → Integrationen-Sektion und konfiguriert sie in den externen Systemen. Bestehende HA-Konfigurationen funktionieren ohne Anpassung weiter, bis das nächste API-Polling den 401 zurückbekommt — dann ist Migration fällig.
 ```
 
 **Szenario 6: Upgrade Light→Full — Übernahme ablehnen**
@@ -246,10 +273,15 @@ Phase 4 — Erneuter Upgrade auf Full:
 | **KI-Chat-Drawer (REQ-031 §6.5)** | Ausgeblendet | Vollständig (ab Intermediate) |
 | **KI-Diagnose-Assistent (REQ-036)** | Ausgeblendet — Hinweis "Anmelden, um Diagnose zu nutzen" | Vollständig |
 | **KI-Provider-Settings (REQ-031 §6.6)** | Ausgeblendet (System-Default-Provider wird genutzt) | Vollständig (Tenant-Admin) |
+| **Service Accounts (REQ-023 §3.7)** <!-- W-015 --> | Deaktiviert (im Light-Modus gibt es keine Auth — externe Integrationen wie Home Assistant rufen die API ohne Bearer-Token auf) | Vollständig (Tenant-Admin / Platform-Admin) |
 
 <!-- Quelle: REQ-031 v2.0 -->
 
 **KI-Verhalten im Light-Modus:** Im Light-Modus laufen KI-Anfragen ausschließlich über System-Default-Provider (typischerweise lokales Ollama). `AI_PUBLIC_PROVIDER_KEY` muss auf einen lokalen Provider zeigen — Cloud-Provider sind im Light-Modus NICHT verwendbar, weil kein Nutzer einen Consent erteilen kann. Der Knowledge-Service-Aufruf erfolgt strikt mit `context = null` (kein Tenant-Kontext). Audit-Eintrag wird mit `tenant_key=null` und `user_key=null` geschrieben.
+
+<!-- Quelle: Widerspruchsanalyse W-001 -->
+**Enforcement (W-001):** Diese Regel wird beim Backend-Start technisch durchgesetzt — Strategie: **Whitelist + Hard-Crash, kein Override**. `validate_light_mode_ai_config()` (siehe §6.1) prüft `AI_PUBLIC_PROVIDER_KEY.provider_type` gegen die Whitelist `LIGHT_MODE_ALLOWED_PROVIDER_TYPES = {'ollama', 'openai_compatible'}` und bricht den Backend-Start mit `StartupConfigurationError` ab, wenn ein nicht-zugelassener Provider-Typ (z.B. `anthropic`) konfiguriert ist. Bei `openai_compatible` wird zusätzlich die `base_url` über eine Loopback-Heuristik geprüft (`localhost`, `127.0.0.1`, `::1`, RFC-1918 private Netze, `*.local`, `*.internal`, `*.svc.cluster.local`); öffentliche URLs führen ebenfalls zum Hard-Crash. Es existiert kein Override-Flag — wer Cloud-AI nutzen will, muss den Full-Modus mit Consent-Mechanismus aktivieren.
+<!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### 2.2 Ausgeblendete UI-Elemente im Light-Modus
 
@@ -556,10 +588,129 @@ export const isLightMode = KAMERPLANTER_MODE === 'light';
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.kamerplanter_mode == "light":
-        seed_light_mode(get_db())   # System-User + System-Tenant
+        seed_light_mode(get_db())                              # System-User + System-Tenant
+        validate_light_mode_ai_config(get_db(), settings)      # W-001: AI-Provider-Guard
+        ensure_system_user_calendar_feed_token(get_db())       # W-017: iCal-Feed-Token
     yield
     close_connection()
 ```
+
+<!-- Quelle: Widerspruchsanalyse W-001 -->
+#### 6.1.1 AI-Provider-Guard (W-001)
+
+Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert). Cloud-Provider dürfen daher nicht als System-Default für KI-Anfragen verwendet werden, weil keine Einwilligung für `ai_cloud_processing` erteilt werden kann.
+
+**Strategie:** Whitelist + Hard-Crash beim Backend-Start, **kein Override-Flag**.
+
+```python
+import ipaddress
+from urllib.parse import urlparse
+
+# Whitelist erlaubter provider_type-Werte im Light-Modus.
+# - 'ollama'           : immer lokal (sicher)
+# - 'openai_compatible': KANN lokal sein (LM Studio, llama-cpp-server, vLLM,
+#                        text-generation-webui etc.). Operator ist verantwortlich,
+#                        dass die base_url wirklich auf einen lokalen/privaten
+#                        Endpunkt zeigt — siehe Loopback-Heuristik unten.
+LIGHT_MODE_ALLOWED_PROVIDER_TYPES: frozenset[str] = frozenset({
+    "ollama",
+    "openai_compatible",
+})
+
+
+def validate_light_mode_ai_config(db, settings) -> None:
+    """Verbietet Cloud-AI-Provider im Light-Modus (Hard-Crash-Strategie).
+
+    Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert).
+    Cloud-Provider duerfen daher nicht als System-Default verwendet werden,
+    weil keine Einwilligung fuer ai_cloud_processing erteilt werden kann.
+
+    Strategie: Whitelist + Hard-Crash. Kein Override-Flag — wer Cloud-AI
+    braucht, MUSS den Full-Modus mit Consent-Mechanismus nutzen.
+
+    Raises:
+        StartupConfigurationError: Wenn AI_FEATURES_ENABLED=true UND
+            der konfigurierte AI_PUBLIC_PROVIDER_KEY auf einen Provider
+            zeigt, dessen provider_type nicht in
+            LIGHT_MODE_ALLOWED_PROVIDER_TYPES enthalten ist, oder dessen
+            base_url offensichtlich oeffentlich erreichbar ist.
+    """
+    if not settings.ai_features_enabled:
+        return  # KI komplett deaktiviert — kein Provider-Check noetig
+
+    provider_key = settings.ai_public_provider_key
+    if not provider_key:
+        return  # Kein Public-Provider konfiguriert — KI-Endpoints liefern 404
+
+    provider = ai_provider_repo.get(db, provider_key)
+    if provider is None:
+        raise StartupConfigurationError(
+            f"AI_PUBLIC_PROVIDER_KEY={provider_key} verweist auf keinen "
+            f"existierenden ai_provider_config-Eintrag."
+        )
+
+    if provider.provider_type not in LIGHT_MODE_ALLOWED_PROVIDER_TYPES:
+        raise StartupConfigurationError(
+            f"Light-Modus erlaubt nur lokale AI-Provider "
+            f"(provider_type in {sorted(LIGHT_MODE_ALLOWED_PROVIDER_TYPES)}). "
+            f"Konfigurierter Provider '{provider.display_name}' hat "
+            f"provider_type='{provider.provider_type}'. "
+            f"Setze AI_FEATURES_ENABLED=false oder waehle einen lokalen Provider. "
+            f"Begruendung: Im Light-Modus existiert kein Consent-Mechanismus "
+            f"fuer ai_cloud_processing (REQ-025)."
+        )
+
+    if provider.provider_type == "openai_compatible":
+        # openai_compatible KANN lokal sein, aber wenn base_url offensichtlich
+        # oeffentlich (api.openai.com, api.groq.com, api.together.xyz, ...) ist,
+        # wird der Start ebenfalls abgebrochen.
+        if not _is_loopback_or_private_url(provider.base_url):
+            raise StartupConfigurationError(
+                f"Light-Modus + openai_compatible erfordert eine lokale "
+                f"base_url (loopback/127.0.0.1/private Netz/K8s-internes DNS). "
+                f"Konfigurierte base_url '{provider.base_url}' ist oeffentlich "
+                f"erreichbar — das wuerde Daten ohne Consent an einen "
+                f"Cloud-Endpunkt senden (REQ-025)."
+            )
+
+
+def _is_loopback_or_private_url(url: str) -> bool:
+    """Prueft, ob eine URL auf localhost/127.0.0.1/private Netze zeigt.
+
+    Akzeptiert:
+    - Hostname: localhost, *.local, *.internal, *.svc.cluster.local (K8s)
+    - IPv4: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+    - IPv6: ::1, fc00::/7 (Unique Local), fe80::/10 (Link Local)
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    if host.endswith((".local", ".internal", ".svc.cluster.local")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except ValueError:
+        return False
+```
+
+**Fehlermeldungen:** Alle drei `StartupConfigurationError`-Varianten enthalten konkrete Remediation-Hinweise (`AI_FEATURES_ENABLED=false`, Wechsel auf Ollama, lokale `base_url`). Der Operator sieht im Container-Log sofort, was zu tun ist.
+
+**Verhalten in der Konfigurationsmatrix:**
+
+| Konfiguration | Backend-Start |
+|---------------|---------------|
+| `AI_FEATURES_ENABLED=false` | OK (Validator wird kurzgeschlossen) |
+| `provider_type='ollama'`, beliebige `base_url` | OK |
+| `provider_type='openai_compatible'`, `base_url=http://localhost:1234` | OK |
+| `provider_type='openai_compatible'`, `base_url=http://10.0.0.5:8080` | OK (RFC-1918 privat) |
+| `provider_type='openai_compatible'`, `base_url=http://ollama.svc.cluster.local` | OK (K8s-internes DNS) |
+| `provider_type='openai_compatible'`, `base_url=https://api.openai.com` | **Hard-Crash** |
+| `provider_type='anthropic'` | **Hard-Crash** |
+| `AI_PUBLIC_PROVIDER_KEY` zeigt auf nicht-existierenden Eintrag | **Hard-Crash** |
+
+<!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### 6.2 Conditional Route Registration
 
@@ -575,6 +726,10 @@ if settings.kamerplanter_mode == "full":
 ```
 
 Alle anderen Router (sites, plants, tasks, ...) werden in beiden Modi registriert.
+
+<!-- Quelle: Widerspruchsanalyse W-017 -->
+**Hinweis CalendarFeed (W-017):** Der iCal-Feed-Endpunkt (REQ-015 CF-007) ist NICHT in der Auth-Router-Deaktivierung enthalten — er nutzt ein eigenes Token-Schema (URL-basierte Capability, kein JWT) und wird in BEIDEN Modi registriert. Im Light-Modus bekommt der System-User automatisch ein Feed-Token (siehe `ensure_system_user_calendar_feed_token()` in §6.1).
+<!-- /Quelle: Widerspruchsanalyse W-017 -->
 
 ### 6.3 Mode-Informations-Endpoint
 
@@ -928,6 +1083,14 @@ def get_takeover_status() -> dict:
 | AK-27 | **Roundtrip:** Light→Full→Light→Full: Alle Daten bleiben erhalten und sind nach erneutem Upgrade zugänglich | Integration |
 | AK-28 | `GET /api/v1/system/takeover-status` gibt korrekte Ressourcen-Zählung zurück | Integration |
 <!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
+<!-- Quelle: Widerspruchsanalyse W-001 -->
+| AK-29 | **Light-Modus + Cloud-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und der konfigurierte `AI_PUBLIC_PROVIDER_KEY` auf einen Provider mit `provider_type='anthropic'` zeigt, MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden (Hard-Crash). | Integration |
+| AK-30 | **Light-Modus + Ollama-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und ein Ollama-Provider (`provider_type='ollama'`) konfiguriert ist, MUSS der Backend-Start fehlerfrei durchlaufen — unabhängig davon, ob die `base_url` localhost oder ein internes Netz ist. | Integration |
+| AK-31 | **Light-Modus + lokaler `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf `localhost`/`127.0.0.1`/`::1`/private IP/`*.local`/`*.internal`/`*.svc.cluster.local` zeigt, MUSS der Backend-Start fehlerfrei durchlaufen. | Integration |
+| AK-32 | **Light-Modus + öffentlicher `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf einen öffentlichen Host zeigt (z.B. `api.openai.com`, `api.groq.com`, `api.together.xyz`), MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden. | Integration |
+| AK-33 | **Light-Modus + AI deaktiviert:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=false`, MUSS der Backend-Start auch ohne `AI_PUBLIC_PROVIDER_KEY` fehlerfrei durchlaufen — der Validator wird kurzgeschlossen. | Integration |
+| AK-34 | **Kein Override:** Es existiert KEIN Environment-Flag (z.B. `LIGHT_MODE_ALLOW_CLOUD_AI`), das `validate_light_mode_ai_config()` umgehen kann. Wer Cloud-AI braucht, muss in den Full-Modus wechseln. | Code-Review |
+<!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### Frontend-Kriterien:
 
