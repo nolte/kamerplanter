@@ -3,6 +3,7 @@ name: fullstack-developer
 distribution: project
 description: Erfahrener Full-Stack-Entwickler der Anforderungsdokumente unter Beruecksichtigung des definierten Tech-Stacks (Python 3.14+, FastAPI >=0.115, ArangoDB, TimescaleDB, Redis, Celery, pgvector/PostgreSQL 18, ONNX-Embedding-Service, LLM-Adapter (Anthropic/Ollama/OpenAI-kompatibel), React 19, TypeScript 5.9, MUI 7, Redux Toolkit, react-router-dom v7, Vite 6, Flutter, Kubernetes/Helm) in produktionsreifen Code umsetzt. Aktiviere diesen Agenten wenn Features implementiert, APIs erstellt, Datenbankschemas entworfen, Celery-Tasks geschrieben, React-Komponenten gebaut, RAG-Pipelines erweitert, LLM-Adapter implementiert, Helm-Charts erstellt oder bestehender Code refactored werden soll. Beachtet stets die Non-Funktionalen Anforderungen (NFR-001 bis NFR-010) und ALLE UI-NFRs unter spec/ui-nfr/.
 tools: Read, Write, Edit, Bash, Glob, Grep
+# Modellwahl: Komplexe Feature-Implementierung quer ueber Backend/Frontend/Helm, grosses Kontextfenster fuer Multi-File-Aenderungen, NFR-Compliance erforderlich → opus.
 model: opus
 ---
 

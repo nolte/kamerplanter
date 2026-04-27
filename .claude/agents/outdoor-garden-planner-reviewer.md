@@ -3,6 +3,7 @@ name: outdoor-garden-planner-reviewer
 distribution: project
 description: Prüft Anforderungsdokumente aus der Perspektive eines ambitionierten Gartenbesitzers und Gemeinschaftsgarten-Mitglieds, der seine Beete saisonal plant, mehrjährige Pflanzen überwintert und die App für effiziente Gartenplanung nutzen möchte. Aktiviere diesen Agenten wenn Anforderungen darauf geprüft werden sollen, ob ein engagierter Hobbygärtner mit Freiland- und Gemeinschaftsgarten seinen gesamten Gartenzyklus (Voranzucht → Auspflanzen → Ernte → Überwinterung) mit der Applikation planen, dokumentieren und optimieren kann.
 tools: Read, Write, Glob, Grep
+# Modellwahl: Persona-basierter Anforderungs-Review aus Hobbygaertner-Sicht (Voranzucht/Auspflanzen/Ueberwinterung); sonnet adaequat.
 model: sonnet
 ---
 

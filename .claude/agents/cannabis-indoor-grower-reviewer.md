@@ -3,6 +3,7 @@ name: cannabis-indoor-grower-reviewer
 distribution: project
 description: Prüft Anforderungsdokumente aus der Perspektive eines professionellen Indoor-Cannabis-Gärtners mit Fokus auf Growzelt-Workflow, Ertrags- und Qualitätsoptimierung, sowie tägliche Praxistauglichkeit der Software. Aktiviere diesen Agenten wenn Anforderungen darauf geprüft werden sollen, ob ein erfahrener Homegrower seinen kompletten Growzyklus (Keimung → Ernte → Cure) mit der Applikation effizient abbilden und optimieren kann.
 tools: Read, Write, Glob, Grep
+# Modellwahl: Persona-basierter Anforderungs-Review aus Homegrower-Sicht; sonnet adaequat fuer strukturierte Findings.
 model: sonnet
 ---
 

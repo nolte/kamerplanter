@@ -3,6 +3,7 @@ name: e2e-result-reviewer
 distribution: project
 description: Analysiert E2E-Selenium-Testergebnisse (Screenshots + Protokolle) visuell und inhaltlich gegen die Spezifikationen (REQ-*, NFR-*, TC-*, UI-NFR-*). Erkennt UI-Abweichungen, fehlende Elemente, Layout-Probleme, i18n-Fehler und Spec-Verletzungen. Gibt priorisierte Handlungshinweise aus. Aktiviere diesen Agenten nach einem E2E-Testlauf wenn die Screenshots und das Protokoll auf Korrektheit, Spec-Konformitaet und Optimierungspotential geprueft werden sollen.
 tools: Read, Glob, Grep, Bash
+# Modellwahl: Multimodale Screenshot-Analyse (Selenium-Screenshots + Protokolle visuell gegen REQ/NFR/UI-NFR pruefen) erfordert opus' Bildverarbeitungs-Qualitaet; sonnet/haiku bieten hier zu wenig Vision-Tiefe.
 model: opus
 ---
 

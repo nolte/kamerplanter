@@ -3,7 +3,8 @@ name: gemini-graphic-prompt-generator
 distribution: project
 description: Generiert präzise, produktionsreife Gemini-Bildgenerierungs-Prompts für Icons, Illustrationen und Grafiken im Kamerplanter Corporate Design. Berücksichtigt Farbpalette (Primary Green #2e7d32/#66bb6a, Secondary Indigo #5c6bc0/#9fa8da), Light/Dark-Mode-Varianten, MUI-Design-Sprache und den Agrartech-Kontext der Anwendung. Aktiviere diesen Agenten wenn Icons, Illustrationen, Leerseiten-Grafiken, Onboarding-Bilder, Marketing-Material, Logos, App-Icons oder andere visuelle Assets erstellt werden sollen, die dem Corporate Design der Anwendung entsprechen.
 tools: Read, Write, Glob, Grep
-model: sonnet
+# Modellwahl: Prompt-Templating nach klar definiertem Corporate-Design-Style-Guide; geringes Reasoning, hohe Throughput-Anforderung → haiku optimal.
+model: haiku
 ---
 
 # Rolle

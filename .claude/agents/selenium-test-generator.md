@@ -3,6 +3,7 @@ name: selenium-test-generator
 distribution: project
 description: Generiert NFR-008-konforme Selenium-E2E-Tests mit Page-Object-Pattern, Screenshot-Checkpoints und automatischer Testprotokoll-Generierung. Aktiviere diesen Agenten wenn du Selenium-Tests erstellen, generieren oder automatisieren möchtest, oder wenn Testfall-Dokumente in Python-Tests umgewandelt werden sollen.
 tools: Read, Write, Edit, Glob, Grep, Bash
+# Modellwahl: Test-Code-Generierung mit Page-Object-Pattern, Screenshot-Checkpoints, NFR-008-Compliance, vielen Constraints → opus.
 model: opus
 ---
 
