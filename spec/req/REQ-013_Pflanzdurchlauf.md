@@ -7,8 +7,17 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.0 (Run als primaere Verwaltungseinheit, Pflanzen-Tagebuch, kein Mixed-Culture)
+Version: 2.3 (CareProfile-Snapshot beim Detach, W-010)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.3 | 2026-04-27 | **W-010 (CareProfile Run-Owned):** `detach_plant()` um Schritt 6 erweitert — beim Detach wird das aktuelle Run-CareProfile als Plant-CareProfile auf die nun-standalone Plant kopiert (analog Karenz-Snapshot ADR-001). |
+| 2.2 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `detach_plant()`-Operation um Karenz-Snapshot-Schritt erweitert. Aktive Run-Treatments werden als geerbte `to_plant`-Edges (mit `inherited_from_run` + `inherited_at`) auf die detachte Plant kopiert. Migrations-Strategie für REQ-013-v2.0-Rollout dokumentiert (Hard Cutover). |
+| 2.1 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Querverweis auf REQ-003 §3 Run-Membership-Guard im Dual-Modell ergänzt. Direkter Phasenwechsel auf Run-gebundenen PlantInstances ist gesperrt (HTTP 409 `phase.run_owned`); Batch-Phasenwechsel ist All-or-Nothing. Klarstellung in §1.1 und in der `batch-transition`-Endpoint-Beschreibung. |
+| 2.0 | (vorher) | Run als primäre Verwaltungseinheit, Pflanzen-Tagebuch, kein Mixed-Culture. |
 
 ## 1. Business Case
 
@@ -40,6 +49,8 @@ Das System fuehrt den **Pflanzdurchlauf (Planting Run)** als **primaere Verwaltu
 │  PlantInstance IN einem aktiven Run              │
 │  ─────────────────────────────────────           │
 │  • Phase: vom Run (run.current_phase_key)        │
+│         direkter Phasenwechsel: HTTP 409         │
+│         (W-003, REQ-003 §3 1a)                   │
 │  • Tasks: vom Run (has_task: Run → Task)         │
 │  • Care: vom Run (has_care_profile: Run → ...)   │
 │  • Nutrient: vom Run (run_follows_plan)          │
@@ -1093,16 +1104,18 @@ class PlantingRunService:
            - plant.current_phase_started_at = run.current_phase_started_at
         3. Erzeugt eine eigene current_phase-Edge fuer die PlantInstance
         4. Kopiert die offene PhaseHistory vom Run auf die PlantInstance
-        5. Ab sofort ist die Pflanze eigenstaendig verwaltbar
+        5. Snapshottet aktive Run-Treatments als geerbte to_plant-Edges (ADR-001)
+        6. Ab sofort ist die Pflanze eigenstaendig verwaltbar
         """
         run = await self.run_repo.get(run_key)
         plant = await self.plant_repo.get(plant_key)
+        detached_at = datetime.utcnow()
 
         # 1. Edge aktualisieren
         await self.run_repo.update_run_contains_edge(
             run_key=run_key,
             plant_key=plant_key,
-            detached_at=datetime.utcnow(),
+            detached_at=detached_at,
             detach_category=category,
             detach_reason=reason,
         )
@@ -1124,7 +1137,48 @@ class PlantingRunService:
                 source_id=f"planting_runs/{run_key}",
                 target_id=f"plant_instances/{plant_key}",
             )
+
+        # <!-- Quelle: ADR-001 / W-009 -->
+        # 5. Karenz-Snapshot: Aktive Run-Treatments als geerbte to_plant-Edges
+        #    (Workshop-Entscheidung 2026-04-27, Frage 1: nur AKTIVE Treatments)
+        active_treatments = await self.ipm_repo.find_active_run_treatments(
+            run_key=run_key,
+            as_of=detached_at,  # Treatments mit safe_date >= detached_at
+        )
+        for treatment in active_treatments:
+            await self.ipm_repo.create_inherited_to_plant_edge(
+                treatment_key=treatment.key,
+                target_plant_key=plant_key,
+                inherited_from_run=run_key,
+                inherited_at=detached_at,
+            )
+        # <!-- /Quelle: ADR-001 / W-009 -->
+
+        # <!-- Quelle: Widerspruchsanalyse W-010 -->
+        # 6. CareProfile-Snapshot (W-010): Aktuelles Run-CareProfile als
+        #    Plant-CareProfile auf die detachte Plant kopieren. Die Plant
+        #    kann ab jetzt ihr Profil individuell anpassen.
+        run_care_profile = await self.care_repo.find_for_run(run_key)
+        if run_care_profile is not None:
+            await self.care_repo.create_for_plant(
+                plant_key=plant_key,
+                base=run_care_profile,
+                inherited_from_run=run_key,
+                inherited_at=detached_at,
+            )
+        # <!-- /Quelle: Widerspruchsanalyse W-010 -->
 ```
+
+<!-- Quelle: ADR-001 / W-009 -->
+**Karenz-Snapshot beim Detach (ADR-001):**
+
+| Aspekt | Verhalten |
+|--------|-----------|
+| **Cutoff** | Nur Treatments mit `applied_at + safety_interval_days >= detached_at` werden gesnapshottet |
+| **Edit nach Detach** | Korrekturen am Run-Treatment werden NICHT auf die geerbten Edges propagiert. Anwender editiert Geerbte separat. |
+| **Re-attach** | Geerbte Edges bleiben erhalten — `SafetyIntervalValidator` deduppliziert via `_key` |
+| **Migration (REQ-013-v2.0-Rollout)** | Hard Cutover: Migrations-Task erzeugt rückwirkend Snapshots für alle bestehenden detachten Plants. Lazy Migration explizit ausgeschlossen. |
+<!-- /Quelle: ADR-001 / W-009 -->
 
 ### Datenvalidierung:
 
@@ -1641,6 +1695,11 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Sukzessions-Plan CRUD:** Erstellen, Lesen, Aktualisieren, Loeschen von SuccessionPlans funktioniert
 - [ ] **Sukzessions-Run-Generierung:** System generiert automatisch N PlantingRuns basierend auf interval_days
 - [ ] **Sukzessions-Erinnerung:** Erinnerung wird reminder_days_before Tage vor naechster Aussaat erzeugt
+<!-- Quelle: ADR-001 / W-009 -->
+- [ ] **Karenz-Snapshot beim Detach (ADR-001):** `detach_plant()` erzeugt nach dem Setzen von `detached_at` für jedes aktive Run-Treatment eine geerbte `to_plant`-Edge mit `inherited_from_run` und `inherited_at`. Treatments ohne aktive Karenzwirkung werden übersprungen.
+- [ ] **Detach-Idempotenz (ADR-001):** Mehrfacher Aufruf von `detach_plant()` für dieselbe Plant erzeugt keine doppelten geerbten Edges (Treatment-Key-basierte Eindeutigkeitsprüfung im Repository).
+- [ ] **REQ-013-v2.0 Migrations-Task (ADR-001 Frage 4):** Beim Rollout läuft ein einmaliger Task, der für alle PlantInstances mit `run_contains.detached_at != null` rückwirkend Karenz-Snapshots erzeugt — Idempotent, durch Unique-Constraint auf `(treatment_key, plant_key)` abgesichert.
+<!-- /Quelle: ADR-001 / W-009 -->
 
 ### Testszenarien:
 

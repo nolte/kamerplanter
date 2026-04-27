@@ -4,7 +4,7 @@ ID: NFR-012
 Titel: Cloud-Provider-Anforderungen & Enterprise-Skalierung
 Kategorie: Infrastruktur / Cloud Unterkategorie: Cloud-Provider, Skalierung, HA, DSGVO-Hosting
 Fokus: Beides (Zierpflanze & Nutzpflanze)
-Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Redis 7.2+, Traefik, Prometheus, Grafana
+Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Valkey 8.0+, Traefik, Prometheus, Grafana
 Status: Entwurf
 Prioritaet: Hoch
 Version: 1.0
@@ -124,14 +124,15 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 
 **Begruendung:** Wissensbasierte Pflanzenpflege-Empfehlungen ueber RAG-Pipeline (Embedding Service + LLM Adapter).
 
-### 3.4 Redis 7.2+
+### 3.4 Valkey 8.0+
 
 | Anforderung | Spezifikation |
 |-------------|---------------|
 | **Rollen** | Cache, Celery Broker/Backend, Rate Limiting, OAuth State (TTL) |
-| **HA** | Redis Sentinel oder Managed (ElastiCache/Memorystore) |
+| **Wire-Protokoll** | Redis-kompatibel (Python-Client `redis-py` wird unverändert verwendet) |
+| **HA** | Valkey Sentinel oder Managed (ElastiCache for Redis OSS / Memorystore for Valkey, beide unterstützen Valkey-Images) |
 | **Memory** | >= 2 GB |
-| **Persistenz** | Optional (RDB-Snapshots), primaer ephemeral |
+| **Persistenz** | Optional (RDB-Snapshots), primär ephemeral |
 
 ---
 

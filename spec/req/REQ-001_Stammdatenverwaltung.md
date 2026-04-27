@@ -7,14 +7,15 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.0 (Stammdaten-Scoping: Origin, Tenant-Overlay, tenant_has_access)
-Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access)
+Version: 4.1 (Atomic Promotion + parent_species_key + promotion_audit_log, ADR-002)
+Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext + Export):** `parent_species_key` als optionales Feld auf Species (KI-Genus-Fallback REQ-031 §4.2). `revision`-Feld + `promoted_at` + `promoted_from_tenant` auf Species/Cultivar. Promotion-Workflow als atomare AQL-Transaktion mit Optimistic Locking spezifiziert. Cultivars werden NICHT automatisch mit Species mitpromoted (Workshop-Entscheidung). Neue Collection `promotion_audit_log` (5J Retention, NFR-011 R-19). |
 | 4.0 | 2026-03-16 | **Stammdaten-Scoping:** `origin`-Feld + `tenant_key` auf Species/Cultivar. Drei-Schichten-Architektur: Globale Stammdaten (KA-Admin) → Tenant-Overlay (`tenant_species_config`, `tenant_cultivar_config`) → Tenant-eigene Stammdaten. Edge `tenant_has_access` für Sichtbarkeitssteuerung. Cultivar-Zuweisung transitiv über Species. Promotion-Workflow (tenant→system in-place). Merge-Logik im Service. Neue User Stories, AQL-Queries, Akzeptanzkriterien. |
 | 3.1 | 2026-03 | Agrarbiologie-Review Korrekturen |
 
@@ -60,6 +61,12 @@ Zusätzlich erfasst das System:
     - `origin: Literal['system', 'enrichment', 'import', 'tenant']` (Default: `'system'`) — Herkunft des Datensatzes. `system`: Seed-Daten oder KA-Admin-gepflegt. `enrichment`: Automatisch via REQ-011. `import`: CSV-Import via REQ-012. `tenant`: Von einem Tenant-Admin erstellt.
     - `tenant_key: Optional[str]` (Default: `null`) — Nur gesetzt bei `origin: 'tenant'` oder `origin: 'import'` mit Tenant-Bezug. `null` = globaler Datensatz, sichtbar für alle Tenants mit `tenant_has_access`-Kante.
     <!-- /Quelle: Stammdaten-Scoping v4.0 -->
+    <!-- Quelle: ADR-002 / W-006 -->
+    - `parent_species_key: Optional[str]` (Default: `null`) — Bei `origin='tenant'`: Verweis auf eine globale Species, die als botanische Verwandte für KI-Kontext-Fallback dient (REQ-031 §4.2 Genus/Family-Fallback). **Empfohlen, nicht erzwungen**: Tenant-Species ohne `parent_species_key` führen zu KI-Antworten mit `confidence: low`. Bei `origin != 'tenant'` MUSS `null` sein.
+    - `revision: int` (Default: `1`) — Optimistic-Locking-Token. Wird bei jeder Änderung inkrementiert. Verwendet vom Promotion-Workflow (siehe §3) und von der API zur Konflikt-Erkennung bei parallelen Edits.
+    - `promoted_at: Optional[datetime]` (Default: `null`) — Nur gesetzt nach Promotion (tenant→system). Dokumentiert den Promotion-Zeitpunkt für Audit.
+    - `promoted_from_tenant: Optional[str]` (Default: `null`) — Nur gesetzt nach Promotion. Speichert den ursprünglichen `tenant_key`. Read-only nach Promotion.
+    <!-- /Quelle: ADR-002 / W-006 -->
     - `scientific_name: str` (Binomiale Nomenklatur, z.B. "Solanum lycopersicum")
     - `common_names: list[str]` (Landessprachliche Namen)
     - `family: str` (Botanische Familie, z.B. "Solanaceae")
@@ -99,6 +106,10 @@ Zusätzlich erfasst das System:
     - `origin: Literal['system', 'enrichment', 'import', 'tenant']` (Default: `'system'`) — Identisch zu Species.origin.
     - `tenant_key: Optional[str]` (Default: `null`) — Identisch zu Species.tenant_key.
     <!-- /Quelle: Stammdaten-Scoping v4.0 -->
+    <!-- Quelle: ADR-002 / W-006 -->
+    - `revision: int` (Default: `1`) — Optimistic-Locking-Token, identisch zu Species.revision.
+    - `promoted_at: Optional[datetime]`, `promoted_from_tenant: Optional[str]` — Identisch zu Species; Cultivars werden nicht automatisch mit der Species mitpromoted (Workshop-Entscheidung 2026-04-27, Frage 2), sondern separat einzeln durch KA-Admin.
+    <!-- /Quelle: ADR-002 / W-006 -->
     - `name: str` (z.B. "San Marzano")
     - `breeder: str`
     - `breeding_year: int`
@@ -465,18 +476,79 @@ FOR c IN UNION(global_cultivars, tenant_cultivars)
 ```
 
 **7. Promotion: Tenant-Species → Global (KA-Admin):**
+
+<!-- Quelle: ADR-002 / W-006 -->
+**Atomare Promotion mit Optimistic Locking (ADR-002):**
+
+Die Promotion läuft als **single-Transaktion** mit Optimistic Locking via `revision`-Feld. Parallele Modifikationen während der Promotion werden mit HTTP 409 erkannt und abgebrochen — der KA-Admin muss die aktuelle Version neu laden und retry.
+
 ```aql
-// In-place Update: origin → system, tenant_key → null
+// In einer ArangoDB-Transaktion (db.transaction):
+// 1. Species lesen + Revision prüfen
+LET current = DOCUMENT("species", @species_key)
+FILTER current.revision == @expected_revision   // Optimistic Lock
+// 2. Species in-place updaten + revision inkrementieren
 UPDATE @species_key WITH {
   origin: "system",
   tenant_key: null,
+  revision: current.revision + 1,
+  promoted_at: DATE_ISO8601(DATE_NOW()),
+  promoted_from_tenant: current.tenant_key,
   updated_at: DATE_ISO8601(DATE_NOW())
-} IN species
-
-// Optional: tenant_has_access-Kante für alle Tenants erstellen (Broadcast)
-// Wird im Service programmatisch gelöst, nicht per AQL
+} IN species OPTIONS { keepNull: false }
+// 3. Audit-Log-Eintrag in promotion_audit_log erstellen (siehe Node-Definition unten)
+INSERT {
+  species_key: @species_key,
+  scientific_name: current.scientific_name,
+  promoted_by: @platform_admin_user_key,
+  promoted_at: DATE_ISO8601(DATE_NOW()),
+  original_tenant_key: current.tenant_key,
+  resource_type: "species",
+} IN promotion_audit_log
+// 4. tenant_has_access-Kanten für alle Tier-1+2-Tenants programmatisch im Service
+//    (Broadcast außerhalb der Transaktion, idempotent via UPSERT)
 ```
+
+Bei `revision`-Mismatch:
+
+```json
+HTTP/1.1 409 Conflict
+{
+  "error_code": "species.revision_mismatch",
+  "message": "Species wurde während der Promotion modifiziert. Bitte neu laden und erneut versuchen.",
+  "current_revision": 5,
+  "expected_revision": 4
+}
+```
+
+**Cultivar-Behandlung (Workshop-Entscheidung 2026-04-27, Frage 2):**
+
+Cultivars der promoteten Species werden **NICHT automatisch mitpromoted**. Sie behalten ihren `origin='tenant'` und `tenant_key`. Begründung: Sortenrechte und Datenqualität sind oft tenant-spezifisch (z.B. selbst-gezüchtete F1-Hybriden). KA-Admin promoted jedes Cultivar einzeln und prüft dabei jede Sorte separat. UI muss diese Trennung kommunizieren.
+<!-- /Quelle: ADR-002 / W-006 -->
+
 <!-- /Quelle: Stammdaten-Scoping v4.0 -->
+
+<!-- Quelle: ADR-002 / W-006 -->
+### Promotion-Audit-Log (ADR-002, Workshop-Frage 4)
+
+Neue Document Collection für persistente Audit-Spur jeder Promotion. Aufbewahrung **5 Jahre** (NFR-011 R-19, neu) — bei Sortenrechts-Streitigkeiten relevant.
+
+- **`:PromotionAuditLog`** — Audit-Spur Promotion-Vorgang
+  - Collection: `promotion_audit_log`
+  - Properties:
+    - `species_key: Optional[str]` — Bei Species-Promotion gesetzt
+    - `cultivar_key: Optional[str]` — Bei Cultivar-Promotion gesetzt (genau eines von species_key/cultivar_key)
+    - `scientific_name: str` — Snapshot zur Promotion-Zeit (auch wenn Species später umbenannt wird)
+    - `resource_type: Literal['species', 'cultivar']`
+    - `promoted_by: str` — Platform-Admin-User-Key
+    - `promoted_at: datetime`
+    - `original_tenant_key: str` — Tenant, von dem promoted wurde
+    - `revision_before: int` — `revision` vor der Promotion
+  - Indizes:
+    - PERSISTENT INDEX on `[promoted_at]` (für TTL-Cleanup nach 5 Jahren)
+    - PERSISTENT INDEX on `[original_tenant_key]` (für Tenant-Sicht)
+    - PERSISTENT INDEX on `[species_key, cultivar_key]` (für Such-Lookup)
+<!-- /Quelle: ADR-002 / W-006 -->
 
 ### Seed-Daten: BotanicalFamily
 

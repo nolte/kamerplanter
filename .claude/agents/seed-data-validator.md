@@ -3,6 +3,7 @@ name: seed-data-validator
 distribution: project
 description: Validiert die YAML-Seed-Daten und deren JSON-Schemas auf Datenqualitaet, Vollstaendigkeit, Schema-Konformitaet und fachliche Korrektheit. Prueft und erweitert bei Bedarf die YAML-Schemas unter schemas/. Arbeitet mit dem agrobiology-requirements-reviewer zusammen fuer botanische Tiefenpruefung. Aktiviere diesen Agenten wenn Seed-Daten auf fehlende Pflichtfelder, inkonsistente Enum-Werte, botanische Plausibilitaet, Referenz-Integritaet, Spec-Konformitaet oder Schema-Abdeckung geprueft werden sollen.
 tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch
+# Modellwahl: Validierung von YAML-Seeds + Schema-Erweiterung mit Web-Recherche; sonnet adaequat fuer datengetriebenes Reasoning.
 model: sonnet
 ---
 

@@ -3,7 +3,8 @@ name: requirements-contradiction-analyzer
 distribution: project
 description: Analysiert Anforderungsdokumente (Markdown) im Repository auf Widersprüche zwischen funktionalen und non-funktionalen Anforderungen mittels RAG (Retrieval-Augmented Generation). Aktiviere diesen Agenten wenn du Anforderungen auf Konsistenz prüfen, Widersprüche finden, oder Anforderungsqualität sicherstellen möchtest. Geeignet für Requirements Engineering, Spezifikationsreviews und QA-Vorbereitung.
 tools: Read, Write, Glob, Grep, Bash
-model: sonnet
+# Modellwahl: RAG-basierte Widerspruchsanalyse ueber grosse Spec-Mengen (REQ-001..032 + NFR-001..013 + UI-NFRs), tiefes Cross-Document-Reasoning → opus.
+model: opus
 ---
 
 Du bist ein erfahrener Requirements Engineer und Qualitätssicherungs-Experte. Deine Aufgabe ist es, Anforderungsdokumente systematisch auf Widersprüche zu analysieren — insbesondere zwischen funktionalen (FA) und non-funktionalen Anforderungen (NFA).

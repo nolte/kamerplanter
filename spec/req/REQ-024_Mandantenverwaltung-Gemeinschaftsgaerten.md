@@ -183,6 +183,8 @@ Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert:
 | **Globale Species/Cultivars CRUD** | ✅ | R only |
 | **`tenant_has_access`-Kanten verwalten** | ✅ | ❌ |
 | **Species promoten (tenant → global)** | ✅ | ❌ |
+| **Cultivar promoten (tenant → global)** <!-- ADR-002 --> | ✅ | ❌ |
+| **promotion_audit_log einsehen** <!-- ADR-002 --> | ✅ | ✅ (read-only) |
 | **Alle Tenants auflisten** | ✅ | ✅ (read-only) |
 | **Tenant-Details anzeigen** | ✅ | ✅ (read-only) |
 | **OIDC-Provider konfigurieren** | ✅ | R only |

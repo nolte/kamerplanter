@@ -6,15 +6,23 @@ Kategorie: UI-Verhalten Unterkategorie: Progressive Web App, Offline, Synchronis
 Technologie: React, TypeScript, Vite (vite-plugin-pwa), Workbox, IndexedDB (Dexie), Redux Toolkit
 Status: Entwurf
 Prioritaet: Hoch
-Version: 2.0
+Version: 2.2 (W-005 Phasen-Begründung, W-011 KI-Online-only)
 Autor: Business Analyst - Agrotech
-Datum: 2026-03-01
+Datum: 2026-04-27
 Tags: [pwa, offline, service-worker, indexeddb, dexie, sync, installable, cache, connectivity, mobile-strategy]
-Abhaengigkeiten: [UI-NFR-001, UI-NFR-003, UI-NFR-004, UI-NFR-006, UI-NFR-009, UI-NFR-011]
+Abhaengigkeiten: [UI-NFR-001, UI-NFR-003, UI-NFR-004, UI-NFR-006, UI-NFR-009, UI-NFR-019, REQ-023 v1.9]
 Betroffene Module: [Frontend, Backend (ETag-Support)]
 ---
 
 # UI-NFR-012: PWA & Offline-Faehigkeit
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.2 | 2026-04-27 | **W-005 + W-011:** R-020a Begründung präzisiert (`is_cycle_restart`-Ausnahmen für Dauerkulturen explizit erwähnt). R-042a + R-042b ergänzt: KI-Features (Tipps, Daily-Tip, Why-Buttons, Chat, Diagnose) sind Online-only; KI-Glossar-Einträge bleiben offline lesbar. Offline/Online-Tabelle in §5.2.4 erweitert. |
+| 2.1 | 2026-04-27 | **W-004 Fix (Refresh-Token Device-Id):** R-049 um `X-Device-Id`-Header erweitert. R-049a (Replay-Detection-Fallback) und R-049b (`device_id`-Persistenz in IndexedDB als UUIDv4) ergänzt. Cross-Reference zu REQ-023 v1.9 §3.2a. |
+| 2.0 | 2026-03-01 | Erstversion v2 — PWA-Strategie statt Flutter, vollständige Anforderungen. |
 
 ## 1. Business Case
 
@@ -158,7 +166,7 @@ Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-020a | **Phasenwechsel** (REQ-003) DUERFEN NICHT offline ausgefuehrt werden — die Phasen-Zustandsmaschine verbietet Rueckwaerts-Transitionen, die serverseitig validiert werden. Offline koennte Last-Write-Wins eine verbotene Rueckwaerts-Transition erzwingen. | MUSS |
+| R-020a | **Phasenwechsel** (REQ-003) DUERFEN NICHT offline ausgefuehrt werden — Phasenwechsel erfordern serverseitige Validierung der phasenspezifischen Regeln (Reihenfolge, erlaubte Transitionen, inklusive `is_cycle_restart`-Ausnahmen für Dauerkulturen — Seneszenz → Dormanz ist explizit erlaubt). Offline-Last-Write-Wins koennte ungueltige Transitionen erzwingen. <!-- W-005 --> | MUSS |
 | R-020b | **Ernteerstellung** (REQ-007) DARF NICHT offline erfolgen — das Karenzzeit-Gate prueft serverseitig, ob laufende IPM-Behandlungen die Ernte blockieren. Eine offline erstellte Ernte koennte das Safety-Gate umgehen. | MUSS |
 | R-020c | **Aktoren-Steuerung und Aktoren-Trigger** (REQ-018) DUERFEN NICHT offline ausgefuehrt werden — Aktoren-Befehle muessen in Echtzeit an Home Assistant/MQTT uebermittelt werden. | MUSS |
 | R-020d | **Behandlungsanwendungen** (REQ-010 IPM) DUERFEN NICHT offline erstellt werden — die Resistenz-Validierung (max. 3 konsekutive gleiche Wirkstoffe in 90 Tagen) erfordert serverseitige Pruefung. | MUSS |
@@ -185,7 +193,7 @@ Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline
 | R-029 | Die Konflikterkennung MUSS auf einem **Versionsstempel** (`updated_at`-Timestamp) basieren. Das Backend liefert `updated_at` auf allen Entities (via `base_repository.py`). | MUSS |
 | R-030 | Bei einem Konflikt MUSS der Nutzer informiert werden und zwischen folgenden Optionen waehlen koennen: "Meine Version uebernehmen", "Server-Version uebernehmen", "Abbrechen". | MUSS |
 | R-031 | Der Konfliktdialog MUSS beide Versionen (lokal und Server) nebeneinander anzeigen, mit Hervorhebung der abweichenden Felder. | MUSS |
-| R-032 | Im Kiosk-Modus SOLL der Konfliktdialog vereinfacht werden: Nur "Meine Version uebernehmen" und "Verwerfen" als Optionen, mit grossen Touch-Targets (vgl. UI-NFR-011). | SOLL |
+| R-032 | Im Kiosk-Modus SOLL der Konfliktdialog vereinfacht werden: Nur "Meine Version uebernehmen" und "Verwerfen" als Optionen, mit grossen Touch-Targets (vgl. UI-NFR-019). | SOLL |
 
 ### 3.6 Konnektivitaets-Anzeige
 
@@ -206,6 +214,8 @@ Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline
 | R-040 | Wenn eine Aktion offline nicht moeglich ist (z.B. Anlegen einer neuen Pflanzenart, die serverseitige Validierung erfordert), MUSS die Anwendung den Nutzer **vor** der Eingabe darueber informieren: "Diese Aktion ist nur online moeglich." | MUSS |
 | R-041 | Offline nicht verfuegbare Aktionen MUESSEN visuell als deaktiviert dargestellt werden (ausgegraut) mit einem Offline-Icon als Indikator. | MUSS |
 | R-042 | Die Anwendung MUSS klar dokumentieren (in einer Hilfeseite oder Tooltip), welche Funktionen offline verfuegbar sind und welche nicht. | MUSS |
+| R-042a | **KI-Features sind Online-only (W-011):** KI-Tipp-Karten, KI-Daily-Tip, "Warum?"-Buttons, KI-Chat-Drawer und KI-Diagnose-Assistent (REQ-031, REQ-036) DUERFEN NICHT offline angezeigt oder ausgefuehrt werden. Im Offline-Zustand zeigen diese UI-Elemente einen "Online erforderlich"-Hinweis statt einer KI-Antwort. Begruendung: Die regelbasierten Fallback-Tipps in REQ-031 §1 gelten fuer Backend-seitige Knowledge-Service-Ausfaelle (Backend hat ArangoDB-Zugriff), nicht fuer Frontend-Offline-Phasen. <!-- W-011 --> | MUSS |
+| R-042b | Das KI-Glossar (REQ-035) ist KEIN KI-Feature im engeren Sinne — die statischen Glossar-Eintraege sind offline lesbar (UI-NFR-011). Nur die generative Frage-Antwort-Komponente (`POST /ai/glossar/ask`) ist Online-only. <!-- W-011 --> | MUSS |
 
 ### 3.8 Foto-Offline-Handling
 
@@ -222,7 +232,9 @@ Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline
 | # | Regel | Stufe |
 |---|-------|-------|
 | R-048 | JWT Access Tokens und Refresh Tokens MUESSEN so persistiert werden, dass sie bei App-Neustart (nach Offline-Phase) verfuegbar bleiben. | MUSS |
-| R-049 | Wenn der Access Token waehrend einer Offline-Phase ablaeuft (15 min TTL, REQ-023), MUSS die App beim naechsten Online-Zugriff automatisch einen Token-Refresh versuchen, bevor ein Re-Login erzwungen wird. | MUSS |
+| R-049 | Wenn der Access Token waehrend einer Offline-Phase ablaeuft (15 min TTL, REQ-023), MUSS die App beim naechsten Online-Zugriff automatisch einen Token-Refresh versuchen, bevor ein Re-Login erzwungen wird. **Der Refresh-Aufruf MUSS den Header `X-Device-Id: <stable_uuid>` mitsenden** (Persistenz siehe R-049b), damit das Backend-Grace-Window (REQ-023 §3.2a) parallele Refresh-Versuche aus Service-Worker und UI-Thread idempotent behandelt. <!-- W-004 --> | MUSS |
+| R-049a | **Replay-Detection-Fallback (W-004):** Wenn das Backend bei `POST /auth/refresh` mit HTTP 401 + `error_code='refresh_replay_detected'` antwortet, MUSS die App: (1) alle lokalen Auth-Tokens loeschen, (2) den Nutzer freundlich zum Re-Login auffordern (gleicher Dialog wie R-051), (3) alle nicht-synchronisierten Daten in IndexedDB ERHALTEN (R-051 gilt analog). Nach erfolgreichem Re-Login wird die Sync-Queue weiter abgearbeitet. <!-- W-004 --> | MUSS |
+| R-049b | **`device_id`-Persistenz (W-004):** Beim ersten Login MUSS die App eine UUIDv4 generieren und in IndexedDB unter `auth.deviceId` persistieren. Bei jedem Folge-Login UND bei jedem Refresh wird dieselbe UUID via `X-Device-Id`-Header gesendet. Wenn IndexedDB die ID verliert (Browser-Cache-Reset, Inkognito-Modus), wird beim naechsten Login eine neue UUID generiert — der Nutzer wird dadurch wie ein neues Geraet behandelt. KEIN Browser-Fingerprinting (kein User-Agent, keine Bildschirmaufloesung, keine Sprache). <!-- W-004 --> | MUSS |
 | R-050 | Waehrend einer Offline-Phase MUSS die App den Nutzer **nicht** ausloggen, auch wenn der Access Token abgelaufen ist. Die lokale Authentifizierung MUSS auf dem letzten gueltigen Auth-State basieren. | MUSS |
 | R-051 | Wenn der Refresh Token waehrend einer laengeren Offline-Phase ablaeuft (30 Tage TTL), MUSS die App beim naechsten Online-Zugriff den Nutzer freundlich zum Re-Login auffordern und alle nicht-synchronisierten Daten MUESSEN erhalten bleiben. | MUSS |
 
@@ -350,7 +362,7 @@ Die folgenden Routen MUESSEN vorab gecacht werden (abgeleitet aus `AppRoutes.tsx
 | Route | Begruendung |
 |-------|------------|
 | `/` | Dashboard / Startseite |
-| `/kiosk` | Kiosk-Startseite (UI-NFR-011) |
+| `/kiosk` | Kiosk-Startseite (UI-NFR-019) |
 | `/standorte` | Standortuebersicht |
 | `/aufgaben` | Aufgabenliste |
 | `/pflege` | Pflege-Dashboard |
@@ -478,6 +490,10 @@ export const db = new KamerplanterOfflineDB();
 | Letzte Messwerte anzeigen (gecacht) | Echtzeit-Sensorwerte |
 | Pflege-Erinnerungen lesen (gecacht) | Onboarding-Wizard |
 | Tank-Status lesen (gecacht) | Import (CSV-Upload) |
+| KI-Glossar (statische Eintraege, REQ-035) <!-- W-011 --> | KI-Tipp-Karten, KI-Daily-Tip, "Warum?"-Buttons (REQ-031) <!-- W-011 --> |
+| | KI-Chat-Drawer (REQ-031) |
+| | KI-Diagnose-Assistent (REQ-036) |
+| | KI-Glossar-Frage (`POST /ai/glossar/ask`) |
 
 #### 5.2.5 Akzeptanzkriterien Phase 2
 

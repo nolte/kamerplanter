@@ -7,8 +7,15 @@ Kategorie: Schädlingsmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Karenz-Gate für detachte PlantInstances, ADR-001)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `to_plant`-Edge um Snapshot-Felder `inherited_from_run` + `inherited_at` erweitert. `SafetyIntervalValidator.collect_relevant_treatments()` ergänzt — sammelt direkte, run-aktive und geerbte Treatments und dedupliziert über `_key` (Re-attach-sicher). AQL-Lookup im Repository-Layer dokumentiert. |
+| 1.0 | (vorher) | Erstversion. |
 
 ## 1. Business Case
 
@@ -59,6 +66,10 @@ Das System unterscheidet zwischen:
 // Edge Collection: treated_with (pests / diseases → treatments)
 // Edge Collection: applied_as (treatments → treatment_applications)
 // Edge Collection: to_run (treatment_applications → planting_runs)            // REQ-013 v2.0: Run-Level (ex to_plant)
+// Edge Collection: to_plant (treatment_applications → plant_instances)        // ADR-001: Direkt-Behandlung (standalone) ODER Snapshot beim Detach
+//   Properties (für Snapshot, ADR-001):
+//     - inherited_from_run: Optional[str]   // Run-Key, aus dem die Behandlung beim Detach geerbt wurde; null = Direkt-Behandlung
+//     - inherited_at: Optional[datetime]    // Zeitpunkt des Detach (kopiert von run_contains.detached_at)
 // Edge Collection: controls (beneficial_organisms → pests)
 // Edge Collection: vulnerable_to (growth_phases → pests / diseases)
 // Edge Collection: resistant_to (species → pests / diseases)
@@ -528,7 +539,42 @@ class HermaphrodismProtocolEngine:
 from datetime import datetime, timedelta
 
 class SafetyIntervalValidator:
-    """Prüft Erntefähigkeit unter Berücksichtigung von Pflanzenschutzmittel-Anwendungen"""
+    """Prüft Erntefähigkeit unter Berücksichtigung von Pflanzenschutzmittel-Anwendungen.
+
+    ADR-001 (W-009 Karenz-Detach):
+    Für eine Plant werden ALLE relevanten Treatments gesammelt:
+    1. Direkte to_plant-Edges ohne inherited_from_run (Standalone-Behandlung)
+    2. Aktive to_run-Edges, solange Plant Run-Mitglied ist (run_contains.detached_at == null)
+    3. Geerbte to_plant-Edges mit inherited_from_run != null (Snapshot beim Detach)
+
+    DISTINCT-Logik via treatment_application._key, damit Re-attach-Szenarien
+    (ADR-001 Frage 3) keine Doppelzählung erzeugen.
+    """
+
+    @staticmethod
+    def collect_relevant_treatments(plant_key: str, repo) -> list[dict]:
+        """W-009 / ADR-001: Sammelt alle für eine Plant relevanten Treatments.
+
+        Wird vom Karenz-Gate (REQ-007) und vom Validator selbst verwendet.
+        Garantiert DISTINCT auf treatment_applications._key.
+        """
+        # 1. Direkte + geerbte to_plant-Edges (gleiche Collection, deduppliziert)
+        plant_treatments = repo.find_treatments_via_to_plant(plant_key)
+
+        # 2. Run-Treatments während aktiver Run-Mitgliedschaft
+        active_run = repo.find_active_run_for_plant(plant_key)
+        run_treatments = (
+            repo.find_treatments_via_to_run(active_run.key)
+            if active_run is not None
+            else []
+        )
+
+        # DISTINCT via _key (Treatment kann theoretisch via to_plant UND to_run
+        # erreichbar sein, wenn eine Plant nach Re-attach im Run ist)
+        seen = {}
+        for t in plant_treatments + run_treatments:
+            seen[t["_key"]] = t
+        return list(seen.values())
 
     @staticmethod
     def can_harvest(
@@ -537,7 +583,10 @@ class SafetyIntervalValidator:
     ) -> tuple[bool, list[str]]:
         """
         Args:
-            treatment_applications: Liste von {applied_at, safety_interval_days, active_ingredient}
+            treatment_applications: Liste von {applied_at, safety_interval_days, active_ingredient}.
+                Aufrufer MUSS collect_relevant_treatments() für die korrekte Liste verwenden,
+                damit detachte Plants nicht versehentlich am Run-Karenz-Gate vorbeikommen
+                (ADR-001 / W-009).
         Returns:
             (is_safe, list_of_blocking_treatments)
         """
@@ -553,6 +602,50 @@ class SafetyIntervalValidator:
 
         return len(blocking_treatments) == 0, blocking_treatments
 ```
+
+<!-- Quelle: ADR-001 / W-009 -->
+**5a. AQL-Lookup für `collect_relevant_treatments` (Repository-Layer):**
+
+```aql
+LET plant = DOCUMENT("plant_instances", @plant_key)
+
+// Direkte + geerbte to_plant-Edges (Snapshot beim Detach hat inherited_from_run != null)
+LET plant_treatments = (
+    FOR t IN treatment_applications
+        FOR e IN to_plant
+            FILTER e._from == t._id AND e._to == plant._id
+            RETURN MERGE(t, {
+                _source: e.inherited_from_run == null ? "direct" : "inherited",
+                inherited_from_run: e.inherited_from_run,
+                inherited_at: e.inherited_at,
+            })
+)
+
+// Run-Treatments nur, solange Plant aktives Run-Mitglied ist
+LET active_run = FIRST(
+    FOR rc IN run_contains
+        FILTER rc._to == plant._id AND rc.detached_at == null
+        FOR run IN planting_runs FILTER run._id == rc._from
+        FILTER run.status == "active"
+        RETURN run
+)
+
+LET run_treatments = active_run == null ? [] : (
+    FOR t IN treatment_applications
+        FOR e IN to_run
+            FILTER e._from == t._id AND e._to == active_run._id
+            RETURN MERGE(t, { _source: "run_active", run_key: active_run._key })
+)
+
+// DISTINCT via _key
+LET combined = APPEND(plant_treatments, run_treatments)
+LET unique_keys = UNIQUE(combined[*]._key)
+RETURN (
+    FOR k IN unique_keys
+        RETURN FIRST(FOR t IN combined FILTER t._key == k RETURN t)
+)
+```
+<!-- /Quelle: ADR-001 / W-009 -->
 
 ### Datenvalidierung (Type Hinting):
 ```python
@@ -695,6 +788,14 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Genetische Markierung:** Cultivar wird nach bestätigtem Befall als `hermie_prone` markiert. Bei zukünftigen Runs mit diesem Cultivar wird eine Warnung angezeigt (Cross-Ref REQ-001/REQ-017).
 - [ ] **Bestäubungs-Check:** Nach Hermie-Befund generiert das System automatisch Inspektions-Tasks für alle Nachbarpflanzen im selben Slot/Location (Samen in Buds? Calyx-Schwellung ohne Trichom-Reife?)
 - [ ] **Hermie-Historie:** Befallsmuster pro Cultivar können über mehrere Runs hinweg analysiert werden (genetische Disposition vs. Stress-bedingt)
+<!-- Quelle: ADR-001 / W-009 -->
+- [ ] **Karenz-Detach-Bypass-Schutz (ADR-001):** Eine PlantInstance, die mit aktiver Run-Level-Karenz aus einem Run detached wird, hat danach geerbte `to_plant`-Edges zu allen aktiven Treatments des ursprünglichen Runs. `inherited_from_run` und `inherited_at` sind gesetzt; Original-`applied_at` und `safety_interval_days` sind kopiert.
+- [ ] **Karenz-Bypass-Test (ADR-001):** Ein automatisierter Test stellt sicher: Plant aus Run mit aktiver Karenz detachen → direkter Ernte-Versuch auf der detachten Plant wird mit `KarenzViolationError` blockiert, bis die Karenzzeit abgelaufen ist. Ohne Snapshot würde die Ernte fälschlich freigegeben — der Test darf nicht grün werden, wenn der Snapshot fehlt.
+- [ ] **Re-attach-DISTINCT (ADR-001):** Eine Plant, die detached war (mit Snapshot von T1) und später in einen neuen Run mit ebenfalls T1 als Run-Treatment kommt, hat T1 sowohl als geerbte `to_plant`-Edge als auch als aktive `to_run`-Edge erreichbar. `SafetyIntervalValidator.collect_relevant_treatments()` deduppliziert via `_key` und liefert T1 genau einmal zurück.
+- [ ] **Snapshot-Cutoff (ADR-001 Frage 1):** Beim Detach werden NUR Treatments mit `applied_at + safety_interval_days >= detached_at` als geerbte Edges erzeugt — abgelaufene Treatments werden übersprungen.
+- [ ] **Snapshot-Immutability (ADR-001 Frage 2):** Korrektur eines Run-Treatments (z.B. `applied_at` ändern) propagiert NICHT auf bestehende geerbte Edges. Anwender muss die geerbte Edge separat editieren.
+- [ ] **Migrations-Task (ADR-001 Frage 4):** Beim REQ-013-v2.0-Rollout läuft ein einmaliger Celery-Task, der für alle bestehenden detachten PlantInstances rückwirkend Snapshots erzeugt. Idempotent (mehrfacher Lauf erzeugt keine Duplikate).
+<!-- /Quelle: ADR-001 / W-009 -->
 
 ### Testszenarien:
 

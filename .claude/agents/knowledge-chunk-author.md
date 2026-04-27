@@ -9,6 +9,7 @@ description: |
   rag-eval-runner Report geschlossen, bestehende Chunks verbessert, oder neue Wissensgebiete
   fuer das RAG-System aufbereitet werden sollen.
 tools: Read, Write, Edit, Glob, Grep
+# Modellwahl: RAG-Chunks aus Specs ableiten + gegen Topic-Synonyme/Benchmarks validieren; sonnet adaequat fuer didaktisch-strukturierte Inhalte.
 model: sonnet
 ---
 

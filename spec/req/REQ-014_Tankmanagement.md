@@ -7,8 +7,15 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.5 (HA-Sensor-Binding & Bulk-Endpoints)
+Version: 1.6 (Wasserquellen-Kaskade an REQ-004 delegiert, W-021)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.6 | 2026-04-27 | **W-021:** §1 Wasserquellen-Defaults-Kaskade konsolidiert — REQ-014 delegiert die Auflösungs-Logik vollständig an `REQ-004 WaterMixCalculator.resolve_water_defaults()`. Eine Quelle der Wahrheit, keine Implementations-Drift. Pseudocode für Aufruf-Schnittstelle ergänzt. |
+| 1.5 | (vorher) | HA-Sensor-Binding & Bulk-Endpoints |
 
 ## 1. Business Case
 
@@ -60,14 +67,30 @@ Jede Tankbefüllung — ob Vollwechsel, Auffüllen oder Korrektur — wird als e
 
 **Wasserquellen-Defaults (Kaskade):**
 
-Beim Erfassen eines TankFillEvent müssen `base_water_ec_ms`, `alkalinity_ppm`, `chlorine_ppm`, `chloramine_ppm` und das Mischverhältnis Osmose/Leitungswasser nicht jedes Mal manuell eingegeben werden. Das System löst fehlende Felder über eine 4-stufige Kaskade auf:
+<!-- Quelle: Widerspruchsanalyse W-021 -->
+Beim Erfassen eines TankFillEvent müssen `base_water_ec_ms`, `alkalinity_ppm`, `chlorine_ppm`, `chloramine_ppm` und das Mischverhältnis Osmose/Leitungswasser nicht jedes Mal manuell eingegeben werden. **Die Auflösungslogik für diese Defaults ist in REQ-004 zentralisiert** (`WaterMixCalculator.resolve_water_defaults()`) — REQ-014 delegiert vollständig dorthin und beschreibt hier nur die Eingabe-/Ausgabe-Schnittstelle. Damit gibt es genau eine Quelle der Wahrheit für die Kaskaden-Auflösung; doppelte Implementierungen mit Drift-Risiko entfallen.
+
+```python
+# Pseudocode der Aufruf-Schnittstelle:
+defaults = water_mix_calculator.resolve_water_defaults(
+    explicit_event=fill_event,                  # Stufe 1: explizite Werte
+    nutrient_plan_key=fill_event.nutrient_plan_key,   # Stufe 2: Plan
+    site_water_source=site.water_source,        # Stufe 3: Site-Profil
+)
+# defaults: { base_water_ec_ms, alkalinity_ppm, chlorine_ppm, chloramine_ppm,
+#             water_mix_ratio_ro_percent, source: Literal['explicit', 'nutrient_plan',
+#             'site_profile', 'manual'] }
+```
+
+Die in REQ-004 definierte Kaskaden-Reihenfolge ist:
 
 1. **Explizit im TankFillEvent** (höchste Priorität) — vom Nutzer direkt eingegebene Werte überschreiben alle Defaults
-2. **NutrientPlan-Default** — wenn ein `nutrient_plan_key` auf dem Fill-Event gesetzt ist, wird `water_mix_ratio_ro_percent` des Plans als Default verwendet; die effektiven Wasserparameter werden daraus per `WaterMixCalculator` (REQ-004) berechnet
-3. **Site-WaterSource-Profil** — wenn die Location des Tanks einer Site mit `water_source` (REQ-002) zugeordnet ist, werden die `TapWaterProfile`-Daten als Fallback genutzt; bei gesetztem `has_ro_system` und bekanntem Mischverhältnis (aus NutrientPlan oder Default) wird der `WaterMixCalculator` angewendet
-4. **Manuelle Eingabe** (Fallback) — wenn keine der obigen Quellen Daten liefert, muss der Nutzer die Werte manuell eingeben (wie bisher)
+2. **NutrientPlan-Default** — wenn ein `nutrient_plan_key` auf dem Fill-Event gesetzt ist, wird `water_mix_ratio_ro_percent` des Plans verwendet; effektive Wasserparameter via `WaterMixCalculator` berechnet
+3. **Site-WaterSource-Profil** — wenn die Location einer Site mit `water_source` (REQ-002) zugeordnet ist, werden die `TapWaterProfile`-Daten als Fallback genutzt
+4. **Manuelle Eingabe** (Fallback) — wenn keine Quelle Daten liefert, manuelle Eingabe erforderlich
 
-Die Kaskade ist transparent: In der API-Response wird ein `water_defaults_source`-Feld mitgeliefert, das angibt, woher die Werte stammen (`'explicit'`, `'nutrient_plan'`, `'site_profile'`, `'manual'`).
+Die Kaskade ist transparent: In der API-Response wird ein `water_defaults_source`-Feld mitgeliefert (`'explicit'`, `'nutrient_plan'`, `'site_profile'`, `'manual'`). Bei jeder Änderung an der Kaskaden-Logik wird **ausschließlich REQ-004** aktualisiert; REQ-014 erbt diese Änderungen automatisch über den `WaterMixCalculator`-Aufruf.
+<!-- /Quelle: Widerspruchsanalyse W-021 -->
 
 - **Automatische TankState-Erstellung:** Nach Erfassung eines Fill-Events wird ein TankState-Record mit den gemessenen Werten erzeugt
 

@@ -12,7 +12,7 @@ Documentation is written in **German**; source code must be in **English only** 
 
 - `spec/` — Specification documents
   - `spec/req/` — Functional requirements (REQ-001 through REQ-032)
-  - `spec/nfr/` — Non-functional requirements (NFR-001 through NFR-012)
+  - `spec/nfr/` — Non-functional requirements (NFR-001 through NFR-013)
   - `spec/ui-nfr/` — UI non-functional requirements
   - `spec/stack.md` — Complete technology stack specification
   - `spec/style-guides/` — Code style guides (Backend, Frontend, Helm, HA)
@@ -85,7 +85,7 @@ These constraints are documented across multiple files and must be respected whe
 
 4. **Plant phase state machine** (REQ-003): Germination → Seedling → Vegetative → Flowering → Harvest. Transitions can be time-based or event-triggered. Each phase has distinct VPD targets, photoperiod settings, and NPK profiles. Perennial mode with seasonal cycles.
 
-5. **Fertilizer mixing order matters** (REQ-004): CalMag before sulfates to prevent precipitation. EC-net = target EC minus base water EC. Pydantic models enforce mixing sequence validation. Organic outdoor fertilization with area-based dosing (g/m², L/m²) and soil analysis integration.
+5. **Fertilizer mixing order matters** (REQ-004): Mixing sequence is controlled by the `mixing_priority` field on the Fertilizer model — not by hard-coded rules. Default ordering follows the convention "Silicon → CalMag → Base A → Base B → Acids" (CalMag-before-sulfates prevents precipitation), but is fully configurable per fertilizer. EC-net = target EC minus base water EC. Pydantic models enforce that `mixing_priority` is set; the actual sequence emerges from sorting all selected fertilizers by `mixing_priority`. Organic outdoor fertilization with area-based dosing (g/m², L/m²) and soil analysis integration. <!-- W-013 -->
 
 6. **Genetic lineage graph** (REQ-017): `descended_from` edges track parent-child relationships across generations. Supports clones, seed crosses, grafting, division. Graft compatibility checked at genus/family level.
 
@@ -106,7 +106,7 @@ These constraints are documented across multiple files and must be respected whe
 | Mobile | Flutter 3.16+ (not yet implemented) |
 | Primary DB | ArangoDB 3.11+ (multi-model) |
 | Time-Series DB | TimescaleDB 2.13+ |
-| Cache/Queue | Redis 7.2+ |
+| Cache/Queue | Valkey 8.0+ (Redis-Wire-Protokoll-kompatibel; `redis-py` als Client) |
 | Orchestration | Kubernetes 1.28+, Helm, Traefik |
 | Code Quality | Ruff (Python); ESLint (TypeScript) |
 | Testing | pytest + pytest-asyncio (backend); vitest (frontend) |

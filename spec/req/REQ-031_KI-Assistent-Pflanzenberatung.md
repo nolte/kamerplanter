@@ -18,6 +18,8 @@ Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), RE
 |---------|-------|-----------|
 | 1.0 | 2026-03-28 | Initialer Entwurf: pgvector-im-Backend, MiniLM-L6-v2, Ollama/OpenAI/Anthropic Adapter, TipCardsPanel, AiChatDrawer |
 | **2.0** | **2026-04-25** | **Major Refactor: Knowledge Service als externes Microservice, multilingual-e5-large + Hybrid Search + bge-reranker, Backend wird zum duennen KnowledgeServiceAdapter, neue Features "Warum?"-Buttons (`POST /ai/explain`) und expliziter Tipp-des-Tages, dreistufiger Feature-Toggle (Deployment / Tenant / User-Consent), Light-Modus-Verhalten, Multilingual-Vorbereitung, neuer Consent-Typ `ai_tenant_data_access`, Abgrenzung zu REQ-033/REQ-035/REQ-036** |
+| 2.2 | 2026-04-27 | **W-011 (KI-Fallback offline):** §1 Klarstellung — regelbasierte Fallback-Tipps gelten **backend-seitig** bei Knowledge-Service-Ausfällen, nicht für Frontend-Offline-Phasen. Frontend-Offline behandelt KI-Features als Online-only (UI-NFR-012 R-042a). Verhindert Drift durch dupliziertes Mini-Regelwerk im Frontend. |
+| 2.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext):** Genus/Family-Fallback in `AiContextBuilder.resolve_species_for_ks()` ergaenzt — tenant-eigene Species werden via `parent_species_key` → Genus → Family auf KS-aufloesbare Werte gemappt. `QuestionContext` erweitert um `cultivar_hint` und `confidence`-Felder. Antwortstruktur (§5.5) liefert `confidence`, `fallback_species`, `cultivar_hint` an Frontend. `<AIResponse>`-Komponente bekommt sichtbares Confidence-Badge bei `low`. |
 
 ## 1. Business Case
 
@@ -60,7 +62,8 @@ Die strukturierte Diagnose-Funktion (Multi-Step-Form, Symptom-Katalog) wird in *
 - **Klares KI-Labeling:** Jede generierte Antwort traegt einen sichtbaren KI-Badge inkl. Modell-Angabe und Datum. Nutzer wissen jederzeit, dass eine KI gesprochen hat.
 - **Tenant-Daten-Indikator:** Wenn die Antwort Tenant-Kontext enthaelt, zeigt das UI einen separaten Indikator ("Diese Antwort nutzt Daten deiner Pflanze X").
 - **Multilingual-Vorbereitung:** Wissensbasis liefert `language`-Metadaten pro Chunk (heute "de", spaeter "en"). Antwortet ein Provider in falscher Sprache, kennzeichnet das Frontend dies als Hinweis. Knowledge Service akzeptiert bereits `prompt_language` und `doc_language` als Parameter.
-- **Graceful Degradation:** Bei nicht erreichbarem Knowledge Service oder Provider werden regelbasierte Fallback-Tipps generiert. Die App bleibt nutzbar.
+- **Graceful Degradation:** Bei nicht erreichbarem Knowledge Service oder Provider werden **backend-seitig** regelbasierte Fallback-Tipps generiert (Zugriff auf ArangoDB-Stammdaten + statische Regelbasis im Service-Layer). Die App bleibt nutzbar — der Fehlerfall wird vom Frontend transparent aufgefangen. <!-- W-011 -->
+- **Frontend-Offline (UI-NFR-012):** KI-Features sind generell **online-only** — wenn das Frontend offline ist, zeigt die UI fuer KI-Tipps/Chat/Daily-Tip einen "Online erforderlich"-Hinweis statt einer KI-Antwort. Die regelbasierten Fallback-Tipps oben gelten ausdruecklich nur fuer Backend-seitige Knowledge-Service-Ausfaelle, nicht fuer Frontend-Offline-Phasen. Begruendung: Frontend hat keinen ArangoDB-Zugriff fuer Tenant-Kontext und keine Embeddings; ein dedupliziertes Mini-Regelwerk im Frontend wuerde Drift erzeugen (UI-NFR-012 R-042a). <!-- W-011 -->
 - **Erfahrungsstufen-sensitiv:** Beginner sehen vereinfachte Karten, Chat ist ab Intermediate verfuegbar, Expert-Nutzer erhalten technische Details und Quellen-Anker per Default offen (REQ-021).
 
 ### 1.1 Architekturueberblick
@@ -433,6 +436,71 @@ Liefert ein `QuestionContext` und einen optionalen erweiterten Context-Block (Pf
 
 Der Context-Builder darf KEINE Felder mit direktem Personenbezug aufnehmen (Tenant-Name, Nutzername, E-Mail) — siehe NFR-007 §LLM-Sicherheit.
 
+<!-- Quelle: ADR-002 / W-006 -->
+**4.2.1 Genus/Family-Fallback fuer tenant-eigene Species (ADR-002)**
+
+Tenant-eigene Species (`origin='tenant'`, REQ-001) sind **nicht im Knowledge-Service-Index** vorhanden — Schicht 1 (globale Stammdaten) und Schicht 2 (kuratierte YAMLs) decken sie nicht ab. Ohne Fallback wuerde der KS keine relevanten Chunks finden und generische oder irrelevante Antworten liefern.
+
+**Fallback-Hierarchie** (durchgaengig vom AiContextBuilder vor dem KS-Aufruf):
+
+```python
+def resolve_species_for_ks(species: Species) -> tuple[str, str | None, ConfidenceLevel]:
+    """ADR-002: Mapped tenant-eigene Species auf einen KS-aufloesbaren Wert.
+
+    Returns:
+        (ks_species_value, cultivar_hint, confidence_level)
+    """
+    if species.origin != "tenant":
+        # Globale Species — direkt nutzen
+        return (species.scientific_name, None, ConfidenceLevel.HIGH)
+
+    # Tenant-Species: Fallback in Reihenfolge
+    if species.parent_species_key:
+        # Stufe 1: parent_species (empfohlene Konfiguration, REQ-001)
+        parent = species_repo.get(species.parent_species_key)
+        if parent and parent.origin != "tenant":
+            return (
+                parent.scientific_name,
+                species.common_names[0] if species.common_names else None,
+                ConfidenceLevel.MEDIUM,
+            )
+
+    if species.genus:
+        # Stufe 2: Genus-Fallback (z.B. "Solanum sp.")
+        return (
+            f"{species.genus} sp.",
+            species.scientific_name or species.common_names[0] if species.common_names else None,
+            ConfidenceLevel.LOW,
+        )
+
+    if species.family:
+        # Stufe 3: Family-Fallback (selten — Solanaceae)
+        return (species.family, species.scientific_name, ConfidenceLevel.LOW)
+
+    # Stufe 4: Keine botanische Information — KS-Aufruf entfaellt,
+    # Antwort kommt regelbasiert aus Backend-Fallback (REQ-031 §1)
+    return (None, species.scientific_name, ConfidenceLevel.NONE)
+```
+
+Das `QuestionContext`-Objekt wird um zwei optionale Felder erweitert:
+
+```python
+class QuestionContext(BaseModel):
+    species: str | None              # ks-aufloesbar (global, Genus, Family) oder None
+    cultivar_hint: str | None        # NEU (ADR-002): tenant-eigener Name als unstrukturierter Hint
+    confidence: ConfidenceLevel      # NEU (ADR-002): high | medium | low | none
+    phase: str | None
+    substrate: str | None
+    ec: float | None
+    ph: float | None
+    # ... bestehende Felder
+```
+
+**Verhalten im Knowledge Service:** Der KS wird nicht angepasst — er sieht weiterhin ein `species`-Feld und macht seinen normalen Hybrid-Search. Das `cultivar_hint`-Feld wird in den LLM-Prompt eingebettet (`"Der Anwender bezieht sich auf eine eigene Sortennote namens '{cultivar_hint}'. Behandle die Antwort als allgemeine Information zu '{species}', erwähne nicht, dass die Sortennote nicht in der Datenbank ist."`).
+
+**UI-Wirkung:** Antworten mit `confidence: low` werden in der UI mit einem sichtbaren Badge versehen (REQ-031 §6, neu unten). Anwender wird informiert, dass die Antwort allgemein und nicht sortenspezifisch ist.
+<!-- /Quelle: ADR-002 / W-006 -->
+
 ### 4.3 AiAssistantService (Orchestrierung)
 
 Service-Klasse in `src/backend/app/domain/services/ai_assistant_service.py`. Methoden:
@@ -613,6 +681,9 @@ Jede LLM-Antwort des Backends folgt einem gemeinsamen Schema:
   "language_mismatch_warning": false,
   "uses_tenant_data": true,
   "uses_cloud_provider": false,
+  "confidence": "high",                              // ADR-002: high | medium | low | none
+  "fallback_species": null,                          // ADR-002: bei tenant-Species der genutzte Fallback-Wert
+  "cultivar_hint": null,                             // ADR-002: tenant-eigener Sortenname (Anzeige im UI)
   "model_name": "gemma3:12b",
   "provider_type": "ollama",
   "kb_version": "ks-1.4.2-idx-20260420",
@@ -634,6 +705,7 @@ Pflicht-Wrapper fuer alle KI-generierten Inhalte (Tipps, Daily Tip, "Warum?"-Ant
 - **Sprach-Badge** (nur bei `language_mismatch_warning=true`): Hinweis "Antwort auf Deutsch — englische Wissensbasis im Aufbau".
 - **Tenant-Daten-Indikator** (nur bei `uses_tenant_data=true`): kleiner Chip "Nutzt deine Pflanzendaten" mit Tooltip-Erklaerung und Link zu Datenschutz-Einstellungen.
 - **Cloud-Provider-Indikator** (nur bei `uses_cloud_provider=true`): Chip "Verarbeitet via Cloud-Provider [Name]".
+- **Confidence-Badge (ADR-002, nur bei `confidence='low'`):** Sichtbarer Chip "Allgemeine Information" mit Tooltip: "Diese Antwort basiert auf allgemeiner Datenlage zu {fallback_species}, nicht auf deiner spezifischen Sorte '{cultivar_hint}'. Tenant-eigene Sorten haben keine eigene Wissensbasis." — kein Blocker, nur Information. <!-- W-006 -->
 - **Antwort-Body:** Kinder-Komponente.
 - **Quellen-Footer:** Aufklappbarer `Accordion` mit Liste der Quellen-Chunks (Titel, Kategorie, Score, Sprach-Flag). Bei Beginner-Erfahrungsstufe zugeklappt, bei Expert offen (REQ-021).
 - **Disclaimer-Footer:** Kleiner grauer Text "KI-Antworten koennen fehlerhaft sein. Bei kritischen Entscheidungen Quellen pruefen." (i18n `common.ai.disclaimer`).

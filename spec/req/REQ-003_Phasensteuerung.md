@@ -7,8 +7,16 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.3 (DORMANCY-Phase für perenniale Zimmerpflanzen, Abgrenzung FLUSHING vs. DORMANCY)
+Version: 2.5 (Saison-Sensor-Aggregate, ADR-003)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.5 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** SeasonalCycle um `sensor_aggregates`, `aggregate_computed_at`, `aggregate_computed_by`, `aggregate_source_retention_horizon`, `aggregate_config` erweitert. Neue `SensorAggregateEngine` mit avg/min/max/p10/p90 für Quantile-Sensoren und sum/avg_per_day für DLI. Celery-Task `compute_seasonal_aggregates_task` triggert beim Saisonende. Lazy Re-Computation bei Sensor-Drift. Backfill-Migration für bestehende Saisons. |
+| 2.4 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Direkter Phasenwechsel auf einer `PlantInstance`, die Mitglied eines aktiven `PlantingRun` ist (`run_contains` mit `detached_at = null`, `run.status = 'active'`), wird abgelehnt. `PhaseTransitionEngine.assert_transition_allowed()` führt einen AQL-Lookup durch und wirft `RunMembershipConflictError` → API liefert HTTP 409 mit strukturiertem Fehler-Body. Batch-Phasenwechsel ist All-or-Nothing. Drei neue DoD-Punkte (§6). |
+| 2.3 | (vorher) | DORMANCY-Phase für perenniale Zimmerpflanzen, Abgrenzung FLUSHING vs. DORMANCY. |
 
 ## 1. Business Case
 
@@ -115,6 +123,13 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
     - `yield_kg: Optional[float]` — Gesamtertrag der Saison
     - `fruit_count: Optional[int]` — Anzahl Früchte (wenn zählbar)
     - `performance_notes: Optional[str]`
+    <!-- Quelle: ADR-003 / W-014 -->
+    - `sensor_aggregates: dict` (Default: `{}`) — Saisonale Sensor-Aggregate für Trendanalysen über Pflanzenleben hinweg. Format pro Sensor-Typ: `{"avg": float, "min": float, "max": float, "p10": float, "p90": float, "samples": int}` (für `temperature`, `humidity`, `vpd`, `soil_moisture`); `{"sum": float, "avg_per_day": float, "samples": int}` für `dli` (kumulativ statt Durchschnitt). Wird vom Celery-Task `compute_seasonal_aggregates_task` beim Saisonende berechnet und ist DSGVO-rechtlich unkritisch (keine Anwesenheits-Indikatoren, anonymisiert via `aggregate_computed_by`-Field bei User-Löschung, NFR-011 R-19a).
+    - `aggregate_computed_at: Optional[datetime]` — Zeitpunkt der Aggregat-Berechnung. Bei `null` ist die Saison entweder noch aktiv oder das Aggregat wurde noch nicht berechnet.
+    - `aggregate_computed_by: Optional[str]` — User-Key des auslösenden Anwenders (Audit). Bei User-Löschung wird auf `null` anonymisiert (NFR-011 R-19a).
+    - `aggregate_source_retention_horizon: Optional[Literal['90d', '2y', '5y', '10y', '20y']]` — Bis wann die zugrundeliegenden Rohdaten/Stundenmittel/Tagesmittel zum Berechnungszeitpunkt verfügbar waren. Dokumentiert die Datenquelle für Audit-Zwecke.
+    - `aggregate_config: Optional[dict]` — Tenant-spezifische Aggregat-Konfiguration (welche Sensor-Typen, welche Quartile etc.). `null` = Default-Set aus ADR-003.
+    <!-- /Quelle: ADR-003 / W-014 -->
 
 ### Edge Collections:
 ```
@@ -253,6 +268,75 @@ FOR season IN seasonal_cycles
 
 ### Logik-Anforderungen:
 
+<!-- Quelle: Widerspruchsanalyse W-003 -->
+**1a. Run-Membership-Guard (W-003):**
+
+REQ-013 v2.0 etabliert den `PlantingRun` als primäre Verwaltungseinheit für die Phase. Solange eine `PlantInstance` Mitglied eines aktiven Runs ist (`run_contains`-Edge mit `detached_at = null`, Run-Status `active`), wird ihre Phase **ausschließlich** über den Run gesteuert. Direkte Phasenwechsel auf der einzelnen PlantInstance MÜSSEN technisch abgelehnt werden.
+
+**Wo der Guard sitzt:** Engine-only — die `PhaseTransitionEngine` ist die einzige Stelle, an der ein Phasenwechsel ausgeführt wird; jeder Code-Pfad (Direct-API, Batch-Endpoint, Celery-Task, interne Service-Aufrufe) läuft durch sie hindurch.
+
+**Verhalten bei Verstoß:**
+
+```json
+HTTP/1.1 409 Conflict
+Content-Type: application/json
+
+{
+  "error_code": "phase.run_owned",
+  "message": "Phase wird vom PlantingRun verwaltet.",
+  "run_key": "tomaten-hochbeet-a-2025",
+  "plant_key": "HOCHBEETA_TOM_05",
+  "remediation": "PUT /api/v1/t/{tenant_slug}/planting-runs/{run_key}/phase"
+}
+```
+
+Der Frontend-Code kann `error_code='phase.run_owned'` abfangen, dem Anwender die Run-Sicht öffnen und den Phasenwechsel dort anstoßen.
+
+**Lookup-Query (AQL):**
+
+```aql
+LET active_run = FIRST(
+  FOR rc IN run_contains
+    FILTER rc._to == @plant_id
+    FILTER rc.detached_at == null
+    LET run = DOCUMENT(rc._from)
+    FILTER run.status == "active"
+    RETURN run
+)
+RETURN active_run
+```
+
+Das Query liefert maximal ein Run-Dokument zurück (Invariante REQ-013 §1: „PlantInstance gehört zu maximal einem aktiven PlantingRun"). Liefert es `null`, ist die Pflanze standalone — der Phasenwechsel verläuft regulär.
+
+**Wann der Guard NICHT greift:**
+
+| Zustand | Phasenwechsel auf PlantInstance |
+|---------|--------------------------------|
+| Plant hat keine `run_contains`-Edge | erlaubt (standalone) |
+| Plant hat `run_contains`-Edge, aber `detached_at != null` | erlaubt (detached → standalone) |
+| Plant hat aktive Edge, Run hat aber `status != 'active'` (`completed`, `cancelled`, `harvesting`) | erlaubt (Run-Lifecycle abgeschlossen) |
+| Plant hat aktive Edge UND Run ist aktiv | **abgelehnt mit HTTP 409** |
+| Phasenwechsel zielt auf den Run selbst (`entity_type='run'`) | erlaubt (Run-Phase ist immer erlaubt) |
+
+**Batch-Phasenwechsel (All-or-Nothing):**
+
+Der Batch-Endpoint (`POST /plant-instances/batch-transition`, REQ-013) MUSS denselben Guard für jede einzelne Plant in der Liste anwenden. Bei mindestens einem Konflikt wird der gesamte Batch mit HTTP 409 abgelehnt — keine Plant wird transitioniert. Response enthält die Liste aller konflikten Plants:
+
+```json
+HTTP/1.1 409 Conflict
+{
+  "error_code": "phase.batch_run_owned",
+  "message": "Mindestens eine Pflanze ist Mitglied eines aktiven PlantingRun. Der gesamte Batch wurde abgelehnt.",
+  "conflicts": [
+    {"plant_key": "HOCHBEETA_TOM_05", "run_key": "tomaten-hochbeet-a-2025"},
+    {"plant_key": "HOCHBEETA_TOM_07", "run_key": "tomaten-hochbeet-a-2025"}
+  ]
+}
+```
+
+Begründung: Phasenwechsel sind sicherheitsrelevant (Karenz-Gate REQ-010, Erntefreigabe REQ-007). Stilles Überspringen einzelner Plants im Batch wäre fehleranfällig — der Anwender hat 20 Pflanzen gemeint und soll explizit erfahren, welche nicht transitioniert wurden.
+<!-- /Quelle: Widerspruchsanalyse W-003 -->
+
 **1. State-Machine für Phasenübergänge:**
 ```python
 from datetime import datetime, timedelta
@@ -273,6 +357,10 @@ class PhaseTransitionEngine(BaseModel):
     Dual-Support (REQ-013 v2.0): entity_id kann ein planting_runs-Key oder
     ein plant_instances-Key sein. Bei Runs wird die Phase fuer alle Pflanzen
     im Run gesetzt; bei standalone Plants nur fuer die einzelne Pflanze.
+
+    Run-Membership-Guard (W-003): Vor jedem Transition-Aufruf MUSS
+    assert_transition_allowed() aufgerufen werden, das Run-gebundene
+    PlantInstances mit RunMembershipConflictError abweist.
     """
 
     entity_id: str         # planting_runs/{key} oder plant_instances/{key}
@@ -284,6 +372,62 @@ class PhaseTransitionEngine(BaseModel):
     gdd_base_temp_c: Optional[float] = None
     accumulated_gdd: float = 0.0
     transition_trigger: TransitionTrigger
+
+    # <!-- Quelle: Widerspruchsanalyse W-003 -->
+    def assert_transition_allowed(self, plant_repo) -> None:
+        """W-003 Guard: Verbietet direkte Phasenwechsel auf Run-Mitgliedern.
+
+        Wird VOR jedem Phasenwechsel aufgerufen — sowohl bei Auto-Transition
+        (Celery-Task) als auch bei manuellem API-Call (PUT /phase) und im
+        Batch-Endpoint.
+
+        Raises:
+            RunMembershipConflictError: Wenn entity_type='plant' und die
+                Plant Mitglied eines aktiven Runs ist (run_contains mit
+                detached_at=null, run.status='active').
+        """
+        if self.entity_type != "plant":
+            return  # Run-Phase ist immer erlaubt
+
+        active_run = plant_repo.find_active_run_for_plant(self.entity_id)
+        if active_run is not None:
+            raise RunMembershipConflictError(
+                error_code="phase.run_owned",
+                message="Phase wird vom PlantingRun verwaltet.",
+                run_key=active_run.key,
+                plant_key=self.entity_id,
+                remediation=(
+                    f"PUT /api/v1/t/{{tenant_slug}}/planting-runs/"
+                    f"{active_run.key}/phase"
+                ),
+            )
+
+
+class RunMembershipConflictError(Exception):
+    """W-003: Direkter Phasenwechsel auf Run-gebundener PlantInstance.
+
+    Wird vom API-Layer in HTTP 409 Conflict mit strukturiertem Body
+    übersetzt. Bei Batch-Operationen werden alle RunMembershipConflictErrors
+    eines Batches gesammelt und in einer einzigen 409-Response als
+    'phase.batch_run_owned' zurückgegeben (All-or-Nothing).
+    """
+
+    def __init__(
+        self,
+        *,
+        error_code: str,
+        message: str,
+        run_key: str,
+        plant_key: str,
+        remediation: str,
+    ) -> None:
+        self.error_code = error_code
+        self.message = message
+        self.run_key = run_key
+        self.plant_key = plant_key
+        self.remediation = remediation
+        super().__init__(message)
+    # <!-- /Quelle: Widerspruchsanalyse W-003 -->
 
     def check_transition_due(self) -> tuple[bool, str, Optional[str]]:
         """
@@ -997,6 +1141,88 @@ def validate_transition(self, plant_key: str, target_phase_key: str) -> list[str
             raise PhaseTransitionError("Rückwärts-Transition nicht erlaubt")
 ```
 
+<!-- Quelle: ADR-003 / W-014 -->
+**6. Saison-Aggregat-Engine (ADR-003):**
+
+```python
+from datetime import datetime
+from celery import shared_task
+from statistics import mean
+
+class SensorAggregateEngine:
+    """Berechnet saisonale Sensor-Aggregate für SeasonalCycle (ADR-003).
+
+    Default-Aggregat-Set (Workshop-Frage 1):
+      - temperature, humidity, vpd, soil_moisture: avg/min/max/p10/p90
+      - dli: sum + avg_per_day (kumulativ statt Durchschnitt)
+    """
+
+    DEFAULT_QUANTILE_SENSORS = ("temperature", "humidity", "vpd", "soil_moisture")
+    DEFAULT_CUMULATIVE_SENSORS = ("dli",)
+
+    def compute(
+        self,
+        season: SeasonalCycle,
+        sensor_data: dict[str, list[float]],
+        config: Optional[dict] = None,
+    ) -> dict:
+        """Erzeugt sensor_aggregates-Dict für eine abgeschlossene Saison."""
+        config = config or self._default_config()
+        result = {}
+        for sensor_type, values in sensor_data.items():
+            if not values:
+                continue
+            if sensor_type in config.get("quantile_sensors", self.DEFAULT_QUANTILE_SENSORS):
+                result[sensor_type] = self._aggregate_quantile(values)
+            elif sensor_type in config.get("cumulative_sensors", self.DEFAULT_CUMULATIVE_SENSORS):
+                result[sensor_type] = self._aggregate_cumulative(values, season)
+        return result
+
+    def _aggregate_quantile(self, values: list[float]) -> dict:
+        sorted_v = sorted(values)
+        n = len(sorted_v)
+        return {
+            "avg": mean(values),
+            "min": sorted_v[0],
+            "max": sorted_v[-1],
+            "p10": sorted_v[int(n * 0.10)],
+            "p90": sorted_v[int(n * 0.90)],
+            "samples": n,
+        }
+
+    def _aggregate_cumulative(self, values: list[float], season: SeasonalCycle) -> dict:
+        days = max(1, (season.ended_at - season.started_at).days) if season.ended_at else 1
+        return {
+            "sum": sum(values),
+            "avg_per_day": sum(values) / days,
+            "samples": len(values),
+        }
+
+
+@shared_task
+def compute_seasonal_aggregates_task(season_key: str) -> None:
+    """Celery-Task: Wird beim Setzen von SeasonalCycle.ended_at getriggert.
+
+    Idempotent: Mehrfacher Aufruf erzeugt dasselbe Aggregat (deterministische
+    Berechnung). Lazy-Update bei Sensor-Korrekturen (Workshop-Frage 4):
+    Beim Lesezugriff vergleicht der Service `aggregate_computed_at` mit
+    `last_modified_in_window` und triggert Re-Computation bei Drift.
+    """
+    season = season_repo.get(season_key)
+    sensor_data = sensor_repo.fetch_for_season(season)  # Stufe 2 / Stufe 3
+    aggregates = SensorAggregateEngine().compute(season, sensor_data, season.aggregate_config)
+    season_repo.update(season_key, {
+        "sensor_aggregates": aggregates,
+        "aggregate_computed_at": datetime.utcnow(),
+        "aggregate_source_retention_horizon": _detect_horizon(sensor_data),
+    })
+```
+
+**Trigger:** Der Celery-Task wird automatisch ausgelöst, wenn `SeasonalCycle.ended_at` gesetzt wird (Saison endet, typisch: Übergang in Dormanz). Optional kann der Tenant-Admin den Task auch manuell für historische Saisons starten — solange Stufe-3-Tagesmittel noch verfügbar sind.
+
+**Migration für bestehende Saisons:** Beim Deployment dieser Spec-Version läuft ein einmaliger Backfill-Task, der für alle abgeschlossenen `seasonal_cycles` ohne `aggregate_computed_at` die Aggregate aus den noch verfügbaren Stufe-2/3-Daten berechnet. Saisons, deren Daten bereits gelöscht wurden, behalten leere Aggregate (Datenverlust nicht reparierbar).
+<!-- /Quelle: ADR-003 / W-014 -->
+
 ### Datenvalidierung:
 ```python
 from typing import Literal, Optional, Tuple
@@ -1177,6 +1403,14 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Autoflower-HST-Warnung:** HST-Methoden (Topping/FIM/Supercropping) bei Autoflower-Cultivaren erzeugen Warnung (nicht Blockade) — cross-ref REQ-006
 - [ ] **Autoflower-LST-Erlaubt:** LST-Methoden bei Autoflower ohne Einschränkung erlaubt
 <!-- /Quelle: G-009 -->
+<!-- Quelle: Widerspruchsanalyse W-003 -->
+- [ ] **Run-Membership-Guard (Single):** Direkter Phasenwechsel auf einer `PlantInstance`, die Mitglied eines aktiven `PlantingRun` ist (`run_contains.detached_at = null`, `run.status = 'active'`), liefert HTTP 409 mit `error_code='phase.run_owned'` und enthält `run_key`, `plant_key` und `remediation` im Body.
+- [ ] **Standalone-Phasenwechsel:** Direkter Phasenwechsel auf einer PlantInstance ohne aktive `run_contains`-Edge oder mit `detached_at != null` funktioniert regulär.
+- [ ] **Detach-Recovery:** Nach `detach`-Operation (REQ-013 §3) ist der direkte Phasenwechsel auf der nun-standalone Pflanze wieder erlaubt.
+- [ ] **Inactive-Run-Phasenwechsel:** Wenn der zugehörige Run `status` in `{completed, cancelled, harvesting}` hat, ist der direkte Phasenwechsel auf der PlantInstance erlaubt (Run-Lifecycle abgeschlossen).
+- [ ] **Batch All-or-Nothing:** Der Batch-Phasenwechsel-Endpoint lehnt den gesamten Batch mit HTTP 409 `error_code='phase.batch_run_owned'` ab, sobald mindestens eine Pflanze in der Liste Mitglied eines aktiven Runs ist. Response enthält Liste aller `conflicts` mit `plant_key` und `run_key`. Keine Pflanze des Batches wird transitioniert.
+- [ ] **Engine-only Guard:** `PhaseTransitionEngine.assert_transition_allowed()` ist die einzige Stelle mit Run-Membership-Check — der API-Layer wirft den Guard nicht direkt, sondern lässt `RunMembershipConflictError` bis zum Exception-Handler durchpropagieren.
+<!-- /Quelle: Widerspruchsanalyse W-003 -->
 
 ### Testszenarien:
 

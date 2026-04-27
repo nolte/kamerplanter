@@ -3,6 +3,7 @@ name: mkdocs-documentation
 distribution: project
 description: Erstellt und pflegt endnutzerfreundliche, mehrsprachige Dokumentation im MkDocs-Material-Format gemaess NFR-005. Aktiviere diesen Agenten wenn Dokumentationsseiten erstellt, aktualisiert oder uebersetzt werden sollen, wenn ADRs (Architecture Decision Records) geschrieben, die mkdocs.yml konfiguriert, API-Docs aus Docstrings generiert, Guides/Tutorials verfasst, oder die Docs-CI/CD-Pipeline eingerichtet werden soll. Auch geeignet fuer Changelog-Pflege, Versionierung mit mike, und Custom-Styling der Dokumentation.
 tools: Read, Write, Edit, Bash, Glob, Grep
+# Modellwahl: Doku-Erstellung im MkDocs-Material-Format mit ADRs/Guides/Changelog; sonnet adaequat fuer mehrsprachige Doku.
 model: sonnet
 ---
 

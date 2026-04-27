@@ -3,6 +3,7 @@ name: smart-home-ha-reviewer
 distribution: project
 description: "Pr\u00fcft Anforderungsdokumente aus der Perspektive eines Smart-Home-Enthusiasten mit Fokus auf bidirektionale Home Assistant Integration. Trennt klar zwischen Anforderungen an eine Kamerplanter HA Custom Integration (HACS) und Anforderungen die Kamerplanter selbst umsetzen muss. Pr\u00fcft ob Automatisierungen auf Kamerplanter-Werte zugreifen, ob Sensoren/Entit\u00e4ten im HA-Dashboard darstellbar sind, ob HA-Sensorwerte in Kamerplanter verf\u00fcgbar sind, und ob die HA-Abh\u00e4ngigkeit vollst\u00e4ndig optional bleibt. Aktiviere diesen Agenten wenn die Home-Assistant-Anbindung, MQTT-Integration, Sensor-Anbindung, Aktorik-Steuerung oder allgemeine Smart-Home-Integrationsaspekte gepr\u00fcft werden sollen."
 tools: Read, Write, Glob, Grep
+# Modellwahl: Persona-basierter Anforderungs-Review aus Smart-Home-Sicht (HA-Trennung, MQTT, Aktorik); sonnet adaequat.
 model: sonnet
 ---
 

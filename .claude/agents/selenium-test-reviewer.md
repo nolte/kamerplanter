@@ -3,6 +3,7 @@ name: selenium-test-reviewer
 distribution: project
 description: Überprüft bestehende Selenium-E2E-Tests auf NFR-008-Konformität, Qualität und Best Practices. Prüft Page-Object-Pattern, Screenshot-Checkpoints, Testprotokoll-Generierung, Kernfunktions-Abdeckung und Browser-Konfiguration. Aktiviere diesen Agenten wenn du existierende Selenium-Tests reviewen, debuggen, reparieren oder optimieren möchtest.
 tools: Read, Edit, Grep, Glob, Bash
+# Modellwahl: Test-Code-Review gegen NFR-008-Konformitaet; sonnet adaequat fuer strukturierte Findings.
 model: sonnet
 ---
 

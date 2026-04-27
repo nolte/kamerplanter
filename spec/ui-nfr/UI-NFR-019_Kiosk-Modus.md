@@ -1,20 +1,22 @@
 ---
 
-ID: UI-NFR-011
+ID: UI-NFR-019
 Titel: Kiosk-Modus & Gewächshaus-Bedienung
 Kategorie: UI-Verhalten Unterkategorie: Kiosk, Touch, Gewächshaus, Feldmodus
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.1
+Version: 1.2 (ID-Konflikt mit UI-NFR-011 Fachbegriff-Erklaerungen aufgeloest, W-019 Fix)
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-28
+Datum: 2026-04-27
 Tags: [kiosk, touch-targets, greenhouse, dirty-hands, gloves, simplified-ui, auto-timeout, high-contrast]
 Abhängigkeiten: [UI-NFR-001, UI-NFR-002, UI-NFR-004, UI-NFR-005, UI-NFR-006]
 Betroffene Module: [Frontend, Mobile]
 ---
 
-# UI-NFR-011: Kiosk-Modus & Gewächshaus-Bedienung
+# UI-NFR-019: Kiosk-Modus & Gewächshaus-Bedienung
+
+> **Hinweis (W-019 Fix, 2026-04-27):** Diese Spezifikation wurde von `UI-NFR-011` zu `UI-NFR-019` umnummeriert, weil die ID `UI-NFR-011` doppelt vergeben war (Konflikt mit `UI-NFR-011_Fachbegriff-Erklaerungen`). Inhalt unverändert; alle eingehenden Referenzen wurden mitgezogen.
 
 ## 1. Business Case
 

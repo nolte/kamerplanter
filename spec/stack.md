@@ -265,7 +265,8 @@ class PlantResponse(BaseModel):
 #### Celery + Valkey
 
 - **Celery**: >= 5.4.0
-- **Valkey**: >= 8.0 (Redis-kompatibel, als Broker & Result Backend)
+- **Valkey**: >= 8.0 (primäre Lösung, als Broker & Result Backend) — Wire-Protokoll-kompatibel zu Redis, daher wird der Standard-Python-Client `redis-py` verwendet. Helm-Charts (NFR-002) deployen Valkey-Images. <!-- W-008 -->
+- **Hinweis:** In Code-Beispielen, Variablennamen und Library-Imports bleibt der Begriff "redis" erhalten, weil `redis-py` der maintainede Python-Client ist und Valkey via Redis-Wire-Protocol bedient. Die Tech-Stack-Entscheidung Valkey betrifft die deployte Server-Komponente, nicht die Client-Library.
 
 **Use Cases**:
 
@@ -553,7 +554,7 @@ SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 
 #### Version & Verwendung
 
-- **Version**: >= 8.0 (Redis-kompatibel)
+- **Version**: Valkey >= 8.0 (primäre Lösung, Redis-Wire-Protokoll-kompatibel, NFR-012 §3.4) <!-- W-008 -->
 - **Modi**:
     - Cache (TTL-basiert)
     - Session Store

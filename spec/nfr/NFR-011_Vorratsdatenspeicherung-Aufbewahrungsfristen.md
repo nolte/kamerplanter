@@ -6,16 +6,26 @@ Titel: Vorratsdatenspeicherung & Aufbewahrungsfristen
 Kategorie: Datenschutz & Compliance
 Unterkategorie: Retention Policy, Datensparsamkeit, DSGVO
 Fokus: Beides (Zierpflanze & Nutzpflanze)
-Technologie: Python, Celery, ArangoDB, TimescaleDB, Redis
+Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Entwurf
 Priorität: Kritisch
-Version: 1.0
-Datum: 2026-02-27
+Version: 1.4 (Sensor-Retention nach data_classification, ADR-003)
+Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
-Abhängigkeiten: [REQ-023, REQ-024, REQ-025, NFR-001]
+Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
 Betroffene Module: [ALL]
 Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.4 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** R-14 differenziert nach `Location.data_classification` (REQ-002): `OUTDOOR_OPEN` Stufe 2 = 5y, Stufe 3 = 20y (Opt-in); `GREENHOUSE` Stufe 3 = 10y (Opt-in); `INDOOR_*` und `UNKNOWN` weiterhin 5y. Forward-only-Klassifizierungs-Wechsel. Vier neue Settings. R-19a für Saison-Aggregate-Anonymisierung bei User-Löschung. |
+| 1.3 | 2026-04-27 | **ADR-002 (W-006 Promotion-Audit):** R-19 ergänzt — `promotion_audit_log`-Collection mit 5 Jahren Aufbewahrung. Begründung: Bei Sortenrechts-Streitigkeiten relevant; konsistent mit Erntedaten-Retention (R-16). |
+| 1.2 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** R-17 präzisiert: Aufbewahrungsfrist umfasst auch geerbte `to_plant`-Edges (Karenz-Snapshot beim Detach). Fristberechnung anhand Original-`applied_at`, nicht anhand `inherited_at`. Hard-Delete nach 3 Jahren entfernt Original-Treatment + alle abhängigen Edges (direkt, run, geerbt) im selben Schritt. |
+| 1.1 | 2026-04-27 | **W-002 Fix (Tombstone-Salt):** R-06 Maßnahme präzisiert (Pseudonymisierung sofort nach User-Hard-Delete + Hard-Delete des Audit-Eintrags nach 1 Jahr). Pflicht-Setting `ERASURE_TOMBSTONE_SALT` in §4 ergänzt — Backend startet ohne dieses Setting nicht (siehe REQ-025 §3.1). Compliance-Begründung: Art. 5(1)(e) Speicherbegrenzung. |
+| 1.0 | 2026-02-27 | Erstversion — Retention-Matrix R-01 bis R-15, Celery-Master-Task, TimescaleDB-Downsampling, Konfigurations-Defaults. |
 
 ## 1. Business Case
 
@@ -65,7 +75,7 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-03 | IP-Adressen in Sessions | `refresh_tokens` (Feld: `ip_address`) | 7 Tage nach Speicherung | Anonymisierung: IPv4 letztes Oktett → `0`, IPv6 → `/48`-Präfix behalten | Art. 6(1)(f) berechtigtes Interesse, Art. 5(1)(c) Datenminimierung | REQ-023 §2 |
 | R-04 | Consent Records | `consent_records` | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht | REQ-025 |
 | R-05 | Export-Dateien | Dateisystem (Export-Verzeichnis) | 72 Stunden nach Erstellung | Datei löschen, Status auf `expired` setzen | Art. 15/20 DSGVO, Zweckentfall | REQ-025 |
-| R-06 | Erasure-Audit-Logs | `erasure_requests` | 1 Jahr nach Abschluss | Hard-Delete | Art. 5(2) Rechenschaftspflicht | REQ-025 |
+| R-06 | Erasure-Audit-Logs | `erasure_requests` | 1 Jahr nach Abschluss | **Pseudonymisierung sofort nach User-Hard-Delete (`user_key` → Tombstone-Hash via REQ-025 §3.1 Phase 2.5), anschließend Hard-Delete des Audit-Eintrags nach 1 Jahr** <!-- W-002 --> | Art. 5(2) Rechenschaftspflicht + Art. 5(1)(e) Speicherbegrenzung | REQ-025 |
 | R-07 | E-Mail-Änderungsanfragen | `email_change_requests` | 24 Stunden nach Erstellung | Hard-Delete (abgelaufene Tokens) | Zweckentfall | REQ-025 |
 | R-08 | Passwort-Reset-Tokens | `users` (Felder: `password_reset_token`, `password_reset_expires`) | 1 Stunde (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
 | R-09 | E-Mail-Verifikations-Tokens | `users` (Felder: `email_verification_token`, `email_verification_expires`) | 24 Stunden (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
@@ -77,6 +87,7 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-20 | Pinnwand-Beiträge (BulletinPost/Comment) | `bulletin_posts`, `bulletin_comments` | Bei User-Löschung: User-Referenz anonymisieren, Inhalt bleibt | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
 | R-21 | Einkaufslisten (SharedShoppingList) | `shared_shopping_lists` | Bei User-Löschung: User-Referenz anonymisieren | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
 | R-22 | Aufgaben-Bewertungen (Task difficulty/quality ratings) | `tasks` (Felder: `difficulty_rating`, `quality_rating`, `assigned_to`) | Bei User-Löschung: `assigned_to` auf NULL setzen, Bewertungen bleiben (aggregiert nutzbar) | Anonymisierung | Art. 17 Abs. 3 (Lern-System benötigt Aggregatdaten) | REQ-006 |
+| R-19a <!-- ADR-003 --> | Saison-Aggregate (`seasonal_cycles.sensor_aggregates`) | `seasonal_cycles` (Feld `aggregate_computed_by`) | Aggregate bleiben unbegrenzt (keine personenbezogenen Daten); bei User-Löschung `aggregate_computed_by → NULL` | Anonymisierung | Art. 17 Abs. 3 (fachliche Trendanalyse über Pflanzenleben) | REQ-003 v2.x, REQ-025 |
 
 ### 2.2 Sensordaten (Indirekt personenbezogen — SEC-K-005)
 
@@ -84,8 +95,27 @@ Sensordaten können Rückschlüsse auf Anwesenheit und Verhalten von Personen er
 
 | # | Datenkategorie | Speichersystem | Stufe 1 (Rohdaten) | Stufe 2 (Stündlich) | Stufe 3 (Täglich) | Rechtsgrundlage |
 |---|---------------|---------------|-------------------|--------------------|--------------------|----------------|
-| R-14 | Sensordaten (Temperatur, RH, CO2, Licht, Bodenfeuchtigkeit) | TimescaleDB | 90 Tage volle Auflösung | 90d–2 Jahre: Stundenmittelwerte | 2–5 Jahre: Tagesmittelwerte, danach löschen | Art. 6(1)(b) Vertragserfüllung |
+| R-14 | Sensordaten (Temperatur, RH, CO2, Licht, Bodenfeuchtigkeit) <!-- ADR-003 differenziert nach Location.data_classification (REQ-002), siehe Tabelle unten --> | TimescaleDB | 90 Tage volle Auflösung | 90d–2 Jahre (Default) bzw. 90d–5 Jahre (`OUTDOOR_OPEN`): Stundenmittelwerte | **Differenziert nach Klassifizierung (siehe Untertabelle)** | Art. 6(1)(b) Vertragserfüllung |
 | R-15 | Aktor-Logs (manuelle Overrides) | TimescaleDB | 90 Tage | 90d–1 Jahr: aggregiert (Override-Anzahl/Tag) | Danach löschen | Art. 6(1)(f) berechtigtes Interesse |
+
+<!-- Quelle: ADR-003 / W-014 -->
+**R-14 Differenzierung nach `Location.data_classification` (ADR-003):**
+
+Sensor-Retention auf Stufe 2 + 3 wird nach DSGVO-Risikogruppe der Location (REQ-002) differenziert. Die Klassifizierung steuert, wie lange aggregierte Daten aufbewahrt werden dürfen, ohne gegen Art. 5(1)(e) Speicherbegrenzung zu verstoßen.
+
+| `data_classification` | Stufe 1 (Roh) | Stufe 2 (Stunde) | Stufe 3 (Tag) | Saison-Aggregate (REQ-003) |
+|----------------------|---------------|------------------|---------------|----------------------------|
+| `INDOOR_PRIVATE` (Default für `UNKNOWN`) | 90d | 2y | 5y | ∞ (anonymisiert bei User-Löschung, R-19a) |
+| `INDOOR_PUBLIC` | 90d | 2y | 5y | ∞ (anonymisiert bei User-Löschung, R-19a) |
+| `GREENHOUSE` | 90d | 2y | **10y (opt-in)** | ∞ (anonymisiert bei User-Löschung, R-19a) |
+| `OUTDOOR_OPEN` | 90d | **5y** | **20y (opt-in)** | ∞ |
+
+**Verlängerte Retention bei `GREENHOUSE` und `OUTDOOR_OPEN`:** Tenant-Admin muss explizit zustimmen (Opt-in), damit die längeren Stufen aktiviert werden. Default für alle Klassifizierungen ist die DSGVO-konservative 5-Jahres-Grenze auf Stufe 3. Begründung der Werte: Bei `OUTDOOR_OPEN` (Garten, Hochbeet) ist kein Personenbezug — Stundenmittelwerte enthalten keine Anwesenheits-Indikatoren, längere Aufbewahrung ist DSGVO-rechtlich unkritisch und fachlich für Mehrjähresanalysen wertvoll (Apfelbäume, Beerensträucher).
+
+**Forward-only-Klassifizierungs-Wechsel (Workshop-Frage 5):** Bei Wechsel der `data_classification` einer Location (z.B. `INDOOR_PRIVATE` → `OUTDOOR_OPEN`) gelten die neuen Retention-Fristen NUR für Sensor-Werte, die NACH dem Wechsel erfasst wurden. Bestehende Daten behalten ihre ursprüngliche Schutzklasse — verhindert nachträgliche Schutz-Senkung durch Klassifizierungs-Manipulation.
+
+**Klassifizierungs-Default `UNKNOWN` (Workshop-Frage 2):** Locations ohne explizite Klassifizierung werden wie `INDOOR_PRIVATE` behandelt — DSGVO-konservativ, Anwender muss bewusst auf `OUTDOOR_OPEN` wechseln (UI-Warnung).
+<!-- /Quelle: ADR-003 / W-014 -->
 
 <!-- Quelle: Widerspruchsanalyse W-009 — Klimatische Extremwerte dauerhaft archivieren -->
 **Ausnahme: Klimatische Extremwert-Events:**
@@ -140,10 +170,19 @@ Diese Daten unterliegen gesetzlichen Mindestaufbewahrungsfristen und dürfen **n
 | # | Datenkategorie | Collection(s) | Mindestfrist | Rechtsgrundlage | Referenz |
 |---|---------------|---------------|-------------|----------------|----------|
 | R-16 | Erntedaten (HarvestBatch, QualityAssessment, YieldMetric) | `harvest_batches`, `quality_assessments`, `yield_metrics` | 5 Jahre | Art. 6(1)(c) gesetzl. Pflicht, CanG (Cannabis-Gesetz) | REQ-007 |
-| R-17 | Behandlungsanwendungen (TreatmentApplication) | `treatment_applications` | 3 Jahre | Art. 6(1)(c) gesetzl. Pflicht, PflSchG §11 | REQ-010 |
+| R-17 | Behandlungsanwendungen (TreatmentApplication) | `treatment_applications` + `to_plant`/`to_run`-Edges (inkl. geerbter `inherited_from_run`-Edges, ADR-001) | 3 Jahre | Art. 6(1)(c) gesetzl. Pflicht, PflSchG §11 | REQ-010 |
 | R-18 | Inspektionsprotokolle | `inspections` | 3 Jahre | PflSchG §11 | REQ-010 |
+| R-19 <!-- ADR-002 --> | Promotion-Audit-Log (Species/Cultivar tenant→global) | `promotion_audit_log` | 5 Jahre | Sortenrechts-Streitigkeiten, Art. 5(2) Rechenschaftspflicht | REQ-001 v4.1 |
 
 **Wichtig:** Bei einer Löschanfrage (Art. 17 DSGVO) durch einen Betroffenen werden diese Daten **anonymisiert** (User-Referenz entfernt), aber nicht gelöscht, solange die gesetzliche Aufbewahrungsfrist läuft (Art. 17 Abs. 3 lit. b).
+
+<!-- Quelle: ADR-001 / W-009 -->
+**R-17 Klarstellung — geerbte Treatment-Edges (ADR-001):**
+
+Beim Detach einer PlantInstance werden aktive Run-Level-Treatments als `to_plant`-Edges mit `inherited_from_run`-Property auf die Plant kopiert (Karenz-Snapshot). Diese geerbten Edges teilen die 3-Jahre-Aufbewahrungsfrist des Original-Treatments. Die Fristberechnung erfolgt anhand des Original-`applied_at`-Timestamps des `treatment_applications`-Dokuments — nicht anhand des `inherited_at`-Timestamps der Edge.
+
+Konsequenz: Bei Hard-Delete des Original-Treatments nach 3 Jahren werden auch alle abhängigen Edges (`to_plant`, `to_run`, geerbte `to_plant`) im selben Schritt entfernt. Pflanzen, die historisch detached wurden, verlieren damit ihren Karenz-Snapshot — der ist nach 3 Jahren ohnehin nicht mehr karenzwirksam.
+<!-- /Quelle: ADR-001 / W-009 -->
 
 ---
 
@@ -322,9 +361,15 @@ class RetentionSettings(BaseSettings):
     INVITATION_RETENTION_DAYS: int = 30           # R-12
 
     # Sensordaten (TimescaleDB)
-    SENSOR_RAW_RETENTION_DAYS: int = 90           # R-14 Stufe 1
-    SENSOR_HOURLY_RETENTION_YEARS: int = 2        # R-14 Stufe 2
-    SENSOR_DAILY_RETENTION_YEARS: int = 5         # R-14 Stufe 3
+    SENSOR_RAW_RETENTION_DAYS: int = 90           # R-14 Stufe 1 (alle Klassifizierungen)
+    SENSOR_HOURLY_RETENTION_YEARS: int = 2        # R-14 Stufe 2 Default (INDOOR_*, GREENHOUSE)
+    SENSOR_DAILY_RETENTION_YEARS: int = 5         # R-14 Stufe 3 Default (alle, ohne Opt-in)
+    # <!-- Quelle: ADR-003 / W-014 -->
+    SENSOR_HOURLY_RETENTION_OUTDOOR_YEARS: int = 5    # R-14 Stufe 2 für OUTDOOR_OPEN
+    SENSOR_DAILY_RETENTION_GREENHOUSE_YEARS: int = 10 # R-14 Stufe 3 für GREENHOUSE (Opt-in)
+    SENSOR_DAILY_RETENTION_OUTDOOR_YEARS: int = 20    # R-14 Stufe 3 für OUTDOOR_OPEN (Opt-in)
+    SENSOR_EXTENDED_RETENTION_REQUIRES_OPTIN: bool = True  # Tenant-Admin muss aktiv zustimmen
+    # <!-- /Quelle: ADR-003 / W-014 -->
     ACTOR_LOG_RAW_RETENTION_DAYS: int = 90        # R-15 Stufe 1
     ACTOR_LOG_AGGREGATED_RETENTION_YEARS: int = 1 # R-15 Stufe 2
 
@@ -333,10 +378,45 @@ class RetentionSettings(BaseSettings):
     TREATMENT_MIN_RETENTION_YEARS: int = 3        # R-17, PflSchG
     INSPECTION_MIN_RETENTION_YEARS: int = 3       # R-18, PflSchG
 
+    # <!-- Quelle: Widerspruchsanalyse W-002 -->
+    # Audit-Log-Pseudonymisierung (R-06): Pflicht-Setting ohne Default.
+    # Backend startet nicht, wenn ERASURE_TOMBSTONE_SALT nicht aus dem Helm
+    # Secret bereitgestellt wird — analog zur W-001-Hard-Crash-Strategie.
+    # Mindestens 32 Zeichen (256 Bit Entropie). Wechsel des Salts macht
+    # alle bestehenden Tombstones nicht mehr deterministisch zuordenbar
+    # (was im Compliance-Sinne unkritisch ist — Pseudonymisierung soll
+    # gerade nicht reversibel sein), neue Erasures nutzen den neuen Salt.
+    # Wechsel daher nur bei Sicherheitsvorfall vornehmen.
+    ERASURE_TOMBSTONE_SALT: str = Field(
+        ...,                                       # Pflicht — kein Default
+        min_length=32,
+        description=(
+            "Per-Instanz-Salt für SHA-256-Tombstone-Hashes in "
+            "PSEUDONYMIZE_AUDIT_COLLECTIONS (REQ-025 §3.1). MUSS aus "
+            "einem Secret-Store (Helm Sealed Secret) kommen. Mindestens "
+            "32 Zeichen (256 Bit Entropie)."
+        ),
+    )
+    # <!-- /Quelle: Widerspruchsanalyse W-002 -->
+
     model_config = SettingsConfigDict(env_prefix="RETENTION_")
 ```
 
 **Wichtig:** Die gesetzlichen Mindestfristen (R-16 bis R-18) sind als untere Schranke implementiert. Die konfigurierbaren Fristen dürfen diese nicht unterschreiten; eine Validierung in der `RetentionSettings`-Klasse stellt dies sicher.
+
+<!-- Quelle: Widerspruchsanalyse W-002 -->
+**Pflicht-Setting `ERASURE_TOMBSTONE_SALT` (W-002):**
+
+| Aspekt | Verhalten |
+|--------|-----------|
+| **Quelle** | Helm Sealed Secret (`RETENTION_ERASURE_TOMBSTONE_SALT`), per Pod als Env-Var |
+| **Bereitstellung** | Während Initial-Deployment vom Operator generiert (z.B. `openssl rand -base64 48`) |
+| **Pflicht** | `Field(...)` ohne Default — Backend startet ohne dieses Setting nicht (Hard-Crash, analog REQ-027 W-001-Strategie) |
+| **Mindestlänge** | 32 Zeichen (Pydantic-Validation `min_length=32`) — sonst Startup-Crash |
+| **Rotation** | Nur bei Sicherheitsvorfall. Salt-Wechsel = neue Tombstones sind nicht mehr deterministisch mit alten verknüpfbar (Pseudonymisierung bleibt gültig, lediglich nicht mehr identisch zu früheren Hashes desselben Users — das ist gewollt). |
+| **Backup** | Salt MUSS in Disaster-Recovery-Backup enthalten sein, sonst sind bestehende Tombstones nach Restore nicht mehr deterministisch erzeugbar. |
+| **Zugriff** | Nur Backend-Pods. Keine Frontend-Exposition, kein Logging. |
+<!-- /Quelle: Widerspruchsanalyse W-002 -->
 
 ---
 
@@ -366,6 +446,10 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 | AK-09 | Erntedaten und Behandlungsanwendungen werden bei Löschanfrage anonymisiert (User-Referenz entfernt), aber nicht gelöscht | Integration |
 | AK-10 | Konfigurierbare Fristen können per Umgebungsvariable überschrieben werden, unterschreiten aber nicht die gesetzlichen Mindestfristen | Unit |
 | AK-11 | Unbestätigte Accounts werden nach 7 Tagen gelöscht (bestehender Task, jetzt in Master-Task integriert) | Integration |
+<!-- Quelle: Widerspruchsanalyse W-002 -->
+| AK-12 | **Pflicht-Setting `ERASURE_TOMBSTONE_SALT`:** Backend startet nicht, wenn die Umgebungsvariable `RETENTION_ERASURE_TOMBSTONE_SALT` nicht gesetzt oder kürzer als 32 Zeichen ist (Pydantic `Field(..., min_length=32)`). Fehlermeldung verweist auf NFR-011 §4. | Integration |
+| AK-13 | **R-06 Phase-Reihenfolge:** Im Erasure-Lauf (REQ-025 §3.5) wird die Pseudonymisierung der `erasure_requests`-Collection AUSGEFÜHRT, bevor der User selbst hard-deleted wird. Der Hard-Delete des Audit-Eintrags selbst erfolgt erst nach Ablauf von `ERASURE_AUDIT_RETENTION_YEARS` (Default 1 Jahr). | Integration |
+<!-- /Quelle: Widerspruchsanalyse W-002 -->
 
 ---
 

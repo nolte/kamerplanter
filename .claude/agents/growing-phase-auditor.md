@@ -3,6 +3,7 @@ name: growing-phase-auditor
 distribution: project
 description: Prueft und korrigiert die Wachstumsphasen-Daten (bloom_months, direct_sow_months, harvest_months, sowing_indoor/outdoor, growth_months) aller Pflanzen in den Seed-YAML-Dateien auf biologische Korrektheit, chronologische Konsistenz und Vollstaendigkeit. Unterscheidet zwischen einjaehrigen, zweijaehrigen und mehrjaehrigen Pflanzen sowie Indoor- und Outdoor-Arten. Aktiviere diesen Agenten wenn Pflanzenphasen auf Luecken, fehlende Auspflanzung, falsche Bluetemonate, fehlende Erntephasen oder biologisch inkorrekte Phasenabfolgen geprueft und korrigiert werden sollen.
 tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch
+# Modellwahl: Botanische Validierung mit Web-Recherche (3-Quellen-Regel), strukturiertes Reasoning ohne extreme Komplexitaet; sonnet adaequat.
 model: sonnet
 ---
 

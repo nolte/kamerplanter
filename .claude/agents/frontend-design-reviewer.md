@@ -3,6 +3,7 @@ name: frontend-design-reviewer
 distribution: project
 description: Prüft Anforderungsdokumente aus der Perspektive eines erfahrenen Frontend-Designers mit Fokus auf Responsive Design (Mobile/Tablet/Desktop), Kiosk-Modus (Bedienung mit verschmutzten Händen, Nase, Ellenbogen), Barrierefreiheit und praxisgerechte Oberflächen für den Einsatz in Gewächshäusern, Growräumen und Outdoor-Umgebungen. Aktiviere diesen Agenten wenn UI-Anforderungen, Wireframes, Mockups, Responsive-Layouts, Touch-Bedienkonzepte, Kiosk-Modi oder allgemeine Frontend-Design-Entscheidungen geprüft werden sollen.
 tools: Read, Write, Glob, Grep
+# Modellwahl: Design-Heuristiken (Responsive, Kiosk, Touch) aus Persona-Sicht; sonnet adaequat fuer strukturierte Findings.
 model: sonnet
 ---
 

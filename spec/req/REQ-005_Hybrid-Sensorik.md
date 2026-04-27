@@ -7,8 +7,15 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.6 (Smart-Home-Gesamtdeaktivierung über UserPreference)
+Version: 2.7 (Klassifizierungs-getriebene Sensor-Retention, ADR-003)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.7 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** Klassifizierungs-getriebener Drop-Chunks-Job `enforce_classified_sensor_retention` ergänzt — differenzierte Retention pro `Location.data_classification` (REQ-002). Default 5y Stufe 3, Opt-in-Verlängerungen für `greenhouse` (10y) und `outdoor_open` (20y, Stufe 2 = 5y). Forward-only-Klassifizierungs-Wechsel-Semantik. Saison-Aggregat (REQ-003 §2 `sensor_aggregates`) als 4. Datenebene ergänzt. |
+| 2.6 | (vorher) | Smart-Home-Gesamtdeaktivierung über UserPreference. |
 
 ## 1. Business Case
 
@@ -1568,6 +1575,10 @@ CREATE INDEX idx_sensor_readings_sensor_param
     ON sensor_readings (sensor_id, parameter, time DESC);
 
 -- Retention Policy: Rohdaten 90 Tage, danach nur Aggregate
+-- ADR-003 / W-014: Stufe 1 (Rohdaten) ist für alle Locations gleich (90 Tage).
+-- Stufe 2 + 3 werden je nach Location.data_classification (REQ-002) differenziert.
+-- Die folgende Policy gilt nur für Rohdaten — die differenzierten Stufen 2 + 3
+-- werden in der Aggregat-Definition unten und im Drop-Chunks-Job (NFR-011) gesteuert.
 SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 
 -- Continuous Aggregate: Stündliche Zusammenfassung
@@ -1617,17 +1628,61 @@ SELECT add_continuous_aggregate_policy('sensor_daily',
     end_offset   => INTERVAL '1 day',
     schedule_interval => INTERVAL '1 day');
 
--- Retention für Aggregate: stündlich 1 Jahr, täglich unbegrenzt
-SELECT add_retention_policy('sensor_hourly', INTERVAL '365 days');
--- sensor_daily: keine Retention (dauerhaft aufbewahren)
+-- Retention für Aggregate: differenziert nach Location.data_classification (ADR-003)
+-- Diese pauschalen Werte werden vom NFR-011-getriebenen Drop-Chunks-Job überlagert,
+-- der pro chunk die zugeordnete Location und deren data_classification prüft.
+SELECT add_retention_policy('sensor_hourly', INTERVAL '730 days');  -- Default 2y
+-- sensor_daily: differenzierte Retention via Custom-Job (siehe NFR-011 R-14)
 ```
 
-**Downsampling-Stufen:**
-| Datenebene | Granularität | Retention | Verwendung |
-|-----------|-------------|-----------|------------|
-| Rohdaten | Messintervall (10s-60s) | 90 Tage | Echtzeit-Dashboard, Anomalie-Erkennung |
-| Stündlich | 1h-Aggregate | 1 Jahr | Trend-Analyse, 7-Tage-Charts |
-| Täglich | 1d-Aggregate (+DLI) | Unbegrenzt | Langzeit-Vergleich, Saison-Überblick |
+<!-- Quelle: ADR-003 / W-014 -->
+**Klassifizierungs-getriebene Retention (ADR-003):**
+
+Die pauschalen TimescaleDB-Retention-Policies werden durch einen Custom-Drop-Chunks-Job überlagert, der pro Sensor-Chunk die zugeordnete Location und deren `data_classification` (REQ-002) prüft. Implementierung: Celery-Task läuft täglich und ruft pro Klassifikations-Klasse `drop_chunks()` mit dem entsprechenden Cutoff auf.
+
+```python
+@shared_task
+def enforce_classified_sensor_retention():
+    """ADR-003: Differenzierte Sensor-Retention nach Location.data_classification.
+
+    Läuft täglich. Pro Klassifikations-Klasse werden die zugehörigen Sensor-Chunks
+    mit dem klassifikations-spezifischen Cutoff via TimescaleDB drop_chunks() entfernt.
+    """
+    cutoffs = {
+        # (data_classification, optin) → (hourly_cutoff_days, daily_cutoff_days)
+        ("indoor_private", False): (730, 5 * 365),       # 2y / 5y (Default)
+        ("indoor_public",  False): (730, 5 * 365),       # 2y / 5y
+        ("greenhouse",     False): (730, 5 * 365),       # 2y / 5y (ohne Opt-in)
+        ("greenhouse",     True):  (730, 10 * 365),      # 2y / 10y (Opt-in)
+        ("outdoor_open",   False): (730, 5 * 365),       # 2y / 5y (ohne Opt-in)
+        ("outdoor_open",   True):  (5 * 365, 20 * 365),  # 5y / 20y (Opt-in)
+        ("unknown",        False): (730, 5 * 365),       # = indoor_private
+    }
+    for (classification, optin), (hourly_days, daily_days) in cutoffs.items():
+        location_keys = location_repo.find_by_classification(classification, optin)
+        for loc_key in location_keys:
+            run_drop_chunks_for_location(
+                view_name="sensor_hourly",
+                location_key=loc_key,
+                older_than=timedelta(days=hourly_days),
+            )
+            run_drop_chunks_for_location(
+                view_name="sensor_daily",
+                location_key=loc_key,
+                older_than=timedelta(days=daily_days),
+            )
+```
+
+**Forward-only-Klassifizierungs-Wechsel:** Wenn eine Location ihre `data_classification` ändert, gelten die neuen Cutoffs nur für **neu erfasste** Sensor-Werte (ab `data_classification_set_at`). Bestehende Daten behalten ihre ursprüngliche Schutzklasse — der Drop-Chunks-Job berücksichtigt das via Zeitstempel-Filter. Verhindert nachträgliche Schutz-Senkung.
+<!-- /Quelle: ADR-003 / W-014 -->
+
+**Downsampling-Stufen (Default ohne Opt-in):**
+| Datenebene | Granularität | Retention (Default) | Verwendung |
+|-----------|-------------|---------------------|------------|
+| Rohdaten | Messintervall (10s-60s) | 90 Tage (alle Klassifikationen) | Echtzeit-Dashboard, Anomalie-Erkennung |
+| Stündlich | 1h-Aggregate | 2 Jahre Default; 5 Jahre für `outdoor_open` | Trend-Analyse, 7-Tage-Charts |
+| Täglich | 1d-Aggregate (+DLI) | 5 Jahre Default; 10/20 Jahre via Opt-in (NFR-011 R-14) | Langzeit-Vergleich, Saison-Überblick |
+| Saison-Aggregat | pro `seasonal_cycle` | Unbegrenzt (REQ-003 §2 `sensor_aggregates`) | Mehrjähresvergleich für Dauerkulturen |
 
 **DLI-Berechnung:** Der Daily Light Integral wird als Continuous Aggregate über die
 tägliche PPFD-Summe berechnet (`dli_mol_m2_d`). Bei lückenhaften Daten (z.B. durch

@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.5 (Security-Hardening: Feed-Token-Hashing, Tenant-Scoping, Revocation)
+Version: 1.6 (Light-Modus iCal-Token, W-017)
 ```
 
 ## 1. Business Case
@@ -94,6 +94,7 @@ calendar_feeds:
 | CF-004 | Feed-Endpunkte MÜSSEN dem Rate-Limiting-Tier "Anonym" (30 req/min pro IP, NFR-001 §6.3) unterliegen. | MUSS |
 | CF-005 | Feeds SOLLEN ein optionales Ablaufdatum (`expires_at`) unterstützen. Abgelaufene Feeds liefern HTTP 410 Gone. | SOLL |
 | CF-006 | Feed-Inhalte DÜRFEN KEINE personenbezogenen Daten enthalten (keine Nutzernamen, E-Mails). Event-Titel und Beschreibungen verwenden nur Sachdaten (Pflanzenname, Aufgabentyp). | MUSS |
+| CF-007 <!-- W-017 --> | **Light-Modus (REQ-027):** Token-basierte iCal-Auth ist KEINE JWT-Auth — der Feed-Endpunkt ist auch im Light-Modus erreichbar, weil er ein eigenes Token-Schema mit URL-basierter Capability nutzt (kein User-Login). Das Token wird beim Light-Modus-Seed (REQ-027 §6.1) für den System-User automatisch erzeugt; die UI zeigt es in den Account-Settings → Integrationen-Sektion. Externe Kalender-Apps (Google Calendar, Apple Kalender) abonnieren den Feed über die Token-URL identisch in beiden Modi. | MUSS |
 
 ### AQL — Multi-Source-Aggregation:
 

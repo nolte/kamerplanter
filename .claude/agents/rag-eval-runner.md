@@ -8,6 +8,7 @@ description: |
   RAG-Evaluierungen ausgefuehrt, Ergebnisse analysiert oder die Wissensqualitaet
   systematisch verbessert werden soll.
 tools: Read, Write, Edit, Bash, Glob, Grep
+# Modellwahl: Eval-Ausfuehrung + Fehlerklassifikation nach Ursache (Retrieval/Generation/Synonym-Luecke); sonnet adaequat fuer Reporting.
 model: sonnet
 ---
 

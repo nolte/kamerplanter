@@ -3,6 +3,7 @@ name: agrobiology-requirements-reviewer
 distribution: project
 description: Prüft Anforderungsdokumente aus der Perspektive eines Agrarbiologie-Experten mit starkem Fokus auf Indoor-Anbau, Zimmerpflanzen, Hydroponik und geschützten Anbau sowie Zier- und Nutzpflanzen auf fachliche Umsetzbarkeit und Vollständigkeit. Aktiviere diesen Agenten wenn Anforderungen für Pflanzendatenbanken, Zimmerpflanzen-Apps, Indoor-Farming-Systeme, Growbox-Steuerung, Hydroponik-Management, Pflanzenpflege-Apps, Bewässerungsautomatisierung, Schädlingserkennungs-Tools, Gewächshaus-Software oder ähnliche Anwendungen geprüft werden sollen.
 tools: Read, Write, Glob, Grep
+# Modellwahl: Fachlicher Specs-Review (Indoor/Outdoor/Hydroponik), mittlere Komplexitaet, kein Code; sonnet liefert solides Reasoning ohne opus-Kosten.
 model: sonnet
 ---
 
