@@ -7,3 +7,10 @@ repository:
   description: Agricultural technology system for plant lifecycle management
   homepage: https://nolte.github.io/kamerplanter
   topics: agriculture, plant-management, fastapi, react, helm, kubernetes
+
+  # Merge strategy hardening per pull-request-workflow spec:
+  # squash-merge is the only enabled option, branch deletion is automatic.
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  delete_branch_on_merge: true
