@@ -1,0 +1,1203 @@
+# Erwartungs-Manifest fuer den /req-coverage-audit Skill.
+# Quelle der Wahrheit dafuer, welche Artefakte (Files, Globs, Configs) pro Anforderung
+# erwartet werden. JEDE Anforderung in spec/req/, spec/nfr/, spec/ui-nfr/ MUSS einen
+# Eintrag haben (Pflicht, sonst BLOCKER im Audit).
+#
+# Schema:
+#   requirements.<ID>:
+#     title: <Kurzbezeichnung>
+#     type: req|nfr|ui-nfr
+#     spec_path: <pfad>
+#     expected_artefacts:
+#       <dimension>:                  # backend|frontend|tests|artefacts|validation
+#         - kind: file|glob|dir|pattern
+#           path: <repo-relativer Pfad oder Glob>
+#           role: <router|model|service|engine|repository|page|slice|test|config|...>
+#           contains: <optional: substring der im File vorkommen muss>
+#           optional: true|false      # default false
+#           rationale: <warum erwartet>
+#     drift:
+#       memory_status_field: <hint zur MEMORY.md Pruefung>
+#       cross_refs: [<REQ-NNN>, <NFR-NNN>]
+
+requirements:
+
+  # =======================================================================
+  # REQ — Funktionale Anforderungen
+  # =======================================================================
+
+  REQ-001:
+    title: Stammdatenverwaltung
+    type: req
+    spec_path: spec/req/REQ-001_Stammdatenverwaltung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/species/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/cultivars/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/botanical_families/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/species.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/species_service.py, role: service }
+        - { kind: file, path: src/backend/app/data_access/arango/species_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/SpeciesListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/CultivarListSection.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/speciesSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_species*.py", role: backend_test }
+        - { kind: glob, path: "src/frontend/src/test/**/SpeciesListPage.test.tsx", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req001_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-001 v5.0
+      cross_refs: [REQ-002, REQ-013, REQ-019]
+
+  REQ-002:
+    title: Standortverwaltung
+    type: req
+    spec_path: spec/req/REQ-002_Standortverwaltung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/location_types/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/site.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/location_type.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/site_service.py, role: service }
+        - { kind: file, path: src/backend/app/data_access/arango/site_repository.py, role: repository }
+        - { kind: file, path: src/backend/app/domain/engines/slot_capacity_calculator.py, role: engine, optional: true, rationale: "Slot-Kapazitaet ist berechnet, nicht persistiert" }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/SiteListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/LocationTreeSection.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/sitesSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_site*.py", role: backend_test }
+        - { kind: glob, path: "src/frontend/src/test/**/SiteListPage.test.tsx", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req002_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-002 v4.3
+      cross_refs: [REQ-001, REQ-019]
+
+  REQ-003:
+    title: Phasensteuerung
+    type: req
+    spec_path: spec/req/REQ-003_Phasensteuerung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/phases/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/phase_sequences/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/phase.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/phase_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/phase_transition_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PhaseDefinitionListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/PhaseGanttChart.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_phase_transition_engine.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req003_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-003 v2.5
+      cross_refs: [REQ-001, REQ-013]
+
+  REQ-004:
+    title: Duenge-Logik
+    type: req
+    spec_path: spec/req/REQ-004_Duenge-Logik.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/nutrient_calculations/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/fertilizer.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/nutrient_plan.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/feeding_event.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/fertilizer_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/nutrient_plan_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/feeding_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/dosage_calculation_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/water_mix_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/fertilizer_repository.py, role: repository }
+        - { kind: file, path: src/backend/app/data_access/arango/nutrient_plan_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/FertilizerListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/NutrientPlanListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/NutrientCalculationsPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/fertilizersSlice.ts, role: slice }
+        - { kind: file, path: src/frontend/src/store/slices/nutrientPlansSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_fertilizer*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_dosage*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req004_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-004 v3.4
+      cross_refs: [REQ-014, REQ-019, REQ-022, "REQ-004-A"]
+
+  REQ-004-A:
+    title: EC-Budget-Kalkulation
+    type: req
+    spec_path: spec/req/REQ-004-A_EC-Budget-Kalkulation.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/engines/ec_budget_engine.py, role: engine }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_ec_budget_engine.py", role: backend_test }
+    drift:
+      memory_status_field: REQ-004-A v1.1
+      cross_refs: [REQ-004]
+
+  REQ-005:
+    title: Hybrid-Sensorik
+    type: req
+    spec_path: spec/req/REQ-005_Hybrid-Sensorik.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/observations/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/sensor.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/observation.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/observation_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/sensor_service.py, role: service }
+        - { kind: glob, path: "src/backend/app/data_access/timescale/observation_repository.py", role: repository, rationale: "Sensordaten in TimescaleDB" }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/SensorCreateDialog.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/ObservationCreateDialog.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_sensor*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "src/backend/tests/**/test_observation*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req005_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-005 v2.7
+      cross_refs: [REQ-018, NFR-011]
+
+  REQ-006:
+    title: Aufgabenplanung
+    type: req
+    spec_path: spec/req/REQ-006_Aufgabenplanung.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/tasks*/router.py", role: router, optional: true }
+        - { kind: glob, path: "src/backend/app/api/v1/activities/router.py", role: router }
+        - { kind: file, path: src/backend/app/domain/models/task.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/task_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/dependency_resolver.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/hst_validator.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/TaskQueuePage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/WorkflowTemplateListPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/tasksSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_dependency_resolver.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_hst_validator*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req006_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-006 v3.0
+      cross_refs: [REQ-013, REQ-022]
+
+  REQ-007:
+    title: Erntemanagement
+    type: req
+    spec_path: spec/req/REQ-007_Erntemanagement.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/harvest*/router.py", role: router, optional: true }
+        - { kind: file, path: src/backend/app/domain/models/harvest.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/harvest_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/readiness_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/quality_scoring_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/HarvestBatchListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/HarvestReadinessCard.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/harvestSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_*harvest*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req007_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-007 v2.4
+      cross_refs: [REQ-008, REQ-010]
+
+  REQ-008:
+    title: Post-Harvest
+    type: req
+    spec_path: spec/req/REQ-008_Post-Harvest.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/post_harvest*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/models/post_harvest*.py", role: model }
+        - { kind: glob, path: "src/backend/app/domain/services/post_harvest*.py", role: service }
+        - { kind: glob, path: "src/backend/app/domain/services/cure*.py", role: service, optional: true }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PostHarvest*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_post_harvest*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req008_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-008 NOT IMPLEMENTED"
+      cross_refs: [REQ-007]
+
+  REQ-009:
+    title: Dashboard
+    type: req
+    spec_path: spec/req/REQ-009_Dashboard.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/services/dashboard_service.py, role: service, rationale: "Spec v2.1 fordert Aggregations-Service" }
+        - { kind: glob, path: "src/backend/app/api/v1/dashboard*/router.py", role: router }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/DashboardPage.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/DashboardPage.test.tsx", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req009_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-009 v2.1 (spec only)
+      cross_refs: [REQ-021, REQ-022, REQ-024, REQ-027]
+
+  REQ-010:
+    title: IPM-System
+    type: req
+    spec_path: spec/req/REQ-010_IPM-System.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/ipm/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/ipm.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/ipm_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/safety_interval_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/resistance_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/inspection_scheduler.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/ipm_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PestListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/DiseaseListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/TreatmentListPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/ipmSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_*ipm*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "src/backend/tests/**/test_safety_interval*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req010_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-010 v1.1
+      cross_refs: [REQ-007]
+
+  REQ-011:
+    title: Externe-Stammdatenanreicherung
+    type: req
+    spec_path: spec/req/REQ-011_Externe-Stammdatenanreicherung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/enrichment/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/enrichment.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/enrichment_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/adapter_registry.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/enrichment_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/enrichment_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Enrichment*.tsx", role: page, optional: true, rationale: "Aktuell background-only via Celery; UI optional" }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_enrichment*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_gbif_adapter.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req011_*.py", role: e2e, optional: true }
+    drift:
+      memory_status_field: REQ-011 v1.0
+      cross_refs: [REQ-001]
+
+  REQ-012:
+    title: Stammdaten-Import
+    type: req
+    spec_path: spec/req/REQ-012_Stammdaten-Import.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/imports/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/import_job.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/import_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/import_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/csv_parser.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/row_validator.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/import_job_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/ImportPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/importSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_import_engine.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_csv_parser.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req012_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-012 v1.0
+      cross_refs: [REQ-001]
+
+  REQ-013:
+    title: Pflanzdurchlauf
+    type: req
+    spec_path: spec/req/REQ-013_Pflanzdurchlauf.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/*planting_run*/router.py", role: router, optional: true }
+        - { kind: file, path: src/backend/app/domain/models/planting_run.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/plant_diary_entry.py, role: model, rationale: "v2.0+: PlantDiaryEntry" }
+        - { kind: file, path: src/backend/app/domain/services/planting_run_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/plant_diary_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/planting_run_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/planting_run_repository.py, role: repository }
+        - { kind: file, path: src/backend/app/data_access/arango/plant_diary_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PlantingRunListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/PlantingRunDetailPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/plantingRunsSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_planting_run*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "src/frontend/src/test/**/plantInstancesSlice.test.ts", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req013_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-013 v2.3 spec, Backend v2.0 — DRIFT"
+      cross_refs: [REQ-001, REQ-003, REQ-006, REQ-007, REQ-022]
+
+  REQ-014:
+    title: Tankmanagement
+    type: req
+    spec_path: spec/req/REQ-014_Tankmanagement.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/models/tank.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/tank_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/tank_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/tank_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/TankListPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/tanksSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_tank*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "src/frontend/src/test/**/Tank*.test.tsx", role: frontend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req014_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-014 v1.6 spec, MEMORY v1.4 — DRIFT"
+      cross_refs: [REQ-004]
+
+  REQ-015:
+    title: Kalenderansicht
+    type: req
+    spec_path: spec/req/REQ-015_Kalenderansicht.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/models/calendar.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/calendar_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/ical_generator.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/calendar_aggregation_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/calendar_feed_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/CalendarPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/SeasonOverviewView.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/SowingCalendarView.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/calendarSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_calendar*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_ical_generator.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req015_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-015 v1.6 spec, MEMORY v1.1 — DRIFT"
+      cross_refs: [REQ-006, REQ-022, "REQ-015-A"]
+
+  REQ-015-A:
+    title: Aussaatkalender-Berechnungsregeln
+    type: req
+    spec_path: spec/req/REQ-015-A_Aussaatkalender-Berechnungsregeln.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/engines/sowing_calendar_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/SowingCalendarView.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_sowing*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req015_sowing_calendar.py", role: e2e }
+    drift:
+      cross_refs: [REQ-015]
+
+  REQ-016:
+    title: InvenTree-Integration
+    type: req
+    spec_path: spec/req/REQ-016_InvenTree-Integration.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/data_access/external/inventree*.py", role: adapter }
+        - { kind: glob, path: "src/backend/app/api/v1/inventree*/router.py", role: router }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/InvenTree*.tsx", role: page, optional: true }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_inventree*.py", role: backend_test }
+    drift:
+      memory_status_field: "REQ-016 NOT IMPLEMENTED (optional)"
+      cross_refs: []
+
+  REQ-017:
+    title: Vermehrungsmanagement
+    type: req
+    spec_path: spec/req/REQ-017_Vermehrungsmanagement.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/propagation*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/models/propagation*.py", role: model }
+        - { kind: glob, path: "src/backend/app/domain/services/propagation*.py", role: service }
+        - { kind: glob, path: "src/backend/app/domain/engines/lineage*.py", role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Propagation*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req017_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-017 NOT IMPLEMENTED"
+      cross_refs: [REQ-001, REQ-013]
+
+  REQ-018:
+    title: Umgebungssteuerung
+    type: req
+    spec_path: spec/req/REQ-018_Umgebungssteuerung.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/actuators*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/models/actuator*.py", role: model }
+        - { kind: glob, path: "src/backend/app/domain/services/actuator*.py", role: service }
+        - { kind: file, path: src/backend/app/domain/engines/hydro_system_monitor.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/EnvironmentControl*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_hydro_system_monitor.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req018_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-018 NOT IMPLEMENTED"
+      cross_refs: [REQ-005]
+
+  REQ-019:
+    title: Substratverwaltung
+    type: req
+    spec_path: spec/req/REQ-019_Substratverwaltung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/substrates/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/substrate.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/substrate_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/substrate_lifecycle_manager.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/substrate_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/SubstrateListPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/SubstrateMixDialog.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/substratesSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_substrate*.py", role: backend_test }
+        - { kind: glob, path: "src/frontend/src/test/**/SubstrateListPage.test.tsx", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req019_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-019 v4.1
+      cross_refs: [REQ-002, REQ-004]
+
+  REQ-020:
+    title: Onboarding-Wizard
+    type: req
+    spec_path: spec/req/REQ-020_Onboarding-Wizard.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/starter_kits/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/onboarding.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/onboarding_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/starter_kit_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/onboarding_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/OnboardingWizard.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/onboardingSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_onboarding*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req020_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-020 v1.6
+      cross_refs: [REQ-021]
+
+  REQ-021:
+    title: UI-Erfahrungsstufen
+    type: req
+    spec_path: spec/req/REQ-021_UI-Erfahrungsstufen.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/models/user_preference.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/user_preference_service.py, role: service }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/fieldConfigs.ts", role: config, optional: true }
+        - { kind: glob, path: "src/frontend/src/**/ExpertiseFieldWrapper.tsx", role: component, optional: true }
+        - { kind: glob, path: "src/frontend/src/**/AccountSettingsPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/userPreferencesSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req021_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-021 v1.2
+      cross_refs: [REQ-020]
+
+  REQ-022:
+    title: Pflegeerinnerungen
+    type: req
+    spec_path: spec/req/REQ-022_Pflegeerinnerungen.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/care_reminders/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/care_reminder.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/care_reminder_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/care_reminder_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/care_reminder_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PflegeDashboardPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/careRemindersSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_care_reminder*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req022_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-022 v2.5 spec, MEMORY v2.3 — DRIFT"
+      cross_refs: [REQ-006, REQ-013]
+
+  REQ-023:
+    title: Benutzerverwaltung-Authentifizierung
+    type: req
+    spec_path: spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/auth/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/users/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/auth.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/user.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/auth_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/services/user_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/password_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/token_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/login_throttle_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/oauth_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/user_repository.py, role: repository }
+        - { kind: file, path: src/backend/app/data_access/arango/auth_provider_repository.py, role: repository }
+        - { kind: file, path: src/backend/app/data_access/arango/refresh_token_repository.py, role: repository }
+        - { kind: glob, path: "src/backend/app/data_access/arango/api_key_repository.py", role: repository, rationale: "v1.7+: Service Accounts" }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/LoginPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/RegisterPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/AccountSettingsPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/authSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_auth*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_password*.py", role: backend_test, optional: true }
+        - { kind: glob, path: "tests/e2e/test_req023_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-023 v1.10 spec, MEMORY v1.7 — Service Accounts NICHT impl"
+      cross_refs: [REQ-024, REQ-025, REQ-027]
+
+  REQ-024:
+    title: Mandantenverwaltung-Gemeinschaftsgaerten
+    type: req
+    spec_path: spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/tenants/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/tenant_scoped/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/models/tenant.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/membership.py, role: model }
+        - { kind: file, path: src/backend/app/domain/models/invitation.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/tenant_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/tenant_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/membership_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/invitation_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/tenant_repository.py, role: repository }
+        - { kind: pattern, path: src/backend/app/core/permissions.py, contains: "require_permission", role: rbac, optional: true, rationale: "v1.4+: Permission-Matrix" }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/TenantCreatePage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/TenantSettingsPage.tsx", role: page }
+        - { kind: file, path: src/frontend/src/store/slices/tenantSlice.ts, role: slice }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_membership*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_invitation*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req024_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-024 v1.4 — RBAC Permission-Matrix NICHT impl"
+      cross_refs: [REQ-023, REQ-027]
+
+  REQ-025:
+    title: Datenschutz-Betroffenenrechte
+    type: req
+    spec_path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/privacy*/router.py", role: router, rationale: "14 Endpunkte fuer Art. 15-21 DSGVO" }
+        - { kind: glob, path: "src/backend/app/domain/services/privacy*.py", role: service }
+        - { kind: glob, path: "src/backend/app/domain/services/data_subject*.py", role: service }
+        - { kind: glob, path: "src/backend/app/domain/services/retention*.py", role: service }
+        - { kind: file, path: src/backend/app/domain/engines/encryption_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Privacy*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_privacy*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_ip_anonymization.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req025_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-025 v1.3 — NICHT IMPLEMENTIERT, COMPLIANCE-RISIKO"
+      cross_refs: [NFR-011, REQ-024]
+
+  REQ-026:
+    title: Aquaponik-Management
+    type: req
+    spec_path: spec/req/REQ-026_Aquaponik-Management.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/aquaponik*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/services/aquaponik*.py", role: service }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Aquaponik*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req026_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-026 NOT IMPLEMENTED"
+      cross_refs: [REQ-005, REQ-018]
+
+  REQ-027:
+    title: Light-Modus
+    type: req
+    spec_path: spec/req/REQ-027_Light-Modus.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/engines/light_auth_provider.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/full_auth_provider.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/services/system_settings_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/models/system_settings.py, role: model }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/LightMode*.tsx", role: page, optional: true }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_light_auth_provider.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_full_auth_provider.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req027_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-027 v1.4 — Auth-Provider impl, Platform-Tenant offen"
+      cross_refs: [REQ-023, REQ-024, REQ-025]
+
+  REQ-028:
+    title: Mischkultur-Companion-Planting
+    type: req
+    spec_path: spec/req/REQ-028_Mischkultur-Companion-Planting.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/api/v1/companion_planting/router.py, role: router }
+        - { kind: file, path: src/backend/app/api/v1/crop_rotation/router.py, role: router }
+        - { kind: file, path: src/backend/app/domain/engines/companion_planting_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/crop_rotation_validator.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/CompanionPlantingPage.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/CropRotationPage.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_companion_planting*.py", role: backend_test }
+        - { kind: glob, path: "src/backend/tests/**/test_crop_rotation*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req028_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-028 v1.0
+      cross_refs: [REQ-001, REQ-002]
+
+  REQ-029:
+    title: KI-Bilderkennung-Pflanzenidentifikation
+    type: req
+    spec_path: spec/req/REQ-029_KI-Bilderkennung-Pflanzenidentifikation.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/recognition*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/services/image_recognition*.py", role: service }
+        - { kind: glob, path: "src/backend/app/domain/engines/vision*.py", role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/PlantIdentification*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req029_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-029 NOT IMPLEMENTED — Future"
+      cross_refs: [REQ-001]
+
+  REQ-030:
+    title: Benachrichtigungssystem
+    type: req
+    spec_path: spec/req/REQ-030_Benachrichtigungssystem.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/models/notification.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/notification_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/notification_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/domain/engines/delivery_channel_engine.py, role: engine }
+        - { kind: file, path: src/backend/app/data_access/arango/notification_repository.py, role: repository }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/NotificationSettingsTab.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/pages/**/DeliveryChannel*.tsx", role: component }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_*delivery_channel*.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req030_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-030 v1.0
+      cross_refs: [REQ-022]
+
+  REQ-031:
+    title: KI-Assistent-Pflanzenberatung
+    type: req
+    spec_path: spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/ki_assistent*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/services/ki_assistent*.py", role: service }
+        - { kind: file, path: src/backend/app/data_access/external/knowledge_service_client.py, role: adapter, optional: true }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/KIAssistent*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_knowledge_service_client.py", role: backend_test }
+        - { kind: glob, path: "tests/e2e/test_req031_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-031 NOT IMPLEMENTED — Future"
+      cross_refs: [REQ-029, REQ-035, REQ-036]
+
+  REQ-032:
+    title: Druckansichten-Export
+    type: req
+    spec_path: spec/req/REQ-032_Druckansichten-Export.md
+    expected_artefacts:
+      backend:
+        - { kind: file, path: src/backend/app/domain/models/print_models.py, role: model }
+        - { kind: file, path: src/backend/app/domain/services/print_service.py, role: service }
+        - { kind: file, path: src/backend/app/domain/engines/print_engine.py, role: engine }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/PrintButton.tsx", role: component }
+        - { kind: glob, path: "src/frontend/src/pages/**/Print*.tsx", role: page, optional: true }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/PrintButton.test.tsx", role: frontend_test }
+        - { kind: glob, path: "tests/e2e/test_req032_*.py", role: e2e }
+    drift:
+      memory_status_field: REQ-032 v1.1
+      cross_refs: [UI-NFR-016]
+
+  REQ-033:
+    title: MCP-Server
+    type: req
+    spec_path: spec/req/REQ-033_MCP-Server.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/mcp*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/mcp_server/**/*.py", role: service }
+      tests:
+        - { kind: glob, path: "src/backend/tests/**/test_mcp*.py", role: backend_test }
+    drift:
+      memory_status_field: "REQ-033 NOT IMPLEMENTED — Future"
+      cross_refs: [REQ-031]
+
+  REQ-035:
+    title: KI-Fachbegriff-Glossar
+    type: req
+    spec_path: spec/req/REQ-035_KI-Fachbegriff-Glossar.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/glossar*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/services/glossar*.py", role: service }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Glossar*.tsx", role: page }
+        - { kind: glob, path: "src/frontend/src/**/HelpTooltip.tsx", role: component, optional: true }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req035_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-035 NOT IMPLEMENTED — Future"
+      cross_refs: [REQ-031, UI-NFR-011]
+
+  REQ-036:
+    title: KI-Diagnose-Assistent
+    type: req
+    spec_path: spec/req/REQ-036_KI-Diagnose-Assistent.md
+    expected_artefacts:
+      backend:
+        - { kind: glob, path: "src/backend/app/api/v1/diagnose*/router.py", role: router }
+        - { kind: glob, path: "src/backend/app/domain/services/diagnose*.py", role: service }
+      frontend:
+        - { kind: glob, path: "src/frontend/src/pages/**/Diagnose*.tsx", role: page }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req036_*.py", role: e2e }
+    drift:
+      memory_status_field: "REQ-036 NOT IMPLEMENTED — Future"
+      cross_refs: [REQ-010, REQ-029, REQ-031]
+
+  # =======================================================================
+  # NFR — Non-Funktionale Anforderungen (cross-cutting)
+  # =======================================================================
+
+  NFR-001:
+    title: Separation of Concerns
+    type: nfr
+    spec_path: spec/nfr/NFR-001_Separation-of-Concerns.md
+    expected_artefacts:
+      artefacts:
+        - { kind: dir, path: src/backend/app/api/v1, role: layer_api }
+        - { kind: dir, path: src/backend/app/domain/services, role: layer_service }
+        - { kind: dir, path: src/backend/app/domain/engines, role: layer_engine }
+        - { kind: dir, path: src/backend/app/data_access, role: layer_repo }
+        - { kind: dir, path: src/backend/app/domain/models, role: layer_model }
+        - { kind: file, path: spec/style-guides/BACKEND.md, role: doc }
+      validation:
+        - { kind: pattern, path: src/backend/pyproject.toml, contains: "import-linter", role: arch_test, optional: true, rationale: "Architektur-Test waere import-linter; aktuell nicht aktiv" }
+    drift:
+      memory_status_field: NFR-001 v2.3
+      cross_refs: [NFR-008]
+
+  NFR-002:
+    title: Kubernetes-Plattform
+    type: nfr
+    spec_path: spec/nfr/NFR-002_Kubernetes-Plattform.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: helm/kamerplanter/Chart.yaml, role: helm_chart }
+        - { kind: file, path: helm/kamerplanter/values.yaml, role: helm_values }
+        - { kind: file, path: skaffold.yaml, role: skaffold_config }
+      validation:
+        - { kind: file, path: .github/workflows/skaffold-verify.yml, role: ci_helm_check, optional: true }
+    drift:
+      memory_status_field: NFR-002 v2.1
+      cross_refs: [NFR-004, NFR-012]
+
+  NFR-003:
+    title: Code-Standard Linting (English-only)
+    type: nfr
+    spec_path: spec/nfr/NFR-003_Code-Standard-Linting.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: src/backend/pyproject.toml, role: ruff_config }
+        - { kind: pattern, path: src/backend/pyproject.toml, contains: "[tool.ruff]", role: ruff_section }
+        - { kind: file, path: src/frontend/eslint.config.js, role: eslint_config }
+      validation:
+        - { kind: file, path: .github/workflows/backend.yml, role: ci_backend_lint }
+        - { kind: file, path: .github/workflows/frontend.yml, role: ci_frontend_lint }
+    drift:
+      memory_status_field: NFR-003 v2.1
+
+  NFR-004:
+    title: Lokale Entwicklungsumgebung mit Skaffold
+    type: nfr
+    spec_path: spec/nfr/NFR-004_Lokale-Entwicklungsumgebung.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: skaffold.yaml, role: skaffold_config }
+      validation:
+        - { kind: glob, path: "docs/**/skaffold*.md", role: dev_docs, optional: true }
+    drift:
+      memory_status_field: NFR-004 v1.0
+      cross_refs: [NFR-002]
+
+  NFR-005:
+    title: Technische Dokumentation (MkDocs)
+    type: nfr
+    spec_path: spec/nfr/NFR-005_Technische-Dokumentation.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: mkdocs.yml, role: mkdocs_config }
+        - { kind: dir, path: docs/de, role: docs_de }
+        - { kind: dir, path: docs/en, role: docs_en }
+        - { kind: file, path: docs/requirements.txt, role: docs_requirements }
+      validation:
+        - { kind: file, path: .github/workflows/release-cd-deliver-docs.yml, role: ci_docs_build }
+    drift:
+      memory_status_field: NFR-005 v1.1
+
+  NFR-006:
+    title: API-Fehlerbehandlung mit Tracking-ID
+    type: nfr
+    spec_path: spec/nfr/NFR-006_API-Fehlerbehandlung.md
+    expected_artefacts:
+      artefacts:
+        - { kind: glob, path: "src/backend/app/core/exception_handlers*.py", role: error_handler, optional: true }
+        - { kind: glob, path: "src/backend/app/**/errors.py", role: error_module, optional: true }
+        - { kind: pattern, path: src/backend/app/main.py, contains: "tracking_id", role: tracking_id_middleware, optional: true }
+      validation:
+        - { kind: glob, path: "src/backend/tests/**/test_error_handling.py", role: error_test }
+    drift:
+      memory_status_field: NFR-006 v1.0
+
+  NFR-007:
+    title: Betriebsstabilitaet & Monitoring
+    type: nfr
+    spec_path: spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: src/backend/app/api/v1/health/router.py, role: health_endpoint }
+        - { kind: pattern, path: src/backend/pyproject.toml, contains: "structlog", role: structured_logging }
+        - { kind: glob, path: "src/backend/app/api/v1/metrics*/router.py", role: metrics_endpoint, optional: true }
+      validation:
+        - { kind: glob, path: "helm/**/values.yaml", contains: "livenessProbe", role: helm_health_probes, optional: true }
+    drift:
+      memory_status_field: NFR-007 v1.0
+
+  NFR-008:
+    title: Teststrategie & Testprotokoll
+    type: nfr
+    spec_path: spec/nfr/NFR-008_Teststrategie-Testprotokoll.md
+    expected_artefacts:
+      artefacts:
+        - { kind: pattern, path: src/backend/pyproject.toml, contains: "pytest", role: pytest_config }
+        - { kind: file, path: src/frontend/vitest.config.ts, role: vitest_config }
+        - { kind: file, path: tests/e2e/conftest.py, role: e2e_config }
+      validation:
+        - { kind: pattern, path: src/backend/pyproject.toml, contains: "coverage", role: coverage_tooling, optional: true }
+        - { kind: file, path: .github/workflows/build-static-tests.yaml, role: ci_static_tests }
+    drift:
+      memory_status_field: NFR-008 v1.1
+      cross_refs: [NFR-008a]
+
+  NFR-008a:
+    title: E2E-Selenium-Teststandard
+    type: nfr
+    spec_path: spec/nfr/NFR-008a_E2E-Selenium-Teststandard.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: tests/e2e/conftest.py, role: e2e_config }
+        - { kind: dir, path: tests/e2e/pages, role: page_object_dir }
+        - { kind: file, path: tests/e2e/protocol_plugin.py, role: protocol_plugin }
+      validation:
+        - { kind: glob, path: "tests/e2e/test_req*.py", role: e2e_tests, rationale: "Mind. ein REQ hat E2E-Test" }
+    drift:
+      memory_status_field: NFR-008a v1.0
+      cross_refs: [NFR-008]
+
+  NFR-009:
+    title: Dependency-Management
+    type: nfr
+    spec_path: spec/nfr/NFR-009_Dependency-Management.md
+    expected_artefacts:
+      artefacts:
+        - { kind: file, path: renovate.json5, role: renovate_config }
+        - { kind: file, path: src/backend/pyproject.toml, role: backend_deps }
+        - { kind: file, path: src/frontend/package.json, role: frontend_deps }
+        - { kind: glob, path: "src/frontend/package-lock.json", role: lock_file }
+    drift:
+      memory_status_field: NFR-009 v1.0
+
+  NFR-010:
+    title: UI-Pflegemasken & Listenansichten
+    type: nfr
+    spec_path: spec/nfr/NFR-010_UI-Pflegemasken-Listenansichten.md
+    expected_artefacts:
+      artefacts:
+        - { kind: glob, path: "src/frontend/src/pages/**/*ListPage.tsx", role: list_pages, rationale: "Mind. eine Liste pro Domain-Entity" }
+        - { kind: glob, path: "src/frontend/src/pages/**/*DetailPage.tsx", role: detail_pages }
+        - { kind: glob, path: "src/frontend/src/pages/**/*CreateDialog.tsx", role: create_dialogs }
+      validation:
+        - { kind: glob, path: "src/frontend/src/test/**/*ListPage.test.tsx", role: list_tests }
+    drift:
+      memory_status_field: NFR-010 v1.0
+
+  NFR-011:
+    title: Vorratsdatenspeicherung & Aufbewahrungsfristen
+    type: nfr
+    spec_path: spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md
+    expected_artefacts:
+      artefacts:
+        - { kind: glob, path: "src/backend/app/**/retention*.py", role: retention_logic }
+        - { kind: glob, path: "src/backend/app/**/celery_*retention*", role: retention_task }
+        - { kind: glob, path: "src/backend/app/**/ip_anonym*.py", role: ip_anon, optional: true }
+      validation:
+        - { kind: file, path: src/backend/tests/test_ip_anonymization.py, role: anonymization_test }
+    drift:
+      memory_status_field: "NFR-011 v1.4 — RETENTION POLICY NICHT AKTIV"
+      cross_refs: [REQ-025]
+
+  NFR-012:
+    title: Cloud-Provider & Enterprise-Skalierung
+    type: nfr
+    spec_path: spec/nfr/NFR-012_Cloud-Provider-Enterprise-Skalierung.md
+    expected_artefacts:
+      artefacts:
+        - { kind: glob, path: "helm/**/templates/**/hpa*.yaml", role: hpa_template, optional: true }
+        - { kind: glob, path: "helm/**/templates/**/pdb*.yaml", role: pdb_template, optional: true }
+        - { kind: glob, path: "helm/**/templates/**/network-policy*.yaml", role: network_policy, optional: true }
+    drift:
+      memory_status_field: NFR-012 v1.0
+      cross_refs: [NFR-002]
+
+  NFR-013:
+    title: Speicheranbindung & Object-Storage
+    type: nfr
+    spec_path: spec/nfr/NFR-013_Speicheranbindung-Object-Storage.md
+    expected_artefacts:
+      artefacts:
+        - { kind: glob, path: "src/backend/app/data_access/external/s3*.py", role: s3_adapter }
+        - { kind: glob, path: "src/backend/app/data_access/external/object_storage*.py", role: object_storage_adapter, optional: true }
+        - { kind: glob, path: "src/backend/app/api/v1/files*/router.py", role: file_upload_router, optional: true }
+    drift:
+      memory_status_field: NFR-013 v1.1
+      cross_refs: [REQ-025, NFR-011]
+
+  # =======================================================================
+  # UI-NFR — Frontend-uebergreifende Anforderungen
+  # =======================================================================
+
+  UI-NFR-001:
+    title: Responsive Design
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-001_Responsive-Design.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/theme.ts", role: theme_breakpoints, optional: true }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/responsive*.test.tsx", role: responsive_test, optional: true }
+
+  UI-NFR-002:
+    title: Barrierefreiheit
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/PageTitle.tsx", role: aria_landmark, optional: true }
+      tests:
+        - { kind: file, path: src/frontend/src/test/accessibility.test.tsx, role: a11y_test }
+
+  UI-NFR-003:
+    title: Performance
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-003_Performance.md
+    expected_artefacts:
+      frontend:
+        - { kind: pattern, path: src/frontend/vite.config.ts, contains: "rollupOptions", role: bundle_split, optional: true }
+      tests: []
+
+  UI-NFR-004:
+    title: Feedback (Loading/Error/Empty States)
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-004_Feedback.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/LoadingSkeleton.tsx", role: loading_state }
+        - { kind: glob, path: "src/frontend/src/**/EmptyState.tsx", role: empty_state }
+        - { kind: glob, path: "src/frontend/src/**/ErrorDisplay.tsx", role: error_state }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/LoadingSkeleton.test.tsx", role: loading_test }
+        - { kind: glob, path: "src/frontend/src/test/**/EmptyState.test.tsx", role: empty_test }
+
+  UI-NFR-005:
+    title: Navigation
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-005_Navigation.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/Sidebar.tsx", role: sidebar, optional: true }
+        - { kind: glob, path: "src/frontend/src/**/router*.ts", role: router_config, optional: true }
+
+  UI-NFR-006:
+    title: Design-System
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-006_Design-System.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/theme.ts", role: theme }
+        - { kind: file, path: spec/style-guides/FRONTEND.md, role: style_guide }
+
+  UI-NFR-007:
+    title: Internationalisierung
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-007_Internationalisierung.md
+    expected_artefacts:
+      frontend:
+        - { kind: file, path: src/frontend/src/i18n/i18n.ts, role: i18n_config }
+        - { kind: file, path: src/frontend/src/i18n/locales/de/translation.json, role: locale_de }
+        - { kind: file, path: src/frontend/src/i18n/locales/en/translation.json, role: locale_en }
+      tests:
+        - { kind: glob, path: "tests/e2e/test_req001_i18n.py", role: i18n_e2e, optional: true }
+
+  UI-NFR-008:
+    title: Formulare
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-008_Formulare.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/FormTextField.tsx", role: form_text }
+        - { kind: glob, path: "src/frontend/src/**/FormSelectField.tsx", role: form_select }
+        - { kind: glob, path: "src/frontend/src/**/FormNumberField.tsx", role: form_number }
+        - { kind: glob, path: "src/frontend/src/**/FormChipInput.tsx", role: form_chip }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/Form*.test.tsx", role: form_tests }
+
+  UI-NFR-009:
+    title: Visual Identity & Brand Design
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-009_Visual-Identity-Brand-Design.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/theme.ts", role: theme }
+        - { kind: glob, path: "src/frontend/public/**/logo*", role: logo, optional: true }
+
+  UI-NFR-010:
+    title: Tabellen & Datenansichten
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-010_Tabellen-Datenansichten.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/DataTable.tsx", role: data_table }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/DataTable.test.tsx", role: data_table_test }
+
+  UI-NFR-011:
+    title: Fachbegriff-Erklaerungen
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-011_Fachbegriff-Erklaerungen.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/HelpTooltip.tsx", role: tooltip_component }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/HelpTooltip.test.tsx", role: tooltip_test }
+
+  UI-NFR-012:
+    title: PWA-Offline
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-012_PWA-Offline.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/public/manifest*.json", role: pwa_manifest }
+        - { kind: glob, path: "src/frontend/public/sw*.js", role: service_worker, optional: true }
+        - { kind: glob, path: "src/frontend/src/**/serviceWorker*.ts", role: sw_registration, optional: true }
+
+  UI-NFR-013:
+    title: Einwilligungsmanagement (Consent)
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/Consent*.tsx", role: consent_component }
+      tests: []
+
+  UI-NFR-014:
+    title: Auth-Initialisierung & Seitenreload
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-014_Auth-Initialisierung-Seitenreload.md
+    expected_artefacts:
+      frontend:
+        - { kind: file, path: src/frontend/src/store/slices/authSlice.ts, role: auth_state }
+        - { kind: glob, path: "src/frontend/src/**/AuthInit*.tsx", role: auth_init, optional: true }
+
+  UI-NFR-015:
+    title: HA Lovelace Custom Cards
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-015_HA-Lovelace-Custom-Cards.md
+    expected_artefacts:
+      artefacts:
+        - { kind: dir, path: src/ha-integration/custom_components/kamerplanter, role: ha_integration, optional: true }
+        - { kind: glob, path: "src/ha-integration/**/*.js", role: lovelace_cards, optional: true }
+
+  UI-NFR-016:
+    title: Phasen-Zyklus-Visualisierungen
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-016_Phasen-Zyklus-Visualisierungen.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/PhaseGanttChart.tsx", role: phase_gantt }
+        - { kind: glob, path: "src/frontend/src/**/PhaseKamiTimeline.tsx", role: phase_kami }
+        - { kind: glob, path: "src/frontend/src/**/PhaseTimelineView.tsx", role: phase_timeline }
+
+  UI-NFR-017:
+    title: Seitenlayout & Seitenueberschriften
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-017_Seitenlayout-Seitenueberschriften.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/PageTitle.tsx", role: page_title }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/PageTitle.test.tsx", role: page_title_test }
+
+  UI-NFR-018:
+    title: Herkunftskennzeichnung Stammdaten
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-018_Herkunftskennzeichnung-Stammdaten.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/OriginChip.tsx", role: origin_chip }
+      tests:
+        - { kind: glob, path: "src/frontend/src/test/**/OriginChip.test.tsx", role: origin_chip_test }
+
+  UI-NFR-019:
+    title: Kiosk-Modus
+    type: ui-nfr
+    spec_path: spec/ui-nfr/UI-NFR-019_Kiosk-Modus.md
+    expected_artefacts:
+      frontend:
+        - { kind: glob, path: "src/frontend/src/**/Kiosk*.tsx", role: kiosk_page, optional: true }
+        - { kind: glob, path: "src/frontend/src/**/TouchMode*.tsx", role: touch_mode, optional: true }
