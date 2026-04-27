@@ -18,15 +18,15 @@ Alle 22 Widersprüche wurden bearbeitet. Übersicht:
 
 | ID | Schweregrad | Status | Wo behandelt |
 |----|-------------|--------|--------------|
-| W-001 | KRITISCH | ✅ Resolved | REQ-027 v1.3 §6.1.1 (AI-Provider-Guard) |
-| W-002 | KRITISCH | ✅ Resolved | REQ-025 v1.1 §3.1 (Tombstone-Pseudonymisierung) + NFR-011 v1.1 R-06 |
-| W-003 | KRITISCH | ✅ Resolved | REQ-003 v2.4 §3 (Run-Membership-Guard) + REQ-013 v2.1 |
-| W-004 | KRITISCH | ✅ Resolved | REQ-023 v1.9 §3.2a (Refresh-Token Family + Grace-Window) + UI-NFR-012 v2.1 R-049a/b |
+| W-001 | KRITISCH | ✅ Resolved | REQ-027 v1.4 §6.1.1 (AI-Provider-Guard) |
+| W-002 | KRITISCH | ✅ Resolved | REQ-025 v1.3 §3.1 (Tombstone-Pseudonymisierung) + NFR-011 v1.4 R-06 |
+| W-003 | KRITISCH | ✅ Resolved | REQ-003 v2.5 §3 (Run-Membership-Guard) + REQ-013 v2.3 |
+| W-004 | KRITISCH | ✅ Resolved | REQ-023 v1.10 §3.2a (Refresh-Token Family + Grace-Window) + UI-NFR-012 v2.2 R-049a/b |
 | W-005 | HOCH | ✅ Resolved | UI-NFR-012 v2.2 R-020a (Begründung präzisiert) |
-| W-006 | HOCH | ✅ Resolved via ADR | **ADR-002** Tenant-Species im Knowledge Service + Export — REQ-001 v4.1, REQ-024, REQ-025 v1.3, REQ-031 v2.1 |
-| W-007 | KRITISCH (im Top-5) | ✅ Resolved | REQ-025 v1.2 §3.1 (Phase 0 Storage-Cleanup) + NFR-013 v1.1 §4.2/§6.2 |
-| W-008 | HOCH | ✅ Resolved | stack.md / NFR-011 v1.1 / NFR-012 / CLAUDE.md (Valkey 8.0+ als primär, Redis-Wire-kompatibel) |
-| W-009 | HOCH | ✅ Resolved via ADR | **ADR-001** Karenz-Gate für detachte PlantInstances — REQ-007 v2.4, REQ-010 v1.1, REQ-013 v2.3, NFR-011 v1.2 |
+| W-006 | HOCH | ✅ Resolved via ADR | **ADR-002** Tenant-Species im Knowledge Service + Export — REQ-001 v4.1, REQ-024, REQ-025 v1.3, REQ-031 v2.2 |
+| W-007 | KRITISCH (im Top-5) | ✅ Resolved | REQ-025 v1.3 §3.1 (Phase 0 Storage-Cleanup) + NFR-013 v1.1 §4.2/§6.2 |
+| W-008 | HOCH | ✅ Resolved | stack.md / NFR-011 v1.4 / NFR-012 / CLAUDE.md (Valkey 8.0+ als primär, Redis-Wire-kompatibel) |
+| W-009 | HOCH | ✅ Resolved via ADR | **ADR-001** Karenz-Gate für detachte PlantInstances — REQ-007 v2.4, REQ-010 v1.1, REQ-013 v2.3, NFR-011 v1.4 |
 | W-010 | HOCH | ✅ Resolved | REQ-022 v2.5 §1 (Run-Owned CareProfile + Detach-Snapshot) + REQ-013 v2.3 |
 | W-011 | HOCH | ✅ Resolved | UI-NFR-012 v2.2 R-042a/R-042b (KI-Features Online-only) + REQ-031 v2.2 §1 |
 | W-012 | MITTEL | ✅ Resolved | REQ-027 v1.4 §1 (Klarstellungs-Tabelle DSGVO-Maßnahmen) |
@@ -36,10 +36,12 @@ Alle 22 Widersprüche wurden bearbeitet. Übersicht:
 | W-016 | MITTEL | ✅ Resolved | UI-NFR-003 v1.1 §4 (Bundle-Budget auf 300KB harmonisiert) |
 | W-017 | MITTEL | ✅ Resolved | REQ-015 v1.6 CF-007 + REQ-027 v1.4 §6.1/§6.2 (iCal-Token aktiv im Light-Modus) |
 | W-018 | MITTEL | ✅ Resolved | NFR-008 v1.1 §2.2/§2.3 (Coverage-Schwellen messbar + CI-Gate) |
-| W-019 | NIEDRIG | ✅ Resolved | UI-NFR-011 Kiosk-Modus → `UI-NFR-019_Kiosk-Modus.md` umbenannt; alle Verweise umgebogen |
+| W-019 | NIEDRIG | ✅ Resolved | UI-NFR-011 Kiosk-Modus → `UI-NFR-019_Kiosk-Modus.md` (v1.2) umbenannt; alle Verweise umgebogen |
 | W-020 | NIEDRIG | ⚠️ Misclassified → ✅ Resolved | **Spec existierte bereits**: REQ-009 v2.0 war 1373 Zeilen lang, vom Bericht aber als „nicht spezifiziert" markiert. Konsolidiert zu **v2.1** mit Cross-Refs zu jüngeren Specs (REQ-021/022/024/027/031/032, UI-NFR-019) |
-| W-021 | NIEDRIG | ✅ Resolved | REQ-014 v1.4 §1 (Wasserquellen-Kaskade auf REQ-004 `WaterMixCalculator` delegiert) |
+| W-021 | NIEDRIG | ✅ Resolved | REQ-014 v1.6 §1 (Wasserquellen-Kaskade auf REQ-004 `WaterMixCalculator` delegiert) |
 | W-022 | NIEDRIG | ✅ Resolved | NFR-001 §6.1 + §11.2 (python-jose-Verweis durch Authlib ersetzt; DEPRECATED-Markierung verschärft) |
+
+> **Hinweis zu Versions-Spalten:** Wo eine Spec in mehreren Schritten erhöht wurde (z.B. NFR-011 1.0→1.1→1.2→1.3→1.4), zeigt diese Tabelle die **finale** Version nach allen Resolutions. Der einzelne Fix-Eintrag in der Spec selbst ist im Changelog der Spec datiert nachvollziehbar.
 
 **Workflow-Notiz:** Drei Wegwerf-Arbeitsdokumente wurden während der Bearbeitung erstellt und am Ende gelöscht (`spec-updates-2026-04-26.md` für die 5 kritischen Fixes, `pending-decisions-2026-04-27.md` für die 7 Sammel-Themen). Die persistente Form lebt in den eigentlichen Specs + den 3 ADRs.
 

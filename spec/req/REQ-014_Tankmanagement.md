@@ -7,8 +7,15 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.5 (HA-Sensor-Binding & Bulk-Endpoints)
+Version: 1.6 (Wasserquellen-Kaskade an REQ-004 delegiert, W-021)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.6 | 2026-04-27 | **W-021:** §1 Wasserquellen-Defaults-Kaskade konsolidiert — REQ-014 delegiert die Auflösungs-Logik vollständig an `REQ-004 WaterMixCalculator.resolve_water_defaults()`. Eine Quelle der Wahrheit, keine Implementations-Drift. Pseudocode für Aufruf-Schnittstelle ergänzt. |
+| 1.5 | (vorher) | HA-Sensor-Binding & Bulk-Endpoints |
 
 ## 1. Business Case
 
