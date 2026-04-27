@@ -7,14 +7,16 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.8 (Security-Hardening: PII-Minimierung, Enumeration-Schutz, RS256-Roadmap)
-Abhängigkeit: REQ-024 v1.4 (Permission-Matrix)
+Version: 1.10 (Service Accounts im Light-Modus deaktiviert, W-015)
+Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
+| 1.9 | 2026-04-27 | **W-004 Fix (Refresh-Token Family + Offline-Grace-Window):** RefreshToken-Modell um `family_key`, `device_id`, `rotated_at`, `successor_key` erweitert. Token-Rotation idempotent innerhalb 60s Grace-Window bei Device-Match (für PWA-Reconnect-Race UI-NFR-012 R-049). Echter Replay (außerhalb Grace-Window oder Device-Mismatch) sprengt die ganze Token-Family. **Hard Cutover bei Deployment** — alle bestehenden Refresh-Tokens werden invalidiert, alle User müssen neu einloggen. Telemetrie: structlog `auth.refresh_replay_detected` + Prometheus `kp_auth_refresh_replay_total`. |
 | 1.8 | 2026-03-18 | **Security-Hardening (IT-Security-Review):** (1) SEC-M-001: PII-Minimierung im JWT-Payload — `email` und `display_name` entfernt, nur `sub`, `tenant_roles`, `is_platform_admin` im Access Token. (2) SEC-H-009: Account-Enumeration-Schutz bei Registrierung — generische Antwort bei existierender E-Mail. (3) SEC-M-002: RS256/ES256-Migrationsplan dokumentiert, JWT-Secret >= 256 Bit. |
 | 1.7 | 2026-03-17 | **Service Accounts, RBAC-Erweiterung & Tenant-Notfallverwaltung:** (1) `account_type: Literal['human', 'service']` auf User-Modell. Service Accounts als eigenständige, nicht-interaktive Konten für Third-Party-Systeme (Home Assistant, Grafana, CI/CD). Keine Passwort/SSO-Fähigkeit, API-Key-only. Tenant-scoped oder Platform-scoped. ServiceAccountEngine, ServiceAccountService, 15 neue API-Endpoints. Rate-Limit und IP-Allowlist pro Service Account. (2) Tenant-Notfallverwaltung: Emergency-Admin-Ernennung bei verwaisten Tenants (`orphaned_since`), Tenant-Suspendierung/Reaktivierung, User-Suspendierung/Reaktivierung durch Platform-Admin. 7 neue Admin-API-Endpoints. Celery-Task für Verwaist-Erkennung. |
 | 1.6 | 2026-03-16 | **Platform-Admin-Rolle:** Neues Konzept Platform-Tenant (`is_platform: true`) als Träger der KA-Admin-Berechtigung. Platform-Admins verwalten globale Stammdaten, `tenant_has_access`-Zuweisungen und Promotions. User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein. Neue User Stories, JWT-Erweiterung (`is_platform_admin`), Dependency `is_platform_admin`. |
@@ -78,6 +80,8 @@ Diese Spezifikation verwendet **Authlib** (aktiv maintained) anstelle von `pytho
 | Access Token TTL | 1 Stunde | **15 Minuten** | Kürzeres Fenster bei Token-Kompromittierung; Refresh-Token-Mechanismus kompensiert UX |
 | Refresh Token | Nicht spezifiziert | 30 Tage (persistent) oder 24h (Session), HttpOnly Cookie, Rotation, steuerbar via „Angemeldet bleiben" | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung; Session-Cookie als sicherer Standard für geteilte Geräte |
 | Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; PII-Minimierung (SEC-M-001): kein email/display_name |
+| Refresh Grace Window <!-- W-004 --> | Nicht spezifiziert | **60 Sekunden** | Idempotenter Refresh innerhalb dieses Fensters (bei Device-Match) — toleriert paralleles `POST /auth/refresh` aus PWA-Reconnect (Service-Worker + UI-Thread). Nach 60s: strikte Replay-Detection mit Family-Sprengung. (UI-NFR-012 R-049) |
+| Token Family <!-- W-004 --> | Nicht spezifiziert | **`family_key` pro Login**, geteilt durch alle aus Rotation entstandenen Nachfolger | Replay-Detection sprengt die ganze Family; jeder neue Login startet eine neue Family — Multi-Device-Nutzung bleibt unbeeinträchtigt |
 
 **Kernkonzepte:**
 
@@ -318,6 +322,12 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `is_persistent: bool` (Default: `false` — `true` wenn Login mit „Angemeldet bleiben", steuert Cookie-Typ bei Rotation)
     - `revoked: bool` (Default: `false`)
     - `replaced_by: Optional[str]` (Token-Hash des Nachfolgers bei Rotation)
+    <!-- Quelle: Widerspruchsanalyse W-004 -->
+    - `family_key: str` (UUID; alle aus Rotation desselben Logins entstehenden Tokens teilen die `family_key`. Bei nachgewiesenem Replay wird die ganze Family invalidiert. Jeder neue Login startet eine neue Family — Multi-Device-Nutzung bleibt unbeeinträchtigt.)
+    - `device_id: Optional[str]` (Stable Device-Identifier vom Frontend, persistiert in IndexedDB als UUID — siehe UI-NFR-012 R-049b. Default `null` für migrierte Tokens und API-Clients ohne PWA-Setup. Bei `null` greift der Grace-Window-Schutz nicht.)
+    - `rotated_at: Optional[datetime]` (Wann wurde dieses Token durch Rotation invalidiert; `null` = noch aktiv. Wird beim Refresh auf den Vorgänger gesetzt.)
+    - `successor_key: Optional[str]` (Token-Hash des direkten Nachfolgers nach Rotation; nur für Grace-Window-Lookup. Identisch zu `replaced_by` für Tokens nach v1.9; bei Migration werden ältere Tokens mit eigenem Hash gefüllt.)
+    <!-- /Quelle: Widerspruchsanalyse W-004 -->
   - **IP-Anonymisierung (SEC-K-002):** Nach 7 Tagen wird `ip_address` automatisch anonymisiert (Celery-Task, NFR-011 R-03):
     - IPv4: Letztes Oktett → `0` (z.B. `192.168.1.42` → `192.168.1.0`)
     - IPv6: Auf `/48`-Präfix gekürzt (z.B. `2001:db8:85a3::8a2e:370:7334` → `2001:db8:85a3::`)
@@ -567,8 +577,33 @@ class AuthService:
         # 6. Erstellt JWT-Token-Paar
 
     # --- Token-Management ---
-    async def refresh_tokens(self, refresh_token: str) -> TokenPair: ...
-        # Token-Rotation: altes Token wird invalidiert, neues Paar wird erstellt
+    async def refresh_tokens(
+        self,
+        refresh_token: str,
+        *,
+        device_id: Optional[str] = None,                      # W-004
+    ) -> TokenPair: ...
+        # Token-Rotation mit Offline-Grace-Window (W-004, UI-NFR-012 R-049):
+        #
+        # Standard-Pfad (Token noch nicht rotiert):
+        #   1. Token validieren (Signatur, Ablauf, revoked-Flag)
+        #   2. Neues Token-Paar generieren, family_key vom Vorgänger erben
+        #   3. Vorgänger markieren: rotated_at=now, successor_key=neues_hash
+        #   4. Neues Token zurückgeben
+        #
+        # Grace-Window-Pfad (Token bereits rotiert, innerhalb 60s):
+        #   - Wenn rotated_at != null UND
+        #     (now - rotated_at) <= REFRESH_GRACE_WINDOW_SECONDS UND
+        #     stored.device_id == request.device_id (beide nicht null):
+        #     → Bereits ausgestellten Nachfolger zurückgeben (idempotent),
+        #       KEIN neues Token erzeugen, KEINE Family-Sprengung.
+        #
+        # Replay-Pfad (Token rotiert, außerhalb Grace-Window oder Device-Mismatch):
+        #   - Logge security_event: auth.refresh_replay_detected mit reason
+        #     ('grace_expired' | 'device_mismatch' | 'no_device_id')
+        #   - Inkrementiere kp_auth_refresh_replay_total{reason=...}
+        #   - Invalidiere ALLE Tokens mit gleicher family_key (Family-Sprengung)
+        #   - Werfe HTTPException 401 mit error_code='refresh_replay_detected'
         # is_persistent wird vom alten Token übernommen (Session bleibt Session, persistent bleibt persistent)
 
     async def logout(self, refresh_token: str) -> None: ...
@@ -595,10 +630,182 @@ class AuthService:
         # Setzt revoked_at, Key ist sofort ungültig
 ```
 
+<!-- Quelle: Widerspruchsanalyse W-004 -->
+### 3.2a Refresh-Token Family + Offline-Grace-Window (W-004)
+
+Diese Sektion spezifiziert die in §3.2 angedeutete Grace-Window-Logik im Detail. Hintergrund: PWA-Reconnect-Race nach Offline-Phase (UI-NFR-012 R-049).
+
+#### Konzept Token-Family
+
+Jeder erfolgreiche Login (Local oder OAuth) erzeugt ein **frisches Refresh-Token mit neuer `family_key` (UUID4)**. Bei Token-Rotation wird die `family_key` an den Nachfolger weitergegeben — alle aus diesem Login entstehenden Tokens teilen die Family.
+
+```
+Login Tablet (12:00)        →  T1 (family=F1)
+  Refresh Tablet (13:00)    →  T2 (family=F1, T1.successor_key=T2.hash)
+    Refresh Tablet (14:00)  →  T3 (family=F1, T2.successor_key=T3.hash)
+
+Login Desktop (12:30)       →  T4 (family=F2)              # andere Family!
+  Refresh Desktop (13:30)   →  T5 (family=F2, T4.successor_key=T5.hash)
+```
+
+Replay-Detection auf F1 (z.B. T1 wird nach 14:00 nochmal eingereicht) sprengt nur F1 — Desktop (F2) bleibt unbetroffen.
+
+#### Grace-Window-Algorithmus (Pseudocode)
+
+```python
+GRACE_WINDOW = timedelta(seconds=60)
+
+
+async def refresh_tokens(
+    raw_token: str,
+    *,
+    device_id: Optional[str],
+) -> TokenPair:
+    stored = await refresh_token_repo.get_by_hash(sha256(raw_token))
+    if stored is None or stored.revoked or stored.expires_at < now():
+        raise UnauthorizedError("invalid_token")
+
+    # --- Grace-Window-Pfad ---
+    if stored.rotated_at is not None:
+        age = now() - stored.rotated_at
+        device_match = (
+            stored.device_id is not None
+            and device_id is not None
+            and stored.device_id == device_id
+        )
+
+        if age <= GRACE_WINDOW and device_match:
+            # Idempotent: bereits ausgestellten Nachfolger zurückgeben
+            successor = await refresh_token_repo.get_by_hash(stored.successor_key)
+            return TokenPair(
+                access_token=mint_access_token(successor.user_key),
+                refresh_token_handle=successor.handle,
+            )
+
+        # Replay erkannt — Family sprengen
+        reason = (
+            "grace_expired" if age > GRACE_WINDOW
+            else "device_mismatch" if (stored.device_id and device_id)
+            else "no_device_id"
+        )
+        await _detect_and_handle_replay(stored, reason)
+        raise UnauthorizedError(
+            error_code="refresh_replay_detected",
+            family_invalidated=stored.family_key,
+        )
+
+    # --- Standard-Pfad (Token noch nicht rotiert) ---
+    new_token = await _create_refresh_token(
+        user_key=stored.user_key,
+        family_key=stored.family_key,           # Family weitergeben
+        device_id=device_id or stored.device_id,
+        is_persistent=stored.is_persistent,
+    )
+    await refresh_token_repo.mark_rotated(
+        token_hash=stored.token_hash,
+        successor_key=new_token.token_hash,
+        rotated_at=now(),
+    )
+    return TokenPair(
+        access_token=mint_access_token(stored.user_key),
+        refresh_token_handle=new_token.handle,
+    )
+
+
+async def _detect_and_handle_replay(stored: RefreshToken, reason: str) -> None:
+    """Telemetrie + Family-Sprengung bei nachgewiesenem Replay."""
+    logger.warning(
+        "auth.refresh_replay_detected",
+        family_key=stored.family_key,
+        user_key=stored.user_key,
+        reason=reason,
+        token_age_seconds=(now() - stored.rotated_at).total_seconds(),
+    )
+    metrics.kp_auth_refresh_replay_total.labels(reason=reason).inc()
+
+    # Alle Tokens der Family invalidieren (hard)
+    affected = await refresh_token_repo.revoke_family(stored.family_key)
+    logger.info(
+        "auth.token_family_invalidated",
+        family_key=stored.family_key,
+        revoked_count=affected,
+    )
+```
+
+#### Verhaltenstabelle
+
+| Situation | `rotated_at` | Alter | Device-Match | Verhalten |
+|-----------|--------------|-------|--------------|-----------|
+| Token aktiv | `null` | — | — | Standard-Rotation, neues Paar ausstellen |
+| Bereits rotiert, Grace, Match | gesetzt | ≤ 60s | ja | **Idempotent:** vorhandenen Nachfolger zurückgeben |
+| Bereits rotiert, Grace, Mismatch | gesetzt | ≤ 60s | nein | **Replay:** Family sprengen, 401 |
+| Bereits rotiert, Grace, no `device_id` | gesetzt | ≤ 60s | n/a (eines `null`) | **Replay:** Family sprengen, 401 |
+| Bereits rotiert, außerhalb Grace | gesetzt | > 60s | beliebig | **Replay:** Family sprengen, 401 |
+
+`device_id=null` auf beiden Seiten → kein Match möglich → kein Grace-Window. Das schützt API-Clients ohne PWA-Setup vor einem versehentlichen Replay-Schutz, indem solche Clients schlicht nicht doppelt rotieren dürfen.
+
+#### Telemetrie
+
+**Structlog-Event** (`logger.warning`):
+
+```python
+event="auth.refresh_replay_detected"
+fields=[family_key, user_key, reason, token_age_seconds]
+```
+
+`reason` ∈ `{"grace_expired", "device_mismatch", "no_device_id"}`.
+
+**Prometheus-Counter:**
+
+```
+kp_auth_refresh_replay_total{reason="grace_expired|device_mismatch|no_device_id"}
+kp_auth_token_family_invalidated_total
+```
+
+Alerts (NFR-012, optional):
+- > 5 Replay-Events pro 5 min für denselben User → wahrscheinlich Bug oder Angriff
+- > 50 Replay-Events pro 5 min systemweit → systematischer Angriff oder Deployment-Regression
+
+#### Hard Cutover bei v1.9-Deployment
+
+Bei Deployment dieser Version werden **alle bestehenden Refresh-Tokens invalidiert** — bestehende Tokens haben kein `family_key`, kein `device_id`, kein `successor_key` und können nicht zuverlässig im Grace-Window-Schema betrieben werden.
+
+```python
+# Migrations-Skript (einmalig zur Deployment-Zeit)
+async def cutover_refresh_tokens_v19():
+    """W-004: Hard Cutover beim Upgrade auf v1.9.
+
+    Alle bestehenden Refresh-Tokens werden revoked. Alle User müssen
+    sich neu anmelden. Begründung: Bestehende Tokens haben kein
+    family_key/device_id — Grace-Window-Schutz wäre nicht zuverlässig.
+    """
+    affected = await refresh_token_repo.revoke_all_active()
+    logger.warning(
+        "auth.v19_cutover_completed",
+        revoked_count=affected,
+        note="All active refresh tokens invalidated; users must re-login",
+    )
+```
+
+Operator-Kommunikation: Im Release-Notes-Hinweis vermerken, dass alle User nach dem Upgrade neu einloggen müssen — analog zu Hash-Algorithmus-Wechseln in der Vergangenheit.
+
+#### Frontend-Verhalten (Cross-Reference)
+
+Frontend-Anforderungen sind in **UI-NFR-012 §3.9** definiert:
+- R-049: `X-Device-Id`-Header beim Refresh-Aufruf mitsenden
+- R-049a: Bei `error_code='refresh_replay_detected'` lokale Tokens löschen, Re-Login auffordern, Offline-Daten erhalten
+- R-049b: `device_id` als UUIDv4 in IndexedDB persistieren, beim ersten Login generiert
+
+<!-- /Quelle: Widerspruchsanalyse W-004 -->
+
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
 
 Neben der JWT-basierten Browser-Authentifizierung unterstützt Kamerplanter **langlebige API-Keys** für Machine-to-Machine-Zugriff. Hauptanwendungsfälle: Home Assistant Custom Integration, CI/CD-Pipelines, Monitoring-Systeme.
+
+<!-- Quelle: Widerspruchsanalyse W-015 -->
+**Light-Modus-Hinweis (W-015):** Service Accounts und API-Keys sind im Light-Modus (REQ-027) **deaktiviert** — die Light-Modus-Endpunkte sind ohne Auth erreichbar, externe Integrationen brauchen keinen Bearer-Token. Bei Upgrade Light→Full (REQ-027 §1.1 Szenario 5) müssen externe Integrationen auf Service-Account-API-Keys umgestellt werden; bestehende Konfigurationen erhalten 401 beim nächsten API-Aufruf nach Mode-Switch.
+<!-- /Quelle: Widerspruchsanalyse W-015 -->
 
 #### Datenmodell
 
@@ -1728,6 +1935,15 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | SK-06 | Client Secrets und Provider-Tokens sind AES-256-verschlüsselt in der Datenbank | Code Review |
 | SK-07 | Alle Auth-Endpunkte haben Rate Limiting (100/min pro IP) | Integration |
 | SK-08 | Access Token enthält keine sensitiven Daten (kein Passwort-Hash, keine Provider-Tokens) | Unit |
+<!-- Quelle: Widerspruchsanalyse W-004 -->
+| SK-09 | **Token-Family bei Login:** Jeder erfolgreiche Login (Local oder OAuth) erzeugt ein Refresh-Token mit neuer `family_key` (UUID4). Bei Token-Rotation erbt der Nachfolger die `family_key` vom Vorgänger. | Unit |
+| SK-10 | **Grace-Window-Idempotenz:** `POST /auth/refresh` mit einem bereits rotierten Refresh-Token ≤ 60s nach Rotation und passender `device_id` liefert den bereits ausgestellten Nachfolger zurück (KEIN neues Token-Paar, KEINE Family-Sprengung). | Integration |
+| SK-11 | **Replay-Detection außerhalb Grace:** `POST /auth/refresh` mit einem Token, das vor mehr als 60s rotiert wurde, sprengt die ganze Family (alle Tokens mit gleicher `family_key` werden revoked) und liefert HTTP 401 mit `error_code='refresh_replay_detected'`. | Integration |
+| SK-12 | **Replay-Detection bei Device-Mismatch:** Auch innerhalb 60s führt eine abweichende `device_id` zu Family-Sprengung und HTTP 401. | Integration |
+| SK-13 | **Family-Isolation Multi-Device:** Family-Sprengung von F1 (Tablet-Login) hat keinen Einfluss auf F2 (Desktop-Login desselben Users) — Desktop-Session bleibt aktiv. | Integration |
+| SK-14 | **Telemetrie:** Bei jedem Replay-Event wird structlog-Event `auth.refresh_replay_detected` mit `family_key`, `user_key`, `reason`, `token_age_seconds` geloggt; Counter `kp_auth_refresh_replay_total{reason=...}` wird inkrementiert. | Integration |
+| SK-15 | **Hard Cutover v1.9:** Beim Deployment von v1.9 werden alle bestehenden Refresh-Tokens via `cutover_refresh_tokens_v19()` revoked. Nach Deployment werden alle Auth-Endpunkte mit altem Refresh-Token mit 401 abgelehnt. | Integration |
+<!-- /Quelle: Widerspruchsanalyse W-004 -->
 
 ### Frontend-Kriterien:
 
