@@ -7,8 +7,15 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.2 (Wasserquellen-Konfiguration)
+Version: 4.3 (data_classification für Sensor-Retention, ADR-003)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 4.3 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** `data_classification`-Feld auf Location ergänzt (5 Werte: `indoor_private`, `indoor_public`, `greenhouse`, `outdoor_open`, `unknown`). `extended_retention_optin` als Tenant-Admin-Opt-in für verlängerte Retention. `data_classification_set_at` für Audit. Steuert NFR-011 R-14 Sensor-Retention. Forward-only-Wechsel-Semantik. |
+| 4.2 | (vorher) | Wasserquellen-Konfiguration. |
 
 ## 1. Business Case
 
@@ -107,6 +114,11 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `site_key: str` — Referenz auf das Root-Site (wird bei Erstellung vom Eltern-Standort geerbt)
     - `parent_location_key: Optional[str]` — Eltern-Location (`null` = direkt unter Site)
     - `location_type_key: str` — Referenz auf `location_types._key` (nutzerpflegbare Stammdaten, siehe Collection unten)
+    <!-- Quelle: ADR-003 / W-014 -->
+    - `data_classification: Literal['indoor_private', 'indoor_public', 'greenhouse', 'outdoor_open', 'unknown']` (Default: `'unknown'`) — DSGVO-Risikogruppe für Sensor-Daten an diesem Standort. Steuert Sensor-Retention (NFR-011 R-14). `unknown` wird wie `indoor_private` behandelt (DSGVO-konservativ). Wechsel ist forward-only — bestehende Sensor-Werte behalten ihre ursprüngliche Schutzklasse.
+    - `data_classification_set_at: Optional[datetime]` — Zeitpunkt der letzten expliziten Klassifizierungs-Setzung. Wird bei Wechsel aktualisiert. `null` solange `data_classification == 'unknown'`.
+    - `extended_retention_optin: bool = False` — Tenant-Admin hat verlängerte Retention für `greenhouse`/`outdoor_open` aktiviert (NFR-011 R-14). Ohne Opt-in greift Default-5y auf Stufe 3.
+    <!-- /Quelle: ADR-003 / W-014 -->
     - `depth: int` — Tiefe in der Hierarchie (0 = direkt unter Site), berechnet
     - `path: str` — Materialisierter Pfad für Baum-Abfragen (z.B. `"haus/arbeitszimmer/growzelt1"`)
     - `area_m2: float`
