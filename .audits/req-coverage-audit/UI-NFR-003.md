@@ -9,7 +9,7 @@ status: idee
 priority: none
 effort: S
 created: 2026-04-27
-audit_run: 8728d564
+audit_run: 1546aab6
 ---
 
 # Ausfuehrungsplan: UI-NFR-003 Performance
@@ -27,6 +27,14 @@ audit_run: 8728d564
 | Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
 |---|---|---|---|---|---|
 | bundle_split | `src/frontend/vite.config.ts` | pattern | ja | n/a |  |
+
+### Dimension: drift (n/a)
+
+| Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
+|---|---|---|---|---|---|
+| marker_clean | `(memory_status_field)` | drift | nein | n/a | _(Begruendung: kein memory_status_field gepflegt)_ |
+| cross_refs_intact | `(cross_refs)` | drift | ja | n/a | _(Begruendung: keine Cross-References deklariert)_ |
+| spec_version_present | `spec/ui-nfr/UI-NFR-003_Performance.md` | drift | ja | n/a | _(Begruendung: Keine Versionsangabe in der Spec extrahierbar (optional, nice-to-have))_ |
 
 ## Aufgaben (priorisiert, abarbeitbar)
 

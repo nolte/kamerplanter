@@ -82,8 +82,139 @@ def matches(entry: dict) -> tuple[bool, list[str]]:
     return False, []
 
 
-def evaluate(req_id: str, info: dict) -> dict:
+# --- Drift-Detection -------------------------------------------------------
+
+DRIFT_KEYWORDS = (
+    "DRIFT",
+    "NICHT IMPL",
+    "NOT IMPLEMENTED",
+    "NICHT IMPLEMENTIERT",
+    "NICHT AKTIV",
+    "COMPLIANCE-RISIKO",
+    "OFFEN",
+)
+FUTURE_KEYWORDS = ("FUTURE", "IDEE")
+SPEC_VERSION_RE = re.compile(
+    r"^##\s*Version[:\s]+(?:v\.?\s*)?(\d+(?:\.\d+)*)|^\*\*Version\*\*[:\s]+(?:v\.?\s*)?(\d+(?:\.\d+)*)",
+    re.MULTILINE,
+)
+
+
+def extract_spec_version(spec_path: Path) -> str | None:
+    if not spec_path.is_file():
+        return None
+    text = spec_path.read_text(errors="ignore")[:4000]
+    match = SPEC_VERSION_RE.search(text)
+    if not match:
+        # Fallback: look for "## X.Y (..." style — the actual repo convention
+        fallback = re.search(r"^##\s*(\d+\.\d+)\b", text, re.MULTILINE)
+        if fallback:
+            return fallback.group(1)
+        return None
+    return next(g for g in match.groups() if g)
+
+
+def evaluate_drift(req_id: str, info: dict, manifest_ids: set[str]) -> list[dict]:
+    """Return drift sub-checks as a list of result dicts (same shape as artefact entries)."""
+    drift_data = info.get("drift", {}) or {}
+    memory_field = (drift_data.get("memory_status_field") or "").strip()
+    cross_refs = drift_data.get("cross_refs") or []
+    spec_path = ROOT / info.get("spec_path", "")
+
+    results: list[dict] = []
+
+    # Sub-Check 1: marker_clean — keine DRIFT/NICHT-impl-Marker im memory_status_field
+    upper = memory_field.upper()
+    is_future = any(kw in upper for kw in FUTURE_KEYWORDS)
+    has_drift_marker = any(kw in upper for kw in DRIFT_KEYWORDS)
+    if not memory_field:
+        marker_status = "n/a"
+        marker_note = "kein memory_status_field gepflegt"
+    elif is_future:
+        marker_status = "n/a"
+        marker_note = "Future/Idee — bewusst aufgeschoben, kein Drift"
+    elif has_drift_marker:
+        marker_status = "fail"
+        marker_note = f"Drift-Marker im MEMORY: '{memory_field}'"
+    else:
+        marker_status = "pass"
+        marker_note = f"MEMORY-Status sauber: '{memory_field}'"
+    results.append({
+        "role": "marker_clean",
+        "path": "(memory_status_field)",
+        "kind": "drift",
+        "optional": False,
+        "status": marker_status,
+        "evidence": [memory_field] if memory_field else [],
+        "rationale": marker_note,
+    })
+
+    # Sub-Check 2: cross_refs_intact — alle Cross-Referenzen existieren im Manifest
+    if not cross_refs:
+        results.append({
+            "role": "cross_refs_intact",
+            "path": "(cross_refs)",
+            "kind": "drift",
+            "optional": True,
+            "status": "n/a",
+            "evidence": [],
+            "rationale": "keine Cross-References deklariert",
+        })
+    else:
+        missing_refs = [cr for cr in cross_refs if cr not in manifest_ids]
+        if missing_refs:
+            results.append({
+                "role": "cross_refs_intact",
+                "path": "(cross_refs)",
+                "kind": "drift",
+                "optional": False,
+                "status": "fail",
+                "evidence": [f"fehlende Refs: {', '.join(missing_refs)}"],
+                "rationale": "Cross-References zeigen auf nicht im Manifest enthaltene IDs",
+            })
+        else:
+            results.append({
+                "role": "cross_refs_intact",
+                "path": "(cross_refs)",
+                "kind": "drift",
+                "optional": False,
+                "status": "pass",
+                "evidence": cross_refs,
+                "rationale": "alle Cross-References im Manifest vorhanden",
+            })
+
+    # Sub-Check 3: spec_version_present — Versionsangabe im Spec-Dokument (optional)
+    # Optional, weil fehlende Versionsangabe Drift-Tracking erschwert, aber keine
+    # Implementierungsluecke darstellt. Wird als INFO/n/a behandelt.
+    spec_version = extract_spec_version(spec_path)
+    if spec_version is None:
+        results.append({
+            "role": "spec_version_present",
+            "path": str(spec_path.relative_to(ROOT)) if spec_path.exists() else info.get("spec_path", ""),
+            "kind": "drift",
+            "optional": True,
+            "status": "n/a",
+            "evidence": [],
+            "rationale": "Keine Versionsangabe in der Spec extrahierbar (optional, nice-to-have)",
+        })
+    else:
+        results.append({
+            "role": "spec_version_present",
+            "path": str(spec_path.relative_to(ROOT)),
+            "kind": "drift",
+            "optional": True,
+            "status": "pass",
+            "evidence": [f"Spec-Version: v{spec_version}"],
+            "rationale": "Versionsangabe lesbar",
+        })
+
+    return results
+
+
+def evaluate(req_id: str, info: dict, manifest_ids: set[str] | None = None) -> dict:
     """Return per-requirement evaluation: dimensions + scores + matched files."""
+    if manifest_ids is None:
+        manifest_ids = set()
     dims = {}
     expected = info.get("expected_artefacts", {}) or {}
     for dim, entries in expected.items():
@@ -102,6 +233,9 @@ def evaluate(req_id: str, info: dict) -> dict:
                 "rationale": entry.get("rationale"),
             })
         dims[dim] = results
+
+    # Drift dimension is always added — uses dedicated logic
+    dims["drift"] = evaluate_drift(req_id, info, manifest_ids)
 
     # Score per dimension: pass / (pass + fail), n/a wird ignoriert
     dim_scores = {}
@@ -241,6 +375,41 @@ def render_plan(eval_result: dict) -> str:
             role = it["role"] or "artefact"
             path = it["path"]
             rationale = it.get("rationale") or "Spec-Vorgabe"
+
+            # Drift-Aufgaben separat behandeln (eigene Logik)
+            if dim == "drift":
+                if role == "marker_clean":
+                    aufgabe_effort = "M"
+                    action = "Drift in MEMORY adressieren"
+                    spec_ref_line = f"- **MEMORY-Eintrag**: {it.get('evidence', [''])[0]}"
+                    akz = "MEMORY-Eintrag aktualisiert ODER tatsaechliche Implementierung nachgezogen, sodass Drift-Marker geschlossen werden kann"
+                elif role == "cross_refs_intact":
+                    aufgabe_effort = "S"
+                    action = "Tote Cross-References im Spec-Dokument aufloesen"
+                    spec_ref_line = f"- **Fehlende Refs**: {it.get('evidence', [''])[0] if it.get('evidence') else 'n/a'}"
+                    akz = "Tote Refs im Spec entfernt ODER Manifest um die fehlende Anforderung erweitert"
+                elif role == "spec_version_present":
+                    aufgabe_effort = "S"
+                    action = "Versionsangabe im Spec-Dokument ergaenzen"
+                    spec_ref_line = f"- **Spec ohne Versionsangabe**: `{e['spec_path']}`"
+                    akz = "Spec-Header enthaelt `## Version X.Y` oder `**Version**: X.Y`"
+                else:
+                    aufgabe_effort = "S"
+                    action = f"Drift-Sub-Check '{role}' adressieren"
+                    spec_ref_line = f"- **Detail**: {rationale}"
+                    akz = "Drift-Sub-Check beim naechsten Audit-Lauf gruen"
+
+                lines += [
+                    "",
+                    f"### Aufgabe {aufgabe_idx} — Drift: {role} [{aufgabe_effort}]",
+                    f"- **Zu tun**: {action}",
+                    spec_ref_line,
+                    f"- **Begruendung**: {rationale}",
+                    f"- **Akzeptanzkriterium**: {akz}",
+                    f"- **Empfohlener Schritt**: MEMORY.md aktualisieren ODER `/implement {e['req']}` falls Code-Sync noetig",
+                ]
+                continue
+
             # Aufwand pro Aufgabe ableiten aus Pfadtyp
             if "test" in role.lower() or "_test" in path.lower():
                 aufgabe_effort = "S"
@@ -447,6 +616,7 @@ def main():
 
     manifest = yaml.safe_load(MANIFEST.read_text())
     requirements = manifest["requirements"]
+    manifest_ids = set(requirements.keys())
 
     # Optional: Single-Mode
     target = sys.argv[1] if len(sys.argv) > 1 else None
@@ -454,7 +624,7 @@ def main():
         if target not in requirements:
             print(f"FEHLER: {target} nicht im Manifest", file=sys.stderr)
             sys.exit(2)
-        ev = evaluate(target, requirements[target])
+        ev = evaluate(target, requirements[target], manifest_ids)
         PLAN_DIR.mkdir(parents=True, exist_ok=True)
         plan_path = PLAN_DIR / f"{target}.md"
         plan_path.write_text(render_plan(ev))
@@ -480,7 +650,7 @@ def main():
     evaluations = []
     for req_id in sorted(requirements.keys()):
         info = requirements[req_id]
-        ev = evaluate(req_id, info)
+        ev = evaluate(req_id, info, manifest_ids)
         evaluations.append(ev)
 
     # Per-Anforderungs-Plans schreiben (nur fuer Coverage < 100 %)

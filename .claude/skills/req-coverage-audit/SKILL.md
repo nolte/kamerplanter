@@ -129,13 +129,16 @@ Sub-Check ist `pass` / `fail` / `n/a`.
 | **Frontend Vitest** | Mind. eine `*.test.{ts,tsx}` adressiert die Page/Slice | Frontend n/a |
 | **E2E** | `tests/e2e/test_req<NN>*.py` existiert (Pattern aus NFR-008) | REQ explizit als nicht E2E-relevant markiert |
 
-### Dimension 4 — Spec-Drift (3 Sub-Checks)
+### Dimension 4 — Spec-Drift (3 Sub-Checks, fuer ALLE Anforderungstypen)
 
-| Sub-Check | Pass-Kriterium | Fail-Indikator |
-|---|---|---|
-| **Versions-Konsistenz** | REQ-Version (im REQ-Header) ≤ in MEMORY.md notierte Implementations-Version | REQ ist auf v2.0, MEMORY referenziert v1.4 → drift |
-| **Cross-Refs intakt** | Alle `REQ-NNN`/`NFR-NNN`-Referenzen im REQ-Dokument zeigen auf existierende Dokumente | Tote Referenz auf REQ-099 |
-| **Acceptance-Criteria-Spurbarkeit** | Mind. eine im REQ benannte AC laesst sich per `grep` im Code/Tests finden (Stichprobe: 1 AC) | Keine AC im Code referenziert |
+Wird automatisch fuer jede Anforderung (REQ + NFR + UI-NFR) evaluiert, gespeist aus dem
+`drift:`-Block des Manifests.
+
+| Sub-Check | Pass-Kriterium | Fail-Indikator | Optional? |
+|---|---|---|---|
+| **marker_clean** | `drift.memory_status_field` enthaelt KEINE Drift-Schluesselwoerter (`DRIFT`, `NICHT IMPL`, `NOT IMPLEMENTED`, `NICHT IMPLEMENTIERT`, `NICHT AKTIV`, `COMPLIANCE-RISIKO`, `OFFEN`). `Future`/`Idee` zaehlen als `n/a` (bewusst aufgeschoben). | Drift-Schluesselwort gefunden → impl-Luecke ODER Spec-Code-Drift in Produktion | nein |
+| **cross_refs_intact** | Alle in `drift.cross_refs` deklarierten `REQ-NNN`/`NFR-NNN`/`UI-NFR-NNN`-Referenzen existieren als Manifest-Eintrag | Tote Referenz auf z.B. `REQ-099` | nein (n/a wenn Liste leer) |
+| **spec_version_present** | `## Version X.Y` oder `## X.Y (...)`-Header im Spec-Dokument extrahierbar | keine Versionsangabe in Spec | **ja** — nice-to-have, kein Implementierungsfehler |
 
 ## Schritt 2b: Pro NFR — drei Coverage-Dimensionen pruefen
 

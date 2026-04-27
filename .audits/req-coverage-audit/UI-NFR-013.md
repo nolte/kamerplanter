@@ -9,7 +9,7 @@ status: spezifiziert
 priority: blocker
 effort: M
 created: 2026-04-27
-audit_run: 8728d564
+audit_run: 1546aab6
 ---
 
 # Ausfuehrungsplan: UI-NFR-013 Einwilligungsmanagement (Consent)
@@ -27,6 +27,14 @@ audit_run: 8728d564
 | Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
 |---|---|---|---|---|---|
 | consent_component | `src/frontend/src/**/Consent*.tsx` | glob | nein | FEHLT |  |
+
+### Dimension: drift (n/a)
+
+| Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
+|---|---|---|---|---|---|
+| marker_clean | `(memory_status_field)` | drift | nein | n/a | _(Begruendung: kein memory_status_field gepflegt)_ |
+| cross_refs_intact | `(cross_refs)` | drift | ja | n/a | _(Begruendung: keine Cross-References deklariert)_ |
+| spec_version_present | `spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md` | drift | ja | n/a | _(Begruendung: Keine Versionsangabe in der Spec extrahierbar (optional, nice-to-have))_ |
 
 ## Aufgaben (priorisiert, abarbeitbar)
 
