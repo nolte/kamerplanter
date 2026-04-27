@@ -7,10 +7,19 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.0
-Abhängigkeit: REQ-023 v1.2 (Benutzerverwaltung), REQ-024 v1.1 (Mandantenverwaltung), NFR-011 (Retention Policy)
+Version: 1.3 (Tenant-Species-Snapshot im Export, ADR-002)
+Abhängigkeit: REQ-023 v1.9 (Benutzerverwaltung), REQ-024 v1.1 (Mandantenverwaltung), NFR-011 v1.1 (Retention Policy), NFR-013 v1.1 (Object Storage)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.3 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im Export):** `SpeciesReferenceResolver` + `species_ref`-Wrapper-Struktur ergänzt. Tenant-eigene Species werden inline als Snapshot exportiert (DSGVO Art. 20 Datenübertragbarkeit). Globale Species bleiben als Referenz mit `scope='global'`. Neue `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config`. |
+| 1.2 | 2026-04-27 | **W-007 Fix (Object-Storage-Cleanup Phase 0):** Erasure-Pipeline um Phase 0 erweitert, die VOR allen ArangoDB-Operationen den Object Storage bereinigt. Zwei Scopes: `user_personal` (Hard-Delete von Profilfoto/persönlichen Notiz-Fotos) und `user_diary_attachments` (Anonymisierung der `created_by`-Metadaten + EXIF-Strip-Pass für Tenant-Datensätze mit `STORAGE_KEEP_EXIF=true`). Erasure-Reihenfolge: Phase 0 → Phase 1 (Edges) → Phase 2 (Documents) → Phase 2.5 (Audit-Pseudonymisierung) → Phase 3 (User). Drei neue Abnahmekriterien (AK-OS-01 bis AK-OS-03). |
+| 1.1 | 2026-04-27 | **W-002 Fix (Audit-Pseudonymisierung):** Phase 2.5 (Audit-Log-Pseudonymisierung) im `ErasureEngine` ergänzt. Generischer Mechanismus über `PSEUDONYMIZE_AUDIT_COLLECTIONS`-Liste — aktuell ein Eintrag (`erasure_requests.user_key`). Tombstone-Hash via SHA-256 + 64 Bit Truncation + Per-Instanz-Salt (`ERASURE_TOMBSTONE_SALT`, NFR-011 §4 Pflicht-Setting). Zwei neue Abnahmekriterien (AK-PD-01, AK-PD-02). |
+| 1.0 | 2026-02-27 | Erstversion — DSGVO Art. 15–21 Betroffenenrechte, ErasureEngine, ConsentEngine, Celery-Tasks, Privacy-API. |
 
 ## 1. Business Case
 
@@ -254,6 +263,21 @@ class DataExportEngine:
             label="Inspektionsprotokolle",
             fields=["type", "date", "findings"],
         ),
+        # <!-- Quelle: ADR-002 / W-006 -->
+        # Tenant-eigene Stammdaten und Overlays (Schicht 2 + 3) — DSGVO Art. 20
+        DataSourceDefinition(
+            collection="tenant_species_config",
+            filter_field="tenant_key",            # Alle Overlays des Tenants
+            label="Tenant-Anpassungen an Species",
+            fields=["species_key", "notes", "hidden", "custom_fields"],
+        ),
+        DataSourceDefinition(
+            collection="tenant_cultivar_config",
+            filter_field="tenant_key",
+            label="Tenant-Anpassungen an Cultivars",
+            fields=["cultivar_key", "notes", "hidden", "custom_fields"],
+        ),
+        # <!-- /Quelle: ADR-002 / W-006 -->
     ]
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
@@ -303,6 +327,10 @@ class ErasureEngine:
 
     # Collections die vollständig gelöscht werden (Edges vor Nodes!)
     DELETE_ORDER: list[str] = [
+        # Phase 0: Object-Storage-Cleanup (W-007, siehe unten) — MUSS vor
+        # Phase 1 laufen, weil danach die attachments-Metadaten weg sind
+        # und der created_by-Filter nicht mehr funktioniert.
+        "_storage_cleanup",
         # Phase 1: Edges
         "requested_export", "has_consent", "has_restriction",
         "requested_erasure", "requested_email_change",
@@ -310,19 +338,142 @@ class ErasureEngine:
         # Phase 2: Nodes (Reihenfolge wichtig)
         "data_export_requests", "consent_records", "processing_restrictions",
         "email_change_requests", "auth_providers", "refresh_tokens",
+        # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten)
+        # Diese Collections werden NICHT gelöscht — der user_key wird durch
+        # einen Tombstone-Hash ersetzt, bevor Phase 3 ausgeführt wird.
+        "_pseudonymize_audit_collections",
         # Phase 3: User selbst (zuletzt)
         "users",
     ]
 
+    # <!-- Quelle: Widerspruchsanalyse W-007 -->
+    # Object-Storage-Cleanup: zwei Scopes, generisch erweiterbar.
+    # Phase 0 läuft vor allen ArangoDB-Operationen — sie braucht den Lookup
+    # auf attachments.created_by == user_key, der nach Phase 1 nicht mehr
+    # zuverlässig funktioniert.
+    STORAGE_CLEANUP_RULES: list[StorageCleanupRule] = [
+        StorageCleanupRule(
+            scope="user_personal",
+            description=(
+                "Hard-Delete: alle Anhaenge mit created_by == user_key UND "
+                "category in {'profile', 'user_notes'}. Beispiele: "
+                "Profilfoto, eigene Notiz-Fotos ohne Bezug zu "
+                "aufbewahrungspflichtigen Datensaetzen."
+            ),
+            action="hard_delete",
+            ref="NFR-013 §6.2 Punkt 2",
+        ),
+        StorageCleanupRule(
+            scope="user_diary_attachments",
+            description=(
+                "Anonymisierung: alle Anhaenge mit created_by == user_key UND "
+                "category in {'diary', 'inspection', 'treatment', 'harvest'}. "
+                "Datei bleibt erhalten (gehört zum Tenant-Datensatz, evtl. "
+                "Aufbewahrungspflicht via NFR-011 R-16/R-17/R-18). "
+                "ArangoDB-Metadatum created_by wird auf '_anonymized' gesetzt. "
+                "Wenn Tenant STORAGE_KEEP_EXIF_<category>=true gesetzt hat, "
+                "werden zusätzlich EXIF-Daten aus der Datei selbst entfernt "
+                "(strip_exif_for_user, NFR-013 §4.2)."
+            ),
+            action="anonymize_metadata_and_strip_exif",
+            ref="NFR-013 §6.2 Punkt 3+4, §6.4",
+        ),
+    ]
+    # <!-- /Quelle: Widerspruchsanalyse W-007 -->
+
+    # <!-- Quelle: Widerspruchsanalyse W-002 -->
+    # Audit-Log-Pseudonymisierung: Generische Liste — aktuell ein Eintrag,
+    # leicht erweiterbar für künftige Audit-Collections (z.B. consent_change_audit).
+    # Hintergrund: NFR-011 R-06 verlangt 1 Jahr Aufbewahrung des Erasure-
+    # Audit-Logs (Art. 5(2) Rechenschaftspflicht). Ohne Pseudonymisierung
+    # bleibt user_key 1 Jahr personenbezogen → Verstoß gegen Art. 5(1)(e)
+    # Speicherbegrenzung. Tombstone-Hash entkoppelt den Eintrag vom User.
+    PSEUDONYMIZE_AUDIT_COLLECTIONS: list[PseudonymizationRule] = [
+        PseudonymizationRule(
+            collection="erasure_requests",
+            user_field="user_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "Erasure-Audit-Logs werden 1 Jahr aufbewahrt (NFR-011 R-06, "
+                "Art. 5(2) Rechenschaftspflicht). Nach Hard-Delete des Users "
+                "darf der user_key nicht mehr als personenbezogener "
+                "Identifikator gespeichert sein (Art. 5(1)(e))."
+            ),
+        ),
+    ]
+    # <!-- /Quelle: Widerspruchsanalyse W-002 -->
+
     def build_erasure_plan(self, user_key: str, user_data: dict) -> ErasurePlan:
         """Erstellt einen Löschplan für den gegebenen User."""
         plan = ErasurePlan(user_key=user_key)
+        plan.storage_cleanup = self.STORAGE_CLEANUP_RULES                # W-007
         plan.anonymize = self.ANONYMIZE_COLLECTIONS
+        plan.pseudonymize_audit = self.PSEUDONYMIZE_AUDIT_COLLECTIONS    # W-002
         plan.delete = self.DELETE_ORDER
         plan.soft_delete_immediate = True
         plan.hard_delete_after_days = 90  # NFR-011 R-01
         return plan
+
+
+# <!-- Quelle: Widerspruchsanalyse W-007 -->
+@dataclass
+class StorageCleanupRule:
+    """Regel für die Object-Storage-Bereinigung in Phase 0 des Erasure-Tasks."""
+    scope: Literal["user_personal", "user_diary_attachments"]
+    description: str
+    action: Literal["hard_delete", "anonymize_metadata_and_strip_exif"]
+    ref: str  # Referenz auf NFR-013-Sektion
+# <!-- /Quelle: Widerspruchsanalyse W-007 -->
 ```
+
+<!-- Quelle: Widerspruchsanalyse W-002 -->
+**Audit-Log-Pseudonymisierung (W-002):**
+
+Die `PSEUDONYMIZE_AUDIT_COLLECTIONS`-Liste ist bewusst generisch ausgelegt: jede Collection, die einen User-Verweis länger als den User selbst aufbewahren muss (Compliance-Ausnahme), wird hier eingetragen. Die Pseudonymisierung läuft als **Phase 2.5** zwischen den Document-Löschungen (Phase 2) und der User-Löschung (Phase 3) — siehe Celery-Task in §3.5.
+
+```python
+from dataclasses import dataclass
+from typing import Literal
+import hashlib
+
+@dataclass
+class PseudonymizationRule:
+    """Regel zur Pseudonymisierung eines User-Verweises in einer Audit-Collection."""
+    collection: str                                    # z.B. "erasure_requests"
+    user_field: str                                    # z.B. "user_key"
+    replacement_strategy: Literal["tombstone_hash"]    # erweiterbar für andere Strategien
+    reason: str                                         # Compliance-Begründung
+
+
+def compute_tombstone_hash(user_key: str, salt: str) -> str:
+    """Erzeugt einen nicht umkehrbaren Tombstone-Hash für gelöschte User.
+
+    Format:    'anon_' + hex(sha256(user_key + salt))[:16]
+    Länge:     21 Zeichen (5 Präfix + 16 Hex = 64 Bit Identitätsraum)
+    Properties:
+      - Deterministisch: gleicher (user_key, salt) → gleicher Hash
+      - Einweg: aus dem Hash ist user_key nicht rekonstruierbar (SHA-256)
+      - Salt-isoliert: ohne Kenntnis des per-Instanz-Salts ist keine
+        Brute-Force-Reidentifikation gegen den User-Key-Raum möglich
+
+    64 Bit reichen für Kamerplanter-Skalen (max. ~100k User über 10 Jahre,
+    Geburtstagsparadox-Kollision ~2^32 Tombstones nicht erreichbar). Salt
+    MUSS pro Instanz einzigartig in einem Secret abgelegt sein
+    (NFR-011 §4 ERASURE_TOMBSTONE_SALT, Pflicht-Setting).
+
+    Raises:
+        ValueError: Wenn salt leer ist oder kürzer als 32 Zeichen
+            (Mindestentropie für sichere Pseudonymisierung).
+    """
+    if not salt or len(salt) < 32:
+        raise ValueError(
+            "ERASURE_TOMBSTONE_SALT muss mindestens 32 Zeichen lang sein "
+            "(siehe NFR-011 §4)."
+        )
+    h = hashlib.sha256((user_key + salt).encode("utf-8")).hexdigest()
+    return f"anon_{h[:16]}"
+```
+<!-- /Quelle: Widerspruchsanalyse W-002 -->
 
 **`ConsentEngine`** — Einwilligungsmanagement (pure Logik):
 
@@ -387,6 +538,70 @@ class ConsentEngine:
             errors.append(f"Einwilligung für '{purpose.label_de}' ist erforderlich und kann nicht widerrufen werden.")
         return errors
 ```
+
+<!-- Quelle: ADR-002 / W-006 -->
+**`SpeciesReferenceResolver`** — Wandelt `species_key`-Referenzen in `species_ref`-Wrapper um (DSGVO Art. 20 Datenübertragbarkeit).
+
+Hintergrund: Plant-Daten enthalten `species_key`-Referenzen. Bei `origin='system'`/`'enrichment'` ist das eine globale Referenz, beim Empfänger auflösbar. Bei `origin='tenant'` ist die Referenz nur im Quell-Tenant gültig. Damit der Export self-contained ist, wird tenant-eigene Species **inline als Snapshot** eingebettet.
+
+```python
+class SpeciesReferenceResolver:
+    """ADR-002: Wandelt species_key in self-contained species_ref-Wrapper um."""
+
+    async def resolve(self, species_key: str) -> dict:
+        """Liefert ein species_ref-Objekt für DSGVO-Export.
+
+        Returns:
+          {
+            "scope": "global" | "tenant",
+            "key": "<species_key>",
+            "snapshot": <embedded_data> | None  // nur bei scope='tenant'
+          }
+        """
+        species = await self.species_repo.get(species_key)
+        if species.origin != "tenant":
+            # Globale Species: nur Referenz, Empfänger kann auflösen
+            return {"scope": "global", "key": species_key, "snapshot": None}
+
+        # Tenant-eigene Species: Inline-Snapshot
+        snapshot = self._build_snapshot(species)
+        return {"scope": "tenant", "key": species_key, "snapshot": snapshot}
+
+    def _build_snapshot(self, species) -> dict:
+        """Kompakter, self-contained Snapshot der tenant-eigenen Species."""
+        return {
+            "scientific_name": species.scientific_name,
+            "common_names": species.common_names,
+            "family": species.family,
+            "genus": species.genus,
+            "origin": species.origin,
+            "parent_species_key": species.parent_species_key,  # KI-Kontext-Hint
+            "growth_phases": species.growth_phases,
+            "care_profile": species.care_profile,
+            "created_at": species.created_at.isoformat(),
+            "_export_note": (
+                "Diese Spezies wurde im Quell-Tenant erstellt und ist nicht "
+                "in der globalen Stammdaten-Datenbank verfügbar. Inline-Snapshot "
+                "für Datenübertragbarkeit (DSGVO Art. 20)."
+            ),
+        }
+```
+
+Aufruf-Pattern im Export-Builder:
+
+```python
+# Export-Wrapper für plant_instances:
+plant_data = {
+    "_key": plant.key,
+    "name": plant.name,
+    "species_ref": await species_resolver.resolve(plant.species_key),  # statt species_key
+    "cultivar_ref": await cultivar_resolver.resolve(plant.cultivar_key) if plant.cultivar_key else None,
+    # ... weitere Felder
+}
+```
+
+Dasselbe Pattern gilt für Cultivar-Referenzen. Der Resolver kann mehrere `species_key`/`cultivar_key`-Auflösungen batch-cachen, um N+1-Queries zu vermeiden.
+<!-- /Quelle: ADR-002 / W-006 -->
 
 ### 3.2 Service-Schicht
 
@@ -624,12 +839,78 @@ async def execute_scheduled_erasures():
         await update_erasure_status(erasure.key, "in_progress")
         try:
             plan = erasure_engine.build_erasure_plan(erasure.user_key, {})
+            # <!-- Quelle: Widerspruchsanalyse W-007 -->
+            # Phase 0: Object-Storage-Cleanup (W-007)
+            # MUSS vor Phase 1 laufen — nutzt attachments-Metadaten in
+            # ArangoDB als Lookup-Quelle (created_by == user_key).
+            storage_adapter = get_storage_adapter()
+            for rule in plan.storage_cleanup:
+                if rule.action == "hard_delete":
+                    deleted_count = await storage_adapter.delete_for_user(
+                        tenant_key=erasure.tenant_key,
+                        user_key=erasure.user_key,
+                        scope=rule.scope,
+                    )
+                    logger.info(
+                        "storage_cleanup_hard_delete",
+                        scope=rule.scope,
+                        user_key=erasure.user_key,
+                        tenant_key=erasure.tenant_key,
+                        deleted=deleted_count,
+                    )
+                elif rule.action == "anonymize_metadata_and_strip_exif":
+                    # 1. ArangoDB-Metadaten anonymisieren (created_by → '_anonymized')
+                    anon_count = await attachment_repo.anonymize_user_metadata(
+                        tenant_key=erasure.tenant_key,
+                        user_key=erasure.user_key,
+                        scope=rule.scope,
+                    )
+                    # 2. EXIF-Strip-Pass für Tenant-Datensätze mit
+                    #    STORAGE_KEEP_EXIF_<category>=true (NFR-013 §6.4).
+                    #    Adapter überspringt Dateien ohne EXIF-Daten oder
+                    #    Tenant-Settings ohne Keep-EXIF.
+                    stripped = await storage_adapter.strip_exif_for_user(
+                        tenant_key=erasure.tenant_key,
+                        user_key=erasure.user_key,
+                        scope=rule.scope,
+                    )
+                    logger.info(
+                        "storage_cleanup_anonymize",
+                        scope=rule.scope,
+                        user_key=erasure.user_key,
+                        tenant_key=erasure.tenant_key,
+                        metadata_anonymized=anon_count,
+                        exif_stripped=stripped,
+                    )
+            # <!-- /Quelle: Widerspruchsanalyse W-007 -->
             # Phase 1: Edges löschen
             for edge_collection in plan.edge_deletions:
                 await delete_user_edges(edge_collection, erasure.user_key)
             # Phase 2: Documents löschen
             for doc_collection in plan.doc_deletions:
                 await delete_user_docs(doc_collection, erasure.user_key)
+            # <!-- Quelle: Widerspruchsanalyse W-002 -->
+            # Phase 2.5: Audit-Log-Pseudonymisierung (W-002)
+            # user_key in Aufbewahrungspflichtigen Audit-Logs durch Tombstone
+            # ersetzen, BEVOR Phase 3 den User selbst löscht.
+            tombstone = compute_tombstone_hash(
+                erasure.user_key, settings.erasure_tombstone_salt
+            )
+            for rule in plan.pseudonymize_audit:
+                affected = await replace_user_field(
+                    collection=rule.collection,
+                    old_user_key=erasure.user_key,
+                    new_value=tombstone,
+                    field=rule.user_field,
+                )
+                logger.info(
+                    "audit_log_pseudonymized",
+                    collection=rule.collection,
+                    field=rule.user_field,
+                    affected_rows=affected,
+                    tombstone=tombstone,  # Hash ist nicht personenbezogen
+                )
+            # <!-- /Quelle: Widerspruchsanalyse W-002 -->
             # Phase 3: User löschen
             await hard_delete_user(erasure.user_key)
 
@@ -637,6 +918,8 @@ async def execute_scheduled_erasures():
                 "status": "completed",
                 "completed_at": now,
                 "deleted_collections": plan.delete,
+                "pseudonymized_collections": [r.collection for r in plan.pseudonymize_audit],  # W-002
+                "storage_cleanup_scopes": [r.scope for r in plan.storage_cleanup],  # W-007
             })
         except Exception as e:
             await update_erasure(erasure.key, {
@@ -842,6 +1125,16 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-15 | Datenschutzrichtlinie ist ohne Authentifizierung abrufbar | 13/14 | Integration |
 | AK-16 | Celery-Task process_data_export erstellt korrekte JSON-Datei | 15/20 | Integration |
 | AK-17 | Celery-Task execute_scheduled_erasures löscht fällige Accounts endgültig | 17 | Integration |
+<!-- Quelle: Widerspruchsanalyse W-002 -->
+| AK-PD-01 | **Audit-Pseudonymisierung:** Nach Abschluss eines Erasure-Requests MUSS in jeder Collection aus `PSEUDONYMIZE_AUDIT_COLLECTIONS` (aktuell: `erasure_requests`) der `user_key`-Wert durch einen Tombstone-Hash im Format `anon_<16hex>` ersetzt sein. Der Original-`user_key` darf nicht mehr in der Collection auffindbar sein. | 5(1)(e) | Integration |
+| AK-PD-02 | **Tombstone-Determinismus & Salt-Schutz:** `compute_tombstone_hash(user_key, salt)` erzeugt für gleiche Eingaben denselben Hash; ohne Kenntnis von `ERASURE_TOMBSTONE_SALT` ist eine Reidentifikation aus dem Hash nicht möglich. Bei `salt=""` oder `len(salt) < 32` MUSS `ValueError` geworfen werden. | 5(1)(e) | Unit |
+<!-- /Quelle: Widerspruchsanalyse W-002 -->
+<!-- Quelle: Widerspruchsanalyse W-007 -->
+| AK-OS-01 | **Storage-Cleanup `user_personal`:** Nach Abschluss eines Erasure-Requests sind alle Anhaenge mit `created_by == user_key` UND `category in {profile, user_notes}` aus dem Object Storage HART GELÖSCHT (`storage_adapter.delete_for_user(scope='user_personal')`). Anschließendes `head_object(key)` MUSS HTTP 404 liefern. | 17 | E2E |
+| AK-OS-02 | **Storage-Anonymisierung `user_diary_attachments`:** Nach Abschluss eines Erasure-Requests haben alle Anhaenge mit `created_by == user_key` UND `category in {diary, inspection, treatment, harvest}` das ArangoDB-Metadatum `created_by = '_anonymized'`. Die S3-Datei selbst bleibt erhalten und behält ihren ursprünglichen Pfad (`t/{tenant}/{entity_type}/{entity_key}/{filename}`). | 17 | Integration |
+| AK-OS-03 | **EXIF-Strip-Pass:** Wenn der Tenant für eine Kategorie `STORAGE_KEEP_EXIF_<category>=true` gesetzt hat, MUSS bei der Erasure ein `storage_adapter.strip_exif_for_user()`-Aufruf alle EXIF-Daten (GPS, Kamera-Seriennummer, Aufnahmezeit) aus den verbleibenden Diary-Fotos des Users entfernen. Bilder ohne EXIF und Tenants ohne Keep-EXIF werden nicht modifiziert. | 17, NFR-013 §6.4 | Integration |
+| AK-OS-04 | **Phase-Reihenfolge:** Im Celery-Task `execute_scheduled_erasures` läuft Phase 0 (Storage-Cleanup) VOR Phase 1 (Edges). Wenn Phase 0 fehlschlägt, MUSS der Erasure-Status auf `partially_completed` gesetzt werden — kein Phase-1-Aufruf. | — | Unit |
+<!-- /Quelle: Widerspruchsanalyse W-007 -->
 
 ### Frontend-Kriterien:
 
