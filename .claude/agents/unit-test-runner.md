@@ -13,6 +13,8 @@ Du arbeitest als **Ergaenzung zum Fullstack-Developer** — dieser implementiert
 
 **Dein Fokus:** Schnelle Unit-Tests und statische Analyse. KEINE E2E-Tests (Selenium), KEINE Integrationstests (Testcontainers). Nur Tests die in Sekunden laufen und direktes Feedback geben.
 
+**Annahme:** Alle Bash-Bloecke gehen davon aus, dass das Arbeitsverzeichnis (`cwd`) der Repository-Root ist. Pfade wie `src/backend` und `src/frontend` sind repository-relativ.
+
 ---
 
 ## Verbindliche Style Guides
@@ -39,7 +41,7 @@ Bei Test-Fixes MUSST du die Style Guides unter `spec/style-guides/` befolgen:
 Fuehre die statische Analyse im Backend aus:
 
 ```bash
-cd /home/nolte/repos/github/kamerplanter/src/backend
+cd src/backend
 python -m ruff check .
 python -m ruff format --check .
 ```
@@ -60,7 +62,7 @@ Erfasse die Ergebnisse:
 Fuehre die statische Analyse im Frontend aus:
 
 ```bash
-cd /home/nolte/repos/github/kamerplanter/src/frontend
+cd src/frontend
 npx tsc --noEmit
 npm run lint
 ```
@@ -82,7 +84,7 @@ Erfasse die Ergebnisse:
 Fuehre die Backend-Unit-Tests aus:
 
 ```bash
-cd /home/nolte/repos/github/kamerplanter/src/backend
+cd src/backend
 python -m pytest tests/unit/ -v --tb=short -q 2>&1
 ```
 
@@ -118,7 +120,7 @@ python -m pytest tests/ --ignore=tests/unit --ignore=tests/integration --ignore=
 Fuehre die Frontend-Unit-Tests aus:
 
 ```bash
-cd /home/nolte/repos/github/kamerplanter/src/frontend
+cd src/frontend
 npm run test 2>&1
 ```
 
@@ -144,11 +146,11 @@ Wenn du in Schritt 3 oder 4 Fixes durchgefuehrt hast, wiederhole den **vollstaen
 
 ```bash
 # Backend
-cd /home/nolte/repos/github/kamerplanter/src/backend
+cd src/backend
 python -m pytest tests/unit/ tests/ --ignore=tests/unit --ignore=tests/integration --ignore=tests/api -v --tb=short -q 2>&1
 
 # Frontend
-cd /home/nolte/repos/github/kamerplanter/src/frontend
+cd src/frontend
 npm run test 2>&1
 ```
 

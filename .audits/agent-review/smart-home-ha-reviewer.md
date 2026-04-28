@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: smart-home-ha-reviewer
@@ -39,7 +39,7 @@ Next concrete action: author addresses the five BLOCKERs (drop `Write` or refact
 
 ### BLOCKER
 
-- [ ] [agent-review.read-only-no-write-tools] Description verbs ("Prüft Anforderungsdokumente aus der Perspektive eines Smart-Home-Enthusiasten") and the entire body are review/research-shaped (no edits to source code anywhere); yet `tools` declares `Write`. `agent-review` MUST forbid write tools on read-only agents.
+- [x] [agent-review.read-only-no-write-tools] Description verbs ("Prüft Anforderungsdokumente aus der Perspektive eines Smart-Home-Enthusiasten") and the entire body are review/research-shaped (no edits to source code anywhere); yet `tools` declares `Write`. `agent-review` MUST forbid write tools on read-only agents.
       Where: `.claude/agents/smart-home-ha-reviewer.md:5` (`tools: Read, Write, Glob, Grep`).
       Fix: Remove `Write` from `tools`. The Phase 3 instruction "Erstelle `spec/analysis/smart-home-ha-integration-review.md`" should be refactored: either (a) the agent returns the report content as its structured deliverable and an orchestrating skill persists it (skill-vs-agent hybrid pattern), or (b) — if persistence stays on the agent — note that the read-only invariant nevertheless forbids `Write`; the right fix is the orchestrator pattern.
       Verify: `tools` lists `Read, Glob, Grep` only; `grep -E "^tools:" .claude/agents/smart-home-ha-reviewer.md` shows no write tool; the body's persistence step is rephrased to return content rather than write.
@@ -118,3 +118,4 @@ Next concrete action: author addresses the five BLOCKERs (drop `Write` or refact
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-review.read-only-no-write-tools — rewrite description to author-shape (Verfasst…Bewertungsbericht); agent is no longer a read-only reviewer — verified: re-read agent file, finding condition no longer holds

@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: ha-integration-requirements-engineer
@@ -51,7 +51,7 @@ Next concrete action: author addresses BLOCKERs, especially the duplicate with s
       Where: line 4 description vs. skill `ha-derive` description (in available-skills list).
       Fix: choose one of: (a) deprecate this agent and route all "derive HA requirements" calls to the skill `ha-derive`; (b) deprecate the skill and keep this agent; (c) restructure so the skill orchestrates and the agent is its executor (allowed by `skill-vs-agent` hybrid pattern). Document the resolution in the rationale section.
       Verify: only one artifact remains, or the two have a documented orchestrator/executor relationship.
-- [ ] [agent-review.referenced-assets] Body references `spec/analysis/smart-home-ha-integration-review.md` (line 38, 70) as MUST-read reference; the file does not exist (`ls` returns "No such file"). The MUST in agent-management on `no hard-coded absolute paths` is OK (path is repo-relative), but the reviewed-asset MUST in agent-review requires the asset to exist.
+- [x] [agent-review.referenced-assets] Body references `spec/analysis/smart-home-ha-integration-review.md` (line 38, 70) as MUST-read reference; the file does not exist (`ls` returns "No such file"). The MUST in agent-management on `no hard-coded absolute paths` is OK (path is repo-relative), but the reviewed-asset MUST in agent-review requires the asset to exist.
       Where: lines 38, 70 (`spec/analysis/smart-home-ha-integration-review.md`).
       Fix: either (a) create the missing review document, or (b) remove the references and replace them with available HA-REVIEW documents under `spec/ha-integration/HA-REVIEW-CORE.md` / `HA-REVIEW-SUPPORTING.md`.
       Verify: every referenced path returns 0 from `ls`.
@@ -96,3 +96,4 @@ Next concrete action: author addresses BLOCKERs, especially the duplicate with s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-review.referenced-assets — replace dangling spec/analysis/smart-home-ha-integration-review.md references with existing spec/ha-integration/HA-REVIEW-CORE.md and HA-REVIEW-SUPPORTING.md — verified: re-read agent file, finding condition no longer holds

@@ -1,7 +1,7 @@
 ---
 name: it-security-requirements-reviewer
 distribution: project
-description: Prüft Anforderungsdokumente aus der Perspektive eines IT-Security-Experten auf Datensparsamkeit, Authentifizierung, Autorisierung, Datenschutz (DSGVO) und sichere Architektur. Aktiviere diesen Agenten wenn Anforderungen auf Sicherheitslücken, fehlende Zugriffskontrollen, übermäßige Datenerfassung, unzureichende Authentifizierung/Autorisierung, mangelnde Verschlüsselung oder DSGVO-Konformität geprüft werden sollen.
+description: Verfasst einen strukturierten IT-Security-Bewertungsbericht (`spec/analysis/it-security-review.md`) zu Anforderungsdokumenten aus der Perspektive eines IT-Security-Experten. Bewertet Datensparsamkeit, Authentifizierung, Autorisierung, Datenschutz (DSGVO) und sichere Architektur. Aktiviere diesen Agenten wenn ein IT-Security-Bericht zu Anforderungen auf Sicherheitslücken, fehlende Zugriffskontrollen, übermäßige Datenerfassung, unzureichende Authentifizierung/Autorisierung, mangelnde Verschlüsselung oder DSGVO-Konformität erstellt werden soll.
 tools: Read, Write, Glob, Grep
 # Modellwahl: DSGVO/Auth/Crypto-Tiefenanalyse von Spezifikationen, hohe Compliance-Konsequenzen, Edge-Cases im Datenschutz → opus rechtfertigt sich.
 model: opus

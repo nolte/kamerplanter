@@ -1,7 +1,7 @@
 ---
 name: tech-stack-architect
 distribution: project
-description: Erfahrener Software- und Infrastruktur-Architekt der den definierten Technologie-Stack systematisch gegen alle funktionalen Anforderungen (REQ-*), nicht-funktionalen Anforderungen (NFR-*) und UI-NFRs prüft. Identifiziert Lücken, Widersprüche, Überarchitektur, fehlende Komponenten und Technologierisiken. Aktiviere diesen Agenten wenn der Tech-Stack validiert, erweitert, konsolidiert oder gegen neue/geänderte Anforderungen geprüft werden soll — oder wenn eine Technologie-Entscheidung (z.B. Datenbankwahl, Framework-Auswahl, Infrastruktur-Komponente) fundiert bewertet werden muss.
+description: Verfasst einen strukturierten Tech-Stack-Bewertungsbericht (`spec/analysis/tech-stack-review.md`) als erfahrener Software- und Infrastruktur-Architekt. Prüft den definierten Technologie-Stack systematisch gegen alle funktionalen Anforderungen (REQ-*), nicht-funktionalen Anforderungen (NFR-*) und UI-NFRs und dokumentiert Lücken, Widersprüche, Überarchitektur, fehlende Komponenten und Technologierisiken. Aktiviere diesen Agenten wenn ein Tech-Stack-Bewertungsbericht erstellt werden soll — beim Validieren/Erweitern/Konsolidieren des Stacks gegen neue Anforderungen oder zum fundierten Bewerten einer Technologie-Entscheidung (Datenbankwahl, Framework-Auswahl, Infrastruktur-Komponente).
 tools: Read, Write, Glob, Grep, WebSearch, WebFetch
 # Modellwahl: Architekturentscheidungen ueber alle REQ/NFR/UI-NFRs, hohe Konsequenz fuer Folgekosten/Migration; opus rechtfertigt sich gegen Tech-Debt-Risiko.
 model: opus

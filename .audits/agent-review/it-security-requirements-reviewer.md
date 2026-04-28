@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: it-security-requirements-reviewer
@@ -39,7 +39,7 @@ Next concrete action: resolve the `Write`-tool conflict (either drop `Write` and
 
 ### BLOCKER
 
-- [ ] [agent-review.read-only-no-write] The agent is described as a reviewer ("Prüft Anforderungsdokumente") — a read-only role per `agent-review` Review-procedure — yet declares `Write` in `tools` to emit `spec/analysis/it-security-review.md`; the spec marks the presence of `Write` in a read-only agent's `tools` list as a `BLOCKER`.
+- [x] [agent-review.read-only-no-write] The agent is described as a reviewer ("Prüft Anforderungsdokumente") — a read-only role per `agent-review` Review-procedure — yet declares `Write` in `tools` to emit `spec/analysis/it-security-review.md`; the spec marks the presence of `Write` in a read-only agent's `tools` list as a `BLOCKER`.
       Where: `.claude/agents/it-security-requirements-reviewer.md:4` (read-only description) vs. line 5 (`tools: Read, Write, Glob, Grep`).
       Fix: pick one of two paths and document it: (a) drop `Write` and have the agent emit the structured report inline so the parent conversation persists it, matching the read-only contract; or (b) keep `Write` and revise the description to characterize the agent as a *report-producing* security analyst (not "Prüft" but "Verfasst Sicherheitsbewertungsbericht…") so the read-only classification no longer applies — and add an English note in the body explaining why `Write` is needed.
       Verify: either `Write` is absent from `tools`, or the description and body explicitly classify the agent as report-producing with the `Write` target documented.
@@ -98,3 +98,4 @@ Next concrete action: resolve the `Write`-tool conflict (either drop `Write` and
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-review.read-only-no-write — rewrite description to author-shape (Verfasst…Bewertungsbericht); agent is no longer a read-only reviewer — verified: re-read agent file, finding condition no longer holds

@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: code-security-reviewer
@@ -39,7 +39,7 @@ Next concrete action: declare `Write` in `tools`, translate frontmatter and body
 
 ### BLOCKER
 
-- [ ] [agent-management.tools-used-not-declared] The agent body instructs "Erstelle `spec/analysis/code-security-review.md`" — that requires the `Write` tool, but `Write` is not declared in the frontmatter `tools` list, so the agent will fail to produce its primary deliverable.
+- [x] [agent-management.tools-used-not-declared] The agent body instructs "Erstelle `spec/analysis/code-security-review.md`" — that requires the `Write` tool, but `Write` is not declared in the frontmatter `tools` list, so the agent will fail to produce its primary deliverable.
       Where: `.claude/agents/code-security-reviewer.md:5` (tools `Read, Edit, Bash, Glob, Grep`) vs. line 376 (Phase 4: "Erstelle `spec/analysis/code-security-review.md`").
       Fix: add `Write` to the `tools` list (final shape: `Read, Write, Edit, Bash, Glob, Grep`) so file creation is permitted.
       Verify: frontmatter `tools` line includes `Write`; the agent can be dispatched and create a new file in `spec/analysis/`.
@@ -98,3 +98,4 @@ Next concrete action: declare `Write` in `tools`, translate frontmatter and body
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-management.tools-used-not-declared — add Write to tools list (Read, Write, Edit, Bash, Glob, Grep) — verified: re-read agent file, finding condition no longer holds

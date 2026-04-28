@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: outdoor-garden-planner-reviewer
@@ -49,7 +49,7 @@ Next concrete action: rewrite system prompt in English, add rationale section, a
       Fix: add a short rationale section naming at least one decisive dimension — likely "specialization" (sharp persona system prompt) and "context-window protection" (heavy spec reads).
       Verify: a paragraph or bulleted list explicitly stating the skill-vs-agent dimensions exists in the body.
 
-- [ ] [agent-review.Checks-derived-from-agent-management.MUST-readonly-tools] Agent self-describes as "Reviewer" (read-only role: review, audit, report) but declares `Write` in `tools`, which the agent-only invariants reject for read-only agents.
+- [x] [agent-review.Checks-derived-from-agent-management.MUST-readonly-tools] Agent self-describes as "Reviewer" (read-only role: review, audit, report) but declares `Write` in `tools`, which the agent-only invariants reject for read-only agents.
       Where: `.claude/agents/outdoor-garden-planner-reviewer.md:5` (`tools: Read, Write, Glob, Grep`) vs `:1` `name: outdoor-garden-planner-reviewer` and `:4` description "Prüft Anforderungsdokumente".
       Fix: drop `Write` from tools and let the calling skill or main thread persist the report; or, if file writing is genuinely required, rewrite the role as authoring rather than reviewing.
       Verify: `tools` list matches the read-only role; or role explicitly authorizes writes with target paths declared.
@@ -103,3 +103,4 @@ Next concrete action: rewrite system prompt in English, add rationale section, a
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-review.Checks-derived-from-agent-management.MUST-readonly-tools — rewrite description to author-shape (Verfasst…Bewertungsbericht); agent is no longer a read-only reviewer — verified: re-read agent file, finding condition no longer holds

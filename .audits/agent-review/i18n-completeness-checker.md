@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: i18n-completeness-checker
@@ -47,7 +47,7 @@ Next concrete action: author addresses BLOCKERs (English body, rationale, Bash s
       Where: full body.
       Fix: add a 2–4-bullet rationale section (e.g., context-window protection — large JSON + code traversal; tool restriction — read-only; specialization not strong but parallelism + report shape favor agent).
       Verify: grep for "rationale" returns the new section.
-- [ ] [agent-management.tools-scope-readonly] Body explicitly states "Du aenderst KEINE Dateien. Du erstellst nur einen Report als Text-Ausgabe" (line 12) — agent is read-only by stated responsibility — yet `Bash` is declared in `tools` (line 5). The agent-review read-only invariant rejects write/edit/execution tools on read-only agents; `Bash` is execution. The MUST in agent-review treats Edit/Write/Bash/NotebookEdit on a read-only agent as a BLOCKER.
+- [x] [agent-management.tools-scope-readonly] Body explicitly states "Du aenderst KEINE Dateien. Du erstellst nur einen Report als Text-Ausgabe" (line 12) — agent is read-only by stated responsibility — yet `Bash` is declared in `tools` (line 5). The agent-review read-only invariant rejects write/edit/execution tools on read-only agents; `Bash` is execution. The MUST in agent-review treats Edit/Write/Bash/NotebookEdit on a read-only agent as a BLOCKER.
       Where: line 5 (`tools: Read, Glob, Grep, Bash`) vs. line 12 (read-only declaration).
       Fix: remove `Bash` from `tools` unless a concrete read-only Bash use is documented in the body (e.g., `git ls-files`); none is shown. Restrict to `Read, Glob, Grep`.
       Verify: `tools` line excludes `Bash`; agent body works without it.
@@ -84,3 +84,4 @@ Next concrete action: author addresses BLOCKERs (English body, rationale, Bash s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-management.tools-scope-readonly — remove Bash from tools list (read-only role; no Bash usage in body) — verified: re-read agent file, finding condition no longer holds

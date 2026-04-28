@@ -13,7 +13,7 @@ specs-applied:
     revision: "0e3b6f9"
 repo-revision: "c558f311"
 created: "2026-04-27"
-status: open
+status: in-progress
 ---
 
 # Agent Review: unit-test-runner
@@ -54,7 +54,7 @@ Next concrete action: author addresses the four BLOCKERs (translate body, add ra
       Fix: Add an "Output contract" section near the top stating: (a) what the parent receives (a structured chat report — no files written, see write-effects finding below), (b) the report's required tables (statische Analyse, Unit-Tests, Durchgefuehrte Fixes, Offene Findings, Merge-Bereitschaft), (c) explicit go/no-go statement at the bottom (`MERGE-BEREIT` / `NICHT MERGE-BEREIT`).
       Verify: A "Output contract" section exists near the top; reading it tells a parent caller the deliverable shape.
 
-- [ ] [agent-management.no-hard-coded-absolute-paths] Body contains hard-coded absolute paths like `/home/nolte/repos/github/kamerplanter/src/backend` in five `cd` commands; per `agent-management.runtime-location` the agent MUST NOT assume a particular absolute install location and per `agent-review` no hard-coded absolute paths in body or sibling assets is a MUST.
+- [x] [agent-management.no-hard-coded-absolute-paths] Body contains hard-coded absolute paths like `/home/nolte/repos/github/kamerplanter/src/backend` in five `cd` commands; per `agent-management.runtime-location` the agent MUST NOT assume a particular absolute install location and per `agent-review` no hard-coded absolute paths in body or sibling assets is a MUST.
       Where: `.claude/agents/unit-test-runner.md:42-43, 64-65, 86, 92, 147-148, 152` (every `cd /home/nolte/...` block).
       Fix: Replace absolute paths with paths relative to the repository root (e.g. `cd src/backend`) and document the assumption that the parent invokes the agent with `cwd` at the repo root. Alternatively, parameterize via `${REPO_ROOT}` and state in the body that the orchestrator sets it.
       Verify: `grep "/home/nolte" .claude/agents/unit-test-runner.md` returns zero matches; bash blocks use repo-relative paths.
@@ -108,3 +108,4 @@ Next concrete action: author addresses the four BLOCKERs (translate body, add ra
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — agent-management.no-hard-coded-absolute-paths — replace 6 hard-coded /home/nolte/... paths with repo-relative paths and add cwd-assumption note — verified: re-read agent file, finding condition no longer holds
