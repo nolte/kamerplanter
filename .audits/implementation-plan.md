@@ -1,10 +1,11 @@
 ---
 audit-type: implementation-plan
 target-repo: kamerplanter
-based-on: .audits/req-coverage-audit.md, .audits/execution-roadmap.md
+based-on: .audits/req-coverage-audit.md, .audits/execution-roadmap.md, .audits/phase-0-drift-findings.md
 plans-considered: 32
 created: 2026-04-28
-status: draft
+updated: 2026-04-28 (Phase 0 abgeschlossen, Sprint 1B reklassifiziert)
+status: phase-0-done
 ---
 
 # Implementierungsplan — Abarbeitung der 32 offenen Plans
@@ -35,20 +36,24 @@ Die Roadmap startet mit Sprint 1A (Compliance). Inhaltlich richtig, aber zwei pr
 
 ## Ausführungs-Phasen
 
-### Phase 0 — Drift-Truthing (1–2 Tage)
+### Phase 0 — Drift-Truthing — ABGESCHLOSSEN (2026-04-28)
 
-| Plan | Vermutung | Aktion |
-|---|---|---|
-| REQ-013 (v2.0 → v2.3) | Backend hinkt | Spec-Diff lesen, Code prüfen, MEMORY-Update oder Sync-PR |
-| REQ-014 (v1.4 → v1.6) | Backend hinkt | dito |
-| REQ-015 (v1.1 → v1.6) | Backend hinkt | dito |
-| REQ-022 (v2.3 → v2.5) | Backend hinkt | dito |
-| REQ-023 (v1.10 Service Accounts) | Service Accounts fehlen | reklassifizieren als Slice → Sprint 1B |
-| REQ-024 (v1.4 RBAC) | RBAC fehlt | reklassifizieren als Slice → Sprint 1B |
+| Plan | Hypothese | Befund | Aktion |
+|---|---|---|---|
+| REQ-013 (v2.0 → v2.3) | Backend hinkt | DRIFT konfirmiert | Slice in Sprint 1B (2 PRs) |
+| REQ-014 (v1.4 → v1.6) | Backend hinkt | DRIFT (oberflächlich, WateringEvent) | Mini-Sync-PR (~3h) |
+| REQ-015 (v1.1 → v1.6) | Backend hinkt | TEILWEISE — iCal/Feed-Drift | Mini-Sync-PR + Follow-Ups |
+| REQ-022 (v2.3 → v2.5) | Backend hinkt | DRIFT konfirmiert (umfangreich) | Slice in Sprint 1B |
+| REQ-023 (v1.10 Service Accounts) | Service Accounts fehlen | bestätigt | Slice in Sprint 1B (Auth-Trio Schritt 2) |
+| REQ-024 (v1.4 RBAC) | RBAC fehlt | bestätigt | Slice in Sprint 1B (Auth-Trio Schritt 1) |
 
-**Ergebnis**: 4 Plans potentiell auf 100 %, 2 reklassifiziert nach 1B. Index schrumpft auf ~28.
+**Ergebnis**: **0 Plans auf 100 %**, **6 Plans reklassifiziert nach Sprint 1B**.
+Index bleibt bei 32 (statt vermuteter 28). Detail-Befunde:
+[`phase-0-drift-findings.md`](phase-0-drift-findings.md).
 
-**1 Mini-PR**: `chore(audit): drift-truthing for sprint-2 plans`
+**Output**: `expectations.yaml` `memory_status_field`-Strings präzisiert,
+MEMORY.md Drift-Hinweise präzisiert (REQ-013/14/15/22 jeweils mit konkreter
+Item-Liste), Sprint 1B in Phase 2 erweitert.
 
 ### Phase 1 — Compliance (Sprint 1A) parallel zu Quick Wins (Sprint 3) — 1.5 Wochen
 
@@ -66,15 +71,31 @@ Die Roadmap startet mit Sprint 1A (Compliance). Inhaltlich richtig, aber zwei pr
 
 **3 + 6 = 9 PRs**. Track A seriell (Cross-Refs), Track B parallel.
 
-### Phase 2 — Auth-Trio (Sprint 1B) — 1.5 Wochen
+### Phase 2 — Sprint 1B (Auth-Trio + Drift-Sync-Slices) — 2.5–3 Wochen
 
-Eng gekoppelt, **muss seriell** in dieser Reihenfolge:
+Auth-Trio seriell (Foundation-Reihenfolge), Drift-Sync-Slices parallel ab Tag 1.
 
-1. **REQ-024 RBAC Permission-Matrix** (`feat(auth): RBAC permission matrix REQ-024`) — Voraussetzung für 23, 27
+**Track Auth (seriell)**:
+1. **REQ-024 RBAC Permission-Matrix** (`feat(auth): RBAC permission matrix REQ-024`) — Foundation, blockiert 23, 27
 2. **REQ-023 Service Accounts** (`feat(auth): service accounts REQ-023`)
 3. **REQ-027 Light-Modus** (`feat(auth): light-mode platform-tenant REQ-027`)
 
-**3 PRs**.
+**Track Drift-Sync (parallel zu Auth, gestartet Tag 1)**:
+
+| # | Anforderung | PR-Titel | Scope | Dauer |
+|---|---|---|---|---|
+| 4 | REQ-014 WateringEvent | `refactor(watering): align watering-event field names with spec v1.6 REQ-014` | Mini-Sync (Renames) | 3h |
+| 5 | REQ-015 iCal/Feed | `feat(calendar): VALARM, expires_at, PRIORITY/STATUS, HTTP 410 REQ-015` | Mini-Sync | ~75 min |
+| 6 | REQ-013/022 Detach-Snapshot ⊕ Run-Owned-Care | `feat(planting-run,care): detach snapshots + run-membership-guard REQ-013 REQ-022 W-010` | Slice (gekoppelt) | M |
+| 7 | REQ-022 Outdoor + Überwinterung | `feat(care): overwintering profile + outdoor presets REQ-022 v2.5` | Slice | L |
+| 8 | REQ-013 SuccessionPlan | `feat(planting-run): succession-plan model + endpoints REQ-013` | Slice (kann nach Sprint 2 verschoben) | L |
+
+**Auth-Trio + 5 Drift-Slices = 8 PRs in Sprint 1B**. Ohne SuccessionPlan
+(verschoben) = 7 PRs in Sprint 1B.
+
+**Kopplung beachten**: REQ-013 Detach-CareProfile-Snapshot (W-010) und
+REQ-022 Run-Owned-CareProfile gehören in einen gemeinsamen PR (#6) — sonst
+inkonsistente Datenmodell-Mitte.
 
 ### Phase 3 — Strategische Bausteine (Sprint 4) — 1.5 Wochen
 
@@ -111,34 +132,53 @@ REQ-029 → REQ-031 → REQ-035 → REQ-036 → REQ-033 — nur nach Phase 1–3
 - **Pro Sprint**: globaler `python3 .claude/skills/req-coverage-audit/run_audit.py` ohne Args → schreibt neuen `.audits/req-coverage-audit.md` + Plan-Index
 - **Status-Prognose** (aus Roadmap, plus Phase 0 ergänzt):
 
-| Status | Heute | nach Phase 0 | nach Phase 1 | nach Phase 2 | nach Phase 3 |
+| Status | Heute | nach Phase 0 (revidiert) | nach Phase 1 | nach Phase 2 | nach Phase 3 |
 |---|---|---|---|---|---|
-| Implementiert | 40 (57 %) | 44 (63 %) | 50 (71 %) | 53 (76 %) | 56 (80 %) |
-| Plans offen | 32 | 28 | 19 | 16 | 13 |
+| Implementiert | 40 (57 %) | 40 (57 %) | 46 (66 %) | 53 (76 %) | 56 (80 %) |
+| Plans offen | 32 | 32 | 26 | 16 | 13 |
 
-→ **80 % Implementierungsgrad in 5–7 Wochen** ohne KI-Familie und ohne Sprint 5+.
+→ **80 % Implementierungsgrad in 6–8 Wochen** ohne KI-Familie und ohne Sprint 5+.
+
+Die Phase-0-Revision (alle 6 Plans bleiben offen statt 4 schließen) verlängert
+den Gesamtplan um ~1 Woche, da Sprint 1B nun 7–8 PRs statt 3 enthält. Quick-Wins
+in Track Drift-Sync (REQ-014/15) bleiben aber kleinformatig parallel laufbar.
 
 ## Risiken
 
-1. **Drift-Truthing kann eskalieren**: Wenn Backend 4× hinterherhinkt, sind das 4× echte Slice-PRs statt MEMORY-Updates → Phase 0 dehnt sich auf 1–2 Wochen.
-2. **REQ-025 ist groß** (8 Aufgaben, 14 Endpunkte): `/implement REQ-025` als Single-Skill könnte zu groß sein — eventuell aufteilen in 2 PRs (Backend + Frontend separat).
-3. **REQ-024 vs. REQ-023 Reihenfolge**: `require_permission()` aus REQ-024 wird in REQ-023 gebraucht — falls REQ-023 zuerst, gibt es Refactoring-Schulden.
-4. **Sprint 2 Drift-Reklassifikation** kann REQ-023/REQ-024 in Sprint 1B aufblähen, wenn der MEMORY-Status konkrete Code-Lücken aufdeckt.
+1. ~~**Drift-Truthing kann eskalieren**~~ — **eingetreten**: Alle 6 Plans
+   bleiben offen, alle 6 wurden als Sprint-1B-Slices reklassifiziert.
+   Sprint 1B von 3 PRs auf 7–8 PRs erweitert, Gesamtaufwand +1 Woche.
+2. **REQ-025 ist groß** (8 Aufgaben, 14 Endpunkte): `/implement REQ-025` als
+   Single-Skill könnte zu groß sein — eventuell aufteilen in 2 PRs
+   (Backend + Frontend separat).
+3. **REQ-024 vs. REQ-023 Reihenfolge**: `require_permission()` aus REQ-024
+   wird in REQ-023 gebraucht — Reihenfolge in Sprint 1B wird strikt
+   eingehalten (24 → 23 → 27).
+4. **Kopplung REQ-013 ⊕ REQ-022 W-010**: Detach-CareProfile-Snapshot (REQ-013)
+   und Run-Owned-CareProfile (REQ-022) müssen in einem PR ko-implementiert
+   werden, sonst inkonsistente Datenmodell-Mitte. Bei strikter
+   Per-Plan-PR-Strategie aufpassen.
+5. **REQ-014 Renames** brechen Frontend-Konsumenten: `plant_keys` →
+   `slot_keys` und `target_ec` → `target_ec_ms` benötigen entweder
+   Dual-Support-Window oder Frontend-Update im selben PR.
 
 ## Abhängigkeitsgraph (kritischer Pfad)
 
 ```
-Phase 0 (Drift-Truthing)
-  ├── REQ-013/14/15/22 → MEMORY-Update wahrscheinlich
-  └── REQ-023/24 → Reklassifikation in Phase 2
+Phase 0 (Drift-Truthing) — DONE
+  Alle 6 Plans → Sprint 1B reklassifiziert
 
 Phase 1 (Compliance + Quick Wins)
   Track A: REQ-025 ──┬─ NFR-011 (Retention)
                     └─ UI-NFR-013 (Consent)
   Track B: 6 Quick Wins parallel
 
-Phase 2 (Auth-Trio, seriell)
-  REQ-024 (RBAC) ──→ REQ-023 (Service Accounts) ──→ REQ-027 (Light-Modus)
+Phase 2 (Sprint 1B — Auth-Trio + Drift-Sync-Slices)
+  Auth seriell: REQ-024 (RBAC) → REQ-023 (Service Accounts) → REQ-027 (Light)
+  Drift-Sync (parallel): REQ-014 (Mini), REQ-015 (Mini)
+  Gekoppelt: REQ-013 Detach + REQ-022 W-010 (gemeinsamer PR)
+  REQ-022 Outdoor-Slice (eigenständig)
+  REQ-013 SuccessionPlan (optional, Sprint 2)
 
 Phase 3 (Strategische Bausteine)
   REQ-009 + NFR-013 + UI-NFR-012 unabhängig
@@ -146,9 +186,19 @@ Phase 3 (Strategische Bausteine)
 
 ## Empfohlener Start
 
-**Phase 0 jetzt** — Drift-Truthing für REQ-013/14/15/22 parallel via 4 Subagents (jeder liest Spec + Code, meldet "synchron / nicht synchron"). REQ-023/24 reklassifiziert nach Phase 2. Aufwand: 1 Sitzung, ein PR mit MEMORY-Updates oder Sync-Code.
+**Phase 0 abgeschlossen (2026-04-28)**. Detail-Befunde:
+[`phase-0-drift-findings.md`](phase-0-drift-findings.md).
+
+**Nächster Start**: **Phase 1** (Compliance-Track A: REQ-025 + NFR-011 + UI-NFR-013)
+parallel zu **Phase 1 Track B** (6 Quick-Win-E2E-Tests). Die zwei kleinsten
+Drift-Sync-PRs aus Sprint 1B (REQ-014 WateringEvent, REQ-015 iCal/Feed) können
+zusätzlich als Side-Track ausgeführt werden, da sie disjunkte Skills brauchen.
 
 ## Status
 
-Initialer Plan-Entwurf. Wird mit jedem Sprint-Closing aktualisiert (Audit-Re-Run schiebt
-abgearbeitete Plans aus dem Index, dieser Plan zeigt nur Phase-Fortschritt + Risiken).
+- 2026-04-28: Initialer Plan-Entwurf verfasst.
+- 2026-04-28: Phase 0 abgeschlossen — alle 6 Drift-Truthing-Plans als Slices
+  reklassifiziert; Sprint 1B von 3 PRs auf 7–8 PRs erweitert.
+
+Wird mit jedem Sprint-Closing aktualisiert (Audit-Re-Run schiebt abgearbeitete
+Plans aus dem Index, dieser Plan zeigt nur Phase-Fortschritt + Risiken).

@@ -8,8 +8,8 @@ coverage_score: n/a
 status: idee
 priority: none
 effort: S
-created: 2026-04-27
-audit_run: 1546aab6
+created: 2026-04-28
+audit_run: c878c23a
 ---
 
 # Ausfuehrungsplan: UI-NFR-019 Kiosk-Modus
