@@ -1,0 +1,95 @@
+"""Pure logic for REQ-025 consent management."""
+
+from app.domain.models.privacy import ConsentPurpose, ConsentRecord
+
+
+class ConsentEngine:
+    """Defines processing purposes and validates consent state changes.
+
+    Pure-logic engine. No I/O. The ``PurposeNotFoundError`` style validation
+    here keeps higher-level service code free of literal-string magic.
+    """
+
+    PURPOSES: list[ConsentPurpose] = [
+        ConsentPurpose(
+            key="core_functionality",
+            label_de="Grundfunktionen",
+            label_en="Core functionality",
+            description_de=("Verarbeitung fuer den Betrieb des Systems (Pflanzenverwaltung, Phasensteuerung, etc.)."),
+            description_en=("Processing required to operate the system (plant management, phase control, etc.)."),
+            legal_basis="Art. 6(1)(b) GDPR — performance of contract",
+            required=True,
+        ),
+        ConsentPurpose(
+            key="error_tracking",
+            label_de="Fehler-Tracking (Sentry)",
+            label_en="Error tracking (Sentry)",
+            description_de=("Automatische Erfassung von Fehlern zur Verbesserung der Software-Qualitaet."),
+            description_en=("Automatic error capture to improve software quality."),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key="hibp_check",
+            label_de="Passwort-Sicherheitscheck (HaveIBeenPwned)",
+            label_en="Password security check (HaveIBeenPwned)",
+            description_de=("Pruefung ob Passwort in bekannten Datenlecks vorkommt (k-Anonymity, SHA-1-Praefix)."),
+            description_en=("Check whether password appears in known breaches (k-anonymity, SHA-1 prefix)."),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key="external_enrichment",
+            label_de="Externe Stammdatenanreicherung",
+            label_en="External master-data enrichment",
+            description_de=("Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten."),
+            description_en=("Querying botanical data from GBIF, Perenual and other external services."),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+    ]
+
+    def get_all_purposes(self) -> list[ConsentPurpose]:
+        """Return all known processing purposes."""
+        return list(self.PURPOSES)
+
+    def find_purpose(self, key: str) -> ConsentPurpose | None:
+        """Find a purpose by key, returning ``None`` if unknown."""
+        for purpose in self.PURPOSES:
+            if purpose.key == key:
+                return purpose
+        return None
+
+    def is_known_purpose(self, key: str) -> bool:
+        """Return True if the given purpose is registered."""
+        return self.find_purpose(key) is not None
+
+    def is_processing_allowed(
+        self,
+        purpose_key: str,
+        consent: ConsentRecord | None,
+    ) -> bool:
+        """Decide whether processing for the given purpose is allowed."""
+        purpose = self.find_purpose(purpose_key)
+        if purpose is None:
+            return False
+        if purpose.required:
+            return True
+        if consent is None:
+            return False
+        return consent.granted
+
+    def validate_consent_change(
+        self,
+        purpose_key: str,
+        grant: bool,
+    ) -> list[str]:
+        """Validate a grant/revoke action. Returns list of human-readable errors."""
+        errors: list[str] = []
+        purpose = self.find_purpose(purpose_key)
+        if purpose is None:
+            errors.append(f"Unknown processing purpose: '{purpose_key}'.")
+            return errors
+        if purpose.required and not grant:
+            errors.append(f"Consent for '{purpose.label_en}' is required and cannot be revoked.")
+        return errors

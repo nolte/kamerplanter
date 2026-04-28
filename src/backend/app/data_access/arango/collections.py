@@ -112,6 +112,13 @@ PHASE_DEFINITIONS = "phase_definitions"
 PHASE_SEQUENCES = "phase_sequences"
 PHASE_SEQUENCE_ENTRIES = "phase_sequence_entries"
 
+# REQ-025 Privacy & GDPR
+DATA_EXPORT_REQUESTS = "data_export_requests"
+CONSENT_RECORDS = "consent_records"
+PROCESSING_RESTRICTIONS = "processing_restrictions"
+ERASURE_REQUESTS = "erasure_requests"
+EMAIL_CHANGE_REQUESTS = "email_change_requests"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -188,6 +195,11 @@ DOCUMENT_COLLECTIONS = [
     PHASE_DEFINITIONS,
     PHASE_SEQUENCES,
     PHASE_SEQUENCE_ENTRIES,
+    DATA_EXPORT_REQUESTS,
+    CONSENT_RECORDS,
+    PROCESSING_RESTRICTIONS,
+    ERASURE_REQUESTS,
+    EMAIL_CHANGE_REQUESTS,
 ]
 
 # Edge collections
@@ -325,6 +337,13 @@ SEQ_HAS_ENTRY = "seq_has_entry"
 ENTRY_USES_DEFINITION = "entry_uses_definition"
 HAS_PHASE_SEQUENCE = "has_phase_sequence"
 
+# REQ-025 Privacy edges
+REQUESTED_EXPORT = "requested_export"
+HAS_CONSENT = "has_consent"
+HAS_RESTRICTION = "has_restriction"
+REQUESTED_ERASURE = "requested_erasure"
+REQUESTED_EMAIL_CHANGE = "requested_email_change"
+
 # Watering Schedule edges
 RUN_FOLLOWS_PLAN = "run_follows_plan"
 
@@ -448,6 +467,11 @@ EDGE_COLLECTIONS = [
     SEQ_HAS_ENTRY,
     ENTRY_USES_DEFINITION,
     HAS_PHASE_SEQUENCE,
+    REQUESTED_EXPORT,
+    HAS_CONSENT,
+    HAS_RESTRICTION,
+    REQUESTED_ERASURE,
+    REQUESTED_EMAIL_CHANGE,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1029,6 +1053,32 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SPECIES],
         "to_vertex_collections": [PHASE_SEQUENCES],
     },
+    # REQ-025 Privacy
+    {
+        "edge_collection": REQUESTED_EXPORT,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [DATA_EXPORT_REQUESTS],
+    },
+    {
+        "edge_collection": HAS_CONSENT,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [CONSENT_RECORDS],
+    },
+    {
+        "edge_collection": HAS_RESTRICTION,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [PROCESSING_RESTRICTIONS],
+    },
+    {
+        "edge_collection": REQUESTED_ERASURE,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [ERASURE_REQUESTS],
+    },
+    {
+        "edge_collection": REQUESTED_EMAIL_CHANGE,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [EMAIL_CHANGE_REQUESTS],
+    },
 ]
 
 
@@ -1220,6 +1270,29 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     phase_seq_entries_col = db.collection(PHASE_SEQUENCE_ENTRIES)
     phase_seq_entries_col.add_hash_index(fields=["phase_sequence_key", "sequence_order"], unique=True)
+
+    # REQ-025 Privacy indexes
+    data_export_requests_col = db.collection(DATA_EXPORT_REQUESTS)
+    data_export_requests_col.add_hash_index(fields=["user_key"], unique=False)
+    data_export_requests_col.add_hash_index(fields=["status"], unique=False)
+    data_export_requests_col.add_hash_index(fields=["expires_at"], unique=False)
+
+    consent_records_col = db.collection(CONSENT_RECORDS)
+    consent_records_col.add_hash_index(fields=["user_key", "purpose"], unique=True)
+    consent_records_col.add_hash_index(fields=["user_key"], unique=False)
+
+    processing_restrictions_col = db.collection(PROCESSING_RESTRICTIONS)
+    processing_restrictions_col.add_hash_index(fields=["user_key"], unique=False)
+    processing_restrictions_col.add_hash_index(fields=["user_key", "scope"], unique=True)
+
+    erasure_requests_col = db.collection(ERASURE_REQUESTS)
+    erasure_requests_col.add_hash_index(fields=["user_key"], unique=False)
+    erasure_requests_col.add_hash_index(fields=["status"], unique=False)
+    erasure_requests_col.add_hash_index(fields=["hard_delete_scheduled_at"], unique=False)
+
+    email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
+    email_change_requests_col.add_hash_index(fields=["user_key"], unique=False)
+    email_change_requests_col.add_hash_index(fields=["verification_token_hash"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
