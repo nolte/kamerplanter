@@ -1,8 +1,9 @@
 ---
 name: e2e-result-reviewer
 distribution: project
-description: Analysiert E2E-Selenium-Testergebnisse (Screenshots + Protokolle) visuell und inhaltlich gegen die Spezifikationen (REQ-*, NFR-*, TC-*, UI-NFR-*). Erkennt UI-Abweichungen, fehlende Elemente, Layout-Probleme, i18n-Fehler und Spec-Verletzungen. Gibt priorisierte Handlungshinweise aus. Aktiviere diesen Agenten nach einem E2E-Testlauf wenn die Screenshots und das Protokoll auf Korrektheit, Spec-Konformitaet und Optimierungspotential geprueft werden sollen.
-tools: Read, Glob, Grep, Bash
+description: Analysiert E2E-Selenium-Testergebnisse (Screenshots + Protokolle) visuell und inhaltlich gegen die Spezifikationen (REQ-*, NFR-*, TC-*, UI-NFR-*). Erkennt UI-Abweichungen, fehlende Elemente, Layout-Probleme, i18n-Fehler und Spec-Verletzungen. Gibt priorisierte Handlungshinweise aus. Aktiviere diesen Agenten nach einem E2E-Testlauf wenn die Screenshots und das Protokoll auf Korrektheit, Spec-Konformitaet und Optimierungspotential geprueft werden sollen. Reviewer-Beziehung: Dieser Agent prüft Test-OUTPUTS (Screenshots, Protokolle); für Code-Review der Selenium-Test-Implementierung selbst → `selenium-test-reviewer`; für Test-Generierung → `selenium-test-generator`.
+tools: Read, Glob, Grep
+tags: [review, audit, testing, e2e]
 # Modellwahl: Multimodale Screenshot-Analyse (Selenium-Screenshots + Protokolle visuell gegen REQ/NFR/UI-NFR pruefen) erfordert opus' Bildverarbeitungs-Qualitaet; sonnet/haiku bieten hier zu wenig Vision-Tiefe.
 model: opus
 ---
@@ -36,6 +37,13 @@ Was der parent caller bekommt:
   - Positive Befunde
   - Zusammenfassung
 - **Go/no-go-Statement:** Zusammenfassung endet mit FAIL/PASS-Empfehlung für den Testlauf plus dringendster nächster Schritt.
+
+## Write Effects
+
+- **Writes files:** No. Dieser Agent ist read-only / research-only (siehe auch das Research-only-Statement in der Kernaufgabe oben).
+- **Tool surface:** Nur `Read, Glob, Grep` — kein `Write`, kein `Bash`. Bash wurde aus dem Tool-Set entfernt: der dokumentierte Workflow (Schritte 1-7) nutzt ausschließlich `Glob` (Screenshots/Protokolle finden), `Read` (Bilder + Protokoll-Markdown lesen) und `Grep` (Spec-Stellen suchen). Lint/Test/Diff-Aufrufe sind für ein Result-Review nicht erforderlich.
+- **Persistenz:** Der orchestrierende Skill schreibt den Markdown-Bericht optional nach `spec/analysis/e2e-result-review.md` (Overwrite-Policy: bestehende Datei wird ersetzt; Vorbedingung: Schritte 1-6 abgeschlossen).
+- **Side-effect-Vertrag mit Caller:** Agent gibt Markdown-Bericht-Body als String zurück; Caller-Skill ist für Persistenz verantwortlich.
 
 **Primaere Referenzen:**
 - `spec/nfr/NFR-008a_E2E-Selenium-Teststandard.md` — Verbindliche Test-Konventionen (Screenshot-Benennung, TC-IDs, Protokoll-Format)

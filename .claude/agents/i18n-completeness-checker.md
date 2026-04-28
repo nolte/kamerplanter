@@ -3,6 +3,7 @@ name: i18n-completeness-checker
 distribution: project
 description: Prueft die i18n-Uebersetzungsdateien (DE/EN) auf Vollstaendigkeit, fehlende Keys, verwaiste Keys und Konsistenz. Vergleicht die Translation-JSON-Dateien untereinander und gegen die tatsaechliche Verwendung im Frontend-Code. Aktiviere diesen Agenten wenn Uebersetzungen auf Luecken, fehlende Sprachen, ungenutzte Keys oder inkonsistente Strukturen geprueft werden sollen — z.B. nach Feature-Implementierung, vor einem Release oder als Teil eines Pre-PR-Checks.
 tools: Read, Glob, Grep
+tags: [review, audit, i18n, frontend]
 # Modellwahl: Reine Konsistenzpruefung von DE/EN-JSON-Dateien gegen Code-Verwendung mit klaren Regeln; haiku optimal fuer schnelle Massen-Pruefung.
 model: haiku
 ---
@@ -20,6 +21,16 @@ Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-d
 - **Tool surface**: Read/Glob/Grep — strikt read-only, kein Edit/Write/Bash (das `Bash` aus dem Quick-Win-Iteration entfernt wurde unterstreicht den read-only-checker-Charakter).
 
 **Gegen-Dimension:** Lifecycle haette fuer eine Skill gesprochen, weil der Check oft mehrfach pro Sprint laeuft (nach Feature-Implementierung, vor Release, in PR-Vorbereitung); aufgewogen durch den umfangreichen Glob-Scan ueber das gesamte Frontend (`src/frontend/src/**/*.{ts,tsx}`) — das Volumen rechtfertigt Subagent-Isolation, und der read-only-Charakter macht den Aufruf risikoarm wiederholbar.
+
+**Verhaeltnis zu Skills `pre-pr` / `quality-gate`:** Diese Skills bundeln vollumfaengliche Pre-PR-Checks bzw. Lint/Typecheck/Test-Gates. Dieser Agent deckt einen fokussierten Teilcheck ab (i18n-Vollstaendigkeit DE/EN gegen Frontend-Code) und kann von einem orchestrierenden Skill als Subagent aufgerufen werden — Hybrid-Pattern moeglich, aber keine zwingende Abhaengigkeit. Direkter Aufruf ist zulaessig fuer ad-hoc-Pruefungen.
+
+## Output Shape
+
+Der Agent liefert ausschliesslich einen **Markdown-Report im Chat** (KEIN Datei-Schreiben). Sektionen: 1. Zusammenfassung (Metrik-Tabelle: DE/EN-Keys gesamt, fehlend, verwaist, leer, identisch), 2. Kritisch — Fehlende Uebersetzungen (in DE/nicht in EN; im Code/nicht definiert), 3. Warnung — Verwaiste Keys, 4. Info — Identische DE/EN-Werte, 5. Info — Leere Werte. Sortierung nach Schweregrad. Bei >50 Eintraegen pro Kategorie werden die ersten 20 gezeigt und der Rest als "... und {n} weitere" zusammengefasst. Detail-Format steht in Schritt 5 weiter unten.
+
+## Writes vs Researches
+
+Dieser Agent ist **read-only**. Er aendert KEINE Dateien (siehe Hinweis im Role-Block "Du aenderst KEINE Dateien"). Tool-Set `Read, Glob, Grep` ohne Edit/Write/Bash/NotebookEdit erzwingt diese Eigenschaft. Der einzige Output ist Text im Chat.
 
 ---
 

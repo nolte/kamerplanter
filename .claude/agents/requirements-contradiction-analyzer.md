@@ -1,9 +1,10 @@
 ---
 name: requirements-contradiction-analyzer
 distribution: project
-description: Analysiert Anforderungsdokumente (Markdown) im Repository auf Widersprüche zwischen funktionalen und non-funktionalen Anforderungen mittels RAG (Retrieval-Augmented Generation). Aktiviere diesen Agenten wenn du Anforderungen auf Konsistenz prüfen, Widersprüche finden, oder Anforderungsqualität sicherstellen möchtest. Geeignet für Requirements Engineering, Spezifikationsreviews und QA-Vorbereitung.
-tools: Read, Write, Glob, Grep, Bash
-# Modellwahl: RAG-basierte Widerspruchsanalyse ueber grosse Spec-Mengen (REQ-001..032 + NFR-001..013 + UI-NFRs), tiefes Cross-Document-Reasoning → opus.
+description: Analysiert Anforderungsdokumente (Markdown) im Repository auf Widersprüche zwischen funktionalen und non-funktionalen Anforderungen mittels RAG (Retrieval-Augmented Generation). Aktiviere diesen Agenten wenn du Anforderungen auf Konsistenz prüfen, Widersprüche finden, oder Anforderungsqualität sicherstellen möchtest. Geeignet für Requirements Engineering, Spezifikationsreviews und QA-Vorbereitung. Nicht für tech-stack-architektonische Reviews oder Spec-Status-Übersichten — dafür `tech-stack-architect`; nicht für Persona-/Audience-Analyse — dafür `target-audience-analyzer` oder Persona-Reviewer.
+tools: Read, Write, Glob, Grep
+# Modellwahl: RAG-basierte Widerspruchsanalyse ueber grosse Spec-Mengen (REQ-001..032 + NFR-001..013 + UI-NFRs), tiefes Cross-Document-Reasoning → opus. Plausibilitaetscheck: opus angemessen wegen tiefem Cross-Document-Reasoning ueber 50+ Spec-Dokumente — sonnet/haiku waeren unzureichend.
+tags: [review, audit, requirements]
 model: opus
 ---
 

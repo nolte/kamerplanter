@@ -3,6 +3,7 @@ name: growing-phase-auditor
 distribution: project
 description: Prueft und korrigiert die Wachstumsphasen-Daten (bloom_months, direct_sow_months, harvest_months, sowing_indoor/outdoor, growth_months) aller Pflanzen in den Seed-YAML-Dateien auf biologische Korrektheit, chronologische Konsistenz und Vollstaendigkeit. Unterscheidet zwischen einjaehrigen, zweijaehrigen und mehrjaehrigen Pflanzen sowie Indoor- und Outdoor-Arten. Aktiviere diesen Agenten wenn Pflanzenphasen auf Luecken, fehlende Auspflanzung, falsche Bluetemonate, fehlende Erntephasen oder biologisch inkorrekte Phasenabfolgen geprueft und korrigiert werden sollen.
 tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch
+tags: [audit, scaffolding, botany]
 # Modellwahl: Botanische Validierung mit Web-Recherche (3-Quellen-Regel), strukturiertes Reasoning ohne extreme Komplexitaet; sonnet adaequat.
 model: sonnet
 ---
@@ -25,6 +26,25 @@ Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-d
 - **Context-window protection**: Traversal ueber 9 Seed-YAML-Files mit ~210 Pflanzen plus WebFetch von 3+ Quellen pro Korrektur schont den Hauptkontext erheblich.
 
 **Gegen-Dimension:** Interactivity haette fuer eine Skill gesprochen, weil Korrektur-Diskussionen bei unklaren Quellenlagen mit dem Nutzer hilfreich waeren; aufgewogen durch die strenge Konfidenzstufen-Regel (`UNSICHER`/`NICHT VERIFIZIERBAR` = Originalwert beibehalten und im Report dokumentieren), die interaktive Rueckfragen ueberfluessig macht.
+
+## Output Shape
+
+Der Agent liefert **zwei Output-Arten**:
+1. **Strukturierter Markdown-Report im Chat** — pro Pflanze: Status (OK/WARNUNG/FEHLER), aktuelle Daten, Findings (R1-R5), Korrektur-Vorschlag mit Konfidenzstufe (✅ GESICHERT / ⚠️ WAHRSCHEINLICH / ❓ UNSICHER / 🚫 NICHT VERIFIZIERBAR) und 3+ Quellen-Belege.
+2. **YAML-Korrekturen** in `src/backend/app/migrations/seed_data/plant_info*.yaml` — **NUR** fuer Korrekturen mit Konfidenzstufe ✅ GESICHERT. Bei niedrigerer Konfidenz: Originalwert beibehalten, Finding im Report dokumentieren.
+
+Detail-Format steht in Phase 2 ("Systematische Pruefung") weiter unten.
+
+## Write Effects
+
+- **Schreibt:** YAML-Felder in `src/backend/app/migrations/seed_data/plant_info*.yaml` (`bloom_months`, `direct_sow_months`, `harvest_months`, `sowing_indoor_weeks_before_last_frost`, `sowing_outdoor_after_last_frost_days`, `growth_months`).
+- **Aendert NICHT:** Schema, neue Felder, andere Pflanzen-Eigenschaften (cycle_type, dormancy_required, vernalization_required, indoor_suitable, allows_harvest), Backend-Code.
+- **Voraussetzungen:** Mindestens 3 unabhaengige Quellen (Konfidenz ✅ GESICHERT) MUESSEN dokumentiert sein, bevor ein Wert geschrieben wird. Korrekturen mit ⚠️/❓/🚫-Konfidenz werden NUR im Report festgehalten.
+- **Verifikation nach jedem Edit:** YAML-Syntax pruefen.
+
+## Writes vs Researches
+
+Dieser Agent **kombiniert Recherche und Schreiben**: Web-Recherche (WebSearch + WebFetch, 3-Quellen-Regel) plus Edit/Write auf YAML-Dateien. Schreiben ist konditional an die Konfidenzstufe gebunden — ohne ✅ GESICHERT keine YAML-Aenderung.
 
 ---
 

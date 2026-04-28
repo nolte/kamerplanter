@@ -1,9 +1,10 @@
 ---
 name: selenium-test-reviewer
 distribution: project
-description: Überprüft bestehende Selenium-E2E-Tests auf NFR-008-Konformität, Qualität und Best Practices. Prüft Page-Object-Pattern, Screenshot-Checkpoints, Testprotokoll-Generierung, Kernfunktions-Abdeckung und Browser-Konfiguration. Aktiviere diesen Agenten wenn du existierende Selenium-Tests reviewen, debuggen, reparieren oder optimieren möchtest.
+description: Überprüft bestehende Selenium-E2E-Tests auf NFR-008-Konformität, Qualität und Best Practices. Prüft Page-Object-Pattern, Screenshot-Checkpoints, Testprotokoll-Generierung, Kernfunktions-Abdeckung und Browser-Konfiguration. Aktiviere diesen Agenten wenn du existierende Selenium-Tests reviewen, debuggen, reparieren oder optimieren möchtest. Nicht für initiale Test-Generierung — dafür `selenium-test-generator`; nicht für Pre-PR-Quality-Gate über das ganze Repo — dafür Skill `quality-gate` (Hybrid-Pattern: dieser Agent reviewt + repariert minimal-invasiv, Skill orchestriert Gesamt-Lauf, `unit-test-runner` ist parallele Lauf-und-Fix-Iteration für Unit-Tests).
 tools: Read, Edit, Grep, Glob, Bash
-# Modellwahl: Test-Code-Review gegen NFR-008-Konformitaet; sonnet adaequat fuer strukturierte Findings.
+# Modellwahl: Test-Code-Review gegen NFR-008-Konformitaet; sonnet adaequat fuer strukturierte Findings. Plausibilitaetscheck: sonnet richtige Stufe — opus overkill (kein tiefes Reasoning), haiku unzureichend für NFR-008a-Checklisten + Anti-Pattern-Erkennung.
+tags: [review, audit, testing, e2e]
 model: sonnet
 ---
 

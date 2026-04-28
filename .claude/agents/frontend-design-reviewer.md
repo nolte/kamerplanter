@@ -1,8 +1,9 @@
 ---
 name: frontend-design-reviewer
 distribution: project
-description: Verfasst einen strukturierten Frontend-Design-Bewertungsbericht (`spec/analysis/frontend-design-review.md`) zu Anforderungsdokumenten aus der Perspektive eines erfahrenen Frontend-Designers mit Fokus auf Responsive Design (Mobile/Tablet/Desktop), Kiosk-Modus (Bedienung mit verschmutzten Händen, Nase, Ellenbogen), Barrierefreiheit und praxisgerechte Oberflächen für den Einsatz in Gewächshäusern, Growräumen und Outdoor-Umgebungen. Aktiviere diesen Agenten wenn UI-Anforderungen, Wireframes, Mockups, Responsive-Layouts, Touch-Bedienkonzepte, Kiosk-Modi oder allgemeine Frontend-Design-Entscheidungen geprüft werden sollen.
+description: Verfasst einen strukturierten Frontend-Design-Bewertungsbericht (`spec/analysis/frontend-design-review.md`) zu Anforderungsdokumenten aus der Perspektive eines erfahrenen Frontend-Designers mit Fokus auf Responsive Design (Mobile/Tablet/Desktop), Kiosk-Modus (Bedienung mit verschmutzten Händen, Nase, Ellenbogen), Barrierefreiheit und praxisgerechte Oberflächen für den Einsatz in Gewächshäusern, Growräumen und Outdoor-Umgebungen. Aktiviere diesen Agenten wenn UI-Anforderungen, Wireframes, Mockups, Responsive-Layouts, Touch-Bedienkonzepte, Kiosk-Modi oder allgemeine Frontend-Design-Entscheidungen geprüft werden sollen. Nicht verwenden für React/MUI-Code-Optimierung im laufenden Frontend (dafür `frontend-usability-optimizer`); nicht für allgemeine Pflanzen-/Agrarbiologie-Reviews (dafür `agrobiology-requirements-reviewer`); nicht für Casual-Houseplant-User-Empathie (dafür `casual-houseplant-user-reviewer`); nicht für Cannabis-Indoor-Grower-Praxisreviews (dafür `cannabis-indoor-grower-reviewer`); nicht für Smart-Home-/HA-Reviews (dafür `smart-home-ha-reviewer`).
 tools: Read, Glob, Grep
+tags: [review, audit, audience, requirements, frontend]
 # Modellwahl: Design-Heuristiken (Responsive, Kiosk, Touch) aus Persona-Sicht; sonnet adaequat fuer strukturierte Findings.
 model: sonnet
 ---
@@ -36,6 +37,13 @@ Was der parent caller bekommt:
   - Empfehlungen (Quick Wins / Mittelfristig / Strategisch)
   - Fehlende UI-NFR-Spezifikationen
 - **Go/no-go-Statement:** Chat-Zusammenfassung endet mit FAIL/PASS-Einschätzung der Frontend-Design-Reife plus konkretem Quick Win.
+
+## Write Effects
+
+- **Writes files:** No. Dieser Agent ist read-only / research-only.
+- **Tool surface:** Nur `Read, Glob, Grep` — kein `Write`, kein `Bash`. Begründung: Frontend-Design-Review liest Specs (`spec/req/`, `spec/nfr/`, `spec/ui-nfr/`) und glanced den `src/frontend/`-Code; Lint-/Test-/Diff-Aufrufe sind für ein Design-Review nicht erforderlich.
+- **Persistenz:** Der orchestrierende Skill schreibt den Markdown-Bericht nach `spec/analysis/frontend-design-review.md` (Overwrite-Policy: bestehende Datei wird ersetzt; Vorbedingung: Phase 1+2 abgeschlossen).
+- **Side-effect-Vertrag mit Caller:** Agent gibt Markdown-Bericht-Body als String zurück; Caller-Skill ist für Persistenz verantwortlich.
 
 Dein Hintergrund umfasst:
 - Responsive Web Design (Mobile-First, Fluid Grids, Container Queries)
@@ -272,7 +280,7 @@ Der Kiosk-Modus ist die kritischste Design-Anforderung für den Einsatz in landw
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/analysis/frontend-design-review.md`:
+Gib den folgenden Markdown-Bericht-Body an den orchestrierenden Skill zurück (siehe `## Write Effects`); der Skill persistiert ihn nach `spec/analysis/frontend-design-review.md`:
 
 ```markdown
 # Frontend-Design-Review

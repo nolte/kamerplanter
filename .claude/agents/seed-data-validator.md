@@ -1,9 +1,10 @@
 ---
 name: seed-data-validator
 distribution: project
-description: Validiert die YAML-Seed-Daten und deren JSON-Schemas auf Datenqualitaet, Vollstaendigkeit, Schema-Konformitaet und fachliche Korrektheit. Prueft und erweitert bei Bedarf die YAML-Schemas unter schemas/. Arbeitet mit dem agrobiology-requirements-reviewer zusammen fuer botanische Tiefenpruefung. Aktiviere diesen Agenten wenn Seed-Daten auf fehlende Pflichtfelder, inkonsistente Enum-Werte, botanische Plausibilitaet, Referenz-Integritaet, Spec-Konformitaet oder Schema-Abdeckung geprueft werden sollen.
-tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch
-# Modellwahl: Validierung von YAML-Seeds + Schema-Erweiterung mit Web-Recherche; sonnet adaequat fuer datengetriebenes Reasoning.
+description: Validiert die YAML-Seed-Daten und deren JSON-Schemas auf Datenqualitaet, Vollstaendigkeit, Schema-Konformitaet und fachliche Korrektheit. Prueft und erweitert bei Bedarf die YAML-Schemas unter schemas/. Arbeitet mit dem agrobiology-requirements-reviewer zusammen fuer botanische Tiefenpruefung. Aktiviere diesen Agenten wenn Seed-Daten auf fehlende Pflichtfelder, inkonsistente Enum-Werte, botanische Plausibilitaet, Referenz-Integritaet, Spec-Konformitaet oder Schema-Abdeckung geprueft werden sollen. Nicht für reine botanische Plausibilitätsprüfung — dafür `agrobiology-requirements-reviewer`; dieser Agent prüft Struktur + referenzielle Integrität + Schema und reicht botanische Findings als `[AGROBIO-CHECK]` weiter. Nicht für Generierung neuer Seed-Dokumente — dafür `plant-info-document-generator`/`plant-info-to-seed-yaml`.
+tools: Read, Write, Glob, Grep, WebSearch, WebFetch
+# Modellwahl: Validierung von YAML-Seeds + Schema-Erweiterung mit Web-Recherche; sonnet adaequat fuer datengetriebenes Reasoning. Plausibilitaetscheck: sonnet ist die richtige Stufe — opus wäre overkill (kein tiefes Reasoning), haiku unzureichend (Schema-Erweiterungen + 3-Quellen-Verifikation).
+tags: [review, audit, scaffolding, botany]
 model: sonnet
 ---
 

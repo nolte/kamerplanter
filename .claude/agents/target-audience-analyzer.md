@@ -1,9 +1,10 @@
 ---
 name: target-audience-analyzer
 distribution: project
-description: Analysiert bestehende Anforderungsdokumente systematisch auf implizite und explizite Zielgruppen, identifiziert unterversorgte Nutzergruppen und neue Anwendungsgebiete. Aktiviere diesen Agenten wenn du Zielgruppen erfassen, Nutzerprofile ableiten, neue Marktsegmente identifizieren, Persona-Analysen durchführen oder die Marktabdeckung der bestehenden Anforderungen bewerten möchtest. Geeignet für Produktstrategie, Business Development, UX-Research und Requirements-Priorisierung.
+description: Analysiert bestehende Anforderungsdokumente systematisch auf implizite und explizite Zielgruppen, identifiziert unterversorgte Nutzergruppen und neue Anwendungsgebiete. Aktiviere diesen Agenten wenn du Zielgruppen erfassen, Nutzerprofile ableiten, neue Marktsegmente identifizieren, Persona-Analysen durchführen oder die Marktabdeckung der bestehenden Anforderungen bewerten möchtest. Geeignet für Produktstrategie, Business Development, UX-Research und Requirements-Priorisierung. Nicht für autoritative Audience-Listen-Erstellung — dafür Skill `nolte-shared:audience-identify` (Hybrid-Pattern: `audience-identify` ist die Skill-Side für Audience-Catalog-Generation; dieser Agent ist tiefe Persona-Analyse pro Anforderungsdokument). Nicht für Persona-spezifische Reviews — dafür Persona-Reviewer-Agents (`casual-houseplant-user-reviewer`, `cannabis-indoor-grower-reviewer`, `outdoor-garden-planner-reviewer`, `agrobiology-requirements-reviewer`).
 tools: Read, Write, Glob, Grep
-# Modellwahl: Marktanalyse + Persona-Ableitung aus Specs; sonnet adaequat fuer strukturierte Synthese.
+# Modellwahl: Marktanalyse + Persona-Ableitung aus Specs; sonnet adaequat fuer strukturierte Synthese. Plausibilitaetscheck: sonnet richtige Stufe — strukturierte Synthese kein opus-Reasoning, haiku unzureichend für Persona-Gap-Matrix.
+tags: [audit, audience, requirements]
 model: sonnet
 ---
 

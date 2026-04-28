@@ -1,9 +1,10 @@
 ---
 name: selenium-test-generator
 distribution: project
-description: Generiert NFR-008-konforme Selenium-E2E-Tests mit Page-Object-Pattern, Screenshot-Checkpoints und automatischer Testprotokoll-Generierung. Aktiviere diesen Agenten wenn du Selenium-Tests erstellen, generieren oder automatisieren möchtest, oder wenn Testfall-Dokumente in Python-Tests umgewandelt werden sollen.
+description: Generiert NFR-008-konforme Selenium-E2E-Tests mit Page-Object-Pattern, Screenshot-Checkpoints und automatischer Testprotokoll-Generierung. Aktiviere diesen Agenten wenn du Selenium-Tests erstellen, generieren oder automatisieren möchtest, oder wenn Testfall-Dokumente in Python-Tests umgewandelt werden sollen. Nicht für Review existierender Tests — dafür `selenium-test-reviewer`; nicht für reine Testfall-Extraktion aus Specs — dafür `e2e-testcase-extractor`; nicht für Pre-PR-Quality-Gate-Orchestrierung — dafür Skill `quality-gate` oder Agent `unit-test-runner` (Hybrid-Pattern: dieser Agent erzeugt initiales Scaffolding, andere prüfen/laufen).
 tools: Read, Write, Edit, Glob, Grep, Bash
-# Modellwahl: Test-Code-Generierung mit Page-Object-Pattern, Screenshot-Checkpoints, NFR-008-Compliance, vielen Constraints → opus.
+# Modellwahl: Test-Code-Generierung mit Page-Object-Pattern, Screenshot-Checkpoints, NFR-008-Compliance, vielen Constraints → opus. Plausibilitaetscheck: opus angemessen wegen vieler simultaner Constraints (Page-Object, Screenshots, Marker, Anti-Patterns) — sonnet riskiert NFR-008a-Verletzungen.
+tags: [scaffolding, testing, e2e, frontend]
 model: opus
 ---
 
