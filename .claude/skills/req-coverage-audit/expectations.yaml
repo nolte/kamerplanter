@@ -339,7 +339,7 @@ requirements:
         - { kind: glob, path: "src/frontend/src/test/**/plantInstancesSlice.test.ts", role: frontend_test }
         - { kind: glob, path: "tests/e2e/test_req013_*.py", role: e2e }
     drift:
-      # Phase 0 (2026-04-28): konkrete Drift-Items siehe PHASE-0-DRIFT-FINDINGS.md
+      # Phase 0 (2026-04-28): konkrete Drift-Items siehe .audits/phase-0-drift-findings.md
       memory_status_field: "REQ-013 v2.3 spec, Backend v2.0 — DRIFT (W-003 Run-Membership-Guard, W-009 Treatment-Snapshot, W-010 CareProfile-Snapshot, SuccessionPlan)"
       cross_refs: [REQ-001, REQ-003, REQ-006, REQ-007, REQ-022]
 
