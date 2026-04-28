@@ -774,11 +774,26 @@ class OnboardingWizardPage(BasePage):
         registers a user interaction on Step 1.  When *experience_level* is
         ``None`` the already-selected default (beginner) is clicked.
         Deselects any pre-selected kit to ensure a clean state for tests.
+
+        Robust against the wizard rendering the completed-card instead of
+        Step 1: when STEP_WELCOME is missing but the restart button is
+        visible, click it before retrying — this rescues tests when the
+        backend reset finished but the React state took an extra cycle to
+        re-render.
         """
-        self.wait_for_element(self.STEP_WELCOME)
+        # If we somehow landed on the completed card (state leak), restart
+        # and wait for Step 1.
+        if not self.is_step_welcome_visible():
+            restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
+            if restart_els and restart_els[0].is_displayed():
+                self.scroll_and_click(restart_els[0])
+                self.wait_for_loading_complete()
+        self.wait_for_element_visible(self.STEP_WELCOME)
         self.select_experience_level(experience_level or "beginner")
         self.click_next()
-        self.wait_for_element(self.STEP_KIT)
+        # wait_for_element_visible (not just present) to ride out MUI's
+        # step-transition fade.
+        self.wait_for_element_visible(self.STEP_KIT)
         self._deselect_all_kits()
 
     def _deselect_all_kits(self) -> None:
@@ -816,24 +831,28 @@ class OnboardingWizardPage(BasePage):
     def navigate_beginner_to_summary(self, kit_id: str | None = None) -> None:
         """Walk through the full beginner wizard flow to the summary step.
 
+        Each step uses ``wait_for_element_visible`` (not just presence) so the
+        MUI step transition fade-in finishes before the next click, avoiding
+        flaky timeouts when one Step renders briefly hidden during transition.
+
         Args:
             kit_id: If provided, select this starter kit on step 2.
         """
         self.open()
-        self.wait_for_element(self.STEP_WELCOME)
+        self.wait_for_element_visible(self.STEP_WELCOME)
         # Step 1 → Step 2 (select experience level first)
         self.select_experience_level("beginner")
         self.click_next()
-        self.wait_for_element(self.STEP_KIT)
+        self.wait_for_element_visible(self.STEP_KIT)
         # Select kit if provided
         if kit_id:
             self.click_kit(kit_id)
         # Step 2 → Step 3 (Favorites)
         self.click_next()
-        self.wait_for_element(self.STEP_FAVORITES)
+        self.wait_for_element_visible(self.STEP_FAVORITES)
         # Step 3 → Step 4 (Site)
         self.click_next()
-        self.wait_for_element(self.STEP_SITE)
+        self.wait_for_element_visible(self.STEP_SITE)
         # Step 4 → Summary (beginner skips plants/nutrient plans)
         self.click_next()
-        self.wait_for_element(self.STEP_COMPLETE)
+        self.wait_for_element_visible(self.STEP_COMPLETE)

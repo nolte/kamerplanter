@@ -39,31 +39,89 @@ import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .pages.onboarding_wizard_page import OnboardingWizardPage
+# Per-worker user isolation in LightAuthProvider (X-E2E-Worker-Id header)
+# now guarantees that each xdist worker has its own backend onboarding
+# state, so REQ-020 tests no longer need to be pinned to a single worker.
+# The previous ``xdist_group("req020_onboarding")`` mark was a workaround
+# and has been removed.
 
-# Pin all REQ-020 tests to a single xdist worker.  Both REQ-020 test files
-# write to the *shared* light-mode onboarding state of the system-user, so
-# parallel execution causes cross-worker contamination (one worker's
-# wizard.click_skip() flips ``skipped=True`` for another worker's in-flight
-# test, which then renders the "Du hast die Einrichtung bereits abgeschlossen"
-# card mid-flow).  Effective when xdist runs with --dist=loadgroup.
-pytestmark = pytest.mark.xdist_group("req020_onboarding")
+from .pages.onboarding_wizard_page import OnboardingWizardPage
 
 
 # -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
-def reset_onboarding_state(e2e_seed_data: dict, base_url: str) -> None:
+def reset_onboarding_state(
+    e2e_seed_data: dict,
+    base_url: str,
+    browser: WebDriver,
+) -> None:
     """Reset onboarding to 'not started' before each wizard test.
 
-    The e2e_seed_data fixture skips onboarding so the browser lands on /dashboard.
-    Wizard tests need a fresh state to see the wizard stepper instead of the
-    'already completed' card.
+    Three-stage reset hardened against the cross-test-pollution we observed
+    in the parallel xdist runs:
+
+    1. **Backend reset** via ``POST /onboarding/reset`` — clears
+       ``completed``, ``skipped``, ``wizard_step``, ``selected_kit_id``,
+       ``plant_configs`` etc.
+    2. **Verify** that ``GET /onboarding/state`` reports a clean state.
+       Without this, a parallel test could overwrite the state between the
+       reset and the browser load.
+    3. **Browser unmount** by navigating to ``about:blank`` so the
+       OnboardingWizard component is destroyed and its in-memory React
+       state (Redux ``onboardingState``, ``activeStep``, …) is discarded.
+       The next ``wizard.open()`` then triggers a fresh mount that fetches
+       the verified clean backend state.
     """
+    import json
+    import urllib.error
+    import urllib.request
+
     from .conftest import _e2e_api_post
 
-    _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+    status, _ = _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+    if status != 200:
+        pytest.fail(
+            f"reset_onboarding_state: /onboarding/reset returned {status} "
+            f"(expected 200). The wizard cannot start from a clean state."
+        )
+
+    # Stage 2: verify the state is actually clean.  In parallel runs another
+    # worker could overwrite the state between our POST and the read; if
+    # that happens we retry once.
+    token = e2e_seed_data.get("access_token")
+    slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+    state_url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/onboarding/state"
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    def _is_clean() -> bool:
+        try:
+            req = urllib.request.Request(state_url, headers=headers, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            return (
+                data.get("completed") is False
+                and data.get("skipped") is False
+                and (data.get("wizard_step") or 0) == 0
+            )
+        except Exception:
+            return False
+
+    if not _is_clean():
+        # One retry — another worker may have raced us
+        _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+
+    # Stage 3: unmount the OnboardingWizard component by leaving the page
+    # entirely.  Cannot use ``about:blank`` because session cookies are
+    # scoped to the app origin; ``/dashboard`` works because it is a sibling
+    # route and component-tree-disjoint from the wizard.
+    try:
+        browser.get(f"{base_url.rstrip('/')}/dashboard")
+    except Exception:
+        pass
 
 
 @pytest.fixture

@@ -20,28 +20,71 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.onboarding_wizard_page import OnboardingWizardPage
 
-# Pin all REQ-020 tests to a single xdist worker — see
-# test_req020_onboarding_wizard.py for the rationale (shared light-mode
-# system-user onboarding state is written by skip/restart actions across
-# workers).  Effective when xdist runs with --dist=loadgroup.
-pytestmark = pytest.mark.xdist_group("req020_onboarding")
+# Per-worker user isolation makes the previous xdist_group pin obsolete.
 
 
 # -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
-def reset_onboarding_state(request: pytest.FixtureRequest, e2e_seed_data: dict, base_url: str) -> None:
+def reset_onboarding_state(
+    request: pytest.FixtureRequest,
+    e2e_seed_data: dict,
+    base_url: str,
+    browser: WebDriver,
+) -> None:
     """Reset onboarding before tests that need a fresh wizard.
 
     TestCompletedSkippedCard is excluded — it needs the completed state and
     manages its own setup.
+
+    Three-stage reset (mirrors test_req020_onboarding_wizard.py):
+    1. Backend POST /onboarding/reset
+    2. Verify GET /onboarding/state reports clean state, retry on race
+    3. Browser unmount via navigation to /dashboard so the next
+       wizard.open() triggers a fresh component mount + state fetch.
     """
     if request.node.cls is TestCompletedSkippedCard:
         return
+    import json
+    import urllib.request
+
     from .conftest import _e2e_api_post
 
-    _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+    status, _ = _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+    if status != 200:
+        pytest.fail(
+            f"reset_onboarding_state: /onboarding/reset returned {status} "
+            f"(expected 200). The wizard cannot start from a clean state."
+        )
+
+    token = e2e_seed_data.get("access_token")
+    slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+    state_url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/onboarding/state"
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    def _is_clean() -> bool:
+        try:
+            req = urllib.request.Request(state_url, headers=headers, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            return (
+                data.get("completed") is False
+                and data.get("skipped") is False
+                and (data.get("wizard_step") or 0) == 0
+            )
+        except Exception:
+            return False
+
+    if not _is_clean():
+        _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+
+    try:
+        browser.get(f"{base_url.rstrip('/')}/dashboard")
+    except Exception:
+        pass
 
 
 @pytest.fixture

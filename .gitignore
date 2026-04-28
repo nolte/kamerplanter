@@ -32,6 +32,9 @@ helm/kamerplanter/charts/
 # Skaffold
 .skaffold/
 
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
+
 # MkDocs build output
 site/
 

@@ -402,7 +402,9 @@ def get_auth_provider():
     if settings.kamerplanter_mode == "light":
         from app.domain.engines.light_auth_provider import LightAuthProvider
 
-        return LightAuthProvider(get_user_repo())
+        # Pass the DB so the provider can auto-provision per-worker E2E
+        # users when the request carries an ``X-E2E-Worker-Id`` header.
+        return LightAuthProvider(get_user_repo(), db=get_db())
     from app.domain.engines.full_auth_provider import FullAuthProvider
 
     return FullAuthProvider(get_token_engine(), get_user_repo(), get_auth_service())

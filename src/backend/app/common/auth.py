@@ -13,18 +13,26 @@ from app.domain.services.tenant_service import TenantService
 
 def get_current_user(
     authorization: str | None = Header(default=None),
+    x_e2e_worker_id: str | None = Header(default=None),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User:
-    """Extract and validate user from Bearer token, API key, or system user."""
-    return auth_provider.resolve_user(authorization)
+    """Extract and validate user from Bearer token, API key, or system user.
+
+    The ``X-E2E-Worker-Id`` header is honored only by the LightAuthProvider
+    and routes the request to a dedicated per-worker user (auto-provisioned
+    on first sight) so parallel E2E test workers cannot pollute each
+    other's backend state.  Production traffic ignores the header.
+    """
+    return auth_provider.resolve_user(authorization, worker_id=x_e2e_worker_id)
 
 
 def get_current_user_optional(
     authorization: str | None = Header(default=None),
+    x_e2e_worker_id: str | None = Header(default=None),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User | None:
     """Extract user from Bearer token, or return None if no token."""
-    return auth_provider.resolve_user_optional(authorization)
+    return auth_provider.resolve_user_optional(authorization, worker_id=x_e2e_worker_id)
 
 
 def get_refresh_token_from_cookie(

@@ -500,7 +500,11 @@ class TestHarvestCreateDialog:
         except Exception:
             pytest.skip("No plants available -- cannot test batch creation")
 
-        harvest_list.fill_batch_id("ERNTE-2026-E2E")
+        # Use a unique batch ID per run — a hard-coded constant collides
+        # with records persisted from earlier sessions (E2E DB is not wiped).
+        import time as _t
+        unique_batch_id = f"ERNTE-2026-E2E-{int(_t.time() * 1000) % 1_000_000}"
+        harvest_list.fill_batch_id(unique_batch_id)
         screenshot(
             "TC-REQ-007-029_custom-batch-id",
             "Create form with custom batch ID",

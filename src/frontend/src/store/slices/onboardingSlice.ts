@@ -65,28 +65,41 @@ export const fetchExistingSites = createAsyncThunk(
 
 export const completeOnboarding = createAsyncThunk(
   'onboarding/complete',
-  async (payload: {
-    kit_id?: string;
-    experience_level?: ExperienceLevel;
-    site_name?: string;
-    selected_site_key?: string;
-    plant_count?: number;
-    plant_configs?: PlantConfig[];
-    has_ro_system?: boolean;
-    tap_water_ec_ms?: number;
-    tap_water_ph?: number;
-    favorite_species_keys?: string[];
-    favorite_nutrient_plan_keys?: string[];
-    smart_home_enabled?: boolean;
-  }) => {
-    return onboardingApi.complete(payload);
+  async (
+    payload: {
+      kit_id?: string;
+      experience_level?: ExperienceLevel;
+      site_name?: string;
+      selected_site_key?: string;
+      plant_count?: number;
+      plant_configs?: PlantConfig[];
+      has_ro_system?: boolean;
+      tap_water_ec_ms?: number;
+      tap_water_ph?: number;
+      favorite_species_keys?: string[];
+      favorite_nutrient_plan_keys?: string[];
+      smart_home_enabled?: boolean;
+    },
+    { dispatch },
+  ) => {
+    const result = await onboardingApi.complete(payload);
+    // Re-sync state from backend so the completed flag never goes stale.
+    // Without this, a leaked completion thunk that resolves after a reset
+    // would push completed=true into Redux even though the backend has
+    // already been reset to completed=false.
+    await dispatch(fetchOnboardingState());
+    return result;
   },
 );
 
 export const skipOnboarding = createAsyncThunk(
   'onboarding/skip',
-  async () => {
-    return onboardingApi.skip();
+  async (_: void, { dispatch }) => {
+    const result = await onboardingApi.skip();
+    // Same re-sync guard as completeOnboarding — defends against leaked
+    // thunks resolving after the wizard state has been reset elsewhere.
+    await dispatch(fetchOnboardingState());
+    return result;
   },
 );
 
@@ -206,15 +219,21 @@ const onboardingSlice = createSlice({
         state.loading = false;
         state.error = action.error.message ?? 'Failed to load starter kits';
       })
-      // Complete
-      .addCase(completeOnboarding.fulfilled, (state) => {
-        if (state.state) {
-          state.state.completed = true;
-        }
+      // Complete — no-op: completeOnboarding already dispatches
+      // fetchOnboardingState which authoritatively syncs state.state.
+      // Manually setting state.completed=true here would race with leaked
+      // thunks resolving after a wizard reset (a real concern in E2E test
+      // suites where the autouse reset_onboarding_state fixture clears
+      // backend state between tests, but pending complete thunks can still
+      // resolve and re-flip the Redux flag mid-flow).
+      .addCase(completeOnboarding.fulfilled, () => {
+        // intentionally empty — state already refreshed via fetchOnboardingState
       })
-      // Skip
-      .addCase(skipOnboarding.fulfilled, (state, action) => {
-        state.state = action.payload;
+      // Skip — same rationale as Complete: state.state is refreshed by the
+      // chained fetchOnboardingState dispatch inside the thunk, so the
+      // payload here would only re-introduce the race window.
+      .addCase(skipOnboarding.fulfilled, () => {
+        // intentionally empty — state already refreshed via fetchOnboardingState
       })
       // Reset
       .addCase(resetOnboarding.fulfilled, (state, action) => {

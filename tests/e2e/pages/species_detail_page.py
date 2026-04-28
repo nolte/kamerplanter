@@ -23,7 +23,9 @@ class SpeciesDetailPage(BasePage):
     # Cultivar tab locators
     CULTIVAR_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     CULTIVAR_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    # UI audit replaced legacy create-dialog testid with component-specific
+    # ones.  Match any open MUI Dialog instead — robust across renames.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
 
     # Lifecycle tab locators
     LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -246,10 +248,11 @@ class SpeciesDetailPage(BasePage):
                 self.set_field(field, value)
 
     def submit_phase_form(self) -> None:
-        # Target the submit button inside the create-dialog (GrowthPhaseDialog)
-        # to avoid hitting the lifecycle config form's submit button
+        # Target the submit button inside the open dialog (GrowthPhaseDialog)
+        # to avoid hitting the lifecycle config form's submit button.  The
+        # generic role='dialog' is stable across UI-audit renames.
         self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='create-dialog'] [data-testid='form-submit-button']")
+            (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-submit-button']")
         ).click()
 
     def click_phase_row(self, index: int) -> None:

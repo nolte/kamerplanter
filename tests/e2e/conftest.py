@@ -201,16 +201,36 @@ DEMO_PASSWORD = "demo-passwort-2024"
 DEMO_DISPLAY_NAME = "Mein Garten"
 
 
-def _api_helpers(auth_token: str | None = None):
-    """Return (post, get) helper functions with optional Bearer auth."""
+def _e2e_worker_id() -> str:
+    """Return a stable, ArangoDB-key-safe worker id for the running pytest-xdist
+    worker (or ``main`` when xdist is not active).
+
+    The id is sent as ``X-E2E-Worker-Id`` so that the backend's
+    ``LightAuthProvider`` routes the request to a per-worker user, isolating
+    parallel test workers from each other's onboarding/preferences/plant
+    state.
+    """
+    return os.environ.get("PYTEST_XDIST_WORKER", "main")
+
+
+def _api_helpers(auth_token: str | None = None, worker_id: str | None = None):
+    """Return (post, get) helper functions with optional Bearer auth.
+
+    Always emits the ``X-E2E-Worker-Id`` header (even from session-scope
+    fixtures) so backend per-worker isolation kicks in.
+    """
     import json
     import urllib.request
     import urllib.error
+
+    wid = worker_id if worker_id is not None else _e2e_worker_id()
 
     def _headers() -> dict[str, str]:
         h: dict[str, str] = {"Content-Type": "application/json"}
         if auth_token:
             h["Authorization"] = f"Bearer {auth_token}"
+        if wid:
+            h["X-E2E-Worker-Id"] = wid
         return h
 
     def _post(url: str, data: dict) -> tuple[int, dict]:
@@ -279,12 +299,19 @@ def _register_and_login(api_base: str) -> tuple[str, str]:
 def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     """Create seed data (Site + Location) via backend API for E2E tests.
 
-    Runs once per session.
-    - Light mode: uses the system tenant slug 'mein-garten' (no auth needed).
-    - Full mode: registers demo user, logs in to get JWT, discovers tenant slug.
+    Runs once per pytest-xdist worker.
+
+    - Light mode: each worker gets its own per-worker tenant
+      ``mein-garten-<worker_id>`` (auto-provisioned by the backend's
+      LightAuthProvider when ``X-E2E-Worker-Id`` is present), giving
+      complete state isolation between parallel workers.
+    - Full mode: registers demo user, logs in to get JWT, discovers
+      tenant slug.
     """
     api_base = base_url.rstrip("/")
     result: dict = {}
+    worker_id = _e2e_worker_id()
+    result["worker_id"] = worker_id
 
     # In full mode, register + login to get auth token and tenant slug
     if app_mode == "full":
@@ -293,7 +320,12 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
         result["tenant_slug"] = tenant_slug
         _post, _get = _api_helpers(token)
     else:
-        tenant_slug = "mein-garten"
+        # Match the slug LightAuthProvider._provision_worker_user assigns
+        # when it sees X-E2E-Worker-Id.  ``main`` (no xdist) uses the
+        # original system tenant.
+        tenant_slug = (
+            f"mein-garten-{worker_id}" if worker_id != "main" else "mein-garten"
+        )
         result["tenant_slug"] = tenant_slug
         _post, _get = _api_helpers()
 
@@ -514,6 +546,48 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
             # the correct dimensions, just without touch/UA emulation.
             pass
 
+    # ── X-E2E-Worker-Id on every browser-issued request ────────────────
+    # Mirrors what _api_helpers sends from the pytest process so the
+    # backend's LightAuthProvider routes browser traffic to the same
+    # per-worker user as our session-fixture API calls.  Done via CDP
+    # so SPAs (fetch/XHR/router-driven loads) all carry the header.
+    worker_id = _e2e_worker_id()
+    try:
+        driver.execute_cdp_cmd("Network.enable", {})
+        driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
+            "headers": {"X-E2E-Worker-Id": worker_id},
+        })
+    except Exception:
+        # Firefox / older Selenium Grids without CDP — falls back to a
+        # request-interceptor injected from the page itself (best-effort).
+        try:
+            driver.execute_script(
+                "(function(wid){"
+                "  var origFetch = window.fetch;"
+                "  if (origFetch) {"
+                "    window.fetch = function(input, init) {"
+                "      init = init || {};"
+                "      init.headers = new Headers(init.headers || {});"
+                "      init.headers.set('X-E2E-Worker-Id', wid);"
+                "      return origFetch(input, init);"
+                "    };"
+                "  }"
+                "  var XO = XMLHttpRequest.prototype.open;"
+                "  XMLHttpRequest.prototype.open = function() {"
+                "    var xhr = this;"
+                "    var origSend = xhr.send;"
+                "    xhr.send = function() {"
+                "      try { xhr.setRequestHeader('X-E2E-Worker-Id', wid); } catch (e) {}"
+                "      return origSend.apply(xhr, arguments);"
+                "    };"
+                "    return XO.apply(xhr, arguments);"
+                "  };"
+                "})(arguments[0]);",
+                worker_id,
+            )
+        except Exception:
+            pass
+
     # Export browser + device name for the protocol plugin metadata
     os.environ["E2E_BROWSER"] = browser_name
     os.environ["E2E_DEVICE"] = dev["name"]
@@ -697,24 +771,22 @@ def screenshot(
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item) -> None:
-    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4).
+    """Attach the test report to the item node + capture failure diagnostics.
 
-    Also record results for the protocol generator and capture failure
-    diagnostics across all phases (setup/call/teardown).
+    Diagnostics: on every failed phase (setup/call/teardown), persist a
+    postmortem markdown file under ``diagnostics/`` next to ``screenshots/``.
+    Each file contains URL, page title, last 8 KB of page_source, browser
+    console errors, taken screenshots and the traceback excerpt — enough to
+    reconstruct what the page looked like at the moment of failure without
+    re-running the test.
     """
     outcome = yield
     report = outcome.get_result()
 
-    # ── Failure diagnostics across ALL phases ─────────────────────────
-    # Catches setup-phase crashes (e.g. autouse-fixture failures) that the
-    # screenshot fixture's post-test capture would otherwise miss because
-    # ``call`` was never reached.  Without this, REQ-020 wizard tests can
-    # crash inside ``reset_onboarding_state`` or ``_ensure_step_one`` with
-    # zero artefacts on disk.
     if report.failed:
         try:
             _capture_failure_diagnostics(item, report)
-        except Exception as exc:  # noqa: BLE001 — diagnostics must never break the run
+        except Exception as exc:  # noqa: BLE001
             print(f"[diagnostics] capture failed for {item.nodeid}: {exc}")
 
     if report.when == "call":
@@ -744,35 +816,10 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             # Incremental checkpoint — append to JSONL so partial results
             # survive interrupts (Ctrl+C, crash, timeout).
             _write_checkpoint(result)
-    elif report.when == "setup" and report.failed and _protocol_generator is not None:
-        # Surface setup-phase failures in the protocol/checkpoint as well
-        # so REQ-020 crashes are no longer invisible to the report.
-        message = str(report.longrepr) if report.longrepr else ""
-        docstring = ""
-        if item.obj and item.obj.__doc__:
-            docstring = item.obj.__doc__.strip().split("\n")[0]
-        screenshots = getattr(item, "_protocol_screenshots", [])
-        result = TestResult(
-            nodeid=item.nodeid,
-            outcome="failed",
-            duration=report.duration,
-            message=f"[SETUP FAILURE] {message}",
-            docstring=docstring,
-            screenshots=screenshots,
-        )
-        _protocol_generator.add_result(result)
-        _write_checkpoint(result)
 
 
 def _capture_failure_diagnostics(item: pytest.Item, report) -> None:
-    """Persist a postmortem bundle for a failed test phase.
-
-    Writes ``diagnostics/<test_name>__<phase>.md`` with URL, title, the last
-    8 KB of page_source, browser console errors and a full-page screenshot
-    next to it (``FAILURE_<test_name>__<phase>.png``).  Fully defensive —
-    each driver call is isolated so a dead Selenium session still leaves a
-    stub diagnostics file behind.
-    """
+    """Persist a postmortem bundle for a failed test phase."""
     import json
 
     funcargs = getattr(item, "funcargs", {}) or {}
@@ -801,25 +848,21 @@ def _capture_failure_diagnostics(item: pytest.Item, report) -> None:
             diag["current_url"] = driver.current_url
         except Exception as exc:  # noqa: BLE001
             diag["current_url"] = f"<unreachable: {exc!r}>"
-
         try:
             diag["title"] = driver.title
         except Exception as exc:  # noqa: BLE001
             diag["title"] = f"<unreachable: {exc!r}>"
-
         screenshot_path = Path(screenshot_dir) / f"{base}.png"
         try:
             _cdp_full_page_screenshot(driver, screenshot_path)
             diag["screenshot"] = screenshot_path.name
         except Exception as exc:  # noqa: BLE001
             diag["screenshot"] = f"<failed: {exc!r}>"
-
         try:
             source = driver.page_source or ""
             diag["page_source_tail"] = source[-8192:]
         except Exception as exc:  # noqa: BLE001
             diag["page_source_tail"] = f"<unreachable: {exc!r}>"
-
         try:
             console = driver.get_log("browser")
             errors = [e for e in console if e.get("level") in ("SEVERE", "WARNING")]
@@ -827,7 +870,7 @@ def _capture_failure_diagnostics(item: pytest.Item, report) -> None:
         except Exception as exc:  # noqa: BLE001
             diag["console_errors"] = f"<not available: {exc!r}>"
     else:
-        diag["browser"] = "<not instantiated — failure happened before the browser fixture ran>"
+        diag["browser"] = "<not instantiated>"
 
     checkpoints = getattr(item, "_protocol_screenshots", [])
     diag["checkpoints_before_failure"] = (
@@ -854,16 +897,11 @@ def _capture_failure_diagnostics(item: pytest.Item, report) -> None:
         f.write(f"- **Checkpoints before failure:** {diag['checkpoints_before_failure']}\n")
         if "browser" in diag:
             f.write(f"- **Browser:** {diag['browser']}\n")
-        f.write("\n## Console errors (last 30, severe/warning)\n\n")
-        f.write("```json\n")
+        f.write("\n## Console errors (last 30, severe/warning)\n\n```json\n")
         f.write(diag.get("console_errors", "<none>"))
-        f.write("\n```\n\n")
-        f.write("## page_source (last 8 KB)\n\n")
-        f.write("```html\n")
+        f.write("\n```\n\n## page_source (last 8 KB)\n\n```html\n")
         f.write(diag.get("page_source_tail", "<unavailable>"))
-        f.write("\n```\n\n")
-        f.write("## Traceback excerpt (last 4 KB)\n\n")
-        f.write("```\n")
+        f.write("\n```\n\n## Traceback excerpt (last 4 KB)\n\n```\n")
         f.write(diag["traceback_excerpt"])
         f.write("\n```\n")
 

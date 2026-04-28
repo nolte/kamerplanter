@@ -45,7 +45,7 @@ class TaskQueuePage(BasePage):
     # ── Task sections (urgency groups) ─────────────────────────────────
     TASK_SECTION_OVERDUE = (By.CSS_SELECTOR, "[data-testid='task-section-overdue']")
     TASK_SECTION_TODAY = (By.CSS_SELECTOR, "[data-testid='task-section-today']")
-    TASK_SECTION_WEEK = (By.CSS_SELECTOR, "[data-testid='task-section-week']")
+    TASK_SECTION_WEEK = (By.CSS_SELECTOR, "[data-testid='task-section-thisWeek']")
     TASK_SECTION_FUTURE = (By.CSS_SELECTOR, "[data-testid='task-section-future']")
 
     # ── Create dialog (MUI Dialog) ─────────────────────────────────────
@@ -143,7 +143,7 @@ class TaskQueuePage(BasePage):
         for name, locator in [
             ("overdue", self.TASK_SECTION_OVERDUE),
             ("today", self.TASK_SECTION_TODAY),
-            ("week", self.TASK_SECTION_WEEK),
+            ("thisWeek", self.TASK_SECTION_WEEK),
             ("future", self.TASK_SECTION_FUTURE),
         ]:
             if self.driver.find_elements(*locator):

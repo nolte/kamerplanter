@@ -288,9 +288,10 @@ class ExpertiseLevelPage(BasePage):
         """Open the SpeciesCreateDialog from the species list page."""
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
-        # SpeciesCreateDialog has data-testid='create-dialog'
+        # UI audit replaced create-dialog testid with species-create-dialog;
+        # match any open MUI Dialog for stability.
         self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+            (By.CSS_SELECTOR, "div[role='dialog']")
         )
 
     def open_planting_run_create_dialog(self) -> None:

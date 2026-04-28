@@ -77,7 +77,6 @@ export default function OnboardingWizard() {
   const {
     state: onboardingState,
     kits,
-    loading,
     favoriteSpeciesKeys,
     favoriteNutrientPlanKeys,
     matchingNutrientPlans,
@@ -106,9 +105,33 @@ export default function OnboardingWizard() {
   // Track whether the user has manually changed the site name
   const siteNameManuallyChanged = useRef(false);
 
+  // Render-gating: do not show the wizard *or* the completed-card until the
+  // initial backend fetch is finished.  Without this, a stale Redux state
+  // from a previous session would flash the completed-card on mount before
+  // ``fetchOnboardingState`` overwrites it with the fresh value.  Critical
+  // for E2E test stability — see Plan F1.
+  const [hasInitialFetch, setHasInitialFetch] = useState(false);
+
   useEffect(() => {
-    dispatch(fetchOnboardingState());
+    // Guard against calling setState after unmount (e.g. fast navigation away
+    // or E2E test teardown that unmounts before the fetch resolves).
+    let isMounted = true;
+
+    dispatch(fetchOnboardingState())
+      .unwrap()
+      .catch(() => {
+        // Error is already routed through state.error and the global
+        // ErrorBoundary; we still flip the gate so the user is not stuck
+        // on a skeleton forever.
+      })
+      .finally(() => {
+        if (isMounted) setHasInitialFetch(true);
+      });
     dispatch(fetchStarterKits(activeTenant ? { useTenant: true } : undefined));
+
+    return () => {
+      isMounted = false;
+    };
   }, [dispatch, activeTenant]);
 
   // Resume progress from saved state on mount
@@ -412,7 +435,13 @@ export default function OnboardingWizard() {
     }
   }, [activeStep, wizardSteps]);
 
-  if (loading && !onboardingState) return <LoadingSkeleton variant="card" />;
+  // Render-gate: hold until the backend has answered.  Prevents the
+  // completed-card from flashing when a stale Redux state survived from a
+  // previous session (E2E test isolation; see Plan F1).
+  // The second condition (loading && !onboardingState) is intentionally
+  // omitted: after fetchOnboardingState resolves, Redux sets loading=false
+  // before the .finally() callback fires, so that branch is dead code.
+  if (!hasInitialFetch) return <LoadingSkeleton variant="card" />;
 
   // Show completed card instead of auto-redirect
   if (onboardingState?.completed || onboardingState?.skipped) {
@@ -546,7 +575,14 @@ export default function OnboardingWizard() {
   const isLastStep = activeStep === wizardSteps.length - 1;
 
   return (
-    <Box data-testid="onboarding-wizard" sx={{ maxWidth: 960, mx: 'auto', p: { xs: 1.5, sm: 2 } }}>
+    // aria-live="polite" announces the transition from the LoadingSkeleton
+    // gate to the actual wizard content to screen readers (UI-NFR-002 R-011).
+    <Box
+      data-testid="onboarding-wizard"
+      aria-live="polite"
+      aria-atomic="false"
+      sx={{ maxWidth: 960, mx: 'auto', p: { xs: 1.5, sm: 2 } }}
+    >
       <PageTitle title={t('pages.onboarding.title')} />
 
       {/* Desktop stepper — hidden on mobile to save vertical space */}

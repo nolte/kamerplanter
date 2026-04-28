@@ -20,7 +20,13 @@ class FullAuthProvider(IAuthProvider):
         self._user_repo = user_repo
         self._auth_service = auth_service
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(
+        self,
+        authorization: str | None,
+        worker_id: str | None = None,
+    ) -> User:
+        # Full mode ignores worker_id — JWT/API key drive identity.
+        del worker_id
         if not authorization or not authorization.startswith("Bearer "):
             raise UnauthorizedError("Missing or invalid authorization header.")
 
@@ -43,7 +49,12 @@ class FullAuthProvider(IAuthProvider):
 
         return user
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(
+        self,
+        authorization: str | None,
+        worker_id: str | None = None,
+    ) -> User | None:
+        del worker_id
         if not authorization or not authorization.startswith("Bearer "):
             return None
 

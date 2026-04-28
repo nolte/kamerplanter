@@ -175,14 +175,50 @@ class BasePage:
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
 
-        Uses JavaScript to clear the field value and dispatch native input/change
-        events so that React controlled components pick up the change.  After
-        the JS clear, verifies the field is actually empty — if React restored
-        the old value, falls back to Ctrl+A to select all before typing so
-        the new value replaces whatever is in the field.
+        Robust against React-controlled inputs that restore defaults from
+        state and against MUI inputs where ``Ctrl+A`` is intercepted by the
+        component (e.g. number-fields with stepper buttons).
+
+        Strategy:
+
+        1. **Focus** the element (click → JS focus fallback).
+        2. **Per-character backspace from end**: ``End`` then ``Backspace``
+           N times where N is the current value length.  More deterministic
+           than ``Ctrl+A`` because it never accidentally selects parent
+           content and always drives React's ``onChange`` per character.
+        3. **JS native setter + input/change events** as a belt-and-braces
+           fallback for any default that races back in.
+        4. **Re-verify**; if non-empty, repeat the backspace loop once more.
+        5. ``send_keys(value)`` to type the desired value.
         """
         from selenium.webdriver.common.keys import Keys
 
+        # Stage 1 — focus
+        try:
+            element.click()
+        except Exception:
+            self.driver.execute_script("arguments[0].focus();", element)
+
+        # Stage 2 — backspace from end, character by character
+        def _backspace_clear(el: WebElement) -> None:
+            current = el.get_attribute("value") or ""
+            if not current:
+                return
+            try:
+                el.send_keys(Keys.END)
+            except Exception:
+                pass
+            # Cap the loop to avoid infinite loops if get_attribute lies.
+            for _ in range(min(len(current) + 2, 256)):
+                el.send_keys(Keys.BACKSPACE)
+                if not (el.get_attribute("value") or ""):
+                    break
+
+        _backspace_clear(element)
+        time.sleep(0.05)
+
+        # Stage 3 — JS native setter as fallback (handles defaults restored
+        # from React state between stage 2 and stage 5)
         self.driver.execute_script(
             "var el = arguments[0];"
             "var proto = el.tagName === 'TEXTAREA'"
@@ -194,14 +230,11 @@ class BasePage:
             "el.dispatchEvent(new Event('change', {bubbles: true}));",
             element,
         )
-        time.sleep(0.15)
+        time.sleep(0.1)
 
-        # Verify the field was actually cleared — React may have restored the
-        # old value from state before send_keys runs.
-        current = element.get_attribute("value") or ""
-        if current:
-            element.send_keys(Keys.CONTROL + "a")
-            time.sleep(0.05)
+        # Stage 4 — re-verify; one more backspace round if a default snapped back
+        if (element.get_attribute("value") or ""):
+            _backspace_clear(element)
 
         element.send_keys(value)
 
@@ -220,6 +253,87 @@ class BasePage:
             WebDriverWait(self.driver, timeout).until(EC.url_contains(path))
         else:
             self.navigate(path)
+
+    # ── Dialog & form helpers (stable lookups across UI refactors) ─────────
+    #
+    # The frontend exposes three stable conventions:
+    #   1. Every open MUI Dialog renders ``div[role="dialog"]``.
+    #   2. Form action buttons share ``data-testid="form-submit-button"`` and
+    #      ``data-testid="form-cancel-button"`` (see FormActions.tsx).
+    #   3. Form-field wrappers use ``data-testid="form-field-<name>"``.
+    #
+    # Use the helpers below instead of pinning to component-specific
+    # ``data-testid="*-create-dialog"`` so tests survive future renames.
+
+    OPEN_DIALOG = (By.CSS_SELECTOR, "div[role='dialog'], div[role='alertdialog']")
+    FORM_SUBMIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    FORM_CANCEL_BUTTON = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
+
+    def wait_for_dialog_open(
+        self,
+        testid: str | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> WebElement:
+        """Wait until a MUI Dialog is visible.
+
+        Without ``testid`` this matches *any* open dialog via the ARIA
+        ``role="dialog"`` attribute, which MUI renders on every open Dialog
+        regardless of component-specific testids.  Pass ``testid`` to lock
+        onto a specific dialog when more than one might be open.
+        """
+        if testid:
+            locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        else:
+            locator = self.OPEN_DIALOG
+        return self.wait_for_element_visible(locator, timeout)
+
+    def wait_for_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until no open MUI Dialog is visible (matches any role)."""
+        WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located(self.OPEN_DIALOG)
+        )
+
+    def is_dialog_open(self, testid: str | None = None) -> bool:
+        """Return True if a dialog (any, or matching testid) is currently visible."""
+        if testid:
+            els = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        else:
+            els = self.driver.find_elements(*self.OPEN_DIALOG)
+        return any(el.is_displayed() for el in els)
+
+    def click_form_submit(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Click the FormActions submit button (``form-submit-button``)."""
+        self.click_locator_with_retry(self.FORM_SUBMIT_BUTTON, timeout=timeout)
+
+    def click_form_cancel(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Click the FormActions cancel button (``form-cancel-button``)."""
+        self.click_locator_with_retry(self.FORM_CANCEL_BUTTON, timeout=timeout)
+
+    def find_form_field_input(self, field_name: str) -> WebElement:
+        """Find the actual input/textarea/select inside a ``form-field-<name>``.
+
+        Mirrors the FormTextField/FormNumberField wrapper convention.
+        Falls back to a direct ``name`` attribute lookup if the wrapper is
+        absent (e.g. legacy fields).
+        """
+        wrapper = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}']",
+        )
+        if wrapper:
+            inputs = wrapper[0].find_elements(
+                By.CSS_SELECTOR, "input, textarea, [role='combobox']"
+            )
+            if inputs:
+                return inputs[0]
+        # Fallback: direct name attribute on input
+        return self.driver.find_element(
+            By.CSS_SELECTOR, f"input[name='{field_name}'], textarea[name='{field_name}']"
+        )
+
+    def fill_form_field(self, field_name: str, value: str) -> None:
+        """Fill a form field identified by ``data-testid='form-field-<name>'``."""
+        self.clear_and_fill(self.find_form_field_input(field_name), value)
 
     # ── Expertise level helpers ─────────────────────────────────────────────
 

@@ -271,9 +271,12 @@ class PlantInstanceDetailExt(BasePage):
         time.sleep(0.3)
 
     def set_transition_reason(self, reason: str) -> None:
+        # ``el.clear()`` is unreliable on React-controlled inputs — the
+        # component re-applies its default value (e.g. ``"manual"``) before
+        # ``send_keys`` runs, producing ``"manualcustom"``.  ``clear_and_fill``
+        # uses a backspace-loop + native setter to guarantee an empty field.
         el = self.wait_for_element_clickable(self.TRANSITION_REASON)
-        el.clear()
-        el.send_keys(reason)
+        self.clear_and_fill(el, reason)
 
     def get_transition_reason_value(self) -> str:
         el = self.wait_for_element(self.TRANSITION_REASON)
@@ -284,8 +287,14 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
 
     def cancel_transition(self) -> None:
-        """Click the 'Abbrechen' button in the transition dialog."""
+        """Click 'Abbrechen' and wait until the dialog is no longer visible.
+
+        Without an explicit wait, MUI's fade-out animation keeps the dialog
+        in the DOM long enough that ``is_transition_dialog_open()`` may still
+        report True immediately after the click, causing flaky assertions.
+        """
         self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_for_element_hidden(self.TRANSITION_DIALOG)
 
     def is_confirm_button_enabled(self) -> bool:
         btn = self.wait_for_element(self.TRANSITION_CONFIRM)
@@ -302,7 +311,9 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_clickable(self.CONFIRM_OK).click()
 
     def cancel_remove(self) -> None:
+        """Click cancel and wait for the confirm dialog to close (race-safe)."""
         self.wait_for_element_clickable(self.CONFIRM_CANCEL_BTN).click()
+        self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)

@@ -43,6 +43,54 @@ def expertise_page(browser: WebDriver, base_url: str) -> ExpertiseLevelPage:
     return ExpertiseLevelPage(browser, base_url)
 
 
+@pytest.fixture(autouse=True)
+def reset_experience_level_to_beginner(
+    e2e_seed_data: dict,
+    base_url: str,
+    browser,
+) -> None:
+    """Reset the user's experience_level to 'beginner' before every REQ-021 test.
+
+    Two-stage reset:
+
+    1. **API PATCH** ``/user-preferences`` (server side of truth).
+    2. **Browser hard reload** so the Redux/userPreferences slice refetches
+       and the cached experience-level no longer leaks across tests.
+       Without the reload, ``_set_experience_level`` would short-circuit on
+       a stale ``current`` value and never trigger the toggle, leaving the
+       backend with ``beginner`` while the test navigates expecting
+       ``expert``.
+    """
+    import json
+    import urllib.error
+    import urllib.request
+
+    token = e2e_seed_data.get("access_token")
+    slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+    url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/user-preferences"
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    body = json.dumps({"experience_level": "beginner"}).encode()
+    req = urllib.request.Request(url, data=body, headers=headers, method="PATCH")
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except urllib.error.HTTPError:
+        # Endpoint missing or first-run with no preferences yet — non-fatal.
+        pass
+    except Exception:
+        pass
+
+    # Trigger a hard-reload so the frontend Redux slice refetches the
+    # experience_level.  Skip when the browser hasn't left ``about:blank``
+    # yet (very first test in the session).
+    try:
+        if browser.current_url and "about:blank" not in browser.current_url:
+            browser.refresh()
+    except Exception:
+        pass
+
+
 # -- Helpers -------------------------------------------------------------------
 
 

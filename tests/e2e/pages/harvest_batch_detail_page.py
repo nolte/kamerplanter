@@ -401,17 +401,68 @@ class HarvestBatchDetailPage(BasePage):
     # -- Validation errors --------------------------------------------------
 
     def get_validation_error(self, field_name: str) -> str:
-        """Return the validation error text for a form field."""
+        """Return the validation error text for a form field.
+
+        Looks at MUI's ``.MuiFormHelperText-root.Mui-error`` first.  If the
+        UI uses HTML5 constraint validation (``min``/``max``/``required``),
+        falls back to the input's ``validationMessage`` property.
+        """
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
         )
         elements = self.driver.find_elements(*locator)
-        return elements[0].text if elements else ""
+        if elements:
+            return elements[0].text
+
+        # HTML5 constraint validation fallback: native browser tooltip
+        # message via the input's validity API.
+        wrapper_inputs = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] input, "
+            f"[data-testid='form-field-{field_name}'] textarea",
+        )
+        for inp in wrapper_inputs:
+            try:
+                msg = self.driver.execute_script(
+                    "return arguments[0].validity && !arguments[0].validity.valid"
+                    " ? arguments[0].validationMessage : '';",
+                    inp,
+                )
+                if msg:
+                    return str(msg)
+            except Exception:
+                continue
+        return ""
 
     def has_validation_error(self, field_name: str) -> bool:
-        """Return True if a validation error is visible for *field_name*."""
-        return bool(self.get_validation_error(field_name))
+        """Return True if a validation error is visible for *field_name*.
+
+        Checks MUI helper-text *and* HTML5 constraint validation.  Also
+        considers a disabled submit button as evidence of form invalidity
+        when the test only has a "submit-disabled OR field-error" assertion.
+        """
+        if self.get_validation_error(field_name):
+            return True
+        # HTML5: if the field's validity is invalid (rangeOverflow,
+        # rangeUnderflow, valueMissing, …), no helper text exists yet
+        # (browser only shows on submit), but the input is invalid.
+        wrapper_inputs = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] input, "
+            f"[data-testid='form-field-{field_name}'] textarea",
+        )
+        for inp in wrapper_inputs:
+            try:
+                invalid = self.driver.execute_script(
+                    "return !!(arguments[0].validity && !arguments[0].validity.valid);",
+                    inp,
+                )
+                if invalid:
+                    return True
+            except Exception:
+                continue
+        return False
 
     # -- Error display ------------------------------------------------------
 

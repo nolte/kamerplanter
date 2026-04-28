@@ -26,7 +26,10 @@ class BotanicalFamilyListPage(BasePage):
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    # The legacy generic [data-testid='create-dialog'] was replaced by
+    # component-specific testids in the UI audit (PRs #97/#98).  Match any
+    # open MUI Dialog instead — robust against future renames.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")

@@ -21,7 +21,9 @@ class SpeciesListPage(BasePage):
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
     NEXT_PAGE = (By.CSS_SELECTOR, "[aria-label='Go to next page']")
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    # UI audit replaced legacy create-dialog testid with component-specific
+    # ones (e.g. species-create-dialog).  Match any open MUI Dialog instead.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
