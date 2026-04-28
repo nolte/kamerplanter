@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/seed-data-validator.md:1-620` (no "Why this is an agent" section).
       Fix: Add a short rationale paragraph or 2-4-bullet list near the top naming decisive dimensions — most plausibly context-window protection (large-volume reads of all `seed_data/*.yaml` and Pydantic models), specialization (multi-source verification methodology + agrobiology hand-off), and tool restriction (limited write surface to `schemas/` and `spec/analysis/`).
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "context-window", "specialization", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape is described only in Phase 4 as a Markdown report skeleton with sub-sections; the file lacks an upfront "Output contract" stating what the parent caller receives and the full set of side-effect targets (report + schema files).
+- [x] [agent-management.output-shape] Expected output shape is described only in Phase 4 as a Markdown report skeleton with sub-sections; the file lacks an upfront "Output contract" stating what the parent caller receives and the full set of side-effect targets (report + schema files).
       Where: `.claude/agents/seed-data-validator.md:443-606`.
       Fix: Add an "Output contract" section near the top stating (a) what the parent receives (report path + chat summary shape), (b) the report's required sections, (c) all written paths: `spec/analysis/seed-data-validation-report.md` plus any modified `src/backend/app/migrations/seed_data/schemas/*.schema.yaml`, (d) overwrite policy for both.
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller every deliverable and every side-effect target.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Write`, `Bash`, `WebSearch`, `WebFetch`. Body documents *that* schemas may be extended (Phase 0.4) and that a report is produced, but does not consolidate the goals and preconditions of those side effects upfront per `agent-management` acceptance.
+- [x] [agent-management.write-effects-documented] Agent declares `Write`, `Bash`, `WebSearch`, `WebFetch`. Body documents *that* schemas may be extended (Phase 0.4) and that a report is produced, but does not consolidate the goals and preconditions of those side effects upfront per `agent-management` acceptance.
       Where: `.claude/agents/seed-data-validator.md:5` (`tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch`) vs. body (Phase 0.4 lines 238-270, Phase 4 lines 443-606).
       Fix: Add a "File outputs" / write-effect section consolidating: target paths (`schemas/*.schema.yaml`, `spec/analysis/seed-data-validation-report.md`), preconditions (Phase 0 findings before schema edits; only enum/field additions allowed, never deletions), overwrite policy, and the explicit invariant that production code under `app/` is never modified.
       Verify: Body contains a single consolidated write-effects section naming target paths and preconditions; grep for "schemas/" and "spec/analysis/" both return hits in that section.
@@ -121,3 +121,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section naming self-contained input/output, specialization, context-window protection plus interactivity counter-dimension — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section listing report path, all required report sub-sections, schema-edit targets, chat-summary shape, no go/no-go — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section naming schemas/ + spec/analysis/ paths, additive-only invariant, no production-code-edits guard, overwrite/additive idempotency — verified: file content review

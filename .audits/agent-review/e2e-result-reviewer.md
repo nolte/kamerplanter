@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,17 +41,17 @@ Next concrete action: author addresses the three BLOCKERs (add rationale section
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/e2e-result-reviewer.md:1-210`.
       Fix: Add a 2-4-bullet rationale near the top — likely *specialization* (multimodal screenshot review benefits from a narrow opus-pinned prompt), *context-window protection* (dozens of screenshots + protocol + REQ specs), *tool restriction* (read-only). Cite at least one counter-dimension (mid-flow user approval — "no, the parent skill consumes the structured report").
       Verify: Section "## Rationale" or equivalent exists; grep returns at least one of "specialization", "context-window", "tool restriction".
 
-- [ ] [agent-management.output-shape] System prompt instructs "Erstelle einen strukturierten Bericht im folgenden Format" with an embedded markdown template, but the structured output shape the parent consumes is not stated upfront and the contract is fragmented across Schritt 7 + the markdown template.
+- [x] [agent-management.output-shape] System prompt instructs "Erstelle einen strukturierten Bericht im folgenden Format" with an embedded markdown template, but the structured output shape the parent consumes is not stated upfront and the contract is fragmented across Schritt 7 + the markdown template.
       Where: `.claude/agents/e2e-result-reviewer.md:126-193` (Schritt 7 + report template).
       Fix: Add an "Output contract" section near the top (after the Kernaufgabe paragraph) stating (a) what the agent returns to the caller (markdown report string vs. file path), (b) the report's required sections, (c) whether the agent writes the file or only returns the markdown body.
       Verify: A section "Output contract" or equivalent exists; reading just that section tells the caller the deliverable shape.
 
-- [ ] [agent-management.writes-vs-research] Body opens "Erstelle einen strukturierten Bericht" but `tools` does not include `Write` and the prompt never names a target file path or a "do not write" stance — this leaves the side-effect contract undefined per the `agent-management.acceptance` MUST that side-effect goals/preconditions be documented.
+- [x] [agent-management.writes-vs-research] Body opens "Erstelle einen strukturierten Bericht" but `tools` does not include `Write` and the prompt never names a target file path or a "do not write" stance — this leaves the side-effect contract undefined per the `agent-management.acceptance` MUST that side-effect goals/preconditions be documented.
       Where: `.claude/agents/e2e-result-reviewer.md:5` (`tools: Read, Glob, Grep, Bash`) vs. `:127` ("Erstelle einen strukturierten Bericht").
       Fix: Decide explicitly: either (a) add "This agent is read-only; the parent skill writes the report" near the top, or (b) declare `Write` in `tools` plus a target path + overwrite policy. Currently the agent will silently fail any disk-write attempt.
       Verify: Either no imperative "Erstelle" referencing a file path remains, or `tools` includes `Write` plus a documented target path.
@@ -105,3 +105,7 @@ Next concrete action: author addresses the three BLOCKERs (add rationale section
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+
+2026-04-28 — skill-vs-agent.rationale-section — added "## Rationale: Skill vs Agent" section after Kernaufgabe naming Specialization, Context-window protection, Parallelism with Interactivity counter — verified: re-read body
+2026-04-28 — agent-management.output-shape — added "## Output Contract" section directly after Rationale stating markdown report string, required sections, and FAIL/PASS go/no-go statement — verified: re-read body
+2026-04-28 — agent-management.writes-vs-research — added explicit "Research-only" statement to role block: "Dieser Agent ist research-only ... Er ändert KEINE Dateien" — verified: tools field unchanged (no Write), body declares no-write stance with persistence delegated to orchestrating skill

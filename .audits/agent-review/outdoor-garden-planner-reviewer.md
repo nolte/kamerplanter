@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -40,7 +40,7 @@ Next concrete action: author adds a skill-vs-agent rationale section and address
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
+- [x] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
       Where: `.claude/agents/outdoor-garden-planner-reviewer.md` body (no "Begruendung"/"Rationale" section).
       Fix: Add a short "Skill-vs-Agent-Begruendung" section naming the decisive dimensions (e.g. specialization for the Hobbygaertnerin persona, context-window protection during full-spec scan, parallelism alongside other persona reviewers).
       Verify: `grep -i 'rationale\|begruendung\|skill-vs-agent'` returns at least one body-level match.
@@ -84,3 +84,4 @@ Next concrete action: author adds a skill-vs-agent rationale section and address
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — Rationale-documentation — added "## Rationale: Skill vs Agent" naming Specialization (Hobbygaertnerin-Persona), Context-window protection (full spec scan), Parallelism (Persona-Reviewer-Cluster); counter-dimension Interactivity addressed — verified: grep "Rationale" matches body

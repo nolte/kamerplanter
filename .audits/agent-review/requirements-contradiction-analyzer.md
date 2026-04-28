@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/requirements-contradiction-analyzer.md:1-237` (no "Why this is an agent" section anywhere).
       Fix: Add a short rationale paragraph or 2-4-bullet list near the top naming decisive dimensions — most plausibly context-window protection (large-volume reads of all `spec/req/`, `spec/nfr/`, `spec/ui-nfr/`), specialization (RAG cross-document reasoning), and self-contained input/output (single deliverable report).
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep for "context-window", "specialization", or "self-contained" inside the body returns ≥1 hit.
 
-- [ ] [agent-management.output-shape] System prompt's expected output shape is described only in Phase 3/4 as a Markdown report path plus a JSON file; the file does not declare a single explicit "Output contract" upfront stating what the agent returns to the parent.
+- [x] [agent-management.output-shape] System prompt's expected output shape is described only in Phase 3/4 as a Markdown report path plus a JSON file; the file does not declare a single explicit "Output contract" upfront stating what the agent returns to the parent.
       Where: `.claude/agents/requirements-contradiction-analyzer.md:131-236` (Phase 3-4 block).
       Fix: Add an "Output contract" section near the top stating (a) what is returned to the caller (path + chat summary shape), (b) the report's required structural sections, (c) the two written paths `spec/analysis/contradiction-report.md` and `spec/analysis/requirements-index.json`, (d) the overwrite policy.
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller the exact deliverable shape and the two written paths.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Write` and `Bash` (write/execution tools) but the system prompt does not consolidate the goals and preconditions of those side effects per the `agent-management` acceptance criterion (file-write targets, preconditions, overwrite behavior).
+- [x] [agent-management.write-effects-documented] Agent declares `Write` and `Bash` (write/execution tools) but the system prompt does not consolidate the goals and preconditions of those side effects per the `agent-management` acceptance criterion (file-write targets, preconditions, overwrite behavior).
       Where: `.claude/agents/requirements-contradiction-analyzer.md:5` (`tools: Read, Write, Glob, Grep, Bash`) vs. body lacking a write-goals declaration.
       Fix: Add a "File outputs" subsection naming the two written paths, when they are written, what triggers an overwrite, and what preconditions must hold (e.g. `spec/analysis/` directory exists or is created by the agent).
       Verify: Body contains an explicit "File outputs" / write-goals section naming both target paths and preconditions.
@@ -116,3 +116,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section after intro paragraph naming context-window protection, specialization, self-contained input/output plus interactivity counter-dimension — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section near top listing both written paths, required report sections, chat-summary shape, and explicit no go/no-go statement — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section consolidating both target paths, goals, preconditions (incl. spec/analysis/ creation, no spec or production-code edits), and overwrite idempotency — verified: file content review

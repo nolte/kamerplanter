@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/selenium-test-generator.md:1-590` (no "Why this is an agent" section).
       Fix: Add a short rationale paragraph near the top naming decisive dimensions — most plausibly specialization (NFR-008/NFR-008a-conformant scaffolding, Page-Object pattern, screenshot checkpoints), context-window protection (large reads of `spec/req/`, `spec/nfr/`, frontend Router/data-testid scan), and self-contained input/output (testfall-doc → tests/e2e/ tree). Important given the peer `selenium-test-reviewer` agent.
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "specialization", "context-window", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape is implied by the embedded code blocks (conftest, protocol_plugin, base_page, multiple page objects, multiple test files, requirements.txt) but the file lacks an upfront "Output contract" enumerating every created path.
+- [x] [agent-management.output-shape] Expected output shape is implied by the embedded code blocks (conftest, protocol_plugin, base_page, multiple page objects, multiple test files, requirements.txt) but the file lacks an upfront "Output contract" enumerating every created path.
       Where: `.claude/agents/selenium-test-generator.md:44-590`.
       Fix: Add an "Output contract" section near the top stating (a) the full list of created files (`tests/e2e/conftest.py`, `tests/e2e/protocol_plugin.py`, `tests/e2e/pages/base_page.py`, per-feature page objects, per-feature test files, `tests/e2e/requirements.txt`), (b) any `.gitignore` mutation (`test-reports/`), (c) the chat-summary shape, (d) the overwrite policy if files already exist.
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller every deliverable.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Read, Write, Edit, Glob, Grep, Bash` and creates many production-test files plus mutates `.gitignore`, but the system prompt does not consolidate the goals and preconditions of those side effects upfront.
+- [x] [agent-management.write-effects-documented] Agent declares `Read, Write, Edit, Glob, Grep, Bash` and creates many production-test files plus mutates `.gitignore`, but the system prompt does not consolidate the goals and preconditions of those side effects upfront.
       Where: `.claude/agents/selenium-test-generator.md:5` (tools) vs. body lacking an upfront write-goals block.
       Fix: Add a "File outputs" section consolidating: every created path, the `.gitignore` patch, preconditions (existing tests/e2e/ tree honored, no overwrite without explicit signal), and the explicit invariant that frontend production code is never modified.
       Verify: Body contains a single consolidated write-effects section naming every target and the `.gitignore` mutation; grep for "tests/e2e" and ".gitignore" both return hits in that section.
@@ -121,3 +121,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section naming specialization, context-window protection, self-contained input/output plus interactivity counter-dimension distinguishing from selenium-test-reviewer — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section enumerating every created path (conftest, protocol_plugin, base_page, page-objects, test-files, requirements.txt) plus .gitignore patch and chat-summary shape — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section consolidating tests/e2e/ + .gitignore targets, goals, preconditions (no production-code edits, idempotent .gitignore patch), and re-run idempotency — verified: file content review

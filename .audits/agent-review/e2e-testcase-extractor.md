@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,17 +41,17 @@ Next concrete action: author addresses the three BLOCKERs (add rationale section
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`. Especially load-bearing here because the `test-extract` skill exists in parallel — a documented rationale must explain why this is an agent and not (or in addition to) a skill.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`. Especially load-bearing here because the `test-extract` skill exists in parallel — a documented rationale must explain why this is an agent and not (or in addition to) a skill.
       Where: `.claude/agents/e2e-testcase-extractor.md:1-197`.
       Fix: Add a 2-4-bullet rationale near the top — most plausibly *context-window protection* (large multi-REQ extractions), *specialization* (IREB/ISTQB persona sharpens output), *parallelism* (one agent per REQ batch). Cite at least one counter-dimension and explicitly relate to the `test-extract` skill (orchestrator/executor split or replacement).
       Verify: Section "## Rationale" or equivalent exists; grep returns at least one of "specialization", "context-window", "parallelism"; the relationship to `test-extract` is named.
 
-- [ ] [agent-management.no-absolute-paths] Body hard-codes the absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/`, which `agent-management.acceptance` ("No hard-coded absolute paths; all internal references are relative to the agent file or the project it operates on") MUST forbid.
+- [x] [agent-management.no-absolute-paths] Body hard-codes the absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/`, which `agent-management.acceptance` ("No hard-coded absolute paths; all internal references are relative to the agent file or the project it operates on") MUST forbid.
       Where: `.claude/agents/e2e-testcase-extractor.md:166`.
       Fix: Replace the absolute path with a project-relative reference (`.claude/agent-memory/e2e-testcase-extractor/`) or describe the resolution as "the project root's `.claude/agent-memory/<agent-name>/` directory".
       Verify: `grep -F "/home/" .claude/agents/e2e-testcase-extractor.md` returns no hits.
 
-- [ ] [agent-management.frontmatter-fields] Frontmatter declares `memory: project` (line 8), which is not a documented `agent-management.Structure` field. The spec lists the permitted frontmatter fields (`name`, `description`, `distribution`, `tools`, `model`, `tags`); arbitrary additional fields are not specified and have no defined semantics under the spec.
+- [x] [agent-management.frontmatter-fields] Frontmatter declares `memory: project` (line 8), which is not a documented `agent-management.Structure` field. The spec lists the permitted frontmatter fields (`name`, `description`, `distribution`, `tools`, `model`, `tags`); arbitrary additional fields are not specified and have no defined semantics under the spec.
       Where: `.claude/agents/e2e-testcase-extractor.md:8` (`memory: project`).
       Fix: Either remove the field and capture the persistent-memory contract in body prose under a sibling asset reference, or formally extend `agent-management.Structure` upstream and reference the new field (the latter is out-of-scope for this review). Until the spec extension exists, the field is undocumented frontmatter.
       Verify: Frontmatter contains only fields documented in `agent-management.Structure`, OR an upstream spec change has added `memory` and is referenced.
@@ -115,3 +115,7 @@ Next concrete action: author addresses the three BLOCKERs (add rationale section
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+
+2026-04-28 — skill-vs-agent.rationale-section — added "## Rationale: Skill vs Agent" section after opening paragraph naming Self-contained input/output, Context-window protection, Tool surface with Lifecycle counter (and explicit reference to `test-extract` skill via Skill-orchestrates-Agent split) — verified: re-read body
+2026-04-28 — agent-management.no-absolute-paths — replaced absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/` with project-relative phrasing "the project root's `.claude/agent-memory/e2e-testcase-extractor/`" — verified: grep -F "/home/" returns no hits in agent file
+2026-04-28 — agent-management.frontmatter-fields — removed undocumented `memory: project` frontmatter field; persistent-memory wiring already lives in body prose under "Persistent Agent Memory" section — verified: re-read frontmatter, only documented fields remain (name, distribution, description, tools, model)

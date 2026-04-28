@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/target-audience-analyzer.md:1-305` (no "Why this is an agent" section).
       Fix: Add a short rationale paragraph or 2-4 bullet list near the top naming decisive dimensions — most plausibly context-window protection (large-volume reads of all `spec/req/`, `spec/nfr/`, `spec/stack.md`, `CLAUDE.md`), specialization (15-year UX-research persona narrows the synthesis), and self-contained input/output (single deliverable report).
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "context-window", "specialization", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape is described in Phase 4 as a Markdown report skeleton, but the file lacks an upfront "Output contract" stating what the parent caller receives.
+- [x] [agent-management.output-shape] Expected output shape is described in Phase 4 as a Markdown report skeleton, but the file lacks an upfront "Output contract" stating what the parent caller receives.
       Where: `.claude/agents/target-audience-analyzer.md:169-289`.
       Fix: Add an "Output contract" section near the top stating (a) the written path `spec/analysis/target-audience-report.md`, (b) the report's required sections (Executive Summary, primary/secondary groups, underserved groups, application areas, persona gap matrix, recommendations, ranking), (c) the Phase-5 chat summary shape, (d) the overwrite policy.
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller the deliverable path and shape.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Write` but the system prompt does not declare the write-effect goals and preconditions per `agent-management` acceptance — the only signal is the report-creation step in Phase 4.
+- [x] [agent-management.write-effects-documented] Agent declares `Write` but the system prompt does not declare the write-effect goals and preconditions per `agent-management` acceptance — the only signal is the report-creation step in Phase 4.
       Where: `.claude/agents/target-audience-analyzer.md:5` (`tools: Read, Write, Glob, Grep`) vs. body lacking an upfront write-goals block.
       Fix: Add a short "File outputs" section consolidating: target path `spec/analysis/target-audience-report.md`, preconditions (full Phase 1+2+3 traversal complete; `spec/analysis/` directory created if missing), and the explicit invariant that no specs and no production code are modified.
       Verify: Body contains a single consolidated write-effects section naming the target path and preconditions.
@@ -116,3 +116,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section naming specialization (UX-Research/Persona-Identification), context-window protection, self-contained I/O plus interactivity counter-dimension with explicit boundary against audience-identify skill and persona-reviewer agents — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section listing spec/target-audiences/ report path, required sections (Executive Summary, primary/secondary/underserved groups, persona-gap-matrix, recommendations, ranking), chat-summary shape — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section consolidating spec/target-audiences/ target, persona-document goal, phase-1+2 preconditions, no spec-or-production-code edits, overwrite/new-file-per-scope idempotency — verified: file content review

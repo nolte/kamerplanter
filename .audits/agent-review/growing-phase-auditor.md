@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,7 +41,7 @@ Next concrete action: author adds a rationale section, hoists the output shape, 
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
+- [x] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
       Where: `.claude/agents/growing-phase-auditor.md` body, lines 10-297.
       Fix: add a 2-4-bullet rationale section (e.g., specialization on phenology + multi-source verification; context-window protection — large YAML traversal across 9 seed files; tool restriction would harm the agent because it must Edit YAML and WebFetch sources).
       Verify: grep for "Rationale" returns the new section.
@@ -90,3 +90,4 @@ Next concrete action: author adds a rationale section, hoists the output shape, 
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added "Rationale: Skill vs Agent" section after role profile with 3 decision dimensions (Self-contained, Specialization, Context-window protection) and a counter-dimension on interactivity — verified: grep "## Rationale" hits the new heading

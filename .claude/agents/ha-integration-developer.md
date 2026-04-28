@@ -18,6 +18,16 @@ Du implementierst ausschliesslich auf Basis der Spezifikationsdokumente. Du schr
 
 **WICHTIG:** Source-Code MUSS auf Englisch sein. Dokumentation/Kommentare sind auf Deutsch erlaubt, aber Variablen, Klassen, Funktionsnamen und Strings in strings.json/translations sind Englisch.
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Specialization**: HA-Best-Practices-Prompt, das verbindlich gegen 5 HA-SPEC-Dokumente (`HA-SPEC-CONFIG-LIFECYCLE`, `HA-SPEC-ENTITY-ARCHITECTURE`, `HA-SPEC-COORDINATOR-OPTIMIZATION`, `HA-SPEC-LOVELACE-CARDS`, `HA-SPEC-TESTING`) und den `HA-INTEGRATION` Style Guide implementiert; verbotene Anti-Patterns (`hass.data[DOMAIN]`, manuelle entity_id) werden im Subagent-Kontext zuverlaessig durchgesetzt.
+- **Context-window protection**: Paralleles Lesen aller HA-SPEC-Dokumente plus Backend-API-Referenzen plus bestehender HA-Source schont den Hauptkontext erheblich.
+- **Tool surface**: Tool-Set Read/Edit/Bash auf HA-Integration-Pfade fokussiert (kein Backend-/Frontend-Editing) — Scope-Einschraenkung im Body explizit (Zeilen 152-159).
+
+**Gegen-Dimension:** `ha-integration-sync` ueberlappt mechanisch im HA-Code-Modify-Scope; der Boundary ist klar gezogen — `ha-integration-developer` baut neue Features gegen HA-SPEC-Dokumente, `ha-integration-sync` mirroured Backend-API-Aenderungen ohne neue Architektur-Entscheidungen. Interactivity haette fuer eine Skill gesprochen (Architektur-Tradeoffs), wird aber durch die Spec-getriebene Implementierung neutralisiert — jede Entscheidung ist vorab durch HA-SPEC-* festgelegt.
+
 ---
 
 ## Pflichtlektuere vor jeder Implementierung

@@ -19,6 +19,18 @@ Dein Ziel: Chunks die beim **ersten** Eval-Lauf bestehen — keine Iterationssch
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Self-contained**: Klar abgegrenzte Aufgabe (Knowledge-Gap → fertiger YAML-Chunk in `spec/knowledge/rag/`) — Input und Output deterministisch definiert, kein Mid-flow-Gating durch den Nutzer.
+- **Specialization**: Kombiniert ein hochspezialisiertes RAG-Chunking-Pattern (Topic-Synonym-Pattern-Match, Benchmark-Frage-Alignment, Pflichtprofile fuer Chunk-Struktur) mit Agrarbiologie-Fachwissen — ein generischer Skill-Body waere zu breit.
+- **Context-window protection**: Lesepfad ist umfangreich (alle relevanten Specs unter `spec/req/`/`spec/nfr/`, bestehende Knowledge-Base-YAMLs, Eval-Reports, Topic-Synonyme) — ein dedizierter Subagent-Kontext schuetzt den Aufrufer-Kontext vor Verschmutzung.
+
+**Gegen-Dimension:** `skill-vs-agent.Duplicate-prevention` haette gegen einen eigenen Agenten gesprochen, weil die `nolte-shared` Skill `gen-knowledge` ebenfalls RAG-Chunks erzeugt. Aufgewogen durch das **Hybrid-Pattern**: `gen-knowledge` ist der Orchestrator (Workflow: gap → ingestion → eval), `knowledge-chunk-author` ist deren Executor mit der projektspezifischen Topic-Synonym-Validierung und der Kamerplanter-Spec-Anbindung. Kein Duplikat, sondern Skill-orchestriert-Agent.
+
+---
+
 ## Quellen-Hierarchie (in dieser Reihenfolge)
 
 | Prio | Quelle | Pfad | Verwendung |

@@ -11,6 +11,16 @@ model: haiku
 
 Du bist ein praeziser Daten-Konverter. Deine EINZIGE Aufgabe ist die 1:1-Uebertragung von Informationen aus Pflanzen-Informationsdokumenten (Markdown) in YAML-Seed-Eintraege. Du bist KEIN Botaniker und KEIN Forscher — du erfindest, ergaenzt, interpretierst oder schaetzt NICHTS.
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Self-contained**: Reine Konvertierungs-Aufgabe (`spec/knowledge/plants/*.md` → `src/backend/app/migrations/seed_data/plant_info_*.yaml`) mit klarem Input und klarem Output, keine Mid-flow-Entscheidungen durch den Nutzer.
+- **Specialization**: Deterministische Konvertierung mit Schema-Validation (Enum-Mapping, Pflichtfeld-Pruefung, Bereichswert-Konvention "erster Wert fuer duration_days, Mittelwert fuer Zielwerte"); das strikte "Keine Erfindung von Daten"-Verbot ist in einem dedizierten System-Prompt besser durchsetzbar als in einer generischen Skill.
+- **Tool surface**: Schmaler Scope (Read fuer Markdown + Schemas, Write fuer YAML, Edit fuer Updates an bestehenden Dateien, Bash nur fuer YAML-Syntax-Validierung) — keine Web-Tools, keine Subagent-Dispatch, keine Recherche.
+
+**Gegen-Dimension:** Keine — ein straight extraction job mit deterministischer Schema-Mapping-Logik ist die paradigmatische Agent-Aufgabe (haiku-modelliert, kein Reasoning, kein Lifecycle, kein Multi-step-Orchestrierungsbedarf).
+
 ---
 
 ## VERBINDLICHE Regel: Keine Erfindung von Daten

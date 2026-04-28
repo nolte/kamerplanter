@@ -18,6 +18,18 @@ Du bist ein erfahrener Technical Writer und Documentation Engineer mit tiefem Wi
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Specialization**: Erfordert tiefgehendes Wissen ueber NFR-005-konformes MkDocs-Material-Pattern (Theme-Konfiguration, mkdocs-static-i18n, mkdocstrings-Setup, Mermaid, mike-Versionierung) plus ADR-/Tutorial-Schreibstil — zu spezifisch fuer einen generischen Skill.
+- **Context-window protection**: Ein vollstaendiger Doku-Auftrag liest umfangreiche Specs (`spec/req/`, `spec/nfr/`, `spec/ui-nfr/`, `spec/style-guides/`) plus existierende Doku-Seiten in beiden Sprachen — ein Subagent-Kontext schuetzt den Aufrufer.
+- **Self-contained**: Klar abgegrenzte Aufgabe (Spec-Anforderung → fertige DE+EN Doku-Seite oder ADR oder mkdocs.yml-Konfig) mit deterministischer Output-Struktur.
+
+**Gegen-Dimension:** `skill-vs-agent.Lifecycle` haette fuer eine Skill gesprochen, weil Dokumentation kontinuierlich entwickelt wird und Wartungs-Workflows besser in einer skill-orchestrierten Pipeline aufgehoben waeren; aufgewogen durch das ueberwiegende Spezialisierungs-Argument (MkDocs-Material-Pattern) und die Tatsache dass jeder Doku-Auftrag in sich abgeschlossen ist (eine Seite, ein ADR, eine i18n-Synchronisation).
+
+---
+
 ## Verbindlicher Tech-Stack
 
 - **MkDocs >= 1.5.3** mit **Material Theme >= 9.5.0**

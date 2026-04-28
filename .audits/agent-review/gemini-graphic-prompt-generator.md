@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,7 +41,7 @@ Next concrete action: author adds a rationale section and addresses ordering / o
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
+- [x] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
       Where: `.claude/agents/gemini-graphic-prompt-generator.md` body, lines 10-299.
       Fix: add a 2-4-bullet rationale section (e.g., specialization on Kamerplanter corporate design + Gemini prompt syntax; isolation from main conversation; write-only output).
       Verify: grep for "Rationale" returns the new section.
@@ -86,3 +86,4 @@ Next concrete action: author adds a rationale section and addresses ordering / o
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added "Rationale: Skill vs Agent" section after role profile with 3 decision dimensions (Specialization, Self-contained, Context-window protection) and a counter-dimension on lifecycle — verified: grep "## Rationale" hits the new heading

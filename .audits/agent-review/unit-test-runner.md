@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`. Especially important given the `nolte-shared:quality-gate` skill exists in this functional cluster.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`. Especially important given the `nolte-shared:quality-gate` skill exists in this functional cluster.
       Where: `.claude/agents/unit-test-runner.md:1-217` (no rationale section anywhere).
       Fix: Add a short rationale paragraph or 2-4 bullet list near the top naming decisive dimensions — most plausibly context-window protection (large pytest/vitest output kept out of the main thread), self-contained input/output (run tests, return a structured chat report), and parallelism (can run alongside other implementation agents). Cite at least one counter-dimension. Distinguish from the broader `quality-gate` skill (taskfile-aware, repo-wide) versus this agent (fast unit-test feedback during the implement→test loop).
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "context-window", "self-contained", or "parallelism".
 
-- [ ] [agent-management.output-shape] Expected output shape is described only in Step 6 as a Markdown report skeleton; the file lacks an upfront "Output contract" stating what the parent caller receives.
+- [x] [agent-management.output-shape] Expected output shape is described only in Step 6 as a Markdown report skeleton; the file lacks an upfront "Output contract" stating what the parent caller receives.
       Where: `.claude/agents/unit-test-runner.md:161-193`.
       Fix: Add an "Output contract" section near the top stating (a) what the parent receives (a structured chat report — no files written beyond test edits, see write-effects finding below), (b) the report's required tables (statische Analyse, Unit-Tests, Durchgefuehrte Fixes, Offene Findings, Merge-Bereitschaft), (c) explicit go/no-go statement at the bottom (`MERGE-BEREIT` / `NICHT MERGE-BEREIT`).
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller the deliverable shape.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Edit` and `Bash`. The body legitimately edits test files (Step 3-4 fix-loop) and runs pytest/ruff/eslint via bash. The body documents *what* it edits (test files only, not production code) but the *preconditions* for those edits are scattered across "Regeln" 1-5; per `agent-management.acceptance` write-effect goals and preconditions SHOULD be consolidated.
+- [x] [agent-management.write-effects-documented] Agent declares `Edit` and `Bash`. The body legitimately edits test files (Step 3-4 fix-loop) and runs pytest/ruff/eslint via bash. The body documents *what* it edits (test files only, not production code) but the *preconditions* for those edits are scattered across "Regeln" 1-5; per `agent-management.acceptance` write-effect goals and preconditions SHOULD be consolidated.
       Where: `.claude/agents/unit-test-runner.md:5` (`tools: Read, Edit, Bash, Glob, Grep`) and lines 28-36 (Regeln) + Steps 3-4.
       Fix: Add a single "File outputs" / write-effects section consolidating: (a) only `tests/` paths under `src/backend/` and `src/test/` under `src/frontend/` may be edited; (b) production code under `app/` and `src/` (excluding tests) must never be edited (only reported as `[PROD-FIX]` findings); (c) `Bash` is used for pytest/ruff/eslint/tsc invocations only.
       Verify: Body contains a single consolidated write-effects section naming the test-only edit boundary; grep for "tests/" and "production code" both return hits in that section.
@@ -111,3 +111,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section naming context-window protection, self-contained I/O, parallelism plus quality-gate-skill counter-dimension — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section listing required chat-report sections (statische Analyse, Unit-Tests, Fixes, Findings, Merge-Bereitschaft), modified test paths, explicit MERGE-BEREIT/NICHT MERGE-BEREIT go/no-go — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section consolidating test-only edit boundary (tests/ paths under backend/frontend), forbidden production-code paths, Bash-scope, style-guide-precondition, deterministic re-run idempotency — verified: file content review

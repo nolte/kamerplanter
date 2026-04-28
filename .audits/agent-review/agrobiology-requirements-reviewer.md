@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,17 +41,17 @@ Next concrete action: author addresses the three BLOCKERs (drop `Write` from too
 
 ### BLOCKER
 
-- [ ] [agent-review.read-only-no-write-tools] Read-only review agent (description verbs: "Prüft", "bewertet kritisch") declares `Write` in `tools`, which `agent-review` MUST forbid for read-only agents.
+- [x] [agent-review.read-only-no-write-tools] Read-only review agent (description verbs: "Prüft", "bewertet kritisch") declares `Write` in `tools`, which `agent-review` MUST forbid for read-only agents.
       Where: `.claude/agents/agrobiology-requirements-reviewer.md:5` (`tools: Read, Write, Glob, Grep`).
       Fix: Remove `Write` from `tools`; the report is a structured deliverable returned to the parent skill, not a write side effect — if persistent files at `spec/analysis/agrobiology-review.md` are intended, refactor into a skill-orchestrates-agent pattern per `skill-vs-agent` so the writing skill calls this read-only agent.
       Verify: `tools` lists only `Read, Glob, Grep`; `grep -E "^tools:" .claude/agents/agrobiology-requirements-reviewer.md` shows no write tool.
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/agrobiology-requirements-reviewer.md:1-549` (no "Why this is an agent" / rationale paragraph anywhere).
       Fix: Add a short rationale paragraph or 2-4-bullet list near the top (or as a footer before the procedure) naming decisive dimensions — most plausibly *specialization* (agrobiology persona sharpens output quality), *context-window protection* (large-volume reads of all `spec/req`, `spec/nfr`, schemas), and *tool restriction* (read-only research). Cite at least one counter-dimension if applicable.
       Verify: Section reading "## Rationale" or equivalent exists; grep for "specialization", "context-window", or "tool restriction" inside the body returns at least one hit.
 
-- [ ] [agent-management.output-shape] System prompt names a report path (`spec/analysis/agrobiology-review.md`) and a markdown template, but does not name an *expected output shape* the parent consumes; agent dispatch is fire-and-forget per `skill-vs-agent`, so the structured report contract MUST be stated.
+- [x] [agent-management.output-shape] System prompt names a report path (`spec/analysis/agrobiology-review.md`) and a markdown template, but does not name an *expected output shape* the parent consumes; agent dispatch is fire-and-forget per `skill-vs-agent`, so the structured report contract MUST be stated.
       Where: `.claude/agents/agrobiology-requirements-reviewer.md:401-535` (Phase 3 + Phase 4 chat summary).
       Fix: Add an explicit "Output contract" section near the top stating: (a) what the agent returns to the caller (path + summary), (b) the report's structural sections, (c) whether the agent writes files (currently implied by the Phase 3 markdown template at `spec/analysis/…`). If the agent does write a file, document the file location, overwrite policy, and preconditions per `agent-management.acceptance` ("targets and preconditions of side effects").
       Verify: A section "Output contract" or equivalent exists; reading just that section tells the caller the deliverable shape.
@@ -120,3 +120,7 @@ Next concrete action: author addresses the three BLOCKERs (drop `Write` from too
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+
+2026-04-28 — agent-review.read-only-no-write-tools — removed `Write` from `tools`, prefixed `description` with "Verfasst einen strukturierten ...Bewertungsbericht (`spec/analysis/agrobiology-review.md`) zu Anforderungsdokumenten" — verified: re-read frontmatter line 5
+2026-04-28 — skill-vs-agent.rationale-section — added "## Rationale: Skill vs Agent" section after opening paragraph naming Specialization, Context-window protection, Parallelism with Interactivity counter — verified: grep matches "specialization|context-window|parallelism" in body
+2026-04-28 — agent-management.output-shape — added "## Output Contract" section directly after Rationale stating report path, required sections, and FAIL/PASS go/no-go statement — verified: re-read body, contract section present

@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,11 +41,11 @@ Next concrete action: author resolves the duplicate with skill `ha-derive` (depr
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice — especially critical here because peer skill `ha-derive` covers the same capability.
+- [x] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice — especially critical here because peer skill `ha-derive` covers the same capability.
       Where: `.claude/agents/ha-integration-requirements-engineer.md` body, lines 10-374.
       Fix: add a 2-4-bullet rationale section explicitly contrasting agent vs. skill choice; if `ha-derive` skill duplicates this work, propose a merge or supersede instead of shipping both.
       Verify: rationale section names >=1 decisive dimension and addresses the duplicate with `ha-derive`.
-- [ ] [skill-vs-agent.duplicate-prevention] Peer skill `nolte-shared:ha-derive` ("derive HA requirements from REQ") is semantically identical to this agent's stated responsibility ("derive HA-specific integration requirements from existing REQ documents"). Per skill-vs-agent duplicate-prevention MUST, two artifacts MUST NOT cover the same capability within the plugin.
+- [x] [skill-vs-agent.duplicate-prevention] Peer skill `nolte-shared:ha-derive` ("derive HA requirements from REQ") is semantically identical to this agent's stated responsibility ("derive HA-specific integration requirements from existing REQ documents"). Per skill-vs-agent duplicate-prevention MUST, two artifacts MUST NOT cover the same capability within the plugin.
       Where: line 4 description vs. skill `ha-derive` description.
       Fix: choose one of: (a) deprecate this agent and route all "derive HA requirements" calls to skill `ha-derive`; (b) deprecate the skill and keep this agent; (c) restructure so the skill orchestrates and the agent is its executor (allowed by skill-vs-agent hybrid pattern). Document the resolution in the rationale section.
       Verify: only one artifact remains, OR the two have a documented orchestrator/executor relationship.
@@ -94,3 +94,5 @@ Next concrete action: author resolves the duplicate with skill `ha-derive` (depr
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added "Rationale: Skill vs Agent" section after Denkmuster block with 3 decision dimensions (Specialization, Context-window protection, Self-contained); explicitly links to Hybrid-pattern resolution — verified: grep "## Rationale" returns the new heading
+2026-04-28 — skill-vs-agent.duplicate-prevention — resolved via Hybrid-pattern (option c from plan): added "Hybrid-Pattern: Verhaeltnis zur `ha-derive` Skill" section documenting orchestrator (skill) / executor (agent) relationship per skill-vs-agent §Hybrid pattern; counter-dimension in rationale section names the resolution explicitly — verified: agent body declares orchestrator/executor relationship; both rationale and Hybrid-pattern sections are present

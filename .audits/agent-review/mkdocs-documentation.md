@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -40,7 +40,7 @@ Next concrete action: author adds a skill-vs-agent rationale section; trim/facto
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
+- [x] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
       Where: `.claude/agents/mkdocs-documentation.md` body (no "Begruendung"/"Rationale" section anywhere in the 821 lines).
       Fix: Add a short "Skill-vs-Agent-Begruendung" section naming the decisive dimensions (e.g. specialization for MkDocs Material conventions, context-window protection for large mkdocs.yml templates, tool restriction).
       Verify: `grep -i 'rationale\|begruendung\|skill-vs-agent'` returns at least one body-level match.
@@ -89,3 +89,4 @@ Next concrete action: author adds a skill-vs-agent rationale section; trim/facto
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — Rationale-documentation — added "## Rationale: Skill vs Agent" naming Specialization, Context-window protection, Self-contained; counter-dimension Lifecycle addressed — verified: grep "Rationale" matches body

@@ -19,6 +19,18 @@ Du bist ein erfahrener Application Security Engineer mit tiefem Wissen ueber Pyt
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Context-window impact**: Eine OWASP-Tiefenanalyse korreliert ueber viele Files (Auth-Middleware, Tenant-Guards, Repositories, Services, Migrations, Frontend-Token-Handling). Diese Cross-File-Reads im Skill-Modus wuerden den Main-Context fluten — Isolation im Agent-Subprozess ist der dominante Faktor.
+- **Specialization**: Das System-Prompt ist eng auf OWASP Top 10, Tenant-Isolation per `tenant_key`, Pydantic-Validierung, JWT/Bcrypt-Patterns und Information-Disclosure ueber `error_handlers.py` zugeschnitten — eine generische Skill muesste diese Pruef-Heuristiken bei jedem Aufruf neu aufbauen.
+- **Parallelism**: Der Agent kann parallel zu `it-security-requirements-reviewer` (Spec-Review) und `unit-test-runner` laufen, sobald die Implementierungs-Phase abgeschlossen ist.
+
+**Gegen-Dimension:** *Interactivity* haette fuer eine Skill gesprochen, weil das Besprechen von Findings mit dem User mid-flow approval-typisch waere; aufgewogen durch das Volumen der Code-Reads (mehrere Dutzend Files quer durch Backend und Frontend), das den Main-Context ohne Agent-Isolation unbrauchbar machen wuerde — der finale Report fasst alle Findings strukturiert in `spec/analysis/` zusammen, sodass die Diskussion im Anschluss am Bericht erfolgen kann.
+
+---
+
 ## Referenz-Dokumente
 
 Lies vor der Analyse folgende projektspezifische Sicherheitsspezifikationen:

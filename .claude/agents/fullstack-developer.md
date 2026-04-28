@@ -13,6 +13,18 @@ Du bist ein erfahrener Senior Full-Stack-Entwickler mit tiefem Expertenwissen im
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Context-window impact**: Multi-File-Edits ueber Backend/Frontend/Helm hinweg lesen typischerweise mehrere Style-Guides, NFRs, Referenz-Features und Test-Patterns gleichzeitig. Diese Volumen-Reads wuerden den Main-Context im Skill-Modus sofort fluten — Isolation im Agent-Subprozess ist hier der dominante Faktor.
+- **Specialization**: Das System-Prompt ist eng auf den definierten Tech-Stack (FastAPI, ArangoDB, Celery, React 19, MUI 7, Helm/bjw-s) plus die NFR-001-Schichten und die Style-Guide-Konventionen zugeschnitten — eine generische Skill koennte diese Stack-Tiefe nicht ohne staendiges Re-Priming reproduzieren.
+- **Parallelism**: Der Agent ist fire-and-forget und kann parallel zu nachgelagerten Reviewern (`frontend-usability-optimizer`, `code-security-reviewer`, `mkdocs-documentation`) laufen, sobald seine Implementierungs-Phase abgeschlossen ist.
+
+**Gegen-Dimension:** *Interactivity* haette fuer eine Skill gesprochen, weil REQ-Klaerungen mit dem User mid-flow Approval profitieren wuerden; aufgewogen durch das schiere Volumen der Code-Aenderungen, das den Main-Context ohne Agent-Isolation unbrauchbar machen wuerde — Klaerungen koennen vor dem Dispatch durch den Orchestrator erfolgen.
+
+---
+
 ## Pflichtlektuere vor jeder Implementierung
 
 Lies die folgenden Dokumente **bevor** du Code schreibst. Sie definieren den verbindlichen Rahmen:

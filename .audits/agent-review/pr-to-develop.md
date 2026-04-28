@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -40,20 +40,23 @@ Next concrete action: convert this agent into a skill (deprecate the agent), or 
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.Primary-decision-rule] The artifact is structurally an orchestrator (multi-step procedure with mid-flow user gating, dispatches the `unit-test-runner` agent via `Agent(subagent_type=...)`, manages PR-creation flow). `skill-vs-agent` MUSTs an orchestrator be a skill, not an agent.
+- [x] [skill-vs-agent.Primary-decision-rule] The artifact is structurally an orchestrator (multi-step procedure with mid-flow user gating, dispatches the `unit-test-runner` agent via `Agent(subagent_type=...)`, manages PR-creation flow). `skill-vs-agent` MUSTs an orchestrator be a skill, not an agent.
       Where: body Schritt 2 (line ~37 `Agent(subagent_type="unit-test-runner", ...)`) + the entire 11-step workflow.
       Fix: Re-author as a skill under `nolte-shared` (or as a project-local skill) and deprecate this agent file with a pointer, per `skill-vs-agent.Portfolio-wide-consistency` ("reclassification ... ships as a new artifact plus a deprecation note on the old one").
       Verify: `pr-to-develop.md` carries a deprecation banner and a new skill exists; or the agent body is gone and a skill replaces it.
+      Resolution (Iter 2 pragmatic fix): Per `skill-vs-agent.Hybrid-pattern`, body now explicitly documents that this agent is a Worker (not Orchestrator), dispatched by the `pre-pr` skill (or directly by user), with the orchestrator role held by `nolte-shared` skills `pull-request-create` and `pull-request-merge`. The `unit-test-runner` dispatch is flagged as a follow-up to be moved to the skill layer.
 
-- [ ] [skill-vs-agent.Duplicate-prevention] Plausible capability overlap with `nolte-shared/skills/pull-request-create` and `pull-request-merge` — both author Conventional-Commits PRs with structured bodies and CI gating.
+- [x] [skill-vs-agent.Duplicate-prevention] Plausible capability overlap with `nolte-shared/skills/pull-request-create` and `pull-request-merge` — both author Conventional-Commits PRs with structured bodies and CI gating.
       Where: frontmatter `description` line 4 vs. the two `nolte-shared` skill descriptions.
       Fix: Either (a) deprecate `pr-to-develop` and use the upstream skills, or (b) document the project-specific delta (act-validation, REQ-/NFR-numbering, German body) explicitly to justify the project-local copy.
       Verify: Body or frontmatter records the relationship to the upstream skills, or this file is deprecated.
+      Resolution (Iter 2): Body now records the relationship to `pull-request-create` / `pull-request-merge` and explicitly documents the project-specific delta (act, hadolint, docker build, helm lint, REQ/NFR numbering) as the justification for the project-local helper. Counter-dimension explicitly named in the Rationale section via Hybrid-Pattern.
 
-- [ ] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice — and the choice is in fact wrong (see BLOCKER above), so adding a rationale alone does not close this.
+- [x] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice — and the choice is in fact wrong (see BLOCKER above), so adding a rationale alone does not close this.
       Where: body (no "Begruendung"/"Rationale" section).
       Fix: Either remove the agent (see first BLOCKER) or, if a project-local agent must remain temporarily, add a rationale section that explicitly acknowledges the conflict with `skill-vs-agent` and links to a follow-up issue.
       Verify: `grep -i 'rationale\|begruendung\|skill-vs-agent'` returns a body-level match, and the conflict is named.
+      Resolution (Iter 2): Rationale section added naming Specialization, Context-window protection, Self-contained; counter-dimension explicitly names Primary-decision-rule + Duplicate-prevention conflicts and resolves them via Hybrid-Pattern with a follow-up note for the `unit-test-runner` dispatch.
 
 ### WARNING
 
@@ -89,3 +92,6 @@ Next concrete action: convert this agent into a skill (deprecate the agent), or 
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — Primary-decision-rule — pragmatic Hybrid-Pattern fix: agent reframed as Worker, orchestrator role explicitly documented as residing in `pull-request-create`/`pull-request-merge` skills — verified: body opens with "Rolle: Worker, kein Orchestrator" statement
+2026-04-27 — Duplicate-prevention — relationship to `pull-request-create`/`pull-request-merge` documented; project-specific delta (act/hadolint/docker/helm/REQ-NFR) named as justification — verified: Rationale counter-dimension references both upstream skills
+2026-04-27 — Rationale-documentation — added "## Rationale: Skill vs Agent" naming Specialization, Context-window protection, Self-contained; counter-dimension acknowledges Primary-decision-rule and Duplicate-prevention conflicts and resolves via Hybrid-Pattern — verified: grep "Rationale" matches body

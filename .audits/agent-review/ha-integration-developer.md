@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,7 +41,7 @@ Next concrete action: author adds a rationale section, clarifies the boundary vs
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet. Critical here because peer agent `ha-integration-sync` overlaps in HA-code modification scope.
+- [x] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet. Critical here because peer agent `ha-integration-sync` overlaps in HA-code modification scope.
       Where: `.claude/agents/ha-integration-developer.md` body, lines 10-232.
       Fix: add a 2-4-bullet rationale section naming decisive dimensions (specialization on multi-spec HA-development; context-window protection — parallel reads of 5 HA-SPEC docs; tool restriction not desirable since agent writes Python). Address the overlap with `ha-integration-sync` explicitly.
       Verify: grep for "Rationale" returns the new section AND the description names the boundary vs. `ha-integration-sync`.
@@ -94,3 +94,4 @@ Next concrete action: author adds a rationale section, clarifies the boundary vs
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added "Rationale: Skill vs Agent" section after role intro with 3 decision dimensions (Specialization, Context-window protection, Tool surface) and a counter-dimension addressing the boundary vs. ha-integration-sync — verified: grep "## Rationale" hits the new heading; ha-integration-sync boundary explicitly named in the rationale

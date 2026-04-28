@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan (status: in-progress) — see git history of this file"
 ---
 
@@ -41,7 +41,7 @@ Next concrete action: add a rationale section that names at least one decisive `
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] The body contains no rationale section that names a decisive dimension for the agent-over-skill choice; only a model-choice comment is present in the frontmatter.
+- [x] [skill-vs-agent.rationale] The body contains no rationale section that names a decisive dimension for the agent-over-skill choice; only a model-choice comment is present in the frontmatter.
       Where: `.claude/agents/it-security-requirements-reviewer.md` (no rationale section).
       Fix: add a rationale section naming at least one decisive dimension (for example: context-window protection during full `spec/req`+`spec/nfr`+`spec/ui-nfr` traversal, parallelism alongside other reviewers, narrow tool surface for spec audit + report writing) and at least one counter-dimension.
       Verify: a marked rationale section explicitly references one of the seven `skill-vs-agent` decision dimensions.
@@ -95,3 +95,4 @@ Next concrete action: add a rationale section that names at least one decisive `
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added rationale section naming 3 decisive dimensions (context-window impact, specialization, parallelism) and 1 counter-dimension (lifecycle) — verified: section header `## Rationale: Skill vs Agent` exists in body

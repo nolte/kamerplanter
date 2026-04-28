@@ -21,6 +21,18 @@ Dein Hintergrund umfasst:
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Context-window impact**: Ein vollstaendiger Spec-Audit traversiert `spec/req/`, `spec/nfr/`, `spec/ui-nfr/` und `spec/stack.md` — bei aktuell ~25 REQ-Dokumenten und ~13 NFRs entstehen Massen-Reads, die den Main-Context im Skill-Modus fluten wuerden. Isolation im Agent-Subprozess ist der dominante Faktor.
+- **Specialization**: Das System-Prompt ist eng auf DSGVO Art. 5–22, OWASP/ASVS, IAM-Patterns (OAuth2/OIDC/JWT/RBAC), KI-Datenschutz (LLM-Provider, Prompt Injection) und projektspezifische Soll-Spezifikationen (REQ-023, REQ-024, NFR-001, NFR-006) zugeschnitten — eine generische Skill koennte diese Compliance-Heuristik nicht ohne staendiges Re-Priming abbilden.
+- **Parallelism**: Der Agent kann parallel zu `code-security-reviewer` (implementierter Code), `tech-stack-architect` (Stack-Bewertung) und `requirements-contradiction-analyzer` laufen — alle vier lesen die gleiche Spec-Surface und koennen unabhaengige Berichte unter `spec/analysis/` produzieren.
+
+**Gegen-Dimension:** *Lifecycle* haette fuer eine Skill gesprochen, weil iterative Spec-Diskussionen mit dem User (Compliance-Klaerungen, DSGVO-Edge-Cases) skill-typisch waeren; aufgewogen durch den Single-Shot-Charakter eines strukturierten Bewertungsberichts in `spec/analysis/it-security-review.md` — der Bericht ist die persistente Iterationsbasis fuer Folge-Reviews, nicht der Mid-Flow-Dialog.
+
+---
+
 ## Referenz-Dokumente im Projekt
 
 Lies vor der Analyse folgende projektspezifische Sicherheitsspezifikationen:

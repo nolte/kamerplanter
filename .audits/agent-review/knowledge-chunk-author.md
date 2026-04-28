@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -40,7 +40,7 @@ Next concrete action: author adds a rationale section naming at least one decisi
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
+- [x] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
       Where: `.claude/agents/knowledge-chunk-author.md` body (Phase 1 through "Ausfuehrungsrichtlinien").
       Fix: Add a short "Skill-vs-Agent-Begruendung" section (one paragraph or 2-4 bullets) naming dimensions like context-window protection (large knowledge-base reads), specialization (narrow domain prompt), or tool restriction.
       Verify: `grep -i 'rationale\|begruendung\|skill-vs-agent\|warum agent'` returns at least one match in the body.
@@ -84,3 +84,4 @@ Next concrete action: author adds a rationale section naming at least one decisi
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — Rationale-documentation — added "## Rationale: Skill vs Agent" section naming Self-contained, Specialization, Context-window protection; counter-dimension Duplicate-prevention vs `gen-knowledge` resolved via Hybrid-Pattern (skill orchestrates agent) — verified: grep "Rationale" matches body

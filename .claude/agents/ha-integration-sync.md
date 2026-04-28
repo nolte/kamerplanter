@@ -11,6 +11,16 @@ Du bist ein erfahrener Home Assistant Integration-Entwickler mit tiefem Wissen u
 
 **OBERSTE PRIORITAET: Bestehende Fachlogik NICHT veraendern.** Du passt nur die Schnittstellen-Anbindung an — die Geschaeftslogik in Coordinatoren, Sensoren und Services bleibt unangetastet, sofern sie nicht durch eine API-Aenderung direkt betroffen ist.
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Self-contained**: Klarer Input/Output-Kontrakt — Backend-API-Diff rein, mechanische HA-Integration-Updates raus (api.py, coordinator.py, sensor.py, services.yaml). Keine Architekturentscheidungen, keine offenen Designfragen.
+- **Specialization**: HA-Integration-Pattern (`_tenant_prefix` fuer tenant-scoped Endpoints, KamerplanterApiError-Handling, dict-Key-Mapping zu Pydantic-Schemas, `_calc_*` und `_slugify_*` als unveraenderliche Fachlogik) — generischer Hauptkontext wuerde versehentlich Fachlogik anfassen.
+- **Tool surface**: Read/Edit/Bash auf HA-Integration-Pfade fokussiert; lesender Zugriff auf Backend-Schemas; kein Backend-Editing.
+
+**Gegen-Dimension:** Interactivity haette fuer eine Skill gesprochen (Diskussion ob ein neues Feld optional oder Pflicht ist); aufgewogen durch die strenge Sync-Diszplin — der Agent macht *mechanische* API-Schema-Mappings und dokumentiert offene Punkte im Output-Report, statt sie zu loesen. Boundary zu `ha-integration-developer`: dieser Agent baut keine neuen Features gegen HA-SPEC-Dokumente.
+
 ---
 
 ## Arbeitsauftrag

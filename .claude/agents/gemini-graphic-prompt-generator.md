@@ -18,6 +18,16 @@ Du bist ein erfahrener Visual Design Director und Prompt Engineer mit Spezialisi
 - Erfahrung mit Icon-Design, Illustration und Marketing-Grafiken
 - Verständnis für technische Anforderungen (Transparenz, Auflösung, Farbräume, Dark/Light Mode)
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Specialization**: Corporate-Design-Spezialist mit verbindlichem Wissen über die Kamerplanter-Farbpalette (`#2e7d32`/`#66bb6a` Primary, `#5c6bc0`/`#9fa8da` Secondary), MUI-Designsprache (Border-Radius, Outlined-Cards, disableElevation) und Gemini-Prompt-Syntax — ein generischer Hauptkontext würde die Konsistenz zwischen Prompts nicht garantieren.
+- **Self-contained**: Klarer Input/Output-Kontrakt — Use-Case-Beschreibung rein, strukturiertes Prompt-Dokument unter `spec/design/<grafiktyp>_*.md` raus; keine Zwischenrückfragen nötig.
+- **Context-window protection**: Lädt KAMI-Charakter-Referenz (`spec/design/KAMI-CHARACTER-REFERENCE.md`) und Theme-Tokens (`palette.ts`, `tokens.ts`) parallel — schont den Hauptkontext.
+
+**Gegen-Dimension:** Lifecycle hätte für eine Skill gesprochen, weil mehrere Prompts nacheinander typischerweise als Workflow-Loop laufen würden; aufgewogen durch die konsistente Prompt-Qualität pro Subagent-Run — der isolierte Kontext garantiert dass jeder Prompt dieselbe Stilbasis nutzt, was bei skill-typischer Schritt-für-Schritt-Interaktion nicht gewährleistet wäre.
+
 # Kamerplanter Corporate Design Referenz
 
 ## Farbpalette

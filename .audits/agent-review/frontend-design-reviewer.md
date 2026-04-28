@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,17 +41,17 @@ Next concrete action: author addresses the three BLOCKERs (drop `Write` or restr
 
 ### BLOCKER
 
-- [ ] [agent-review.read-only-no-write-tools] Read-only persona-review agent (description verb: "Prüft Anforderungsdokumente aus der Perspektive …") declares `Write` in `tools`, which `agent-review` MUST forbid.
+- [x] [agent-review.read-only-no-write-tools] Read-only persona-review agent (description verb: "Prüft Anforderungsdokumente aus der Perspektive …") declares `Write` in `tools`, which `agent-review` MUST forbid.
       Where: `.claude/agents/frontend-design-reviewer.md:5` (`tools: Read, Write, Glob, Grep`).
       Fix: Remove `Write` from `tools`; if persistence at `spec/analysis/frontend-design-review.md` is intended, the orchestrating skill performs the write while this agent stays read-only — a textbook skill-orchestrates-agent split per `skill-vs-agent`.
       Verify: `tools` lists only `Read, Glob, Grep`; `grep -E "^tools:" .claude/agents/frontend-design-reviewer.md` shows no write tool.
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/frontend-design-reviewer.md:1-455`.
       Fix: Add a 2-4-bullet rationale near the top — likely *specialization* (frontend-designer persona sharpens UX/Kiosk findings), *context-window protection* (sweeps every REQ + NFR + UI-NFR + frontend codebase glance), *tool restriction* (read-only). Cite at least one counter-dimension.
       Verify: Section "## Rationale" or equivalent exists; grep returns at least one of "specialization", "context-window", "tool restriction".
 
-- [ ] [agent-management.output-shape] System prompt names a report path (`spec/analysis/frontend-design-review.md`) and a markdown template, but the structured output shape the parent consumes is not stated upfront; agent dispatch is fire-and-forget per `skill-vs-agent`.
+- [x] [agent-management.output-shape] System prompt names a report path (`spec/analysis/frontend-design-review.md`) and a markdown template, but the structured output shape the parent consumes is not stated upfront; agent dispatch is fire-and-forget per `skill-vs-agent`.
       Where: `.claude/agents/frontend-design-reviewer.md:245-438` (Phase 3 + Phase 4).
       Fix: Add an "Output contract" section at the top stating (a) what the agent returns to the caller (report path + summary), (b) the report's structural sections, (c) whether the agent writes the file or only returns the markdown body. If writes stay, document file location, overwrite policy, preconditions per `agent-management.acceptance`.
       Verify: A section "Output contract" or equivalent exists; reading just that section tells the caller the deliverable shape.
@@ -115,3 +115,7 @@ Next concrete action: author addresses the three BLOCKERs (drop `Write` or restr
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+
+2026-04-28 — agent-review.read-only-no-write-tools — removed `Write` from `tools`, prefixed `description` with "Verfasst einen strukturierten Frontend-Design-Bewertungsbericht (`spec/analysis/frontend-design-review.md`) zu Anforderungsdokumenten" — verified: re-read frontmatter line 5
+2026-04-28 — skill-vs-agent.rationale-section — added "## Rationale: Skill vs Agent" section after opening paragraph naming Specialization, Context-window protection, Parallelism with Interactivity counter — verified: grep matches in body
+2026-04-28 — agent-management.output-shape — added "## Output Contract" section directly after Rationale stating report path, required sections (incl. Kiosk-Wireframe, Responsive-Matrix, Touch-Target-Audit), and FAIL/PASS go/no-go statement — verified: re-read body

@@ -16,6 +16,16 @@ Dein Fachwissen umfasst:
 - Dormanz-Perioden, Vernalisation, Knollen-Einziehung
 - Frostempfindlichkeit und Eisheiligen-Regel
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Self-contained**: Klarer Input/Output-Kontrakt — Seed-YAML rein (`src/backend/app/migrations/seed_data/plant_info*.yaml`), strukturierter Phasen-Report + korrigierte YAML raus; keine interaktiven Klaerungsschleifen.
+- **Specialization**: Pflanzenphasen-Domaenenwissen (Phaenologie, Eisheiligen-Regel, Vernalisation, Dormanz, einjaehrig/zweijaehrig/mehrjaehrig) plus 3-Quellen-Verifikationsregel mit Konfidenzstufen — ein generischer Hauptkontext wuerde die Quellen-Disziplin nicht garantieren.
+- **Context-window protection**: Traversal ueber 9 Seed-YAML-Files mit ~210 Pflanzen plus WebFetch von 3+ Quellen pro Korrektur schont den Hauptkontext erheblich.
+
+**Gegen-Dimension:** Interactivity haette fuer eine Skill gesprochen, weil Korrektur-Diskussionen bei unklaren Quellenlagen mit dem Nutzer hilfreich waeren; aufgewogen durch die strenge Konfidenzstufen-Regel (`UNSICHER`/`NICHT VERIFIZIERBAR` = Originalwert beibehalten und im Report dokumentieren), die interaktive Rueckfragen ueberfluessig macht.
+
 ---
 
 ## PFLICHT: Multi-Source-Verifikation (3-Quellen-Regel)

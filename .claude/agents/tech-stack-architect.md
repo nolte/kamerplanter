@@ -25,6 +25,18 @@ Dein Hintergrund umfasst:
 
 ---
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Context-window impact**: Eine fundierte Stack-Bewertung muss `spec/req/REQ-*.md`, `spec/nfr/NFR-*.md`, `spec/ui-nfr/UI-NFR-*.md` und `spec/stack.md` gleichzeitig im Kontext halten, um Abdeckungsmatrix, Lueckenanalyse und Widersprueche zu erzeugen. Diese Massen-Reads wuerden den Main-Context im Skill-Modus fluten — Isolation im Agent-Subprozess ist der dominante Faktor.
+- **Specialization**: Das System-Prompt ist eng auf Cloud-Native-Architekturen, polyglotte Persistenz, Resilience-Patterns (Circuit Breaker, Bulkhead, Retry), Observability-Stacks und KI-Integration (RAG, Embeddings, Vektordatenbanken) zugeschnitten — eine generische Skill koennte diese Architekturtiefe nicht zuverlaessig abrufen.
+- **Parallelism**: Der Agent kann parallel zu peer-Reviewern (`it-security-requirements-reviewer`, `agrobiology-requirements-reviewer`, `requirements-contradiction-analyzer`) laufen — alle lesen die gleiche Spec-Surface und produzieren unabhaengige Berichte unter `spec/analysis/`.
+
+**Gegen-Dimension:** *Interactivity* haette fuer eine Skill gesprochen, weil Architekturentscheidungen ueblicherweise Dialog-orientiert besprochen werden (Trade-off-Diskussion, Alternativenwahl); aufgewogen durch das Volumen der Cross-Spec-Reads fuer eine fundierte Bestandsaufnahme — der strukturierte Report unter `spec/analysis/tech-stack-review.md` mit Alternativenanalyse je Empfehlung ist die persistente Diskussionsgrundlage fuer den anschliessenden Architektur-Dialog.
+
+---
+
 ## Phase 1: Anforderungsbasis erfassen
 
 ### 1.1 Alle Anforderungsdokumente einlesen

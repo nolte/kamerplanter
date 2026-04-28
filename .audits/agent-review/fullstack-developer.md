@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan (status: in-progress) — see git history of this file"
 ---
 
@@ -41,7 +41,7 @@ Next concrete action: add a rationale section that names at least one decisive `
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] The body contains no rationale section that names a decisive dimension for the agent-over-skill choice; only a model-choice comment is present in the frontmatter.
+- [x] [skill-vs-agent.rationale] The body contains no rationale section that names a decisive dimension for the agent-over-skill choice; only a model-choice comment is present in the frontmatter.
       Where: `.claude/agents/fullstack-developer.md` (no rationale section anywhere in the body).
       Fix: add a short rationale section (paragraph or 2–4 bullets) naming at least one decisive dimension from the `skill-vs-agent` table (for example: context-window protection during multi-file edits, specialization via narrow stack focus, parallelism alongside review/test agents); name at least one counter-dimension when the call was close.
       Verify: a section header or bullet list explicitly references one of the seven decision dimensions from `skill-vs-agent`.
@@ -100,3 +100,4 @@ Next concrete action: add a rationale section that names at least one decisive `
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added rationale section naming 3 decisive dimensions (context-window impact, specialization, parallelism) and 1 counter-dimension (interactivity) — verified: section header `## Rationale: Skill vs Agent` exists in body

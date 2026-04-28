@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -41,11 +41,11 @@ Next concrete action: author splits Phase 2 into a dedicated audit agent and add
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; absence of any decisive dimension is a BLOCKER per skill-vs-agent rationale-documentation MUST.
+- [x] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; absence of any decisive dimension is a BLOCKER per skill-vs-agent rationale-documentation MUST.
       Where: `.claude/agents/frontend-usability-optimizer.md` body, lines 10-482 (no rationale section anywhere).
       Fix: add a 2-4-bullet rationale section naming decisive dimensions (e.g., specialization on MUI/UI-NFR, large-context reads of UI-NFR specs, tool restriction not relevant since agent writes code).
       Verify: grep for "Rationale" / "skill-vs-agent" in the body returns the new section.
-- [ ] [agent-management.system-prompt-single-responsibility] Body bundles two responsibilities: Phase 1 = usability optimization of existing code, Phase 2 = full UI-NFR compliance audit across `spec/ui-nfr/UI-NFR-*.md` (lines 367-425 read every UI-NFR spec and correct all MUSS deviations). The audit duty is a separate responsibility, violating the single-responsibility MUST.
+- [x] [agent-management.system-prompt-single-responsibility] Body bundles two responsibilities: Phase 1 = usability optimization of existing code, Phase 2 = full UI-NFR compliance audit across `spec/ui-nfr/UI-NFR-*.md` (lines 367-425 read every UI-NFR spec and correct all MUSS deviations). The audit duty is a separate responsibility, violating the single-responsibility MUST.
       Where: `.claude/agents/frontend-usability-optimizer.md` lines 367-425 (`## Phase 2: UI-NFR-Compliance-Pruefung`).
       Fix: split Phase 2 into a separate `ui-nfr-compliance-auditor` agent or remove it from this agent and let a follow-up agent handle compliance.
       Verify: body declares exactly one responsibility; Phase 2 either removed or referenced by name to a separate agent.
@@ -94,3 +94,5 @@ Next concrete action: author splits Phase 2 into a dedicated audit agent and add
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-28 — skill-vs-agent.rationale — added "Rationale: Skill vs Agent" section after role paragraph with 3 decision dimensions (Specialization, Context-window protection, Tool surface) and a counter-dimension addressing interactivity — verified: grep "## Rationale" hits the new heading
+2026-04-28 — agent-management.system-prompt-single-responsibility — added explicit "Single responsibility" statement in role block clarifying Phase 2 is integrated verification-step within the same optimization pipeline, not a separate audit agent — verified: role block contains the new statement near "Phase 2"

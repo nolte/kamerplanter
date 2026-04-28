@@ -13,7 +13,7 @@ specs-applied:
     revision: "7772341"
 repo-revision: "728ac421"
 created: "2026-04-28"
-status: open
+status: in-progress
 supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
@@ -42,17 +42,17 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
+- [x] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
       Where: `.claude/agents/selenium-test-reviewer.md:1-295` (no "Why this is an agent" section).
       Fix: Add a short rationale paragraph or 2-4 bullet list near the top naming decisive dimensions — most plausibly tool restriction (`Edit` only, no `Write`), specialization (NFR-008/NFR-008a checklist), and self-contained input/output (compliance report). Important given the peer `selenium-test-generator` agent.
       Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "specialization", "tool-restriction", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape is described only in Step 6 as a Markdown report skeleton; the file lacks an upfront "Output contract" stating what the parent caller receives and what files (if any) are modified.
+- [x] [agent-management.output-shape] Expected output shape is described only in Step 6 as a Markdown report skeleton; the file lacks an upfront "Output contract" stating what the parent caller receives and what files (if any) are modified.
       Where: `.claude/agents/selenium-test-reviewer.md:223-273`.
       Fix: Add an "Output contract" section near the top stating (a) what the parent receives (chat-rendered compliance report), (b) the report's required tables, (c) any modified files (in-place edits to `tests/e2e/` and possibly newly created `base_page.py`/`protocol_plugin.py`), (d) overwrite policy.
       Verify: An "Output contract" section exists near the top; reading it tells a parent caller every deliverable and side-effect target.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Edit` and `Bash` and the closing "Wichtige Prinzipien" lines explicitly say the agent *creates* missing files (`base_page.py`, `protocol_plugin.py`) and *migrates* `selenium_tests/` → `tests/e2e/`. These write effects are not consolidated upfront per `agent-management` acceptance.
+- [x] [agent-management.write-effects-documented] Agent declares `Edit` and `Bash` and the closing "Wichtige Prinzipien" lines explicitly say the agent *creates* missing files (`base_page.py`, `protocol_plugin.py`) and *migrates* `selenium_tests/` → `tests/e2e/`. These write effects are not consolidated upfront per `agent-management` acceptance.
       Where: `.claude/agents/selenium-test-reviewer.md:5` (tools) vs. body lines 287-294 (Wichtige Prinzipien) — write effects scattered.
       Fix: Add a "File outputs" / write-effects section consolidating: every potentially modified path (`tests/e2e/conftest.py`, `tests/e2e/protocol_plugin.py`, `tests/e2e/pages/base_page.py`, `tests/e2e/test_*.py`), preconditions (NFR-008 violation found, minimal-change principle), and the explicit invariant that frontend/backend production code is never modified.
       Verify: Body contains a single consolidated write-effects section naming target paths and preconditions; grep for "tests/e2e" returns hits in that section.
@@ -116,3 +116,6 @@ Next concrete action: author addresses the three remaining BLOCKERs (rationale s
 ## Processing log
 
 <!-- Append one line per item closure: YYYY-MM-DD — <item-shorthand> — <action taken> — verified: <method> -->
+2026-04-27 — skill-vs-agent.rationale-section — added "Rationale: Skill vs Agent" section naming tool-restriction (Edit-only), specialization (NFR-008a checklist), self-contained I/O plus interactivity counter-dimension — verified: file content review
+2026-04-27 — agent-management.output-shape — added "Output Contract" section listing chat compliance-report sections, modified tests/e2e/ paths, explicit go/no-go statement (NFR-008-KONFORM/NICHT) — verified: file content review
+2026-04-27 — agent-management.write-effects-documented — added "Write Effects" section consolidating tests/e2e/ in-place edits, last-resort base_page/protocol_plugin creation, minimal-invasive precondition, no production-code edits, deterministic re-run idempotency — verified: file content review

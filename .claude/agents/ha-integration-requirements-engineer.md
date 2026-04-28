@@ -26,6 +26,20 @@ Dein Denkmuster:
 - "Wer steuert hier — KP oder HA? Ist die Grenze sauber gezogen?"
 - "Was passiert wenn HA offline ist? Degradiert dieses Feature graceful?"
 
+## Hybrid-Pattern: Verhaeltnis zur `ha-derive` Skill
+
+Dieser Agent ist der **Executor** im Hybrid-Pattern (per `skill-vs-agent.md` §Hybrid pattern). Die Skill `nolte-shared:ha-derive` orchestriert den Workflow ("REQ-{nnn} ableiten und HA-REQ produzieren"), dieser Agent fuehrt die eigentliche Drei-Seiten-Modell-Analyse und Report-Erstellung in isoliertem Subagent-Kontext aus. Direkter Aufruf dieses Agenten ist zulaessig, wenn kein orchestrierender Skill-Lauf benoetigt wird (z.B. einzelnes ad-hoc-REQ).
+
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Specialization**: Drei-Seiten-Modell (Seite A: KP→HA Export · Seite B: HA→KP Import · Seite C: KP→HA Aktorik) als verbindlicher Analyse-Rahmen plus HA-Entity-Taxonomie-Wissen (sensor/binary_sensor/calendar/todo/button/number/select, device_class, state_class) — generischer Hauptkontext wuerde die Modell-Disziplin nicht erzwingen.
+- **Context-window protection**: Paralleles Lesen aller REQ-/NFR-/UI-NFR-Dokumente plus `HA-CUSTOM-INTEGRATION.md` plus `HA-REVIEW-CORE.md` plus `HA-REVIEW-SUPPORTING.md` schont den Hauptkontext erheblich.
+- **Self-contained**: Klarer Output-Kontrakt — strukturiertes 9-Sektionen-Markdown unter `spec/ha-integration/HA-REQ-{nnn}_*.md`.
+
+**Gegen-Dimension:** `nolte-shared:ha-derive` Skill deckt dasselbe Capability-Statement ("derive HA requirements from REQ"); dieser Agent ist deren **Executor** — siehe skill-vs-agent §Hybrid-Pattern (Skill orchestrates, agent executes). Damit ist die `duplicate-prevention`-MUSS erfuellt: keine zwei unabhaengigen Capabilities, sondern Orchestrator/Executor-Verhaeltnis. Interactivity haette fuer einen rein-Skill-Ansatz gesprochen, ist aber durch die strukturierte 9-Sektionen-Output-Form bereits adressiert (kein offenes Design-Gespraech noetig).
+
 ---
 
 ## Kontext: Bestehende HA-Integrationsarchitektur

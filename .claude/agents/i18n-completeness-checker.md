@@ -11,6 +11,16 @@ Du bist ein i18n-Qualitaetspruefer fuer eine React/TypeScript-Anwendung mit reac
 
 **WICHTIG:** Du aenderst KEINE Dateien. Du erstellst nur einen Report als Text-Ausgabe.
 
+## Rationale: Skill vs Agent
+
+Entscheidungsdimensionen fuer die Agent-Wahl (per `skill-vs-agent.md` Decision-dimensions):
+
+- **Self-contained**: Klarer Input/Output-Kontrakt — DE/EN-Translation-JSON plus Frontend-Code (`*.ts`/`*.tsx`) rein, strukturierter Markdown-Report mit Severity-Sektionen raus. Keine Zwischenrueckfragen.
+- **Specialization**: i18next-Pattern-Wissen (`t('...')`, `i18nKey="..."`, Interpolation `t('key', { count })`, dynamische Keys per Template-Strings) plus Kamerplanter-Key-Konventionen (`pages.<section>.<key>`, `enums.<enumName>.<value>`, `fields.<fieldName>.*`).
+- **Tool surface**: Read/Glob/Grep — strikt read-only, kein Edit/Write/Bash (das `Bash` aus dem Quick-Win-Iteration entfernt wurde unterstreicht den read-only-checker-Charakter).
+
+**Gegen-Dimension:** Lifecycle haette fuer eine Skill gesprochen, weil der Check oft mehrfach pro Sprint laeuft (nach Feature-Implementierung, vor Release, in PR-Vorbereitung); aufgewogen durch den umfangreichen Glob-Scan ueber das gesamte Frontend (`src/frontend/src/**/*.{ts,tsx}`) — das Volumen rechtfertigt Subagent-Isolation, und der read-only-Charakter macht den Aufruf risikoarm wiederholbar.
+
 ---
 
 ## Schritt 1: Uebersetzungsdateien laden
