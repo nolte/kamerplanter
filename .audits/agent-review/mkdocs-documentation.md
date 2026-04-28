@@ -4,16 +4,17 @@ target: ".claude/agents/mkdocs-documentation.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: mkdocs-documentation
@@ -21,78 +22,68 @@ status: open
 ## Scope
 
 Target: `.claude/agents/mkdocs-documentation.md` (frontmatter + 821-line body, no sibling assets under `agents/mkdocs-documentation/`).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions in frontmatter).
-Narrowing: none — full review.
-Explicitly out of scope: actual MkDocs-Material configuration correctness at runtime, Vale/markdown style, the dispatching skill (none documented).
+Specs applied: `agent-management` (rev 7772341), `skill-vs-agent` (rev 0e3b6f9), `review-plan` (rev 0e3b6f9), `agent-review` (rev 7772341).
+Narrowing: none — full re-review (Iteration 2). The relaxed language SHOULD applies: Kamerplanter `CLAUDE.md` lines 9-11 authorize German prose for `distribution: project` agents, so German body+description drop from BLOCKER to INFO. Frontmatter field names + technical identifier values remain English.
+Explicitly out of scope: runtime behavior of MkDocs builds, Vale/markdown style, and the duplicate-prevention check against possible documentation skills in `nolte-shared`.
 
 ## Summary
 
-- BLOCKER: 3
+- BLOCKER: 1
 - WARNING: 4
 - SUGGESTION: 1
 - INFO: 2
 
-Go/no-go: FAIL — body language and missing rationale block dispatch readiness; severe length excess.
-Next concrete action: rewrite system prompt in English, add rationale section, factor the embedded `mkdocs.yml`, ADR template, GitHub Actions workflow into `agents/mkdocs-documentation/` siblings.
+Go/no-go: FAIL — one BLOCKER (rationale section) remains.
+Next concrete action: author adds a skill-vs-agent rationale section; trim/factor the 821-line body; address tags and model-rationale WARNINGs.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.Structure.MUST-english] Agent body is authored entirely in German, including all section headings ("Verbindlicher Tech-Stack", "Mehrsprachigkeit", "Endnutzer-Dokumentation — Schreibregeln", "Absolute Verbote") and procedural directives.
-      Where: `.claude/agents/mkdocs-documentation.md:10-821`.
-      Fix: rewrite the system prompt in English; user-facing docs output may stay German/English (project convention), but the prompt scaffolding itself must be English per `agent-management` MUST.
-      Verify: `rg -n '[äöüÄÖÜß]' .claude/agents/mkdocs-documentation.md` returns hits only inside quoted German example strings.
-
-- [ ] [skill-vs-agent.Rationale-documentation.MUST] The body has no rationale section that names a decisive dimension for the agent-over-skill choice.
-      Where: `.claude/agents/mkdocs-documentation.md` (entire body, no rationale block detected).
-      Fix: add a short rationale section naming at least one decisive dimension — likely "specialization" (narrow technical-writer system prompt) plus "context-window protection" (heavy reads of `spec/req/**`, `spec/nfr/**`, `spec/style-guides/**`).
-      Verify: a paragraph or bulleted list explicitly stating the skill-vs-agent dimensions exists in the body.
-
-- [ ] [agent-management.Recommendations.SHOULD-length] Body is 821 lines, ~4× the soft ~200-line limit, with very large embedded fragments (full `mkdocs.yml`, `extra.css`, GitHub Actions workflow, ADR template, abbreviations file) inlined instead of referenced.
-      Where: `.claude/agents/mkdocs-documentation.md:36-380` (mkdocs.yml + i18n), `:444-495` (ADR template), `:556-664` (mkdocstrings + GitHub Actions), `:674-794` (CSS + Mermaid + abbreviations).
-      Fix: factor each embedded artifact (`mkdocs.yml`, `extra.css`, `docs.yml` workflow, ADR template, abbreviations) into `agents/mkdocs-documentation/` siblings and reference by relative path; keep the body to procedural guidance only.
-      Verify: body line count drops below ~200 after factoring; sibling files cover the long-form references.
+- [ ] [skill-vs-agent.Rationale-documentation] No rationale section names a decisive skill-vs-agent dimension for the agent-over-skill choice.
+      Where: `.claude/agents/mkdocs-documentation.md` body (no "Begruendung"/"Rationale" section anywhere in the 821 lines).
+      Fix: Add a short "Skill-vs-Agent-Begruendung" section naming the decisive dimensions (e.g. specialization for MkDocs Material conventions, context-window protection for large mkdocs.yml templates, tool restriction).
+      Verify: `grep -i 'rationale\|begruendung\|skill-vs-agent'` returns at least one body-level match.
 
 ### WARNING
 
-- [ ] [agent-management.Recommendations.SHOULD-writes-vs-research] The system prompt does not state explicitly whether the agent writes code or only researches, despite declaring `Write`, `Edit`, and `Bash`.
-      Where: `.claude/agents/mkdocs-documentation.md:1-12` (frontmatter + opening role statement).
-      Fix: add one explicit sentence stating "this agent creates and edits files under `docs/` and may run `mkdocs build --strict` via Bash"; the "Ausgabe nach Arbeit" section at line 798 implies this but never declares it up front.
-      Verify: the role section names the side effects and the target paths.
+- [ ] [agent-management.Body-length] Body is 821 lines, far above the ~200-line soft target; large blocks of `mkdocs.yml`, GitHub Actions YAML, CSS, abbreviations and Mermaid examples are inlined rather than factored.
+      Where: lines 184-368 (full mkdocs.yml), 589-664 (CI workflow), 678-700 (CSS), 778-794 (abbreviations).
+      Fix: Move long-form references into a sibling folder `agents/mkdocs-documentation/` (e.g. `mkdocs.yml.template`, `ci-deploy.yml.template`, `extra.css.template`, `abbreviations.md.template`) and reference them by relative path.
+      Verify: Body length drops below ~300 lines and inlined templates are replaced with relative-path references.
 
-- [ ] [agent-review.Tool-scope.SHOULD-bash-vs-dedicated] Bash is declared, but most of the documented Bash usage (mkdocs build, linkchecker, mike) is justified; one mention (`grep` patterns in build validation) could be a `Grep` call instead.
-      Where: `.claude/agents/mkdocs-documentation.md:5` tools list.
-      Fix: keep Bash but document the build-/serve-only justification in the role block (build commands genuinely need the shell); spot-check that no body step uses Bash where `Read`/`Glob` would suffice.
-      Verify: every Bash invocation in the body has a build/serve/test rationale that a dedicated tool wouldn't cover.
+- [ ] [agent-management.Model-selection-justification] Pinned `model: sonnet` only carries a one-line frontmatter comment; the body never repeats the rationale.
+      Where: frontmatter line 6 (comment) — body has no model-rationale paragraph.
+      Fix: Add a short body-level model-rationale (e.g. under "Ausgabe nach Arbeit"): "sonnet for multilingual prose generation; haiku would underfit ADR/guide nuance".
+      Verify: `grep -i 'sonnet\|modell' .claude/agents/mkdocs-documentation.md` returns a body-level mention.
 
-- [ ] [skill-vs-agent.Duplicate-prevention.MUST] The agent description claims responsibility for "ADRs, mkdocs.yml configuration, API-Docs, Guides/Tutorials, Docs-CI/CD, Changelog, mike-Versionierung, Custom-Styling" — eight distinct authoring domains in one agent that risk overlap with future docs/scaffolding skills.
-      Where: `.claude/agents/mkdocs-documentation.md:4` description.
-      Fix: tighten the description to MkDocs-Material authoring only, or split into focused agents (config, content, ADR, CI/CD) so a future docs-scaffolding skill can dispatch them clearly.
-      Verify: description names a single, narrow responsibility plus negative triggers for the carved-out concerns.
+- [ ] [agent-management.Side-effects-documentation] `tools` declares `Write`, `Edit`, and `Bash`, but the system prompt never lists the side-effect targets and preconditions in a dedicated section.
+      Where: frontmatter line 5 (tools) — body lacks an explicit write-targets section.
+      Fix: Add a "Schreibrechte und Bash-Nutzung" subsection naming the targets (`docs/**`, `mkdocs.yml`, `.github/workflows/docs.yml`) and bash preconditions (only `mkdocs build --strict`, `mike` deploy, `linkchecker`).
+      Verify: Body contains an explicit listing of write targets and bash command boundaries.
 
-- [ ] [agent-management.Recommendations.SHOULD-negative-triggers] The description lists positive triggers but no negative cases ("don't use for…"), even though overlap with content-authoring agents (e.g. plant-info-document-generator) is plausible.
-      Where: `.claude/agents/mkdocs-documentation.md:4`.
-      Fix: add 1–2 negative triggers, e.g. "do not use for spec authoring (use the spec skill) or for plant info documents (plant-info-document-generator)".
-      Verify: description contains explicit "don't use for" phrasing.
+- [ ] [agent-management.Tools-bash-preference] `Bash` is declared but every example bash invocation (`mkdocs build`, `mike`, `linkchecker`, `pip install`) is for command execution that has no dedicated tool — declaration is justified, but the body never says so.
+      Where: frontmatter line 5 (tools) — body never disambiguates Bash from Read/Edit roles.
+      Fix: Note in the body that `Bash` is required for `mkdocs build --strict`, `mike deploy`, and `linkchecker` since no dedicated tool covers those.
+      Verify: Body contains a one-paragraph rationale for the `Bash` declaration.
 
 ### SUGGESTION
 
-- [ ] [agent-management.Tag-vocabulary.MAY] Agent has no `tags` frontmatter field; adding one (e.g. `[prose, scaffolding]`) would surface it in the catalog's tag index next to peers.
-      Where: `.claude/agents/mkdocs-documentation.md:1-8`.
-      Fix: add `tags: [prose, scaffolding]` (each ≤30 chars, list ≤5).
-      Verify: frontmatter parses with valid `tags`.
+- [ ] [agent-management.Tag-vocabulary] No `tags` field; the catalog cannot place this agent in a documentation cluster.
+      Where: frontmatter (no `tags` key).
+      Fix: Add `tags: [scaffolding, prose]` or similar from the starter vocabulary.
+      Verify: Frontmatter parses with a `tags` list of <=5 lowercase ASCII kebab-case entries.
 
 ### INFO
 
-- [ ] [agent-review.Checks-derived-from-skill-vs-agent.MUST-no-skill-dispatch] No `Skill(`, `Skill tool`, or `Skill <name>` invocations were found in the body — dispatch direction is clean.
-      Where: full body grep clean.
-      Fix: n/a (observation).
-      Verify: n/a.
+- [ ] [agent-management.Structure-language] Description and body authored in German.
+      Where: frontmatter `description` line 4 + entire body.
+      Fix: n/a — Kamerplanter `CLAUDE.md` lines 9-11 authorize German prose for `distribution: project` agents.
+      Verify: n/a (informational).
 
-- [ ] [agent-management.Tool-access.MUST] Tools declared (`Read, Write, Edit, Bash, Glob, Grep`) all map to documented procedure steps (read specs, write docs, run mkdocs build) — bidirectional check passes on spot-check.
-      Where: `.claude/agents/mkdocs-documentation.md:5`.
-      Fix: n/a (observation).
+- [ ] [agent-review.Review-procedure] Iteration 2 re-review applies the relaxed language SHOULD; previous language BLOCKER drops to INFO.
+      Where: this plan's `## Scope`.
+      Fix: n/a (procedural note).
       Verify: n/a.
 
 ## Processing log

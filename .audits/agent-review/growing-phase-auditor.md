@@ -4,90 +4,88 @@ target: ".claude/agents/growing-phase-auditor.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: growing-phase-auditor
 
 ## Scope
 
-Target: `.claude/agents/growing-phase-auditor.md` (frontmatter + body, ~298 lines; no `agents/<name>/` sibling assets).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions recorded in frontmatter).
+Target: `.claude/agents/growing-phase-auditor.md` (frontmatter + body, 297 lines; references `src/backend/app/migrations/seed_data/plant_info*.yaml` (exist) and `spec/knowledge/plants/*.md` (exists)).
+Specs applied: `agent-management` rev `7772341`, `skill-vs-agent` rev `0e3b6f9`, `review-plan` rev `0e3b6f9`, `agent-review` rev `7772341` (recorded in frontmatter).
+Iteration 2: re-review under the relaxed agent-management language clause. The MUST on English-only frontmatter/body now exempts `distribution: project` agents whose consuming project authorises a non-English documentation language for agent prose; Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German, so German `description`+body becomes INFO. Frontmatter field names and technical identifier values stay English-required.
 Narrowing: none — full review surface.
-Explicitly out of scope: botanical correctness of the cited reference patterns, validity of cited data sources.
+Explicitly out of scope: botanical correctness of the 3-source-rule, RHS/LWG source quality.
 
 ## Summary
 
-- BLOCKER: 3
-- WARNING: 4
+- BLOCKER: 1
+- WARNING: 3
 - SUGGESTION: 1
-- INFO: 2
+- INFO: 4
 
-Go/no-go: FAIL — body is German, lacks rationale, and the read-only "auditor" framing conflicts with the declared write/execution tools.
-Next concrete action: author addresses BLOCKERs (English body, rationale, tool-scoping clarification).
+Go/no-go: FAIL — rationale section still missing; language BLOCKER from iteration 1 is downgraded to INFO under the relaxed clause. Tools-vs-responsibility check passes (auditor with Edit/Write justified by stated correction-writing duty).
+Next concrete action: author adds a rationale section, hoists the output shape, and addresses length WARNING.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.english-content] Description and full body are in German, violating the MUST for English frontmatter and system-prompt content.
-      Where: lines 4 (`description`), 10–298 (body).
-      Fix: rewrite description and body in English; the project's German-conversation rule does not override the agent-management spec's English MUST.
-      Verify: `head -20` shows English content.
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; the rationale-documentation MUST is unmet.
-      Where: full body.
-      Fix: add a 2–4-bullet rationale section (e.g., context-window protection — multi-source web research; specialization on phenology + 3-source rule; tool restriction — WebSearch/WebFetch reduce hallucination risk).
-      Verify: grep for "rationale" returns the new section.
-- [ ] [agent-management.tools-scope-readonly+system-prompt-single-responsibility] The `description` (line 4) calls the agent both "Prueft" (audits/reviews — read-only verb) and "korrigiert" (corrects — writes); the responsibility statement bundles audit + correction. agent-review's read-only invariant is therefore ambiguous, and the audit-only naming "auditor" conflicts with the declared `Write`/`Edit`/`Bash` tools. Additionally, the body Phase 4 (line 239) writes corrections directly to YAML files.
-      Where: line 4 (`Prueft und korrigiert`), line 5 (`tools: ... Write, Edit, ... Bash, WebSearch, WebFetch`), lines 239–245 (Phase 4 writes).
-      Fix: either (a) rename to `growing-phase-auditor-and-corrector` and explicitly justify Edit/Write in the body's tool-use rationale; or (b) split into a read-only auditor (Read/Glob/Grep/WebSearch/WebFetch only) plus a separate corrector agent. Document the chosen direction in the rationale section.
-      Verify: agent name + description + tools list are internally consistent; read-only invariant is either satisfied or explicitly waived with justification.
+- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
+      Where: `.claude/agents/growing-phase-auditor.md` body, lines 10-297.
+      Fix: add a 2-4-bullet rationale section (e.g., specialization on phenology + multi-source verification; context-window protection — large YAML traversal across 9 seed files; tool restriction would harm the agent because it must Edit YAML and WebFetch sources).
+      Verify: grep for "Rationale" returns the new section.
 
 ### WARNING
 
-- [ ] [agent-management.system-prompt-output-shape] Output shape (structured per-species report with status/findings/correction/sources/confidence) is defined but only at lines 175–222 (Phase 2); the role-opening section never names it. The MUST requires the output shape to be stated.
-      Where: lines 10–18 (role) vs. lines 175–222 (output template).
+- [ ] [agent-management.system-prompt-output-shape] Output shape (structured per-species report with status, findings, correction proposal, sources) is shown at Phase 2 (lines 175-221) but not previewed in the role-opening section.
+      Where: lines 10-19 (role) vs. lines 175-221 (report template).
       Fix: hoist a one-paragraph "Output shape" block under the role section.
-      Verify: lines 1–30 name the report shape.
-- [ ] [agent-management.system-prompt-order] Order is role → multi-source rule → data model → check rules → method → reference data. The SHOULD requires role → output → method; output and method are split across the document.
-      Where: lines 21–67 (multi-source rule) precedes any method/output statement.
-      Fix: reorder to role → output → method (Phase 1–4) → reference data → multi-source rule (or move multi-source rule into method as preconditions).
+      Verify: lines 1-40 name the report sections.
+- [ ] [agent-management.system-prompt-order] Order: role -> 3-Quellen-Regel -> Datenmodell -> Pruefregeln (R1-R5) -> Arbeitsweise (Phase 1-4) -> Referenz-Phasenketten -> Hinweise. SHOULD requires role -> output -> method; output appears mid-Arbeitsweise.
+      Where: full file structure.
+      Fix: reorder to role -> output -> method.
       Verify: section ordering follows the SHOULD.
-- [ ] [agent-management.system-prompt-length] Body is ~298 lines, over the ~200-line soft target; the multi-source rule, data model, check rules and reference patterns are candidates for sibling assets.
-      Where: full file, especially lines 91–155 (check rules), 249–298 (typical phase chains).
-      Fix: factor reference data and check rules into `agents/growing-phase-auditor/`.
+- [ ] [agent-management.system-prompt-length] Body is 297 lines, over the ~200-line soft target; the reference phenology table (lines 248-289) and the rules section (lines 92-155) are candidates for siblings under `agents/growing-phase-auditor/`.
+      Where: lines 92-155 (rules), 248-289 (reference phenology).
+      Fix: factor reference material into `agents/growing-phase-auditor/` siblings.
       Verify: `wc -l` returns ~200.
-- [ ] [agent-management.write-effects-documented] The agent edits YAML seed files; goals are present (Phase 4 lines 239–245) but preconditions are partially documented (only-write-✅GESICHERT). Adding explicit "do not add new schema fields" and "verify YAML syntax after each edit" is present (line 245) — close to satisfying the SHOULD but should be hoisted near the role.
-      Where: lines 239–245.
-      Fix: hoist write preconditions into the role-opening block.
-      Verify: opening section names the write preconditions.
 
 ### SUGGESTION
 
-- [ ] [agent-management.tags] No `tags` field; adding `tags: [audit, seeds, botany]` would aid peer-cluster discovery per `skill-vs-agent` portfolio-wide consistency.
-      Where: frontmatter.
-      Fix: add `tags: [audit, seeds, botany]` (≤5, lowercase kebab-case, ≤30 chars).
-      Verify: `grep "^tags:" .claude/agents/growing-phase-auditor.md` returns the field.
+- [ ] [agent-management.tags] No `tags` field; adding `tags: [audit, plants, seed-data]` would aid peer-cluster discovery vs. peers `seed-data-validator`, `plant-info-document-generator`.
+      Where: frontmatter (lines 1-8).
+      Fix: add `tags: [audit, plants, seed-data]` (<=5, lowercase kebab-case, <=30 chars).
+      Verify: `grep "^tags:"` returns the field.
 
 ### INFO
 
-- [ ] [agent-management.model-rationale] Model pinned to `sonnet` with rationale ("botanical validation with web research, structured reasoning") on line 6; satisfies the SHOULD. Plausibility passes.
-      Where: frontmatter line 6.
+- [ ] [agent-management.english-content-project-exception] Description and body are German. Under the relaxed clause this is allowed because `distribution: project` is declared and Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German for `.claude/agents/` prose. Iteration-1 BLOCKER downgraded.
+      Where: line 4 (description), lines 10-297 (body).
       Fix: n/a (observation).
       Verify: n/a.
-- [ ] [skill-vs-agent.duplicate-prevention] Plausible overlap with peer agent `seed-data-validator` (validates YAML seeds) — they are described as different (validator vs. phase-specific corrector), but description should clarify the boundary explicitly.
-      Where: description line 4 vs. peer `seed-data-validator`.
-      Fix: add a "don't use for" negative trigger naming `seed-data-validator` ("don't use for general seed-YAML schema validation — use seed-data-validator").
-      Verify: description contains a "don't use for" clause. (Soft-flagged as INFO because the boundary is genuinely narrower than "duplicate".)
+- [ ] [agent-management.model-rationale] Model pinned to `sonnet` with rationale ("botanical validation with web research (3-source rule), structured reasoning without extreme complexity; sonnet adequate") on line 7 — satisfies the SHOULD. Plausibility passes.
+      Where: frontmatter line 7.
+      Fix: n/a (observation).
+      Verify: n/a.
+- [ ] [agent-management.tools-scope] Tools `Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch` (line 5) match the stated responsibility (audit YAML files AND apply corrections); not a read-only agent because corrections are written, so Edit/Write are justified per the body's Phase-4 directive.
+      Where: line 5.
+      Fix: n/a (observation).
+      Verify: n/a.
+- [ ] [skill-vs-agent.duplicate-prevention] Peer agent `seed-data-validator` shares the seed-YAML domain but validates schema/structure, not phenology; peer `plant-info-document-generator` writes new docs vs. auditing data — no semantic overlap, but a "don't use for" clause naming `seed-data-validator` would sharpen the boundary.
+      Where: line 4 description.
+      Fix: n/a (informational; could be promoted to WARNING if duplicates surface).
+      Verify: n/a.
 
 ## Processing log
 

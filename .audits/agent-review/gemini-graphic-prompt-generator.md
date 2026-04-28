@@ -4,92 +4,82 @@ target: ".claude/agents/gemini-graphic-prompt-generator.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: gemini-graphic-prompt-generator
 
 ## Scope
 
-Target: `.claude/agents/gemini-graphic-prompt-generator.md` (frontmatter + body, ~300 lines; references `spec/design/KAMI-CHARACTER-REFERENCE.md` which exists).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions recorded in frontmatter).
+Target: `.claude/agents/gemini-graphic-prompt-generator.md` (frontmatter + body, 299 lines; references `spec/design/KAMI-CHARACTER-REFERENCE.md` (exists), `src/frontend/src/theme/palette.ts`, `src/frontend/src/theme/tokens.ts`, `src/frontend/src/layouts/Sidebar.tsx`).
+Specs applied: `agent-management` rev `7772341`, `skill-vs-agent` rev `0e3b6f9`, `review-plan` rev `0e3b6f9`, `agent-review` rev `7772341` (recorded in frontmatter).
+Iteration 2: re-review under the relaxed agent-management language clause. The MUST on English-only frontmatter/body now exempts `distribution: project` agents whose consuming project authorises a non-English documentation language for agent prose; Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German, so German `description`+body becomes INFO. Frontmatter field names and technical identifier values stay English-required.
 Narrowing: none — full review surface.
-Explicitly out of scope: runtime correctness of the generated Gemini prompts, the actual image-generation tool's behavior.
+Explicitly out of scope: actual prompt-engineering quality, Gemini API behavior.
 
 ## Summary
 
-- BLOCKER: 3
-- WARNING: 4
-- SUGGESTION: 2
-- INFO: 2
+- BLOCKER: 1
+- WARNING: 3
+- SUGGESTION: 1
+- INFO: 3
 
-Go/no-go: FAIL — body is German, lacks a rationale section, and bundles two writing responsibilities.
-Next concrete action: author addresses BLOCKERs (English body, rationale, single-responsibility split or re-scope).
+Go/no-go: FAIL — rationale section still missing; language BLOCKER from iteration 1 is downgraded to INFO under the relaxed clause.
+Next concrete action: author adds a rationale section and addresses ordering / output-shape WARNINGs.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.english-content] Body and frontmatter description are in German (with English design-domain terms), violating the MUST that frontmatter and system-prompt content stay in English.
-      Where: `.claude/agents/gemini-graphic-prompt-generator.md:4` (`description`) and lines 10–300.
-      Fix: rewrite description and body in English; the project's German-conversation rule does not override agent-management's English MUST for agent files.
-      Verify: `head -20` shows English content.
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; absence is a BLOCKER per the rationale-documentation MUST.
-      Where: full body — no section discusses skill-vs-agent choice.
-      Fix: add a 2–4-bullet rationale section under "Rolle" or as a footer (e.g., specialization on Gemini prompt syntax + corporate design palette; fire-and-forget output shape).
-      Verify: grep for "rationale" or "skill-vs-agent" in the body returns the new section.
-- [ ] [agent-management.system-prompt-output-shape] The expected output shape (a markdown prompt-document under `spec/design/<typ>_<beschreibung>.md` with a fixed structure) is described but the system prompt does not state it in the role-opening section; it is reached only at Phase 3 (lines 186–260). The MUST requires the output shape to be stated as part of the role/output/method ordering.
-      Where: lines 10–22 (role) vs. lines 186+ (output document spec).
-      Fix: add a one-paragraph "Output shape" block right after the role section naming the output file path, sections, and Light/Dark variants.
-      Verify: lines 1–40 contain the output-shape statement.
+- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
+      Where: `.claude/agents/gemini-graphic-prompt-generator.md` body, lines 10-299.
+      Fix: add a 2-4-bullet rationale section (e.g., specialization on Kamerplanter corporate design + Gemini prompt syntax; isolation from main conversation; write-only output).
+      Verify: grep for "Rationale" returns the new section.
 
 ### WARNING
 
-- [ ] [agent-management.system-prompt-order] Order is role → context (corporate design reference) → method (Phase 0–5) → output document spec embedded in Phase 3 → quality rules. The SHOULD requires role → output → method; the long corporate-design block delays the output and method statements.
-      Where: lines 22–73 (corporate design data block) before any method or output content.
-      Fix: move the corporate-design palette block into a sibling asset under `agents/gemini-graphic-prompt-generator/palette.md` and reference it; keep only role + output + method inline.
-      Verify: lines 10–80 follow role → output → method ordering.
-- [ ] [agent-management.system-prompt-length] Body is ~300 lines, modestly over the ~200-line soft target; the corporate-design table and the output-document template (lines 200–260) are prime candidates for sibling files.
-      Where: full file.
-      Fix: factor palette and output template into `agents/gemini-graphic-prompt-generator/`.
+- [ ] [agent-management.system-prompt-output-shape] Output shape (a structured prompt-document under `spec/design/<grafiktyp>_<beschreibung_snake_case>.md` with a defined template) is named in Phase 3 (lines 188-260) but not stated in the role-opening section.
+      Where: lines 10-22 (role) vs. lines 188-260 (output template).
+      Fix: hoist a one-paragraph "Output shape" block under the role section.
+      Verify: lines 1-40 name the output document path and key sections.
+- [ ] [agent-management.system-prompt-order] Order: role -> corporate-design reference -> Auftrag -> Workflow (Phase 0-5) -> Qualitaetsregeln -> Kommunikationsstil. SHOULD requires role -> output -> method; output is at Phase 3, four phases deep.
+      Where: full file structure.
+      Fix: reorder to role -> output -> method (Phase 0-5).
+      Verify: section ordering follows the SHOULD.
+- [ ] [agent-management.system-prompt-length] Body is 299 lines, over the ~200-line soft target; the corporate-design reference (lines 22-72) and the prompt-document template (lines 200-260) are prime candidates for sibling assets under `agents/gemini-graphic-prompt-generator/`.
+      Where: lines 22-72 (color palette + design-language tables), 200-260 (prompt template).
+      Fix: factor the design-system reference and the template into `agents/gemini-graphic-prompt-generator/` siblings.
       Verify: `wc -l` returns ~200.
-- [ ] [agent-management.write-effects-documented] Tools include `Write`; the SHOULD requires goals + preconditions of write effects. The body names targets (`spec/design/<typ>_<beschreibung>.md`) and the document structure but does not state preconditions ("do not overwrite existing files without confirmation", "create missing directory only inside spec/design/").
-      Where: lines 186–195 (Phase 3 file naming).
-      Fix: add a preconditions block before Phase 3 naming overwrite/conflict policy.
-      Verify: body contains an explicit "preconditions" or "side-effects boundary" block.
-- [ ] [skill-vs-agent.duplicate-prevention] Plausible overlap with peer agent `plant-info-document-generator` — both are generators that produce structured markdown documents under `spec/`. Functional cluster differs (visual prompts vs. plant info), but description-level negative triggers should make this explicit.
-      Where: description line 4 (broad generator description).
-      Fix: add a "don't use for" clause naming `plant-info-document-generator` (and skills like `gen-knowledge`).
-      Verify: description contains "don't use for" clause.
 
 ### SUGGESTION
 
-- [ ] [agent-management.tags] No `tags` field; adding `tags: [design, prompt-engineering]` would aid peer-cluster discovery per `skill-vs-agent` portfolio-wide consistency.
-      Where: frontmatter, lines 1–8.
-      Fix: add `tags: [design, prompts]` (≤5, lowercase kebab-case, ≤30 chars).
-      Verify: `grep "^tags:" .claude/agents/gemini-graphic-prompt-generator.md` returns the field.
-- [ ] [skill-vs-agent.rationale-counter] When adding the rationale section, naming at least one counter-dimension (e.g., "skill-bias: lifecycle — generation may be invoked many times") would satisfy the SHOULD.
-      Where: future rationale section.
-      Fix: include a counter-dimension bullet.
-      Verify: rationale section names ≥1 counter-dimension.
+- [ ] [agent-management.tags] No `tags` field; adding `tags: [design, prompts, kami]` would aid peer-cluster discovery vs. peer agent `plant-info-document-generator` (also a generator).
+      Where: frontmatter (lines 1-8).
+      Fix: add `tags: [design, prompts, kami]` (<=5, lowercase kebab-case, <=30 chars).
+      Verify: `grep "^tags:"` returns the field.
 
 ### INFO
 
-- [ ] [agent-management.model-rationale] Model pinned to `haiku` with rationale ("low reasoning, high throughput") on line 6 — satisfies the SHOULD. Plausibility check passes (template-based generation is haiku-appropriate).
+- [ ] [agent-management.english-content-project-exception] Description and body are German. Under the relaxed clause this is allowed because `distribution: project` is declared and Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German for `.claude/agents/` prose. Iteration-1 BLOCKER downgraded.
+      Where: line 4 (description), lines 10-299 (body).
+      Fix: n/a (observation).
+      Verify: n/a.
+- [ ] [agent-management.model-rationale] Model pinned to `haiku` with rationale ("prompt templating against a clearly defined corporate-design style guide; low reasoning, high throughput requirement -> haiku optimal") on line 6 — satisfies the SHOULD. Plausibility passes for a templating task.
       Where: frontmatter line 6.
       Fix: n/a (observation).
       Verify: n/a.
-- [ ] [agent-review.referenced-assets] Body references `spec/design/KAMI-CHARACTER-REFERENCE.md` (line 86); file exists. No further sibling assets under `agents/gemini-graphic-prompt-generator/`.
-      Where: filesystem.
+- [ ] [skill-vs-agent.duplicate-prevention] Peer agent `plant-info-document-generator` is also a generator but operates in the plants-domain (markdown plant info) vs. this agent's design-domain (Gemini prompts) — no semantic overlap, no duplicate.
+      Where: peer list.
       Fix: n/a (observation).
       Verify: n/a.
 

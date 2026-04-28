@@ -4,88 +4,86 @@ target: ".claude/agents/ha-integration-sync.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: ha-integration-sync
 
 ## Scope
 
-Target: `.claude/agents/ha-integration-sync.md` (frontmatter + body, ~199 lines; references `custom_components/kamerplanter/`, multiple backend paths under `src/backend/app/api/v1/`, and HA-INTEGRATION specs which exist).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions recorded in frontmatter).
+Target: `.claude/agents/ha-integration-sync.md` (frontmatter + body, 198 lines; references `spec/ha-integration/HA-CUSTOM-INTEGRATION.md` (exists), `spec/ha-integration/HA-REVIEW-CORE.md` (exists), `spec/ha-integration/HA-REVIEW-SUPPORTING.md` (exists), `spec/ha-integration/HA-REQ-004_Duenge-Logik.md` (exists), `spec/style-guides/BACKEND.md` (exists), `src/backend/app/api/v1/...` (exists), and the runtime path `custom_components/kamerplanter/` (NOT in repo working tree — deployed via kubectl cp per MEMORY.md)).
+Specs applied: `agent-management` rev `7772341`, `skill-vs-agent` rev `0e3b6f9`, `review-plan` rev `0e3b6f9`, `agent-review` rev `7772341` (recorded in frontmatter).
+Iteration 2: re-review under the relaxed agent-management language clause. The MUST on English-only frontmatter/body now exempts `distribution: project` agents whose consuming project authorises a non-English documentation language for agent prose; Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German, so German `description`+body becomes INFO. Frontmatter field names and technical identifier values stay English-required.
 Narrowing: none — full review surface.
-Explicitly out of scope: HA-integration runtime correctness, Skaffold cluster behavior.
+Explicitly out of scope: correctness of API-schema-mapping logic, kubectl deploy runtime behavior.
 
 ## Summary
 
-- BLOCKER: 3
-- WARNING: 4
+- BLOCKER: 1
+- WARNING: 3
 - SUGGESTION: 1
-- INFO: 2
+- INFO: 4
 
-Go/no-go: FAIL — body is German, lacks rationale, and overlaps with `ha-integration-developer`.
-Next concrete action: author addresses BLOCKERs (English body, rationale, duplicate boundary with `ha-integration-developer`).
+Go/no-go: FAIL — rationale section still missing; language BLOCKER from iteration 1 is downgraded to INFO under the relaxed clause. Duplicate with `ha-integration-developer` becomes a WARNING.
+Next concrete action: author adds a rationale section and clarifies boundary vs. `ha-integration-developer`.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.english-content] Description and full body are in German, violating the MUST that frontmatter and system-prompt content stay in English.
-      Where: lines 4 (`description`), 10–199 (body).
-      Fix: rewrite description and body in English.
-      Verify: `head -20` shows English content.
-- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet.
-      Where: full body.
-      Fix: add a 2–4-bullet rationale section (e.g., specialization on Backend↔HA schema mapping; tool restriction not needed because writes are bounded; mechanical, fire-and-forget output).
-      Verify: grep for "rationale" returns the new section.
-- [ ] [skill-vs-agent.duplicate-prevention] Material overlap with peer agent `ha-integration-developer`: both edit the same files (`custom_components/kamerplanter/api.py`, `coordinator.py`, `sensor.py`, `binary_sensor.py`, `calendar.py`, `todo.py`, `button.py`, `services.yaml`, `config_flow.py`, `const.py`) and both run the same kubectl deploy loop. Sync's stated scope is narrower (only API-driven changes), but the boundary is not visible from descriptions alone.
-      Where: line 4 description vs. peer `.claude/agents/ha-integration-developer.md:4`.
-      Fix: add an explicit "don't use for" negative trigger naming `ha-integration-developer` ("don't use for HA-SPEC-driven implementation or refactoring — use ha-integration-developer"); mirror the inverse on the peer.
-      Verify: both descriptions contain mutual "don't use for" clauses naming each other.
+- [ ] [skill-vs-agent.rationale] No rationale section names the decisive dimensions for the agent-over-skill choice; rationale-documentation MUST is unmet. Critical here because peer agent `ha-integration-developer` overlaps in HA-code modification scope.
+      Where: `.claude/agents/ha-integration-sync.md` body, lines 10-198.
+      Fix: add a 2-4-bullet rationale section naming decisive dimensions (e.g., specialization on mechanical API-schema-mapping; context-window protection — parallel reads of backend routers + HA api.py; tool restriction not desirable since agent writes Python). Address the overlap with `ha-integration-developer` explicitly.
+      Verify: grep for "Rationale" returns the new section AND description names the boundary vs. `ha-integration-developer`.
 
 ### WARNING
 
-- [ ] [agent-management.system-prompt-output-shape] Output shape (delta table + changed-files list + non-changed confirmation + deploy command + open issues) is named at lines 190–198 but not in the role-opening section. The MUST requires the output shape to be stated.
-      Where: lines 10–14 (role) vs. lines 190–198 (output format).
+- [ ] [skill-vs-agent.duplicate-prevention] Plausible overlap with peer agent `ha-integration-developer`: both modify HA-integration Python files (api.py, coordinator.py, sensor.py, etc.). Boundary is real (sync = mirror backend-API changes mechanically; developer = build new features against HA-SPEC docs) but not surfaced in the description.
+      Where: line 4 description vs. peer `ha-integration-developer` line 4.
+      Fix: add a "don't use for" clause: "don't use for new HA-feature implementation against HA-SPEC docs — use ha-integration-developer".
+      Verify: description contains the negative trigger naming the peer.
+- [ ] [agent-management.system-prompt-output-shape] Output shape (delta table + list of changed files + non-changed business logic + deploy instruction + open points) is named in §"Ausgabeformat" (lines 191-198) but not in the role-opening section.
+      Where: lines 10-13 (role) vs. lines 191-198 (output).
       Fix: hoist a one-paragraph "Output shape" block under the role.
-      Verify: lines 1–30 name the output shape.
-- [ ] [agent-management.system-prompt-order] Order: role → method (Phase 1–3) → environment → rules → deploy workflow → reference files → output format. The SHOULD requires role → output → method.
-      Where: full file structure.
-      Fix: reorder to role → output → method.
-      Verify: section ordering follows the SHOULD.
-- [ ] [agent-management.write-effects-documented] Tools include `Write`/`Edit`/`Bash`; goals are stated ("synchronize HA integration with backend API"), but preconditions are scattered: "NICHT AENDERN" list (line 110), "Code-Stil" (line 126), "Deployment-Workflow" (line 135). The SHOULD asks for goals + preconditions in the system prompt.
-      Where: lines 110–135.
-      Fix: hoist a single preconditions block under the role.
-      Verify: opening section names goals + preconditions.
-- [ ] [agent-management.tools-bash-vs-dedicated] `Bash` is used for `ruff check`, `kubectl cp`, `kubectl exec`, `kubectl wait`, `kubectl logs` — none has a dedicated equivalent. Acceptable, but the body should justify Bash explicitly.
-      Where: frontmatter line 5 vs. body lines 138–150.
-      Fix: state in tool-use rationale that Bash is scoped to lint + kubectl deploy commands.
-      Verify: body documents Bash scope.
+      Verify: lines 1-40 name the output sections.
+- [ ] [agent-management.no-hardcoded-runtime-paths] References `custom_components/kamerplanter/api.py` etc. (lines 27, 158-172) without disambiguating source-vs-runtime — same issue as `ha-integration-developer`. The HA integration is not in the repo working tree under that path; per MEMORY.md it lives under `src/ha-integration/custom_components/kamerplanter/` (also absent here) and is deployed via kubectl cp.
+      Where: lines 27, 158-172.
+      Fix: declare the source path explicitly (where the agent edits files) vs. the runtime path (where files are deployed); reconcile with MEMORY's kubectl cp workflow.
+      Verify: source path declared once and consistently.
 
 ### SUGGESTION
 
-- [ ] [agent-management.tags] No `tags` field; adding `tags: [home-assistant, sync]` would aid peer-cluster discovery (paired with `ha-integration-developer`, `ha-integration-requirements-engineer`).
-      Where: frontmatter.
-      Fix: add `tags: [home-assistant, sync]` (≤5, lowercase kebab-case, ≤30 chars).
+- [ ] [agent-management.tags] No `tags` field; adding `tags: [home-assistant, integration, sync]` would aid peer-cluster discovery vs. peers `ha-integration-developer`, `ha-integration-requirements-engineer`.
+      Where: frontmatter (lines 1-8).
+      Fix: add `tags: [home-assistant, integration, sync]` (<=5, lowercase kebab-case, <=30 chars).
       Verify: `grep "^tags:"` returns the field.
 
 ### INFO
 
-- [ ] [agent-management.model-rationale] Model pinned to `sonnet` with rationale ("mechanical API-schema mapping without new architecture decisions; opus was over-dimensioned") on line 6 — satisfies the SHOULD. Plausibility passes; downgrade from opus to sonnet is justified.
+- [ ] [agent-management.english-content-project-exception] Description and body are German. Under the relaxed clause this is allowed because `distribution: project` is declared and Kamerplanter's `CLAUDE.md` (lines 9-11) authorises German for `.claude/agents/` prose. Iteration-1 BLOCKER downgraded.
+      Where: line 4 (description), lines 10-198 (body).
+      Fix: n/a (observation).
+      Verify: n/a.
+- [ ] [agent-management.model-rationale] Model pinned to `sonnet` with rationale ("mechanical API-schema mapping between backend and HA integration without new architecture decisions -> sonnet sufficient, opus was overdimensioned") on line 6 — satisfies the SHOULD. Plausibility passes.
       Where: frontmatter line 6.
       Fix: n/a (observation).
       Verify: n/a.
-- [ ] [agent-review.referenced-assets] All referenced assets exist: `custom_components/kamerplanter/*.py`, `src/backend/app/api/v1/*/router.py`, `*/schemas.py`, `spec/style-guides/BACKEND.md`, `spec/ha-integration/HA-CUSTOM-INTEGRATION.md`, `HA-REVIEW-CORE.md`, `HA-REVIEW-SUPPORTING.md`, `HA-REQ-004_Duenge-Logik.md`. No broken references.
-      Where: lines 156–186.
+- [ ] [agent-management.tools-scope] Tools `Read, Write, Edit, Bash, Glob, Grep` (line 5) match the stated responsibility (modify HA-integration Python files, run ruff, deploy via kubectl); not a read-only agent.
+      Where: line 5.
+      Fix: n/a (observation).
+      Verify: n/a.
+- [ ] [agent-management.system-prompt-length] Body is 198 lines — within the ~200-line soft target.
+      Where: full file.
       Fix: n/a (observation).
       Verify: n/a.
 

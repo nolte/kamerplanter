@@ -4,99 +4,111 @@ target: ".claude/agents/e2e-testcase-extractor.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: e2e-testcase-extractor
 
 ## Scope
 
-Target: `.claude/agents/e2e-testcase-extractor.md` (frontmatter + body, ~196 lines, no sibling assets — but body references `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/MEMORY.md`).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions in frontmatter).
+Target: `.claude/agents/e2e-testcase-extractor.md` (frontmatter + body, ~197 lines, persistent agent-memory dir at `.claude/agent-memory/e2e-testcase-extractor/`).
+Specs applied: `agent-management` (rev 7772341), `skill-vs-agent`, `review-plan`, `agent-review` (rev 7772341); revisions in frontmatter.
+Iteration: 2 (re-review). Iteration 1 ran against `agent-management` rev `0e3b6f9`; this re-review applies the lockerede language clause from rev `7772341`. The body of this agent is already authored in English, so the project-language exception is not load-bearing here — but the cluster-wide INFO note about the new clause is still recorded for consistency. The Iteration 1 BLOCKER on body language never applied to this agent, so the BLOCKER count delta is zero — but cross-agent harmonization in Iteration 2 still surfaces structural findings the iteration 1 plan flagged.
 Narrowing: none — full review surface.
-Explicitly out of scope: runtime behavior, Vale/markdown style, the `test-extract` skill referenced as overlap target.
+Explicitly out of scope: runtime behavior, Vale/markdown style, the dispatching skill (`test-extract` is a peer skill flagged below for duplicate prevention), correctness of any specific TC-* output the agent has previously produced.
 
 ## Summary
 
 - BLOCKER: 3
-- WARNING: 4
+- WARNING: 5
 - SUGGESTION: 1
-- INFO: 3
+- INFO: 4
 
-Go/no-go: FAIL — Body declares Write effects (test-case markdown files) without spec'd goals/preconditions in role section, no rationale section, hard-coded absolute path in body.
-Next concrete action: author addresses the three BLOCKERs (add rationale section, document write goals/preconditions explicitly, replace absolute path with relative).
+Go/no-go: FAIL — three MUST violations remain (no rationale section, hard-coded absolute path in body, undeclared frontmatter field `memory`). Note also a likely capability duplicate vs. the `test-extract` skill: ship one or the other, not both.
+Next concrete action: author addresses the three BLOCKERs (add rationale section anchored in `skill-vs-agent`; replace absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/...` with a path relative to the project root or document the resolution rule; remove the undocumented `memory: project` frontmatter field or move the memory wiring into a sibling asset).
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [skill-vs-agent.rationale-section] No rationale section in the body naming a decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent`.
-      Where: `.claude/agents/e2e-testcase-extractor.md:1-196`.
-      Fix: Add a rationale block citing decisive dimensions — most plausibly *context-window protection* (reads every spec/req + spec/nfr), *specialization* (IREB/ISTQB QA-architect persona sharpens output), and *parallelism* (one extractor per requirement document can run in parallel). Note this directly intersects with the `test-extract` skill, which is the orchestrator wrapping this executor (canonical skill-orchestrates-agent pattern).
-      Verify: A "## Rationale" or equivalent section exists naming ≥1 decisive dimension.
+- [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`. Especially load-bearing here because the `test-extract` skill exists in parallel — a documented rationale must explain why this is an agent and not (or in addition to) a skill.
+      Where: `.claude/agents/e2e-testcase-extractor.md:1-197`.
+      Fix: Add a 2-4-bullet rationale near the top — most plausibly *context-window protection* (large multi-REQ extractions), *specialization* (IREB/ISTQB persona sharpens output), *parallelism* (one agent per REQ batch). Cite at least one counter-dimension and explicitly relate to the `test-extract` skill (orchestrator/executor split or replacement).
+      Verify: Section "## Rationale" or equivalent exists; grep returns at least one of "specialization", "context-window", "parallelism"; the relationship to `test-extract` is named.
 
-- [ ] [agent-management.no-absolute-paths] Body contains a hard-coded user-absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/`; `agent-management.acceptance` MUST forbids hard-coded absolute paths.
+- [ ] [agent-management.no-absolute-paths] Body hard-codes the absolute path `/home/nolte/repos/github/kamerplanter/.claude/agent-memory/e2e-testcase-extractor/`, which `agent-management.acceptance` ("No hard-coded absolute paths; all internal references are relative to the agent file or the project it operates on") MUST forbid.
       Where: `.claude/agents/e2e-testcase-extractor.md:166`.
-      Fix: Replace with a relative reference like `.claude/agent-memory/e2e-testcase-extractor/` or `${PROJECT_ROOT}/.claude/agent-memory/<name>/`. The body's "Persistent Agent Memory" boilerplate would benefit from a project-root-relative form so the agent stays portable to any consuming project.
-      Verify: `grep "/home/" .claude/agents/e2e-testcase-extractor.md` returns zero matches; the memory path is project-relative.
+      Fix: Replace the absolute path with a project-relative reference (`.claude/agent-memory/e2e-testcase-extractor/`) or describe the resolution as "the project root's `.claude/agent-memory/<agent-name>/` directory".
+      Verify: `grep -F "/home/" .claude/agents/e2e-testcase-extractor.md` returns no hits.
 
-- [ ] [agent-management.writes-vs-research] Body uses Write but does not document the goals and preconditions of the file write per `agent-management.acceptance` MUST ("If the agent writes files or performs side effects, the targets and preconditions are documented in the system prompt"). It writes `spec/test-cases/TC-{REQ-ID}.md` and updates memory files, but no upfront write contract.
-      Where: `.claude/agents/e2e-testcase-extractor.md:111-116` (output convention) and `:154-192` (memory).
-      Fix: Add a "Side effects" or "Write contract" section near the top stating: (a) creates/overwrites `spec/test-cases/TC-<REQ-ID>.md` (one file per requirement), (b) creates/updates memory under `.claude/agent-memory/e2e-testcase-extractor/`, (c) preconditions: target directories exist, source spec is committed.
-      Verify: An explicit write-contract section exists naming both target paths and preconditions.
+- [ ] [agent-management.frontmatter-fields] Frontmatter declares `memory: project` (line 8), which is not a documented `agent-management.Structure` field. The spec lists the permitted frontmatter fields (`name`, `description`, `distribution`, `tools`, `model`, `tags`); arbitrary additional fields are not specified and have no defined semantics under the spec.
+      Where: `.claude/agents/e2e-testcase-extractor.md:8` (`memory: project`).
+      Fix: Either remove the field and capture the persistent-memory contract in body prose under a sibling asset reference, or formally extend `agent-management.Structure` upstream and reference the new field (the latter is out-of-scope for this review). Until the spec extension exists, the field is undocumented frontmatter.
+      Verify: Frontmatter contains only fields documented in `agent-management.Structure`, OR an upstream spec change has added `memory` and is referenced.
 
 ### WARNING
 
-- [ ] [agent-management.tags] No `tags` field declared; `tags: [scaffolding, review]` or `tags: [scaffolding]` would fit per `agent-management.tag-vocabulary` (the agent generates artifacts from specs — scaffolding nature). Default would be no tag at all over a poorly chosen one, but a single applicable tag aids cluster lookup.
-      Where: `.claude/agents/e2e-testcase-extractor.md:1-9`.
-      Fix: Add `tags: [scaffolding]` after the `memory: project` line.
-      Verify: Frontmatter parses with `tags` matching the rules.
+- [ ] [agent-review.duplicate-prevention] Plausible capability overlap with the `test-extract` skill (per the peer skills list — "E2E aus REQ"). The agent's description and the skill's intent both center on extracting E2E test cases from REQ specs; one of the two should orchestrate while the other executes (per the skill-orchestrates-agent pattern in `skill-vs-agent`), rather than both shipping the same capability.
+      Where: `.claude/agents/e2e-testcase-extractor.md:4` (description) vs. peer skill `test-extract`.
+      Fix: Document the relationship in this agent's rationale section (see BLOCKER above). Either (a) the skill `test-extract` invokes this agent as its executor, or (b) the agent supersedes the skill — propose the deletion/merger in the authoring PR. Until then, the cluster has duplicate-capability risk.
+      Verify: Body's rationale section names `test-extract` and the chosen split; OR the skill is removed/superseded.
 
-- [ ] [agent-review.duplicate-prevention] Plausible capability overlap with the `nolte-shared:test-extract` skill (mentioned in the user's instructions for this review): the skill orchestrates extraction, this agent does the heavy reading; that is the canonical skill-orchestrates-agent pattern from `skill-vs-agent`. The overlap is not a duplicate but the relationship MUST be documented in the rationale section so a calling Claude routes via the skill, not the agent.
-      Where: `.claude/agents/e2e-testcase-extractor.md:4` (description does not name `test-extract`).
-      Fix: In the rationale section being added per the skill-vs-agent BLOCKER, name `test-extract` as the dispatching skill and clarify negative trigger: "don't dispatch directly when the user asks for a multi-REQ test-extraction workflow — use the `test-extract` skill, which dispatches this agent per REQ."
-      Verify: `description` or rationale section names `test-extract` as the orchestrator.
+- [ ] [agent-management.tags] No `tags` field declared; tag vocabulary `quality-gate` (E2E test generation supports the test pipeline) and `scaffolding` (generates structured TC-* documents) would apply per `agent-management.tag-vocabulary` SHOULD.
+      Where: `.claude/agents/e2e-testcase-extractor.md:1-9` (frontmatter).
+      Fix: Add `tags: [quality-gate, scaffolding]` after the `name`/`description`/`distribution` block.
+      Verify: Frontmatter parses as YAML containing `tags` of length ≤5 with all entries lowercase ASCII kebab-case ≤30 chars.
 
-- [ ] [agent-management.prompt-structure-order] Body opens with role, then Context, then Mission, then Methodology Phase 1-4, then Output File Convention, then Domain Patterns, then QA Checklist, then Language Rules, then Memory boilerplate. Output convention is at line 111 — past the methodology, instead of upfront per `agent-management.recommendations` SHOULD.
-      Where: `.claude/agents/e2e-testcase-extractor.md:11-196`.
-      Fix: Restructure: (1) Role + boundaries, (2) Output contract (file naming + per-test-case structure currently at lines 62-110), (3) Working method (Methodology Phase 1-4 + Domain Patterns + QA Checklist).
+- [ ] [agent-management.description-format] The `description` field is a multi-line, escape-encoded string with embedded `<commentary>` tags and example dialogues, totaling several hundred characters. While this carries useful triggers, it makes the YAML hard to skim and bloats every dispatcher's context. The MUST is that triggers be concrete; the form factor here is a SHOULD-flagged readability concern.
+      Where: `.claude/agents/e2e-testcase-extractor.md:4` (description).
+      Fix: Move the example dialogues into a sibling asset (`agents/e2e-testcase-extractor/example-invocations.md`) and shorten the `description` to one or two sentences naming concrete triggers — that's enough for routing and keeps frontmatter scannable.
+      Verify: `description` value fits on a few lines; example invocations live in a sibling file.
+
+- [ ] [agent-management.writes-vs-research] Body declares `tools: Read, Write, Glob, Grep` (line 5) and writes test-case files to `spec/test-cases/TC-{REQ-ID}.md`. Per `agent-management.recommendations` SHOULD ("when the agent writes files or causes side effects, the system prompt documents the goals and preconditions of those effects"), the body should declare overwrite policy explicitly.
+      Where: `.claude/agents/e2e-testcase-extractor.md:113` ("Write test case documents to the path pattern: `spec/test-cases/TC-{REQ-ID}.md`").
+      Fix: Add an explicit "Side effects" subsection: target paths, overwrite policy (overwrite vs. append vs. error-on-exists), preconditions (must read source REQ first), idempotency note.
+      Verify: Body contains a "Side effects" section naming target path + overwrite policy.
+
+- [ ] [agent-management.prompt-structure-order] Body opens with role, then Context, then Mission, then Methodology, then Output File Convention, then Domain Patterns, then QA checklist, then Language Rules, then Memory wiring. The output-shape paragraph is reachable but not structurally separated from the methodology, fragmenting the role/output/method ordering recommended by `agent-management.recommendations` SHOULD.
+      Where: `.claude/agents/e2e-testcase-extractor.md:11-150`.
+      Fix: Split into clearly labeled "Role", "Output", "Method" headings; pull "Output File Convention" + the test-case template up to immediately after Role.
       Verify: First three top-level sections, in order, are role / output / method.
-
-- [ ] [agent-management.length] Body is ~196 lines — at the ~200-line soft target, with the Persistent Agent Memory boilerplate (~50 lines) being prime factor-able material. Per `agent-management.recommendations` SHOULD, supporting reference material moves to `agents/<name>/` files.
-      Where: `.claude/agents/e2e-testcase-extractor.md:154-196`.
-      Fix: Move the Persistent-Agent-Memory boilerplate to a sibling `memory-instructions.md` referenced from the body; keep only a short pointer in the main body.
-      Verify: Body shrinks below 150 lines after factoring; sibling exists.
 
 ### SUGGESTION
 
-- [ ] [agent-management.model-plausibility] `model: sonnet` plausible for structured extraction with templates; the comment names the choice but is brief. Strengthening with one phrase about template-driven extraction being sonnet's sweet spot would help future reviewers.
-      Where: `.claude/agents/e2e-testcase-extractor.md:7`.
-      Fix: Append to the comment: "template-driven structured extraction over multi-spec sweep; haiku underfits the IREB/ISTQB reasoning, opus over-budgets."
-      Verify: Comment names task character.
+- [ ] [agent-management.model-plausibility] `model: sonnet` with documented rationale fits structured spec extraction. Consider naming the parallelism dimension explicitly — multiple REQ extractions can run in parallel agent dispatches, which is the textbook agent-bias use case from `skill-vs-agent`.
+      Where: `.claude/agents/e2e-testcase-extractor.md:6-7`.
+      Fix: Strengthen the rationale comment with one phrase about parallelism: "sonnet adäquat für massen-Extraktion, parallel pro REQ dispatchbar".
+      Verify: Comment names parallelism in addition to reasoning depth.
 
 ### INFO
 
-- [ ] [agent-management.memory-field] `memory: project` is declared; this is a non-standard frontmatter field not listed in `agent-management.structure` MUSTs. Worth noting that the field is undocumented in the spec but the agent uses it correctly per project convention.
-      Where: `.claude/agents/e2e-testcase-extractor.md:8`.
+- [ ] [agent-management.project-language-exception] Body and `description` are authored in English (default per `agent-management.Structure`); the new project-language exception introduced in rev 7772341 is therefore not load-bearing here. This INFO is recorded for cluster consistency: under the new spec revision, German would also have been permitted, but English remains the safer default and keeps the option open of moving this agent into a plugin distribution later.
+      Where: `.claude/agents/e2e-testcase-extractor.md:4` (description) + `:11-197` (body).
       Fix: n/a (observation).
       Verify: n/a.
 
-- [ ] [agent-management.description-style] `description` uses the embedded-examples style (long YAML string with literal `\n` user/assistant/commentary blocks). This is verbose but unusually rich on triggers; a calling Claude has plenty to match against. No spec rule violated.
-      Where: `.claude/agents/e2e-testcase-extractor.md:4`.
+- [ ] [agent-management.distribution] `distribution: project` is correctly set; this is consistent with kamerplanter's project-only agent setup.
+      Where: `.claude/agents/e2e-testcase-extractor.md:3`.
       Fix: n/a (observation).
       Verify: n/a.
 
-- [ ] [review-plan.observation] No sibling folder `agents/e2e-testcase-extractor/` exists; will be needed if the length WARNING leads to factoring memory boilerplate out.
-      Where: `.claude/agents/e2e-testcase-extractor.md` (no sibling).
+- [ ] [review-plan.observation] The persistent agent-memory directory at `.claude/agent-memory/e2e-testcase-extractor/` exists outside the canonical agent sibling location (`agents/<name>/`); this is a pattern that should either be promoted to a portfolio convention or factored back into a sibling. Iteration 1 already noted the precedent.
+      Where: `.claude/agents/e2e-testcase-extractor.md:163-166`.
+      Fix: n/a (observation).
+      Verify: n/a.
+
+- [ ] [agent-management.length] Body is ~197 lines, right at the ~200-line soft target — within acceptable range. Flagged for awareness only.
+      Where: `.claude/agents/e2e-testcase-extractor.md:1-197`.
       Fix: n/a (observation).
       Verify: n/a.
 

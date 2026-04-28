@@ -4,113 +4,116 @@ target: ".claude/agents/seed-data-validator.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: seed-data-validator
 
 ## Scope
 
+Iteration 2 of this plan. The `agent-management` and `agent-review` specs have been revised: a project-distribution agent in a project whose root convention file (`CLAUDE.md`) authorizes a non-English documentation language for agent prose may author its `description` and body in that language. Kamerplanter's `CLAUDE.md` lines 9-11 explicitly authorize German for `.claude/agents/`, so what was a German-prose BLOCKER in iteration 1 demotes to INFO here.
+
 Target: `.claude/agents/seed-data-validator.md` (frontmatter + body, ~620 lines, no sibling assets under `.claude/agents/seed-data-validator/`).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions in frontmatter).
+Specs applied: `agent-management` rev 7772341, `skill-vs-agent`, `review-plan`, `agent-review` rev 7772341 (revisions in frontmatter).
 Narrowing: none — full review surface.
-Explicitly out of scope: runtime behavior of the agent, Vale/markdown style, factual correctness of the multi-source verification methodology, the dispatching/companion `agrobiology-requirements-reviewer` agent (referenced but not under review here).
+Explicitly out of scope: runtime behavior, Vale/markdown style, factual correctness of the multi-source-verification methodology, and the dispatching skill (none declared).
 
 ## Summary
 
-- BLOCKER: 4
+- BLOCKER: 3
 - WARNING: 6
 - SUGGESTION: 1
-- INFO: 3
+- INFO: 4
 
-Go/no-go: FAIL — multiple MUST violations: body is German, no rationale section, write-effect goals/preconditions only implied, length exceeds 200 lines without sibling-asset factoring, output-shape contract emerges only deep in Phase 4.
-Next concrete action: author addresses the four BLOCKERs (translate body to English, add rationale section, lift output contract to top, document file-write goals/preconditions explicitly) and decides whether to factor long-form rules into `agents/seed-data-validator/`.
+Go/no-go: FAIL — three remaining MUST violations after the language relaxation: missing rationale section, missing upfront output contract, and consolidated write-effect goals/preconditions for the `Write`-tool side effects (report file + schema modifications under `schemas/`).
+Next concrete action: author addresses the three remaining BLOCKERs (rationale section anchored in `skill-vs-agent`; explicit Output contract block; consolidated write-effect declaration covering both the report path and the in-place schema edits) and trims the 620-line body via sibling assets per the SHOULD on length.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.english-body] Frontmatter `description` and the entire 620-line system-prompt body are German; `agent-management` Structure-MUST requires English content.
-      Where: `.claude/agents/seed-data-validator.md:4` (description) and lines 10-620 (entire body — every phase heading, table column, and bullet).
-      Fix: Translate description and all body content to English; keep German only when literally quoting spec terms, taxonomic names, or German-only finding tags such as `[AGROBIO-CHECK]` (which is itself a label — keep). Note: project CLAUDE.md German-default convention does not override this MUST.
-      Verify: A `lang detect` pass on body returns >95% English; section headings read `## Phase 0:` etc. in English.
-
 - [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
-      Where: `.claude/agents/seed-data-validator.md:1-620` (no rationale section anywhere).
-      Fix: Add a short rationale paragraph or 2-4-bullet list near the top naming decisive dimensions — most plausibly *context-window protection* (large-volume reads of all `seed_data/*.yaml` and `schemas/*.yaml`), *specialization* (agronomic/data-quality persona), and *parallelism* (validation can run alongside agrobiology-reviewer). Cite at least one counter-dimension if applicable.
-      Verify: Section reading "## Rationale" or equivalent exists naming ≥1 decisive dimension; grep for "context-window", "specialization", or "parallelism" returns ≥1 hit.
+      Where: `.claude/agents/seed-data-validator.md:1-620` (no "Why this is an agent" section).
+      Fix: Add a short rationale paragraph or 2-4-bullet list near the top naming decisive dimensions — most plausibly context-window protection (large-volume reads of all `seed_data/*.yaml` and Pydantic models), specialization (multi-source verification methodology + agrobiology hand-off), and tool restriction (limited write surface to `schemas/` and `spec/analysis/`).
+      Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "context-window", "specialization", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape (the report at `spec/analysis/seed-data-validation-report.md`) is described only deep in Phase 4 (~line 446); the file lacks an upfront "Output contract" section the calling skill/parent can consume without reading 440 lines first.
-      Where: `.claude/agents/seed-data-validator.md:445-606`.
-      Fix: Add an "Output contract" section near the top stating: (a) what is returned (path + chat summary), (b) report structural sections, (c) explicit declaration that the agent writes a Markdown file at `spec/analysis/seed-data-validation-report.md` (and may modify schemas), (d) overwrite policy.
-      Verify: A "Output contract" section exists near the top; reading it tells a parent caller the deliverable shape.
+- [ ] [agent-management.output-shape] Expected output shape is described only in Phase 4 as a Markdown report skeleton with sub-sections; the file lacks an upfront "Output contract" stating what the parent caller receives and the full set of side-effect targets (report + schema files).
+      Where: `.claude/agents/seed-data-validator.md:443-606`.
+      Fix: Add an "Output contract" section near the top stating (a) what the parent receives (report path + chat summary shape), (b) the report's required sections, (c) all written paths: `spec/analysis/seed-data-validation-report.md` plus any modified `src/backend/app/migrations/seed_data/schemas/*.schema.yaml`, (d) overwrite policy for both.
+      Verify: An "Output contract" section exists near the top; reading it tells a parent caller every deliverable and every side-effect target.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Write`, `Edit`, and `Bash` (write/execution tools) and Phase 0.4 mandates extending JSON-Schema files under `schemas/` — yet the system prompt does not declare write-effect goals and preconditions per `agent-management.acceptance` ("targets and preconditions of side effects").
-      Where: `.claude/agents/seed-data-validator.md:5` (`tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch`) vs. body Phase 0.4 (~line 238) which silently mandates schema edits.
-      Fix: Add an explicit "File outputs and edits" subsection near the top declaring (a) write target `spec/analysis/seed-data-validation-report.md`, (b) edits to `src/backend/app/migrations/seed_data/schemas/*.yaml` allowed only when Phase 0.4 conditions hold (field-missing, enum-missing, schema-missing), (c) preconditions (e.g. backup/diff visible in PR, no edits to YAML data files), (d) the seed YAML files themselves are read-only for this agent.
-      Verify: A "File outputs and edits" section exists; it names schema-write targets, preconditions, and confirms YAML data files are read-only.
+- [ ] [agent-management.write-effects-documented] Agent declares `Write`, `Bash`, `WebSearch`, `WebFetch`. Body documents *that* schemas may be extended (Phase 0.4) and that a report is produced, but does not consolidate the goals and preconditions of those side effects upfront per `agent-management` acceptance.
+      Where: `.claude/agents/seed-data-validator.md:5` (`tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch`) vs. body (Phase 0.4 lines 238-270, Phase 4 lines 443-606).
+      Fix: Add a "File outputs" / write-effect section consolidating: target paths (`schemas/*.schema.yaml`, `spec/analysis/seed-data-validation-report.md`), preconditions (Phase 0 findings before schema edits; only enum/field additions allowed, never deletions), overwrite policy, and the explicit invariant that production code under `app/` is never modified.
+      Verify: Body contains a single consolidated write-effects section naming target paths and preconditions; grep for "schemas/" and "spec/analysis/" both return hits in that section.
 
 ### WARNING
 
-- [ ] [agent-management.length-target] Body is ~620 lines, ~3× the ~200-line soft target in `agent-management.recommendations` SHOULD; long-form material (Multi-Source verification tables, schema-quality checklist, report skeleton) belongs in `agents/seed-data-validator/` sibling files.
-      Where: `.claude/agents/seed-data-validator.md:10-620`.
-      Fix: Factor the multi-source verification rules (lines ~16-145), schema-quality checklist (lines ~270-282), and full report skeleton (lines ~445-606) into sibling files under `.claude/agents/seed-data-validator/` referenced by relative path; keep the agent body to the procedure spine.
-      Verify: Body is ≤300 lines; `.claude/agents/seed-data-validator/` contains the factored references; the agent body links them by relative path only.
+- [ ] [agent-management.body-length] Body is ~620 lines, well above the SHOULD soft target of ~200 lines named in `agent-management.recommendations`. Long-form references (verification source tables, mistake checklists, full report skeleton) could move into `.claude/agents/seed-data-validator/`.
+      Where: `.claude/agents/seed-data-validator.md:1-620`.
+      Fix: Factor the source-tables (Botanik / Produkte) and the full report skeleton into sibling files under `.claude/agents/seed-data-validator/` and reference them from the body.
+      Verify: Body length drops below ~250 lines; sibling folder exists and is referenced by relative path.
 
-- [ ] [agent-review.duplicate-prevention] Plausible capability overlap: description names cooperation with `agrobiology-requirements-reviewer` (botanical depth) and the `plant-info-to-seed-yaml` agent converts plant-info docs to YAML. The boundary between "validate seed data" and "produce/extend seed YAMLs" is plausibly fuzzy.
-      Where: `.claude/agents/seed-data-validator.md:4` (description) vs. peers `agrobiology-requirements-reviewer`, `plant-info-to-seed-yaml`.
-      Fix: Add explicit negative triggers to `description` ("don't use for botanical fact-checking — that's `agrobiology-requirements-reviewer`; don't use for converting plant-info Markdown to YAML — that's `plant-info-to-seed-yaml`"). The current prose mentions cooperation but no negative triggers.
-      Verify: `description` contains "don't use for" or equivalent negation naming at least the two closest peers.
+- [ ] [agent-review.duplicate-prevention] Description explicitly names a hand-off to `agrobiology-requirements-reviewer` (peer agent). The boundary is documented in prose but not in `description` as a negative trigger; per `agent-review.duplicate-prevention` overlap is a WARNING absent explicit negative triggers.
+      Where: `.claude/agents/seed-data-validator.md:4` (description) vs. `.claude/agents/agrobiology-requirements-reviewer.md`.
+      Fix: Add a negative trigger to `description`: "nicht für reine botanische Plausibilitätsprüfung — dafür `agrobiology-requirements-reviewer`; dieser Agent prüft Struktur + referenzielle Integrität + Schema und reicht botanische Findings als `[AGROBIO-CHECK]` weiter".
+      Verify: `description` contains "nicht für" or equivalent naming the peer agent.
 
-- [ ] [agent-management.prompt-structure-order] System prompt opens with the persona, then jumps into the Multi-Source verification rules; role-then-output-then-method ordering required by `agent-management.recommendations` SHOULD is not honored.
-      Where: `.claude/agents/seed-data-validator.md:10-444`.
-      Fix: Restructure so that after the persona paragraph the next section is "Output contract", then the procedure (Phase 0 → 5). Move multi-source verification rules into a sibling reference (per length-target finding above).
+- [ ] [agent-management.prompt-structure-order] System prompt opens with persona, then Multi-Source-Rule, then Produkt-Verifikations-Methodik, then phases; the role-then-output-then-method ordering SHOULD is not honored — output shape only emerges in Phase 4.
+      Where: `.claude/agents/seed-data-validator.md:10-441`.
+      Fix: Restructure: persona → "Output contract" → procedure (Phases 0-5) → guardrails (3-source rule, verification matrix). Move the verification source tables to a sibling asset.
       Verify: Reading the first 60 lines reveals role → output shape → method in that order.
 
-- [ ] [agent-management.tags] No `tags` field declared; tags `audit` and `quality-gate` would apply per `agent-management.tag-vocabulary` SHOULD; the agent's own description ("Datenqualitaet, Vollstaendigkeit, Schema-Konformitaet") matches both.
+- [ ] [agent-management.tags] No `tags` field declared; `audit` and `quality-gate` would apply per `agent-management.tag-vocabulary` SHOULD.
       Where: `.claude/agents/seed-data-validator.md:1-8` (frontmatter).
       Fix: Add `tags: [audit, quality-gate]` after existing fields.
       Verify: Frontmatter parses as YAML containing `tags` of length ≤5 with all entries lowercase ASCII kebab-case ≤30 chars.
 
-- [ ] [agent-management.research-vs-writes] System prompt does not explicitly declare upfront whether the agent writes code or only researches; the writes intent (schema YAMLs + analysis report) only emerges via Phase 0.4 and Phase 4.
-      Where: `.claude/agents/seed-data-validator.md:10-620`.
-      Fix: Add a one-line statement near the top: "This agent researches and writes — it edits JSON Schema YAMLs under `schemas/` when Phase 0.4 conditions hold, and writes an analysis report at `spec/analysis/seed-data-validation-report.md`. It never edits seed YAML data files or backend Python source."
-      Verify: One sentence near the top declares write scope and named paths/exclusions.
+- [ ] [agent-management.research-vs-writes] System prompt does not explicitly declare upfront whether the agent writes code or only researches. The body ultimately *does* edit schemas and produce a report, but the dispatch-time signal is missing.
+      Where: `.claude/agents/seed-data-validator.md:10-441`.
+      Fix: Add one explicit sentence near the top stating the agent edits `schemas/*.schema.yaml` (additive only) and writes the analysis report; production code is never modified.
+      Verify: One sentence near the top names "schema edits", "additive", and "no production-code edits".
 
-- [ ] [agent-review.tools-bidirectional] `Bash` is declared but the body never demonstrably invokes it — Phase 0/1/2/3 use Glob/Read/Grep/WebSearch/WebFetch only. Dead permission per `agent-review.tool-scope`; SHOULD prefer dedicated tools.
+- [ ] [agent-review.tools-bidirectional] `Bash` is declared but the body never demonstrably invokes it (Phase 0/1 use Glob/Read/Grep; web verification uses `WebSearch`/`WebFetch`). Possible dead permission per `agent-review.tool-scope`.
       Where: `.claude/agents/seed-data-validator.md:5` (`tools: ..., Bash, ...`).
-      Fix: Drop `Bash` unless a legitimate use case (e.g. running `python -m yamllint`, schema-validate scripts) is added to the procedure with explicit invocation; or document the bash use case.
-      Verify: Either `tools` no longer lists `Bash`, or the body contains an explicit bash invocation block with rationale.
+      Fix: Drop `Bash` from `tools` unless a legitimate bash use case is added (e.g. `python -m jsonschema` validation runs); or document the bash use case explicitly.
+      Verify: Either `tools` no longer lists `Bash`, or body contains at least one explicit bash invocation block with rationale.
 
 ### SUGGESTION
 
-- [ ] [skill-vs-agent.rationale-counter-dimension] When the rationale section is added (BLOCKER above), a counter-dimension SHOULD also be named per `skill-vs-agent`; for this agent a plausible counter is *interactivity* (an author may want to approve schema edits before they land), which would push toward a skill.
-      Where: `.claude/agents/seed-data-validator.md:1-620` (will be addressed once rationale section exists).
-      Fix: Within the rationale section, add one bullet naming interactivity (schema-edit approval) as the counter-dimension and the reason it was outweighed (e.g. PR review provides post-hoc gate).
+- [ ] [skill-vs-agent.rationale-counter-dimension] When the rationale section is added (BLOCKER above), a counter-dimension SHOULD also be named; for this agent a plausible counter is interactivity (the user may want to confirm proposed schema additions before they land).
+      Where: `.claude/agents/seed-data-validator.md:1-620` (will be addressed once rationale section is authored).
+      Fix: Within the rationale section, add one bullet naming interactivity as the counter-dimension and explain why it was outweighed (e.g. additive-only constraint plus 3-source verification provides safety without mid-flow confirmation).
       Verify: Rationale section contains ≥2 bullets, one of which names a counter-dimension.
 
 ### INFO
 
-- [ ] [agent-management.model-rationale-present] Frontmatter pins `model: sonnet` and the comment line states a rationale ("Validierung von YAML-Seeds + Schema-Erweiterung mit Web-Recherche; sonnet adaequat fuer datengetriebenes Reasoning"), satisfying `agent-management.model-selection` SHOULD.
+- [ ] [agent-management.english-body] Description and body are German throughout; per the revised `agent-management.Structure` exception this is acceptable for `distribution: project` agents in a project whose `CLAUDE.md` authorizes German for agent prose. Kamerplanter's `CLAUDE.md` lines 9-11 declare German as the project documentation language. Recorded as INFO, not BLOCKER.
+      Where: `.claude/agents/seed-data-validator.md:4` (description), lines 10-620 (body).
+      Fix: n/a (observation — language exception applies).
+      Verify: n/a.
+
+- [ ] [agent-management.model-rationale-present] Frontmatter pins `model: sonnet` with the comment "datengetriebenes Reasoning"; satisfies `agent-management.model-selection` SHOULD.
       Where: `.claude/agents/seed-data-validator.md:6-7`.
       Fix: n/a (observation).
       Verify: n/a.
 
-- [ ] [agent-management.distribution-correct] `distribution: project` is declared exactly once with a valid value; matches project-scoped reuse.
+- [ ] [agent-management.distribution-correct] `distribution: project` is declared exactly once with a valid value; no plugin-co-located asset references appear.
       Where: `.claude/agents/seed-data-validator.md:3`.
       Fix: n/a (observation).
       Verify: n/a.
 
-- [ ] [skill-vs-agent.no-skill-dispatch] Body never invokes the Skill tool on behalf of the user; the cooperation note with `agrobiology-requirements-reviewer` is descriptive (markers `[AGROBIO-CHECK]` only) and does not dispatch a skill.
+- [ ] [skill-vs-agent.no-skill-dispatch] Body never invokes the Skill tool on behalf of the user; satisfies the `skill-vs-agent` BLOCKER invariant per `agent-review`.
       Where: `.claude/agents/seed-data-validator.md:1-620`.
       Fix: n/a (observation).
       Verify: n/a.

@@ -4,108 +4,111 @@ target: ".claude/agents/selenium-test-generator.md"
 target-kind: agent
 specs-applied:
   - slug: agent-management
-    revision: "0e3b6f9"
+    revision: "7772341"
   - slug: skill-vs-agent
     revision: "0e3b6f9"
   - slug: review-plan
     revision: "0e3b6f9"
   - slug: agent-review
-    revision: "0e3b6f9"
-repo-revision: "c558f311"
-created: "2026-04-27"
+    revision: "7772341"
+repo-revision: "728ac421"
+created: "2026-04-28"
 status: open
+supersedes: "previous iteration of this plan — see git history of this file"
 ---
 
 # Agent Review: selenium-test-generator
 
 ## Scope
 
+Iteration 2 of this plan. The `agent-management` and `agent-review` specs have been revised: a project-distribution agent in a project whose root convention file (`CLAUDE.md`) authorizes a non-English documentation language for agent prose may author its `description` and body in that language. Kamerplanter's `CLAUDE.md` lines 9-11 explicitly authorize German for `.claude/agents/`, so what was a German-prose BLOCKER in iteration 1 demotes to INFO here.
+
 Target: `.claude/agents/selenium-test-generator.md` (frontmatter + body, ~590 lines, no sibling assets under `.claude/agents/selenium-test-generator/`).
-Specs applied: `agent-management`, `skill-vs-agent`, `review-plan`, `agent-review` (revisions in frontmatter).
+Specs applied: `agent-management` rev 7772341, `skill-vs-agent`, `review-plan`, `agent-review` rev 7772341 (revisions in frontmatter).
 Narrowing: none — full review surface.
-Explicitly out of scope: runtime behavior of the agent, Vale/markdown style, NFR-008/008a content correctness, the dispatching skill (none declared).
+Explicitly out of scope: runtime behavior, Vale/markdown style, factual correctness of the embedded Selenium code samples, the dispatching skill (none declared but the project's `quality-gate` and `test-extract` skills are conceptually adjacent).
 
 ## Summary
 
-- BLOCKER: 4
+- BLOCKER: 3
 - WARNING: 6
 - SUGGESTION: 1
-- INFO: 3
+- INFO: 4
 
-Go/no-go: FAIL — multiple MUST violations: body is German, no rationale section, no upfront output contract, body length is ~3× the soft target with embedded code blocks that should be sibling-asset references; plausible duplicate-prevention overlap with `selenium-test-reviewer` and the `test-extract`/`check-test-pyramid` skills.
-Next concrete action: author addresses the four BLOCKERs (translate body, add rationale, lift output contract, factor inline code into sibling assets) and clarifies the boundary against the reviewer agent and the test-extract skill.
+Go/no-go: FAIL — three remaining MUST violations after the language relaxation: missing rationale section, missing upfront output contract, and consolidated write-effect goals/preconditions for the substantial files this agent creates under `tests/e2e/` plus a `.gitignore` mutation.
+Next concrete action: author addresses the three remaining BLOCKERs (rationale section anchored in `skill-vs-agent`; explicit Output contract block; consolidated write-effects section listing every created/modified path) and trims the 590-line body via sibling assets.
 
 ## Findings
 
 ### BLOCKER
 
-- [ ] [agent-management.english-body] Frontmatter `description` and the entire body are German; `agent-management` Structure-MUST requires English content.
-      Where: `.claude/agents/selenium-test-generator.md:4` (description) and lines 10-590 (entire body — phase headings, table columns, prose, comments inside example code).
-      Fix: Translate description, all section headings ("Schritt 1: NFR-008 und Testfall-Dokumente lesen" → "Step 1: Read NFR-008 and test-case documents"), prose, table columns, and code comments to English. Keep German only when literally quoting NFR-008 spec section titles or German UI literals (`/standorte`, `/pflanzen`).
-      Verify: A `lang detect` pass on body returns >95% English; section headings read `## Step N:` etc.
-
 - [ ] [skill-vs-agent.rationale-section] Body lacks a rationale section naming at least one decisive dimension for the agent-over-skill choice; this is a MUST per `skill-vs-agent` and an explicit BLOCKER per `agent-review`.
-      Where: `.claude/agents/selenium-test-generator.md:1-590` (no rationale section anywhere).
-      Fix: Add a short rationale paragraph or 2-4-bullet list near the top naming decisive dimensions — most plausibly *specialization* (NFR-008-conforming Selenium generation), *self-contained input/output* (REQ list in, test files out), *context-window protection* (large reads of `spec/req/`, `spec/nfr/`, `spec/frontend/` source). Cite at least one counter-dimension.
-      Verify: Section reading "## Rationale" or equivalent exists naming ≥1 decisive dimension; grep returns ≥1 hit for "specialization" or "context-window".
+      Where: `.claude/agents/selenium-test-generator.md:1-590` (no "Why this is an agent" section).
+      Fix: Add a short rationale paragraph near the top naming decisive dimensions — most plausibly specialization (NFR-008/NFR-008a-conformant scaffolding, Page-Object pattern, screenshot checkpoints), context-window protection (large reads of `spec/req/`, `spec/nfr/`, frontend Router/data-testid scan), and self-contained input/output (testfall-doc → tests/e2e/ tree). Important given the peer `selenium-test-reviewer` agent.
+      Verify: A "Rationale" section near the top names ≥1 decisive dimension; grep returns ≥1 hit for "specialization", "context-window", or "self-contained".
 
-- [ ] [agent-management.output-shape] Expected output shape is described only deep inside Step 4-7 as a directory layout; the file lacks an upfront "Output contract" stating what the parent caller receives.
-      Where: `.claude/agents/selenium-test-generator.md:44-590` (output description scattered across Step 4 directory tree, code blocks, and Step 7 abschluss).
-      Fix: Add an "Output contract" section near the top stating: (a) what the parent receives (paths created + chat summary), (b) the file set: `tests/e2e/conftest.py`, `tests/e2e/protocol_plugin.py`, `tests/e2e/pages/base_page.py`, page objects, test files, `requirements.txt`, .gitignore patch; (c) overwrite policy when files already exist; (d) the absolute-path constraint per `agent-management.runtime-location` MUST NOT (this agent uses relative paths only).
-      Verify: A "Output contract" section exists near the top; reading it tells a parent caller the exact file set and overwrite policy.
+- [ ] [agent-management.output-shape] Expected output shape is implied by the embedded code blocks (conftest, protocol_plugin, base_page, multiple page objects, multiple test files, requirements.txt) but the file lacks an upfront "Output contract" enumerating every created path.
+      Where: `.claude/agents/selenium-test-generator.md:44-590`.
+      Fix: Add an "Output contract" section near the top stating (a) the full list of created files (`tests/e2e/conftest.py`, `tests/e2e/protocol_plugin.py`, `tests/e2e/pages/base_page.py`, per-feature page objects, per-feature test files, `tests/e2e/requirements.txt`), (b) any `.gitignore` mutation (`test-reports/`), (c) the chat-summary shape, (d) the overwrite policy if files already exist.
+      Verify: An "Output contract" section exists near the top; reading it tells a parent caller every deliverable.
 
-- [ ] [agent-management.write-effects-documented] Agent declares `Write`, `Edit`, and `Bash` and Step 4-7 mandates creating numerous files (config, page objects, tests, gitignore patches), yet the system prompt does not declare write-effect goals/preconditions per `agent-management.acceptance` ("targets and preconditions of side effects").
-      Where: `.claude/agents/selenium-test-generator.md:5` (`tools: Read, Write, Edit, Glob, Grep, Bash`) vs. body Steps 4-7 silently mandating file creation.
-      Fix: Add an explicit "File outputs and edits" subsection near the top declaring (a) all write paths under `tests/e2e/`, (b) the `.gitignore` patch (Step 7), (c) preconditions (e.g. existing tests must not be silently overwritten — diff in PR), (d) the agent never edits production source under `src/`.
-      Verify: A "File outputs and edits" section exists; it names each write target and preconditions; declares no edits under `src/`.
+- [ ] [agent-management.write-effects-documented] Agent declares `Read, Write, Edit, Glob, Grep, Bash` and creates many production-test files plus mutates `.gitignore`, but the system prompt does not consolidate the goals and preconditions of those side effects upfront.
+      Where: `.claude/agents/selenium-test-generator.md:5` (tools) vs. body lacking an upfront write-goals block.
+      Fix: Add a "File outputs" section consolidating: every created path, the `.gitignore` patch, preconditions (existing tests/e2e/ tree honored, no overwrite without explicit signal), and the explicit invariant that frontend production code is never modified.
+      Verify: Body contains a single consolidated write-effects section naming every target and the `.gitignore` mutation; grep for "tests/e2e" and ".gitignore" both return hits in that section.
 
 ### WARNING
 
-- [ ] [agent-management.length-target] Body is ~590 lines — ~3× the ~200-line soft target in `agent-management.recommendations`; long inline code blocks (conftest.py, protocol_plugin.py, base_page.py, page objects) belong in `agents/selenium-test-generator/` sibling files referenced by relative path.
-      Where: `.claude/agents/selenium-test-generator.md:67-505`.
-      Fix: Factor each code block into `.claude/agents/selenium-test-generator/templates/<file>.py.tpl`; the body links them via relative path. Keep the procedure spine inline.
-      Verify: Body is ≤300 lines; `.claude/agents/selenium-test-generator/templates/` contains the factored templates.
+- [ ] [agent-management.body-length] Body is ~590 lines, well above the SHOULD soft target of ~200 lines. Long-form code samples (conftest, protocol_plugin, base_page, three page objects, three test files) should move into `.claude/agents/selenium-test-generator/templates/` and be referenced by relative path.
+      Where: `.claude/agents/selenium-test-generator.md:1-590`.
+      Fix: Factor each code sample into a sibling template file under `.claude/agents/selenium-test-generator/templates/` and reference them; keep the body as a procedural index pointing at the templates.
+      Verify: Body length drops below ~250 lines; sibling folder exists.
 
-- [ ] [agent-review.duplicate-prevention] Plausible capability overlap: peers `selenium-test-reviewer` (reviews and may edit Selenium tests), the `test-extract` skill (E2E test cases from REQ), and the `check-test-pyramid` skill (test-suite health checks). The current description does not name negatives.
-      Where: `.claude/agents/selenium-test-generator.md:4` (description) vs. peers `selenium-test-reviewer`, `test-extract` (skill), `check-test-pyramid` (skill).
-      Fix: Add explicit negative triggers to `description` ("don't use for reviewing existing tests — use `selenium-test-reviewer`; don't use for extracting test cases from REQs as a planning artifact — use the `test-extract` skill; don't use for test-pyramid health audits — use `check-test-pyramid`"). Per `skill-vs-agent.duplicate-prevention` plausibly-overlapping artifacts SHOULD propose a clearer split.
-      Verify: `description` contains "don't use for" naming at least the three closest peers/skills.
+- [ ] [agent-review.duplicate-prevention] Plausible capability overlap with `selenium-test-reviewer` (peer agent, same NFR-008 surface) and with the project's `e2e-testcase-extractor` agent (test-case discovery from spec). Per `agent-review.duplicate-prevention` this is a WARNING; the `description` does not declare negative triggers naming either peer.
+      Where: `.claude/agents/selenium-test-generator.md:4` vs. peers `.claude/agents/selenium-test-reviewer.md`, `.claude/agents/e2e-testcase-extractor.md`.
+      Fix: Add negative triggers to `description`: "nicht für Review existierender Tests — dafür `selenium-test-reviewer`; nicht für reine Testfall-Extraktion — dafür `e2e-testcase-extractor`".
+      Verify: `description` contains "nicht für" naming both peer agents.
 
-- [ ] [agent-management.prompt-structure-order] System prompt opens with persona, immediately declares "primaere/ergaenzende Referenz", then jumps into the project config table; role-then-output-then-method ordering required by `agent-management.recommendations` SHOULD is not honored — output shape only emerges in Step 4.
+- [ ] [agent-management.prompt-structure-order] System prompt opens with persona, then project config table, then a "Workflow" with five steps; output shape is implicit. Role-then-output-then-method ordering SHOULD is not honored.
       Where: `.claude/agents/selenium-test-generator.md:10-590`.
-      Fix: Restructure: persona paragraph → "Output contract" → procedure (Steps 1-7). Move "Projektkonfiguration" table after the contract.
-      Verify: Reading the first 60 lines reveals role → output shape → method in that order.
+      Fix: Restructure: persona → "Output contract" (deliverable file list) → procedure (Schritte 1-5) → reference templates (in sibling folder).
+      Verify: Reading the first 80 lines reveals role → output shape → method in that order.
 
-- [ ] [agent-management.tags] No `tags` field declared; tags `quality-gate` and `scaffolding` would apply per `agent-management.tag-vocabulary` SHOULD (this agent generates/scaffolds test infrastructure plus enforces an NFR-008 quality gate).
+- [ ] [agent-management.tags] No `tags` field declared; `quality-gate` and `scaffolding` would apply per `agent-management.tag-vocabulary` SHOULD.
       Where: `.claude/agents/selenium-test-generator.md:1-8` (frontmatter).
       Fix: Add `tags: [quality-gate, scaffolding]` after existing fields.
       Verify: Frontmatter parses as YAML containing `tags` of length ≤5 with all entries lowercase ASCII kebab-case ≤30 chars.
 
-- [ ] [agent-management.research-vs-writes] System prompt does not explicitly declare upfront whether the agent writes code or only researches; the writes intent (full `tests/e2e/` directory) is only implicit via Step 4-7.
+- [ ] [agent-management.research-vs-writes] System prompt does not explicitly declare upfront that the agent writes code; the calling Claude must read it at dispatch time per `agent-management.recommendations` SHOULD.
       Where: `.claude/agents/selenium-test-generator.md:10-590`.
-      Fix: Add a one-line statement near the top: "This agent writes code: it scaffolds the entire `tests/e2e/` directory (conftest, protocol plugin, page objects, test files, requirements.txt) and patches `.gitignore`. It does not modify production source under `src/`."
-      Verify: One sentence near the top declares write scope and named paths/exclusions.
+      Fix: Add one sentence near the top: "This agent writes test code under `tests/e2e/` and mutates `.gitignore`; it does not modify frontend or backend production code."
+      Verify: One sentence near the top names "writes test code", "tests/e2e/", and "no production-code edits".
 
-- [ ] [agent-review.tool-scope-bash-vs-dedicated] `Bash` is declared but the body's only bash references are example shell snippets in Step 7 (running pytest); the agent's own procedure does not need bash. Dead permission per `agent-review.tool-scope`; SHOULD prefer dedicated tools.
-      Where: `.claude/agents/selenium-test-generator.md:5` (`tools: ..., Bash`).
-      Fix: Drop `Bash` from `tools` (the example pytest commands are user-side guidance, not agent invocations); or document why bash is required (e.g. for gitignore patch verification).
-      Verify: Either `tools` no longer lists `Bash`, or body contains an explicit bash invocation step with rationale.
+- [ ] [agent-review.tools-bidirectional] `Bash` is declared but the body never demonstrably invokes it during code generation (Steps 1-5 use Read/Write/Glob/Grep). The closing "Befehle anzeigen" block lists *example* commands the user should run, not commands the agent runs. Possible dead permission per `agent-review.tool-scope`.
+      Where: `.claude/agents/selenium-test-generator.md:5` and lines 580-589.
+      Fix: Drop `Bash` from `tools` unless a legitimate use case is added (e.g. `pytest --collect-only` smoke-check after generation); or document the bash use case explicitly.
+      Verify: Either `tools` no longer lists `Bash`, or body contains at least one explicit bash invocation block with rationale.
 
 ### SUGGESTION
 
-- [ ] [skill-vs-agent.rationale-counter-dimension] When the rationale section is added (BLOCKER above), a counter-dimension SHOULD also be named per `skill-vs-agent`; for this agent a plausible counter is *interactivity* (test scaffolding decisions like file overwrites would benefit from user confirmation), which would push toward a skill.
-      Where: `.claude/agents/selenium-test-generator.md:1-590` (will be addressed once rationale section exists).
-      Fix: Within the rationale section, add one bullet naming interactivity (overwrite confirmation) as the counter-dimension and the reason it was outweighed (e.g. fire-and-forget scaffolding under a fresh path).
+- [ ] [skill-vs-agent.rationale-counter-dimension] When the rationale section is added (BLOCKER above), a counter-dimension SHOULD also be named; for this agent a plausible counter is interactivity (user might want to review the planned file list before generation).
+      Where: `.claude/agents/selenium-test-generator.md:1-590` (will be addressed once rationale section is authored).
+      Fix: Within the rationale section, add one bullet naming interactivity as the counter-dimension and explain why it was outweighed (e.g. files are scoped to `tests/e2e/`, easy to revert, and the orchestrator skill can wrap interactivity).
       Verify: Rationale section contains ≥2 bullets, one of which names a counter-dimension.
 
 ### INFO
 
-- [ ] [agent-management.model-rationale-present] Frontmatter pins `model: opus` and the comment line states a rationale ("Test-Code-Generierung mit Page-Object-Pattern, Screenshot-Checkpoints, NFR-008-Compliance, vielen Constraints"), satisfying `agent-management.model-selection` SHOULD.
+- [ ] [agent-management.english-body] Description and body are German throughout; per the revised `agent-management.Structure` exception this is acceptable for `distribution: project` agents in a project whose `CLAUDE.md` authorizes German for agent prose. Kamerplanter's `CLAUDE.md` lines 9-11 declare German as the project documentation language. Recorded as INFO, not BLOCKER.
+      Where: `.claude/agents/selenium-test-generator.md:4` (description), lines 10-590 (body).
+      Fix: n/a (observation — language exception applies).
+      Verify: n/a.
+
+- [ ] [agent-management.model-rationale-present] Frontmatter pins `model: opus` with rationale ("Test-Code-Generierung mit Page-Object-Pattern, Screenshot-Checkpoints, NFR-008-Compliance"); satisfies `agent-management.model-selection` SHOULD.
       Where: `.claude/agents/selenium-test-generator.md:6-7`.
       Fix: n/a (observation).
       Verify: n/a.
 
-- [ ] [agent-management.distribution-correct] `distribution: project` is declared exactly once with a valid value; matches project-scoped reuse.
+- [ ] [agent-management.distribution-correct] `distribution: project` is declared exactly once with a valid value; no plugin-co-located asset references appear.
       Where: `.claude/agents/selenium-test-generator.md:3`.
       Fix: n/a (observation).
       Verify: n/a.
