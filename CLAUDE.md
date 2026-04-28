@@ -14,7 +14,7 @@ Agents authored under `.claude/agents/` (`distribution: project`) MAY author the
 
 - `spec/` — Specification documents
   - `spec/req/` — Functional requirements (REQ-001 through REQ-032)
-  - `spec/nfr/` — Non-functional requirements (NFR-001 through NFR-013)
+  - `spec/nfr/` — Non-functional requirements (NFR-001 through NFR-015)
   - `spec/ui-nfr/` — UI non-functional requirements
   - `spec/stack.md` — Complete technology stack specification
   - `spec/style-guides/` — Code style guides (Backend, Frontend, Helm, HA)
@@ -98,6 +98,8 @@ These constraints are documented across multiple files and must be respected whe
 9. **Multi-tenancy with RBAC Permission Matrix** (REQ-024): Tenant is the isolation container — all resources belong to exactly one tenant. Users can be members of multiple tenants with different roles per tenant (admin/grower/viewer). Granular Permission Matrix defines CRUD rights per resource type and role. Assignment-based write control for locations. Platform roles: admin (full KA-Admin) and viewer (read-only admin panel). `require_permission()` FastAPI dependency. URL-based routing: `/api/v1/t/{tenant_slug}/...` for tenant-scoped endpoints. Global resources (species, cultivars, IPM data) remain at `/api/v1/...`. Personal tenant auto-created at registration.
 
 10. **DSGVO by Design** (REQ-025, NFR-011): All personal data has defined retention periods enforced by Celery. DSGVO subject rights (Art. 15–21) as self-service API at `/api/v1/privacy/`. IP addresses anonymized after 7 days. Sensor data downsampled in 3 stages (90d raw → 2y hourly → 5y daily). Consent-checking middleware for optional processing. Harvest/treatment data anonymized (not deleted) when retention laws (CanG, PflSchG) apply.
+
+11. **Two-tier DAST security testing** (NFR-014, NFR-015): Two complementary scanners run in CI. **Nuclei** (NFR-014) provides broad, fast template-based scanning per PR (< 15 min) and nightly — covering exposures, misconfigurations, default-logins, CVEs and project-specific custom templates (security-headers, CORS, JWT-leak, source-map, tenant-leak). **OWASP ZAP** (NFR-015) provides deep verhaltensbasierte scanning: Baseline + API-Scan per PR, Full-Scan with AjaxSpider and authenticated cross-tenant negative tests nightly (≤ 6 h). Both upload SARIF to GitHub Code Scanning. High/Critical findings block PR merge; cross-tenant findings always block. NFR-009 covers dependency CVEs *before* deployment, NFR-014/015 cover the deployed app.
 
 ## Tech Stack Summary
 
