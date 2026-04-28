@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: OWASP ZAP, ZAP Action (Baseline / Full / API), AjaxSpider, GitHub Actions, SARIF
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, zap, owasp, ajax-spider, active-scan, passive-scan, api-scan, authenticated-scan, sarif, ci-gate]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows, tests/se
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf strict 1:1 ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). |
 | 1.0 | 2026-04-28 | Erstversion — OWASP ZAP Baseline-, Full- und API-Scan-Profile; authentifizierte Scans gegen Tenant-Routing; AjaxSpider für React-SPA; SARIF-Reporting, Build-Gate, Triage. |
 
 # NFR-015: OWASP-ZAP-Security-Scanning
@@ -106,7 +107,7 @@ Praktisches Beispiel:
 
 | Profil | Wann | Dauer | Ziel | Action |
 |---|---|---|---|---|
-| **Baseline** | Pro PR | < 15 min | Passive-only Scan gegen Frontend + Backend | `zaproxy/action-baseline` |
+| **Baseline** | Pro PR | < 20 min | Passive-only Scan + AjaxSpider (`-j`) gegen Frontend + Backend | `zaproxy/action-baseline` |
 | **API-Scan** | Pro PR | < 15 min | OpenAPI-getriebener Scan gegen Backend | `zaproxy/action-api-scan` |
 | **Full-Scan** | Nightly + Pre-Release | 1–6 h | Active + Passive + AjaxSpider, authentifiziert | `zaproxy/action-full-scan` |
 
@@ -150,43 +151,54 @@ Praktisches Beispiel:
 - haben Passwörter, die ausschliesslich als GitHub-Secrets verwaltet werden,
 - werden bei jedem Re-Seed automatisch zurückgesetzt.
 
+**MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) verifiziert in der Prod-DB-Snapshot, dass keiner der drei `zap-tenant-*@kamerplanter.test`-Logins existiert. Treffer ist ein Block-Finding und scheitert das Release. Der Check läuft als Read-Only-Query gegen die `users`-Collection mit dem E-Mail-Suffix `@kamerplanter.test`.
+
 ### 3.2 ZAP-Auth-Konfiguration (JWT-basiert)
 
-**MUSS**: Authentifizierte Scans nutzen das JWT-Login-Endpoint (REQ-023) — ZAP-Auth-Script generiert pro Session ein Bearer-Token:
+**MUSS**: Authentifizierte Scans nutzen das JWT-Login-Endpoint (REQ-023). JWT-Bearer-Tokens werden über ein **HttpSender-Skript** auf jeden Folgerequest gesetzt — nicht über ein klassisches Authentication-Script. Begründung: Ein Authentication-Script setzt den Header nur auf den initialen Login-Reply; ZAP-interne Spider-/Scanner-Komponenten würden ohne HttpSender-Skript anschliessend ohne Bearer-Header weiterlaufen.
 
 ```javascript
-// tests/security/zap-scripts/jwt-auth.js
-function authenticate(helper, paramsValues, credentials) {
-  var loginUrl = paramsValues.get("Login URL");
-  var loginBody = JSON.stringify({
-    email: credentials.getParam("email"),
-    password: credentials.getParam("password")
-  });
+// tests/security/zap-scripts/jwt-httpsender.js
+// HttpSender-Script. Hängt das aktuelle Bearer-Token an jeden ausgehenden
+// Request an und triggert bei 401 einen Re-Login.
 
-  var requestUri = new org.apache.commons.httpclient.URI(loginUrl, false);
-  var requestMethod = HttpRequestHeader.POST;
-  var msg = helper.prepareMessage();
-  msg.setRequestHeader(new HttpRequestHeader(requestMethod, requestUri, "HTTP/1.1"));
-  msg.getRequestHeader().setHeader("Content-Type", "application/json");
-  msg.setRequestBody(loginBody);
-  msg.getRequestHeader().setContentLength(msg.getRequestBody().length());
+var SCRIPT_TYPE = "httpsender";
+var Model = Java.type("org.parosproxy.paros.model.Model");
+var ScriptVars = Java.type("org.zaproxy.zap.extension.script.ScriptVars");
 
-  helper.sendAndReceive(msg);
+var LOGIN_PATH_REGEX = /\/api\/v1\/auth\/(login|refresh)$/;
+var TOKEN_VAR = "kamerplanter.jwt.token";
 
-  var responseBody = msg.getResponseBody().toString();
-  var token = JSON.parse(responseBody).access_token;
+function sendingRequest(msg, initiator, helper) {
+  var url = msg.getRequestHeader().getURI().toString();
+  if (LOGIN_PATH_REGEX.test(url)) {
+    return; // never recurse into the login itself
+  }
 
-  msg.getRequestHeader().setHeader("Authorization", "Bearer " + token);
-  return msg;
+  var token = ScriptVars.getGlobalVar(TOKEN_VAR);
+  if (token !== null && token.length > 0) {
+    msg.getRequestHeader().setHeader("Authorization", "Bearer " + token);
+  }
 }
 
-function getRequiredParamsNames() { return ["Login URL"]; }
-function getOptionalParamsNames() { return []; }
-function getCredentialsParamsNames() { return ["email", "password"]; }
+function responseReceived(msg, initiator, helper) {
+  if (msg.getResponseHeader().getStatusCode() === 401) {
+    refreshToken(helper);
+  }
+}
+
+function refreshToken(helper) {
+  // Calls /api/v1/auth/login with credentials provided by the GitHub-Actions
+  // secret-injected env vars (KP_ZAP_EMAIL / KP_ZAP_PASSWORD), parses the
+  // access_token from the JSON response, and stores it in ScriptVars.
+  // Implementation details: see docs/security/zap-auth-setup.md.
+}
 ```
 
-**MUSS**: Das Bearer-Token wird in einem `HttpSender`-Skript an alle nachfolgenden Requests angehängt.
-**MUSS**: Refresh-Token-Rotation (REQ-023) wird abgebildet — bei `401` wird automatisch neu authentifiziert.
+**MUSS**: Das Skript liegt unter `tests/security/zap-scripts/jwt-httpsender.js` und ist in `tests/security/zap-context.xml` als HttpSender-Script registriert.
+**MUSS**: Das initiale Token wird vom Setup-Skript `seed-cross-tenant.sh` (vgl. §3.3) in `ScriptVars.setGlobalVar(TOKEN_VAR, ...)` geschrieben — damit der erste Request bereits authentifiziert ist.
+**MUSS**: Refresh-Token-Rotation (REQ-023) wird in `refreshToken()` abgebildet — bei `401` wird automatisch neu authentifiziert.
+**MUSS**: Die Credentials sind ausschliesslich als GitHub-Secrets (`ZAP_TENANT_A_PASSWORD`, `ZAP_TENANT_B_PASSWORD`) verfügbar — keine Klartext-Credentials in Skript oder Context-XML.
 
 ### 3.3 Cross-Tenant-Negativtests
 
@@ -207,7 +219,68 @@ RESOURCE_A_KEY=$(curl -s -X POST \
 echo "RESOURCE_A_KEY=$RESOURCE_A_KEY" >> "$GITHUB_OUTPUT"
 ```
 
-**MUSS**: Eine ZAP-Custom-Rule (Active-Rule oder Skript) prüft cross-tenant für Resource-Keys aus Tenant A mit Token von Tenant B und meldet 200-Antworten als High-Severity-Finding.
+**MUSS**: Eine ZAP-Passive-Rule prüft cross-tenant: Wenn der URL-Pfad `/api/v1/t/{tenant_slug}/...` einen anderen `tenant_slug` enthält als der `tenant_slug` im JWT-Payload des `Authorization`-Headers, und der Status `200`/`201` ist, wird ein High-Alert geraised. Skript-Skelett:
+
+```javascript
+// tests/security/zap-scripts/cross-tenant-passive.js
+// Passive-Rule-Script. Liest tenant_slug aus URL und JWT-Payload und
+// raised einen High-Alert bei Mismatch + 2xx-Status.
+
+var SCRIPT_TYPE = "passive";
+var Base64 = Java.type("java.util.Base64");
+var URL_TENANT_RE = /\/api\/v1\/t\/([a-z0-9-]+)\//;
+
+function scan(helper, msg, src) {
+  var url = msg.getRequestHeader().getURI().toString();
+  var status = msg.getResponseHeader().getStatusCode();
+  if (status !== 200 && status !== 201) return;
+
+  var urlMatch = URL_TENANT_RE.exec(url);
+  if (!urlMatch) return;
+  var urlTenant = urlMatch[1];
+
+  var auth = msg.getRequestHeader().getHeader("Authorization");
+  if (!auth || auth.indexOf("Bearer ") !== 0) return;
+
+  var tokenTenant = parseJwtTenantSlug(auth.substring(7));
+  if (!tokenTenant) return;
+
+  if (urlTenant !== tokenTenant) {
+    helper.newAlert()
+      .setRisk(3)            // High
+      .setConfidence(2)      // Medium (header-based, not exploit-confirmed)
+      .setName("Cross-Tenant Data Exposure (kamerplanter)")
+      .setDescription(
+        "JWT belongs to tenant '" + tokenTenant +
+        "' but successfully accessed resource of tenant '" + urlTenant + "'. " +
+        "Likely missing require_permission() dependency or tenant guard."
+      )
+      .setUri(url)
+      .setEvidence("URL tenant=" + urlTenant + " ; JWT tenant=" + tokenTenant)
+      .setSolution("Add require_permission(...) and tenant guard to this endpoint; verify against REQ-024 permission matrix.")
+      .setCweId(284)         // Improper Access Control
+      .setWascId(2)
+      .setMessage(msg)
+      .raise();
+  }
+}
+
+function parseJwtTenantSlug(jwt) {
+  var parts = String(jwt).split(".");
+  if (parts.length !== 3) return null;
+  try {
+    var payloadJson = new java.lang.String(Base64.getUrlDecoder().decode(parts[1]));
+    var payload = JSON.parse(String(payloadJson));
+    return payload.tenant_slug || payload.tenant || null;
+  } catch (e) {
+    return null;
+  }
+}
+```
+
+**MUSS**: Cross-Tenant-Findings sind immer **Critical** (vgl. §5.1 Severity-Mapping) und blockieren immer den Merge.
+**MUSS**: Das Skript ist in `tests/security/zap-context.xml` als Passive-Script registriert und wird in allen authentifizierten Profilen (Full-Scan + API-Scan mit Auth) aktiv.
+**SOLL**: Eine Spike-Story prototypisiert das Skript gegen einen lokalen Stack und verifiziert beide Pfade (TP: tatsächlicher Cross-Tenant-Treffer; TN: Same-Tenant-Zugriff erzeugt keinen Alert) bevor das Build-Gate scharfgeschaltet wird.
 
 ### 3.4 Out-of-Scope für unauthentifizierte Scans
 
@@ -301,7 +374,7 @@ jobs:
 # .github/workflows/security-zap-nightly.yml
 on:
   schedule:
-    - cron: "0 0 * * *"   # 01:00 Europe/Berlin (winter)
+    - cron: "0 1 * * *"   # 02:00 Europe/Berlin (winter) — 60 Min nach NFR-014 Nuclei-Nightly, damit Nuclei zuerst läuft
   workflow_dispatch:
 
 jobs:
@@ -327,17 +400,14 @@ jobs:
         with:
           target: ${{ secrets.STAGING_BASE_URL }}
           rules_file_name: "tests/security/zap-rules.tsv"
+          # Auth-Header + HttpSender-/Passive-Skripte werden zentral
+          # in tests/security/zap-context.xml registriert. Replacer- oder
+          # Token-Konfiguration NICHT als CLI-Override — siehe §3.2 / §3.3.
           cmd_options: >-
             -a
             -j
             -T 60
-            -z "-configfile /zap/wrk/zap-context.xml
-                -config replacer.full_list(0).description=jwt-auth-A
-                -config replacer.full_list(0).enabled=true
-                -config replacer.full_list(0).matchtype=REQ_HEADER
-                -config replacer.full_list(0).matchstr=Authorization
-                -config replacer.full_list(0).regex=false
-                -config replacer.full_list(0).replacement=Bearer ${{ secrets.ZAP_TENANT_A_TOKEN }}"
+            -n /zap/wrk/tests/security/zap-context.xml
           fail_action: true
           allow_issue_writing: true
 
@@ -376,16 +446,22 @@ jobs:
 
 ### 5.1 Severity-Schwellen
 
-**MUSS**: ZAP-Risk-Level werden auf das gleiche Severity-Modell gemappt wie NFR-014:
+**MUSS**: ZAP-Risk-Level werden strict 1:1 auf das Severity-Modell aus NFR-014 gemappt; **Critical** entsteht ausschliesslich durch explizite Eskalations-Regeln, da ZAP von Haus aus nur drei Risiko-Stufen kennt:
 
 | ZAP Risk | Severity (NFR-Modell) | PR-Gate | Nightly | Aktion |
 |---|---|---|---|---|
-| **High** | Critical / High | Block | Block + Issue + Page | PR-Merge unmöglich, 24 h SLA |
+| **High** | High | Block | Block + Issue | PR-Merge unmöglich, 7 Tage SLA |
 | **Medium** | Medium | Warn | Warn + Issue | Triage in 7 Tagen |
 | **Low** | Low | Info | Info | Backlog |
 | **Informational** | Info | Sammeln | Sammeln | Reine Inventarisierung |
 
-**MUSS**: Cross-Tenant-Findings (eigene Custom-Rule) sind immer **High** und blockieren immer den Merge.
+**Critical-Eskalation** — Findings folgender Klassen werden unabhängig vom ZAP-Risk auf **Critical** angehoben und blockieren immer (auch im Nightly):
+
+| Eskalations-Regel | Quelle | Begründung |
+|---|---|---|
+| Cross-Tenant-Treffer | `cross-tenant-passive.js` (§3.3) | REQ-024-Bruch — direkter Datenleak zwischen Mandanten |
+| Auth-Bypass auf authentifiziertem Endpunkt | API-Scan, Status `200` ohne Bearer | Vollständiger Schutzverlust |
+| JWT-Leak in Response-Body / URL / Header | passive-Rule + NFR-014 `kamerplanter-jwt-leak.yaml` | Session-Hijacking-Vektor |
 
 ### 5.2 Confidence-Filter
 
