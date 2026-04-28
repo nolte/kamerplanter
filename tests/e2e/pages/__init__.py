@@ -31,6 +31,7 @@ from .plant_instance_list_page import PlantInstanceListPage
 from .planting_run_detail_page import PlantingRunDetailPage
 from .planting_run_list_page import PlantingRunListPage
 from .register_page import RegisterPage
+from .sensor_create_dialog_page import SensorCreateDialogPage
 from .site_detail_page import SiteDetailPage
 from .site_list_page import SiteListPage
 from .site_list_page_ext import SiteListPageExt
@@ -86,6 +87,7 @@ __all__ = [
     "PlantingRunDetailPage",
     "PlantingRunListPage",
     "RegisterPage",
+    "SensorCreateDialogPage",
     "SiteDetailPage",
     "SiteListPage",
     "SiteListPageExt",
