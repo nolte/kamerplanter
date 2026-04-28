@@ -8,8 +8,8 @@ ui-nfr-count: 19
 manifest-coverage: 70/70
 plans-open: 32
 plans-closed: 38
-repo-revision: 1546aab6
-created: 2026-04-27
+repo-revision: c878c23a
+created: 2026-04-28
 mode: full
 ---
 
@@ -187,7 +187,7 @@ Sortiert nach Prioritaet (blocker > warning > info) und Coverage-Score (aufsteig
 | UI-NFR-019 Kiosk-Modus | [.audits/req-coverage-audit/UI-NFR-019.md](req-coverage-audit/UI-NFR-019.md) | — | S |
 
 ## Run log
-- 2026-04-27 — Manifest geladen: 70 Eintraege, 0 Luecken
-- 2026-04-27 — Coverage berechnet (Manifest-getrieben, keine Heuristik)
-- 2026-04-27 — Per-Anforderungs-Plans geschrieben: 32 offen, 38 mit Coverage 100 %
-- 2026-04-27 — Aggregate geschrieben
+- 2026-04-28 — Manifest geladen: 70 Eintraege, 0 Luecken
+- 2026-04-28 — Coverage berechnet (Manifest-getrieben, keine Heuristik)
+- 2026-04-28 — Per-Anforderungs-Plans geschrieben: 32 offen, 38 mit Coverage 100 %
+- 2026-04-28 — Aggregate geschrieben

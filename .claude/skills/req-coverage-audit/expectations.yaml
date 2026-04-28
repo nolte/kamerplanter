@@ -339,7 +339,8 @@ requirements:
         - { kind: glob, path: "src/frontend/src/test/**/plantInstancesSlice.test.ts", role: frontend_test }
         - { kind: glob, path: "tests/e2e/test_req013_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-013 v2.3 spec, Backend v2.0 — DRIFT"
+      # Phase 0 (2026-04-28): konkrete Drift-Items siehe .audits/phase-0-drift-findings.md
+      memory_status_field: "REQ-013 v2.3 spec, Backend v2.0 — DRIFT (W-003 Run-Membership-Guard, W-009 Treatment-Snapshot, W-010 CareProfile-Snapshot, SuccessionPlan)"
       cross_refs: [REQ-001, REQ-003, REQ-006, REQ-007, REQ-022]
 
   REQ-014:
@@ -360,7 +361,8 @@ requirements:
         - { kind: glob, path: "src/frontend/src/test/**/Tank*.test.tsx", role: frontend_test, optional: true }
         - { kind: glob, path: "tests/e2e/test_req014_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-014 v1.6 spec, MEMORY v1.4 — DRIFT"
+      # Phase 0 (2026-04-28): TankFillEvent v1.6 SYNCHRON, WateringEvent driftet
+      memory_status_field: "REQ-014 v1.6 spec — DRIFT (WateringEvent: slot_keys vs plant_keys, _ms-Suffix bei EC-Feldern, channel_id nicht in Spec)"
       cross_refs: [REQ-004]
 
   REQ-015:
@@ -384,7 +386,8 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_ical_generator.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req015_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-015 v1.6 spec, MEMORY v1.1 — DRIFT"
+      # Phase 0 (2026-04-28): Aussaatkalender + Saisonübersicht synchron, iCal/Feed driftet
+      memory_status_field: "REQ-015 v1.6 spec — DRIFT (CF-005 expires_at, CF-007 W-017 Light-iCal, VALARM, PRIORITY/STATUS, Druckversion, Jahresvergleich, Filter Jährlich)"
       cross_refs: [REQ-006, REQ-022, "REQ-015-A"]
 
   REQ-015-A:
@@ -536,7 +539,8 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_care_reminder*.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req022_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-022 v2.5 spec, MEMORY v2.3 — DRIFT"
+      # Phase 0 (2026-04-28): Indoor-Care v2.3 synchron, Outdoor-/Überwinterung-v2.5 fehlt
+      memory_status_field: "REQ-022 v2.5 spec, MEMORY v2.3 — DRIFT (OverwinteringProfile, W-010 Run-Owned-Care, 5 ReminderTypes, 7 Outdoor-Presets, FAMILY_CARE_MAP-Erw., Deadheading-Guard, Winterhärte-Ampel)"
       cross_refs: [REQ-006, REQ-013]
 
   REQ-023:
