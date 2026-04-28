@@ -4,21 +4,21 @@ requirement: UI-NFR-002
 title: Barrierefreiheit
 type: ui-nfr
 spec_path: spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md
-coverage_score: 50%
-status: lueckenhaft
-priority: warning
-effort: M
-created: 2026-04-28
-audit_run: c878c23a
+coverage_score: 100%
+status: implementiert
+priority: none
+effort: S
+created: 2026-04-29
+audit_run: a234b867
 ---
 
 # Ausfuehrungsplan: UI-NFR-002 Barrierefreiheit
 
 ## Kontext
 - **Spec**: `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md`
-- **Coverage**: 50%
-- **Status**: Lueckenhaft
-- **Aufwand-Schaetzung**: M (1 Pflicht-Artefakte fehlen)
+- **Coverage**: 100%
+- **Status**: Implementiert
+- **Aufwand-Schaetzung**: S (0 Pflicht-Artefakte fehlen)
 
 ## Erwartete Artefakte
 
@@ -28,11 +28,11 @@ audit_run: c878c23a
 |---|---|---|---|---|---|
 | aria_landmark | `src/frontend/src/**/PageTitle.tsx` | glob | ja | OK | src/frontend/src/components/layout/PageTitle.tsx |
 
-### Dimension: tests (0/1)
+### Dimension: tests (1/1)
 
 | Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
 |---|---|---|---|---|---|
-| a11y_test | `src/frontend/src/test/accessibility.test.tsx` | file | nein | FEHLT |  |
+| a11y_test | `src/frontend/src/test/**/accessibility.test.tsx` | glob | nein | OK | src/frontend/src/test/a11y/accessibility.test.tsx |
 
 ### Dimension: drift (n/a)
 
@@ -44,13 +44,7 @@ audit_run: c878c23a
 
 ## Aufgaben (priorisiert, abarbeitbar)
 
-### Aufgabe 1 — a11y_test anlegen [S]
-- **Zu tun**: Testdatei anlegen fuer a11y_test
-- **Pfad**: `src/frontend/src/test/accessibility.test.tsx` (file)
-- **Spec-Referenz**: `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md` — Sektion zu a11y_test
-- **Begruendung**: Spec-Vorgabe
-- **Akzeptanzkriterium**: Datei existiert + 1 Smoke-Test (falls Code) bzw. Glob matched (falls Pattern)
-- **Empfohlener Agent**: `frontend-usability-optimizer`
+_Keine Pflicht-Artefakte fehlen. Coverage-Defizit liegt nur in optionalen Artefakten oder Drift-Findings._
 
 ## Empfohlene Skill-Sequenz
 1. Aufgaben in obiger Reihenfolge abarbeiten (jeweils kleinster sinnvoller Commit)

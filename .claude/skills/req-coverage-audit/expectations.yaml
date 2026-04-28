@@ -1034,7 +1034,9 @@ requirements:
       frontend:
         - { kind: glob, path: "src/frontend/src/**/PageTitle.tsx", role: aria_landmark, optional: true }
       tests:
-        - { kind: file, path: src/frontend/src/test/accessibility.test.tsx, role: a11y_test }
+        # Phase 1 (2026-04-28): Pfad auf glob umgestellt — der Test existiert bereits
+        # unter src/frontend/src/test/a11y/accessibility.test.tsx (nicht im flachen test/-Ordner).
+        - { kind: glob, path: "src/frontend/src/test/**/accessibility.test.tsx", role: a11y_test }
 
   UI-NFR-003:
     title: Performance
