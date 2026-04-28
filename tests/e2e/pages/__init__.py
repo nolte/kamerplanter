@@ -18,6 +18,7 @@ from .import_page import ImportPage
 from .invitation_accept_page import InvitationAcceptPage
 from .location_detail_page import LocationDetailPage
 from .login_page import LoginPage
+from .notification_settings_page import NotificationSettingsPage
 from .nutrient_calculations_page import NutrientCalculationsPage
 from .nutrient_plan_detail_page import NutrientPlanDetailPage
 from .nutrient_plan_list_page import NutrientPlanListPage
@@ -72,6 +73,7 @@ __all__ = [
     "InvitationAcceptPage",
     "LocationDetailPage",
     "LoginPage",
+    "NotificationSettingsPage",
     "NutrientCalculationsPage",
     "NutrientPlanDetailPage",
     "NutrientPlanListPage",
