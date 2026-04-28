@@ -19,7 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows, tests/se
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf strict 1:1 ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). |
+| 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf strict 1:1 ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). §3.1 Domain-Korrektur: `@kamerplanter.test` (von Pydantic abgelehnt) → `@zap.kamerplanter.example`; Setup-Tooling unter `tests/security/zap-setup/` statt im Backend-Code; Pre-Deploy-Check als reine Daten-Prüfung formuliert. |
 | 1.0 | 2026-04-28 | Erstversion — OWASP ZAP Baseline-, Full- und API-Scan-Profile; authentifizierte Scans gegen Tenant-Routing; AjaxSpider für React-SPA; SARIF-Reporting, Build-Gate, Triage. |
 
 # NFR-015: OWASP-ZAP-Security-Scanning
@@ -141,17 +141,19 @@ Praktisches Beispiel:
 
 | Login | Tenant | Rolle | Zweck |
 |---|---|---|---|
-| `zap-tenant-a-admin@kamerplanter.test` | `tenant-a` | admin | Authentifizierte Active-Scans innerhalb Mandant A |
-| `zap-tenant-a-viewer@kamerplanter.test` | `tenant-a` | viewer | Permission-Matrix-Tests |
-| `zap-tenant-b-admin@kamerplanter.test` | `tenant-b` | admin | Cross-Tenant-Negativtests gegen Mandant A |
+| `zap-tenant-a-admin@zap.kamerplanter.example` | `zap-tenant-a` | admin | Authentifizierte Active-Scans innerhalb Mandant α |
+| `zap-tenant-a-viewer@zap.kamerplanter.example` | `zap-tenant-a` | viewer | Permission-Matrix-Tests |
+| `zap-tenant-b-admin@zap.kamerplanter.example` | `zap-tenant-b` | admin | Cross-Tenant-Negativtests gegen Mandant α |
+
+**Domain-Wahl**: `@zap.kamerplanter.example` ist eine Subdomain unter dem von RFC 2606 reservierten `.example`-TLD. Die ursprünglich vorgesehene `.test`-Domain wird vom Pydantic-`email-validator` als „special-use reserved name" abgelehnt (RFC 6761), sodass eine Registrierung auch über die öffentliche `/api/v1/auth/register`-Route fehlschlagen würde. Die Subdomain `zap.` macht zusätzlich klar, dass jedes Konto unter diesem Suffix ein DAST-Fixture ist.
 
 **MUSS**: Diese Konten:
-- werden über Seed-Daten beim Hochfahren der Staging-/CI-Umgebung angelegt,
+- werden über externe Test-Tooling unter `tests/security/zap-setup/` angelegt — **nicht** über produktive Backend-Module. Das Setup-Skript spricht ausschliesslich gegen die öffentliche REST-API (`/api/v1/auth/register`, `/api/v1/tenants/...`),
 - existieren NICHT in produktiven Umgebungen,
-- haben Passwörter, die ausschliesslich als GitHub-Secrets verwaltet werden,
-- werden bei jedem Re-Seed automatisch zurückgesetzt.
+- haben Passwörter, die ausschliesslich als GitHub-Secrets verwaltet werden (`KP_ZAP_PWD_TENANT_A_ADMIN`, `KP_ZAP_PWD_TENANT_A_VIEWER`, `KP_ZAP_PWD_TENANT_B_ADMIN`),
+- werden bei jedem Re-Build der Staging-Umgebung neu angelegt; Cleanup erfolgt durch Namespace-Lifecycle, nicht durch ein dediziertes Lösch-Skript.
 
-**MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) verifiziert in der Prod-DB-Snapshot, dass keiner der drei `zap-tenant-*@kamerplanter.test`-Logins existiert. Treffer ist ein Block-Finding und scheitert das Release. Der Check läuft als Read-Only-Query gegen die `users`-Collection mit dem E-Mail-Suffix `@kamerplanter.test`.
+**MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) führt eine reine **Daten-Prüfung** auf der Prod-DB-Snapshot aus: Treffer auf `users.email LIKE '%@zap.kamerplanter.example'` ist ein Block-Finding und scheitert das Release. Da das Setup-Tooling ausschliesslich unter `tests/` lebt und nicht ins Produktiv-Image gelangt, ist dies eine reine Daten-Hygiene-Kontrolle — nicht eine Code-Existenz-Prüfung.
 
 ### 3.2 ZAP-Auth-Konfiguration (JWT-basiert)
 
