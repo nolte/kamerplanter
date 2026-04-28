@@ -8,6 +8,8 @@ Kamerplanter is an **agricultural technology system** for plant lifecycle manage
 
 Documentation is written in **German**; source code must be in **English only** (NFR-003).
 
+Agents authored under `.claude/agents/` (`distribution: project`) MAY author the `description` value and the system-prompt body in German, matching the project's documentation language. Frontmatter field names and technical identifier values (`name`, `distribution`, `tools`, `model`, `tags`) remain English per `agent-management.Structure`. This authorization is the project-language exception referenced by `agent-management.Structure` and `agent-review.Checks-derived-from-agent-management`.
+
 ## Repository Structure
 
 - `spec/` — Specification documents
