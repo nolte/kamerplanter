@@ -737,6 +737,98 @@ def get_notification_service():
     )
 
 
+# ── REQ-025 Privacy dependencies ─────────────────────────────────
+
+
+def get_data_export_repo():
+    from app.data_access.arango.data_export_repository import (
+        ArangoDataExportRepository,
+    )
+
+    return ArangoDataExportRepository(get_db())
+
+
+def get_consent_repo():
+    from app.data_access.arango.consent_repository import ArangoConsentRepository
+
+    return ArangoConsentRepository(get_db())
+
+
+def get_processing_restriction_repo():
+    from app.data_access.arango.processing_restriction_repository import (
+        ArangoProcessingRestrictionRepository,
+    )
+
+    return ArangoProcessingRestrictionRepository(get_db())
+
+
+def get_erasure_repo():
+    from app.data_access.arango.erasure_repository import ArangoErasureRepository
+
+    return ArangoErasureRepository(get_db())
+
+
+def get_email_change_repo():
+    from app.data_access.arango.email_change_repository import (
+        ArangoEmailChangeRepository,
+    )
+
+    return ArangoEmailChangeRepository(get_db())
+
+
+def get_data_export_engine():
+    from app.domain.engines.data_export_engine import DataExportEngine
+
+    return DataExportEngine()
+
+
+def get_erasure_engine():
+    from app.domain.engines.erasure_engine import ErasureEngine
+
+    return ErasureEngine()
+
+
+def get_consent_engine():
+    from app.domain.engines.consent_engine import ConsentEngine
+
+    return ConsentEngine()
+
+
+def get_retention_service():
+    from app.domain.services.retention_service import RetentionService
+
+    return RetentionService()
+
+
+def get_data_subject_service():
+    from app.domain.services.data_subject_service import DataSubjectService
+
+    return DataSubjectService(get_privacy_service())
+
+
+def get_privacy_service():
+    from app.domain.services.privacy_service import PrivacyService
+
+    return PrivacyService(
+        export_repo=get_data_export_repo(),
+        consent_repo=get_consent_repo(),
+        restriction_repo=get_processing_restriction_repo(),
+        erasure_repo=get_erasure_repo(),
+        email_change_repo=get_email_change_repo(),
+        user_repo=get_user_repo(),
+        refresh_token_repo=get_refresh_token_repo(),
+        data_export_engine=get_data_export_engine(),
+        erasure_engine=get_erasure_engine(),
+        consent_engine=get_consent_engine(),
+        password_engine=get_password_engine(),
+        token_engine=get_token_engine(),
+        email_service=get_email_service(),
+        frontend_url=settings.frontend_url,
+        data_controller_name=settings.privacy_data_controller_name,
+        data_controller_email=settings.privacy_data_controller_email,
+    )
+
+
 # ── Knowledge Service client ─────────────────────────────────────
 
 

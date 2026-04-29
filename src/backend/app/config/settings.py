@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"
 
+    # REQ-025 Privacy / GDPR
+    erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production
+    privacy_data_controller_name: str = "Kamerplanter Operator"
+    privacy_data_controller_email: str = "privacy@kamerplanter.example"
+    privacy_export_retention_hours: int = 72  # NFR-011 R-05
+    privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
+    privacy_email_change_ttl_hours: int = 24
+
     # REQ-030 Notifications
     vapid_private_key: str = ""
     vapid_public_key: str = ""
