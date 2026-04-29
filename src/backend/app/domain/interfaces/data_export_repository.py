@@ -22,3 +22,6 @@ class IDataExportRepository(ABC):
 
     @abstractmethod
     def delete(self, key: DataExportRequestKey) -> bool: ...
+
+    @abstractmethod
+    def expire_old(self, now_iso: str) -> int: ...

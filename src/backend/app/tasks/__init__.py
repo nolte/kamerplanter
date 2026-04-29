@@ -15,6 +15,7 @@ celery_app.conf.update(
         "app.tasks.enrichment_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.phase_transitions",
+        "app.tasks.retention_tasks",
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.tank_maintenance_tasks",
         "app.tasks.tenant_tasks",
@@ -103,6 +104,19 @@ celery_app.conf.update(
         "notifications-email-digests": {
             "task": "notifications.send_email_digests",
             "schedule": crontab(hour=7, minute=0),
+        },
+        # NFR-011 Retention pipeline
+        "retention-execute-erasures-daily": {
+            "task": "retention.execute_scheduled_erasures",
+            "schedule": crontab(hour=4, minute=0),  # 04:00 UTC daily
+        },
+        "retention-expire-email-changes-hourly": {
+            "task": "retention.expire_email_change_requests",
+            "schedule": crontab(minute=15),  # every hour at :15
+        },
+        "retention-expire-data-exports-hourly": {
+            "task": "retention.expire_data_exports",
+            "schedule": crontab(minute=20),  # every hour at :20
         },
     },
 )

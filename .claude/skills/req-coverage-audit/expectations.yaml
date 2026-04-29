@@ -984,12 +984,16 @@ requirements:
     expected_artefacts:
       artefacts:
         - { kind: glob, path: "src/backend/app/**/retention*.py", role: retention_logic }
-        - { kind: glob, path: "src/backend/app/**/celery_*retention*", role: retention_task }
+        - { kind: glob, path: "src/backend/app/**/*retention*tasks*.py", role: retention_task }
         - { kind: glob, path: "src/backend/app/**/ip_anonym*.py", role: ip_anon, optional: true }
       validation:
         - { kind: file, path: src/backend/tests/test_ip_anonymization.py, role: anonymization_test }
     drift:
-      memory_status_field: "NFR-011 v1.4 — RETENTION POLICY NICHT AKTIV"
+      # Phase 1 (2026-04-29): Celery retention pipeline scaffolded —
+      # process_data_export, execute_scheduled_erasures, expire_*
+      # tasks land with beat schedule; full data-walk + S3 cleanup wait
+      # for NFR-013.
+      memory_status_field: "NFR-011 v1.4 — Retention pipeline scaffolded, S3 cleanup pending NFR-013"
       cross_refs: [REQ-025]
 
   NFR-012:
