@@ -8,8 +8,8 @@ coverage_score: n/a
 status: idee
 priority: none
 effort: S
-created: 2026-04-28
-audit_run: c878c23a
+created: 2026-04-29
+audit_run: 0c8218a9
 ---
 
 # Ausfuehrungsplan: UI-NFR-015 HA Lovelace Custom Cards

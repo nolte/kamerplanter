@@ -8,8 +8,8 @@ coverage_score: 0%
 status: spezifiziert
 priority: blocker
 effort: M
-created: 2026-04-28
-audit_run: c878c23a
+created: 2026-04-29
+audit_run: 0c8218a9
 ---
 
 # Ausfuehrungsplan: UI-NFR-012 PWA-Offline
