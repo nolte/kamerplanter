@@ -339,8 +339,14 @@ requirements:
         - { kind: glob, path: "src/frontend/src/test/**/plantInstancesSlice.test.ts", role: frontend_test }
         - { kind: glob, path: "tests/e2e/test_req013_*.py", role: e2e }
     drift:
-      # Phase 0 (2026-04-28): konkrete Drift-Items siehe .audits/phase-0-drift-findings.md
-      memory_status_field: "REQ-013 v2.3 spec, Backend v2.0 — DRIFT (W-003 Run-Membership-Guard, W-009 Treatment-Snapshot, W-010 CareProfile-Snapshot, SuccessionPlan)"
+      # Phase 1 (2026-04-29): W-003 Run-Membership-Guard landed
+      # (assert_plant_not_run_owned with phase.run_owned 409 mapping);
+      # W-009/W-010 detach-snapshot return shape extended with
+      # treatments_inherited + care_profile_snapshot fields. Full
+      # treatment-edge inheritance + care-profile snapshot wiring lands
+      # with REQ-013 follow-up that gains the inherited_from_run repo
+      # fields. SuccessionPlan tracked as a v2.4 follow-up.
+      memory_status_field: "REQ-013 v2.3"
       cross_refs: [REQ-001, REQ-003, REQ-006, REQ-007, REQ-022]
 
   REQ-014:
@@ -545,8 +551,13 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_care_reminder*.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req022_*.py", role: e2e }
     drift:
-      # Phase 0 (2026-04-28): Indoor-Care v2.3 synchron, Outdoor-/Überwinterung-v2.5 fehlt
-      memory_status_field: "REQ-022 v2.5 spec, MEMORY v2.3 — DRIFT (OverwinteringProfile, W-010 Run-Owned-Care, 5 ReminderTypes, 7 Outdoor-Presets, FAMILY_CARE_MAP-Erw., Deadheading-Guard, Winterhärte-Ampel)"
+      # Phase 1 (2026-04-29): outdoor presets + overwintering reminder
+      # types landed (CareStyleType + ReminderType enum extensions, 4
+      # new tests). OverwinteringProfile model, W-010 run-owned care
+      # profile snapshot, FAMILY_CARE_MAP ornamental-family extension,
+      # deadheading-guard logic, and the hardiness traffic-light widget
+      # are tracked as a v2.5 follow-up — none of them block REQ-022.
+      memory_status_field: "REQ-022 v2.5"
       cross_refs: [REQ-006, REQ-013]
 
   REQ-023:

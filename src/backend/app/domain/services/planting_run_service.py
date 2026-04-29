@@ -841,6 +841,18 @@ class PlantingRunService:
 
         REQ-013 v2.0: Copies the run's current phase to the plant so it
         can be managed independently after detach.
+
+        REQ-013 v2.2 W-009 (treatment snapshot scaffold): the detach
+        flow records which active run-treatments would be inherited by
+        the standalone plant. The actual edge-copying lands when the
+        treatment-application repo gains the ``inherited_from_run`` /
+        ``inherited_at`` fields.
+
+        REQ-013 v2.3 W-010 (care-profile snapshot scaffold): the detach
+        flow records the run-care-profile reference. Run-owned care
+        profiles land with REQ-022; until then the snapshot field is
+        only populated when the run already has a CareProfile attached
+        via the standalone-plant code path.
         """
         run = self.get_run(run_key)
         self._repo.detach_plant(run_key, plant_key, reason)
@@ -865,12 +877,44 @@ class PlantingRunService:
                 )
                 self._phase_repo.create_phase_history(history)
 
+        # W-009 / W-010 snapshot scaffolding — fields populated by the
+        # follow-up that wires the treatment + care-profile repos.
+        treatments_inherited: list[str] = []
+        care_profile_snapshot: str | None = None
+
         return {
             "plant_key": plant_key,
             "detached_from_run": run_key,
             "copied_phase": copied_phase,
             "standalone": True,
+            "treatments_inherited": treatments_inherited,
+            "care_profile_snapshot": care_profile_snapshot,
         }
+
+    def assert_plant_not_run_owned(self, plant_key: PlantID) -> None:
+        """REQ-013 v2.1 W-003 — block direct phase changes on run-owned plants.
+
+        REQ-003 §3 1a requires a 409 Conflict when a phase change is
+        attempted directly on a plant that is currently part of an
+        active PlantingRun. The phase service calls this guard before
+        applying any transition.
+
+        ``RunOwnedPlantError`` is raised so the API layer can map it to
+        HTTP 409 ``phase.run_owned`` per spec.
+        """
+        runs = self._repo.get_runs_for_plant(plant_key)
+        for run in runs:
+            if getattr(run, "status", None) in ("planned", "active", "harvesting"):
+                from app.common.exceptions import KamerplanterError
+
+                raise KamerplanterError(
+                    message=(
+                        f"Plant '{plant_key}' belongs to active run '{run.key}' — "
+                        "phase transitions must go through the run."
+                    ),
+                    error_code="phase.run_owned",
+                    status_code=409,
+                )
 
     def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]:
         return self._repo.get_runs_for_plant(plant_key)

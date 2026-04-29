@@ -100,6 +100,12 @@ REMINDER_TYPE_LABELS: dict[str, dict[str, str]] = {
         "pest_check": "Sch\u00e4dlingskontrolle",
         "location_check": "Standortkontrolle",
         "humidity_check": "Feuchtigkeitskontrolle",
+        # REQ-022 v2.5 outdoor + overwintering reminder types
+        "deadheading": "Verbl\u00fchtes entfernen",
+        "tuber_dig": "Knollen ausgraben",
+        "storage_check": "Lagerkontrolle",
+        "spring_uncover": "Winterschutz abnehmen",
+        "winter_protection": "Winterschutz anbringen",
     },
     "en": {
         "watering": "Watering",
@@ -108,6 +114,11 @@ REMINDER_TYPE_LABELS: dict[str, dict[str, str]] = {
         "pest_check": "Pest check",
         "location_check": "Location check",
         "humidity_check": "Humidity check",
+        "deadheading": "Deadheading",
+        "tuber_dig": "Lift tubers",
+        "storage_check": "Storage check",
+        "spring_uncover": "Remove winter protection",
+        "winter_protection": "Apply winter protection",
     },
 }
 
