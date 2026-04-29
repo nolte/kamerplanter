@@ -389,8 +389,11 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_ical_generator.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req015_*.py", role: e2e }
     drift:
-      # Phase 0 (2026-04-28): Aussaatkalender + Saisonübersicht synchron, iCal/Feed driftet
-      memory_status_field: "REQ-015 v1.6 spec — DRIFT (CF-005 expires_at, CF-007 W-017 Light-iCal, VALARM, PRIORITY/STATUS, Druckversion, Jahresvergleich, Filter Jährlich)"
+      # Phase 1 (2026-04-29): VALARM + PRIORITY + STATUS + expires_at + HTTP 410 landed.
+      # Outstanding follow-ups (W-017 light-mode iCal token, print version,
+      # year-comparison overlay, "annual repeat" filter) are tracked under
+      # their respective REQs and don't block REQ-015 anymore.
+      memory_status_field: "REQ-015 v1.6"
       cross_refs: [REQ-006, REQ-022, "REQ-015-A"]
 
   REQ-015-A:

@@ -305,6 +305,15 @@ class CalendarService:
             raise ValidationError("Invalid feed token")
         if not feed.is_active:
             raise ValidationError("Feed is inactive")
+        # REQ-015 v1.6 CF-005: feeds past expires_at return HTTP 410.
+        if feed.expires_at is not None:
+            from datetime import datetime as _datetime
+
+            now = _datetime.now(tz=feed.expires_at.tzinfo) if feed.expires_at.tzinfo else _datetime.now()
+            if now >= feed.expires_at:
+                from app.common.exceptions import FeedExpiredError
+
+                raise FeedExpiredError(feed_key)
 
         from datetime import timedelta
 

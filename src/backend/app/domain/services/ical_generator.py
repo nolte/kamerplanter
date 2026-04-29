@@ -60,6 +60,24 @@ class ICalGenerator:
         lines.append(f"CATEGORIES:{event.category.value}")
         lines.append(f"X-APPLE-CALENDAR-COLOR:{event.color}")
 
+        # REQ-015 v1.6 line 1938: PRIORITY + STATUS as RFC 5545 properties.
+        if event.priority is not None:
+            lines.append(f"PRIORITY:{event.priority}")
+        if event.status:
+            lines.append(f"STATUS:{event.status.upper()}")
+
+        # REQ-015 v1.6 line 1938: VALARM block when a reminder is requested.
+        if event.alarm_minutes_before is not None:
+            lines.extend(
+                [
+                    "BEGIN:VALARM",
+                    "ACTION:DISPLAY",
+                    f"DESCRIPTION:{self._escape(event.title)}",
+                    f"TRIGGER:-PT{event.alarm_minutes_before}M",
+                    "END:VALARM",
+                ]
+            )
+
         lines.append("END:VEVENT")
         return lines
 
