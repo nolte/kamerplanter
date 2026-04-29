@@ -74,16 +74,21 @@ jobs:
 
       - name: Wait for stack readiness
         run: |
+          # Probes the same liveness path used by the docker-compose
+          # healthcheck (/api/v1/health/live) and the served frontend root.
+          # Window is 360s (60 retries × 6s) so the wait-loop survives the
+          # backend's first-run migrations + seeds, which the e2e compose
+          # base file invokes before declaring the service healthy.
           for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8000/health >/dev/null \
+            if curl -fsS http://127.0.0.1:8000/api/v1/health/live >/dev/null \
                && curl -fsS http://127.0.0.1:5173/ >/dev/null; then
               echo "stack ready (try $i)"
               exit 0
             fi
-            sleep 2
+            sleep 6
           done
-          echo "::error::stack did not become ready within 120s" >&2
-          docker compose -p kamerplanter-security logs --tail 100 backend frontend
+          echo "::error::stack did not become ready within 360s" >&2
+          docker compose -p kamerplanter-security logs --tail 200 backend frontend
           exit 1
 
       - name: Generate OpenAPI spec from running backend
