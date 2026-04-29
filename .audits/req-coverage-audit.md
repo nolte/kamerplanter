@@ -6,10 +6,10 @@ req-count: 37
 nfr-count: 16
 ui-nfr-count: 19
 manifest-coverage: 72/72
-plans-open: 25
-plans-closed: 47
-repo-revision: f8e90fee
-created: 2026-04-29
+plans-open: 15
+plans-closed: 57
+repo-revision: c63ab135
+created: 2026-04-30
 mode: full
 ---
 
@@ -21,10 +21,10 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 - Vollstaendigkeit OK — keine Manifest-Luecken.
 
 ## Verteilung gesamt
-- Implementiert: 47 (65 %)
-- Teilweise: 6 (8 %)
-- Lueckenhaft: 8 (11 %)
-- Spezifiziert: 8 (11 %)
+- Implementiert: 57 (79 %)
+- Teilweise: 0 (0 %)
+- Lueckenhaft: 6 (8 %)
+- Spezifiziert: 6 (8 %)
 - Idee: 3 (4 %)
 
 ## Coverage-Uebersicht: REQ — Funktional
@@ -40,11 +40,11 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | REQ-006 | Aufgabenplanung | 5/5 | 3/3 | 3/3 | 100% | Implementiert | — |
 | REQ-007 | Erntemanagement | 4/4 | 3/3 | 2/2 | 100% | Implementiert | — |
 | REQ-008 | Post-Harvest | 0/3 | 0/1 | 0/2 | 12% | Spezifiziert | [Plan](req-coverage-audit/REQ-008.md) |
-| REQ-009 | Dashboard | 0/2 | 1/1 | 2/2 | 75% | Teilweise | [Plan](req-coverage-audit/REQ-009.md) |
+| REQ-009 | Dashboard | 2/2 | 1/1 | 2/2 | 100% | Implementiert | — |
 | REQ-010 | IPM-System | 7/7 | 4/4 | 2/2 | 100% | Implementiert | — |
 | REQ-011 | Externe-Stammdatenanreicherung | 6/6 | n/a | 2/2 | 100% | Implementiert | — |
 | REQ-012 | Stammdaten-Import | 7/7 | 2/2 | 3/3 | 100% | Implementiert | — |
-| REQ-013 | Pflanzdurchlauf | 7/7 | 3/3 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-013.md) |
+| REQ-013 | Pflanzdurchlauf | 7/7 | 3/3 | 3/3 | 100% | Implementiert | — |
 | REQ-014 | Tankmanagement | 4/4 | 2/2 | 3/3 | 100% | Implementiert | — |
 | REQ-015 | Kalenderansicht | 5/5 | 4/4 | 3/3 | 100% | Implementiert | — |
 | REQ-015-A | Aussaatkalender-Berechnungsregeln | 1/1 | 1/1 | 2/2 | 100% | Implementiert | — |
@@ -54,12 +54,12 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | REQ-019 | Substratverwaltung | 5/5 | 3/3 | 3/3 | 100% | Implementiert | — |
 | REQ-020 | Onboarding-Wizard | 5/5 | 2/2 | 2/2 | 100% | Implementiert | — |
 | REQ-021 | UI-Erfahrungsstufen | 2/2 | 4/4 | 1/1 | 100% | Implementiert | — |
-| REQ-022 | Pflegeerinnerungen | 5/5 | 2/2 | 2/2 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-022.md) |
-| REQ-023 | Benutzerverwaltung-Authentifizierung | 14/14 | 4/4 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-023.md) |
-| REQ-024 | Mandantenverwaltung-Gemeinschaftsgaerten | 10/10 | 3/3 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-024.md) |
-| REQ-025 | Datenschutz-Betroffenenrechte | 5/5 | 0/1 | 2/3 | 54% | Lueckenhaft | [Plan](req-coverage-audit/REQ-025.md) |
+| REQ-022 | Pflegeerinnerungen | 5/5 | 2/2 | 2/2 | 100% | Implementiert | — |
+| REQ-023 | Benutzerverwaltung-Authentifizierung | 14/14 | 4/4 | 3/3 | 100% | Implementiert | — |
+| REQ-024 | Mandantenverwaltung-Gemeinschaftsgaerten | 11/11 | 3/3 | 3/3 | 100% | Implementiert | — |
+| REQ-025 | Datenschutz-Betroffenenrechte | 5/5 | 1/1 | 3/3 | 100% | Implementiert | — |
 | REQ-026 | Aquaponik-Management | 0/2 | 0/1 | 0/1 | 12% | Spezifiziert | [Plan](req-coverage-audit/REQ-026.md) |
-| REQ-027 | Light-Modus | 4/4 | n/a | 2/3 | 72% | Teilweise | [Plan](req-coverage-audit/REQ-027.md) |
+| REQ-027 | Light-Modus | 4/4 | n/a | 3/3 | 100% | Implementiert | — |
 | REQ-028 | Mischkultur-Companion-Planting | 4/4 | 2/2 | 3/3 | 100% | Implementiert | — |
 | REQ-029 | KI-Bilderkennung-Pflanzenidentifikation | 0/3 | 0/1 | 0/1 | 25% | Spezifiziert | [Plan](req-coverage-audit/REQ-029.md) |
 | REQ-030 | Benachrichtigungssystem | 5/5 | 2/2 | 2/2 | 100% | Implementiert | — |
@@ -86,7 +86,7 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | NFR-010 | UI-Pflegemasken & Listenansichten | 3/3 | 1/1 | 100% | Implementiert | — |
 | NFR-011 | Vorratsdatenspeicherung & Aufbewahrungsfristen | 2/2 | 1/1 | 100% | Implementiert | — |
 | NFR-012 | Cloud-Provider & Enterprise-Skalierung | n/a | n/a | 100% | Implementiert | — |
-| NFR-013 | Speicheranbindung & Object-Storage | 0/1 | n/a | 50% | Lueckenhaft | [Plan](req-coverage-audit/NFR-013.md) |
+| NFR-013 | Speicheranbindung & Object-Storage | 1/1 | n/a | 100% | Implementiert | — |
 | NFR-014 | Nuclei-Security-Scanning | 0/1 | n/a | 50% | Lueckenhaft | [Plan](req-coverage-audit/NFR-014.md) |
 | NFR-015 | OWASP-ZAP-Security-Scanning | 0/1 | n/a | 50% | Lueckenhaft | [Plan](req-coverage-audit/NFR-015.md) |
 
@@ -105,8 +105,8 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | UI-NFR-009 | Visual Identity & Brand Design | 1/1 | n/a | 100% | Implementiert | — |
 | UI-NFR-010 | Tabellen & Datenansichten | 1/1 | 1/1 | 100% | Implementiert | — |
 | UI-NFR-011 | Fachbegriff-Erklaerungen | 1/1 | 1/1 | 100% | Implementiert | — |
-| UI-NFR-012 | PWA-Offline | 0/1 | n/a | 0% | Spezifiziert | [Plan](req-coverage-audit/UI-NFR-012.md) |
-| UI-NFR-013 | Einwilligungsmanagement (Consent) | 0/1 | n/a | 0% | Spezifiziert | [Plan](req-coverage-audit/UI-NFR-013.md) |
+| UI-NFR-012 | PWA-Offline | 2/2 | n/a | 100% | Implementiert | — |
+| UI-NFR-013 | Einwilligungsmanagement (Consent) | 1/1 | n/a | 100% | Implementiert | — |
 | UI-NFR-014 | Auth-Initialisierung & Seitenreload | 1/1 | n/a | 100% | Implementiert | — |
 | UI-NFR-015 | HA Lovelace Custom Cards | n/a | n/a | — | Idee | [Plan](req-coverage-audit/UI-NFR-015.md) |
 | UI-NFR-016 | Phasen-Zyklus-Visualisierungen | 3/3 | n/a | 100% | Implementiert | — |
@@ -120,62 +120,42 @@ Sortiert nach Prioritaet (blocker > warning > info) und Coverage-Score (aufsteig
 | # | Anforderung | Typ | Status | Score | Aufwand | Plan |
 |---|---|---|---|---|---|---|
 | 1 | REQ-016 InvenTree-Integration | req | Spezifiziert | 0% | L | [Plan](req-coverage-audit/REQ-016.md) |
-| 2 | UI-NFR-012 PWA-Offline | ui-nfr | Spezifiziert | 0% | M | [Plan](req-coverage-audit/UI-NFR-012.md) |
-| 3 | UI-NFR-013 Einwilligungsmanagement (Consent) | ui-nfr | Spezifiziert | 0% | M | [Plan](req-coverage-audit/UI-NFR-013.md) |
-| 4 | REQ-008 Post-Harvest | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-008.md) |
-| 5 | REQ-017 Vermehrungsmanagement | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-017.md) |
-| 6 | REQ-026 Aquaponik-Management | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-026.md) |
-| 7 | REQ-029 KI-Bilderkennung-Pflanzenidentifikation | req | Spezifiziert | 25% | L | [Plan](req-coverage-audit/REQ-029.md) |
-| 8 | REQ-036 KI-Diagnose-Assistent | req | Spezifiziert | 25% | L | [Plan](req-coverage-audit/REQ-036.md) |
-| 9 | REQ-018 Umgebungssteuerung | req | Lueckenhaft | 31% | L | [Plan](req-coverage-audit/REQ-018.md) |
-| 10 | REQ-033 MCP-Server | req | Lueckenhaft | 33% | M | [Plan](req-coverage-audit/REQ-033.md) |
-| 11 | REQ-035 KI-Fachbegriff-Glossar | req | Lueckenhaft | 38% | L | [Plan](req-coverage-audit/REQ-035.md) |
-| 12 | REQ-031 KI-Assistent-Pflanzenberatung | req | Lueckenhaft | 46% | L | [Plan](req-coverage-audit/REQ-031.md) |
-| 13 | NFR-013 Speicheranbindung & Object-Storage | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-013.md) |
-| 14 | NFR-014 Nuclei-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-014.md) |
-| 15 | NFR-015 OWASP-ZAP-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-015.md) |
-| 16 | REQ-025 Datenschutz-Betroffenenrechte | req | Lueckenhaft | 54% | M | [Plan](req-coverage-audit/REQ-025.md) |
-| 17 | REQ-027 Light-Modus | req | Teilweise | 72% | M | [Plan](req-coverage-audit/REQ-027.md) |
-| 18 | REQ-009 Dashboard | req | Teilweise | 75% | M | [Plan](req-coverage-audit/REQ-009.md) |
-| 19 | REQ-013 Pflanzdurchlauf | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-013.md) |
-| 20 | REQ-022 Pflegeerinnerungen | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-022.md) |
-| 21 | REQ-023 Benutzerverwaltung-Authentifizierung | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-023.md) |
-| 22 | REQ-024 Mandantenverwaltung-Gemeinschaftsgaerten | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-024.md) |
-| 23 | UI-NFR-003 Performance | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-003.md) |
-| 24 | UI-NFR-015 HA Lovelace Custom Cards | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-015.md) |
-| 25 | UI-NFR-019 Kiosk-Modus | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-019.md) |
+| 2 | REQ-008 Post-Harvest | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-008.md) |
+| 3 | REQ-017 Vermehrungsmanagement | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-017.md) |
+| 4 | REQ-026 Aquaponik-Management | req | Spezifiziert | 12% | L | [Plan](req-coverage-audit/REQ-026.md) |
+| 5 | REQ-029 KI-Bilderkennung-Pflanzenidentifikation | req | Spezifiziert | 25% | L | [Plan](req-coverage-audit/REQ-029.md) |
+| 6 | REQ-036 KI-Diagnose-Assistent | req | Spezifiziert | 25% | L | [Plan](req-coverage-audit/REQ-036.md) |
+| 7 | REQ-018 Umgebungssteuerung | req | Lueckenhaft | 31% | L | [Plan](req-coverage-audit/REQ-018.md) |
+| 8 | REQ-033 MCP-Server | req | Lueckenhaft | 33% | M | [Plan](req-coverage-audit/REQ-033.md) |
+| 9 | REQ-035 KI-Fachbegriff-Glossar | req | Lueckenhaft | 38% | L | [Plan](req-coverage-audit/REQ-035.md) |
+| 10 | REQ-031 KI-Assistent-Pflanzenberatung | req | Lueckenhaft | 46% | L | [Plan](req-coverage-audit/REQ-031.md) |
+| 11 | NFR-014 Nuclei-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-014.md) |
+| 12 | NFR-015 OWASP-ZAP-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-015.md) |
+| 13 | UI-NFR-003 Performance | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-003.md) |
+| 14 | UI-NFR-015 HA Lovelace Custom Cards | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-015.md) |
+| 15 | UI-NFR-019 Kiosk-Modus | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-019.md) |
 
 ## Plan-Index (alphabetisch, alle offenen Plans)
 | Anforderung | Plan | Coverage | Aufwand |
 |---|---|---|---|
-| NFR-013 Speicheranbindung & Object-Storage | [.audits/req-coverage-audit/NFR-013.md](req-coverage-audit/NFR-013.md) | 50% | M |
 | NFR-014 Nuclei-Security-Scanning | [.audits/req-coverage-audit/NFR-014.md](req-coverage-audit/NFR-014.md) | 50% | M |
 | NFR-015 OWASP-ZAP-Security-Scanning | [.audits/req-coverage-audit/NFR-015.md](req-coverage-audit/NFR-015.md) | 50% | M |
 | REQ-008 Post-Harvest | [.audits/req-coverage-audit/REQ-008.md](req-coverage-audit/REQ-008.md) | 12% | L |
-| REQ-009 Dashboard | [.audits/req-coverage-audit/REQ-009.md](req-coverage-audit/REQ-009.md) | 75% | M |
-| REQ-013 Pflanzdurchlauf | [.audits/req-coverage-audit/REQ-013.md](req-coverage-audit/REQ-013.md) | 88% | M |
 | REQ-016 InvenTree-Integration | [.audits/req-coverage-audit/REQ-016.md](req-coverage-audit/REQ-016.md) | 0% | L |
 | REQ-017 Vermehrungsmanagement | [.audits/req-coverage-audit/REQ-017.md](req-coverage-audit/REQ-017.md) | 12% | L |
 | REQ-018 Umgebungssteuerung | [.audits/req-coverage-audit/REQ-018.md](req-coverage-audit/REQ-018.md) | 31% | L |
-| REQ-022 Pflegeerinnerungen | [.audits/req-coverage-audit/REQ-022.md](req-coverage-audit/REQ-022.md) | 88% | M |
-| REQ-023 Benutzerverwaltung-Authentifizierung | [.audits/req-coverage-audit/REQ-023.md](req-coverage-audit/REQ-023.md) | 88% | M |
-| REQ-024 Mandantenverwaltung-Gemeinschaftsgaerten | [.audits/req-coverage-audit/REQ-024.md](req-coverage-audit/REQ-024.md) | 88% | M |
-| REQ-025 Datenschutz-Betroffenenrechte | [.audits/req-coverage-audit/REQ-025.md](req-coverage-audit/REQ-025.md) | 54% | M |
 | REQ-026 Aquaponik-Management | [.audits/req-coverage-audit/REQ-026.md](req-coverage-audit/REQ-026.md) | 12% | L |
-| REQ-027 Light-Modus | [.audits/req-coverage-audit/REQ-027.md](req-coverage-audit/REQ-027.md) | 72% | M |
 | REQ-029 KI-Bilderkennung-Pflanzenidentifikation | [.audits/req-coverage-audit/REQ-029.md](req-coverage-audit/REQ-029.md) | 25% | L |
 | REQ-031 KI-Assistent-Pflanzenberatung | [.audits/req-coverage-audit/REQ-031.md](req-coverage-audit/REQ-031.md) | 46% | L |
 | REQ-033 MCP-Server | [.audits/req-coverage-audit/REQ-033.md](req-coverage-audit/REQ-033.md) | 33% | M |
 | REQ-035 KI-Fachbegriff-Glossar | [.audits/req-coverage-audit/REQ-035.md](req-coverage-audit/REQ-035.md) | 38% | L |
 | REQ-036 KI-Diagnose-Assistent | [.audits/req-coverage-audit/REQ-036.md](req-coverage-audit/REQ-036.md) | 25% | L |
 | UI-NFR-003 Performance | [.audits/req-coverage-audit/UI-NFR-003.md](req-coverage-audit/UI-NFR-003.md) | — | S |
-| UI-NFR-012 PWA-Offline | [.audits/req-coverage-audit/UI-NFR-012.md](req-coverage-audit/UI-NFR-012.md) | 0% | M |
-| UI-NFR-013 Einwilligungsmanagement (Consent) | [.audits/req-coverage-audit/UI-NFR-013.md](req-coverage-audit/UI-NFR-013.md) | 0% | M |
 | UI-NFR-015 HA Lovelace Custom Cards | [.audits/req-coverage-audit/UI-NFR-015.md](req-coverage-audit/UI-NFR-015.md) | — | S |
 | UI-NFR-019 Kiosk-Modus | [.audits/req-coverage-audit/UI-NFR-019.md](req-coverage-audit/UI-NFR-019.md) | — | S |
 
 ## Run log
-- 2026-04-29 — Manifest geladen: 72 Eintraege, 0 Luecken
-- 2026-04-29 — Coverage berechnet (Manifest-getrieben, keine Heuristik)
-- 2026-04-29 — Per-Anforderungs-Plans geschrieben: 25 offen, 47 mit Coverage 100 %
-- 2026-04-29 — Aggregate geschrieben
+- 2026-04-30 — Manifest geladen: 72 Eintraege, 0 Luecken
+- 2026-04-30 — Coverage berechnet (Manifest-getrieben, keine Heuristik)
+- 2026-04-30 — Per-Anforderungs-Plans geschrieben: 15 offen, 57 mit Coverage 100 %
+- 2026-04-30 — Aggregate geschrieben
