@@ -149,12 +149,17 @@ jobs:
 
       - name: Run Nuclei (OpenAPI surface)
         if: always()
+        # `-skip-format-validation` lets nuclei probe routes that contain
+        # unbound path/query parameters (REQ-024 has many `{tenant_slug}`
+        # placeholders); without it nuclei refuses to start when more
+        # than a handful are unresolved.
         run: |
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
             -l openapi.json \
             -input-mode openapi \
+            -skip-format-validation \
             -tags exposure,misconfig,vulnerability,kamerplanter \
             -severity high,critical \
             -rate-limit 50 \
