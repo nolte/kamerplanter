@@ -93,8 +93,34 @@ jobs:
 
       - name: Generate OpenAPI spec from running backend
         run: |
-          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o openapi.json
-          jq '.openapi' openapi.json
+          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o openapi-raw.json
+          jq '.openapi' openapi-raw.json
+
+      - name: Convert OpenAPI 3.1 → 3.0 for Nuclei compatibility
+        # Nuclei's input-mode parser only supports OpenAPI 3.0. Pydantic v2
+        # emits 3.1, which differs in two places relevant to schema
+        # validation: `exclusiveMinimum` / `exclusiveMaximum` switched from
+        # boolean (3.0) to numeric (3.1), and nullable types switched from
+        # `nullable: true` (3.0) to `type: ["foo", "null"]` (3.1). The jq
+        # walk below downgrades both back to 3.0 form.
+        run: |
+          jq '
+            walk(
+              if type == "object" then
+                (if (.exclusiveMinimum? | type) == "number"
+                   then .minimum = .exclusiveMinimum | .exclusiveMinimum = true
+                   else . end)
+                | (if (.exclusiveMaximum? | type) == "number"
+                   then .maximum = .exclusiveMaximum | .exclusiveMaximum = true
+                   else . end)
+                | (if (.type? | type) == "array" and (.type | index("null"))
+                   then .nullable = true | .type = (.type | map(select(. != "null")) | first)
+                   else . end)
+              else . end
+            )
+            | .openapi = "3.0.3"
+          ' openapi-raw.json > openapi.json
+          echo "Converted to: $(jq -r '.openapi' openapi.json)"
 
       - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@v3
@@ -118,11 +144,6 @@ jobs:
 
       - name: Run Nuclei (OpenAPI surface)
         if: always()
-        # Pydantic v2 emits OpenAPI 3.1 by default and Nuclei's input-mode
-        # parser only understands 3.0; the run will FTL until a converter
-        # is wired in (separate hardening PR). Until then, capture the
-        # outcome but do not block PRs on it.
-        continue-on-error: true
         run: |
           nuclei \
             -t tests/security/nuclei-templates \
@@ -174,29 +195,17 @@ jobs:
             -f docker-compose.security.override.yml \
             down -v --remove-orphans
 
-      - name: Report High/Critical findings
+      - name: Fail on High/Critical findings
         if: always()
-        # Reports findings prominently in the job summary but does not fail
-        # the PR-Gate by default — the ephemeral compose stack predates the
-        # security-headers hardening tracked separately. Set
-        # `vars.NUCLEI_PR_FAIL_ON_HIGH=true` once the stack is hardened to
-        # restore strict gating. The nightly workflow blocks unconditionally.
         run: |
-          enforce="${NUCLEI_PR_FAIL_ON_HIGH:-false}"
           fail=0
           for f in results.jsonl openapi-results.jsonl; do
             [[ -f "$f" ]] || continue
             hits=$(jq -r '.info.severity' "$f" | grep -cE '^(high|critical)$' || true)
             if [[ "$hits" -gt 0 ]]; then
-              if [[ "$enforce" == "true" ]]; then
-                echo "::error file=$f::$hits High/Critical findings"
-                fail=1
-              else
-                echo "::warning file=$f::$hits High/Critical findings (advisory; set vars.NUCLEI_PR_FAIL_ON_HIGH=true to enforce)"
-              fi
+              echo "::error file=$f::$hits High/Critical findings"
               jq -c 'select(.info.severity=="high" or .info.severity=="critical") | {id:."template-id", severity:.info.severity, host, "matched-at":."matched-at"}' "$f"
+              fail=1
             fi
           done
           exit "$fail"
-        env:
-          NUCLEI_PR_FAIL_ON_HIGH: ${{ vars.NUCLEI_PR_FAIL_ON_HIGH }}
