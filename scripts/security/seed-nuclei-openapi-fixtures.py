@@ -30,8 +30,13 @@ from urllib import error, request
 from urllib.parse import urljoin
 
 BASE = os.environ.get("KP_API_BASE", "http://127.0.0.1:8000")
-EMAIL = os.environ.get("KP_DEMO_EMAIL", "demo@kamerplanter.example")
-PASSWORD = os.environ.get("KP_DEMO_PASSWORD", "demo-passwort-2024")
+# Fixture user is created on demand via the public /auth/register
+# endpoint. We do not rely on `seed_auth.py` because it is a standalone
+# CLI helper, not part of the FastAPI lifespan, so the demo user does
+# not exist after a vanilla `docker compose up`.
+EMAIL = os.environ.get("KP_FIXTURE_EMAIL", "nuclei-fixture@kamerplanter.example")
+PASSWORD = os.environ.get("KP_FIXTURE_PASSWORD", "nuclei-fixture-pwd-2026")
+DISPLAY_NAME = os.environ.get("KP_FIXTURE_DISPLAY_NAME", "Nuclei Fixture")
 OUT_PARAMS = Path(os.environ.get("KP_FIXTURES_PARAMS_OUT", "required_openapi_params.yaml"))
 OUT_JSON = Path(os.environ.get("KP_FIXTURES_JSON_OUT", "nuclei-openapi-fixtures.json"))
 
@@ -61,13 +66,30 @@ def first_key(items: list[dict]) -> str | None:
     return items[0].get("_key") or items[0].get("key")
 
 
+def register_or_login() -> str:
+    """Idempotent: register the fixture user if it does not exist, then log in."""
+    try:
+        call(
+            "POST",
+            "/api/v1/auth/register",
+            body={"email": EMAIL, "password": PASSWORD, "display_name": DISPLAY_NAME},
+        )
+        print(f"register: created {EMAIL}")
+    except error.HTTPError as exc:
+        if exc.code in (400, 409):
+            print(f"register: {EMAIL} already exists (HTTP {exc.code}) — continuing")
+        else:
+            raise
+
+    tokens = call("POST", "/api/v1/auth/login", body={"email": EMAIL, "password": PASSWORD})
+    assert isinstance(tokens, dict)
+    return tokens["access_token"]
+
+
 def main() -> int:
     print(f"target: {BASE}")
 
-    # 1. Login.
-    tokens = call("POST", "/api/v1/auth/login", body={"email": EMAIL, "password": PASSWORD})
-    assert isinstance(tokens, dict)
-    token = tokens["access_token"]
+    token = register_or_login()
     print("login: ok")
 
     # 2. Tenant slug — first non-platform membership the demo user has.
