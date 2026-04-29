@@ -1,0 +1,180 @@
+name: Security — Nuclei PR Gate
+
+# NFR-014 §4.1 — fast template-based DAST scan against an ephemeral
+# Kamerplanter stack. Runs on every PR against develop/main but only when
+# code that could plausibly affect the deployed surface changes; pure
+# documentation or unrelated spec PRs are skipped via the path filter.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'src/backend/**'
+      - 'src/frontend/**'
+      - 'docker/**'
+      - 'docker-compose.e2e.yml'
+      - 'docker-compose.security.override.yml'
+      - 'tests/security/nuclei-templates/**'
+      - 'tests/security/nuclei-suppressions.yaml'
+      - 'scripts/security/**'
+      - '.github/workflows/security-nuclei-pr.yml'
+      - '.github/renovate-pins.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-nuclei-pr-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nuclei-pr-scan:
+    name: Nuclei PR-Scan (fast)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read pinned NUCLEI_TEMPLATES_VERSION
+        id: pin
+        run: |
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Pinned templates version: $version"
+
+      - name: Clone & checkout pinned community templates
+        run: |
+          git clone --filter=blob:none \
+            https://github.com/projectdiscovery/nuclei-templates.git \
+            ./nuclei-templates
+          git -C ./nuclei-templates fetch --depth=1 origin "${{ steps.pin.outputs.version }}"
+          git -C ./nuclei-templates checkout FETCH_HEAD
+
+      - name: Build suppression flags
+        id: suppress
+        run: |
+          flags="$(./scripts/security/build-nuclei-flags.sh | tr '\n' ' ')"
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Bring up ephemeral stack
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            up -d --wait backend frontend
+
+      - name: Wait for stack readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null \
+               && curl -fsS http://127.0.0.1:5173/ >/dev/null; then
+              echo "stack ready (try $i)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::stack did not become ready within 120s" >&2
+          docker compose -p kamerplanter-security logs --tail 100 backend frontend
+          exit 1
+
+      - name: Generate OpenAPI spec from running backend
+        run: |
+          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o openapi.json
+          jq '.openapi' openapi.json
+
+      - name: Run Nuclei (PR profile)
+        uses: projectdiscovery/nuclei-action@v3
+        with:
+          target: |
+            http://127.0.0.1:8000
+            http://127.0.0.1:5173
+          templates: |
+            tests/security/nuclei-templates
+            ./nuclei-templates
+          flags: >-
+            -tags exposure,misconfig,default-login,token-spray,kamerplanter
+            -severity medium,high,critical
+            -rate-limit 50
+            -timeout 10
+            -j -o results.jsonl
+            -sarif-export results.sarif
+            ${{ steps.suppress.outputs.flags }}
+
+      - name: Run Nuclei against OpenAPI surface
+        if: always()
+        uses: projectdiscovery/nuclei-action@v3
+        with:
+          target: openapi.json
+          templates: |
+            tests/security/nuclei-templates
+            ./nuclei-templates
+          flags: >-
+            -input-mode openapi
+            -tags exposure,misconfig,vulnerability,kamerplanter
+            -severity high,critical
+            -rate-limit 50
+            -timeout 10
+            -j -o openapi-results.jsonl
+            -sarif-export openapi-results.sarif
+            ${{ steps.suppress.outputs.flags }}
+
+      - name: Upload SARIF (HTTP scan) to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: nuclei-pr-http
+
+      - name: Upload SARIF (OpenAPI scan) to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: openapi-results.sarif
+          category: nuclei-pr-openapi
+
+      - name: Archive raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-pr-results-${{ github.sha }}
+          path: |
+            results.jsonl
+            results.sarif
+            openapi-results.jsonl
+            openapi-results.sarif
+            openapi.json
+          retention-days: 90
+
+      - name: Tear down ephemeral stack
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            down -v --remove-orphans
+
+      - name: Fail on High/Critical findings
+        if: always()
+        run: |
+          fail=0
+          for f in results.jsonl openapi-results.jsonl; do
+            [[ -f "$f" ]] || continue
+            hits=$(jq -r '.info.severity' "$f" | grep -cE '^(high|critical)$' || true)
+            if [[ "$hits" -gt 0 ]]; then
+              echo "::error file=$f::$hits High/Critical findings"
+              jq -c 'select(.info.severity=="high" or .info.severity=="critical") | {id:."template-id", severity:.info.severity, host, "matched-at":."matched-at"}' "$f"
+              fail=1
+            fi
+          done
+          exit "$fail"

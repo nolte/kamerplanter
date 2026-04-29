@@ -1,0 +1,26 @@
+##
+## Kamerplanter — Compose override for DAST scanning (NFR-014 / NFR-015).
+##
+## Layered on top of docker-compose.e2e.yml. The base file keeps backend
+## and frontend on the internal compose network only; this override binds
+## their internal ports to 127.0.0.1 on the host so a security scanner
+## (Nuclei, ZAP) running on the host can reach them via localhost.
+##
+## Usage:
+##   docker compose \
+##     -f docker-compose.e2e.yml \
+##     -f docker-compose.security.override.yml \
+##     up -d backend frontend
+##
+## Ports are deliberately bound to 127.0.0.1 only — never to 0.0.0.0 — so
+## a CI runner does not advertise the internal stack to the wider network.
+##
+
+services:
+  backend:
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    ports:
+      - "127.0.0.1:5173:80"
