@@ -149,10 +149,21 @@ jobs:
 
       - name: Run Nuclei (OpenAPI surface)
         if: always()
-        # `-skip-format-validation` lets nuclei probe routes that contain
-        # unbound path/query parameters (REQ-024 has many `{tenant_slug}`
-        # placeholders); without it nuclei refuses to start when more
-        # than a handful are unresolved.
+        # The Kamerplanter REST API is multi-tenant: nearly every route
+        # lives under `/api/v1/t/{tenant_slug}/...`. After
+        # `-skip-format-validation` drops every request with unresolved
+        # path/query parameters, the remaining surface is small enough
+        # that the kamerplanter / exposure / misconfig template tags
+        # match nothing. Nuclei then exits with
+        # `Could not run nuclei: no templates provided for scan`.
+        #
+        # The HTTP-surface scan above already exercises the same
+        # endpoints and is the authoritative gate. This OpenAPI step
+        # remains as a non-blocking probe for the day a future
+        # implementation pins a representative tenant context (or
+        # generates a `required_openapi_params.yaml`); see the PR body's
+        # rollout notes for the follow-up.
+        continue-on-error: true
         run: |
           nuclei \
             -t tests/security/nuclei-templates \
