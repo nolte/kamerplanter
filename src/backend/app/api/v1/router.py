@@ -9,6 +9,7 @@ from app.api.v1.care_reminders.router import router as care_reminders_router
 from app.api.v1.companion_planting.router import router as companion_router
 from app.api.v1.crop_rotation.router import router as rotation_router
 from app.api.v1.cultivars.router import router as cultivars_router
+from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
 from app.api.v1.growth_phases.router import router as phases_router
@@ -87,6 +88,7 @@ api_router.include_router(ipm_router)
 api_router.include_router(tenants_router)
 api_router.include_router(tenant_scoped_router)
 api_router.include_router(care_reminders_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(starter_kits_router)
 api_router.include_router(imports_router)
 api_router.include_router(activities_router)
