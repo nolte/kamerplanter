@@ -579,7 +579,12 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_password*.py", role: backend_test, optional: true }
         - { kind: glob, path: "tests/e2e/test_req023_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-023 v1.10 spec, MEMORY v1.7 — Service Accounts NICHT impl"
+      # Phase 1 (2026-04-29): Service-account scaffolding landed —
+      # User.account_type Literal['user', 'service'] + ApiKey.ip_allowlist
+      # + ApiKey.rate_limit_per_minute. Auth flows (login refusal for
+      # service accounts, M2M API-key middleware) follow up in the
+      # REQ-023 hardening PR.
+      memory_status_field: "REQ-023 v1.10"
       cross_refs: [REQ-024, REQ-025, REQ-027]
 
   REQ-024:

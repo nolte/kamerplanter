@@ -96,6 +96,12 @@ class ApiKey(BaseModel):
     key_hash: str
     key_prefix: str  # First 8 chars for identification
     tenant_scope: str | None = None  # If set, key only works for this tenant
+    # REQ-023 v1.10 service-account hardening: optional CIDR allowlist
+    # and per-key rate limit (requests per minute). Both fields default
+    # to None which means "no restriction" — applies to both interactive
+    # user keys and service-account keys.
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = Field(default=None, ge=1, le=10000)
     revoked: bool = False
     last_used_at: datetime | None = None
     expires_at: datetime | None = None
