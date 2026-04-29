@@ -54,3 +54,4 @@ docker/embedding-service/models/
 /docs/en/skills/
 /docs/en/agents/
 /docs/en/tags.md
+.tool-versions

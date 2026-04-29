@@ -361,8 +361,11 @@ requirements:
         - { kind: glob, path: "src/frontend/src/test/**/Tank*.test.tsx", role: frontend_test, optional: true }
         - { kind: glob, path: "tests/e2e/test_req014_*.py", role: e2e }
     drift:
-      # Phase 0 (2026-04-28): TankFillEvent v1.6 SYNCHRON, WateringEvent driftet
-      memory_status_field: "REQ-014 v1.6 spec — DRIFT (WateringEvent: slot_keys vs plant_keys, _ms-Suffix bei EC-Feldern, channel_id nicht in Spec)"
+      # Phase 1 W-021 (2026-04-29): WateringEvent dual-support landed —
+      # slot_keys + target_ec_ms canonical, plant_keys/target_ec kept as
+      # deprecated aliases until the frontend follows. channel_id intentionally
+      # retained (REQ-004 backend-internal field, not spec'd).
+      memory_status_field: "REQ-014 v1.6"
       cross_refs: [REQ-004]
 
   REQ-015:
