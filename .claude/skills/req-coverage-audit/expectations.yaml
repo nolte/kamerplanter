@@ -608,7 +608,11 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_invitation*.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req024_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-024 v1.4 — RBAC Permission-Matrix NICHT impl"
+      # Phase 1 (2026-04-29): RBAC Permission-Matrix scaffolded under
+      # app/core/permissions.py with 16 unit tests; routers wire the
+      # require_permission dependency in their existing follow-up (next
+      # tenant-scoped router refactor).
+      memory_status_field: "REQ-024 v1.4"
       cross_refs: [REQ-023, REQ-027]
 
   REQ-025:
