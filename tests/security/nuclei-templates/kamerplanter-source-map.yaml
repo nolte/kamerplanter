@@ -1,0 +1,57 @@
+id: kamerplanter-source-map
+
+info:
+  name: Kamerplanter — frontend source maps reachable in production
+  author: kamerplanter-security
+  severity: medium
+  description: |
+    Vite-built frontend bundles emit `*.js.map` files that contain the
+    original TypeScript source plus inlined paths. Per NFR-014 §3.2 source
+    maps MUST NOT be served from production deployments. This template
+    looks for a few canonical Vite manifest paths and matches when any of
+    them returns a JSON source-map (`"version":3,"sources":[…]`) with a
+    200 status.
+
+    A direct probe of /assets/index*.js.map could miss the hashed filename;
+    instead the template grabs the served HTML, extracts the first
+    referenced JS asset, and probes that asset's `.map` companion.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+  classification:
+    cwe-id: CWE-540
+  tags: kamerplanter,exposure,frontend,vite
+
+http:
+  - raw:
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        Accept: text/html
+
+      - |
+        GET {{js_asset}}.map HTTP/1.1
+        Host: {{Hostname}}
+        Accept: application/json,text/plain
+
+    extractors:
+      - type: regex
+        name: js_asset
+        part: body
+        internal: true
+        group: 1
+        regex:
+          - '<script[^>]+src="(/assets/[^"]+\\.js)"'
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        part: response_2
+        status:
+          - 200
+
+      - type: word
+        part: body_2
+        words:
+          - '"version":3'
+          - '"sources":'
+        condition: and
