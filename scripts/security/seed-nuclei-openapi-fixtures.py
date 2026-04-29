@@ -167,7 +167,8 @@ def main() -> int:
             token=token,
             body={
                 "name": "Nuclei Fixture Run",
-                "run_type": "veg",
+                # PlantingRunType enum values: "monoculture" | "clone".
+                "run_type": "monoculture",
                 "location_key": location_key,
             },
         )
