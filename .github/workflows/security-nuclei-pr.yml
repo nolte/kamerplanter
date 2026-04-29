@@ -97,12 +97,16 @@ jobs:
           jq '.openapi' openapi-raw.json
 
       - name: Convert OpenAPI 3.1 → 3.0 for Nuclei compatibility
-        # Nuclei's input-mode parser only supports OpenAPI 3.0. Pydantic v2
-        # emits 3.1, which differs in two places relevant to schema
-        # validation: `exclusiveMinimum` / `exclusiveMaximum` switched from
-        # boolean (3.0) to numeric (3.1), and nullable types switched from
-        # `nullable: true` (3.0) to `type: ["foo", "null"]` (3.1). The jq
-        # walk below downgrades both back to 3.0 form.
+        # Nuclei's input-mode parser only supports OpenAPI 3.0. Three
+        # adjustments are needed:
+        # 1. `exclusiveMinimum` / `exclusiveMaximum` switched from boolean
+        #    (3.0) to numeric (3.1) — restore the boolean form and lift
+        #    the value into a separate `minimum` / `maximum` field.
+        # 2. Nullable types switched from `nullable: true` (3.0) to
+        #    `type: ["foo", "null"]` (3.1) — collapse back.
+        # 3. Inject a `servers` array. Nuclei refuses to scan a spec
+        #    without one, and FastAPI omits `servers` whenever no
+        #    `root_path` is configured.
         run: |
           jq '
             walk(
@@ -119,8 +123,9 @@ jobs:
               else . end
             )
             | .openapi = "3.0.3"
+            | .servers = [{"url": "http://127.0.0.1:8000"}]
           ' openapi-raw.json > openapi.json
-          echo "Converted to: $(jq -r '.openapi' openapi.json)"
+          echo "Converted to: $(jq -r '.openapi' openapi.json), servers: $(jq -c '.servers' openapi.json)"
 
       - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@v3
