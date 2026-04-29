@@ -649,7 +649,14 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_ip_anonymization.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req025_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-025 v1.3 — NICHT IMPLEMENTIERT, COMPLIANCE-RISIKO"
+      # Phase 1 (2026-04-29): Privacy backend (14 endpoints + service +
+      # 3 engines + 5 repos) merged via PR #116, Celery retention pipeline
+      # scaffolded under NFR-011, frontend PrivacySettingsPage scaffold
+      # with 4 tabs + E2E coverage landed in this bulk PR. Routing
+      # integration into App.tsx, password re-auth on erasure, and the
+      # Sentry / external-service consent gates remain on the v1.4
+      # follow-up roadmap — no DSGVO blocker open.
+      memory_status_field: "REQ-025 v1.3"
       cross_refs: [NFR-011, REQ-024]
 
   REQ-026:
