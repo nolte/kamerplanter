@@ -1,0 +1,48 @@
+id: kamerplanter-debug-endpoints
+
+info:
+  name: Kamerplanter — exposed debug & introspection endpoints
+  author: kamerplanter-security
+  severity: medium
+  description: |
+    FastAPI exposes /docs (Swagger UI), /redoc, and /openapi.json by default.
+    Per NFR-014 §3.2 these endpoints MUST either be locked down behind
+    authentication or disabled entirely in deployments where the API is
+    publicly reachable. This template flags any 200 response on these
+    paths from an unauthenticated client.
+
+    The Nuclei runner is expected to set the environment variable
+    `KP_REQUIRE_DEBUG_LOCKDOWN=1` (via -V) when running against a
+    production-equivalent target so this template raises a finding;
+    against staging where /docs is intentionally open the template stays
+    quiet because the matcher is gated on that variable.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+  classification:
+    cwe-id: CWE-489
+  tags: kamerplanter,exposure,debug,fastapi
+
+variables:
+  require_lockdown: "{{getenv \"KP_REQUIRE_DEBUG_LOCKDOWN\"}}"
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/docs"
+      - "{{BaseURL}}/redoc"
+      - "{{BaseURL}}/openapi.json"
+      - "{{BaseURL}}/api/v1/docs"
+      - "{{BaseURL}}/api/v1/redoc"
+      - "{{BaseURL}}/api/v1/openapi.json"
+
+    stop-at-first-match: false
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: dsl
+        dsl:
+          - "require_lockdown == \"1\""

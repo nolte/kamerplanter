@@ -48,3 +48,17 @@ repos:
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
+
+  # ── Security (Nuclei templates) ─────────────────────────────────────────
+  # Validates project-specific Nuclei templates (NFR-014 §3.2). Skips when
+  # nuclei is not installed locally so the hook does not block contributors
+  # who never touch security templates. The CI security-nuclei workflow
+  # (Phase 2B) is the authoritative gate.
+  - repo: local
+    hooks:
+      - id: nuclei-validate
+        name: Nuclei template validate
+        entry: bash -c 'command -v nuclei >/dev/null 2>&1 || { echo "nuclei not in PATH — skipping local validate."; exit 0; }; nuclei -validate -t tests/security/nuclei-templates/'
+        language: system
+        files: ^tests/security/nuclei-templates/.*\.yaml$
+        pass_filenames: false

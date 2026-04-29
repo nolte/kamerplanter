@@ -1,0 +1,44 @@
+id: kamerplanter-tenant-leak
+
+info:
+  name: Kamerplanter — tenant identifier leak in unauthenticated responses
+  author: kamerplanter-security
+  severity: high
+  description: |
+    Per REQ-024 the multi-tenant URL routing places `tenant_slug` in the
+    URL but never returns `tenant_key` or other internal tenant
+    identifiers in unauthenticated error responses. This template hits a
+    selection of tenant-scoped endpoints with no Authorization header and
+    matches on any response body that mentions internal identifiers
+    (`tenant_key`, `_id` of the tenants collection, internal slugs).
+    Spec: NFR-014 §3.2.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md
+  classification:
+    cwe-id: CWE-200
+  tags: kamerplanter,tenant,info-disclosure,req-024
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/v1/t/does-not-exist/species"
+      - "{{BaseURL}}/api/v1/t/zap-tenant-a/species"
+      - "{{BaseURL}}/api/v1/t/zap-tenant-a/locations"
+      - "{{BaseURL}}/api/v1/t/zap-tenant-a/tasks"
+
+    stop-at-first-match: false
+
+    matchers-condition: and
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code != 401 && status_code != 403"
+
+      - type: regex
+        part: body
+        regex:
+          - '"tenant_key"\\s*:'
+          - '"_id"\\s*:\\s*"tenants/'
+          - '"_rev"\\s*:'
+        condition: or

@@ -1,0 +1,62 @@
+id: kamerplanter-security-headers
+
+info:
+  name: Kamerplanter — mandatory security headers
+  author: kamerplanter-security
+  severity: high
+  description: |
+    Verifies that every response from the public reverse proxy ships the
+    security headers required by NFR-014 §3.2: Strict-Transport-Security,
+    Content-Security-Policy, X-Content-Type-Options, Referrer-Policy, and
+    a frame-blocking directive (X-Frame-Options or CSP frame-ancestors).
+    Each missing header triggers a separate matcher hit so the operator
+    sees exactly which rule fails.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+  classification:
+    cwe-id: CWE-693
+  tags: kamerplanter,headers,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        name: missing-strict-transport-security
+        part: header
+        words:
+          - "strict-transport-security:"
+        case-insensitive: true
+        negative: true
+
+      - type: word
+        name: missing-content-security-policy
+        part: header
+        words:
+          - "content-security-policy:"
+        case-insensitive: true
+        negative: true
+
+      - type: word
+        name: missing-x-content-type-options
+        part: header
+        words:
+          - "x-content-type-options: nosniff"
+        case-insensitive: true
+        negative: true
+
+      - type: word
+        name: missing-referrer-policy
+        part: header
+        words:
+          - "referrer-policy:"
+        case-insensitive: true
+        negative: true
+
+      - type: dsl
+        name: missing-frame-blocking-directive
+        dsl:
+          - "!contains(tolower(all_headers), 'x-frame-options:') && !contains(tolower(all_headers), 'frame-ancestors')"
