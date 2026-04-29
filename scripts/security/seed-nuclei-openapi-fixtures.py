@@ -108,10 +108,10 @@ def main() -> int:
     species_key = first_key(items)
     print(f"species_key: {species_key}")
 
-    # 4. Cultivar — for that species.
+    # 4. Cultivar — nested under species.
     cultivar_key: str | None = None
     if species_key:
-        cultivars = call("GET", f"/api/v1/cultivars?species_key={species_key}", token=token)
+        cultivars = call("GET", f"/api/v1/species/{species_key}/cultivars", token=token)
         cultivar_key = first_key(cultivars if isinstance(cultivars, list) else [])
     print(f"cultivar_key: {cultivar_key}")
 
@@ -154,12 +154,12 @@ def main() -> int:
     print(f"location_key: {location_key}")
 
     # 8. PlantingRun — tenant-scoped.
-    runs = call("GET", f"/api/v1/t/{tenant_slug}/runs", token=token)
+    runs = call("GET", f"/api/v1/t/{tenant_slug}/planting-runs", token=token)
     run_key = first_key(runs if isinstance(runs, list) else [])
     if not run_key:
         created = call(
             "POST",
-            f"/api/v1/t/{tenant_slug}/runs",
+            f"/api/v1/t/{tenant_slug}/planting-runs",
             token=token,
             body={
                 "name": "Nuclei Fixture Run",
