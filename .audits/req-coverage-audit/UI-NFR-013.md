@@ -4,29 +4,29 @@ requirement: UI-NFR-013
 title: Einwilligungsmanagement (Consent)
 type: ui-nfr
 spec_path: spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md
-coverage_score: 0%
-status: spezifiziert
-priority: blocker
-effort: M
+coverage_score: 100%
+status: implementiert
+priority: none
+effort: S
 created: 2026-04-29
-audit_run: 91d527be
+audit_run: f8e90fee
 ---
 
 # Ausfuehrungsplan: UI-NFR-013 Einwilligungsmanagement (Consent)
 
 ## Kontext
 - **Spec**: `spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md`
-- **Coverage**: 0%
-- **Status**: Spezifiziert
-- **Aufwand-Schaetzung**: M (1 Pflicht-Artefakte fehlen)
+- **Coverage**: 100%
+- **Status**: Implementiert
+- **Aufwand-Schaetzung**: S (0 Pflicht-Artefakte fehlen)
 
 ## Erwartete Artefakte
 
-### Dimension: frontend (0/1)
+### Dimension: frontend (1/1)
 
 | Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
 |---|---|---|---|---|---|
-| consent_component | `src/frontend/src/**/Consent*.tsx` | glob | nein | FEHLT |  |
+| consent_component | `src/frontend/src/**/Consent*.tsx` | glob | nein | OK | src/frontend/src/test/components/privacy/ConsentBanner.test.tsx, src/frontend/src/components/privacy/ConsentBanner.tsx |
 
 ### Dimension: drift (n/a)
 
@@ -38,13 +38,7 @@ audit_run: 91d527be
 
 ## Aufgaben (priorisiert, abarbeitbar)
 
-### Aufgabe 1 — consent_component anlegen [S]
-- **Zu tun**: Artefakt erstellen fuer consent_component
-- **Pfad**: `src/frontend/src/**/Consent*.tsx` (glob)
-- **Spec-Referenz**: `spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md` — Sektion zu consent_component
-- **Begruendung**: Spec-Vorgabe
-- **Akzeptanzkriterium**: Datei existiert + 1 Smoke-Test (falls Code) bzw. Glob matched (falls Pattern)
-- **Empfohlener Agent**: `frontend-usability-optimizer`
+_Keine Pflicht-Artefakte fehlen. Coverage-Defizit liegt nur in optionalen Artefakten oder Drift-Findings._
 
 ## Empfohlene Skill-Sequenz
 1. Aufgaben in obiger Reihenfolge abarbeiten (jeweils kleinster sinnvoller Commit)

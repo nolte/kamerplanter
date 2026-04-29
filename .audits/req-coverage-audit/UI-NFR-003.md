@@ -9,7 +9,7 @@ status: idee
 priority: none
 effort: S
 created: 2026-04-29
-audit_run: 91d527be
+audit_run: f8e90fee
 ---
 
 # Ausfuehrungsplan: UI-NFR-003 Performance

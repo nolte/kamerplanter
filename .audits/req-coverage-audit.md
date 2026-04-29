@@ -6,9 +6,9 @@ req-count: 37
 nfr-count: 16
 ui-nfr-count: 19
 manifest-coverage: 72/72
-plans-open: 28
-plans-closed: 44
-repo-revision: 91d527be
+plans-open: 25
+plans-closed: 47
+repo-revision: f8e90fee
 created: 2026-04-29
 mode: full
 ---
@@ -21,8 +21,8 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 - Vollstaendigkeit OK — keine Manifest-Luecken.
 
 ## Verteilung gesamt
-- Implementiert: 44 (61 %)
-- Teilweise: 9 (12 %)
+- Implementiert: 47 (65 %)
+- Teilweise: 6 (8 %)
 - Lueckenhaft: 8 (11 %)
 - Spezifiziert: 8 (11 %)
 - Idee: 3 (4 %)
@@ -45,8 +45,8 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | REQ-011 | Externe-Stammdatenanreicherung | 6/6 | n/a | 2/2 | 100% | Implementiert | — |
 | REQ-012 | Stammdaten-Import | 7/7 | 2/2 | 3/3 | 100% | Implementiert | — |
 | REQ-013 | Pflanzdurchlauf | 7/7 | 3/3 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-013.md) |
-| REQ-014 | Tankmanagement | 4/4 | 2/2 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-014.md) |
-| REQ-015 | Kalenderansicht | 5/5 | 4/4 | 3/3 | 88% | Teilweise | [Plan](req-coverage-audit/REQ-015.md) |
+| REQ-014 | Tankmanagement | 4/4 | 2/2 | 3/3 | 100% | Implementiert | — |
+| REQ-015 | Kalenderansicht | 5/5 | 4/4 | 3/3 | 100% | Implementiert | — |
 | REQ-015-A | Aussaatkalender-Berechnungsregeln | 1/1 | 1/1 | 2/2 | 100% | Implementiert | — |
 | REQ-016 | InvenTree-Integration | 0/2 | n/a | 0/1 | 0% | Spezifiziert | [Plan](req-coverage-audit/REQ-016.md) |
 | REQ-017 | Vermehrungsmanagement | 0/4 | 0/1 | 0/1 | 12% | Spezifiziert | [Plan](req-coverage-audit/REQ-017.md) |
@@ -84,7 +84,7 @@ Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 
 | NFR-008a | E2E-Selenium-Teststandard | 3/3 | 1/1 | 100% | Implementiert | — |
 | NFR-009 | Dependency-Management | 4/4 | n/a | 100% | Implementiert | — |
 | NFR-010 | UI-Pflegemasken & Listenansichten | 3/3 | 1/1 | 100% | Implementiert | — |
-| NFR-011 | Vorratsdatenspeicherung & Aufbewahrungsfristen | 1/2 | 1/1 | 67% | Teilweise | [Plan](req-coverage-audit/NFR-011.md) |
+| NFR-011 | Vorratsdatenspeicherung & Aufbewahrungsfristen | 2/2 | 1/1 | 100% | Implementiert | — |
 | NFR-012 | Cloud-Provider & Enterprise-Skalierung | n/a | n/a | 100% | Implementiert | — |
 | NFR-013 | Speicheranbindung & Object-Storage | 0/1 | n/a | 50% | Lueckenhaft | [Plan](req-coverage-audit/NFR-013.md) |
 | NFR-014 | Nuclei-Security-Scanning | 0/1 | n/a | 50% | Lueckenhaft | [Plan](req-coverage-audit/NFR-014.md) |
@@ -135,31 +135,25 @@ Sortiert nach Prioritaet (blocker > warning > info) und Coverage-Score (aufsteig
 | 14 | NFR-014 Nuclei-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-014.md) |
 | 15 | NFR-015 OWASP-ZAP-Security-Scanning | nfr | Lueckenhaft | 50% | M | [Plan](req-coverage-audit/NFR-015.md) |
 | 16 | REQ-025 Datenschutz-Betroffenenrechte | req | Lueckenhaft | 54% | M | [Plan](req-coverage-audit/REQ-025.md) |
-| 17 | NFR-011 Vorratsdatenspeicherung & Aufbewahrungsfristen | nfr | Teilweise | 67% | M | [Plan](req-coverage-audit/NFR-011.md) |
-| 18 | REQ-027 Light-Modus | req | Teilweise | 72% | M | [Plan](req-coverage-audit/REQ-027.md) |
-| 19 | REQ-009 Dashboard | req | Teilweise | 75% | M | [Plan](req-coverage-audit/REQ-009.md) |
-| 20 | REQ-013 Pflanzdurchlauf | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-013.md) |
-| 21 | REQ-014 Tankmanagement | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-014.md) |
-| 22 | REQ-015 Kalenderansicht | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-015.md) |
-| 23 | REQ-022 Pflegeerinnerungen | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-022.md) |
-| 24 | REQ-023 Benutzerverwaltung-Authentifizierung | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-023.md) |
-| 25 | REQ-024 Mandantenverwaltung-Gemeinschaftsgaerten | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-024.md) |
-| 26 | UI-NFR-003 Performance | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-003.md) |
-| 27 | UI-NFR-015 HA Lovelace Custom Cards | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-015.md) |
-| 28 | UI-NFR-019 Kiosk-Modus | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-019.md) |
+| 17 | REQ-027 Light-Modus | req | Teilweise | 72% | M | [Plan](req-coverage-audit/REQ-027.md) |
+| 18 | REQ-009 Dashboard | req | Teilweise | 75% | M | [Plan](req-coverage-audit/REQ-009.md) |
+| 19 | REQ-013 Pflanzdurchlauf | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-013.md) |
+| 20 | REQ-022 Pflegeerinnerungen | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-022.md) |
+| 21 | REQ-023 Benutzerverwaltung-Authentifizierung | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-023.md) |
+| 22 | REQ-024 Mandantenverwaltung-Gemeinschaftsgaerten | req | Teilweise | 88% | M | [Plan](req-coverage-audit/REQ-024.md) |
+| 23 | UI-NFR-003 Performance | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-003.md) |
+| 24 | UI-NFR-015 HA Lovelace Custom Cards | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-015.md) |
+| 25 | UI-NFR-019 Kiosk-Modus | ui-nfr | Idee | — | S | [Plan](req-coverage-audit/UI-NFR-019.md) |
 
 ## Plan-Index (alphabetisch, alle offenen Plans)
 | Anforderung | Plan | Coverage | Aufwand |
 |---|---|---|---|
-| NFR-011 Vorratsdatenspeicherung & Aufbewahrungsfristen | [.audits/req-coverage-audit/NFR-011.md](req-coverage-audit/NFR-011.md) | 67% | M |
 | NFR-013 Speicheranbindung & Object-Storage | [.audits/req-coverage-audit/NFR-013.md](req-coverage-audit/NFR-013.md) | 50% | M |
 | NFR-014 Nuclei-Security-Scanning | [.audits/req-coverage-audit/NFR-014.md](req-coverage-audit/NFR-014.md) | 50% | M |
 | NFR-015 OWASP-ZAP-Security-Scanning | [.audits/req-coverage-audit/NFR-015.md](req-coverage-audit/NFR-015.md) | 50% | M |
 | REQ-008 Post-Harvest | [.audits/req-coverage-audit/REQ-008.md](req-coverage-audit/REQ-008.md) | 12% | L |
 | REQ-009 Dashboard | [.audits/req-coverage-audit/REQ-009.md](req-coverage-audit/REQ-009.md) | 75% | M |
 | REQ-013 Pflanzdurchlauf | [.audits/req-coverage-audit/REQ-013.md](req-coverage-audit/REQ-013.md) | 88% | M |
-| REQ-014 Tankmanagement | [.audits/req-coverage-audit/REQ-014.md](req-coverage-audit/REQ-014.md) | 88% | M |
-| REQ-015 Kalenderansicht | [.audits/req-coverage-audit/REQ-015.md](req-coverage-audit/REQ-015.md) | 88% | M |
 | REQ-016 InvenTree-Integration | [.audits/req-coverage-audit/REQ-016.md](req-coverage-audit/REQ-016.md) | 0% | L |
 | REQ-017 Vermehrungsmanagement | [.audits/req-coverage-audit/REQ-017.md](req-coverage-audit/REQ-017.md) | 12% | L |
 | REQ-018 Umgebungssteuerung | [.audits/req-coverage-audit/REQ-018.md](req-coverage-audit/REQ-018.md) | 31% | L |
@@ -183,5 +177,5 @@ Sortiert nach Prioritaet (blocker > warning > info) und Coverage-Score (aufsteig
 ## Run log
 - 2026-04-29 — Manifest geladen: 72 Eintraege, 0 Luecken
 - 2026-04-29 — Coverage berechnet (Manifest-getrieben, keine Heuristik)
-- 2026-04-29 — Per-Anforderungs-Plans geschrieben: 28 offen, 44 mit Coverage 100 %
+- 2026-04-29 — Per-Anforderungs-Plans geschrieben: 25 offen, 47 mit Coverage 100 %
 - 2026-04-29 — Aggregate geschrieben

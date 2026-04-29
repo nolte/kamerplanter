@@ -9,7 +9,7 @@ status: spezifiziert
 priority: blocker
 effort: M
 created: 2026-04-29
-audit_run: 91d527be
+audit_run: f8e90fee
 ---
 
 # Ausfuehrungsplan: UI-NFR-012 PWA-Offline
