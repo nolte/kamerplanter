@@ -27,6 +27,7 @@ from .password_reset_page import PasswordResetConfirmPage, PasswordResetRequestP
 from .pest_list_page import PestListPage
 from .pflege_dashboard_page import PflegeDashboardPage
 from .phase_transition_page import PlantInstanceDetailExt, PlantInstanceListExt
+from .print_button_page import PrintButtonPage
 from .plant_instance_detail_page import PlantInstanceDetailPage
 from .plant_instance_list_page import PlantInstanceListPage
 from .planting_run_detail_page import PlantingRunDetailPage
@@ -88,6 +89,7 @@ __all__ = [
     "PlantInstanceListPage",
     "PlantingRunDetailPage",
     "PlantingRunListPage",
+    "PrintButtonPage",
     "RegisterPage",
     "SensorCreateDialogPage",
     "SiteDetailPage",
