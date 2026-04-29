@@ -18,6 +18,11 @@
 
 services:
   backend:
+    # Auth endpoints (/api/v1/auth/*) are only mounted in full-mode; the
+    # OpenAPI fixture seeder logs in as the demo user, which only exists
+    # under that mode.
+    environment:
+      KAMERPLANTER_MODE: full
     ports:
       - "127.0.0.1:8000:8000"
 
