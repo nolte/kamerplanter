@@ -147,29 +147,27 @@ jobs:
             -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
             ${{ steps.suppress.outputs.flags }}
 
+      - name: Seed Nuclei OpenAPI fixtures (tenant + resources)
+        # The Kamerplanter REST API places nearly every endpoint under
+        # `/api/v1/t/{tenant_slug}/...` plus secondary keys like
+        # `{species_key}` and `{run_key}`. Without resolved values nuclei
+        # would either drop most requests or refuse to run. This step
+        # creates one resource of each kind via the public REST API and
+        # writes a `required_openapi_params.yaml` that nuclei consumes.
+        run: |
+          python3 scripts/security/seed-nuclei-openapi-fixtures.py
+          echo "--- required_openapi_params.yaml ---"
+          cat required_openapi_params.yaml
+
       - name: Run Nuclei (OpenAPI surface)
         if: always()
-        # The Kamerplanter REST API is multi-tenant: nearly every route
-        # lives under `/api/v1/t/{tenant_slug}/...`. After
-        # `-skip-format-validation` drops every request with unresolved
-        # path/query parameters, the remaining surface is small enough
-        # that the kamerplanter / exposure / misconfig template tags
-        # match nothing. Nuclei then exits with
-        # `Could not run nuclei: no templates provided for scan`.
-        #
-        # The HTTP-surface scan above already exercises the same
-        # endpoints and is the authoritative gate. This OpenAPI step
-        # remains as a non-blocking probe for the day a future
-        # implementation pins a representative tenant context (or
-        # generates a `required_openapi_params.yaml`); see the PR body's
-        # rollout notes for the follow-up.
-        continue-on-error: true
         run: |
           nuclei \
             -t tests/security/nuclei-templates \
             -t ./nuclei-templates \
             -l openapi.json \
             -input-mode openapi \
+            -required-openapi-params required_openapi_params.yaml \
             -skip-format-validation \
             -tags exposure,misconfig,vulnerability,kamerplanter \
             -severity high,critical \
