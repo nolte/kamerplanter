@@ -1,0 +1,15 @@
+# OWASP ZAP rule tuning for Baseline + Full-Scan profiles.
+# Spec: spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md §6.1
+#
+# Format (tab-separated):
+#   <PluginID>	<THRESHOLD>	<Confidence>	<Note>
+#
+# THRESHOLD ∈ {OFF, IGNORE, WARN, FAIL}
+# Confidence ∈ {LOW, MEDIUM, HIGH}
+#
+# Every IGNORE row MUST include "# expires YYYY-MM-DD — approved by <role>"
+# in the Note column. Expired IGNOREs trigger a CI warning; after 30 days
+# of grace, they fail the build.
+#
+# This file is intentionally empty in Phase 1. Tuning entries are added
+# alongside their motivating findings in Phase 3.

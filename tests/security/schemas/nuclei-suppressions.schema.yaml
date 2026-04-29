@@ -1,0 +1,45 @@
+# JSON Schema for tests/security/nuclei-suppressions.yaml
+# Spec: spec/nfr/NFR-014_Nuclei-Security-Scanning.md §6.1
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "nuclei-suppressions.schema.yaml"
+title: "Nuclei Suppressions"
+description: "Versioned false-positive suppressions for Nuclei DAST scanning."
+type: object
+required: [version, suppressions]
+additionalProperties: false
+
+properties:
+  version:
+    type: integer
+    enum: [1]
+    description: "Schema version. Bump on incompatible changes."
+
+  suppressions:
+    type: array
+    items:
+      type: object
+      required: [template_id, reason, expires, approved_by]
+      additionalProperties: false
+      properties:
+        template_id:
+          type: string
+          minLength: 1
+          description: "Nuclei template ID, e.g. 'tech-detect-fastapi'."
+        matched_url:
+          type: string
+          description: "Optional literal or regex; suppress only for this URL."
+        matched_at:
+          type: string
+          description: "Optional matcher name (e.g. 'word', 'status')."
+        reason:
+          type: string
+          minLength: 10
+          description: "Concrete justification — never just 'false positive'."
+        expires:
+          type: string
+          format: date
+          description: "ISO-8601 date, max 12 months in the future."
+        approved_by:
+          type: string
+          minLength: 1
+          description: "security-officer | maintainer | <github-handle>"

@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Nuclei (ProjectDiscovery), GitHub Actions, SARIF, OpenAPI
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, nuclei, vulnerability-scanning, cve, misconfiguration, exposures, ci-gate, sarif]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: Pinning-Logik in §3.3 auf `git clone` + `git checkout SHA` korrigiert (vorher bestand das `.git`-Verzeichnis bei `-update-templates` nicht zuverlässig). Nightly-Cron in §4.2 von `0 1 * * *` auf `0 0 * * *` vorgezogen, damit das schnellere Tool zuerst gegen Staging läuft (ZAP folgt 60 Min später). Frontend-Storage-Check in `kamerplanter-jwt-leak.yaml` (§3.2) ergänzt. |
 | 1.0 | 2026-04-28 | Erstversion — Template-basiertes Security-Scanning für Frontend, Backend und exponierte Infrastruktur. Pflicht-Template-Sets, CI-Gate, SARIF-Reporting, Triage-Workflow und Akzeptanzkriterien definiert. |
 
 # NFR-014: Nuclei-Security-Scanning
@@ -171,7 +172,7 @@ nuclei \
 | `kamerplanter-cors-misconfig.yaml` | Prüft, dass `Access-Control-Allow-Origin: *` nicht in Kombination mit `Allow-Credentials` ausgeliefert wird | High |
 | `kamerplanter-debug-endpoints.yaml` | Prüft, dass `/docs`, `/redoc`, `/openapi.json` in produktiver Umgebung gemäss Konfiguration entweder gesperrt oder authentifiziert sind | Medium |
 | `kamerplanter-tenant-leak.yaml` | Prüft, dass `tenant_key` / `tenant_slug` nicht in Fehlerantworten unauthentifizierter Requests erscheint | High |
-| `kamerplanter-jwt-leak.yaml` | Prüft, dass JWTs nicht in URL-Pfaden, Logs (`/health`-Response) oder HTML-Antworten erscheinen | Critical |
+| `kamerplanter-jwt-leak.yaml` | Prüft, dass JWTs nicht in URL-Pfaden, Logs (`/health`-Response), HTML-Antworten oder im Frontend-Bundle in `localStorage`/`sessionStorage`/Service-Worker-Caches geschrieben werden (Headless-Mode mit `headless: true`) | Critical |
 | `kamerplanter-source-map.yaml` | Prüft, dass `*.map`-Dateien nicht in produktiven Frontend-Builds ausgeliefert werden | Medium |
 
 Beispiel — `kamerplanter-security-headers.yaml`:
@@ -214,16 +215,24 @@ http:
 
 ### 3.3 Template-Versionierung & Reproduzierbarkeit
 
-**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`:
+**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync abbildet und kein `.git`-Verzeichnis erzeugt:
 
 ```yaml
 - name: Pin Nuclei Templates
+  env:
+    NUCLEI_TEMPLATES_SHA: ${{ vars.NUCLEI_TEMPLATES_SHA }}
   run: |
-    nuclei -update-templates -update-template-dir ./nuclei-templates
+    git clone --filter=blob:none \
+      https://github.com/projectdiscovery/nuclei-templates.git \
+      ./nuclei-templates
     git -C ./nuclei-templates checkout "$NUCLEI_TEMPLATES_SHA"
+
+- name: Run Nuclei against pinned templates
+  run: |
+    nuclei -t ./nuclei-templates -tags "${TAGS}" -severity "${SEVERITY}" ...
 ```
 
-**MUSS**: `NUCLEI_TEMPLATES_SHA` wird wöchentlich automatisch via Renovate aktualisiert (vgl. NFR-009).
+**MUSS**: `NUCLEI_TEMPLATES_SHA` ist als Repository-Variable hinterlegt und wird wöchentlich automatisch via Renovate aktualisiert (vgl. NFR-009). Renovate-Custom-Manager pinnt den SHA in einer dedizierten Config-Datei (`.github/renovate-pins.yaml`), damit der Update-PR nur diese Variable berührt.
 
 **SOLL**: Alle eigenen Templates werden vor dem Merge mit `nuclei -validate -t tests/security/nuclei-templates/` syntaktisch geprüft (Pre-Commit-Hook + CI-Schritt).
 
@@ -305,7 +314,7 @@ jobs:
 # .github/workflows/security-nuclei-nightly.yml
 on:
   schedule:
-    - cron: "0 1 * * *"  # 02:00 Europe/Berlin (winter) / 03:00 (sommer)
+    - cron: "0 0 * * *"  # 01:00 Europe/Berlin (winter) / 02:00 (sommer) — Nuclei zuerst, ZAP folgt 60 Min später (NFR-015 §4.3)
   workflow_dispatch:
 
 jobs:
