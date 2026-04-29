@@ -161,20 +161,22 @@ jobs:
 
       - name: Run Nuclei (OpenAPI surface)
         if: always()
-        # Nuclei picks up `required_openapi_params.yaml` automatically
-        # from the CWD — no explicit flag exists in v3.x. Run from
-        # $GITHUB_WORKSPACE so both the file and the relative template
-        # paths resolve.
+        # OpenAPI input-mode in nuclei v3 runs DAST-flavoured templates
+        # against the deserialised spec (fuzzing / payload injection per
+        # parameter). It explicitly ignores the regular HTTP templates
+        # used by the HTTP-surface scan above. The `dast` tag and the
+        # `dast` template directory below select that category.
+        # `required_openapi_params.yaml` is read automatically from the
+        # CWD; running from $GITHUB_WORKSPACE keeps that contract.
         run: |
           cd "$GITHUB_WORKSPACE"
           ls -l required_openapi_params.yaml openapi.json
           nuclei \
-            -t tests/security/nuclei-templates \
-            -t ./nuclei-templates \
+            -t ./nuclei-templates/dast \
             -l openapi.json \
             -input-mode openapi \
             -skip-format-validation \
-            -tags exposure,misconfig,vulnerability,kamerplanter \
+            -dast \
             -severity high,critical \
             -rate-limit 50 \
             -timeout 10 \
