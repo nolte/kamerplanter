@@ -135,7 +135,11 @@ def main() -> int:
     print(f"site_key: {site_key}")
 
     # 7. Location — tenant-scoped, depends on site + location-type.
-    locations = call("GET", f"/api/v1/t/{tenant_slug}/locations", token=token)
+    locations = call(
+        "GET",
+        f"/api/v1/t/{tenant_slug}/locations?site_key={site_key}",
+        token=token,
+    )
     location_key = first_key(locations if isinstance(locations, list) else [])
     if not location_key:
         created = call(
