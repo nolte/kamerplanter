@@ -65,22 +65,25 @@ jobs:
           flags="$(./scripts/security/build-nuclei-flags.sh | tr '\n' ' ')"
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
-      - name: Run Nuclei (full profile)
+      - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@v3
+        with:
+          install-only: true
+
+      - name: Run Nuclei (full profile)
         env:
           KP_REQUIRE_DEBUG_LOCKDOWN: "1"
-        with:
-          target: ${{ steps.target.outputs.target }}
-          templates: |
-            tests/security/nuclei-templates
-            ./nuclei-templates
-          flags: >-
-            -tags exposure,misconfig,default-login,cve,vulnerability,kamerplanter
-            -severity low,medium,high,critical
-            -rate-limit 100
-            -timeout 15
-            -j -o results.jsonl
-            -sarif-export results.sarif
+        run: |
+          nuclei \
+            -t tests/security/nuclei-templates \
+            -t ./nuclei-templates \
+            -u "${{ steps.target.outputs.target }}" \
+            -tags exposure,misconfig,default-login,cve,vulnerability,kamerplanter \
+            -severity low,medium,high,critical \
+            -rate-limit 100 \
+            -timeout 15 \
+            -j -o "$GITHUB_WORKSPACE/results.jsonl" \
+            -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
             ${{ steps.suppress.outputs.flags }}
 
       - name: Upload SARIF to Code Scanning

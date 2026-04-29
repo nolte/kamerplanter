@@ -96,40 +96,40 @@ jobs:
           curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o openapi.json
           jq '.openapi' openapi.json
 
-      - name: Run Nuclei (PR profile)
+      - name: Install Nuclei
         uses: projectdiscovery/nuclei-action@v3
         with:
-          target: |
-            http://127.0.0.1:8000
-            http://127.0.0.1:5173
-          templates: |
-            tests/security/nuclei-templates
-            ./nuclei-templates
-          flags: >-
-            -tags exposure,misconfig,default-login,token-spray,kamerplanter
-            -severity medium,high,critical
-            -rate-limit 50
-            -timeout 10
-            -j -o results.jsonl
-            -sarif-export results.sarif
+          install-only: true
+
+      - name: Run Nuclei (HTTP surface)
+        run: |
+          nuclei \
+            -t tests/security/nuclei-templates \
+            -t ./nuclei-templates \
+            -u http://127.0.0.1:8000 \
+            -u http://127.0.0.1:5173 \
+            -tags exposure,misconfig,default-login,token-spray,kamerplanter \
+            -severity medium,high,critical \
+            -rate-limit 50 \
+            -timeout 10 \
+            -j -o "$GITHUB_WORKSPACE/results.jsonl" \
+            -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
             ${{ steps.suppress.outputs.flags }}
 
-      - name: Run Nuclei against OpenAPI surface
+      - name: Run Nuclei (OpenAPI surface)
         if: always()
-        uses: projectdiscovery/nuclei-action@v3
-        with:
-          target: openapi.json
-          templates: |
-            tests/security/nuclei-templates
-            ./nuclei-templates
-          flags: >-
-            -input-mode openapi
-            -tags exposure,misconfig,vulnerability,kamerplanter
-            -severity high,critical
-            -rate-limit 50
-            -timeout 10
-            -j -o openapi-results.jsonl
-            -sarif-export openapi-results.sarif
+        run: |
+          nuclei \
+            -t tests/security/nuclei-templates \
+            -t ./nuclei-templates \
+            -l openapi.json \
+            -input-mode openapi \
+            -tags exposure,misconfig,vulnerability,kamerplanter \
+            -severity high,critical \
+            -rate-limit 50 \
+            -timeout 10 \
+            -j -o "$GITHUB_WORKSPACE/openapi-results.jsonl" \
+            -sarif-export "$GITHUB_WORKSPACE/openapi-results.sarif" \
             ${{ steps.suppress.outputs.flags }}
 
       - name: Upload SARIF (HTTP scan) to Code Scanning
