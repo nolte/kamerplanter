@@ -4,31 +4,31 @@ requirement: UI-NFR-012
 title: PWA-Offline
 type: ui-nfr
 spec_path: spec/ui-nfr/UI-NFR-012_PWA-Offline.md
-coverage_score: 0%
-status: spezifiziert
-priority: blocker
-effort: M
+coverage_score: 100%
+status: implementiert
+priority: none
+effort: S
 created: 2026-04-29
-audit_run: f8e90fee
+audit_run: 9d1d7d58
 ---
 
 # Ausfuehrungsplan: UI-NFR-012 PWA-Offline
 
 ## Kontext
 - **Spec**: `spec/ui-nfr/UI-NFR-012_PWA-Offline.md`
-- **Coverage**: 0%
-- **Status**: Spezifiziert
-- **Aufwand-Schaetzung**: M (1 Pflicht-Artefakte fehlen)
+- **Coverage**: 100%
+- **Status**: Implementiert
+- **Aufwand-Schaetzung**: S (0 Pflicht-Artefakte fehlen)
 
 ## Erwartete Artefakte
 
-### Dimension: frontend (0/1)
+### Dimension: frontend (2/2)
 
 | Rolle | Pfad | Kind | Optional | Status | Evidenz / Begruendung |
 |---|---|---|---|---|---|
-| pwa_manifest | `src/frontend/public/manifest*.json` | glob | nein | FEHLT |  |
+| pwa_manifest | `src/frontend/public/manifest*.json` | glob | nein | OK | src/frontend/public/manifest.json |
 | service_worker | `src/frontend/public/sw*.js` | glob | ja | n/a |  |
-| sw_registration | `src/frontend/src/**/serviceWorker*.ts` | glob | ja | n/a |  |
+| sw_registration | `src/frontend/src/**/serviceWorker*.ts` | glob | ja | OK | src/frontend/src/lib/serviceWorkerRegistration.ts, src/frontend/src/test/lib/serviceWorkerRegistration.test.ts |
 
 ### Dimension: drift (n/a)
 
@@ -40,13 +40,7 @@ audit_run: f8e90fee
 
 ## Aufgaben (priorisiert, abarbeitbar)
 
-### Aufgabe 1 — pwa_manifest anlegen [S]
-- **Zu tun**: Artefakt erstellen fuer pwa_manifest
-- **Pfad**: `src/frontend/public/manifest*.json` (glob)
-- **Spec-Referenz**: `spec/ui-nfr/UI-NFR-012_PWA-Offline.md` — Sektion zu pwa_manifest
-- **Begruendung**: Spec-Vorgabe
-- **Akzeptanzkriterium**: Datei existiert + 1 Smoke-Test (falls Code) bzw. Glob matched (falls Pattern)
-- **Empfohlener Agent**: `frontend-usability-optimizer`
+_Keine Pflicht-Artefakte fehlen. Coverage-Defizit liegt nur in optionalen Artefakten oder Drift-Findings._
 
 ## Empfohlene Skill-Sequenz
 1. Aufgaben in obiger Reihenfolge abarbeiten (jeweils kleinster sinnvoller Commit)
