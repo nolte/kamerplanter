@@ -674,7 +674,11 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_full_auth_provider.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req027_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-027 v1.4 — Auth-Provider impl, Platform-Tenant offen"
+      # Phase 1 (2026-04-29): Auth-Provider + System-Settings-Service +
+      # /api/v1/mode all live; E2E coverage landed in
+      # tests/e2e/test_req027_light_mode.py. Platform-tenant follow-up
+      # (REQ-024 cross-ref) tracked under the auth-trio milestone.
+      memory_status_field: "REQ-027 v1.4"
       cross_refs: [REQ-023, REQ-024, REQ-025]
 
   REQ-028:
