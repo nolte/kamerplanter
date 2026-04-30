@@ -1,0 +1,51 @@
+name: Security — Nuclei PR Gate
+
+# NFR-014 §4 PR-time Nuclei scan against the local stack.
+# This workflow is intentionally a scaffold: the actual scan
+# orchestration (runner setup, kubeconfig, OpenAPI spec injection,
+# template-version pinning) lands when the local-stack target is
+# wired into Skaffold for CI runs (NFR-014 follow-up).
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "src/backend/**"
+      - "src/frontend/**"
+      - "helm/**"
+      - "tests/security/nuclei-templates/**"
+      - "tests/security/nuclei-suppressions.yaml"
+      - ".github/workflows/security-nuclei-*.yml"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-nuclei-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nuclei-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache nuclei templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.config/nuclei/templates
+          key: nuclei-templates-${{ runner.os }}-${{ hashFiles('tests/security/nuclei-templates/**') }}
+
+      - name: Install nuclei
+        uses: projectdiscovery/nuclei-action@main
+        with:
+          version: latest
+          target: ""
+          flags: "-validate -t tests/security/nuclei-templates/"
+
+      - name: Validate custom templates only (scaffold)
+        run: |
+          # Smoke check that the custom templates parse — full scan
+          # against the local stack lands in the NFR-014 follow-up.
+          nuclei -validate -t tests/security/nuclei-templates/

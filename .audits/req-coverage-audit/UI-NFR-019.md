@@ -9,7 +9,7 @@ status: idee
 priority: none
 effort: S
 created: 2026-04-30
-audit_run: c63ab135
+audit_run: 6b55695d
 ---
 
 # Ausfuehrungsplan: UI-NFR-019 Kiosk-Modus

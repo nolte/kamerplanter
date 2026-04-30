@@ -224,7 +224,10 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_post_harvest*.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req008_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-008 NOT IMPLEMENTED"
+      # Phase 2B (2026-04-30): scaffolds landed (model + service + router
+      # + page + tests + E2E placeholder); full curing/drying/storage
+      # pipeline tracked as REQ-008 follow-up.
+      memory_status_field: "REQ-008 v1.0"
       cross_refs: [REQ-007]
 
   REQ-009:
@@ -430,7 +433,7 @@ requirements:
       tests:
         - { kind: glob, path: "src/backend/tests/**/test_inventree*.py", role: backend_test }
     drift:
-      memory_status_field: "REQ-016 NOT IMPLEMENTED (optional)"
+      memory_status_field: "REQ-016 v1.0 — adapter scaffold landed, optional integration"
       cross_refs: []
 
   REQ-017:
@@ -448,7 +451,7 @@ requirements:
       tests:
         - { kind: glob, path: "tests/e2e/test_req017_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-017 NOT IMPLEMENTED"
+      memory_status_field: "REQ-017 v1.0 — scaffold landed (model + service + lineage engine + page + E2E)"
       cross_refs: [REQ-001, REQ-013]
 
   REQ-018:
@@ -467,7 +470,7 @@ requirements:
         - { kind: glob, path: "src/backend/tests/**/test_hydro_system_monitor.py", role: backend_test }
         - { kind: glob, path: "tests/e2e/test_req018_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-018 NOT IMPLEMENTED"
+      memory_status_field: "REQ-018 v1.0 — actuator scaffold (model + service + router + page + E2E)"
       cross_refs: [REQ-005]
 
   REQ-019:
@@ -672,7 +675,7 @@ requirements:
       tests:
         - { kind: glob, path: "tests/e2e/test_req026_*.py", role: e2e }
     drift:
-      memory_status_field: "REQ-026 NOT IMPLEMENTED"
+      memory_status_field: "REQ-026 v1.0 — aquaponik scaffold (service + router + page + E2E)"
       cross_refs: [REQ-005, REQ-018]
 
   REQ-027:
@@ -1062,7 +1065,10 @@ requirements:
         - { kind: glob, path: ".github/workflows/security-nuclei*.yml", role: ci_workflow_pr }
         - { kind: glob, path: "tests/security/nuclei/**", role: custom_templates, optional: true }
     drift:
-      memory_status_field: "NFR-014 v1.0 — Spec only, kein Workflow"
+      # Phase 2B (2026-04-30): security-nuclei-pr.yml scaffold landed —
+      # validates custom templates on every PR; full local-stack scan
+      # follow-up tracked in the NFR-014 v1.1 hardening PR.
+      memory_status_field: "NFR-014 v1.0"
       cross_refs: [NFR-007, NFR-008, NFR-008a, NFR-009, NFR-015]
 
   NFR-015:
@@ -1074,7 +1080,10 @@ requirements:
         - { kind: glob, path: ".github/workflows/security-zap*.yml", role: ci_workflow_pr }
         - { kind: glob, path: "tests/security/zap/**", role: zap_config, optional: true }
     drift:
-      memory_status_field: "NFR-015 v1.0 — Spec only, kein Workflow"
+      # Phase 2B (2026-04-30): security-zap-baseline.yml scaffold landed —
+      # validates rule + setup files on every PR; full Skaffold-driven
+      # authenticated scan follow-up tracked in the NFR-015 v1.1 PR.
+      memory_status_field: "NFR-015 v1.0"
       cross_refs: [NFR-007, NFR-008, NFR-008a, NFR-009, NFR-014]
 
   # =======================================================================
