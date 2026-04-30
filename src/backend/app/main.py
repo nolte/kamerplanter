@@ -205,8 +205,14 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    if not settings.debug:
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    # API responses are JSON. A `default-src 'none'` CSP is the strictest
+    # safe option: nothing should be loaded from a JSON document. The
+    # /docs and /redoc endpoints serve HTML+JS via FastAPI's bundled
+    # CDN-based Swagger UI; relaxing CSP for them would defeat the
+    # purpose, so the deployment is expected to disable those endpoints
+    # in production (NFR-014 §3.2 / kamerplanter-debug-endpoints.yaml).
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
 
 

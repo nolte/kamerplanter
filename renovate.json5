@@ -157,5 +157,25 @@
         'nodejs',
       ],
     },
+    {
+      groupName: 'security pinned versions',
+      matchFileNames: [
+        '.github/renovate-pins.yaml',
+      ],
+      labels: ['dependencies', 'security'],
+    },
+  ],
+  customManagers: [
+    {
+      customType: 'regex',
+      description: 'Update pinned versions in .github/renovate-pins.yaml — read by security workflows.',
+      managerFilePatterns: [
+        '/^\\.github/renovate-pins\\.yaml$/',
+      ],
+      matchStrings: [
+        '#\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n[a-z0-9_]+:\\s*(?<currentValue>\\S+)',
+      ],
+      versioningTemplate: 'semver',
+    },
   ],
 }
