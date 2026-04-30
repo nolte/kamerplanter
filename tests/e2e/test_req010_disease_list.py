@@ -246,7 +246,7 @@ class TestDiseaseCreateDialog:
         except Exception:
             pass  # Chip input may not be immediately interactive
         try:
-            disease_list.add_affected_plant_part("Bluete")
+            disease_list.add_affected_plant_part("flower")
         except Exception:
             pass  # Chip input may not be immediately interactive
         screenshot("TC-REQ-010-021_disease-form-filled", "Disease create form filled")

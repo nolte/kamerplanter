@@ -26,7 +26,7 @@ class BotanicalFamilyListPage(BasePage):
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='botanical-family-create-dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")

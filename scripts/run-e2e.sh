@@ -33,7 +33,11 @@ echo "=== Waiting for frontend to be healthy ==="
 docker compose -f "$COMPOSE_FILE" $PROFILE_FLAG up -d --wait frontend
 
 echo "=== Running E2E tests (service: $SERVICE) ==="
-docker compose -f "$COMPOSE_FILE" $PROFILE_FLAG run --rm "$SERVICE"
+# --build rebuilds the e2e-tests/e2e-smoke image when local test sources changed
+# (the infrastructure block above only covers backend/frontend; without --build
+# here, edits in tests/e2e/ are silently ignored and the container reuses the
+# previously cached image).
+docker compose -f "$COMPOSE_FILE" $PROFILE_FLAG run --build --rm "$SERVICE"
 EXIT_CODE=$?
 
 echo "=== Collecting container logs ==="

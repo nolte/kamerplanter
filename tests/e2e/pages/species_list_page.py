@@ -21,7 +21,7 @@ class SpeciesListPage(BasePage):
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
     NEXT_PAGE = (By.CSS_SELECTOR, "[aria-label='Go to next page']")
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='species-create-dialog']")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 

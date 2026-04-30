@@ -88,22 +88,38 @@ class OnboardingWizardPage(BasePage):
     def open(self) -> OnboardingWizardPage:
         """Navigate to the onboarding wizard, ensure it starts on Step 1.
 
-        The backend persists ``wizard_step`` between page loads.  When tests
-        run sequentially in the same browser session the wizard may resume on
-        a later step.  This method handles three cases:
-
-        1. **Completed / Skipped** — the restart button is visible.  Click it
-           to reset backend state and return to Step 1.
-        2. **Resumed mid-wizard** — the welcome step is *not* visible.  Click
-           Back repeatedly until Step 1 (experience level) is shown.
-        3. **Fresh start** — the welcome step is already visible.  No action
-           needed.
+        Resets the backend wizard state via direct API call before navigating.
+        The previous UI-based Skip→Restart sequence (still kept as fallback in
+        ``_ensure_step_one``) races with the OnboardingWizard's ``useEffect``
+        that mirrors ``wizard_step`` into local state, causing intermittent
+        state-leak between tests on the same xdist worker. A direct
+        ``POST /onboarding/reset`` makes the reset deterministic.
         """
+        self._reset_wizard_via_api()
         self.navigate(self.PATH)
         self.wait_for_element(self.WIZARD)
         self.wait_for_loading_complete()
         self._ensure_step_one()
         return self
+
+    def _reset_wizard_via_api(self) -> None:
+        """Reset the onboarding wizard state via backend API.
+
+        Defaults to tenant_slug ``mein-garten`` (Light-Mode default per REQ-027).
+        Best-effort: silently no-ops on failure so the UI-based
+        ``_ensure_step_one`` can still recover.
+        """
+        import urllib.error
+        import urllib.request
+
+        url = f"{self.base_url}/api/v1/t/mein-garten/onboarding/reset"
+        try:
+            urllib.request.urlopen(  # noqa: S310 - internal compose network
+                urllib.request.Request(url, method="POST", data=b""),
+                timeout=5,
+            )
+        except (urllib.error.URLError, OSError):
+            pass
 
     def _ensure_step_one(self) -> None:
         """Reset the wizard to Step 1, always clearing backend state.

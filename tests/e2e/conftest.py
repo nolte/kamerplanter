@@ -347,7 +347,7 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
             {
                 "name": "E2E: Water indoor plants",
                 "name_de": "E2E: Zimmerpflanzen gießen",
-                "category": "watering",
+                "category": "care_reminder",
                 "priority": "high",
                 "due_date": (_now - _td(hours=2)).isoformat(),
                 "instruction_de": "Alle Zimmerpflanzen im Wohnzimmer gießen",
@@ -355,7 +355,7 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
             {
                 "name": "E2E: Check pH levels",
                 "name_de": "E2E: pH-Werte prüfen",
-                "category": "monitoring",
+                "category": "observation",
                 "priority": "medium",
                 "due_date": _now.isoformat(),
                 "instruction_de": "pH-Werte im Nährstofftank messen und dokumentieren",
