@@ -47,6 +47,8 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import PrintButton from '@/components/common/PrintButton';
+import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTaskQueue, fetchOverdueTasks } from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
@@ -887,9 +889,18 @@ export default function TaskQueuePage() {
       <PageTitle
         title={t('pages.tasks.queueTitle')}
         action={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {!bulkMode && (
               <>
+                {/* REQ-032 §2.2: care-checklist print button on the Pflege host
+                    page. The /pflege route now redirects here, so the button
+                    must live on TaskQueuePage. */}
+                <PrintButton
+                  onPrint={() => downloadCareChecklistPdf()}
+                  filename="care-checklist.pdf"
+                  label={t('print.careChecklist')}
+                  variant="button"
+                />
                 <Button
                   variant="outlined"
                   size="small"

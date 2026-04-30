@@ -305,7 +305,14 @@ class TreatmentListPage(BasePage):
     # -- Internal helpers -----------------------------------------------------
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
+        """Open an MUI Select and pick an option by its visible text.
+
+        Uses ``close_mui_dropdown`` (which checks for an open popover before
+        sending Escape) instead of an unconditional ``body.send_keys(ESCAPE)``.
+        Once MUI auto-closes the popover after the option click, an
+        unconditional Escape would fall through to the surrounding Dialog and
+        close it, breaking subsequent ``fill_*`` calls in the same test.
+        """
         import time
 
         field = self.wait_for_element_clickable(
@@ -316,10 +323,6 @@ class TreatmentListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
         time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
+        self.close_mui_dropdown()
         time.sleep(0.3)
