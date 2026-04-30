@@ -21,6 +21,7 @@ from app.api.v1.location_types.router import router as location_types_router
 from app.api.v1.observations.router import router as observations_router
 from app.api.v1.phase_sequences.router import router as phase_sequences_router
 from app.api.v1.phases.router import router as phase_control_router
+from app.api.v1.privacy.router import public_router as privacy_public_router
 from app.api.v1.profiles.router import router as profiles_router
 from app.api.v1.species.router import router as species_router
 from app.api.v1.starter_kits.router import router as starter_kits_router
@@ -55,6 +56,10 @@ api_router.include_router(mode_router)
 
 # Admin settings — available in both modes
 api_router.include_router(admin_settings_router)
+
+# Privacy policy endpoint is public in both modes per REQ-025 §3.6
+# (DSGVO Art. 13/14 Hinweispflicht applies regardless of auth mode).
+api_router.include_router(privacy_public_router)
 
 # Auth-related routers: only in full mode
 if settings.kamerplanter_mode == "full":
