@@ -1,0 +1,11 @@
+# Pinned external dependencies tracked by Renovate's custom manager.
+# Each entry carries a `# datasource=… depName=…` comment so renovate.json5
+# can resolve the upstream and PR an update.
+#
+# Spec: spec/nfr/NFR-014_Nuclei-Security-Scanning.md §3.3
+#
+# Consumed by .github/workflows/security-nuclei-*.yml — keep the YAML key
+# names stable; the workflows look them up via `yq`.
+
+# datasource=github-tags depName=projectdiscovery/nuclei-templates
+nuclei_templates_version: v10.4.2

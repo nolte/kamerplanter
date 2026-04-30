@@ -1,0 +1,40 @@
+id: kamerplanter-cors-misconfig
+
+info:
+  name: Kamerplanter — CORS misconfiguration (credentialed wildcard)
+  author: kamerplanter-security
+  severity: high
+  description: |
+    Sends a CORS preflight from an arbitrary origin and matches if the
+    backend echoes Access-Control-Allow-Origin: * (or the attacker origin)
+    *together* with Access-Control-Allow-Credentials: true. Either of those
+    combinations is a credentialed-wildcard misconfiguration that lets any
+    site read authenticated responses cross-origin. Tracks NFR-014 §3.2.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+    - https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties
+  classification:
+    cwe-id: CWE-942
+  tags: kamerplanter,cors,misconfig
+
+http:
+  - method: OPTIONS
+    path:
+      - "{{BaseURL}}/api/v1/health"
+      - "{{BaseURL}}/api/v1/auth/me"
+    headers:
+      Origin: "https://nuclei-cors-probe.kamerplanter.example"
+      Access-Control-Request-Method: "GET"
+      Access-Control-Request-Headers: "authorization,content-type"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "access-control-allow-credentials: true"
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "contains(tolower(all_headers), 'access-control-allow-origin: *') || contains(tolower(all_headers), 'access-control-allow-origin: https://nuclei-cors-probe.kamerplanter.example')"

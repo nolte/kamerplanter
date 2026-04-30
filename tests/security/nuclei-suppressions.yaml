@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./schemas/nuclei-suppressions.schema.yaml
+#
+# Versioned false-positive suppressions for Nuclei.
+# Spec: spec/nfr/NFR-014_Nuclei-Security-Scanning.md §6.1
+#
+# Every entry MUST carry:
+#   - template_id   — Nuclei template that produced the finding
+#   - reason        — concrete justification, not "false positive"
+#   - expires       — ISO-8601 date, max 12 months in the future
+#   - approved_by   — security-officer | maintainer | <github-handle>
+#
+# Optional:
+#   - matched_url   — only suppress for a specific URL (literal or regex)
+#   - matched_at    — Nuclei matcher name (e.g. "word", "status")
+#
+# Expired entries trigger a CI warning; after 30 days of grace, they fail
+# the build. Add a fresh entry rather than extending an old one.
+
+version: 1
+suppressions: []

@@ -1,0 +1,150 @@
+name: Security — Nuclei Nightly
+
+# NFR-014 §4.2 — daily full-tag DAST sweep against the staging environment.
+# Runs at 01:00 Europe/Berlin (winter); the ZAP nightly (NFR-015) follows
+# 60 minutes later so Nuclei's faster sweep gets first shot at staging.
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Override staging base URL (defaults to vars.STAGING_BASE_URL)."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+concurrency:
+  group: security-nuclei-nightly
+  cancel-in-progress: false
+
+jobs:
+  nuclei-full-scan:
+    name: Nuclei Nightly Full-Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve target
+        id: target
+        env:
+          INPUT_TARGET: ${{ inputs.target }}
+          DEFAULT_TARGET: ${{ vars.STAGING_BASE_URL }}
+        run: |
+          target="${INPUT_TARGET:-$DEFAULT_TARGET}"
+          if [[ -z "$target" ]]; then
+            echo "::error::No target supplied and vars.STAGING_BASE_URL is not configured." >&2
+            exit 1
+          fi
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Read pinned NUCLEI_TEMPLATES_VERSION
+        id: pin
+        run: |
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Clone & checkout pinned community templates
+        run: |
+          git clone --filter=blob:none \
+            https://github.com/projectdiscovery/nuclei-templates.git \
+            ./nuclei-templates
+          git -C ./nuclei-templates fetch --depth=1 origin "${{ steps.pin.outputs.version }}"
+          git -C ./nuclei-templates checkout FETCH_HEAD
+
+      - name: Build suppression flags
+        id: suppress
+        run: |
+          flags="$(./scripts/security/build-nuclei-flags.sh | tr '\n' ' ')"
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Install Nuclei
+        uses: projectdiscovery/nuclei-action@v3
+        with:
+          install-only: true
+
+      - name: Run Nuclei (full profile)
+        env:
+          KP_REQUIRE_DEBUG_LOCKDOWN: "1"
+        run: |
+          nuclei \
+            -t tests/security/nuclei-templates \
+            -t ./nuclei-templates \
+            -u "${{ steps.target.outputs.target }}" \
+            -tags exposure,misconfig,default-login,cve,vulnerability,kamerplanter \
+            -severity low,medium,high,critical \
+            -rate-limit 100 \
+            -timeout 15 \
+            -j -o "$GITHUB_WORKSPACE/results.jsonl" \
+            -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
+            ${{ steps.suppress.outputs.flags }}
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+          category: nuclei-nightly
+
+      - name: Archive raw results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuclei-nightly-${{ github.run_id }}
+          path: |
+            results.jsonl
+            results.sarif
+          retention-days: 365
+
+      - name: Open issue for new High/Critical findings
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('results.jsonl')) {
+              core.notice('No results.jsonl produced — skipping issue.');
+              return;
+            }
+            const lines = fs.readFileSync('results.jsonl', 'utf8').trim().split('\n').filter(Boolean);
+            const hits = lines.map(l => JSON.parse(l)).filter(r =>
+              r.info && (r.info.severity === 'high' || r.info.severity === 'critical')
+            );
+            if (hits.length === 0) {
+              core.notice('No High/Critical findings — no issue opened.');
+              return;
+            }
+            const summary = hits.slice(0, 20).map(h =>
+              `- \`${h['template-id']}\` (${h.info.severity}) — ${h['matched-at'] || h.host}`
+            ).join('\n');
+            const more = hits.length > 20 ? `\n…and ${hits.length - 20} more.` : '';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[nuclei-nightly] ${hits.length} High/Critical findings on ${process.env.RUN_URL.split('/').slice(-3).join('/')}`,
+              body: [
+                `Nightly Nuclei scan against \`${{ steps.target.outputs.target }}\` raised **${hits.length}** High/Critical findings.`,
+                '',
+                `Run: ${process.env.RUN_URL}`,
+                '',
+                '## Findings (truncated to 20)',
+                '',
+                summary + more,
+                '',
+                '## Triage',
+                '',
+                'Follow `docs/security/nuclei-triage.md`. Confirm reproduction with',
+                '`./scripts/security/nuclei-local.sh --profile full <target>`,',
+                'then open either a fix-forward PR or a suppression PR.',
+              ].join('\n'),
+              labels: ['security', 'nuclei', 'severity-high'],
+            });

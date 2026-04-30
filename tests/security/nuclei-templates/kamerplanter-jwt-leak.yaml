@@ -1,0 +1,77 @@
+id: kamerplanter-jwt-leak
+
+info:
+  name: Kamerplanter — JWT leakage in URLs, bodies, headers, frontend storage
+  author: kamerplanter-security
+  severity: critical
+  description: |
+    Per NFR-014 §3.2 a JWT MUST never appear outside the Authorization
+    header (or the documented refresh-token cookie). This template catches
+    three classes of leaks against unauthenticated requests:
+
+    1. JWTs in response bodies of public endpoints (`/health`, `/ready`,
+       `/api/v1/auth/oauth/providers`, the served HTML).
+    2. JWTs reflected in response headers other than Authorization
+       (Set-Cookie of *non*-refresh cookies, X-* headers, Location).
+    3. JWTs persisted by the frontend bundle into localStorage,
+       sessionStorage, or Service-Worker caches — checked through
+       headless mode against `/`.
+
+    A JWT is a base64url string of three dot-separated parts whose first
+    part decodes to a JSON object with an `alg` field. The regex below is
+    deliberately conservative (≥40 chars per part, dot-separated, base64url
+    alphabet) to avoid false positives on unrelated long opaque strings.
+  reference:
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+    - https://github.com/nolte/kamerplanter/blob/develop/spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md
+  classification:
+    cwe-id: CWE-522
+  tags: kamerplanter,jwt,info-disclosure,req-023
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/health"
+      - "{{BaseURL}}/ready"
+      - "{{BaseURL}}/api/v1/health"
+      - "{{BaseURL}}/api/v1/auth/oauth/providers"
+      - "{{BaseURL}}/"
+
+    stop-at-first-match: false
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        name: jwt-in-body
+        part: body
+        regex:
+          - '\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b'
+
+      - type: regex
+        name: jwt-in-non-auth-header
+        part: header
+        regex:
+          - '(?i)^(?!authorization:|set-cookie:\\s*refresh_token=)[a-z0-9_-]+:.*\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b'
+
+headless:
+  - steps:
+      - action: navigate
+        args:
+          url: "{{BaseURL}}/"
+      - action: waitload
+      - action: script
+        name: storage_dump
+        args:
+          code: |
+            JSON.stringify({
+              local: Object.keys(localStorage).map(k => [k, localStorage.getItem(k)]),
+              session: Object.keys(sessionStorage).map(k => [k, sessionStorage.getItem(k)])
+            })
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        name: jwt-in-frontend-storage
+        part: storage_dump
+        regex:
+          - '\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b'

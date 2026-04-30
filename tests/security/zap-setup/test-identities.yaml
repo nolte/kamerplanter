@@ -1,0 +1,40 @@
+# ZAP DAST cross-tenant test identities (NFR-015 §3.1).
+#
+# Pure data file. Consumed by tests/security/zap-setup/seed-test-identities.sh
+# which calls the public Backend API (POST /auth/register, POST /tenants/, …)
+# against a staging or CI instance. NOT loaded by the production backend.
+#
+# All identities use @zap.kamerplanter.example so the pre-deploy check can
+# block any production DB snapshot that contains them. The parent .example
+# TLD (RFC 2606) is accepted by the Pydantic email-validator; the .test TLD
+# is not.
+
+tenants:
+  - slug: zap-tenant-a
+    name: ZAP Tenant Alpha
+    owner_email: zap-tenant-a-admin@zap.kamerplanter.example
+  - slug: zap-tenant-b
+    name: ZAP Tenant Beta
+    owner_email: zap-tenant-b-admin@zap.kamerplanter.example
+
+users:
+  - email: zap-tenant-a-admin@zap.kamerplanter.example
+    display_name: ZAP Tenant-A Admin
+    password_env: KP_ZAP_PWD_TENANT_A_ADMIN
+    memberships:
+      - tenant_slug: zap-tenant-a
+        role: admin
+
+  - email: zap-tenant-a-viewer@zap.kamerplanter.example
+    display_name: ZAP Tenant-A Viewer
+    password_env: KP_ZAP_PWD_TENANT_A_VIEWER
+    memberships:
+      - tenant_slug: zap-tenant-a
+        role: viewer
+
+  - email: zap-tenant-b-admin@zap.kamerplanter.example
+    display_name: ZAP Tenant-B Admin
+    password_env: KP_ZAP_PWD_TENANT_B_ADMIN
+    memberships:
+      - tenant_slug: zap-tenant-b
+        role: admin
