@@ -9,7 +9,7 @@ status: idee
 priority: none
 effort: S
 created: 2026-04-30
-audit_run: 6b55695d
+audit_run: 340e527c
 ---
 
 # Ausfuehrungsplan: UI-NFR-015 HA Lovelace Custom Cards

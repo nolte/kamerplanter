@@ -8,7 +8,7 @@ ui-nfr-count: 19
 manifest-coverage: 72/72
 plans-open: 3
 plans-closed: 69
-repo-revision: 6b55695d
+repo-revision: 340e527c
 created: 2026-04-30
 mode: full
 ---
