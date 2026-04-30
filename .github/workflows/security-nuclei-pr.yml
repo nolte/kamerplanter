@@ -1,0 +1,237 @@
+name: Security — Nuclei PR Gate
+
+# NFR-014 §4.1 — fast template-based DAST scan against an ephemeral
+# Kamerplanter stack. Runs on every PR against develop/main but only when
+# code that could plausibly affect the deployed surface changes; pure
+# documentation or unrelated spec PRs are skipped via the path filter.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'src/backend/**'
+      - 'src/frontend/**'
+      - 'docker/**'
+      - 'docker-compose.e2e.yml'
+      - 'docker-compose.security.override.yml'
+      - 'tests/security/nuclei-templates/**'
+      - 'tests/security/nuclei-suppressions.yaml'
+      - 'scripts/security/**'
+      - '.github/workflows/security-nuclei-pr.yml'
+      - '.github/renovate-pins.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-nuclei-pr-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nuclei-pr-scan:
+    name: Nuclei PR-Scan (fast)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read pinned NUCLEI_TEMPLATES_VERSION
+        id: pin
+        run: |
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Pinned templates version: $version"
+
+      - name: Clone & checkout pinned community templates
+        run: |
+          git clone --filter=blob:none \
+            https://github.com/projectdiscovery/nuclei-templates.git \
+            ./nuclei-templates
+          git -C ./nuclei-templates fetch --depth=1 origin "${{ steps.pin.outputs.version }}"
+          git -C ./nuclei-templates checkout FETCH_HEAD
+
+      - name: Build suppression flags
+        id: suppress
+        run: |
+          flags="$(./scripts/security/build-nuclei-flags.sh | tr '\n' ' ')"
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Bring up ephemeral stack
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            up -d --wait backend frontend
+
+      - name: Wait for stack readiness
+        run: |
+          # Probes the same liveness path used by the docker-compose
+          # healthcheck (/api/v1/health/live) and the served frontend root.
+          # Window is 360s (60 retries × 6s) so the wait-loop survives the
+          # backend's first-run migrations + seeds, which the e2e compose
+          # base file invokes before declaring the service healthy.
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/api/v1/health/live >/dev/null \
+               && curl -fsS http://127.0.0.1:5173/ >/dev/null; then
+              echo "stack ready (try $i)"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::stack did not become ready within 360s" >&2
+          docker compose -p kamerplanter-security logs --tail 200 backend frontend
+          exit 1
+
+      - name: Generate OpenAPI spec from running backend
+        run: |
+          curl -fsS http://127.0.0.1:8000/api/v1/openapi.json -o openapi-raw.json
+          jq '.openapi' openapi-raw.json
+
+      - name: Convert OpenAPI 3.1 → 3.0 for Nuclei compatibility
+        # Nuclei's input-mode parser only supports OpenAPI 3.0. Three
+        # adjustments are needed:
+        # 1. `exclusiveMinimum` / `exclusiveMaximum` switched from boolean
+        #    (3.0) to numeric (3.1) — restore the boolean form and lift
+        #    the value into a separate `minimum` / `maximum` field.
+        # 2. Nullable types switched from `nullable: true` (3.0) to
+        #    `type: ["foo", "null"]` (3.1) — collapse back.
+        # 3. Inject a `servers` array. Nuclei refuses to scan a spec
+        #    without one, and FastAPI omits `servers` whenever no
+        #    `root_path` is configured.
+        run: |
+          jq '
+            walk(
+              if type == "object" then
+                (if (.exclusiveMinimum? | type) == "number"
+                   then .minimum = .exclusiveMinimum | .exclusiveMinimum = true
+                   else . end)
+                | (if (.exclusiveMaximum? | type) == "number"
+                   then .maximum = .exclusiveMaximum | .exclusiveMaximum = true
+                   else . end)
+                | (if (.type? | type) == "array" and (.type | index("null"))
+                   then .nullable = true | .type = (.type | map(select(. != "null")) | first)
+                   else . end)
+              else . end
+            )
+            | .openapi = "3.0.3"
+            | .servers = [{"url": "http://127.0.0.1:8000"}]
+          ' openapi-raw.json > openapi.json
+          echo "Converted to: $(jq -r '.openapi' openapi.json), servers: $(jq -c '.servers' openapi.json)"
+
+      - name: Install Nuclei
+        uses: projectdiscovery/nuclei-action@v3
+        with:
+          install-only: true
+
+      - name: Run Nuclei (HTTP surface)
+        run: |
+          nuclei \
+            -t tests/security/nuclei-templates \
+            -t ./nuclei-templates \
+            -u http://127.0.0.1:8000 \
+            -u http://127.0.0.1:5173 \
+            -tags exposure,misconfig,default-login,token-spray,kamerplanter \
+            -severity medium,high,critical \
+            -rate-limit 50 \
+            -timeout 10 \
+            -j -o "$GITHUB_WORKSPACE/results.jsonl" \
+            -sarif-export "$GITHUB_WORKSPACE/results.sarif" \
+            ${{ steps.suppress.outputs.flags }}
+
+      - name: Seed Nuclei OpenAPI fixtures (tenant + resources)
+        # The Kamerplanter REST API places nearly every endpoint under
+        # `/api/v1/t/{tenant_slug}/...` plus secondary keys like
+        # `{species_key}` and `{run_key}`. Without resolved values nuclei
+        # would either drop most requests or refuse to run. This step
+        # creates one resource of each kind via the public REST API and
+        # writes a `required_openapi_params.yaml` that nuclei consumes.
+        run: |
+          python3 scripts/security/seed-nuclei-openapi-fixtures.py
+          echo "--- required_openapi_params.yaml ---"
+          cat required_openapi_params.yaml
+
+      - name: Run Nuclei (OpenAPI surface)
+        if: always()
+        # OpenAPI input-mode in nuclei v3 runs DAST-flavoured templates
+        # against the deserialised spec (fuzzing / payload injection per
+        # parameter). It explicitly ignores the regular HTTP templates
+        # used by the HTTP-surface scan above. The `dast` tag and the
+        # `dast` template directory below select that category.
+        # `required_openapi_params.yaml` is read automatically from the
+        # CWD; running from $GITHUB_WORKSPACE keeps that contract.
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          ls -l required_openapi_params.yaml openapi.json
+          nuclei \
+            -t ./nuclei-templates/dast \
+            -l openapi.json \
+            -input-mode openapi \
+            -skip-format-validation \
+            -dast \
+            -severity high,critical \
+            -rate-limit 50 \
+            -timeout 10 \
+            -j -o openapi-results.jsonl \
+            -sarif-export openapi-results.sarif \
+            ${{ steps.suppress.outputs.flags }}
+
+      - name: Upload SARIF (HTTP scan) to Code Scanning
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: nuclei-pr-http
+
+      - name: Upload SARIF (OpenAPI scan) to Code Scanning
+        if: always() && hashFiles('openapi-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: openapi-results.sarif
+          category: nuclei-pr-openapi
+
+      - name: Archive raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-pr-results-${{ github.sha }}
+          path: |
+            results.jsonl
+            results.sarif
+            openapi-results.jsonl
+            openapi-results.sarif
+            openapi.json
+          retention-days: 90
+
+      - name: Tear down ephemeral stack
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.security.override.yml \
+            down -v --remove-orphans
+
+      - name: Fail on High/Critical findings
+        if: always()
+        run: |
+          fail=0
+          for f in results.jsonl openapi-results.jsonl; do
+            [[ -f "$f" ]] || continue
+            hits=$(jq -r '.info.severity' "$f" | grep -cE '^(high|critical)$' || true)
+            if [[ "$hits" -gt 0 ]]; then
+              echo "::error file=$f::$hits High/Critical findings"
+              jq -c 'select(.info.severity=="high" or .info.severity=="critical") | {id:."template-id", severity:.info.severity, host, "matched-at":."matched-at"}' "$f"
+              fail=1
+            fi
+          done
+          exit "$fail"
