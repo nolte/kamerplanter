@@ -103,23 +103,51 @@ class OnboardingWizardPage(BasePage):
         return self
 
     def _reset_wizard_via_api(self) -> None:
-        """Reset the onboarding wizard state via backend API.
+        """Reset the onboarding wizard state via backend API and verify.
 
         Defaults to tenant_slug ``mein-garten`` (Light-Mode default per REQ-027).
-        Best-effort: silently no-ops on failure so the UI-based
+        Posts to ``/onboarding/reset`` then re-reads ``/onboarding/state`` to
+        confirm the wizard is back in (completed=False, skipped=False,
+        wizard_step=0). Retries up to 3× with a short backoff because the
+        reset has been observed to race with the OnboardingService writes
+        on heavily loaded compose workers — a single POST sometimes returns
+        200 OK while the read-after-write still surfaces the previous
+        ``completed=True`` state for a brief window.
+        Falls through silently after the last attempt so the UI-based
         ``_ensure_step_one`` can still recover.
         """
+        import json
+        import time
         import urllib.error
         import urllib.request
 
-        url = f"{self.base_url}/api/v1/t/mein-garten/onboarding/reset"
-        try:
-            urllib.request.urlopen(  # noqa: S310 - internal compose network
-                urllib.request.Request(url, method="POST", data=b""),
-                timeout=5,
-            )
-        except (urllib.error.URLError, OSError):
-            pass
+        base = f"{self.base_url}/api/v1/t/mein-garten/onboarding"
+        for _ in range(3):
+            try:
+                urllib.request.urlopen(  # noqa: S310 - internal compose network
+                    urllib.request.Request(f"{base}/reset", method="POST", data=b""),
+                    timeout=5,
+                )
+            except (urllib.error.URLError, OSError):
+                time.sleep(0.3)
+                continue
+
+            try:
+                with urllib.request.urlopen(  # noqa: S310
+                    f"{base}/state",
+                    timeout=5,
+                ) as resp:
+                    state = json.loads(resp.read().decode("utf-8"))
+                if (
+                    not state.get("completed")
+                    and not state.get("skipped")
+                    and state.get("wizard_step", 0) == 0
+                ):
+                    return
+            except (urllib.error.URLError, OSError, ValueError):
+                pass
+
+            time.sleep(0.3)
 
     def _ensure_step_one(self) -> None:
         """Reset the wizard to Step 1, always clearing backend state.
