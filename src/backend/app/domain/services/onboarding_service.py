@@ -266,20 +266,28 @@ class OnboardingService:
     def reset_wizard(self, user_key: str) -> OnboardingState:
         """Reset wizard to initial state, allowing re-run.
 
-        Also removes any favorites that were added during onboarding
-        (source='onboarding') so the favorites step starts fresh.
+        Removes **all** onboarding-sourced and cascade-sourced favorite edges
+        for the user — not just those still tracked in the OnboardingState
+        snapshot. The snapshot can drift behind the canonical
+        ``user_favorites`` edge collection (concurrent E2E worker writes,
+        prior incomplete resets, manual API calls), so we read the live
+        edge list and prune by ``source`` to make the reset deterministic.
+        Manually added favorites (``source='manual'``) are preserved.
         """
         state = self.get_state(user_key)
 
-        # Clear onboarding-sourced favorites so fetchExistingFavorites returns empty
-        fav_keys_to_remove = list(state.favorite_species_keys or []) + list(state.favorite_nutrient_plan_keys or [])
-        if fav_keys_to_remove:
-            from app.domain.services.favorites_service import FavoritesService
+        from app.domain.services.favorites_service import FavoritesService
 
-            fav_service = FavoritesService(self._db)
-            for key in fav_keys_to_remove:
-                with contextlib.suppress(Exception):
-                    fav_service.remove_favorite(user_key, key)
+        fav_service = FavoritesService(self._db)
+        for edge in fav_service.list_favorites(user_key):
+            if edge.get("source") not in ("onboarding", "cascade"):
+                continue
+            target_id = edge.get("_to") or ""
+            target_key = target_id.split("/", 1)[-1]
+            if not target_key:
+                continue
+            with contextlib.suppress(Exception):
+                fav_service.remove_favorite(user_key, target_key)
 
         data = state.model_dump()
         data.update(
