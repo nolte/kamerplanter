@@ -4,6 +4,7 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
+import type { SxProps, Theme } from '@mui/material/styles';
 import PrintIcon from '@mui/icons-material/Print';
 import { useNotification } from '@/hooks/useNotification';
 
@@ -17,6 +18,8 @@ interface PrintButtonProps {
   /** Accessible label and tooltip text. Falls back to the generic i18n key 'print.downloadPdf'. */
   label?: string;
   disabled?: boolean;
+  /** Forwarded to the underlying MUI button — use to enforce minimum touch target sizes (UI-NFR-001 R-011). */
+  sx?: SxProps<Theme>;
 }
 
 /**
@@ -33,6 +36,7 @@ export function PrintButton({
   variant = 'icon',
   label,
   disabled = false,
+  sx,
 }: PrintButtonProps) {
   const { t } = useTranslation();
   const notification = useNotification();
@@ -74,6 +78,7 @@ export function PrintButton({
             aria-label={ariaLabel}
             color="default"
             data-testid="print-button"
+            sx={sx}
           >
             {loading ? <CircularProgress size={20} color="inherit" /> : <PrintIcon />}
           </IconButton>
@@ -90,6 +95,7 @@ export function PrintButton({
       disabled={disabled || loading}
       aria-label={ariaLabel}
       data-testid="print-button"
+      sx={sx}
     >
       {loading ? t('print.printing') : (label ?? t('print.downloadPdf'))}
     </Button>

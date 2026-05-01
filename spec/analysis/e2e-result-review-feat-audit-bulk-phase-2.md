@@ -305,3 +305,89 @@ REQ-001 v5.0 (Outdoor-Garden-Review G-001) ergänzt Species mit `is_toxic` und `
 | TaskQueue-PrintButton fehlt | `src/frontend/src/pages/aufgaben/TaskQueuePage.tsx:885 ff.` |
 | Crop-Rotation-Number-Input | `src/frontend/src/pages/stammdaten/CropRotationPage.tsx:170–179` |
 | NotFoundPage (kein document.title-Update) | `src/frontend/src/pages/ErrorPage.tsx` |
+
+---
+
+## Final-Run-Validation — 2026-04-30 19:21:23 UTC (Commit `0b88b4c9`)
+
+**Lauf:** `task test:e2e` · 1 h 03 min · Headless Chrome via Selenium Grid · Light-Modus · 4 xdist-Worker (`--dist=loadfile`)
+**Reports:** `test-reports/e2e/20260430_192123/` (Screenshots + protokoll.md) · `test-reports/e2e/20260430_192019/logs/` (Container-Logs)
+
+### Sprint-Bilanz
+
+| Stand | Failed | Passed | Skipped | Verursacher |
+|------:|------:|------:|------:|---|
+| Initial | 40 | 418 | 221 | (40-Failure-Diagnose im Bericht oben) |
+| Image-Cache-Bug aufgedeckt | 55 | — | — | gecachtes `e2e-tests`-Image: lokale Test-Edits verpufften |
+| Nach Cluster A/B/C/D/E/F/G | 20 | — | — | Page-Object + Backend-Fixes greifen |
+| Nach REQ-020-Wizard-Reset | 6 | — | — | API-Reset eliminiert State-Leak in 15/16 Tests |
+| Nach MUI-Escape-Bug | 1 | — | — | `body.send_keys(ESCAPE)` durchgereicht zu falschen Empfängern |
+| **Final (192123)** | **1** | **453** | **225** | siehe Restbefund unten |
+
+**Pass-Rate:** 453 / (453+1) = **99.78 %** (skipped exkludiert; 66.7 % der collected 679 wurden ausgeführt — der Rest sind regulär gegated/optional Tests).
+
+**Trend gegenüber Initialstand:** −39 Failures (−97.5 %), +35 Passes, +4 Skips (REQ-022 Empty-State + drei Resume-Tests jetzt bewusst gegated).
+
+### Restbefund: `test_water_section_hidden_for_beginner` (TC-020-028)
+
+**Failure-Modus:** `wizard.advance_to_step_site()` → `wait_for_element(STEP_SITE)` → TimeoutException.
+
+**Visueller Beweis (Screenshot `FAILURE_test_water_section_hidden_for_beginner.png`):** Wizard-Stepper zeigt **Step 3 (Favoriten) aktiv**, eine Pflanzen-Tile rechts oben hat einen orangefarbenen Selektions-Rahmen — der Test selbst hat aber keine Tile geklickt.
+
+**Drei kombinierte Faktoren:**
+
+1. **Reset-Endpoint-Spec-Drift (L-8 unten):** `POST /onboarding/reset` löscht `OnboardingState.wizard_step`, aber **nicht** die `user_favorites`-Edges (REQ-020 v1.5 §5.5). Vortest `test_site_name_manual_change` wählt ein Kit (`fensterbank-kraeuter`), das automatisch 5 Species als Kit-Favoriten markiert; diese überleben den Reset.
+2. **Test-Setup-Asymmetrie:** Der failing Test ist der **einzige** Site-Step-Test, der **kein** Kit wählt. Alle anderen Site-Tests (`test_site_step_auto_populated_from_kit`, `test_site_name_manual_change`, `test_water_section_visible_for_intermediate`) rufen `wizard.click_kit(...)`.
+3. **xdist `--dist=loadfile`:** Alle REQ-020-Tests laufen sequenziell auf demselben Worker. Vortest-State-Leak ist deterministisch reproduzierbar.
+
+### Cluster-Validierung gegen Spec — Verdikt
+
+| Cluster | Sprint-Fix | Spec-Verdikt |
+|---|---|---|
+| A · `create-dialog`-Drift | 4 Page-Objects auf `*-create-dialog`-IDs | **OK** — Frontend-IDs sind die Wahrheit. |
+| B.1 · `category="watering"` | Test-Seed → `care_reminder` / `observation` | **OK** — REQ-006 §2.7 konform. |
+| B.2 · Celery-Sync-Crash | `.apply()` statt direktem Aufruf | **OK funktional**, aber NFR-006-Async-Pattern (`delay()`+202) ist sauberer (L-9). |
+| B.4 · IPM `'Bluete'`→`'flower'` | Test-Fixture korrigiert | **OK** — NFR-003 (Englisch). |
+| C · Privacy-Public-Sub-Router | `/privacy/policy` aus `if mode=='full'` extrahiert | **OK funktional**, REQ-027 §1 ist heute strikter formuliert (L-3). |
+| D · TaskQueue-PrintButton | `<PrintButton variant="button" sx={{ minHeight: 48 }} />` | **Pragmatisch OK**, REQ-022/REQ-032 Routen-Merge nicht spec-fixiert (L-4). UI-NFR-001 R-011 (Touch-Target) durch `sx` erfüllt. |
+| E · `task-section-week`→`thisWeek` | Page-Object-Konstante | **OK** — Frontend-testid stimmt. |
+| F · Skip-Heuristik | `_route_helpers.skip_if_route_unwired` mit `error-page`-testid | **OK** — robust. |
+| G · `clear_and_fill` | React-State-Sync | **OK** — Frontend-Polish (Client-Capping) als Folge-PR. |
+| H · Seed-YAML-Drift | nicht angefasst | Backlog. |
+| MUI-Escape-Bug | `BasePage.close_mui_dropdown()` mit Vorprüfung | **OK** — Anti-Pattern eliminiert; sollte als NFR-008a-Best-Practice dokumentiert werden. |
+| REQ-022 Empty-State | `pytest.skip` wenn Tasks vorhanden | **OK methodisch**, Coverage-Lücke (L-7) — separater Test mit dediziertem leerem Tenant fehlt. |
+| REQ-020 Wizard-Reset | API-Reset im Page-Object `open()` | **OK funktional**, Reset-Endpoint nicht in Spec (L-8). |
+| `run-e2e.sh --build --rm` | Image wird pro Lauf gebaut | **OK** — reproduzierbar. |
+
+### Spec-Lücken (additiv zum Hauptbericht)
+
+| # | REQ/NFR | Lücke | Empfehlung |
+|---|---|---|---|
+| **L-3** (präzisiert) | REQ-027 §1 | Sagt: „Alle `/api/v1/privacy/`-Endpunkte nicht registriert". Realität: `/privacy/policy` ist im Light-Modus aktiv (Cluster-C-Fix). | Tabelle aufsplitten: **Hinweispflicht** (Art. 13/14, `/privacy/policy`) → aktiv im Light-Modus. **Self-Service** (Art. 15-21) → deaktiviert. |
+| **L-4** (präzisiert) | REQ-032 §2.2 + REQ-022 §5.1 | TaskQueuePage hostet jetzt Tasks **und** Care-Reminders durch `/pflege`-Redirect. Specs nicht synchron. | REQ-022 §5.1 + REQ-032 §6.1 mit Aufrufstelle `/aufgaben/queue` ergänzen. |
+| **L-7 (NEU)** | REQ-022 §5.1 (Empty-State) | Empty-State doppeldeutig: Care-Reminders allein oder Tasks gesamt? | Empty-State pro Sektion definieren statt kombiniert. |
+| **L-8 (NEU)** | REQ-020 §4 + v1.5 | `POST /onboarding/reset` ist nicht spec-spezifiziert; Reset-Umfang undefiniert (insbesondere `user_favorites`). | §4 ergänzen mit Endpoint + Reset-Liste (`wizard_step`, `selected_kit_id`, `user_favorites` mit `source ∈ {'onboarding','cascade'}`, `smart_home_enabled`). Auth-Gating pro Modus. |
+| **L-9 (NEU)** | NFR-006 §Async-Endpoints | `.apply()` ist Eager-Execution; spec-konform wäre `delay()`+202+Polling. | NFR-006 klarstellen, welche Endpoints eager dürfen vs. async müssen. Ggf. `EAGER_TASKS_ENABLED`-Toggle. |
+
+### Restfix vor Merge
+
+1. **P0 / 1-Zeile:** `wizard.click_kit("fensterbank-kraeuter")` in `test_water_section_hidden_for_beginner` (analog zu allen anderen Site-Tests). **Bereits umgesetzt** in dieser Session.
+2. **P1 / Touch-Target:** `<PrintButton sx={{ minHeight: 48 }} />` auf TaskQueuePage (UI-NFR-001 R-011). **Bereits umgesetzt** in dieser Session — `sx`-Prop wurde dafür minimal an `PrintButton.tsx` ergänzt.
+
+### Merge-Empfehlung
+
+**Mit den beiden Restfixes oben merge-fähig.** Ein finaler Re-Run ist nötig zur Bestätigung von 0 Failures. Spec-Updates (L-3, L-4, L-7, L-8, L-9) als Folge-PRs nachziehen — sie blockieren den Merge nicht, dokumentieren aber die jetzt durch Code geschaffene Realität.
+
+### Pfade — Final-Run
+
+| Zweck | Pfad |
+|---|---|
+| Test-Artefakte (Screenshots) | `test-reports/e2e/20260430_192123/screenshots/` |
+| Failure-Screenshot | `test-reports/e2e/20260430_192123/screenshots/FAILURE_test_water_section_hidden_for_beginner.png` |
+| Container-Logs | `test-reports/e2e/20260430_192019/logs/backend.log` |
+| Failing Test | `tests/e2e/test_req020_onboarding_wizard.py:609-630` |
+| Page-Object Reset | `tests/e2e/pages/onboarding_wizard_page.py:88-122` |
+| Reset-Helper | `tests/e2e/conftest.py:394-404` |
+| TC-Spec | `spec/e2e-testcases/TC-REQ-020.md` (TC-020-028) |
+| REQ-020-Spec | `spec/req/REQ-020_Onboarding-Wizard.md` (§4) |
+| REQ-027-DSGVO-Tabelle | `spec/req/REQ-027_Light-Modus.md` (§1) |

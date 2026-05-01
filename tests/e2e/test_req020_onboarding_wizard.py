@@ -618,6 +618,13 @@ class TestSiteSetupStep:
         """
         wizard.open()
         wizard.advance_to_step_kit()
+        # Pick a kit so the favorites step has a stable preselection.  Without
+        # this step the favorites tile state leaks from the previous test on
+        # the same xdist worker (loadfile distribution) — symptom: the Next
+        # button on the favorites step is intermittently disabled and
+        # advance_to_step_site() times out waiting for STEP_SITE.  All other
+        # site-step tests in this class follow the same pattern.
+        wizard.click_kit("fensterbank-kraeuter")
         wizard.advance_to_step_favorites()
         wizard.advance_to_step_site()
         screenshot(

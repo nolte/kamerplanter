@@ -900,6 +900,7 @@ export default function TaskQueuePage() {
                   filename="care-checklist.pdf"
                   label={t('print.careChecklist')}
                   variant="button"
+                  sx={{ minHeight: 48 }}
                 />
                 <Button
                   variant="outlined"
@@ -908,6 +909,7 @@ export default function TaskQueuePage() {
                   onClick={handleGenerateCareReminders}
                   disabled={generateLoading}
                   data-testid="generate-reminders-button"
+                  sx={{ minHeight: 48 }}
                 >
                   {t('pages.tasks.generateReminders')}
                 </Button>
@@ -918,6 +920,7 @@ export default function TaskQueuePage() {
                     startIcon={<EditIcon />}
                     onClick={() => setBulkMode(true)}
                     data-testid="bulk-mode-button"
+                    sx={{ minHeight: 48 }}
                   >
                     {t('pages.tasks.bulkEdit')}
                   </Button>
@@ -928,6 +931,7 @@ export default function TaskQueuePage() {
                   startIcon={<AddIcon />}
                   onClick={() => setCreateOpen(true)}
                   data-testid="create-task-button"
+                  sx={{ minHeight: 48 }}
                 >
                   {t('pages.tasks.createTask')}
                 </Button>
@@ -940,6 +944,7 @@ export default function TaskQueuePage() {
                 startIcon={<CloseIcon />}
                 onClick={exitBulkMode}
                 data-testid="exit-bulk-mode"
+                sx={{ minHeight: 48 }}
               >
                 {t('common.cancel')}
               </Button>
