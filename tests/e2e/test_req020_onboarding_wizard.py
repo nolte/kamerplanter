@@ -607,15 +607,6 @@ class TestSiteSetupStep:
         )
 
     @pytest.mark.core_crud
-    @pytest.mark.xfail(
-        reason=(
-            "REQ-020 reset endpoint does not deterministically clear inter-test "
-            "wizard state on shared xdist workers (loadfile distribution). "
-            "See spec/analysis/e2e-result-review-feat-audit-bulk-phase-2.md L-8 "
-            "(POST /onboarding/reset spec drift)."
-        ),
-        strict=False,
-    )
     def test_water_section_hidden_for_beginner(
         self,
         wizard: OnboardingWizardPage,

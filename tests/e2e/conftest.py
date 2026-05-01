@@ -404,16 +404,29 @@ def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | No
     return _post(url, data or {})
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict) -> webdriver.Remote:
-    """Create a headless browser session per xdist worker (NFR-008 §3.1).
+    """Create a fresh headless browser session per test (NFR-008 §3.1).
 
     Depends on ``e2e_seed_data`` to ensure the demo user exists before
     attempting browser login in full mode.
 
-    With pytest-xdist, ``scope="session"`` means one session per worker
-    process — each of the N workers gets exactly one browser.  Without
-    xdist, all tests share a single browser as before.
+    Function-scope (one Remote-WebDriver session per test) instead of the
+    cheaper session-scope (one per xdist worker) is required because the
+    REQ-020/REQ-021 wizard tests interact via shared backend tenant state.
+    On session-scope a single test that leaves the Wizard in a bad state
+    (e.g. ``OnboardingState.skipped=True`` after the seed-fixture's
+    ``/onboarding/skip`` call) cascades into every subsequent test on the
+    same xdist worker — observed as 14–17 failures all attributed to one
+    worker (gw3) while the other workers stayed clean. Per-test browser
+    sessions guarantee a clean cookie/localStorage/sessionStorage starting
+    point for every test; combined with the per-test
+    ``OnboardingWizardPage._reset_wizard_via_api`` this yields
+    deterministic state.
+
+    Cost: one extra Remote WebDriver allocation per test (~1–2 s on
+    Selenium Grid). At ~450 executed tests this adds ~10–15 min to a full
+    suite run, parallelised across 4 xdist workers.
 
     When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
     a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
