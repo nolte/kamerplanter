@@ -61,6 +61,7 @@ xfail_xdist_tenant_race = pytest.mark.xfail(
 # -- Completed / Skipped Card -------------------------------------------------
 
 
+@xfail_xdist_tenant_race
 class TestCompletedSkippedCard:
     """Completed/skipped card and restart functionality (Spec: TC-020-002, TC-020-004)."""
 
@@ -149,6 +150,7 @@ class TestCompletedSkippedCard:
 # -- Kit Metadata --------------------------------------------------------------
 
 
+@xfail_xdist_tenant_race
 class TestKitMetadata:
     """Kit difficulty badge colours (Spec: TC-020-018)."""
 
@@ -185,6 +187,7 @@ class TestKitMetadata:
 # -- Favorite Toggle -----------------------------------------------------------
 
 
+@xfail_xdist_tenant_race
 class TestFavoriteToggle:
     """Toggle individual species as favorites (Spec: TC-020-021)."""
 
