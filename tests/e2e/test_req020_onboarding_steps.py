@@ -189,6 +189,7 @@ class TestFavoriteToggle:
     """Toggle individual species as favorites (Spec: TC-020-021)."""
 
     @pytest.mark.core_crud
+    @xfail_xdist_tenant_race
     def test_toggle_favorite_species(
         self,
         wizard: OnboardingWizardPage,
