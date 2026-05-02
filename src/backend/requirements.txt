@@ -165,7 +165,7 @@ vine==5.1.0
     #   kombu
 watchfiles==1.1.1
     # via uvicorn
-wcwidth==0.6.0
+wcwidth==0.7.0
     # via prompt-toolkit
 weasyprint>=62.0
     # via kamerplanter-backend (pyproject.toml)
