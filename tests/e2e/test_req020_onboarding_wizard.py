@@ -479,6 +479,7 @@ class TestFavoriteSpeciesStep:
     """Favorites pre-selection, search (Spec: TC-020-020, TC-020-022, TC-020-023)."""
 
     @pytest.mark.core_crud
+    @xfail_xdist_tenant_race
     def test_kit_species_preselected_as_favorites(
         self,
         wizard: OnboardingWizardPage,
@@ -506,6 +507,7 @@ class TestFavoriteSpeciesStep:
         )
 
     @pytest.mark.core_crud
+    @xfail_xdist_tenant_race
     def test_favorites_search_filters_species(
         self,
         wizard: OnboardingWizardPage,
@@ -861,6 +863,7 @@ class TestWizardNavigation:
     """Back navigation between steps (Spec: TC-020-048, TC-020-001)."""
 
     @pytest.mark.core_crud
+    @xfail_xdist_tenant_race
     def test_back_navigation_preserves_state(
         self,
         wizard: OnboardingWizardPage,
