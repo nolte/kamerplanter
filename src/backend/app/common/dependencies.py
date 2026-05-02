@@ -842,6 +842,19 @@ def get_knowledge_client():
     return KnowledgeServiceClient(base_url=settings.knowledge_service_url)
 
 
+def get_dashboard_service():
+    """REQ-009 dashboard aggregation service."""
+    from app.domain.services.dashboard_service import DashboardService
+
+    return DashboardService(
+        plant_repo=get_plant_repo(),
+        task_repo=get_task_repo(),
+        tank_repo=get_tank_repo(),
+        care_repo=get_care_reminder_repo(),
+        activity_repo=get_activity_repo(),
+    )
+
+
 def close_timescale_connection() -> None:
     global _timescale_connection
     if _timescale_connection is not None:

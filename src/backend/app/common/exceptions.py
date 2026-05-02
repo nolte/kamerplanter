@@ -134,6 +134,17 @@ class ValidationError(KamerplanterError):
         )
 
 
+class FeedExpiredError(KamerplanterError):
+    """REQ-015 v1.6 CF-005 — calendar feed past expires_at returns HTTP 410."""
+
+    def __init__(self, feed_key: str) -> None:
+        super().__init__(
+            message=f"Calendar feed '{feed_key}' has expired.",
+            error_code="FEED_EXPIRED",
+            status_code=410,
+        )
+
+
 class KarenzViolationError(KamerplanterError):
     def __init__(self, active_ingredient: str, days_remaining: int) -> None:
         super().__init__(

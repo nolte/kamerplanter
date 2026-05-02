@@ -9,6 +9,7 @@ from app.api.v1.care_reminders.router import router as care_reminders_router
 from app.api.v1.companion_planting.router import router as companion_router
 from app.api.v1.crop_rotation.router import router as rotation_router
 from app.api.v1.cultivars.router import router as cultivars_router
+from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
 from app.api.v1.growth_phases.router import router as phases_router
@@ -20,6 +21,7 @@ from app.api.v1.location_types.router import router as location_types_router
 from app.api.v1.observations.router import router as observations_router
 from app.api.v1.phase_sequences.router import router as phase_sequences_router
 from app.api.v1.phases.router import router as phase_control_router
+from app.api.v1.privacy.router import public_router as privacy_public_router
 from app.api.v1.profiles.router import router as profiles_router
 from app.api.v1.species.router import router as species_router
 from app.api.v1.starter_kits.router import router as starter_kits_router
@@ -55,6 +57,10 @@ api_router.include_router(mode_router)
 # Admin settings — available in both modes
 api_router.include_router(admin_settings_router)
 
+# Privacy policy endpoint is public in both modes per REQ-025 §3.6
+# (DSGVO Art. 13/14 Hinweispflicht applies regardless of auth mode).
+api_router.include_router(privacy_public_router)
+
 # Auth-related routers: only in full mode
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
@@ -87,6 +93,7 @@ api_router.include_router(ipm_router)
 api_router.include_router(tenants_router)
 api_router.include_router(tenant_scoped_router)
 api_router.include_router(care_reminders_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(starter_kits_router)
 api_router.include_router(imports_router)
 api_router.include_router(activities_router)

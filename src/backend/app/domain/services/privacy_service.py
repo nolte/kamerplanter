@@ -563,3 +563,80 @@ class PrivacyService:
             ),
             rights_summary=rights,
         )
+
+    # ── NFR-011 retention pipeline (Celery-driven) ─────────────────
+    # The four hooks below are called by ``app.tasks.retention_tasks``.
+    # They scaffold the retention pipeline so the schedulers wire end
+    # to end; the actual data walk + object-storage cleanup land with
+    # NFR-013 (S3 adapter) — until then these methods short-circuit on
+    # the repository and log the work that *would* happen.
+
+    async def process_data_export(self, export_key: str) -> DataExportRequest | None:
+        """Build the export bundle and flip the request to ``completed``.
+
+        Pipeline (full implementation depends on NFR-013 object storage):
+        1. Load DataExportRequest
+        2. Walk all user-owned collections → JSON manifest
+        3. Upload to object storage, capture file_path + file_size_bytes
+        4. Set status=completed, expires_at=now+72h (NFR-011 R-05)
+        """
+        export = self._export_repo.get_by_key(export_key)
+        if export is None:
+            logger.warning("retention.process_data_export.missing", export_key=export_key)
+            return None
+        if export.status != "pending":
+            logger.info(
+                "retention.process_data_export.skipped",
+                export_key=export_key,
+                status=export.status,
+            )
+            return export
+
+        logger.info(
+            "retention.process_data_export.scaffold",
+            export_key=export_key,
+            note="full data-walk and S3 upload pending NFR-013",
+        )
+        # Scaffolded transition: flip pending → processing so the run is
+        # observable; the worker that lands NFR-013 finishes the flow.
+        export.status = "processing"
+        export.processing_started_at = datetime.now(UTC)
+        return self._export_repo.update(export_key, export)
+
+    async def execute_scheduled_erasures(self, now: datetime) -> int:
+        """Hard-delete users whose 90-day soft-delete grace expired.
+
+        Returns the number of erasures finalised in this run. Until the
+        full hard-delete pipeline lands (depends on NFR-013 object storage
+        and audit-log pseudonymisation), this method just logs candidate
+        records.
+        """
+        candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat())
+        if not candidates:
+            return 0
+        logger.info(
+            "retention.execute_scheduled_erasures.scaffold",
+            count=len(candidates),
+            note="hard-delete pipeline pending NFR-013 + audit pseudonymisation",
+        )
+        return len(candidates)
+
+    async def expire_email_change_requests(self, now: datetime) -> int:
+        """Mark unconfirmed email-change requests older than 24 h as expired."""
+        affected = self._email_change_repo.expire_old(now.isoformat())
+        if affected:
+            logger.info(
+                "retention.expire_email_change_requests.completed",
+                expired=affected,
+            )
+        return affected
+
+    async def expire_data_exports(self, now: datetime) -> int:
+        """Flip completed exports past their 72-hour expiry to ``expired``."""
+        affected = self._export_repo.expire_old(now.isoformat())
+        if affected:
+            logger.info(
+                "retention.expire_data_exports.completed",
+                expired=affected,
+            )
+        return affected

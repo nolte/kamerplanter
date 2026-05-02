@@ -70,3 +70,23 @@ class ArangoDataExportRepository(IDataExportRepository, BaseArangoRepository):
         query = f"FOR e IN {col.REQUESTED_EXPORT} FILTER e._to == @export_id REMOVE e IN {col.REQUESTED_EXPORT}"
         self._db.aql.execute(query, bind_vars={"export_id": export_id})
         return BaseArangoRepository.delete(self, key)
+
+    def expire_old(self, now_iso: str) -> int:
+        """Flip completed exports past their 72-hour expiry to ``status=expired``.
+
+        NFR-011 R-05 — called by the daily Celery retention task.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status == 'completed' AND doc.expires_at != null AND doc.expires_at < @now
+          UPDATE doc WITH { status: 'expired' } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.DATA_EXPORT_REQUESTS,
+                "now": now_iso,
+            },
+        )
+        return sum(1 for _ in cursor)

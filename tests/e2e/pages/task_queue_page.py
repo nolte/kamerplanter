@@ -45,7 +45,7 @@ class TaskQueuePage(BasePage):
     # ── Task sections (urgency groups) ─────────────────────────────────
     TASK_SECTION_OVERDUE = (By.CSS_SELECTOR, "[data-testid='task-section-overdue']")
     TASK_SECTION_TODAY = (By.CSS_SELECTOR, "[data-testid='task-section-today']")
-    TASK_SECTION_WEEK = (By.CSS_SELECTOR, "[data-testid='task-section-week']")
+    TASK_SECTION_WEEK = (By.CSS_SELECTOR, "[data-testid='task-section-thisWeek']")
     TASK_SECTION_FUTURE = (By.CSS_SELECTOR, "[data-testid='task-section-future']")
 
     # ── Create dialog (MUI Dialog) ─────────────────────────────────────

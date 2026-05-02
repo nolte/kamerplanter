@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(task lint)",
+      "Bash(vale *)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {

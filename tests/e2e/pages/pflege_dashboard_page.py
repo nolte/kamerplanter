@@ -108,6 +108,19 @@ class PflegeDashboardPage(BasePage):
         elements = self.driver.find_elements(*self.EMPTY_STATE)
         return len(elements) > 0 and elements[0].is_displayed()
 
+    def has_task_cards(self) -> bool:
+        """Return True if any task card is rendered.
+
+        The Pflege route is currently merged into the TaskQueue page; task
+        cards (``[data-testid='task-card']``) sharing the page indicate the
+        page is populated by REQ-006 seed data even when no care reminders
+        exist for the tenant.
+        """
+        elements = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='task-card']"
+        )
+        return any(el.is_displayed() for el in elements)
+
     # ── Urgency sections ──────────────────────────────────────────────
 
     def has_overdue_section(self) -> bool:

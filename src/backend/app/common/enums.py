@@ -545,8 +545,17 @@ class CareStyleType(StrEnum):
     MEDITERRANEAN = "mediterranean"
     FERN = "fern"
     CACTUS = "cactus"
+    # Outdoor presets — REQ-022 v2.5 §3.1
     OUTDOOR_ANNUAL_VEG = "outdoor_annual_veg"
+    OUTDOOR_ANNUAL_ORNAMENTAL = "outdoor_annual_ornamental"
     OUTDOOR_PERENNIAL = "outdoor_perennial"
+    FRUIT_TREE = "fruit_tree"
+    BERRY_SHRUB = "berry_shrub"
+    ROSE = "rose"
+    FROST_TENDER_TUBER = "frost_tender_tuber"
+    FROST_TENDER_CONTAINER = "frost_tender_container"
+    WINTER_VEGETABLE = "winter_vegetable"
+    SPRING_BULB = "spring_bulb"
     CUSTOM = "custom"
 
 
@@ -557,6 +566,12 @@ class ReminderType(StrEnum):
     PEST_CHECK = "pest_check"
     LOCATION_CHECK = "location_check"
     HUMIDITY_CHECK = "humidity_check"
+    # REQ-022 v2.5 outdoor + overwintering reminder types §3.2
+    DEADHEADING = "deadheading"
+    TUBER_DIG = "tuber_dig"
+    STORAGE_CHECK = "storage_check"
+    SPRING_UNCOVER = "spring_uncover"
+    WINTER_PROTECTION = "winter_protection"
 
 
 class ConfirmAction(StrEnum):

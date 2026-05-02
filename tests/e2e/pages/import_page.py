@@ -132,18 +132,16 @@ class ImportPage(BasePage):
             )
         )
         option.click()
-        # Wait for dropdown to close and dismiss any lingering backdrop
+        # MUI auto-closes the popover on option click. Use the guarded
+        # ``close_mui_dropdown`` helper instead of an unconditional Escape so
+        # the keystroke does not fall through and dismiss a surrounding modal.
         time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
+        self.close_mui_dropdown()
         time.sleep(0.3)
 
     def get_entity_type_options(self) -> list[str]:
         """Open the entity type dropdown and return all option texts."""
         import time
-        from selenium.webdriver.common.keys import Keys
 
         select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
         self.scroll_and_click(select_el)
@@ -151,8 +149,7 @@ class ImportPage(BasePage):
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li[role='option']"))
         )
         texts = [o.text for o in options]
-        # Close dropdown by pressing Escape
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        self.close_mui_dropdown()
         time.sleep(0.5)  # Wait for backdrop to fully dismiss
         return texts
 
@@ -171,7 +168,6 @@ class ImportPage(BasePage):
     def select_duplicate_strategy(self, value_text: str) -> None:
         """Open the duplicate strategy dropdown and select an option."""
         import time
-        from selenium.webdriver.common.keys import Keys
 
         select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
         self.scroll_and_click(select_el)
@@ -181,18 +177,16 @@ class ImportPage(BasePage):
             )
         )
         option.click()
-        # Wait for dropdown to close and dismiss any lingering backdrop
+        # MUI auto-closes the popover on option click. Guarded close_mui_dropdown
+        # avoids a stray Escape that would race the option's onChange handler
+        # and revert the selection to the previous default.
         time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
+        self.close_mui_dropdown()
         time.sleep(0.3)
 
     def get_duplicate_strategy_options(self) -> list[str]:
         """Open the duplicate strategy dropdown and return all option texts."""
         import time
-        from selenium.webdriver.common.keys import Keys
 
         select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
         self.scroll_and_click(select_el)
@@ -200,7 +194,7 @@ class ImportPage(BasePage):
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li[role='option']"))
         )
         texts = [o.text for o in options]
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        self.close_mui_dropdown()
         time.sleep(0.5)  # Wait for backdrop to fully dismiss
         return texts
 

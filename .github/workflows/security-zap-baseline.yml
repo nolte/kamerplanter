@@ -1,0 +1,46 @@
+name: Security — ZAP Baseline
+
+# NFR-015 §4 PR-time OWASP ZAP Baseline scan against the local stack.
+# Scaffold workflow: the actual scan orchestration (Skaffold-driven
+# ephemeral environment, authenticated scan profile, AjaxSpider for
+# the React SPA, SARIF upload to GitHub code scanning) lands in the
+# NFR-015 follow-up.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "src/backend/**"
+      - "src/frontend/**"
+      - "helm/**"
+      - "tests/security/zap/**"
+      - "tests/security/zap-rules.tsv"
+      - "tests/security/zap-api-rules.tsv"
+      - "tests/security/zap-setup/**"
+      - ".github/workflows/security-zap-*.yml"
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+  pull-requests: write
+
+concurrency:
+  group: security-zap-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate ZAP config files (scaffold)
+        run: |
+          # Smoke check that the rule files exist + parse — full scan
+          # against the local stack lands in the NFR-015 follow-up that
+          # wires the Skaffold profile into CI.
+          test -f tests/security/zap-rules.tsv || (echo "missing zap-rules.tsv"; exit 1)
+          test -f tests/security/zap-api-rules.tsv || (echo "missing zap-api-rules.tsv"; exit 1)
+          test -d tests/security/zap-setup || (echo "missing zap-setup/"; exit 1)
+          echo "ZAP scaffold OK"

@@ -110,9 +110,12 @@ class CropRotationPage(BasePage):
         return texts
 
     def set_dialog_wait_years(self, years: str) -> None:
+        # MUI controlled number input + useState default: el.clear() drops the
+        # DOM value but React-state survives, so plain send_keys() concatenates
+        # ("3" + "4" = "34"). clear_and_fill() syncs the React state via the
+        # native value-setter + input/change events.
         el = self.wait_for_element_clickable(self.DIALOG_WAIT_YEARS)
-        el.clear()
-        el.send_keys(years)
+        self.clear_and_fill(el, years)
 
     def click_dialog_create(self) -> None:
         self.close_mui_dropdown()

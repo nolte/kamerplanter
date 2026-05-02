@@ -20,6 +20,10 @@ class CalendarEvent(BaseModel):
     site_key: str | None = None
     location_key: str | None = None
     metadata: dict = Field(default_factory=dict)
+    # REQ-015 v1.6: iCal VEVENT extras (RFC 5545 + Spec §3.3 line 1938)
+    priority: int | None = Field(default=None, ge=0, le=9)
+    status: str | None = None  # CONFIRMED | TENTATIVE | CANCELLED (RFC 5545)
+    alarm_minutes_before: int | None = Field(default=None, ge=0)
 
 
 class CalendarEventsQuery(BaseModel):
@@ -43,6 +47,9 @@ class CalendarFeed(BaseModel):
     user_key: str = ""
     filters: CalendarFeedFilters = Field(default_factory=CalendarFeedFilters)
     is_active: bool = True
+    # REQ-015 CF-005 (Spec §3.3 line 94): optional expiry — feed becomes
+    # invalid after this timestamp and the iCal endpoint returns HTTP 410.
+    expires_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -51,9 +51,10 @@ class ExpertiseLevelPage(BasePage):
     SHOW_ALL_FIELDS_BUTTON = (By.CSS_SELECTOR, "button:has(> .MuiSvgIcon-root)")
 
     # ── Create dialog ────────────────────────────────────────────────
-    # SpeciesCreateDialog has data-testid='create-dialog', but
-    # PlantingRunCreateDialog does not.  Use a fallback chain.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog'], div[role='dialog']")
+    # SpeciesCreateDialog has data-testid='species-create-dialog'.
+    # PlantingRunCreateDialog has no custom testid, only role='dialog'.
+    # Use a fallback chain.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='species-create-dialog'], div[role='dialog']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Species list page ────────────────────────────────────────────
@@ -288,9 +289,9 @@ class ExpertiseLevelPage(BasePage):
         """Open the SpeciesCreateDialog from the species list page."""
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
-        # SpeciesCreateDialog has data-testid='create-dialog'
+        # SpeciesCreateDialog has data-testid='species-create-dialog'
         self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+            (By.CSS_SELECTOR, "[data-testid='species-create-dialog']")
         )
 
     def open_planting_run_create_dialog(self) -> None:
@@ -318,7 +319,7 @@ class ExpertiseLevelPage(BasePage):
     def is_create_dialog_open(self) -> bool:
         """Check if a create dialog is currently open."""
         # Check for both data-testid and role-based selectors
-        for sel in ["[data-testid='create-dialog']", "div[role='dialog']"]:
+        for sel in ["[data-testid='species-create-dialog']", "div[role='dialog']"]:
             elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
             if elements and elements[0].is_displayed():
                 return True

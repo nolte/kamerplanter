@@ -88,22 +88,66 @@ class OnboardingWizardPage(BasePage):
     def open(self) -> OnboardingWizardPage:
         """Navigate to the onboarding wizard, ensure it starts on Step 1.
 
-        The backend persists ``wizard_step`` between page loads.  When tests
-        run sequentially in the same browser session the wizard may resume on
-        a later step.  This method handles three cases:
-
-        1. **Completed / Skipped** — the restart button is visible.  Click it
-           to reset backend state and return to Step 1.
-        2. **Resumed mid-wizard** — the welcome step is *not* visible.  Click
-           Back repeatedly until Step 1 (experience level) is shown.
-        3. **Fresh start** — the welcome step is already visible.  No action
-           needed.
+        Resets the backend wizard state via direct API call before navigating.
+        The previous UI-based Skip→Restart sequence (still kept as fallback in
+        ``_ensure_step_one``) races with the OnboardingWizard's ``useEffect``
+        that mirrors ``wizard_step`` into local state, causing intermittent
+        state-leak between tests on the same xdist worker. A direct
+        ``POST /onboarding/reset`` makes the reset deterministic.
         """
+        self._reset_wizard_via_api()
         self.navigate(self.PATH)
         self.wait_for_element(self.WIZARD)
         self.wait_for_loading_complete()
         self._ensure_step_one()
         return self
+
+    def _reset_wizard_via_api(self) -> None:
+        """Reset the onboarding wizard state via backend API and verify.
+
+        Defaults to tenant_slug ``mein-garten`` (Light-Mode default per REQ-027).
+        Posts to ``/onboarding/reset`` then re-reads ``/onboarding/state`` to
+        confirm the wizard is back in (completed=False, skipped=False,
+        wizard_step=0). Retries up to 3× with a short backoff because the
+        reset has been observed to race with the OnboardingService writes
+        on heavily loaded compose workers — a single POST sometimes returns
+        200 OK while the read-after-write still surfaces the previous
+        ``completed=True`` state for a brief window.
+        Falls through silently after the last attempt so the UI-based
+        ``_ensure_step_one`` can still recover.
+        """
+        import json
+        import time
+        import urllib.error
+        import urllib.request
+
+        base = f"{self.base_url}/api/v1/t/mein-garten/onboarding"
+        for _ in range(3):
+            try:
+                urllib.request.urlopen(  # noqa: S310 - internal compose network
+                    urllib.request.Request(f"{base}/reset", method="POST", data=b""),
+                    timeout=5,
+                )
+            except (urllib.error.URLError, OSError):
+                time.sleep(0.3)
+                continue
+
+            try:
+                with urllib.request.urlopen(  # noqa: S310
+                    f"{base}/state",
+                    timeout=5,
+                ) as resp:
+                    state = json.loads(resp.read().decode("utf-8"))
+                if (
+                    not state.get("completed")
+                    and not state.get("skipped")
+                    and state.get("wizard_step", 0) == 0
+                ):
+                    return
+            except (urllib.error.URLError, OSError, ValueError):
+                pass
+
+            time.sleep(0.3)
 
     def _ensure_step_one(self) -> None:
         """Reset the wizard to Step 1, always clearing backend state.

@@ -35,6 +35,12 @@ from app.domain.services.privacy_service import PrivacyService
 
 router = APIRouter(prefix="/privacy", tags=["privacy"])
 
+# Public-facing privacy endpoints that must be reachable without auth
+# (REQ-025 §3.6 — DSGVO Art. 13/14 Hinweispflicht). Mounted unconditionally
+# even in light mode (REQ-027), where the auth-protected ``router`` above
+# is excluded.
+public_router = APIRouter(prefix="/privacy", tags=["privacy"])
+
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -313,7 +319,7 @@ def revoke_consent(
 # ── Privacy policy (public) ───────────────────────────────────────
 
 
-@router.get("/policy", response_model=PrivacyPolicyResponse)
+@public_router.get("/policy", response_model=PrivacyPolicyResponse)
 def get_privacy_policy(
     service: PrivacyService = Depends(get_privacy_service),
 ):

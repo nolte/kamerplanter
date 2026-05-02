@@ -365,11 +365,17 @@ def get_task_queue(
 def generate_care_reminders_now(
     ctx: TenantContext = Depends(get_current_tenant),
 ):
-    """Manually trigger care reminder task generation (same as daily Celery beat)."""
+    """Manually trigger care reminder task generation (same as daily Celery beat).
+
+    Calling a ``@celery.task``-decorated function directly bypasses Celery's
+    request_stack setup and crashes with ``AttributeError`` on
+    ``request_stack.push``. Using ``.apply()`` runs the task eagerly in-process
+    while preserving the Celery context the task body relies on.
+    """
     from app.tasks.care_tasks import generate_due_care_reminders
 
-    result = generate_due_care_reminders()
-    return result
+    eager = generate_due_care_reminders.apply()
+    return eager.result
 
 
 @router.get("/overdue", response_model=list[TaskResponse])

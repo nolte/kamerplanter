@@ -1,0 +1,41 @@
+{
+  "name": "Kamerplanter",
+  "short_name": "Kamerplanter",
+  "description": "Pflanzen-Lifecycle-Management für Indoor- und Outdoor-Anbau.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#2e7d32",
+  "background_color": "#f5f5f5",
+  "lang": "de",
+  "categories": ["lifestyle", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pflege-Dashboard",
+      "url": "/pflege",
+      "description": "Heute fällige Pflegeaufgaben"
+    },
+    {
+      "name": "Aussaatkalender",
+      "url": "/kalender/aussaat",
+      "description": "Saisonale Aussaatplanung"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

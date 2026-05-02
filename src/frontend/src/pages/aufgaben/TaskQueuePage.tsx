@@ -47,6 +47,8 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import PrintButton from '@/components/common/PrintButton';
+import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTaskQueue, fetchOverdueTasks } from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
@@ -887,9 +889,19 @@ export default function TaskQueuePage() {
       <PageTitle
         title={t('pages.tasks.queueTitle')}
         action={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {!bulkMode && (
               <>
+                {/* REQ-032 §2.2: care-checklist print button on the Pflege host
+                    page. The /pflege route now redirects here, so the button
+                    must live on TaskQueuePage. */}
+                <PrintButton
+                  onPrint={() => downloadCareChecklistPdf()}
+                  filename="care-checklist.pdf"
+                  label={t('print.careChecklist')}
+                  variant="button"
+                  sx={{ minHeight: 48 }}
+                />
                 <Button
                   variant="outlined"
                   size="small"
@@ -897,6 +909,7 @@ export default function TaskQueuePage() {
                   onClick={handleGenerateCareReminders}
                   disabled={generateLoading}
                   data-testid="generate-reminders-button"
+                  sx={{ minHeight: 48 }}
                 >
                   {t('pages.tasks.generateReminders')}
                 </Button>
@@ -907,6 +920,7 @@ export default function TaskQueuePage() {
                     startIcon={<EditIcon />}
                     onClick={() => setBulkMode(true)}
                     data-testid="bulk-mode-button"
+                    sx={{ minHeight: 48 }}
                   >
                     {t('pages.tasks.bulkEdit')}
                   </Button>
@@ -917,6 +931,7 @@ export default function TaskQueuePage() {
                   startIcon={<AddIcon />}
                   onClick={() => setCreateOpen(true)}
                   data-testid="create-task-button"
+                  sx={{ minHeight: 48 }}
                 >
                   {t('pages.tasks.createTask')}
                 </Button>
@@ -929,6 +944,7 @@ export default function TaskQueuePage() {
                 startIcon={<CloseIcon />}
                 onClick={exitBulkMode}
                 data-testid="exit-bulk-mode"
+                sx={{ minHeight: 48 }}
               >
                 {t('common.cancel')}
               </Button>

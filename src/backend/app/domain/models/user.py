@@ -1,6 +1,13 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
+
+# REQ-023 v1.10: ``service`` accounts are M2M identities (Home Assistant,
+# Grafana, CI/CD). They have no password, can never log in via the
+# web UI, and authenticate exclusively via API keys with optional IP
+# allowlists and per-account rate limits.
+AccountType = Literal["user", "service"]
 
 
 class User(BaseModel):
@@ -14,6 +21,8 @@ class User(BaseModel):
     password_reset_token: str | None = None
     password_reset_expires: datetime | None = None
     is_active: bool = True
+    # REQ-023 v1.10 service accounts (M2M).
+    account_type: AccountType = "user"
     failed_login_attempts: int = 0
     locked_until: datetime | None = None
     last_login_at: datetime | None = None
