@@ -1,4 +1,4 @@
-FROM busybox:1.37.0
+FROM busybox:1.38.0
 
 LABEL org.opencontainers.image.title="kamerplanter-knowledge" \
       org.opencontainers.image.description="Kamerplanter knowledge base init container" \
