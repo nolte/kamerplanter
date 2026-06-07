@@ -1094,205 +1094,205 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     # Create indexes
     species_col = db.collection(SPECIES)
-    species_col.add_hash_index(fields=["scientific_name"], unique=True)
+    species_col.add_persistent_index(fields=["scientific_name"], unique=True)
 
     families_col = db.collection(BOTANICAL_FAMILIES)
-    families_col.add_hash_index(fields=["name"], unique=True)
+    families_col.add_persistent_index(fields=["name"], unique=True)
 
     slots_col = db.collection(SLOTS)
-    slots_col.add_hash_index(fields=["slot_id"], unique=True)
+    slots_col.add_persistent_index(fields=["slot_id"], unique=True)
 
     plants_col = db.collection(PLANT_INSTANCES)
-    plants_col.add_hash_index(fields=["instance_id"], unique=True)
+    plants_col.add_persistent_index(fields=["instance_id"], unique=True)
 
     mappings_col = db.collection(EXTERNAL_MAPPINGS)
-    mappings_col.add_hash_index(fields=["internal_collection", "internal_key", "source_key"], unique=True)
+    mappings_col.add_persistent_index(fields=["internal_collection", "internal_key", "source_key"], unique=True)
 
     sync_runs_col = db.collection(SYNC_RUNS)
-    sync_runs_col.add_hash_index(fields=["source_key"], unique=False)
+    sync_runs_col.add_persistent_index(fields=["source_key"], unique=False)
 
     runs_col = db.collection(PLANTING_RUNS)
-    runs_col.add_hash_index(fields=["name"], unique=False)
+    runs_col.add_persistent_index(fields=["name"], unique=False)
 
     tanks_col = db.collection(TANKS)
-    tanks_col.add_hash_index(fields=["name"], unique=True)
+    tanks_col.add_persistent_index(fields=["name"], unique=True)
 
     tank_states_col = db.collection(TANK_STATES)
-    tank_states_col.add_hash_index(fields=["recorded_at"], unique=False)
+    tank_states_col.add_persistent_index(fields=["recorded_at"], unique=False)
 
     fertilizers_col = db.collection(FERTILIZERS)
-    fertilizers_col.add_hash_index(fields=["product_name", "brand"], unique=True)
+    fertilizers_col.add_persistent_index(fields=["product_name", "brand"], unique=True)
 
     feeding_events_col = db.collection(FEEDING_EVENTS)
-    feeding_events_col.add_hash_index(fields=["plant_key"], unique=False)
-    feeding_events_col.add_hash_index(fields=["timestamp"], unique=False)
+    feeding_events_col.add_persistent_index(fields=["plant_key"], unique=False)
+    feeding_events_col.add_persistent_index(fields=["timestamp"], unique=False)
 
     plan_entries_col = db.collection(NUTRIENT_PLAN_PHASE_ENTRIES)
-    plan_entries_col.add_hash_index(fields=["plan_key"], unique=False)
+    plan_entries_col.add_persistent_index(fields=["plan_key"], unique=False)
 
     watering_events_col = db.collection(WATERING_EVENTS)
-    watering_events_col.add_hash_index(fields=["watered_at"], unique=False)
+    watering_events_col.add_persistent_index(fields=["watered_at"], unique=False)
 
     # REQ-010 IPM indexes
     pests_col = db.collection(PESTS)
-    pests_col.add_hash_index(fields=["scientific_name"], unique=True)
+    pests_col.add_persistent_index(fields=["scientific_name"], unique=True)
 
     diseases_col = db.collection(DISEASES)
-    diseases_col.add_hash_index(fields=["scientific_name"], unique=True)
+    diseases_col.add_persistent_index(fields=["scientific_name"], unique=True)
 
     treatments_col = db.collection(TREATMENTS)
-    treatments_col.add_hash_index(fields=["name"], unique=True)
+    treatments_col.add_persistent_index(fields=["name"], unique=True)
 
     inspections_col = db.collection(INSPECTIONS)
-    inspections_col.add_hash_index(fields=["plant_key"], unique=False)
+    inspections_col.add_persistent_index(fields=["plant_key"], unique=False)
 
     treatment_apps_col = db.collection(TREATMENT_APPLICATIONS)
-    treatment_apps_col.add_hash_index(fields=["plant_key"], unique=False)
-    treatment_apps_col.add_hash_index(fields=["treatment_key"], unique=False)
+    treatment_apps_col.add_persistent_index(fields=["plant_key"], unique=False)
+    treatment_apps_col.add_persistent_index(fields=["treatment_key"], unique=False)
 
     # REQ-007 Harvest indexes
     harvest_obs_col = db.collection(HARVEST_OBSERVATIONS)
-    harvest_obs_col.add_hash_index(fields=["plant_key"], unique=False)
+    harvest_obs_col.add_persistent_index(fields=["plant_key"], unique=False)
 
     harvest_batches_col = db.collection(HARVEST_BATCHES)
-    harvest_batches_col.add_hash_index(fields=["plant_key"], unique=False)
-    harvest_batches_col.add_hash_index(fields=["batch_id"], unique=True)
+    harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
+    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True)
 
     # REQ-006 Task indexes
     tasks_col = db.collection(TASKS)
-    tasks_col.add_hash_index(fields=["plant_key"], unique=False)
-    tasks_col.add_hash_index(fields=["status"], unique=False)
-    tasks_col.add_hash_index(fields=["planting_run_key"], unique=False)
+    tasks_col.add_persistent_index(fields=["plant_key"], unique=False)
+    tasks_col.add_persistent_index(fields=["status"], unique=False)
+    tasks_col.add_persistent_index(fields=["planting_run_key"], unique=False)
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
-    wf_templates_col.add_hash_index(fields=["name"], unique=True)
+    wf_templates_col.add_persistent_index(fields=["name"], unique=True)
 
     wf_phases_col = db.collection(WORKFLOW_PHASES)
-    wf_phases_col.add_hash_index(fields=["workflow_template_key"], unique=False)
+    wf_phases_col.add_persistent_index(fields=["workflow_template_key"], unique=False)
 
     # REQ-023 Auth indexes
     users_col = db.collection(USERS)
-    users_col.add_hash_index(fields=["email"], unique=True)
+    users_col.add_persistent_index(fields=["email"], unique=True)
 
     auth_providers_col = db.collection(AUTH_PROVIDERS)
-    auth_providers_col.add_hash_index(fields=["provider", "provider_user_id"], unique=True)
-    auth_providers_col.add_hash_index(fields=["user_key"], unique=False)
+    auth_providers_col.add_persistent_index(fields=["provider", "provider_user_id"], unique=True)
+    auth_providers_col.add_persistent_index(fields=["user_key"], unique=False)
 
     refresh_tokens_col = db.collection(REFRESH_TOKENS)
-    refresh_tokens_col.add_hash_index(fields=["token_hash"], unique=True)
-    refresh_tokens_col.add_hash_index(fields=["user_key"], unique=False)
+    refresh_tokens_col.add_persistent_index(fields=["token_hash"], unique=True)
+    refresh_tokens_col.add_persistent_index(fields=["user_key"], unique=False)
 
     oidc_configs_col = db.collection(OIDC_PROVIDER_CONFIGS)
-    oidc_configs_col.add_hash_index(fields=["slug"], unique=True)
+    oidc_configs_col.add_persistent_index(fields=["slug"], unique=True)
 
     api_keys_col = db.collection(API_KEYS)
-    api_keys_col.add_hash_index(fields=["key_hash"], unique=True)
-    api_keys_col.add_hash_index(fields=["user_key"], unique=False)
+    api_keys_col.add_persistent_index(fields=["key_hash"], unique=True)
+    api_keys_col.add_persistent_index(fields=["user_key"], unique=False)
 
     # REQ-024 Tenant indexes
     tenants_col = db.collection(TENANTS)
-    tenants_col.add_hash_index(fields=["slug"], unique=True)
+    tenants_col.add_persistent_index(fields=["slug"], unique=True)
 
     memberships_col = db.collection(MEMBERSHIPS)
-    memberships_col.add_hash_index(fields=["user_key", "tenant_key"], unique=True)
+    memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)
 
     invitations_col = db.collection(INVITATIONS)
-    invitations_col.add_hash_index(fields=["token_hash"], unique=True)
-    invitations_col.add_hash_index(fields=["tenant_key"], unique=False)
+    invitations_col.add_persistent_index(fields=["token_hash"], unique=True)
+    invitations_col.add_persistent_index(fields=["tenant_key"], unique=False)
 
     location_assignments_col = db.collection(LOCATION_ASSIGNMENTS)
-    location_assignments_col.add_hash_index(fields=["membership_key", "location_key"], unique=True)
+    location_assignments_col.add_persistent_index(fields=["membership_key", "location_key"], unique=True)
 
     # REQ-022 Care Reminder indexes
     care_confirmations_col = db.collection(CARE_CONFIRMATIONS)
-    care_confirmations_col.add_hash_index(fields=["reminder_type", "confirmed_at"], unique=False)
+    care_confirmations_col.add_persistent_index(fields=["reminder_type", "confirmed_at"], unique=False)
 
     has_care_profile_col = db.collection(HAS_CARE_PROFILE)
-    has_care_profile_col.add_hash_index(fields=["_from"], unique=True)
+    has_care_profile_col.add_persistent_index(fields=["_from"], unique=True)
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)
-    starter_kits_col.add_hash_index(fields=["kit_id"], unique=True)
-    starter_kits_col.add_hash_index(fields=["difficulty", "sort_order"], unique=False)
+    starter_kits_col.add_persistent_index(fields=["kit_id"], unique=True)
+    starter_kits_col.add_persistent_index(fields=["difficulty", "sort_order"], unique=False)
 
     # REQ-020 User Favorites indexes
     user_favorites_col = db.collection(USER_FAVORITES)
-    user_favorites_col.add_hash_index(fields=["_from", "_to"], unique=True)
-    user_favorites_col.add_hash_index(fields=["_from"], unique=False)
+    user_favorites_col.add_persistent_index(fields=["_from", "_to"], unique=True)
+    user_favorites_col.add_persistent_index(fields=["_from"], unique=False)
 
     # REQ-012 Import indexes
     import_jobs_col = db.collection(IMPORT_JOBS)
-    import_jobs_col.add_hash_index(fields=["entity_type"], unique=False)
-    import_jobs_col.add_hash_index(fields=["status"], unique=False)
+    import_jobs_col.add_persistent_index(fields=["entity_type"], unique=False)
+    import_jobs_col.add_persistent_index(fields=["status"], unique=False)
 
     # REQ-014 Tank Fill indexes
     tank_fill_events_col = db.collection(TANK_FILL_EVENTS)
-    tank_fill_events_col.add_hash_index(fields=["tank_key", "filled_at"], unique=False)
+    tank_fill_events_col.add_persistent_index(fields=["tank_key", "filled_at"], unique=False)
 
     # REQ-005 Sensor indexes
     sensors_col = db.collection(SENSORS)
-    sensors_col.add_hash_index(fields=["tank_key"], unique=False)
-    sensors_col.add_hash_index(fields=["site_key"], unique=False)
-    sensors_col.add_hash_index(fields=["location_key"], unique=False)
+    sensors_col.add_persistent_index(fields=["tank_key"], unique=False)
+    sensors_col.add_persistent_index(fields=["site_key"], unique=False)
+    sensors_col.add_persistent_index(fields=["location_key"], unique=False)
 
     # Watering Log indexes
     watering_logs_col = db.collection(WATERING_LOGS)
-    watering_logs_col.add_hash_index(fields=["logged_at"], unique=False)
-    watering_logs_col.add_hash_index(fields=["plant_keys[*]"], unique=False)
-    watering_logs_col.add_hash_index(fields=["slot_keys[*]"], unique=False)
+    watering_logs_col.add_persistent_index(fields=["logged_at"], unique=False)
+    watering_logs_col.add_persistent_index(fields=["plant_keys[*]"], unique=False)
+    watering_logs_col.add_persistent_index(fields=["slot_keys[*]"], unique=False)
 
     # Activity indexes
     activities_col = db.collection(ACTIVITIES)
-    activities_col.add_hash_index(fields=["name"], unique=True)
+    activities_col.add_persistent_index(fields=["name"], unique=True)
 
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
-    calendar_feeds_col.add_hash_index(fields=["token"], unique=True)
+    calendar_feeds_col.add_persistent_index(fields=["token"], unique=True)
 
     # REQ-013 v2.0 Plant Diary indexes
     plant_diary_entries_col = db.collection(PLANT_DIARY_ENTRIES)
-    plant_diary_entries_col.add_hash_index(fields=["plant_key"], unique=False)
-    plant_diary_entries_col.add_hash_index(fields=["tenant_key"], unique=False)
-    plant_diary_entries_col.add_hash_index(fields=["entry_type"], unique=False)
+    plant_diary_entries_col.add_persistent_index(fields=["plant_key"], unique=False)
+    plant_diary_entries_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    plant_diary_entries_col.add_persistent_index(fields=["entry_type"], unique=False)
 
     # REQ-030 Notification indexes
     notifications_col = db.collection(NOTIFICATIONS)
-    notifications_col.add_hash_index(fields=["user_key", "tenant_key"], unique=False)
-    notifications_col.add_hash_index(fields=["notification_type"], unique=False)
-    notifications_col.add_hash_index(fields=["created_at"], unique=False)
+    notifications_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=False)
+    notifications_col.add_persistent_index(fields=["notification_type"], unique=False)
+    notifications_col.add_persistent_index(fields=["created_at"], unique=False)
 
     notification_prefs_col = db.collection(NOTIFICATION_PREFERENCES)
-    notification_prefs_col.add_hash_index(fields=["user_key"], unique=True)
+    notification_prefs_col.add_persistent_index(fields=["user_key"], unique=True)
 
     # Phase Sequence indexes
     phase_defs_col = db.collection(PHASE_DEFINITIONS)
-    phase_defs_col.add_hash_index(fields=["name"], unique=True)
+    phase_defs_col.add_persistent_index(fields=["name"], unique=True)
 
     phase_seq_entries_col = db.collection(PHASE_SEQUENCE_ENTRIES)
-    phase_seq_entries_col.add_hash_index(fields=["phase_sequence_key", "sequence_order"], unique=True)
+    phase_seq_entries_col.add_persistent_index(fields=["phase_sequence_key", "sequence_order"], unique=True)
 
     # REQ-025 Privacy indexes
     data_export_requests_col = db.collection(DATA_EXPORT_REQUESTS)
-    data_export_requests_col.add_hash_index(fields=["user_key"], unique=False)
-    data_export_requests_col.add_hash_index(fields=["status"], unique=False)
-    data_export_requests_col.add_hash_index(fields=["expires_at"], unique=False)
+    data_export_requests_col.add_persistent_index(fields=["user_key"], unique=False)
+    data_export_requests_col.add_persistent_index(fields=["status"], unique=False)
+    data_export_requests_col.add_persistent_index(fields=["expires_at"], unique=False)
 
     consent_records_col = db.collection(CONSENT_RECORDS)
-    consent_records_col.add_hash_index(fields=["user_key", "purpose"], unique=True)
-    consent_records_col.add_hash_index(fields=["user_key"], unique=False)
+    consent_records_col.add_persistent_index(fields=["user_key", "purpose"], unique=True)
+    consent_records_col.add_persistent_index(fields=["user_key"], unique=False)
 
     processing_restrictions_col = db.collection(PROCESSING_RESTRICTIONS)
-    processing_restrictions_col.add_hash_index(fields=["user_key"], unique=False)
-    processing_restrictions_col.add_hash_index(fields=["user_key", "scope"], unique=True)
+    processing_restrictions_col.add_persistent_index(fields=["user_key"], unique=False)
+    processing_restrictions_col.add_persistent_index(fields=["user_key", "scope"], unique=True)
 
     erasure_requests_col = db.collection(ERASURE_REQUESTS)
-    erasure_requests_col.add_hash_index(fields=["user_key"], unique=False)
-    erasure_requests_col.add_hash_index(fields=["status"], unique=False)
-    erasure_requests_col.add_hash_index(fields=["hard_delete_scheduled_at"], unique=False)
+    erasure_requests_col.add_persistent_index(fields=["user_key"], unique=False)
+    erasure_requests_col.add_persistent_index(fields=["status"], unique=False)
+    erasure_requests_col.add_persistent_index(fields=["hard_delete_scheduled_at"], unique=False)
 
     email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
-    email_change_requests_col.add_hash_index(fields=["user_key"], unique=False)
-    email_change_requests_col.add_hash_index(fields=["verification_token_hash"], unique=True)
+    email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
+    email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
