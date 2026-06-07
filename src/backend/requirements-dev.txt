@@ -48,7 +48,7 @@ click-repl==0.3.0
     # via celery
 coverage==7.14.1
     # via pytest-cov
-cryptography==47.0.0
+cryptography==48.0.0
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
@@ -86,7 +86,7 @@ limits==5.8.0
     # via slowapi
 markdownify==1.2.2
     # via kamerplanter-backend (pyproject.toml)
-mypy==1.20.2
+mypy==2.1.0
     # via kamerplanter-backend (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -149,7 +149,7 @@ pytokens==0.4.1
     # via black
 pyyaml==6.0.3
     # via uvicorn
-redis==7.4.1
+redis==8.0.0
     # via kamerplanter-backend (pyproject.toml)
 requests==2.34.2
     # via
@@ -169,7 +169,7 @@ soupsieve==2.8.4
     # via beautifulsoup4
 starlette==1.2.1
     # via fastapi
-structlog==25.5.0
+structlog==26.1.0
     # via kamerplanter-backend (pyproject.toml)
 typing-extensions==4.15.0
     # via
