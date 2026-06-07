@@ -1,8 +1,8 @@
 # Home Assistant Integration
 
-Kamerplanter laesst sich ueber eine **Custom Integration** in Home Assistant einbinden. Alle Pflanzendaten, Tankwerte, Aufgaben und Kalendereintraege erscheinen als native HA-Entities und koennen in Dashboards, Automationen und Benachrichtigungen genutzt werden.
+Kamerplanter lässt sich über eine **Custom Integration** in Home Assistant einbinden. Alle Pflanzendaten, Tankwerte, Aufgaben und Kalendereinträge erscheinen als native HA-Entities und können in Dashboards, Automationen und Benachrichtigungen genutzt werden.
 
-## Ueberblick
+## Überblick
 
 ```mermaid
 flowchart LR
@@ -14,24 +14,27 @@ flowchart LR
 
 | Aspekt | Details |
 |--------|---------|
-| **Repository** | `kamerplanter-ha` (eigenstaendiges GitHub-Repo) |
+| **Repository** | `kamerplanter-ha` (eigenständiges GitHub-Repo) |
 | **Installation** | HACS (Home Assistant Community Store) oder manuell |
 | **Kommunikation** | REST API Polling gegen Kamerplanter-Backend |
 | **Authentifizierung** | API-Key (`kp_`-Prefix) oder Light-Modus (ohne Auth) |
 | **HA-Mindestversion** | Home Assistant Core 2024.1+ |
 
 !!! info "Separates Repository"
-    Die HA-Integration ist **nicht** Teil des Kamerplanter-Backends. Sie wird als eigenstaendiges HACS-Repository entwickelt und installiert.
+    Die HA-Integration ist **nicht** Teil des Kamerplanter-Backends. Sie wird als eigenständiges HACS-Repository entwickelt und installiert.
 
 ---
 
 ## Installation
 
+!!! note "In Entwicklung"
+    Die HA-Integration unter `custom_components/kamerplanter/` befindet sich noch in der Entwicklungsphase und liegt nicht im Repository-Root. Die Installationsschritte unten beschreiben den geplanten Ablauf nach der Veröffentlichung als HACS-Paket.
+
 ### Via HACS (empfohlen)
 
-1. Oeffne **HACS** in Home Assistant
+1. Öffne **HACS** in Home Assistant
 2. Klicke auf **Integrationen** > **Custom Repositories**
-3. Fuege das Repository `kamerplanter/kamerplanter-ha` hinzu
+3. Füge das Repository `kamerplanter/kamerplanter-ha` hinzu
 4. Suche nach **Kamerplanter** und klicke **Installieren**
 5. Starte Home Assistant neu
 
@@ -45,7 +48,7 @@ flowchart LR
 
 ## Voraussetzungen: Bidirektionaler API-Zugriff
 
-Fuer eine vollstaendige Integration muessen **beide Systeme gegenseitig API-Zugriff** haben. Das erfordert einen Token-Austausch:
+Für eine vollständige Integration müssen **beide Systeme gegenseitig API-Zugriff** haben. Das erfordert einen Token-Austausch:
 
 ```mermaid
 flowchart LR
@@ -59,17 +62,17 @@ flowchart LR
 | **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter liest Sensordaten, steuert Aktoren (REQ-005, REQ-018) | Home Assistant: **Profil** > **Long-Lived Access Tokens** |
 
 !!! warning "Beide Tokens erforderlich"
-    Ohne den **Kamerplanter API-Key** kann die HA-Integration keine Daten abfragen. Ohne den **HA Access Token** kann Kamerplanter keine Sensordaten aus Home Assistant lesen und keine Aktoren steuern. Fuer einen reinen Lese-Betrieb (nur HA-Dashboard) reicht der Kamerplanter API-Key allein.
+    Ohne den **Kamerplanter API-Key** kann die HA-Integration keine Daten abfragen. Ohne den **HA Access Token** kann Kamerplanter keine Sensordaten aus Home Assistant lesen und keine Aktoren steuern. Für einen reinen Lese-Betrieb (nur HA-Dashboard) reicht der Kamerplanter API-Key allein.
 
 ### Tokens einrichten
 
-**1. Kamerplanter API-Key erstellen** (fuer HA → Kamerplanter):
+**1. Kamerplanter API-Key erstellen** (für HA → Kamerplanter):
 
 1. In Kamerplanter: **Einstellungen** > **API-Keys** > **Neuer Key**
 2. Den generierten Key (`kp_...`) kopieren
 3. In Home Assistant: Bei der Kamerplanter-Integration im Config Flow eingeben
 
-**2. HA Access Token erstellen** (fuer Kamerplanter → HA):
+**2. HA Access Token erstellen** (für Kamerplanter → HA):
 
 1. In Home Assistant: **Profil** (unten links) > **Long-Lived Access Tokens** > **Token erstellen**
 2. Den Token kopieren
@@ -80,21 +83,21 @@ flowchart LR
 
 ## Auto-Discovery via mDNS (empfohlen)
 
-Mit aktivierter mDNS-Ankuendigung erkennt Home Assistant das Kamerplanter-Backend automatisch im lokalen Netzwerk — die URL muss nicht mehr manuell eingegeben werden. Der Config Flow startet direkt beim Authentifizierungs-Schritt.
+Mit aktivierter mDNS-Ankündigung erkennt Home Assistant das Kamerplanter-Backend automatisch im lokalen Netzwerk — die URL muss nicht mehr manuell eingegeben werden. Der Config Flow startet direkt beim Authentifizierungs-Schritt.
 
 ```mermaid
 flowchart LR
     KP["Kamerplanter Backend\nMDNS_ENABLED=true"]
     KP -->|_kamerplanter._tcp.local.| HA["Home Assistant"]
     HA --> D["Discovery-Benachrichtigung\nKonfigurieren"]
-    D --> CF["Config Flow\nURL vorausgefuellt\nnur API-Key eingeben"]
+    D --> CF["Config Flow\nURL vorausgefüllt\nnur API-Key eingeben"]
 ```
 
 ### Voraussetzungen
 
 - Backend und Home Assistant laufen im **gleichen L2-Netzwerk** (Multicast UDP 5353 erreichbar).
 - `MDNS_ENABLED=true` im Backend gesetzt (Default ist `false`).
-- Empfohlen: feste `INSTANCE_ID` setzen (z. B. `INSTANCE_ID=kp-homelab-01`), damit der HA-Config-Entry ueber Backend-Neustarts hinweg stabil bleibt.
+- Empfohlen: feste `INSTANCE_ID` setzen (z. B. `INSTANCE_ID=kp-homelab-01`), damit der HA-Config-Entry über Backend-Neustarts hinweg stabil bleibt.
 
 ### Aktivierung
 
@@ -118,13 +121,13 @@ env:
 hostNetwork: true
 ```
 
-!!! warning "mDNS-Kompatibilitaet je Deployment"
+!!! warning "mDNS-Kompatibilität je Deployment"
     mDNS funktioniert nur im lokalen Netzwerk (Multicast). In Standard-Kubernetes-Clustern und Cloud-Deployments verwerfen Overlay-Netze bzw. fehlende LANs die Announcements. Details zur Entscheidungsmatrix: [Umgebungsvariablen — mDNS/Zeroconf](../reference/environment-variables.md#mdns-zeroconf-discovery).
 
 ### Ablauf
 
-1. Nach Backend-Start zeigt Home Assistant unter **Einstellungen** > **Geraete & Dienste** eine Benachrichtigung "Kamerplanter entdeckt".
-2. Klick auf **Konfigurieren** oeffnet den Config Flow mit **vorausgefuellter URL** und **vorausgefuellter Instanz-ID**.
+1. Nach Backend-Start zeigt Home Assistant unter **Einstellungen** > **Geräte & Dienste** eine Benachrichtigung "Kamerplanter entdeckt".
+2. Klick auf **Konfigurieren** öffnet den Config Flow mit **vorausgefüllter URL** und **vorausgefüllter Instanz-ID**.
 3. Es bleibt nur der Authentifizierungs-Schritt — API-Key (`kp_...`) eingeben, fertig.
 
 Sollte die Discovery-Benachrichtigung nicht erscheinen, nutze den manuellen Einrichtungs-Assistenten unten.
@@ -133,7 +136,7 @@ Sollte die Discovery-Benachrichtigung nicht erscheinen, nutze den manuellen Einr
 
 ## Einrichtung (manuell)
 
-Wenn Auto-Discovery nicht verfuegbar ist (Cloud, Kubernetes ohne `hostNetwork`, getrennte Netzwerksegmente), fuehrt ein 4-Schritte-Assistent durch die Konfiguration:
+Wenn Auto-Discovery nicht verfügbar ist (Cloud, Kubernetes ohne `hostNetwork`, getrennte Netzwerksegmente), führt ein 4-Schritte-Assistent durch die Konfiguration:
 
 ### Schritt 1: Kamerplanter-URL
 
@@ -142,29 +145,29 @@ Gib die URL deiner Kamerplanter-Instanz ein:
 - Lokal: `http://raspberry:8000` oder `http://192.168.1.50:8000`
 - Extern: `https://kamerplanter.example.com`
 
-Die Integration prueft die Erreichbarkeit automatisch via `/api/health`.
+Die Integration prüft die Erreichbarkeit automatisch via `/api/health`.
 
 ### Schritt 2: Authentifizierung
 
 | Modus | Beschreibung |
 |-------|-------------|
-| **Light-Modus** | Keine Authentifizierung noetig (REQ-027) |
-| **API-Key** | API-Schluessel mit `kp_`-Prefix eingeben (empfohlen) |
+| **Light-Modus** | Keine Authentifizierung nötig (REQ-027) |
+| **API-Key** | API-Schlüssel mit `kp_`-Prefix eingeben (empfohlen) |
 | **Login** | Benutzername und Passwort als Fallback |
 
-### Schritt 3: Tenant auswaehlen
+### Schritt 3: Tenant auswählen
 
-Bei Multi-Tenant-Betrieb (z.B. Gemeinschaftsgarten) den gewuenschten Tenant aus der Liste waehlen. Bei Einzelnutzern wird dieser Schritt uebersprungen.
+Bei Multi-Tenant-Betrieb (z.B. Gemeinschaftsgarten) den gewünschten Tenant aus der Liste wählen. Bei Einzelnutzern wird dieser Schritt übersprungen.
 
 ### Schritt 4: Entities konfigurieren
 
-Waehle aus, welche Pflanzen, Standorte und Tanks als HA-Entities angelegt werden sollen. Per Default werden alle verfuegbaren Entities erstellt.
+Wähle aus, welche Pflanzen, Standorte und Tanks als HA-Entities angelegt werden sollen. Per Default werden alle verfügbaren Entities erstellt.
 
 ---
 
-## Verfuegbare Entities
+## Verfügbare Entities
 
-Die Integration erstellt automatisch Entities fuer alle ausgewaehlten Pflanzen, Standorte und Tanks.
+Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, Standorte und Tanks.
 
 ### Pflanzen-Entities
 
@@ -172,13 +175,13 @@ Die Integration erstellt automatisch Entities fuer alle ausgewaehlten Pflanzen, 
 |--------|-----|---------|-------------|
 | `sensor.kp_{plant}_phase` | Sensor | -- | Aktuelle Wachstumsphase |
 | `sensor.kp_{plant}_days_in_phase` | Sensor | Tage | Tage in aktueller Phase |
-| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD-Sollwert fuer aktuelle Phase |
-| `sensor.kp_{plant}_ec_target` | Sensor | mS/cm | EC-Sollwert fuer aktuelle Phase |
+| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD-Sollwert für aktuelle Phase |
+| `sensor.kp_{plant}_ec_target` | Sensor | mS/cm | EC-Sollwert für aktuelle Phase |
 | `sensor.kp_{plant}_photoperiod` | Sensor | h | Photoperiode (Licht/Dunkel) |
 | `sensor.kp_{plant}_gdd_accumulated` | Sensor | GDD | Akkumulierte Wachstumsgradtage |
 | `sensor.kp_{plant}_harvest_readiness` | Sensor | % | Erntebereitschaft |
 | `sensor.kp_{plant}_karenz_remaining` | Sensor | Tage | Verbleibende Wartezeit (IPM) |
-| `sensor.kp_{plant}_next_watering` | Sensor | -- | Naechster Giesstermin |
+| `sensor.kp_{plant}_next_watering` | Sensor | -- | Nächster Gießtermin |
 | `sensor.kp_{plant}_health_score` | Sensor | % | Gesundheitsscore |
 | `binary_sensor.kp_{plant}_needs_attention` | Binary Sensor | -- | Pflanze braucht Aufmerksamkeit |
 
@@ -186,11 +189,11 @@ Die Integration erstellt automatisch Entities fuer alle ausgewaehlten Pflanzen, 
 
 | Entity | Typ | Einheit | Beschreibung |
 |--------|-----|---------|-------------|
-| `sensor.kp_{tank}_ec` | Sensor | mS/cm | Elektrische Leitfaehigkeit |
+| `sensor.kp_{tank}_ec` | Sensor | mS/cm | Elektrische Leitfähigkeit |
 | `sensor.kp_{tank}_ph` | Sensor | pH | pH-Wert |
-| `sensor.kp_{tank}_fill_level` | Sensor | % | Fuellstand |
+| `sensor.kp_{tank}_fill_level` | Sensor | % | Füllstand |
 | `sensor.kp_{tank}_water_temp` | Sensor | C | Wassertemperatur |
-| `sensor.kp_{tank}_solution_age_days` | Sensor | Tage | Alter der Naehrloesung |
+| `sensor.kp_{tank}_solution_age_days` | Sensor | Tage | Alter der Nährlösung |
 | `binary_sensor.kp_{tank}_alert_active` | Binary Sensor | -- | Tank-Alarm aktiv |
 
 ### Standort-Entities
@@ -205,7 +208,7 @@ Die Integration erstellt automatisch Entities fuer alle ausgewaehlten Pflanzen, 
 | Entity | Typ | Beschreibung |
 |--------|-----|-------------|
 | `calendar.kp_tasks` | Calendar | Alle Kamerplanter-Events (iCal-Feed) |
-| `todo.kp_{location}_tasks` | Todo | Faellige Aufgaben pro Standort |
+| `todo.kp_{location}_tasks` | Todo | Fällige Aufgaben pro Standort |
 
 ---
 
@@ -221,7 +224,7 @@ Die Integration nutzt mehrere Coordinators mit unterschiedlichen Polling-Interva
 | Alarme | 1 Minute | 30 Sekunden |
 | Aufgaben | 5 Minuten | 2 Minuten |
 
-Die Intervalle koennen in den Integrations-Optionen angepasst werden.
+Die Intervalle können in den Integrations-Optionen angepasst werden.
 
 ---
 
@@ -229,7 +232,7 @@ Die Intervalle koennen in den Integrations-Optionen angepasst werden.
 
 ### Phasenwechsel: Lichtprogramm umstellen
 
-Wenn Kamerplanter einen Phasenwechsel zu "Bluete" meldet, wird das Lichtprogramm automatisch auf 12h/12h umgestellt:
+Wenn Kamerplanter einen Phasenwechsel zu "Blüte" meldet, wird das Lichtprogramm automatisch auf 12h/12h umgestellt:
 
 ```yaml
 alias: "KP: Bluete-Start - 12/12 Licht"
@@ -285,7 +288,7 @@ action:
               entity_id: switch.befeuchter_zelt_1
 ```
 
-### Tank niedrig: Auffuell-Erinnerung
+### Tank niedrig: Auffüll-Erinnerung
 
 ```yaml
 alias: "KP: Tank nachfuellen"
@@ -303,7 +306,7 @@ action:
         pH: {{ states('sensor.kp_haupttank_ph') }}
 ```
 
-### Frostwarnung: Gewaechshaus-Heizung
+### Frostwarnung: Gewächshaus-Heizung
 
 ```yaml
 alias: "KP: Frostwarnung - Heizung ein"
@@ -344,7 +347,7 @@ action:
       title: "Ernte bereit!"
       message: >
         Readiness: {{ states('sensor.kp_white_widow_harvest_readiness') }}%.
-        Karenz abgelaufen. Trichome pruefen!
+        Karenz abgelaufen. Trichome prüfen!
 ```
 
 ---
@@ -383,7 +386,7 @@ Der `phase_timeline`-Sensor speichert jede Phase als Attribut mit Status, Startd
 
 ### Fortschritts-Attribute
 
-Der `phase_timeline`-Sensor stellt zusaetzliche Fortschritts-Attribute bereit:
+Der `phase_timeline`-Sensor stellt zusätzliche Fortschritts-Attribute bereit:
 
 ```yaml
 # Name der aktuellen Phase
@@ -392,7 +395,7 @@ Der `phase_timeline`-Sensor stellt zusaetzliche Fortschritts-Attribute bereit:
 # Tage in aktueller Phase
 {{ state_attr('sensor.kp_345249_phase_timeline', 'days_in_phase') }}
 
-# Naechste geplante Phase (bei Planting Runs)
+# Nächste geplante Phase (bei Planting Runs)
 {{ states('sensor.kp_345249_next_phase') }}
 ```
 
@@ -430,11 +433,11 @@ action:
       message: >
         Pflanze ist seit
         {{ state_attr('sensor.kp_345249_phase_timeline', 'flowering').days }}
-        Tagen in der Bluete. Trichome pruefen!
+        Tagen in der Blüte. Trichome prüfen!
 ```
 
 !!! tip "Attribut-Zugriff allgemein"
-    Das Muster `state_attr('sensor.kp_{id}_phase_timeline', states('sensor.kp_{id}_phase'))` funktioniert fuer alle Kamerplanter-Pflanzen und Planting Runs. Bei Runs stehen zusaetzlich `phase_week`, `phase_progress_pct` und `remaining_days` als Attribute zur Verfuegung.
+    Das Muster `state_attr('sensor.kp_{id}_phase_timeline', states('sensor.kp_{id}_phase'))` funktioniert für alle Kamerplanter-Pflanzen und Planting Runs. Bei Runs stehen zusätzlich `phase_week`, `phase_progress_pct` und `remaining_days` als Attribute zur Verfügung.
 
 ---
 
@@ -442,28 +445,28 @@ action:
 
 Neben den Standard-HA-Cards stellt das `kamerplanter-ha`-Repository optionale **Custom Lovelace Cards** bereit:
 
-- **Tank-Card** -- Fuellstand, EC, pH und Wassertemperatur auf einen Blick
+- **Tank-Card** -- Füllstand, EC, pH und Wassertemperatur auf einen Blick
 - **Phasen-Timeline-Card** -- Visueller Phasenverlauf einer Pflanze
-- **Duengemischungs-Card** -- Aktuelle Mischung mit Einzelkomponenten
+- **Düngmischungs-Card** -- Aktuelle Mischung mit Einzelkomponenten
 
-Die Cards werden ueber den Standard-HA-Editor konfiguriert (Entity-Picker, keine YAML-Pflicht).
+Die Cards werden über den Standard-HA-Editor konfiguriert (Entity-Picker, keine YAML-Pflicht).
 
 ---
 
 ## Fehlerbehandlung
 
-| Fehler | Ursache | Loesung |
+| Fehler | Ursache | Lösung |
 |--------|---------|---------|
-| "Kamerplanter nicht erreichbar" | Backend offline oder URL falsch | URL pruefen, Backend starten |
-| "API-Key ungueltig" | Key revoked oder falsch | Neuen API-Key in Kamerplanter generieren |
-| Entity zeigt "unavailable" | Coordinator-Update fehlgeschlagen | Logs pruefen, Polling-Intervall erhoehen |
+| "Kamerplanter nicht erreichbar" | Backend offline oder URL falsch | URL prüfen, Backend starten |
+| "API-Key ungültig" | Key revoked oder falsch | Neuen API-Key in Kamerplanter generieren |
+| Entity zeigt "unavailable" | Coordinator-Update fehlgeschlagen | Logs prüfen, Polling-Intervall erhöhen |
 
-Diagnostics-Daten sind unter **Einstellungen** > **Integrationen** > **Kamerplanter** > **Diagnostik** verfuegbar.
+Diagnostics-Daten sind unter **Einstellungen** > **Integrationen** > **Kamerplanter** > **Diagnostik** verfügbar.
 
 ---
 
 ## Siehe auch
 
 - [Sensorik](../user-guide/sensors.md) -- Hybrid-Sensorik mit HA als Datenquelle
-- [Kalender](../user-guide/calendar.md) -- iCal-Feed fuer HA Calendar-Entity
+- [Kalender](../user-guide/calendar.md) -- iCal-Feed für HA Calendar-Entity
 - [Tankmanagement](../user-guide/tanks.md) -- Tank-Entities im Detail

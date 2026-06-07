@@ -1,6 +1,6 @@
 # RAG-Wissensbasis verstehen
 
-Der KI-Assistent in Kamerplanter antwortet nicht aus dem Gedächtnis eines allgemeinen Sprachmodells — er gründet jede Antwort auf Ihre eigenen Daten und eine kuratierte Wissensbasis. Diese Technik heißt **Retrieval-Augmented Generation (RAG)**. Diese Seite erklärt, wie das System aufgebaut ist und warum es so funktioniert.
+Der KI-Assistent in Kamerplanter antwortet nicht aus dem Gedächtnis eines allgemeinen Sprachmodells — er gründet jede Antwort auf deine eigenen Daten und eine kuratierte Wissensbasis. Diese Technik heißt **Retrieval-Augmented Generation (RAG)** (KI-Antwortgenerierung auf Basis abgerufener Kontextdaten). Diese Seite erklärt, wie das System aufgebaut ist und warum es so funktioniert.
 
 ---
 
@@ -9,12 +9,12 @@ Der KI-Assistent in Kamerplanter antwortet nicht aus dem Gedächtnis eines allge
 Ein Sprachmodell, das allein aus seinem Training antwortet, hat zwei Schwächen:
 
 1. **Halluzinationen** — Es erfindet plausibel klingende, aber falsche Fakten
-2. **Kein Kontext** — Es kennt nicht Ihre spezifische Pflanze, Ihre aktuellen Messwerte oder Ihre Pflegehistorie
+2. **Kein Kontext** — Es kennt nicht deine spezifische Pflanze, deine aktuellen Messwerte oder deine Pflegehistorie
 
-RAG löst beide Probleme: Das System sucht vor jeder Antwort relevante Informationen aus einer geprüften Datenbank und stellt sie dem Modell als Grundlage bereit. Das Modell kombiniert diese Fakten mit Ihrer konkreten Situation — statt aus dem Gedächtnis zu spekulieren.
+RAG löst beide Probleme: Das System sucht vor jeder Antwort relevante Informationen aus einer geprüften Datenbank und stellt sie dem Modell als Grundlage bereit. Das Modell kombiniert diese Fakten mit deiner konkreten Situation — statt aus dem Gedächtnis zu spekulieren.
 
 !!! tip "Einfach erklärt"
-    Stellen Sie sich RAG wie einen sehr gut vorbereiteten Assistenten vor: Er hat vor Ihrer Frage blitzschnell in der Bibliothek nachgeschlagen und kommt mit den passenden Fachbüchern zum Gespräch. Er erfindet nichts — er erklärt, was er gefunden hat.
+    Stell dir RAG wie einen sehr gut vorbereiteten Assistenten vor: Er hat vor deiner Frage blitzschnell in der Bibliothek nachgeschlagen und kommt mit den passenden Fachbüchern zum Gespräch. Er erfindet nichts — er erklärt, was er gefunden hat.
 
 ---
 
@@ -36,7 +36,7 @@ graph TB
         E3[Aktiver Pflanzdurchlauf, Phase,<br/>Messwerte EC/pH/VPD,<br/>aktive IPM-Ereignisse, letzte Dünge-Ereignisse]
     end
 
-    subgraph "Ebene 4: Ihre Pflanzdaten"
+    subgraph "Ebene 4: Deine Pflanzdaten"
         E4[Pflegehistorie, Ernteergebnisse,<br/>Pflanztagebuch, Bestätigungen]
     end
 
@@ -85,16 +85,16 @@ Thematische Guides enthalten Querschnittswissen, das sich nicht aus den Stammdat
 
 ### Ebene 3: Tenant-Kontext (Echtzeit)
 
-Bei jeder Anfrage holt der Context-Builder den aktuellen Zustand Ihrer Anlage aus der Datenbank:
+Bei jeder Anfrage holt der Context-Builder den aktuellen Zustand deiner Anlage aus der Datenbank:
 
 - Aktive Pflanzdurchläufe mit aktueller Wachstumsphase und Phasendauer
 - Letzte Messwerte: EC, pH, VPD, Temperatur, Luftfeuchtigkeit
 - Aktive IPM-Ereignisse (Schädlingsbefall, Krankheiten, laufende Behandlungen)
 - Letzte Dünge-Ereignisse mit Mengen und Produkten
 
-### Ebene 4: Ihre Pflanzdaten (Echtzeit)
+### Ebene 4: Deine Pflanzdaten (Echtzeit)
 
-Mit Ihrer Einwilligung fließen auch persönliche Pflegedaten in den Kontext:
+Mit deiner Einwilligung fließen auch persönliche Pflegedaten in den Kontext:
 
 - Pflegebestätigungen (wann wurde gegossen, gedüngt, geschnitten)
 - Einträge im Pflanztagebuch
@@ -108,9 +108,9 @@ So läuft eine typische Anfrage durch das System:
 
 !!! example "Beispiel: Gelbe Blätter"
 
-    **Ihre Frage:** "Meine unteren Blätter werden gelb — was kann das sein?"
+    **Deine Frage:** "Meine unteren Blätter werden gelb — was kann das sein?"
 
-    **Schritt 1 — Context-Builder liest Ihre Daten:**
+    **Schritt 1 — Context-Builder liest deine Daten:**
     ```
     Art: Cannabis sativa 'Northern Lights'
     Phase: Flowering, Tag 21
@@ -126,7 +126,7 @@ So läuft eine typische Anfrage durch das System:
     **Schritt 3 — Modell kombiniert alles:**
     > "Deine Northern Lights ist in Woche 3 der Blüte. Gelbe untere Blätter können auf N-Mangel hindeuten, ABER: In der späten Blüte ist ein natürlicher N-Abbau in den unteren Blättern normal. Dein EC liegt bei 1,2 — das ist für Woche 3 Flowering etwas niedrig. Empfehlung: EC auf 1,4–1,6 anheben, NICHT den N-Anteil erhöhen (PK-Phase). Wenn mehr als 30 % der Blätter betroffen sind, leichten N-Boost erwägen."
 
-Ohne die Thematischen Guides würde das Modell nur den Stammdaten-Kontext kennen und allgemeine Tipps geben. Ohne Ihren Echtzeit-Kontext (EC 1,2, Woche 3 Blüte) würde das Modell nicht wissen, dass die Situation grenzwertig ist.
+Ohne die Thematischen Guides würde das Modell nur den Stammdaten-Kontext kennen und allgemeine Tipps geben. Ohne deinen Echtzeit-Kontext (EC 1,2, Woche 3 Blüte) würde das Modell nicht wissen, dass die Situation grenzwertig ist.
 
 ---
 
@@ -183,16 +183,16 @@ chunks:
 
 ### Guide hochladen
 
-1. Öffnen Sie **Einstellungen > KI-Wissensbasis**
-2. Klicken Sie auf **Guide hochladen**
-3. Wählen Sie Ihre YAML-Datei aus
+1. Öffne **Einstellungen > KI-Wissensbasis**
+2. Klicke auf **Guide hochladen**
+3. Wähle deine YAML-Datei aus
 4. Das System validiert das Format und zeigt eine Vorschau
-5. Bestätigen Sie mit **Importieren**
+5. Bestätige mit **Importieren**
 
-Der neue Guide wird beim nächsten Reindex-Zyklus (täglich, 06:00 Uhr UTC) in die Vektordatenbank aufgenommen. Sie können den Reindex auch manuell anstoßen.
+Der neue Guide wird beim nächsten Reindex-Zyklus (täglich, 06:00 Uhr UTC) in die Vektordatenbank aufgenommen. Du kannst den Reindex auch manuell anstoßen.
 
 !!! warning "Qualitätsverantwortung"
-    Eigene Guides werden nicht automatisch geprüft. Sie sind für die fachliche Korrektheit Ihrer Guides verantwortlich. Fehlerhafte Guides können die Qualität der KI-Antworten verschlechtern.
+    Eigene Guides werden nicht automatisch geprüft. Du bist für die fachliche Korrektheit deiner Guides verantwortlich. Fehlerhafte Guides können die Qualität der KI-Antworten verschlechtern.
 
 ---
 
@@ -257,16 +257,16 @@ print(f'Task ID: {result.id}')
 ## Häufige Fragen
 
 ??? question "Kann die KI außerhalb der Wissensbasis recherchieren (Internet-Suche)?"
-    Nein. Das System führt keine Internet-Suche durch. Alle Antworten basieren ausschließlich auf der lokalen Wissensbasis (Stammdaten, Guides) und Ihren eigenen Pflanzdaten. Das ist eine bewusste Designentscheidung, um Halluzinationen zu vermeiden und Datenschutz zu gewährleisten.
+    Nein. Das System führt keine Internet-Suche durch. Alle Antworten basieren ausschließlich auf der lokalen Wissensbasis (Stammdaten, Guides) und deinen eigenen Pflanzdaten. Das ist eine bewusste Designentscheidung, um Halluzinationen zu vermeiden und Datenschutz zu gewährleisten.
 
 ??? question "Wie aktuell sind die Thematischen Guides?"
-    Die Guides werden mit jedem Kamerplanter-Update gepflegt. Der genaue Stand ist in der Versionsdokumentation ([Changelog](../changelog/index.md)) vermerkt. Eigene Guides, die Sie hochgeladen haben, bleiben immer aktuell bis Sie sie aktualisieren oder löschen.
+    Die Guides werden mit jedem Kamerplanter-Update gepflegt. Der genaue Stand ist in der Versionsdokumentation ([Changelog](../changelog/index.md)) vermerkt. Eigene Guides, die du hochgeladen hast, bleiben immer aktuell bis du sie aktualisierst oder löschst.
 
 ??? question "Was passiert, wenn kein passender Guide-Chunk gefunden wird?"
     Das System fällt auf die Stammdaten zurück (Ebene 1) und nutzt den strukturierten Kontext (Ebene 3+4). Die Antwortqualität ist dann geringer, aber das System antwortet trotzdem — ohne zu halluzinieren.
 
 ??? question "Werden meine eigenen Guides mit anderen Nutzern geteilt?"
-    Nein. Eigene Guides sind tenant-scoped — sie sind nur für Ihren Garten/Ihre Organisation sichtbar und werden nicht mit der globalen Wissensbasis oder anderen Tenants geteilt.
+    Nein. Eigene Guides sind tenant-scoped — sie sind nur für deinen Garten/deine Organisation sichtbar und werden nicht mit der globalen Wissensbasis oder anderen Tenants geteilt.
 
 ---
 

@@ -262,7 +262,7 @@ If no provider is available, the **rule-based fallback** activates: the system g
     Check: (1) Is the Ollama service running? (`systemctl status ollama` on Linux). (2) Is Ollama on port 11434? (`curl http://localhost:11434`). (3) Is the model downloaded? (`ollama list`).
 
 ??? question "The model responds in a different language — what can I do?"
-    Kamerplanter sends all requests in German and instructs the model to respond in German. If the model still responds in another language, try a larger model (`gemma3:4b` instead of `llama3.2:3b`).
+    By default, Kamerplanter sends all requests in German and instructs the model to respond in German. This reflects the language of the built-in knowledge base. English-speaking self-hosters can change the default prompt language by setting the knowledge service's `RAG_PROMPT_LANGUAGE` environment variable to `en` (it defaults to `de`); individual requests can also override it via the `prompt_language` parameter. If the model still responds in an unexpected language after configuration, try a larger model (`gemma3:4b` instead of `llama3.2:3b`).
 
 ---
 

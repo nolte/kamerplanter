@@ -30,7 +30,7 @@ ArangoDB bietet die beste Balance aus Dokumentenspeicherung und nativer Graph-Un
 
 ### Positiv
 - Eine Datenbank für alle Datentypen
-- Native AQL-Graph-Traversals für Begleittflanzengraph und Herkunftsbaum
+- Native AQL-Graph-Traversals für Begleitpflanzengraph und Herkunftsbaum
 - Named Graph `kamerplanter_graph` als zentrale Abstraktionsebene
 
 ### Negativ

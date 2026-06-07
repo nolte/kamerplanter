@@ -1,6 +1,6 @@
 # AI Architecture
 
-This page describes the technical architecture of the AI Assistant (REQ-031). The implementation follows the adapter pattern from REQ-011 and integrates into the existing 5-layer architecture.
+This page describes the technical architecture of the AI Assistant (REQ-031). The implementation uses Retrieval-Augmented Generation (RAG) to ground responses in plant-specific knowledge, follows the adapter pattern from REQ-011, and integrates into the existing 5-layer architecture.
 
 ---
 
@@ -113,7 +113,7 @@ class IAiProvider(ABC):
         max_tokens: int = 1024,
         temperature: float = 0.3,
     ) -> AsyncIterator[str]:
-        """Token-by-token streaming (for chat, SSE)."""
+        """Token-by-token streaming (for chat, Server-Sent Events (SSE))."""
         ...
 
     @abstractmethod
@@ -249,7 +249,7 @@ The Bi-Encoder (E5-base) and BM25 rank independently. Keyword-rich chunks receiv
 
 The re-ranker runs as a standalone `reranker-service` — analogous to the embedding service:
 
-- **No PyTorch** in the container — only ONNX Runtime and the Hugging Face tokenizer
+- **No PyTorch** in the container — only Open Neural Network Exchange (ONNX) Runtime and the Hugging Face tokenizer
 - **Multi-stage Dockerfile:** model download and ONNX export in a cached build stage; the runtime image remains lean
 - **Port 8081**, FastAPI with two endpoints: `/rerank` (POST) and `/health` (GET)
 - **Model:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M parameters, Apache-2.0 licence
@@ -512,7 +512,7 @@ backend:
 - REQ-031 — AI Assistant & Plant Advisory (`spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md`)
 - REQ-011 — External Master Data Enrichment (`spec/req/REQ-011_Externe-Stammdatenanreicherung.md`)
 - REQ-025 — Privacy & GDPR (`spec/req/REQ-025_Datenschutz-Betroffenenrechte.md`)
-- [ADR-006 — Embedding Model E5-base and Hybrid Search](../adr/006-embedding-model-e5-base-hybrid-search.md)
+- [ADR-006 — Embedding Model E5-base and Hybrid Search](../adr/006-embedding-modell-e5-base-hybrid-search.md)
 - [ADR-007 — Cross-Encoder Re-Ranking for RAG Pipeline](../adr/007-cross-encoder-reranking.md)
 - [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md)
 - [AI Assistant](../user-guide/ai-assistant.md)

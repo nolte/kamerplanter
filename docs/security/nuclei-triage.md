@@ -1,6 +1,6 @@
 # Nuclei Findings — Triage Workflow
 
-This page is the operational playbook for findings produced by the Nuclei DAST scans defined in [NFR-014](../../spec/nfr/NFR-014_Nuclei-Security-Scanning.md). It tells the on-call security owner what to do when a SARIF entry lands in GitHub Code Scanning or a nightly run opens an issue.
+This page is the operational playbook for findings produced by the Nuclei DAST scans defined in [NFR-014](https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md). It tells the on-call security owner what to do when a SARIF entry lands in GitHub Code Scanning or a nightly run opens an issue.
 
 ## When findings appear
 
@@ -108,8 +108,8 @@ The on-call rotation is tracked in `docs/security/rotation.md` (Phase 4 — TBD)
 
 ## See also
 
-- [NFR-014 — Nuclei spec](../../spec/nfr/NFR-014_Nuclei-Security-Scanning.md)
-- [NFR-015 — OWASP ZAP spec](../../spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md) (complementary, deeper DAST)
-- [`tests/security/README.md`](../../tests/security/README.md) — artefact index
-- [`scripts/security/nuclei-local.sh`](../../scripts/security/nuclei-local.sh) — local reproduction
-- [`scripts/security/build-nuclei-flags.sh`](../../scripts/security/build-nuclei-flags.sh) — suppression compiler
+- [NFR-014 — Nuclei spec](https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-014_Nuclei-Security-Scanning.md)
+- [NFR-015 — OWASP ZAP spec](https://github.com/nolte/kamerplanter/blob/develop/spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md) (complementary, deeper DAST)
+- [`tests/security/README.md`](https://github.com/nolte/kamerplanter/blob/develop/tests/security/README.md) — artefact index
+- [`scripts/security/nuclei-local.sh`](https://github.com/nolte/kamerplanter/blob/develop/scripts/security/nuclei-local.sh) — local reproduction
+- [`scripts/security/build-nuclei-flags.sh`](https://github.com/nolte/kamerplanter/blob/develop/scripts/security/build-nuclei-flags.sh) — suppression compiler

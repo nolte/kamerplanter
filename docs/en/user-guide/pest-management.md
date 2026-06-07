@@ -1,6 +1,6 @@
 # Integrated Pest Management (IPM)
 
-The IPM system follows a three-tier approach: prevention before monitoring, monitoring before intervention. Kamerplanter records inspection results, manages treatments with pre-harvest intervals, and warns you in time before harvest.
+The Integrated Pest Management (IPM) system follows a three-tier approach: prevention before monitoring, monitoring before intervention. Kamerplanter records inspection results, manages treatments with pre-harvest intervals, and warns you in time before harvest.
 
 ---
 
@@ -66,9 +66,9 @@ If you have found infestation, select from the list:
 
 **Common diseases:**
 - Powdery mildew (various species)
-- Botrytis (grey mould)
-- Pythium (root rot, in hydroponics)
-- Fusarium (soil fungus)
+- *Botrytis cinerea* (gray mold / gray rot)
+- *Pythium* spp. (root rot, especially in hydroponics)
+- *Fusarium* spp. (soil-borne crown and root rot fungus)
 
 If the pest or disease is not on the list you can enter it manually.
 
@@ -143,7 +143,7 @@ For biological control you can document beneficial organism releases:
 
 1. Navigate to **Pest Management → Beneficials**.
 2. Click **Beneficial Released**.
-3. Select the organism from the list (e.g. predatory mites for spider mites, parasitic wasps for fungus gnats).
+3. Select the organism from the list (e.g. *Phytoseiulus persimilis* (predatory mite) for spider mites, parasitic wasps for fungus gnats).
 4. Enter release date, quantity, and location.
 
 **Important when using beneficials:**

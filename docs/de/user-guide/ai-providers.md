@@ -1,13 +1,13 @@
 # KI-Provider einrichten
 
-Kamerplanter unterstützt mehrere KI-Provider, die Sie je nach Hardware, Datenschutzanforderungen und Budget wählen können. Diese Seite erklärt, wie Sie jeden Provider einrichten und in Kamerplanter konfigurieren.
+Kamerplanter unterstützt mehrere KI-Provider, die du je nach Hardware, Datenschutzanforderungen und Budget wählen kannst. Diese Seite erklärt, wie du jeden Provider einrichtest und in Kamerplanter konfigurierst.
 
 ---
 
 ## Voraussetzungen
 
 - Kamerplanter ist installiert und läuft
-- Sie haben Zugriff auf **Einstellungen > KI-Provider** (Tenant-Admin oder eigene Einstellungen)
+- Du hast Zugriff auf **Einstellungen > KI-Provider** (Tenant-Admin oder eigene Einstellungen)
 
 ---
 
@@ -22,13 +22,13 @@ Kamerplanter unterstützt mehrere KI-Provider, die Sie je nach Hardware, Datensc
 | [OpenAI-kompatible APIs](#openai-kompatible-apis) | Lokal oder Cloud | Abhängig | Variabel | Fortgeschrittene |
 
 !!! tip "Empfehlung für den Einstieg"
-    Wenn Sie Kamerplanter selbst hosten: Starten Sie mit **Ollama + gemma3:4b**. Das Modell läuft auf den meisten Desktop-Rechnern ab 2020 ohne GPU und gibt keine Daten weiter.
+    Wenn du Kamerplanter selbst hostest: Starte mit **Ollama + gemma3:4b**. Das Modell läuft auf den meisten Desktop-Rechnern ab 2020 ohne GPU und gibt keine Daten weiter.
 
 ---
 
 ## Ollama (lokal, empfohlen)
 
-Ollama ist ein Programm, das Sprachmodelle lokal auf Ihrem Rechner oder Server ausführt. Keine Daten verlassen Ihr Netzwerk.
+Ollama ist ein Programm, das Sprachmodelle lokal auf deinem Rechner oder Server ausführt. Keine Daten verlassen dein Netzwerk.
 
 ### Hardware-Anforderungen
 
@@ -55,13 +55,13 @@ Ollama ist ein Programm, das Sprachmodelle lokal auf Ihrem Rechner oder Server a
 
 === "macOS"
 
-    Laden Sie den Installer von [ollama.com/download](https://ollama.com/download) herunter und öffnen Sie die `.dmg`-Datei.
+    Lade den Installer von [ollama.com/download](https://ollama.com/download) herunter und öffne die `.dmg`-Datei.
 
     Nach der Installation erscheint das Ollama-Symbol in der Menüleiste.
 
 === "Windows"
 
-    Laden Sie den Installer von [ollama.com/download](https://ollama.com/download) herunter und führen Sie ihn aus.
+    Lade den Installer von [ollama.com/download](https://ollama.com/download) herunter und führe ihn aus.
 
     Ollama läuft als Hintergrunddienst und ist unter `http://localhost:11434` erreichbar.
 
@@ -86,7 +86,7 @@ Ollama ist ein Programm, das Sprachmodelle lokal auf Ihrem Rechner oder Server a
 
 ### Modell herunterladen
 
-Öffnen Sie ein Terminal und laden Sie das empfohlene Modell herunter:
+Öffne ein Terminal und lade das empfohlene Modell herunter:
 
 ```bash
 # Empfehlung für die meisten Nutzer (16 GB RAM)
@@ -100,22 +100,22 @@ ollama pull mistral:7b
 ```
 
 !!! tip "Modell testen"
-    Prüfen Sie, ob Ollama funktioniert:
+    Prüfe, ob Ollama funktioniert:
     ```bash
     ollama run gemma3:4b "Welche Temperatur benötigt Basilikum in der Keimungsphase?"
     ```
 
 ### In Kamerplanter konfigurieren
 
-1. Öffnen Sie **Einstellungen > KI-Provider**
-2. Klicken Sie auf **Provider hinzufügen**
-3. Wählen Sie **Ollama**
-4. Tragen Sie die URL ein: `http://localhost:11434` (oder die IP Ihres Servers)
-5. Wählen Sie das Modell aus der Dropdown-Liste (oder tippen Sie `gemma3:4b` ein)
-6. Klicken Sie auf **Speichern** und anschließend auf **Verbindung testen**
+1. Öffne **Einstellungen > KI-Provider**.
+2. Klicke auf **Provider hinzufügen**.
+3. Wähle **Ollama**.
+4. Trage die URL ein: `http://localhost:11434` (oder die IP deines Servers).
+5. Wähle das Modell aus der Dropdown-Liste (oder tippe `gemma3:4b` ein).
+6. Klicke auf **Speichern** und anschließend auf **Verbindung testen**.
 
 !!! warning "Ollama auf einem anderen Rechner"
-    Wenn Ollama auf einem anderen Rechner läuft (z.B. einem NAS), ersetzen Sie `localhost` durch die IP-Adresse dieses Rechners. Stellen Sie sicher, dass Port 11434 im Netzwerk erreichbar ist.
+    Wenn Ollama auf einem anderen Rechner läuft (z.B. einem NAS), ersetze `localhost` durch die IP-Adresse dieses Rechners. Stelle sicher, dass Port 11434 im Netzwerk erreichbar ist.
 
 ---
 
@@ -136,41 +136,41 @@ llama.cpp ist eine Alternative zu Ollama für fortgeschrittene Nutzer, die GGUF-
 
 ### In Kamerplanter konfigurieren
 
-1. Öffnen Sie **Einstellungen > KI-Provider**
-2. Klicken Sie auf **Provider hinzufügen**
-3. Wählen Sie **OpenAI-kompatibel** (llama.cpp bietet eine OpenAI-kompatible API)
-4. Tragen Sie die URL ein: `http://localhost:8080`
-5. Lassen Sie das API-Key-Feld leer
-6. Tragen Sie als Modellname `local` oder den Namen Ihres GGUF-Modells ein
-7. Klicken Sie auf **Verbindung testen**
+1. Öffne **Einstellungen > KI-Provider**.
+2. Klicke auf **Provider hinzufügen**.
+3. Wähle **OpenAI-kompatibel** (llama.cpp bietet eine OpenAI-kompatible API).
+4. Trage die URL ein: `http://localhost:8080`.
+5. Lasse das API-Key-Feld leer.
+6. Trage als Modellname `local` oder den Namen deines GGUF-Modells ein.
+7. Klicke auf **Verbindung testen**.
 
 ---
 
 ## OpenAI API
 
-OpenAI bietet hochwertige Cloud-Modelle. Ihre Pflanzdaten werden für jede Anfrage an OpenAI-Server in den USA übertragen.
+OpenAI bietet hochwertige Cloud-Modelle. Deine Pflanzdaten werden für jede Anfrage an OpenAI-Server in den USA übertragen.
 
 !!! warning "Datenschutzhinweis"
-    Bei Nutzung der OpenAI API werden Ihre Pflanzdaten (Phase, Messwerte, Sortenname, Düngehistorie) an OpenAI in den USA übertragen. Beim ersten Chat mit einem Cloud-Provider fragt Kamerplanter nach Ihrer DSGVO-Einwilligung. Sie können diese jederzeit unter **Einstellungen > Datenschutz** widerrufen.
+    Bei Nutzung der OpenAI API werden deine Pflanzdaten (Phase, Messwerte, Sortenname, Düngehistorie) an OpenAI in den USA übertragen. Beim ersten Chat mit einem Cloud-Provider fragt Kamerplanter nach deiner DSGVO-Einwilligung. Du kannst diese jederzeit unter **Einstellungen > Datenschutz** widerrufen.
 
 ### API-Key erstellen
 
-1. Öffnen Sie [platform.openai.com](https://platform.openai.com)
-2. Melden Sie sich an (oder registrieren Sie sich)
-3. Navigieren Sie zu **API keys**
-4. Klicken Sie auf **Create new secret key**
-5. Kopieren Sie den Key (er wird nur einmal angezeigt)
+1. Öffne [platform.openai.com](https://platform.openai.com).
+2. Melde dich an (oder registriere dich).
+3. Navigiere zu **API keys**.
+4. Klicke auf **Create new secret key**.
+5. Kopiere den Key (er wird nur einmal angezeigt).
 
 ### In Kamerplanter konfigurieren
 
-1. Öffnen Sie **Einstellungen > KI-Provider**
-2. Klicken Sie auf **Provider hinzufügen**
-3. Wählen Sie **OpenAI**
-4. Fügen Sie Ihren API-Key ein
-5. Wählen Sie das Modell:
+1. Öffne **Einstellungen > KI-Provider**.
+2. Klicke auf **Provider hinzufügen**.
+3. Wähle **OpenAI**.
+4. Füge deinen API-Key ein.
+5. Wähle das Modell:
    - **gpt-4o-mini** — günstig, schnell, gut für Tipp-Karten
    - **gpt-4o** — beste Qualität, höhere Kosten
-6. Klicken Sie auf **Speichern**
+6. Klicke auf **Speichern**.
 
 ### Empfohlene Modelle
 
@@ -186,26 +186,26 @@ OpenAI bietet hochwertige Cloud-Modelle. Ihre Pflanzdaten werden für jede Anfra
 Anthropic Claude ist eine Alternative zu OpenAI mit starken Analysefähigkeiten. Auch hier werden Daten an Server in den USA übertragen.
 
 !!! warning "Datenschutzhinweis"
-    Analog zur OpenAI API: Ihre Pflanzdaten werden bei jeder Anfrage an Anthropic-Server in den USA übertragen. DSGVO-Einwilligung erforderlich.
+    Analog zur OpenAI API: Deine Pflanzdaten werden bei jeder Anfrage an Anthropic-Server in den USA übertragen. DSGVO-Einwilligung erforderlich.
 
 ### API-Key erstellen
 
-1. Öffnen Sie [console.anthropic.com](https://console.anthropic.com)
-2. Melden Sie sich an (oder registrieren Sie sich)
-3. Navigieren Sie zu **API Keys**
-4. Klicken Sie auf **Create Key**
-5. Kopieren Sie den Key
+1. Öffne [console.anthropic.com](https://console.anthropic.com).
+2. Melde dich an (oder registriere dich).
+3. Navigiere zu **API Keys**.
+4. Klicke auf **Create Key**.
+5. Kopiere den Key.
 
 ### In Kamerplanter konfigurieren
 
-1. Öffnen Sie **Einstellungen > KI-Provider**
-2. Klicken Sie auf **Provider hinzufügen**
-3. Wählen Sie **Anthropic**
-4. Fügen Sie Ihren API-Key ein
-5. Wählen Sie das Modell:
+1. Öffne **Einstellungen > KI-Provider**.
+2. Klicke auf **Provider hinzufügen**.
+3. Wähle **Anthropic**.
+4. Füge deinen API-Key ein.
+5. Wähle das Modell:
    - **claude-haiku-4-5** — schnell, günstig, gut für Tipp-Karten
    - **claude-sonnet-4-6** — sehr gute Analysequalität
-6. Klicken Sie auf **Speichern**
+6. Klicke auf **Speichern**.
 
 ### Empfohlene Modelle
 
@@ -228,13 +228,13 @@ Viele lokale und Cloud-Dienste bieten eine OpenAI-kompatible API. Dazu gehören:
 
 ### In Kamerplanter konfigurieren
 
-1. Öffnen Sie **Einstellungen > KI-Provider**
-2. Klicken Sie auf **Provider hinzufügen**
-3. Wählen Sie **OpenAI-kompatibel**
-4. Tragen Sie die **Base-URL** des Dienstes ein (z.B. `http://localhost:1234/v1` für LM Studio)
-5. Tragen Sie einen **API-Key** ein, falls der Dienst einen erfordert (bei lokalen Diensten oft leer lassen)
-6. Tragen Sie den **Modellnamen** ein
-7. Klicken Sie auf **Verbindung testen**
+1. Öffne **Einstellungen > KI-Provider**.
+2. Klicke auf **Provider hinzufügen**.
+3. Wähle **OpenAI-kompatibel**.
+4. Trage die **Base-URL** des Dienstes ein (z.B. `http://localhost:1234/v1` für LM Studio).
+5. Trage einen **API-Key** ein, falls der Dienst einen erfordert (bei lokalen Diensten oft leer lassen).
+6. Trage den **Modellnamen** ein.
+7. Klicke auf **Verbindung testen**.
 
 !!! example "LM Studio Beispiel"
     LM Studio startet einen lokalen Server unter `http://localhost:1234/v1`.
@@ -244,7 +244,7 @@ Viele lokale und Cloud-Dienste bieten eine OpenAI-kompatible API. Dazu gehören:
 
 ## Provider-Priorität und Fallback
 
-Wenn Sie mehrere Provider konfiguriert haben, können Sie einen als **Standard** festlegen. Bei nicht erreichbarem Standard-Provider wechselt das System auf den nächsten aktiven Provider.
+Wenn du mehrere Provider konfiguriert hast, kannst du einen als **Standard** festlegen. Bei nicht erreichbarem Standard-Provider wechselt das System auf den nächsten aktiven Provider.
 
 Falls kein Provider verfügbar ist, greift der **regelbasierte Fallback**: Das System generiert Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell.
 
@@ -259,10 +259,10 @@ Falls kein Provider verfügbar ist, greift der **regelbasierte Fallback**: Das S
     OpenAI und Anthropic bieten in ihren Dashboards Verbrauchsübersichten und Budget-Limits. Tipp-Karten werden täglich im Hintergrund generiert und gecacht (4 Stunden), was den Verbrauch stark reduziert.
 
 ??? question "Ollama startet nicht oder ist nicht erreichbar — was tun?"
-    Prüfen Sie: (1) Ist der Ollama-Dienst gestartet? (`systemctl status ollama` auf Linux). (2) Läuft Ollama auf Port 11434? (`curl http://localhost:11434`). (3) Ist das Modell heruntergeladen? (`ollama list`).
+    Prüfe: (1) Ist der Ollama-Dienst gestartet? (`systemctl status ollama` auf Linux). (2) Läuft Ollama auf Port 11434? (`curl http://localhost:11434`). (3) Ist das Modell heruntergeladen? (`ollama list`).
 
 ??? question "Das Modell antwortet auf Englisch statt Deutsch — was tun?"
-    Das Systemverhalten hängt vom Modell ab. Kamerplanter sendet alle Anfragen auf Deutsch und weist das Modell an, auf Deutsch zu antworten. Falls das Modell trotzdem auf Englisch antwortet, versuchen Sie ein größeres Modell (`gemma3:4b` statt `llama3.2:3b`).
+    Das Systemverhalten hängt vom Modell ab. Kamerplanter sendet alle Anfragen auf Deutsch und weist das Modell an, auf Deutsch zu antworten. Falls das Modell trotzdem auf Englisch antwortet, versuche ein größeres Modell (`gemma3:4b` statt `llama3.2:3b`).
 
 ---
 

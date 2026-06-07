@@ -115,11 +115,11 @@ but not deleted (Art. 17(3)(b)):
 | Ref | Data Category | Minimum Period | Legal Basis |
 |-----|--------------|---------------|------------|
 | R-16 | Harvest data (HarvestBatch, QualityAssessment, YieldMetric) | 5 years | CanG (German Cannabis Act) |
-| R-17 | Treatment applications (TreatmentApplication) | 3 years | PflSchG §11 (Plant Protection Act) |
-| R-18 | Inspection records | 3 years | PflSchG §11 |
+| R-17 | Treatment applications (TreatmentApplication) | 3 years | PflSchG §11 (German Plant Protection Act) |
+| R-18 | Inspection records | 3 years | PflSchG §11 (German Plant Protection Act) |
 
 !!! danger "Deletion lock"
-    Deleting an active harvest or treatment record would violate CanG or PflSchG.
+    Deleting an active harvest or treatment record would violate the CanG (German Cannabis Act) or PflSchG (German Plant Protection Act).
     The system prevents this technically — on an erasure request, the user reference
     (`user_key`) is set to `null`; the record itself remains until the statutory
     period has elapsed.

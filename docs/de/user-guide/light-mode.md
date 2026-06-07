@@ -10,9 +10,9 @@ Perfekt für: einen Raspberry Pi im Heimnetzwerk, Docker Compose auf dem Laptop,
 
 | Szenario | Light-Modus | Full-Modus |
 |----------|:-----------:|:----------:|
-| Ich bin allein und brauche kein Login | Empfehlung | Moglich |
-| Familie / Haushalt teilt eine Instanz im LAN | Empfehlung | Moglich |
-| Ich möchte die App erst ausprobieren | Empfehlung | Moglich |
+| Ich bin allein und brauche kein Login | Empfehlung | Möglich |
+| Familie / Haushalt teilt eine Instanz im LAN | Empfehlung | Möglich |
+| Ich möchte die App erst ausprobieren | Empfehlung | Möglich |
 | Mehrere Personen mit eigenen Konten | Nicht geeignet | Empfehlung |
 | Öffentlich erreichbare Instanz (Internet) | **Nicht verwenden** | Empfehlung |
 | Gemeinschaftsgarten mit Rollenverwaltung | Nicht geeignet | Empfehlung |
@@ -98,7 +98,7 @@ flowchart TD
 
 Nach dem Neustart im Full-Modus siehst du den Login-Screen. Registriere dich — dabei erscheint ein Dialog:
 
-> "Es gibt bestehende Daten (X Pflanzen, Y Standorte). Möchten Sie diese in Ihr Konto übernehmen?"
+> "Es gibt bestehende Daten (X Pflanzen, Y Standorte). Möchtest du diese in dein Konto übernehmen?"
 
 **Ja, übernehmen:** Dein neues Konto übernimmt den System-Garten mit allen Pflanzen, Standorten und Nährstoffplänen. Du kannst danach weitere Mitglieder einladen.
 
@@ -122,7 +122,7 @@ Ein vollständiger Hin-und-her-Wechsel ist möglich und sicher. Alle Daten bleib
 
 ---
 
-## Haufige Fragen
+## Häufige Fragen
 
 ??? question "Was passiert, wenn mehrere Personen im LAN gleichzeitig auf die Light-Modus-Instanz zugreifen?"
     Alle Geräte im Netzwerk sehen dieselben Daten und arbeiten als derselbe System-Benutzer. Änderungen einer Person sind sofort für alle anderen sichtbar. Es gibt keine Nutzer-Trennung — das ist beabsichtigt für Familien und Haushalte.

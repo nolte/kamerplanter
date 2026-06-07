@@ -18,7 +18,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 ## Why Kamerplanter?
 
 - **One place for everything** — master data, growth tracking, nutrient plans, pest management, and harvest in a single system instead of scattered spreadsheets and notes
-- **Knows your plants** — growth phase state machine with GDD, VPD, and photoperiod targets guides you through each stage. Perennial cycles and crop rotation built in.
+- **Knows your plants** — growth phase state machine with GDD (Growing Degree Days), VPD (Vapor Pressure Deficit), and photoperiod targets guides you through each stage. Perennial cycles and crop rotation built in.
 - **Takes care of reminders** — adaptive care schedules learn from your confirmations, adjust to seasons and hemispheres, and cover 9 care presets from tropical to cactus
 - **Calculates your nutrients** — fertilizer mixing with EC budgets, mixing order safety (CalMag before sulfates), flush protocols, tank management with tap/RO/mixed water sources
 - **Protects your harvest** — integrated pest management with Karenz safety intervals that block premature harvest, resistance tracking to prevent overuse of treatments

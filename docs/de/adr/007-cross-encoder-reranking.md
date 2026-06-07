@@ -1,4 +1,4 @@
-# ADR-007: Cross-Encoder Re-Ranking fuer RAG-Pipeline
+# ADR-007: Cross-Encoder Re-Ranking für RAG-Pipeline
 
 **Status:** Akzeptiert
 **Datum:** 2026-04-02
@@ -8,13 +8,13 @@
 
 Die RAG-Pipeline (ADR-006) verwendet Hybrid Search (Vektor + BM25 Full-Text mit Reciprocal Rank Fusion). Der RAG-Benchmark zeigt 29% Gesamtscore mit folgender Fehlerverteilung:
 
-- **57% GENERATION_MISS** — LLM erhaelt irrelevante Chunks und halluziniert
+- **57% GENERATION_MISS** — LLM erhält irrelevante Chunks und halluziniert
 - **11% RETRIEVAL_MISS** — Hybrid Search findet den richtigen Chunk nicht in Top-K
-- **21% SYNONYM_GAP** — Eval-Pattern erkennt korrekte Antworten nicht (unabhaengig)
+- **21% SYNONYM_GAP** — Eval-Pattern erkennt korrekte Antworten nicht (unabhängig)
 
 ### Problem
 
-Bi-Encoder (E5-base) und BM25 ranken unabhaengig voneinander. Ihre Fusion via RRF ist effektiv fuer Recall, aber nicht optimal fuer Precision: Irrelevante Chunks mit hohem BM25-Score (Keyword-Match ohne semantische Relevanz) verrauschen den LLM-Kontext. Das fuehrt zur dominierenden Fehlerklasse GENERATION_MISS.
+Bi-Encoder (E5-base) und BM25 ranken unabhängig voneinander. Ihre Fusion via RRF ist effektiv für Recall, aber nicht optimal für Precision: Irrelevante Chunks mit hohem BM25-Score (Keyword-Match ohne semantische Relevanz) verrauschen den LLM-Kontext. Das führt zur dominierenden Fehlerklasse GENERATION_MISS.
 
 ## Entscheidung
 
@@ -32,9 +32,9 @@ Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 
 ### Warum separater Service statt In-Process?
 
-1. Cross-Encoder-Inferenz ist CPU-intensiv (~500ms fuer 20 Paare) — eigenes Memory/CPU-Budget
-2. Bestehende Architektur (Embedding-Service) bewaehrt sich
-3. Optional deploybar — keine zusaetzliche Python-Dependency im Knowledge-Service
+1. Cross-Encoder-Inferenz ist CPU-intensiv (~500ms für 20 Paare) — eigenes Memory/CPU-Budget
+2. Bestehende Architektur (Embedding-Service) bewährt sich
+3. Optional deploybar — keine zusätzliche Python-Dependency im Knowledge-Service
 
 ### Warum bge-reranker-v2-m3?
 
@@ -49,23 +49,23 @@ Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 
 ### Abgelehnte Alternativen
 
-1. **Nur RRF-Weight-Tuning:** Verbessert Precision minimal, loest das Grundproblem nicht (Keyword-Matches ohne semantische Relevanz)
-2. **ColBERT/Late Interaction:** Hoeherer Recall, aber Re-Ranking war nicht das Recall-Problem
-3. **LLM-basiertes Re-Ranking:** Zu langsam (>5s), zu teuer fuer lokale Inferenz
+1. **Nur RRF-Weight-Tuning:** Verbessert Precision minimal, löst das Grundproblem nicht (Keyword-Matches ohne semantische Relevanz)
+2. **ColBERT/Late Interaction:** Höherer Recall, aber Re-Ranking war nicht das Recall-Problem
+3. **LLM-basiertes Re-Ranking:** Zu langsam (>5s), zu teuer für lokale Inferenz
 
 ## Konsequenzen
 
 ### Positiv
 
-- Praeziserer LLM-Kontext → weniger GENERATION_MISS
+- Präziserer LLM-Kontext → weniger GENERATION_MISS
 - Erwartete Benchmark-Verbesserung: 10-20 Prozentpunkte
 - Keine Breaking Changes — Graceful Degradation bei fehlendem Reranker
 - Gleiche Deployment-Patterns wie Embedding-Service (bekannt, getestet)
 
 ### Negativ
 
-- Zusaetzlicher Microservice (+1.5-4 GB RAM, +500ms Latenz pro Query)
-- ONNX-Export via `optimum` im Docker-Build (laengere Build-Zeit)
+- Zusätzlicher Microservice (+1.5-4 GB RAM, +500ms Latenz pro Query)
+- ONNX-Export via `optimum` im Docker-Build (längere Build-Zeit)
 - Erste Docker-Build-Zeit ~10-15 Minuten (Modell-Download + Export)
 
 ### Neutral

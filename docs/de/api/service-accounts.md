@@ -195,9 +195,9 @@ curl -X PATCH "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/servi
 
 Wird ein Request von einer nicht erlaubten IP abgesendet, antwortet die API mit `403 Forbidden`.
 
-!!! tip "Keine Einschraenkung"
-    Setzen Sie `allowed_ip_ranges` auf `null` oder lassen Sie das Feld weg, um den
-    Zugriff aus allen IP-Bereichen zu erlauben (Standard fuer neue Service Accounts).
+!!! tip "Keine Einschränkung"
+    Setze `allowed_ip_ranges` auf `null` oder lass das Feld weg, um den
+    Zugriff aus allen IP-Bereichen zu erlauben (Standard für neue Service Accounts).
 
 ---
 
@@ -209,9 +209,9 @@ Jeder Service Account hat ein konfigurierbares Rate Limit in Requests pro Minute
 |------|-----------|
 | `null` | Globaler Default (1000 RPM) |
 | `500` | 500 Requests pro Minute |
-| `100` | Restriktiver Zugriff fuer externe Partner |
+| `100` | Restriktiver Zugriff für externe Partner |
 
-Bei Ueberschreitung antwortet die API mit `429 Too Many Requests` und dem Header
+Bei Überschreitung antwortet die API mit `429 Too Many Requests` und dem Header
 `Retry-After: <Sekunden>`.
 
 ---
@@ -232,13 +232,13 @@ curl -X POST ".../service-accounts/" \
   }'
 ```
 
-Verfuegbare Rollen: `admin`, `grower`, `viewer` (identisch mit menschlichen Mitgliedern).
+Verfügbare Rollen: `admin`, `grower`, `viewer` (identisch mit menschlichen Mitgliedern).
 
 ---
 
 ## Praktisches Beispiel: Home Assistant einrichten
 
-Dieses Beispiel zeigt den vollstaendigen Einrichtungsablauf fuer eine Home Assistant
+Dieses Beispiel zeigt den vollständigen Einrichtungsablauf für eine Home Assistant
 Integration.
 
 ### Schritt 1: Service Account erstellen
@@ -272,7 +272,7 @@ print(f"API Key (jetzt notieren!): {api_key}")
 
 ### Schritt 2: API-Key in Home Assistant eintragen
 
-Tragen Sie den Key in der Home Assistant Kamerplanter Integration ein
+Trage den Key in der Home Assistant Kamerplanter Integration ein
 (Einstellungen → Integrationen → Kamerplanter):
 
 ```yaml
@@ -294,7 +294,7 @@ curl -X GET "https://api.kamerplanter.example.com/api/v1/t/mein-garten/service-a
   -H "Authorization: Bearer kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-Erwartete Antwort: Informationen zum Service Account (Name, Rolle, letzte Aktivitaet).
+Erwartete Antwort: Informationen zum Service Account (Name, Rolle, letzte Aktivität).
 
 ---
 
@@ -316,27 +316,27 @@ curl -X DELETE "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/serv
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Kann ein Service Account mehrere API-Keys gleichzeitig haben?"
     Nein. Pro Service Account gibt es genau einen aktiven API-Key. Bei einer Rotation
-    wird der alte Key sofort ungueltig und ein neuer ausgestellt. Planen Sie die
-    Rotation so, dass Sie den neuen Key vor dem Widerruf des alten in die Zielanwendung
-    eintragen koennen.
+    wird der alte Key sofort ungültig und ein neuer ausgestellt. Plane die
+    Rotation so, dass du den neuen Key vor dem Widerruf des alten in die Zielanwendung
+    einträgst.
 
 ??? question "Was passiert bei einem kompromittierten API-Key?"
-    Setzen Sie den Service Account sofort per `status: suspended` ausser Betrieb und
-    rotieren Sie anschliessend den Key. Pruefen Sie die Aktivitaetslogs
-    (`last_active_at`) auf verdaechtige Anfragen.
+    Setze den Service Account sofort per `status: suspended` außer Betrieb und
+    rotiere anschließend den Key. Prüfe die Aktivitätslogs
+    (`last_active_at`) auf verdächtige Anfragen.
 
-??? question "Wie unterscheidet sich ein Service Account von einem regulaeren API-Key (v1.4)?"
-    Service Accounts (v1.7) sind vollwertige Entitaeten mit eigenem Datensatz, Beschreibung,
+??? question "Wie unterscheidet sich ein Service Account von einem regulären API-Key (v1.4)?"
+    Service Accounts (v1.7) sind vollwertige Entitäten mit eigenem Datensatz, Beschreibung,
     Rolle und Konfiguration. Einfache API-Keys (v1.4 unter `api_keys`) sind leichtgewichtiger,
-    aber ohne Rollenzuweisung und IP-Einschraenkung.
+    aber ohne Rollenzuweisung und IP-Einschränkung.
 
-??? question "Koennen Service Accounts sich auf mehreren Tenants bewegen?"
-    Tenant-scoped Service Accounts sind auf genau einen Tenant beschraenkt.
-    Fuer tenant-uebergreifende Zugriffe muss ein Platform-scoped Service Account erstellt
+??? question "Können Service Accounts sich auf mehreren Tenants bewegen?"
+    Tenant-scoped Service Accounts sind auf genau einen Tenant beschränkt.
+    Für tenant-übergreifende Zugriffe muss ein Platform-scoped Service Account erstellt
     werden (erfordert Platform-Admin-Rolle).
 
 ## Siehe auch

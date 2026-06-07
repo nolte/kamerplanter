@@ -1,7 +1,7 @@
 # Privacy & GDPR
 
 !!! warning "Not yet implemented"
-    The GDPR features described on this page (REQ-025) are **specified but not yet implemented**. This documentation describes the planned behaviour.
+    The GDPR features described on this page (REQ-025) are **specified but not yet implemented**. This documentation describes the planned behavior.
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features directly in your account.
 
@@ -139,7 +139,7 @@ After 90 days:
 ```
 
 !!! note "Why are harvest records not fully deleted?"
-    The German Cannabis Act (CanG) and the Plant Protection Products Act (PflSchG) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymised records. This is legally covered by GDPR Art. 17(3)(b).
+    The CanG (German Cannabis Act) and the PflSchG (German Plant Protection Act) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymized records. This is legally covered by GDPR Art. 17(3)(b).
 
 ---
 
@@ -153,7 +153,7 @@ Kamerplanter stores different data categories with different retention periods:
 | Sensor data (raw) | 90 days | NFR-011 |
 | Sensor data (hourly aggregate) | 2 years | NFR-011 |
 | Sensor data (daily aggregate) | 5 years | NFR-011 |
-| IP addresses | 7 days, then anonymised | Data minimisation |
+| IP addresses | 7 days, then anonymized | Data minimization |
 | Harvest/treatment data | Legal minimum period | CanG / PflSchG |
 | Consent log | 3 years after revocation | Accountability |
 | Erasure audit log | 1 year | Accountability |
@@ -174,9 +174,9 @@ After 5 years:   Automatic deletion
 
 ---
 
-## IP Anonymisation
+## IP Anonymization
 
-IP addresses are generally only stored in plain text for 7 days. After that they are anonymised to the /24 subnet (the last 8 bits set to 0), so that individual assignment is no longer possible.
+IP addresses are generally only stored in plain text for 7 days. After that they are anonymized to the /24 subnet (the last 8 bits set to 0), so that individual assignment is no longer possible.
 
 ---
 

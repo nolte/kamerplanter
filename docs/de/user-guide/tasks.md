@@ -1,6 +1,6 @@
 # Aufgaben und Pflegeerinnerungen
 
-Kamerplanter erstellt automatisch Aufgaben aus Workflows und Pflegeprofilen und erinnert Sie rechtzeitig an alle anfallenden Pflegearbeiten. Sie behalten jederzeit die volle Kontrolle: Aufgaben können angepasst, neu erstellt und flexibel verwaltet werden.
+Kamerplanter erstellt automatisch Aufgaben aus Workflows und Pflegeprofilen und erinnert dich rechtzeitig an alle anfallenden Pflegearbeiten. Du behältst jederzeit die volle Kontrolle: Aufgaben können angepasst, neu erstellt und flexibel verwaltet werden.
 
 ---
 
@@ -13,7 +13,7 @@ Kamerplanter erstellt automatisch Aufgaben aus Workflows und Pflegeprofilen und 
 
 ## Aufgaben in der Übersicht
 
-Die Aufgaben-Übersicht finden Sie über **Aufgaben** in der Navigation. Die Ansicht zeigt:
+Die Aufgaben-Übersicht findest du über **Aufgaben** in der Navigation. Die Ansicht zeigt:
 
 - **Heute fällig**: Aufgaben, die heute erledigt werden sollten
 - **Überfällig**: Aufgaben, die ihr Fälligkeitsdatum überschritten haben (rot markiert)
@@ -51,7 +51,7 @@ Kamerplanter unterscheidet zwischen manuell erstellten Aufgaben und automatisch 
 
 ### Schritt 1: Neue Aufgabe anlegen
 
-Klicken Sie in der Aufgaben-Übersicht auf **Aufgabe erstellen** (oben rechts).
+Klicke in der Aufgaben-Übersicht auf **Aufgabe erstellen** (oben rechts).
 
 ### Schritt 2: Aufgabe beschreiben
 
@@ -67,7 +67,7 @@ Klicken Sie in der Aufgaben-Übersicht auf **Aufgabe erstellen** (oben rechts).
 
 ### Schritt 3: Optional: Erinnerung einrichten
 
-Aktivieren Sie die Erinnerungsfunktion, um vor Fälligkeit eine Benachrichtigung zu erhalten.
+Aktiviere die Erinnerungsfunktion, um vor Fälligkeit eine Benachrichtigung zu erhalten.
 
 ### Schritt 4: Speichern
 
@@ -79,27 +79,27 @@ Die Aufgabe erscheint sofort in der Aufgaben-Übersicht und im Kalender.
 
 ### Einzelne Aufgabe abschließen
 
-1. Öffnen Sie die Aufgabe durch Klick auf den Titel.
-2. Klicken Sie auf **Erledigt markieren**.
-3. Optional: Tragen Sie ein Erledigungsdatum und eine Notiz ein.
-4. Bestätigen Sie.
+1. Öffne die Aufgabe durch Klick auf den Titel.
+2. Klicke auf **Erledigt markieren**.
+3. Optional: Trage ein Erledigungsdatum und eine Notiz ein.
+4. Bestätige.
 
 ### Aufgabe direkt aus der Listenansicht abhaken
 
-Klicken Sie auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wird sofort als erledigt markiert.
+Klicke auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wird sofort als erledigt markiert.
 
 !!! tip "Adaptive Zeitpläne"
-    Kamerplanter lernt aus Ihren Erledigungsmustern. Wenn Sie eine Gießaufgabe konsequent einen Tag früher abhaken, passt das System das Intervall automatisch an (bis zu ±30 % Abweichung vom Ursprungsintervall).
+    Kamerplanter lernt aus deinen Erledigungsmustern. Wenn du eine Gießaufgabe konsequent einen Tag früher abhakst, passt das System das Intervall automatisch an (bis zu ±30 % Abweichung vom Ursprungsintervall).
 
 ---
 
 ## Workflow-Templates nutzen
 
-Workflow-Templates sind vordefinierte Aufgaben-Pakete für häufige Pflegeszenarien. Ein Template instantiieren bedeutet: Das System erstellt aus dem Template eine Reihe konkreter Aufgaben für Ihre Pflanze oder Ihren Durchlauf.
+Workflow-Templates sind vordefinierte Aufgaben-Pakete für häufige Pflegeszenarien. Ein Template instantiieren bedeutet: Das System erstellt aus dem Template eine Reihe konkreter Aufgaben für deine Pflanze oder deinen Durchlauf.
 
 ### Schritt 1: Template auswählen
 
-Navigieren Sie zu **Aufgaben → Workflow-Templates**. Sie sehen vordefinierte System-Templates:
+Navigiere zu **Aufgaben → Workflow-Templates**. Du siehst vordefinierte System-Templates:
 
 **Indoor-Templates:**
 - Cannabis SOG (Sea of Green)
@@ -125,20 +125,20 @@ Navigieren Sie zu **Aufgaben → Workflow-Templates**. Sie sehen vordefinierte S
 
 ### Schritt 2: Template auf Pflanze oder Durchlauf anwenden
 
-1. Klicken Sie auf **Template anwenden** neben dem gewünschten Template.
-2. Wählen Sie die Zielpflanze(n) oder den Pflanzdurchlauf.
-3. Wählen Sie ein Startdatum.
+1. Klicke auf **Template anwenden** neben dem gewünschten Template.
+2. Wähle die Zielpflanze(n) oder den Pflanzdurchlauf.
+3. Wähle ein Startdatum.
 4. Das System berechnet automatisch alle Fälligkeitsdaten basierend auf dem Template und der Wachstumsphase.
-5. Bestätigen Sie — alle Aufgaben werden angelegt.
+5. Bestätige — alle Aufgaben werden angelegt.
 
 ### Eigene Templates erstellen
 
-Wenn Sie eine Abfolge von Aufgaben öfter nutzen:
+Wenn du eine Abfolge von Aufgaben öfter nutzt:
 
-1. Navigieren Sie zu **Aufgaben → Workflow-Templates → Neues Template**.
-2. Geben Sie dem Template einen Namen und eine Beschreibung.
-3. Fügen Sie Aufgaben hinzu (Titel, Typ, Tage nach Start).
-4. Speichern Sie. Das Template steht nun für alle Ihre Pflanzen zur Verfügung.
+1. Navigiere zu **Aufgaben → Workflow-Templates → Neues Template**.
+2. Gib dem Template einen Namen und eine Beschreibung.
+3. Füge Aufgaben hinzu (Titel, Typ, Tage nach Start).
+4. Speichere. Das Template steht nun für alle deine Pflanzen zur Verfügung.
 
 ---
 
@@ -148,9 +148,9 @@ Pflegeprofile definieren das grundlegende Pflegeverhalten einer Pflanze: Wie oft
 
 ### Pflegeprofil einsehen und anpassen
 
-1. Öffnen Sie eine Pflanze und wechseln Sie zum Tab **Pflege**.
+1. Öffne eine Pflanze und wechsle zum Tab **Pflege**.
 2. Das System schlägt automatisch ein Pflegeprofil basierend auf der Pflanzenart vor.
-3. Klicken Sie auf **Profil bearbeiten**, um die Intervalle anzupassen.
+3. Klicke auf **Profil bearbeiten**, um die Intervalle anzupassen.
 
 **Einstellbare Parameter:**
 - Gieß-Intervall (Tage) oder Modus (nach Substratfeuchte)
@@ -187,23 +187,23 @@ In der Aufgaben-Übersicht stehen folgende Filter zur Verfügung:
 - **Nach Priorität**
 - **Nach Tags**
 
-Klicken Sie auf den Filter-Button oben in der Liste, um die Filter-Leiste ein- oder auszublenden.
+Klicke auf den Filter-Button oben in der Liste, um die Filter-Leiste ein- oder auszublenden.
 
 ---
 
 ## Häufige Fragen
 
 ??? question "Wie viele automatische Aufgaben erstellt Kamerplanter pro Tag?"
-    Das hängt von der Anzahl Ihrer Pflanzen und aktiven Pflegeprofilen ab. Kamerplanter bündelt mehrere Aufgaben wenn möglich (z.B. "Alle Pflanzen in Zelt A gießen" statt einzelner Gieß-Aufgaben pro Pflanze). Sie können in den Einstellungen konfigurieren, ob Aufgaben pro Pflanze oder pro Standort gebündelt werden.
+    Das hängt von der Anzahl deiner Pflanzen und aktiven Pflegeprofilen ab. Kamerplanter bündelt mehrere Aufgaben wenn möglich (z.B. "Alle Pflanzen in Zelt A gießen" statt einzelner Gieß-Aufgaben pro Pflanze). Du kannst in den Einstellungen konfigurieren, ob Aufgaben pro Pflanze oder pro Standort gebündelt werden.
 
 ??? question "Kann ich eine automatisch erstellte Aufgabe löschen?"
-    Ja. Sie können jede Aufgabe unabhängig von ihrer Herkunft löschen. Wenn Sie eine Aufgabe eines laufenden Pflegeplans löschen, erstellt Kamerplanter beim nächsten Planungsdurchlauf (täglich) eine neue Aufgabe — sofern das Pflegeprofil noch aktiv ist.
+    Ja. Du kannst jede Aufgabe unabhängig von ihrer Herkunft löschen. Wenn du eine Aufgabe eines laufenden Pflegeplans löschst, erstellt Kamerplanter beim nächsten Planungsdurchlauf (täglich) eine neue Aufgabe — sofern das Pflegeprofil noch aktiv ist.
 
 ??? question "Was bedeutet die rote Markierung bei überfälligen Aufgaben?"
     Eine rote Markierung bedeutet, dass eine Aufgabe ihr Fälligkeitsdatum überschritten hat. Das ist ein Hinweis, keine automatische Eskalation. Kamerplanter eskaliert überfällige Aufgaben nach 48 Stunden in der Priorität auf "Kritisch".
 
 ??? question "Kann ich Aufgaben an andere Mitglieder meines Mandanten zuweisen?"
-    Ja, wenn Sie in einem Gemeinschaftsgarten (mit mehreren Mitgliedern) arbeiten. Öffnen Sie die Aufgabe und weisen Sie sie über das Feld **Zuständig** einem Mitglied zu.
+    Ja, wenn du in einem Gemeinschaftsgarten (mit mehreren Mitgliedern) arbeitest. Öffne die Aufgabe und weise sie über das Feld **Zuständig** einem Mitglied zu.
 
 ---
 

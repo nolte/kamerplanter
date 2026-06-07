@@ -69,7 +69,7 @@ Entscheidungsdimensionen für die Agent-Wahl (per `skill-vs-agent.md` Decision-d
 Lies vor der Analyse folgende projektspezifische Sicherheitsspezifikationen:
 - `spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md` — Dual-Auth, JWT, PKCE, Rate Limiting
 - `spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md` — Multi-Tenancy, RBAC, Tenant-Isolation
-- `spec/req/REQ-025_Datenschutz-Betroffenenrechte-DSGVO.md` — DSGVO, Retention, Anonymisierung
+- `spec/req/REQ-025_Datenschutz-Betroffenenrechte.md` — DSGVO, Retention, Anonymisierung
 - `spec/nfr/NFR-001_Separation-of-Concerns.md` — 5-Layer-Architektur, API Security, CORS
 - `spec/nfr/NFR-006_API-Fehlerbehandlung.md` — Fehler-Responses ohne interne Details
 

@@ -439,7 +439,7 @@ class TestDashboard:
 
 ---
 
-## RAG-Qualitaetsbenchmark
+## RAG-Qualitätsbenchmark
 
 Ein Standalone-Runner (`tools/rag-eval/eval_rag.py`) misst die Antwortqualitaet der RAG-Pipeline unabhaengig vom Backend. Er verbindet sich direkt mit Embedding Service, VectorDB (pgvector) und Ollama.
 
@@ -482,8 +482,8 @@ python tools/rag-eval/eval_rag.py --retrieval-only
 | `--model` | `gemma3:4b` | Ollama-Modellname |
 | `--embedding-url` | `http://localhost:8080` | Embedding Service URL |
 | `--ollama-url` | `http://localhost:11434` | Ollama API URL |
-| `--vectordb-dsn` | `localhost:5433` | PostgreSQL DSN fuer VectorDB |
-| `--output`, `-o` | `eval_results.json` | Ausgabepfad fuer Ergebnis-JSON |
+| `--vectordb-dsn` | `localhost:5433` | PostgreSQL DSN für VectorDB |
+| `--output`, `-o` | `eval_results.json` | Ausgabepfad für Ergebnis-JSON |
 
 ### Umgebungsvariablen
 
@@ -499,7 +499,7 @@ Werden als Defaults verwendet wenn kein CLI-Argument gesetzt ist:
 
 ### Resume-Mechanismus
 
-Nach jeder evaluierten Frage wird `eval_results_partial.json` geschrieben. Bei `--resume` werden vorherige Ergebnisse geladen und bereits evaluierte Fragen uebersprungen. Alte und neue Ergebnisse werden fuer den finalen Score zusammengefuehrt.
+Nach jeder evaluierten Frage wird `eval_results_partial.json` geschrieben. Bei `--resume` werden vorherige Ergebnisse geladen und bereits evaluierte Fragen übersprungen. Alte und neue Ergebnisse werden für den finalen Score zusammengeführt.
 
 ### Scoring
 
@@ -520,7 +520,7 @@ Detaillierte Spezifikation des Frameworks: `spec/rag-eval/RAG_EVAL_SPEC.md`
 
 ---
 
-## Gemeinsame Regeln fuer beide Test-Suites
+## Gemeinsame Regeln für beide Test-Suites
 
 - Tests laufen in CI bei jedem Push auf `develop` und bei jedem Pull Request.
 - Neue Features erfordern mindestens einen Unit-Test für die Business-Logik.

@@ -76,7 +76,7 @@ graph TD
 | Engine | Aufgabe |
 |--------|---------|
 | `phase_transition_engine` | Pflanzenphasen-Zustandsautomat — prüft erlaubte Übergänge |
-| `nutrient_engine` | EC-Berechnung, Mischreigenfolge (CalMag vor Sulfaten) |
+| `nutrient_engine` | EC-Berechnung, Mischreihenfolge (CalMag vor Sulfaten) |
 | `watering_schedule_engine` | Bestimmt Gießtage anhand Wochentag-/Intervall-Modus |
 | `safety_interval_engine` | Karenz-Gate: blockiert Ernte bei aktiven IPM-Behandlungen |
 | `onboarding_engine` | Validiert Starter-Kit-Anwendung, erstellt Entity-Plan |

@@ -23,14 +23,14 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 
     | Fehlermeldung | Ursache | Lösung |
     |---------------|---------|--------|
-    | `Connection refused: arangodb:8529` | ArangoDB nicht erreichbar | ArangoDB-Container prüfen (`docker compose ps`) |
+    | `Connection refused: arangodb:8529` (Verbindung verweigert) | ArangoDB nicht erreichbar | ArangoDB-Container prüfen (`docker compose ps`) |
     | `AUTH_EXCEPTION` | Falsches ArangoDB-Passwort | `ARANGODB_PASSWORD` in `.env` prüfen |
-    | `redis.exceptions.ConnectionError` | Redis/Valkey nicht erreichbar | Redis-Container neu starten |
+    | `redis.exceptions.ConnectionError` (Verbindungsfehler) | Redis/Valkey nicht erreichbar | Redis-Container neu starten |
     | `pydantic_settings.SettingsError` | Fehlende Pflicht-Umgebungsvariable | Alle Pflicht-Variablen in `.env` setzen |
-    | `Cannot import name 'X'` | Fehlende Python-Abhängigkeit | `pip install -r requirements.txt` im Container |
+    | `Cannot import name 'X'` (Importfehler) | Fehlende Python-Abhängigkeit | `pip install -r requirements.txt` im Container |
 
 ??? question "ArangoDB-Container startet nicht"
-    Häufigste Ursache ist ein Datenvolume aus einer alten ArangoDB-Version. Prüfen Sie:
+    Häufigste Ursache ist ein Datenvolume aus einer alten ArangoDB-Version. Prüfe:
 
     ```bash
     docker compose logs arangodb --tail=30
@@ -48,7 +48,7 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
         Das Löschen des Volumes löscht alle Datenbankdaten. Nur in Entwicklungsumgebungen ohne wichtige Daten durchführen.
 
 ??? question "Celery-Worker läuft nicht — Aufgaben werden nicht generiert"
-    Prüfen Sie den Worker-Status:
+    Prüfe den Worker-Status:
 
     === "Docker Compose"
         ```bash
@@ -101,8 +101,8 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 
 ## Authentifizierung und Benutzer
 
-??? question "Login schlägt fehl — 401 Unauthorized"
-    Prüfen Sie:
+??? question "Login schlägt fehl — 401 Unauthorized (keine Berechtigung)"
+    Prüfe:
 
     1. **Korrekte E-Mail und Passwort?** Demo-Account: `demo@kamerplanter.local` / `demo-passwort-2024`
     2. **E-Mail-Verifikation erforderlich?** Wenn `REQUIRE_EMAIL_VERIFICATION=true` gesetzt ist, muss die E-Mail bestätigt sein. In der Entwicklungsumgebung auf `false` setzen.
@@ -122,7 +122,7 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 ## CORS-Fehler im Browser
 
 ??? question "CORS-Fehler bei API-Aufrufen aus dem Browser"
-    CORS-Fehler erscheinen in der Browser-Konsole als:
+    CORS-Fehler (Zugriffssperre durch Browser-Sicherheitsrichtlinie) erscheinen in der Browser-Konsole als:
     ```
     Access to XMLHttpRequest at 'http://localhost:8000/api/...' has been blocked by CORS policy
     ```
@@ -140,7 +140,7 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
         `CORS_ORIGINS=["*"]` erlaubt alle Origins — nur für lokale Entwicklung geeignet. In Produktionsumgebungen immer konkrete URLs angeben.
 
 ??? question "CORS-Fehler trotz korrekter CORS_ORIGINS-Konfiguration"
-    Prüfen Sie den tatsächlich gesendeten `Origin`-Header:
+    Prüfe den tatsächlich gesendeten `Origin`-Header:
 
     1. Browser DevTools → Network → Request-Header → `Origin`
     2. Diesen Wert exakt (inkl. `http://` vs. `https://` und Port) in `CORS_ORIGINS` eintragen.
@@ -155,29 +155,29 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 
     **Vorgehen:**
 
-    1. Navigieren Sie zu **Pflanzenschutz > Behandlungsanwendungen**.
-    2. Prüfen Sie aktive Behandlungen mit dem Status "aktiv" oder "karenzzeit".
+    1. Navigiere zu **Pflanzenschutz > Behandlungsanwendungen**.
+    2. Prüfe aktive Behandlungen mit dem Status "aktiv" oder "karenzzeit".
     3. Das System zeigt das früheste mögliche Erntedatum an.
 
     !!! danger "Karenzzeit nicht umgehen"
         Die Karenzzeit ist eine gesetzliche Anforderung (CanG, PflSchG). Das System verhindert die Ernte bewusst — eine manuelle Umgehung ist nicht vorgesehen.
 
 ??? question "Beobachtung kann nicht als Erntereif markiert werden"
-    Prüfen Sie, ob alle Ernteindikatoren für die Pflanzenart konfiguriert sind. Navigieren Sie zu **Stammdaten > [Art] > Ernteindikatoren** und tragen Sie mindestens einen Indikator ein.
+    Prüfe, ob alle Ernteindikatoren für die Pflanzenart konfiguriert sind. Navigiere zu **Stammdaten > [Art] > Ernteindikatoren** und trage mindestens einen Indikator ein.
 
 ---
 
 ## Kalender und iCal
 
 ??? question "iCal-Feed zeigt keine Ereignisse"
-    Prüfen Sie:
+    Prüfe:
 
     1. **Feed-Token gültig?** Unter **Kalender > iCal-Feeds** prüfen ob der Feed aktiv ist.
     2. **Kalender-App:** URL muss das Format `https://[host]/api/v1/calendar/ical/[token]` haben.
-    3. **Zeitzone:** iCal-Feeds verwenden UTC. Prüfen Sie ob Ihre Kalenderanwendung Zeitzonen korrekt interpretiert.
+    3. **Zeitzone:** iCal-Feeds verwenden UTC. Prüfe ob deine Kalenderanwendung Zeitzonen korrekt interpretiert.
 
 ??? question "Kalenderansicht lädt nicht oder zeigt keine Daten"
-    Navigieren Sie zu **Kalender** und prüfen Sie:
+    Navigiere zu **Kalender** und prüfe:
 
     - Sind Pflanzdurchläufe oder Aufgaben im gewählten Zeitraum vorhanden?
     - Sind die Filter (Phase, Kategorie) zu eng gesetzt?
@@ -188,7 +188,7 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 ## Onboarding-Wizard
 
 ??? question "Onboarding-Wizard schlägt in Schritt 3 (Starter-Kit) fehl"
-    Prüfen Sie ob Starter-Kit-Seeddaten geladen wurden:
+    Prüfe ob Starter-Kit-Seeddaten geladen wurden:
 
     ```bash
     docker compose logs backend | grep -i "seed_starter_kits"
@@ -238,10 +238,23 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
 
 ---
 
+## Kubernetes: Pod startet nicht
+
+??? question "Pod im Status 'CrashLoopBackOff'"
+    `CrashLoopBackOff` (Kubernetes-Fehler: Container startet wiederholt und schlägt fehl) bedeutet, dass der Container kurz nach dem Start abstürzt. Logs des letzten Absturzes abrufen:
+
+    ```bash
+    kubectl logs deployment/kamerplanter-backend --previous
+    ```
+
+    Häufige Ursachen: fehlende Umgebungsvariablen, Datenbankverbindung nicht erreichbar oder fehlerhafte Konfigurationsdatei. Die Fehlermeldung im Log gibt in der Regel den genauen Grund an.
+
+---
+
 ## Light-Modus vs. Full-Modus
 
 ??? question "Authentifizierung wird trotz Light-Modus verlangt"
-    Im Light-Modus (`KAMERPLANTER_MODE=light`) entfällt die Token-Authentifizierung für die meisten Endpunkte. Prüfen Sie:
+    Im Light-Modus (`KAMERPLANTER_MODE=light`) entfällt die Token-Authentifizierung für die meisten Endpunkte. Prüfe:
 
     1. `KAMERPLANTER_MODE=light` in der Backend-Umgebung gesetzt?
     2. Backend nach der Änderung neu gestartet?
@@ -264,7 +277,7 @@ Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamer
     3. ArangoDB-Collections manuell über die Web-UI prüfen.
 
 ??? question "Frontend zeigt '404 Not Found' nach Deployment"
-    Bei Kubernetes-Deployments wird der Frontend-Build als Static Files durch das Backend ausgeliefert. Prüfen Sie:
+    Bei Kubernetes-Deployments wird der Frontend-Build als Static Files durch das Backend ausgeliefert. Prüfe:
 
     ```bash
     kubectl describe pod kamerplanter-backend-[hash]
@@ -286,7 +299,7 @@ curl http://localhost:8000/api/v1/health/ready
 
 ### ArangoDB direkt abfragen
 
-Öffnen Sie `http://localhost:8529` im Browser (Standard-Credentials: `root` / Wert aus `ARANGO_ROOT_PASSWORD`).
+Öffne `http://localhost:8529` im Browser (Standard-Credentials: `root` / Wert aus `ARANGO_ROOT_PASSWORD`).
 
 ### Backend-Logs mit Zeitstempel
 

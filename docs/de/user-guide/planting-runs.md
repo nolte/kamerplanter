@@ -1,6 +1,6 @@
 # Pflanzdurchläufe
 
-Ein Pflanzdurchlauf (Planting Run) gruppiert zusammengehörige Pflanzen für ein gemeinsames Lifecycle-Tracking. Statt 20 Tomaten einzeln zu verwalten, legen Sie einen Durchlauf an — und können dann Phasenübergänge, Gießereignisse und Ernte-Batches auf die ganze Gruppe anwenden.
+Ein Pflanzdurchlauf (Planting Run) gruppiert zusammengehörige Pflanzen für ein gemeinsames Lifecycle-Tracking. Statt 20 Tomaten einzeln zu verwalten, legst du einen Durchlauf an — und kannst dann Phasenübergänge, Gießereignisse und Ernte-Batches auf die ganze Gruppe anwenden.
 
 ---
 
@@ -34,11 +34,11 @@ Ein Pflanzdurchlauf ist ein leichtgewichtiger Gruppencontainer. Er selbst hat ke
 
 ### Schritt 1: Zu Durchläufen navigieren
 
-Klicken Sie in der Navigation auf **Durchläufe**. Die Übersicht zeigt alle aktiven und vergangenen Pflanzdurchläufe.
+Klicke in der Navigation auf **Durchläufe**. Die Übersicht zeigt alle aktiven und vergangenen Pflanzdurchläufe.
 
 ### Schritt 2: Neuen Durchlauf erstellen
 
-Klicken Sie auf **Neuer Durchlauf**. Ein Dialog öffnet sich.
+Klicke auf **Neuer Durchlauf**. Ein Dialog öffnet sich.
 
 ### Schritt 3: Grunddaten eingeben
 
@@ -53,15 +53,15 @@ Klicken Sie auf **Neuer Durchlauf**. Ein Dialog öffnet sich.
 
 ### Schritt 4: Pflanzen zum Durchlauf hinzufügen
 
-Klicken Sie auf **Eintrag hinzufügen**:
+Klicke auf **Eintrag hinzufügen**:
 
-1. Wählen Sie **Pflanzenart** (Spezies) aus den Stammdaten.
-2. Wählen Sie optional eine **Sorte** (Cultivar).
-3. Geben Sie die **Anzahl** der Pflanzen ein.
-4. Wählen Sie die **Rolle** (Primärpflanze, Begleitpflanze, Fangpflanze).
-5. Wählen Sie das **Substrat**.
+1. Wähle **Pflanzenart** (Spezies) aus den Stammdaten.
+2. Wähle optional eine **Sorte** (Cultivar).
+3. Gib die **Anzahl** der Pflanzen ein.
+4. Wähle die **Rolle** (Primärpflanze, Begleitpflanze, Fangpflanze).
+5. Wähle das **Substrat**.
 
-Bei Mischkultur-Durchläufen können Sie mehrere Einträge mit unterschiedlichen Arten hinzufügen.
+Bei Mischkultur-Durchläufen kannst du mehrere Einträge mit unterschiedlichen Arten hinzufügen.
 
 !!! example "Beispiel: Mischkultur-Beet"
     - Tomaten "Roma", 8 Stück, Rolle: Primärpflanze
@@ -70,7 +70,7 @@ Bei Mischkultur-Durchläufen können Sie mehrere Einträge mit unterschiedlichen
 
 ### Schritt 5: Pflanzen erstellen lassen
 
-Klicken Sie auf **Pflanzen erstellen**. Kamerplanter legt automatisch alle Einzelpflanzen mit fortlaufenden IDs an (z.B. HOCHBEETA_TOM_01 bis HOCHBEETA_TOM_08).
+Klicke auf **Pflanzen erstellen**. Kamerplanter legt automatisch alle Einzelpflanzen mit fortlaufenden IDs an (z.B. HOCHBEETA_TOM_01 bis HOCHBEETA_TOM_08).
 
 ---
 
@@ -100,52 +100,52 @@ stateDiagram-v2
 
 ## Batch-Operationen
 
-Die Stärke von Pflanzdurchläufen liegt in den Batch-Operationen — Aktionen, die Sie auf alle Pflanzen gleichzeitig anwenden.
+Die Stärke von Pflanzdurchläufen liegt in den Batch-Operationen — Aktionen, die du auf alle Pflanzen gleichzeitig anwenden kannst.
 
 ### Batch-Phasenübergang
 
 Alle Pflanzen eines Durchlaufs gleichzeitig in die nächste Phase überführen:
 
-1. Öffnen Sie den Pflanzdurchlauf.
-2. Klicken Sie auf **Batch-Phasenwechsel**.
-3. Wählen Sie die Zielphase (z.B. "Vegetativ" → "Blüte").
-4. Überprüfen Sie die Liste der berechtigten Pflanzen (Pflanzen, die bereits in einer späteren Phase sind, werden ausgeschlossen).
-5. Bestätigen Sie.
+1. Öffne den Pflanzdurchlauf.
+2. Klicke auf **Batch-Phasenwechsel**.
+3. Wähle die Zielphase (z.B. "Vegetativ" → "Blüte").
+4. Überprüfe die Liste der berechtigten Pflanzen (Pflanzen, die bereits in einer späteren Phase sind, werden ausgeschlossen).
+5. Bestätige.
 
 ### Gießen bestätigen (Batch)
 
-Nach dem Gießen dokumentieren Sie das Ereignis für alle Pflanzen gleichzeitig:
+Nach dem Gießen dokumentierst du das Ereignis für alle Pflanzen gleichzeitig:
 
-1. Klicken Sie auf **Gießen bestätigen**.
+1. Klicke auf **Gießen bestätigen**.
 2. Das System schlägt die Menge und EC aus dem zugewiesenen Nährstoffplan vor.
-3. Passen Sie die Werte an, falls Sie anders gemischt haben.
-4. Bestätigen — für alle Pflanzen wird ein Gießereignis erfasst.
+3. Passe die Werte an, falls du anders gemischt hast.
+4. Bestätige — für alle Pflanzen wird ein Gießereignis erfasst.
 
 ### Batch-Ernte erstellen
 
 Eine Ernte für alle Pflanzen des Durchlaufs gleichzeitig dokumentieren:
 
-1. Klicken Sie auf **Ernte-Batch erstellen**.
+1. Klicke auf **Ernte-Batch erstellen**.
 2. Das System prüft alle Karenzzeiten.
-3. Tragen Sie Frischmasse und Qualitätsbewertung ein.
-4. Bestätigen — ein Ernte-Batch wird mit allen Pflanzen des Durchlaufs verknüpft.
+3. Trage Frischmasse und Qualitätsbewertung ein.
+4. Bestätige — ein Ernte-Batch wird mit allen Pflanzen des Durchlaufs verknüpft.
 
 ### Alle Pflanzen entfernen
 
 Am Ende des Zyklus alle Pflanzen auf einmal als entfernt markieren:
 
-1. Klicken Sie auf **Alle Pflanzen entfernen**.
-2. Bestätigen Sie. Der Durchlauf wechselt auf Status "Abgeschlossen".
+1. Klicke auf **Alle Pflanzen entfernen**.
+2. Bestätige. Der Durchlauf wechselt auf Status "Abgeschlossen".
 
 ---
 
 ## Nährstoffplan zuweisen
 
-Einem Pflanzdurchlauf können Sie einen Nährstoffplan zuweisen. Das vereinfacht die Gießplanung erheblich:
+Einem Pflanzdurchlauf kannst du einen Nährstoffplan zuweisen. Das vereinfacht die Gießplanung erheblich:
 
-1. Öffnen Sie den Durchlauf.
-2. Klicken Sie auf **Nährstoffplan zuweisen**.
-3. Wählen Sie einen Plan aus der Liste.
+1. Öffne den Durchlauf.
+2. Klicke auf **Nährstoffplan zuweisen**.
+3. Wähle einen Plan aus der Liste.
 
 Der Plan bestimmt, welche Dünger in welcher Phase in welcher Dosierung verwendet werden. Beim Gießen schlägt Kamerplanter automatisch die phasengerechten Dosierungen vor.
 
@@ -155,8 +155,8 @@ Der Plan bestimmt, welche Dünger in welcher Phase in welcher Dosierung verwende
 
 Wenn eine Pflanze einen anderen Verlauf nehmen soll als die Gruppe (z.B. eine Pflanze zeigt Mangelerscheinungen und braucht individuelle Behandlung):
 
-1. Öffnen Sie die Pflanze in der Durchlauf-Liste.
-2. Klicken Sie auf **Aus Durchlauf lösen**.
+1. Öffne die Pflanze in der Durchlauf-Liste.
+2. Klicke auf **Aus Durchlauf lösen**.
 3. Die Pflanze bleibt aktiv, ist aber jetzt unabhängig.
 
 Das Entfernen einer Pflanze aus dem Durchlauf löscht die Pflanze nicht.
@@ -167,9 +167,9 @@ Das Entfernen einer Pflanze aus dem Durchlauf löscht die Pflanze nicht.
 
 Für kontinuierliche Ernte (z.B. alle 3 Wochen frischer Salat) unterstützt Kamerplanter gestaffelte Pflanzdurchläufe:
 
-1. Erstellen Sie den ersten Durchlauf wie gewohnt.
-2. Klicken Sie auf **Folgepflanzung anlegen**.
-3. Wählen Sie das Intervall (z.B. 21 Tage nach dem ersten Durchlauf).
+1. Erstelle den ersten Durchlauf wie gewohnt.
+2. Klicke auf **Folgepflanzung anlegen**.
+3. Wähle das Intervall (z.B. 21 Tage nach dem ersten Durchlauf).
 4. Kamerplanter kopiert die Durchlauf-Konfiguration und versetzt das Startdatum entsprechend.
 
 ---
@@ -177,16 +177,16 @@ Für kontinuierliche Ernte (z.B. alle 3 Wochen frischer Salat) unterstützt Kame
 ## Häufige Fragen
 
 ??? question "Muss ich zwingend Pflanzdurchläufe nutzen?"
-    Nein. Sie können Pflanzen auch einzeln anlegen und verwalten. Pflanzdurchläufe sind besonders nützlich, wenn Sie mehrere Pflanzen derselben Art gleichzeitig anbauen und gemeinsam verwalten möchten.
+    Nein. Du kannst Pflanzen auch einzeln anlegen und verwalten. Pflanzdurchläufe sind besonders nützlich, wenn du mehrere Pflanzen derselben Art gleichzeitig anbaust und gemeinsam verwalten möchtest.
 
 ??? question "Kann eine Pflanze in mehreren Durchläufen sein?"
-    Nein. Eine Pflanze kann zu maximal einem Pflanzdurchlauf gehören. Wenn Sie eine Pflanze einem anderen Durchlauf zuordnen möchten, müssen Sie sie zuerst aus dem aktuellen Durchlauf lösen.
+    Nein. Eine Pflanze kann zu maximal einem Pflanzdurchlauf gehören. Wenn du eine Pflanze einem anderen Durchlauf zuordnen möchtest, musst du sie zuerst aus dem aktuellen Durchlauf lösen.
 
 ??? question "Was passiert mit den Pflanzen, wenn ich einen Durchlauf abbreche?"
-    Die Pflanzen bleiben im System erhalten und werden als "aktiv" markiert. Sie sind dann nur nicht mehr dem Durchlauf zugeordnet. Sie können sie anschließend einzeln weiterführen oder manuell entfernen.
+    Die Pflanzen bleiben im System erhalten und werden als "aktiv" markiert. Diese sind dann nur nicht mehr dem Durchlauf zugeordnet. Du kannst sie anschließend einzeln weiterführen oder manuell entfernen.
 
 ??? question "Kann ich nachträglich Pflanzen zu einem laufenden Durchlauf hinzufügen?"
-    Ja, solange der Durchlauf nicht abgeschlossen ist. Öffnen Sie den Durchlauf und klicken Sie auf **Pflanzen hinzufügen**.
+    Ja, solange der Durchlauf nicht abgeschlossen ist. Öffne den Durchlauf und klicke auf **Pflanzen hinzufügen**.
 
 ---
 

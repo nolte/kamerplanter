@@ -1,15 +1,15 @@
 # Mischkultur & Companion Planting
 
-Mischkultur bedeutet, verschiedene Pflanzenarten auf einer Flaeche gemeinsam anzubauen,
-so dass sie sich gegenseitig unterstuetzen. Kamerplanter gibt Ihnen konkrete Empfehlungen
-auf Basis einer Kompatibilitaetsdatenbank und zeigt, welche Kombinationen sich bewaehrt
-haben — und welche Sie besser vermeiden sollten.
+Mischkultur bedeutet, verschiedene Pflanzenarten auf einer Fläche gemeinsam anzubauen,
+so dass sie sich gegenseitig unterstützen. Kamerplanter gibt dir konkrete Empfehlungen
+auf Basis einer Kompatibilitätsdatenbank und zeigt, welche Kombinationen sich bewährt
+haben — und welche du besser vermeiden solltest.
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens ein angelegter Standort (Beet oder Gewaechshaus) in Kamerplanter
+- Mindestens ein angelegter Standort (Beet oder Gewächshaus) in Kamerplanter
 - Pflanzenarten in den Stammdaten vorhanden (oder per Suche importiert)
 
 ---
@@ -20,93 +20,93 @@ Pflanzen beeinflussen sich gegenseitig auf verschiedene Weisen:
 
 | Mechanismus | Beispiel | Effekt |
 |------------|---------|--------|
-| **Schadlingsabwehr** | Tagetes neben Tomate | Nematoden werden durch Wurzelausscheidungen vertrieben |
-| **Aromawirkung** | Basilikum neben Tomate | Aetherische Oele verwirren die Weisse Fliege |
+| **Schädlingsabwehr** | Tagetes neben Tomate | Nematoden werden durch Wurzelausscheidungen vertrieben |
+| **Aromawirkung** | Basilikum neben Tomate | Ätherische Öle verwirren die Weiße Fliege |
 | **Stickstoffbindung** | Bohnen neben Mais | Knollenbakterien fixieren Luftstickstoff |
-| **Wurzelraumnutzung** | Zwiebel + Karotte | Verschiedene Tiefen, keine Naehrstoffkonkurrenz |
+| **Wurzelraumnutzung** | Zwiebel + Karotte | Verschiedene Tiefen, keine Nährstoffkonkurrenz |
 | **Schattenwirkung** | Salat unter Tomate | Blattsalat gedeiht im Halbschatten, Boden bleibt feucht |
-| **Bestaeuberlockung** | Phacelia neben Gemuesebeet | Wildbienen werden angezogen |
+| **Bestäuberlockung** | Phacelia neben Gemüsebeet | Wildbienen werden angezogen |
 
 !!! tip "Mischkultur ist kein Wundermittel"
-    Mischkultur unterstuetzt, ersetzt aber keine gute Bodenpflege, Bewaesserung und
-    Fruchtfolge. Behandeln Sie sie als eine Massnahme von mehreren.
+    Mischkultur unterstützt, ersetzt aber keine gute Bodenpflege, Bewässerung und
+    Fruchtfolge. Behandle sie als eine Maßnahme von mehreren.
 
 ---
 
 ## Klassische Kombinationen
 
-### Die drei Schwestern (Mais, Bohne, Kuerbis)
+### Die drei Schwestern (Mais, Bohne, Kürbis)
 
-Eine der aeltesten Mischkulturen der Welt — entwickelt von den Haudenosaunee (Irokesen):
+Eine der ältesten Mischkulturen der Welt — entwickelt von den Haudenosaunee (Irokesen):
 
 ```
-Mais         → Rankhilfe fuer Bohnen, schattiert Kuerbis-Boden
-Bohne        → Stickstoffbindung fuer Mais und Kuerbis
-Kuerbis      → Grosse Blaetter beschatten den Boden, halten Feuchtigkeit
+Mais         → Rankhilfe für Bohnen, schattiert Kürbis-Boden
+Bohne        → Stickstoffbindung für Mais und Kürbis
+Kürbis       → Große Blätter beschatten den Boden, halten Feuchtigkeit
 ```
 
 !!! example "Anpflanzung in Kamerplanter"
-    Legen Sie einen Pflanzdurchlauf vom Typ "mixed_culture" an und waehlten Sie Mais
-    als Primaerpflanze. Das System schlaegt Bohne und Kuerbis als Begleiter vor.
+    Lege einen Pflanzdurchlauf vom Typ "mixed_culture" an und wähle Mais
+    als Primärpflanze. Das System schlägt Bohne und Kürbis als Begleiter vor.
 
 ### Tomate & Basilikum
 
-Wahrscheinlich die bekannteste Mischkultur im Gewaechshaus und Freiland:
+Wahrscheinlich die bekannteste Mischkultur im Gewächshaus und Freiland:
 
-- Basilikum wirkt als Schadlingsabwehr (Weisse Fliege, Blattlaeuse)
-- Gemeinsamer Wasserbedarf und Temperaturansprueche erleichtern die Pflege
-- Beide benoetigen sonnenreichen Standort
+- Basilikum wirkt als Schädlingsabwehr (Weiße Fliege, Blattläuse)
+- Gemeinsamer Wasserbedarf und Temperaturansprüche erleichtern die Pflege
+- Beide benötigen sonnenreichen Standort
 
-**Kompatibilitaets-Score in Kamerplanter:** 0.9 (sehr empfohlen)
+**Kompatibilitäts-Score in Kamerplanter:** 0.9 (sehr empfohlen)
 
 ### Karotte & Zwiebel
 
-Klassisches Gemuese-Paar:
+Klassisches Gemüse-Paar:
 
 - Zwiebeln und Karotten nutzen verschiedene Bodenebenen
-- Zwiebelduft stoert die Karottenfliegenoviposition
-- Karottenkraut stoert die Zwiebelfliege
+- Zwiebelduft stört die Karottenfliegeneiablage
+- Karottenkraut stört die Zwiebelfliege
 
 ### Tagetes & Ringelblume als Universal-Begleiter
 
-Zwei Kraeuter, die sich fast ueberall einsetzen lassen:
+Zwei Kräuter, die sich fast überall einsetzen lassen:
 
 | Pflanze | Wirkung | Empfohlene Nachbarn |
 |---------|---------|---------------------|
-| **Tagetes** (Studentenblume) | Nematoden, Weisse Fliege, Wurzelausscheidungen halten Schnaecken fern | Tomate, Paprika, Salat |
-| **Ringelblume** (Calendula) | Blattlaus-Abwehr, lockt Nuetzlinge an (Schwebefliegen, Marienkaefer) | Fast alle Gemuese |
+| **Tagetes** (Studentenblume) | Nematoden, Weiße Fliege, Wurzelausscheidungen halten Schnecken fern | Tomate, Paprika, Salat |
+| **Ringelblume** (Calendula) | Blattlaus-Abwehr, lockt Nützlinge an (Schwebefliegen, Marienkäfer) | Fast alle Gemüse |
 
 !!! tip "Tagetes als Beet-Einfassung"
-    Pflanzen Sie Tagetes rundum um ein Bemuese-Beet als lebende Grenze. Selbst wenn Sie
-    keine Daten in Kamerplanter erfassen, profitiert das gesamte Beet von der
+    Pflanze Tagetes rundum um ein Gemüse-Beet als lebende Grenze. Selbst wenn du
+    keine Daten in Kamerplanter erfasst, profitiert das gesamte Beet von der
     Schutzwirkung.
 
-### Kraeuter als Schadlingsabwehr
+### Kräuter als Schädlingsabwehr
 
 | Kraut | Wirkung |
 |-------|---------|
-| Basilikum | Weisse Fliege, Blattlaeuse |
+| Basilikum | Weiße Fliege, Blattläuse |
 | Lavendel | Milben, Motten (Duft) |
 | Salbei | Kohlfliege, Kohldurchlaufraupe |
 | Bohnenkraut | Schwarze Bohnenblattlaus |
 | Dill | Karottenfliegenweibchen verwirren; lockt Schwebefliegen an |
-| Koriander | Blattlaeuse vertreiben, Schwebefliegen anlocken |
+| Koriander | Blattläuse vertreiben, Schwebefliegen anlocken |
 
 ---
 
-## Schlechte Nachbarn — was Sie vermeiden sollten
+## Schlechte Nachbarn — was du vermeiden solltest
 
-!!! danger "Fenchel: Der Einzelgaenger"
-    Fenchel vertraegt sich mit fast keiner anderen Gartenflanze. Er sondert
+!!! danger "Fenchel: Der Einzelgänger"
+    Fenchel verträgt sich mit fast keiner anderen Gartenpflanze. Er sondert
     Allelopathie-Stoffe ab, die das Wachstum von Tomaten, Paprika, Buschbohnen und Salat
-    hemmen. Pflanzen Sie Fenchel in ein eigenes Beet oder in einem Topf am Rand.
+    hemmen. Pflanze Fenchel in ein eigenes Beet oder in einem Topf am Rand.
 
 | Inkompatibles Paar | Grund | Empfehlung |
 |-------------------|-------|-----------|
-| Tomate + Kartoffel | Gleiche Solanaceae-Familie, gemeinsame Krankheiten (Krautfaeule) | Mindestens 10 m Abstand halten |
-| Fenchel + Tomate | Allelopathie durch Fenchel-Sekundaerstoffe | Getrennte Beete |
+| Tomate + Kartoffel | Gleiche Solanaceae-Familie, gemeinsame Krankheiten (Krautfäule) | Mindestens 10 m Abstand halten |
+| Fenchel + Tomate | Allelopathie durch Fenchel-Sekundärstoffe | Getrennte Beete |
 | Zwiebel + Erbse | Wachstumshemmung bei Erbsen | Verschiedene Beet-Abschnitte |
-| Kartoffel + Kuerbis | Starke Naehrstoffkonkurrenz | Rotationsplanung beachten |
+| Kartoffel + Kürbis | Starke Nährstoffkonkurrenz | Rotationsplanung beachten |
 
 ---
 
@@ -114,92 +114,92 @@ Zwei Kraeuter, die sich fast ueberall einsetzen lassen:
 
 ### Schritt 1: Pflanzdurchlauf als Mischkultur anlegen
 
-1. Navigieren Sie zu **Pflanzdurchlaeume** und klicken Sie auf **Neuer Durchlauf**.
-2. Waehlten Sie als Durchlauf-Typ **Mischkultur**.
-3. Waehlten Sie Ihre Primaerpflanze (z.B. Tomate).
-4. Das System zeigt Ihnen sofort Empfehlungen fuer Begleitpflanzen.
+1. Navigiere zu **Pflanzdurchläufe** und klicke auf **Neuer Durchlauf**.
+2. Wähle als Durchlauf-Typ **Mischkultur**.
+3. Wähle deine Primärpflanze (z.B. Tomate).
+4. Das System zeigt dir sofort Empfehlungen für Begleitpflanzen.
 
 !!! info "Screenshot folgt"
     Dieser Screenshot wird in einer zukünftigen Version ergänzt.
 
-### Schritt 2: Begleitpflanzen auswaehlen
+### Schritt 2: Begleitpflanzen auswählen
 
 Kamerplanter unterscheidet drei Eintrag-Rollen:
 
 | Rolle | Bedeutung |
 |-------|-----------|
-| **Primaer** | Hauptpflanze des Beetes (z.B. Tomate) |
-| **Begleiter** (Companion) | Foerderliche Mischkultur-Partnerin (z.B. Basilikum) |
-| **Fallenflanze** (Trap Crop) | Zieht Schadlinge aktiv an und schuetzt Primaerpflanze (z.B. Tagetes) |
+| **Primär** | Hauptpflanze des Beetes (z.B. Tomate) |
+| **Begleiter** (Companion) | Förderliche Mischkultur-Partnerin (z.B. Basilikum) |
+| **Fallenflanze** (Trap Crop) | Zieht Schädlinge aktiv an und schützt Primärpflanze (z.B. Tagetes) |
 
-Fuer jede Empfehlung zeigt das System:
+Für jede Empfehlung zeigt das System:
 
-- **Kompatibilitaets-Score** (0.0–1.0): Je hoeher, desto empfehlenswerter
-- **Wirkungstyp**: Schadlingsabwehr, Wachstumsforderung, Bodenpflege usw.
-- **Begruendung**: Kurzer Erklaerungstext (z.B. "Weisse-Fliege-Abwehr durch aetherische Oele")
+- **Kompatibilitäts-Score** (0.0–1.0): Je höher, desto empfehlenswerter
+- **Wirkungstyp**: Schädlingsabwehr, Wachstumsförderung, Bodenpflege usw.
+- **Begründung**: Kurzer Erklärungstext (z.B. "Weiße-Fliege-Abwehr durch ätherische Öle")
 - **Match-Level**: Artebene (genau) oder Familienebene (Fallback, 20% Abzug im Score)
 
-### Schritt 3: Kompatibilitaets-Check
+### Schritt 3: Kompatibilitäts-Check
 
-Wenn Sie eine Pflanzenkombination zusammengestellt haben, pruefen Sie den
-Gesamtkompatibilitaets-Check:
+Wenn du eine Pflanzenkombination zusammengestellt hast, prüfe den
+Gesamtkompatibilitäts-Check:
 
-- **Gruen**: Alle Kombinationen kompatibel
-- **Gelb (Warnung)**: Ein oder mehrere inkompatible Paare gefunden, Anpflanzung moeglich
+- **Grün**: Alle Kombinationen kompatibel
+- **Gelb (Warnung)**: Ein oder mehrere inkompatible Paare gefunden, Anpflanzung möglich
   aber nicht empfohlen
 - **Rot**: Kritisch inkompatible Kombination (z.B. Fenchel + Tomate)
 
 !!! note "Familienebene-Fallback"
-    Wenn fuer ein Artenpaar noch kein spezifischer Eintrag vorliegt, prueft das System
+    Wenn für ein Artenpaar noch kein spezifischer Eintrag vorliegt, prüft das System
     die Familienebene. Ein Familienebene-Match wird im Score um 20% reduziert und als
-    "Familienebene" gekennzeichnet, damit Sie den Unterschied zur Artebene erkennen.
+    "Familienebene" gekennzeichnet, damit du den Unterschied zur Artebene erkennst.
 
 ---
 
 ## Fruchtfolge integrieren
 
-Mischkultur und Fruchtfolge ergaenzen sich. Kamerplanter verfolgt einen 4-Jahres-Zyklus
+Mischkultur und Fruchtfolge ergänzen sich. Kamerplanter verfolgt einen 4-Jahres-Zyklus
 pro Beet:
 
 ```mermaid
 graph LR
-    A["Jahr 1<br/>Starkzehrer<br/>Tomate, Kuerbis, Mais"] --> B["Jahr 2<br/>Mittelzehrer<br/>Karotte, Zwiebel, Salat"]
-    B --> C["Jahr 3<br/>Schwachzehrer<br/>Krauter, Erbsen"]
-    C --> D["Jahr 4<br/>Gruenduengung<br/>Phacelia, Klee, Lupine"]
+    A["Jahr 1<br/>Starkzehrer<br/>Tomate, Kürbis, Mais"] --> B["Jahr 2<br/>Mittelzehrer<br/>Karotte, Zwiebel, Salat"]
+    B --> C["Jahr 3<br/>Schwachzehrer<br/>Kräuter, Erbsen"]
+    C --> D["Jahr 4<br/>Gründüngung<br/>Phacelia, Klee, Lupine"]
     D --> A
 ```
 
-Beachten Sie bei der Mischkultur: Pflanzen aus derselben Naehrstoff-Kategorie foerdern
-die Bodengesundheit nicht — bringen Sie Starkzehrer und Leguminosen zusammen, wenn
-moeglich.
+Beachte bei der Mischkultur: Pflanzen aus derselben Nährstoff-Kategorie fördern
+die Bodengesundheit nicht — bringe Starkzehrer und Leguminosen zusammen, wenn
+möglich.
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Was bedeutet 'Allelopathie'?"
-    Allelopathie beschreibt die Faehigkeit von Pflanzen, chemische Stoffe abzusondern,
-    die das Wachstum anderer Pflanzen hemmen oder foerdern. Fenchel ist das bekannteste
-    Beispiel fuer negative Allelopathie im Garten.
+    Allelopathie beschreibt die Fähigkeit von Pflanzen, chemische Stoffe abzusondern,
+    die das Wachstum anderer Pflanzen hemmen oder fördern. Fenchel ist das bekannteste
+    Beispiel für negative Allelopathie im Garten.
 
-??? question "Funktioniert Mischkultur auch im Gewaechshaus und Innenraum?"
-    Ja, aber mit Einschraenkungen. Schadlingsabwehr durch Duft wirkt auch drinnen.
+??? question "Funktioniert Mischkultur auch im Gewächshaus und Innenraum?"
+    Ja, aber mit Einschränkungen. Schädlingsabwehr durch Duft wirkt auch drinnen.
     Allerdings ist der Raum oft begrenzt und manche Begleiter (z.B. hohe Tagetes-Sorten)
     behindern die Luftzirkulation. Kamerplanter kennzeichnet Empfehlungen,
-    die primear fuer Freiland-Nutzpflanzen validiert sind.
+    die primär für Freiland-Nutzpflanzen validiert sind.
 
-??? question "Woher stammen die Kompatibilitaetsdaten?"
-    Die Seed-Daten in Kamerplanter basieren auf gaertnerischen Standardwerken und
-    anerkannten Begleitpflanzen-Quellen. Jeder Eintrag traegt eine Quellenangabe
-    (z.B. "Mein schoener Garten", "fryd.app", "Erfahrungswert").
+??? question "Woher stammen die Kompatibilitätsdaten?"
+    Die Seed-Daten in Kamerplanter basieren auf gärtnerischen Standardwerken und
+    anerkannten Begleitpflanzen-Quellen. Jeder Eintrag trägt eine Quellenangabe
+    (z.B. "Mein schöner Garten", "fryd.app", "Erfahrungswert").
 
-??? question "Kann ich eigene Kompatibilitaetspaare hinzufuegen?"
-    Aktuell verwalten nur Platform-Admins die globalen Kompatibilitaets-Edges. Eigene
-    Beobachtungen koennen Sie im Pflanzentagebuch (PlantDiaryEntry) festhalten.
+??? question "Kann ich eigene Kompatibilitätspaare hinzufügen?"
+    Aktuell verwalten nur Platform-Admins die globalen Kompatibilitäts-Edges. Eigene
+    Beobachtungen kannst du im Pflanzentagebuch (PlantDiaryEntry) festhalten.
 
 ## Siehe auch
 
-- [Pflanzdurchlaeume](../user-guide/planting-runs.md)
+- [Pflanzdurchläufe](../user-guide/planting-runs.md)
 - [Standorte & Substrate](../user-guide/locations-substrates.md)
 - [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 - [GDD-Berechnung](gdd-calculation.md)

@@ -9,4 +9,5 @@ Dieser Abschnitt richtet sich an Entwickler, die an Kamerplanter mitarbeiten ode
 - [Testen](testing.md) — pytest (Backend), vitest (Frontend)
 - [Debugging](debugging.md) — debugpy, Browser DevTools
 - [MCP-Werkzeuge](mcp-tools.md) — Browser-, Cluster- und Doku-MCP-Server für Claude Code
-- [Agent-Katalog](agent-catalog.md) — Claude Code Agents im Projekt
+- [Agent- und Skill-Workflows](workflows.md) — Einsatz-Entscheidungshilfe und typische Szenarien
+- [Agent-Katalog](../../agents/) — automatisch generierte Übersicht aller Claude Code Agents

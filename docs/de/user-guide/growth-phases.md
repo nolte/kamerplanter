@@ -45,7 +45,7 @@ stateDiagram-v2
 
 ## Aktuellen Phasenstand einer Pflanze sehen
 
-1. Navigieren Sie zu **Pflanzen** und öffnen Sie eine Pflanze durch Klick auf ihren Namen.
+1. Navigiere zu **Pflanzen** und öffne eine Pflanze durch Klick auf ihren Namen.
 2. Die Detailseite zeigt oben die aktuelle Phase mit einem farbigen Chip.
 3. Der Tab **Wachstumsphasen** zeigt die vollständige Phasenhistorie mit Datum jedes Übergangs.
 
@@ -53,40 +53,40 @@ stateDiagram-v2
 
 ## Eine Phase manuell auslösen
 
-Kamerplanter erkennt nicht automatisch, wann eine Pflanze reif für den nächsten Übergang ist — Sie treffen diese Entscheidung als Gärtner. Das System begleitet Sie dabei mit Informationen und Empfehlungen.
+Kamerplanter erkennt nicht automatisch, wann eine Pflanze reif für den nächsten Übergang ist — du triffst diese Entscheidung als Gärtner. Das System begleitet dich dabei mit Informationen und Empfehlungen.
 
 ### Schritt 1: Pflanze öffnen
 
-Navigieren Sie zu Ihrer Pflanze und öffnen Sie den Tab **Wachstumsphasen**.
+Navigiere zu deiner Pflanze und öffne den Tab **Wachstumsphasen**.
 
 ### Schritt 2: Phasenübergang auslösen
 
-Klicken Sie auf **Phase wechseln** (oder den spezifischen Phasennamen, z.B. "Zur Blüte wechseln"). Ein Bestätigungs-Dialog erscheint.
+Klicke auf **Phase wechseln** (oder den spezifischen Phasennamen, z.B. "Zur Blüte wechseln"). Ein Bestätigungs-Dialog erscheint.
 
 ### Schritt 3: Details eingeben
 
-Im Dialog können Sie optionale Details hinterlegen:
+Im Dialog kannst du optionale Details hinterlegen:
 
 - **Datum des Übergangs**: Standardmäßig heute, kann in der Vergangenheit liegen
 - **Notizen**: Beobachtungen, die den Übergang begleiten (z.B. "Erste Blütenansätze sichtbar")
 
 ### Schritt 4: Bestätigen
 
-Klicken Sie auf **Speichern**. Die Phase wechselt sofort. Die Empfehlungen in der App passen sich automatisch an.
+Klicke auf **Speichern**. Die Phase wechselt sofort. Die Empfehlungen in der App passen sich automatisch an.
 
 !!! warning "Phasenübergänge sind nicht umkehrbar"
-    Sobald eine Pflanze in die nächste Phase gewechselt hat, kann dieser Übergang nicht mehr rückgängig gemacht werden. Überprüfen Sie daher vorher, ob die Pflanze tatsächlich bereit ist.
+    Sobald eine Pflanze in die nächste Phase gewechselt hat, kann dieser Übergang nicht mehr rückgängig gemacht werden. Überprüfe daher vorher, ob die Pflanze tatsächlich bereit ist.
 
 ---
 
 ## Batch-Phasenübergang für ganze Gruppen
 
-Wenn Sie mehrere Pflanzen gleichzeitig in die nächste Phase überführen möchten (z.B. 10 Tomaten-Setzlinge gleichzeitig in die vegetative Phase), nutzen Sie Pflanzdurchläufe:
+Wenn du mehrere Pflanzen gleichzeitig in die nächste Phase überführen möchtest (z.B. 10 Tomaten-Setzlinge gleichzeitig in die vegetative Phase), nutze Pflanzdurchläufe:
 
-1. Öffnen Sie den entsprechenden **Pflanzdurchlauf** unter **Durchläufe**.
-2. Klicken Sie auf **Batch-Phasenwechsel**.
-3. Wählen Sie die Zielpflanze(n) und die Zielphase.
-4. Bestätigen Sie — alle berechtigten Pflanzen wechseln gleichzeitig.
+1. Öffne den entsprechenden **Pflanzdurchlauf** unter **Durchläufe**.
+2. Klicke auf **Batch-Phasenwechsel**.
+3. Wähle die Zielpflanze(n) und die Zielphase.
+4. Bestätige — alle berechtigten Pflanzen wechseln gleichzeitig.
 
 Mehr dazu: [Pflanzdurchläufe](planting-runs.md)
 
@@ -94,7 +94,7 @@ Mehr dazu: [Pflanzdurchläufe](planting-runs.md)
 
 ## Phasen-Profile und Empfehlungen verstehen
 
-Jede Phase hat ein eigenes Ressourcen-Profil. Wenn Sie die Detailansicht einer Phase aufrufen (Tab **Wachstumsphasen** → Phase anklicken), sehen Sie die Zielwerte:
+Jede Phase hat ein eigenes Ressourcen-Profil. Wenn du die Detailansicht einer Phase aufrufst (Tab **Wachstumsphasen** → Phase anklicken), siehst du die Zielwerte:
 
 ### VPD-Zielwert (Dampfdruckdefizit)
 
@@ -134,9 +134,9 @@ Mehrjährige Pflanzen (Zimmerpflanzen, Beerensträucher, Obstbäume) durchlaufen
 
 ### Dormanz-Phase aktivieren
 
-1. Öffnen Sie die Pflanze und navigieren Sie zu **Wachstumsphasen**.
-2. Klicken Sie auf **In Dormanz wechseln** (sichtbar bei perennialen Pflanzen).
-3. Bestätigen Sie das Datum des Beginns der Ruhephase.
+1. Öffne die Pflanze und navigiere zu **Wachstumsphasen**.
+2. Klicke auf **In Dormanz wechseln** (sichtbar bei perennialen Pflanzen).
+3. Bestätige das Datum des Beginns der Ruhephase.
 
 Während der Dormanz-Phase:
 - Werden Düngempfehlungen ausgesetzt
@@ -145,7 +145,7 @@ Während der Dormanz-Phase:
 
 ### Aus der Dormanz zurückkehren
 
-Klicken Sie auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück in die vegetative Phase und reaktiviert alle Empfehlungen.
+Klicke auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück in die vegetative Phase und reaktiviert alle Empfehlungen.
 
 ---
 
@@ -155,10 +155,10 @@ Klicken Sie auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zur�
     Die Empfehlungen passen sich sofort an die neue Phase an. Da Übergänge nicht rückgängig gemacht werden können, empfiehlt sich etwas Geduld und eine gute Beobachtung der Pflanze. Notizen im Phasenübergang helfen später bei der Auswertung.
 
 ??? question "Kann ich eigene Phasen definieren?"
-    Eigene Phasendefinitionen sind über die Stammdaten der Pflanzenart (Spezies) möglich. Wenden Sie sich an Experten-Einstellungen oder ziehen Sie die Stammdaten-Dokumentation zu Rate.
+    Eigene Phasendefinitionen sind über die Stammdaten der Pflanzenart (Spezies) möglich. Wende dich an die Experten-Einstellungen oder ziehe die Stammdaten-Dokumentation zu Rate.
 
 ??? question "Zeigt Kamerplanter an, wann eine Pflanze erntereif ist?"
-    Kamerplanter berechnet eine Ernte-Fenster-Vorhersage basierend auf der Anzahl Tage in der Blütephase und den Ernte-Indikatoren (z.B. Trichomfarbe, Pistillfärbung). Diese Prognose ist ein Richtwert — die endgültige Entscheidung treffen Sie.
+    Kamerplanter berechnet eine Ernte-Fenster-Vorhersage basierend auf der Anzahl Tage in der Blütephase und den Ernte-Indikatoren (z.B. Trichomfarbe, Pistillfärbung). Diese Prognose ist ein Richtwert — die endgültige Entscheidung triffst du.
 
 ??? question "Was ist der Unterschied zwischen Flushing und Dormanz?"
     **Flushing** ist eine Erntevorbereitungs-Phase, bei der die Nährstoffzufuhr reduziert wird, bevor die Pflanze geerntet wird. **Dormanz** ist die natürliche Ruhephase mehrjähriger Pflanzen im Winter. Beide Phasen sind im System unterschiedlich und schließen sich gegenseitig aus.

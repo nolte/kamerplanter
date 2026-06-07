@@ -1,6 +1,6 @@
 # Preparing Plant Data via AI Prompt
 
-Kamerplanter manages 80+ structured fields per plant species -- from taxonomy and nutrient profiles to pest data and companion planting relationships. Manually collecting this data from various sources is time-consuming. That's why we use **Claude Code Agents** to fully prepare and quality-check new plants.
+Kamerplanter manages 80+ structured fields per plant species — from taxonomy and nutrient profiles to pest data and companion planting relationships. Manually collecting this data from various sources is time-consuming. That's why we use **Claude Code Agents** to fully prepare and quality-check new plants.
 
 ## Overview: The AI Pipeline
 
@@ -16,9 +16,9 @@ flowchart LR
 
 The workflow consists of three steps:
 
-1. **Generation** -- An AI agent researches and creates the plant document
-2. **Review** -- A second agent checks the data for scientific accuracy
-3. **Import** -- The reviewed document serves as the basis for data import
+1. **Generation** — An AI agent researches and creates the plant document
+2. **Review** — A second agent checks the data for scientific accuracy
+3. **Import** — The reviewed document serves as the basis for data import
 
 ---
 
@@ -42,15 +42,15 @@ Claude Code recognizes the context and automatically activates the `plant-info-d
 
 ### What the Agent Does
 
-1. **Analyze input** -- Identifies the scientific name, family, and genus
-2. **Research** -- Searches the web for:
+1. **Analyze input** — Identifies the scientific name, family, and genus
+2. **Research** — Searches the web for:
     - Taxonomy and master data (GBIF, RHS, USDA)
     - Growth phases with PPFD, VPD, temperature per phase
     - Nutrient profiles (NPK, EC, pH per phase)
     - Pests and diseases with beneficial organisms
     - Care and overwintering instructions
     - Crop rotation and companion planting partners
-3. **Create document** -- Writes a complete document with all Kamerplanter field references
+3. **Create document** — Writes a complete document with all Kamerplanter field references
 
 ### Result
 
@@ -93,13 +93,13 @@ Review the plant document spec/knowledge/plants/ocimum_basilicum.md for scientif
 
 ### What the Review Agent Checks
 
-- **Taxonomy** -- Scientific names per APG IV, correct family assignment
-- **Light data** -- PPFD/DLI instead of Lux, photoperiodism correct
-- **Climate data** -- VPD calculation plausible, day/night temperature separated
-- **Nutrients** -- EC ranges realistic, mixing order correct (CalMag before sulfates)
-- **Pests** -- Scientific names, IPM tier approach (prevention > monitoring > intervention)
-- **Toxicity** -- ASPCA data for cats/dogs verified
-- **Companion planting** -- Compatibilities biologically justified
+- **Taxonomy** — Scientific names per APG IV, correct family assignment
+- **Light data** — PPFD/DLI instead of Lux, photoperiodism correct
+- **Climate data** — VPD calculation plausible, day/night temperature separated
+- **Nutrients** — EC ranges realistic, mixing order correct (CalMag before sulfates)
+- **Pests** — Scientific names, IPM tier approach (prevention > monitoring > intervention)
+- **Toxicity** — ASPCA data for cats/dogs verified
+- **Companion planting** — Compatibilities biologically justified
 
 ### Result
 
@@ -149,13 +149,13 @@ Including vegetables (tomato, pepper, cucumber, zucchini, ...), herbs (basil, pa
 ## Tips for Best Results
 
 !!! tip "Provide specific cultivar names"
-    Instead of "tomato", try "tomato San Marzano" -- the agent can then research cultivar-specific data (maturity time, resistances, growth type) more accurately.
+    Instead of "tomato", try "tomato San Marzano" — the agent can then research cultivar-specific data (maturity time, resistances, growth type) more accurately.
 
 !!! tip "Specify the growing context"
-    "Basil for indoor growing in a grow tent" yields different results than "basil for the garden" -- especially for light, temperature, and fertilization data.
+    "Basil for indoor growing in a grow tent" yields different results than "basil for the garden" — especially for light, temperature, and fertilization data.
 
 !!! tip "Use batch processing"
-    Request multiple related plants at once (e.g., all kitchen herbs) -- the agent can then document companion planting relationships between them right away.
+    Request multiple related plants at once (e.g., all kitchen herbs) — the agent can then document companion planting relationships between them right away.
 
 !!! warning "Always run the review"
     AI-generated data can contain errors. The `agrobiology-requirements-reviewer` typically finds 2--5 corrections per document. EC values, toxicity data, and pest scientific names deserve particular scrutiny.

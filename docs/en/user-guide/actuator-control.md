@@ -70,7 +70,7 @@ An **actuator** is a controllable device assigned to a location.
 
     - Enter the **command topic** (e.g. `kamerplanter/actuators/fan1/set`)
     - **State topic** for feedback (optional)
-    - Suitable for ESPHome devices, Shelly switches, etc.
+    - Suitable for ESPHome devices (an open-source firmware for ESP8266/ESP32 microcontrollers), Shelly switches, etc.
 
 === "Manual (fallback)"
     The actuator exists in the system but is controlled physically by hand. Instead of sending commands, the system creates **tasks** (REQ-006) telling you when to intervene manually.
