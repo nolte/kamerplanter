@@ -1,0 +1,29 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: kamerplanter
+  description: >-
+    Self-hosted plant lifecycle management system for indoor and outdoor
+    growing — master data, growth phases, nutrient planning, IPM, harvest,
+    multi-tenancy and Home Assistant integration.
+  annotations:
+    github.com/project-slug: nolte/kamerplanter
+    backstage.io/source-location: url:https://github.com/nolte/kamerplanter/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - plant-management
+    - agriculture
+    - gardening
+    - self-hosted
+    - home-assistant
+    - fastapi
+    - react
+    - gdpr
+  links:
+    - url: https://nolte.github.io/kamerplanter/
+      title: Documentation
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/nolte
