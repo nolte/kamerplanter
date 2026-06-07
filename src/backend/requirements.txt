@@ -55,7 +55,7 @@ dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via pydantic
-fastapi==0.136.1
+fastapi==0.136.3
     # via kamerplanter-backend (pyproject.toml)
 h11==0.16.0
     # via
@@ -90,12 +90,12 @@ prompt-toolkit==3.0.52
     # via click-repl
 pycparser==3.0
     # via cffi
-pydantic==2.13.3
+pydantic==2.13.4
     # via
     #   fastapi
     #   kamerplanter-backend (pyproject.toml)
     #   pydantic-settings
-pydantic-core==2.46.3
+pydantic-core==2.47.0
     # via pydantic
 pydantic-settings==2.14.0
     # via kamerplanter-backend (pyproject.toml)
@@ -129,7 +129,7 @@ slowapi==0.1.9
     # via kamerplanter-backend (pyproject.toml)
 soupsieve==2.8.3
     # via beautifulsoup4
-starlette==1.0.0
+starlette==1.2.1
     # via fastapi
 structlog==25.5.0
     # via kamerplanter-backend (pyproject.toml)
