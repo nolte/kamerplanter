@@ -11,7 +11,7 @@ anyio==4.13.0
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
-authlib==1.7.0
+authlib==1.7.2
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)
@@ -19,11 +19,11 @@ beautifulsoup4==4.14.3
     # via markdownify
 billiard==4.2.4
     # via celery
-black==26.3.1
+black==26.5.1
     # via kamerplanter-backend (pyproject.toml)
 celery==5.6.3
     # via kamerplanter-backend (pyproject.toml)
-certifi==2026.4.22
+certifi==2026.5.20
     # via
     #   httpcore
     #   httpx
@@ -32,7 +32,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.3.3
+click==8.4.1
     # via
     #   black
     #   celery
@@ -46,7 +46,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-coverage==7.13.5
+coverage==7.14.1
     # via pytest-cov
 cryptography==47.0.0
     # via
@@ -66,11 +66,11 @@ h11==0.16.0
     #   uvicorn
 httpcore==1.0.9
     # via httpx
-httptools==0.7.1
+httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via kamerplanter-backend (pyproject.toml)
-idna==3.13
+idna==3.18
     # via
     #   anyio
     #   email-validator
@@ -80,7 +80,7 @@ iniconfig==2.3.0
     # via pytest
 kombu==5.6.2
     # via celery
-librt==0.9.0
+librt==0.11.0
     # via mypy
 limits==5.8.0
     # via slowapi
@@ -103,7 +103,7 @@ pathspec==1.1.1
     # via
     #   black
     #   mypy
-platformdirs==4.9.6
+platformdirs==4.10.0
     # via black
 pluggy==1.6.0
     # via
@@ -120,22 +120,22 @@ pydantic==2.13.4
     #   pydantic-settings
 pydantic-core==2.47.0
     # via pydantic
-pydantic-settings==2.14.0
+pydantic-settings==2.14.1
     # via kamerplanter-backend (pyproject.toml)
 pygments==2.20.0
     # via pytest
-pyjwt==2.12.1
+pyjwt==2.13.0
     # via python-arango
 pytest==9.0.3
     # via
     #   kamerplanter-backend (pyproject.toml)
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==1.3.0
+pytest-asyncio==1.4.0
     # via kamerplanter-backend (pyproject.toml)
 pytest-cov==7.1.0
     # via kamerplanter-backend (pyproject.toml)
-python-arango==8.3.2
+python-arango==8.3.3
     # via kamerplanter-backend (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via celery
@@ -143,21 +143,21 @@ python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.27
+python-multipart==0.0.32
     # via kamerplanter-backend (pyproject.toml)
 pytokens==0.4.1
     # via black
 pyyaml==6.0.3
     # via uvicorn
-redis==7.4.0
+redis==7.4.1
     # via kamerplanter-backend (pyproject.toml)
-requests==2.33.1
+requests==2.34.2
     # via
     #   python-arango
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.12
+ruff==0.15.16
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
@@ -165,7 +165,7 @@ six==1.17.0
     #   python-dateutil
 slowapi==0.1.9
     # via kamerplanter-backend (pyproject.toml)
-soupsieve==2.8.3
+soupsieve==2.8.4
     # via beautifulsoup4
 starlette==1.2.1
     # via fastapi
@@ -189,11 +189,11 @@ tzdata==2026.2
     # via kombu
 tzlocal==5.3.1
     # via celery
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   python-arango
     #   requests
-uvicorn==0.46.0
+uvicorn==0.49.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
@@ -202,11 +202,11 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-watchfiles==1.1.1
+watchfiles==1.2.0
     # via uvicorn
-wcwidth==0.7.0
+wcwidth==0.8.0
     # via prompt-toolkit
 websockets==16.0
     # via uvicorn
-wrapt==2.1.2
+wrapt==2.2.1
     # via deprecated
