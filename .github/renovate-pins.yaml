@@ -8,4 +8,4 @@
 # names stable; the workflows look them up via `yq`.
 
 # datasource=github-tags depName=projectdiscovery/nuclei-templates
-nuclei_templates_version: v10.4.2
+nuclei_templates_version: v10.4.4

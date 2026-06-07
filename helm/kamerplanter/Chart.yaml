@@ -7,12 +7,12 @@ appVersion: "1.0.0"
 dependencies:
   - name: common
     repository: https://bjw-s-labs.github.io/helm-charts/
-    version: 4.6.2
+    version: 5.0.1
   - name: valkey
     repository: oci://ghcr.io/valkey-io/valkey-helm
     version: 0.9.4
     condition: valkey.enabled
   - name: ollama
     repository: https://otwld.github.io/ollama-helm/
-    version: 1.55.0
+    version: 1.59.0
     condition: ollama.enabled

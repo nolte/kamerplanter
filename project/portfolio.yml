@@ -1,0 +1,23 @@
+# Portfolio manifest for nolte/kamerplanter.
+# Schema: spec/portfolio/portfolio-management/ §Capability inventory per repository
+# Audience references resolve against AUDIENCES.md at the repo root.
+
+capabilities:
+  - name: plant-lifecycle-management-system
+    description: >-
+      A self-hosted, multi-tenant plant lifecycle management system —
+      seed-to-harvest tracking with a growth-phase state machine
+      (GDD/VPD/photoperiod), nutrient planning, adaptive care reminders,
+      integrated pest management, a RAG knowledge assistant, and a Home
+      Assistant integration — for home growers, hobby gardeners, and community
+      gardens.
+    audience:
+      - Home grower / hobby gardener / houseplant owner
+      - Community-garden administrator
+      - Self-hoster
+    status: active
+    rationale: >-
+      kamerplanter is the portfolio's plant-care and agriculture application; it
+      owns the full grow-management domain end to end (backend, frontend,
+      knowledge service, and the Home-Assistant-facing API that kamerplanter-ha
+      consumes).
