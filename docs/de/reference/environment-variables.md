@@ -153,7 +153,7 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 Wenn aktiviert, annonciert das Backend einen `_kamerplanter._tcp.local.`-Service im lokalen Netzwerk. Home Assistant erkennt diesen Service automatisch und bietet die Einrichtung der Kamerplanter-Integration an.
 
 !!! info "Stabile Instanz-ID"
-    Die `INSTANCE_ID` wird fuer die Duplikat-Erkennung in Home Assistant verwendet. Wenn sie leer bleibt, wird bei jedem Neustart eine neue ID generiert. Fuer stabile Discovery sollte ein fester Wert gesetzt werden, z. B. `INSTANCE_ID=kp-mein-server`.
+    Die `INSTANCE_ID` wird für die Duplikat-Erkennung in Home Assistant verwendet. Wenn sie leer bleibt, wird bei jedem Neustart eine neue ID generiert. Für stabile Discovery sollte ein fester Wert gesetzt werden, z. B. `INSTANCE_ID=kp-mein-server`.
 
 ### mDNS und Kubernetes
 
@@ -170,7 +170,7 @@ mDNS basiert auf Multicast-UDP (Port 5353) im lokalen Layer-2-Netzwerk. In Stand
 | Cloud (AWS, GCP, Azure) | `false` | Kein lokales Netzwerk vorhanden |
 
 !!! warning "hostNetwork ist ein Trade-off"
-    Mit `hostNetwork: true` teilt der Pod den Netzwerk-Namespace des Hosts. Multicast funktioniert, aber auf Kosten der Netzwerk-Isolation (Port-Konflikte moeglich, keine NetworkPolicy-Enforcement). Nur fuer Homelab-/Raspberry-Pi-Szenarien empfohlen.
+    Mit `hostNetwork: true` teilt der Pod den Netzwerk-Namespace des Hosts. Multicast funktioniert, aber auf Kosten der Netzwerk-Isolation (Port-Konflikte möglich, keine NetworkPolicy-Enforcement). Nur für Homelab-/Raspberry-Pi-Szenarien empfohlen.
 
 Im Helm-Chart ist `MDNS_ENABLED` standardmaessig auf `false` gesetzt. Der manuelle Config Flow in Home Assistant (URL-Eingabe) funktioniert in jedem Deployment-Szenario als Fallback.
 
@@ -262,7 +262,7 @@ RERANKER_TOP_K=5
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Kann ich Umgebungsvariablen in Kubernetes als Secrets hinterlegen?"
     Ja. Verwenden Sie Kubernetes Secrets für sensible Werte (`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`) und referenzieren Sie sie im Deployment-Manifest über `valueFrom.secretKeyRef`.

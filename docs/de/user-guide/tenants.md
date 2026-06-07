@@ -1,24 +1,24 @@
-# Mandanten & Gaerten
+# Mandanten & Gärten
 
-Kamerplanter ist eine Multi-Tenant-Plattform: Deine Daten sind in **Tenants** (Mandanten) organisiert — isolierten Behaeltern, die genau einer Organisationsform entsprechen. Du kannst gleichzeitig Mitglied in mehreren Tenants sein, zum Beispiel in deinem privaten Balkongarten und im Gemeinschaftsgarten des Vereins.
+Kamerplanter ist eine Multi-Tenant-Plattform: Deine Daten sind in **Tenants** (Mandanten) organisiert — isolierten Behältern, die genau einer Organisationsform entsprechen. Du kannst gleichzeitig Mitglied in mehreren Tenants sein, zum Beispiel in deinem privaten Balkongarten und im Gemeinschaftsgarten des Vereins.
 
 ---
 
 ## Was ist ein Tenant?
 
-Ein Tenant ist der zentrale Isolations-Container fuer alle Ressourcen: Pflanzen, Standorte, Aufgaben, Ernten und Pflegedaten gehoeren immer zu genau einem Tenant. Andere Tenants koennen diese Daten nicht sehen.
+Ein Tenant ist der zentrale Isolations-Container für alle Ressourcen: Pflanzen, Standorte, Aufgaben, Ernten und Pflegedaten gehören immer zu genau einem Tenant. Andere Tenants können diese Daten nicht sehen.
 
 | Tenant-Typ | Anwendungsfall | Beispiel |
 |------------|---------------|---------|
-| **Persoenlich** | Privater Garten, Balkongarten, Zimmerpflanzen | Dein eigener Garten |
-| **Organisation** | Gemeinschaftsgarten, Verein, Betrieb | "Gruene Oase e.V.", Cannabis-Anbauvereinigung |
+| **Persönlich** | Privater Garten, Balkongarten, Zimmerpflanzen | Dein eigener Garten |
+| **Organisation** | Gemeinschaftsgarten, Verein, Betrieb | "Grüne Oase e.V.", Cannabis-Anbauvereinigung |
 
-### Persoenlicher Tenant
+### Persönlicher Tenant
 
-Bei der Registrierung erstellt das System automatisch deinen **persoenlichen Tenant**. Du bist dort automatisch Admin. Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmaessig in deinem persoenlichen Tenant.
+Bei der Registrierung erstellt das System automatisch deinen **persönlichen Tenant**. Du bist dort automatisch Admin. Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmäßig in deinem persönlichen Tenant.
 
-!!! info "Persoenliche Daten bleiben privat"
-    Dein persoenlicher Tenant ist vollstaendig von allen anderen Tenants isoliert. Kein Mitglied eines anderen Tenants kann deine privaten Zimmerpflanzen oder deinen Balkongarten sehen — auch wenn du demselben Gemeinschaftsgarten angehoerst.
+!!! info "Persönliche Daten bleiben privat"
+    Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Kein Mitglied eines anderen Tenants kann deine privaten Zimmerpflanzen oder deinen Balkongarten sehen — auch wenn du demselben Gemeinschaftsgarten angehörst.
 
 ---
 
@@ -27,10 +27,10 @@ Bei der Registrierung erstellt das System automatisch deinen **persoenlichen Ten
 Wenn du Mitglied in mehreren Tenants bist, siehst du in der Navigationsleiste einen **Tenant-Selektor** oben links.
 
 1. Klicke auf den Tenant-Namen in der Navigationsleiste
-2. Es oeffnet sich ein Dropdown mit all deinen Tenants
-3. Klicke auf den gewuenschten Tenant — die Ansicht wechselt sofort
+2. Es öffnet sich ein Dropdown mit all deinen Tenants
+3. Klicke auf den gewünschten Tenant — die Ansicht wechselt sofort
 
-Der aktuell aktive Tenant ist in der Navigationsleiste hervorgehoben. Die URL enthalt den Tenant-Slug: `/t/gruene-oase/standorte/...`
+Der aktuell aktive Tenant ist in der Navigationsleiste hervorgehoben. Die URL enthält den Tenant-Slug: `/t/gruene-oase/standorte/...`
 
 ---
 
@@ -39,12 +39,12 @@ Der aktuell aktive Tenant ist in der Navigationsleiste hervorgehoben. Die URL en
 ### Neuen Tenant anlegen
 
 1. Klicke auf den Tenant-Selektor in der Navigationsleiste
-2. Waehle **Neuen Garten erstellen**
-3. Fuelle das Formular aus:
+2. Wähle **Neuen Garten erstellen**
+3. Fülle das Formular aus:
 
     | Feld | Beschreibung | Beispiel |
     |------|-------------|---------|
-    | **Name** | Anzeigename des Gartens | Gruene Oase e.V. |
+    | **Name** | Anzeigename des Gartens | Grüne Oase e.V. |
     | **Slug** | URL-freundlicher Kurzname (auto-generiert) | gruene-oase |
     | **Typ** | Art der Organisation | Organisation |
     | **Beschreibung** | Kurze Beschreibung (optional) | Gemeinschaftsgarten im Westpark |
@@ -63,10 +63,10 @@ Als Admin kannst du Mitglieder auf drei Wegen einladen:
 
 1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladen**
 2. Gib die E-Mail-Adresse des Mitglieds ein
-3. Waehle die Rolle (Admin, Gaertner, Beobachter)
+3. Wähle die Rolle (Admin, Gärtner, Beobachter)
 4. Klicke auf **Einladung senden**
 
-Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewaehlten Rolle hinzugefuegt — egal ob er sich neu registriert oder bereits ein Konto hat.
+Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewählten Rolle hinzugefügt — egal ob er sich neu registriert oder bereits ein Konto hat.
 
 ### Methode 2: Einladungslink
 
@@ -77,12 +77,12 @@ Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird d
     - Rolle, die neue Mitglieder erhalten
 3. Kopiere den Link und teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
 
-!!! tip "Ideal fuer grosse Gruppen"
-    Der Einladungslink ist besonders praktisch fuer Gemeinschaftsgaerten: Haenge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Jeder mit dem Link kann beitreten, bis das Limit erreicht ist.
+!!! tip "Ideal für große Gruppen"
+    Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Jeder mit dem Link kann beitreten, bis das Limit erreicht ist.
 
 ### Methode 3: OIDC Auto-Join
 
-Fuer Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) kann die OIDC-Integration so konfiguriert werden, dass neue Nutzer automatisch dem Tenant beitreten. Dies richtet der Plattform-Administrator ein.
+Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) kann die OIDC-Integration so konfiguriert werden, dass neue Nutzer automatisch dem Tenant beitreten. Dies richtet der Plattform-Administrator ein.
 
 ---
 
@@ -92,7 +92,7 @@ Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun d
 
 ### Rollenvergleich
 
-| Aufgabe | Admin | Gaertner | Beobachter |
+| Aufgabe | Admin | Gärtner | Beobachter |
 |---------|:-----:|:--------:|:----------:|
 | Alles lesen | Ja | Ja | Ja |
 | Pflanzen anlegen/bearbeiten | Ja | Ja | Nein |
@@ -100,20 +100,20 @@ Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun d
 | Aufgaben erstellen | Ja | Ja | Nein |
 | Ernten dokumentieren | Ja | Ja | Nein |
 | Mitglieder einladen | Ja | Nein | Nein |
-| Rollen aendern | Ja | Nein | Nein |
-| Tenant-Einstellungen aendern | Ja | Nein | Nein |
+| Rollen ändern | Ja | Nein | Nein |
+| Tenant-Einstellungen ändern | Ja | Nein | Nein |
 | Pinwand-Posts pinnen | Ja | Nein | Nein |
 | Einkaufsliste verwalten | Ja | Ja | Nein |
-| Giessrotation erstellen | Ja | Nein | Nein |
+| Gießrotation erstellen | Ja | Nein | Nein |
 
-*Gaertner koennen Standorte bearbeiten, die ihnen zugewiesen sind.
+*Gärtner können Standorte bearbeiten, die ihnen zugewiesen sind.
 
-### Rollen aendern
+### Rollen ändern
 
 1. Navigiere zu **Einstellungen** > **Mitglieder**
-2. Klicke beim gewuenschten Mitglied auf das Bearbeitungs-Symbol
-3. Waehle die neue Rolle
-4. Bestaetigen — die Aenderung gilt sofort
+2. Klicke beim gewünschten Mitglied auf das Bearbeitungs-Symbol
+3. Wähle die neue Rolle
+4. Bestätigen — die Änderung gilt sofort
 
 ---
 
@@ -123,20 +123,20 @@ In einem Gemeinschaftsgarten kann nicht jedes Mitglied jede Parzelle bearbeiten.
 
 ### Standort einem Mitglied zuweisen
 
-1. Navigiere zu **Standorte** > gewuenschter Standort
+1. Navigiere zu **Standorte** > gewünschter Standort
 2. Klicke auf **Zuweisung bearbeiten**
-3. Waehle das Mitglied aus dem Dropdown
+3. Wähle das Mitglied aus dem Dropdown
 4. Klicke auf **Speichern**
 
-**Regeln fuer Standort-Zuweisungen:**
+**Regeln für Standort-Zuweisungen:**
 
-- **Zugewiesene Standorte**: Nur der zugewiesene Gaertner und Admins duerfen bearbeiten
-- **Nicht zugewiesene Standorte**: Alle Gaertner des Tenants duerfen bearbeiten (Gemeinschaftsflaechen)
-- **Beobachter**: Lesen immer alles, unabhaengig von Zuweisungen
-- **Admins**: Koennen immer alles bearbeiten
+- **Zugewiesene Standorte**: Nur der zugewiesene Gärtner und Admins dürfen bearbeiten
+- **Nicht zugewiesene Standorte**: Alle Gärtner des Tenants dürfen bearbeiten (Gemeinschaftsflächen)
+- **Beobachter**: Lesen immer alles, unabhängig von Zuweisungen
+- **Admins**: Können immer alles bearbeiten
 
 !!! example "Typischer Gemeinschaftsgarten"
-    Der Gemeinschaftsgarten hat 20 Parzellen (je einer Person zugewiesen), einen Kompostbereich und ein Gewächshaus (beide nicht zugewiesen, also fuer alle Gaertner bearbeitbar).
+    Der Gemeinschaftsgarten hat 20 Parzellen (je einer Person zugewiesen), einen Kompostbereich und ein Gewächshaus (beide nicht zugewiesen, also für alle Gärtner bearbeitbar).
 
 ---
 
@@ -144,35 +144,35 @@ In einem Gemeinschaftsgarten kann nicht jedes Mitglied jede Parzelle bearbeiten.
 
 ### Pinwand
 
-Die Pinwand ist ein gemeinsamer Nachrichtenbereich fuer alle Tenant-Mitglieder.
+Die Pinwand ist ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder.
 
 1. Navigiere zu **Gemeinschaft** > **Pinwand**
 2. Klicke auf **Neuer Post**
-3. Schreibe deine Nachricht und klicke auf **Veroeffentlichen**
+3. Schreibe deine Nachricht und klicke auf **Veröffentlichen**
 
-Admins koennen Posts anpinnen, sodass sie oben erscheinen, und Posts loeschen.
+Admins können Posts anpinnen, sodass sie oben erscheinen, und Posts löschen.
 
 !!! example "Typische Pinwand-Posts"
     - "Schneckenalarm! Bitte Bierfallen aufstellen."
     - "Samstag 10 Uhr: Gemeinsames Kompost-Umsetzen."
     - "Zu viele Zucchini — wer will welche?"
 
-### Giessrotation
+### Gießrotation
 
-Fuer die Verteilung von Giesspflichten unter Mitgliedern:
+Für die Verteilung von Gießpflichten unter Mitgliedern:
 
-1. Navigiere zu **Gemeinschaft** > **Giessrotation**
+1. Navigiere zu **Gemeinschaft** > **Gießrotation**
 2. Klicke auf **Neue Rotation erstellen**
-3. Lege das Intervall fest (z.B. woechentlich) und trage die Mitglieder ein
-4. Das System erinnert jede Woche das zustaendige Mitglied
+3. Lege das Intervall fest (z.B. wöchentlich) und trage die Mitglieder ein
+4. Das System erinnert jede Woche das zuständige Mitglied
 
-Mitglieder koennen Dienste untereinander tauschen — ohne den Admin einzubeziehen.
+Mitglieder können Dienste untereinander tauschen — ohne den Admin einzubeziehen.
 
 ### Gemeinsame Einkaufsliste
 
 1. Navigiere zu **Gemeinschaft** > **Einkaufsliste**
-2. Alle Gaertner koennen Eintraege hinzufuegen und abhaken
-3. Admins koennen Listen archivieren
+2. Alle Gärtner können Einträge hinzufügen und abhaken
+3. Admins können Listen archivieren
 
 ---
 
@@ -186,11 +186,11 @@ Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon)
 |-------------|-------------|
 | **Name & Slug** | Anzeigename und URL-Kurzname |
 | **Stammdaten-Zuweisung** | Welche globalen Pflanzenarten sind sichtbar |
-| **Einladungseinstellungen** | Standard-Rolle fuer neue Mitglieder |
-| **OIDC-Konfiguration** | Auto-Join ueber externen Identity Provider |
+| **Einladungseinstellungen** | Standard-Rolle für neue Mitglieder |
+| **OIDC-Konfiguration** | Auto-Join über externen Identity Provider |
 
-!!! warning "Slug aendern bricht URLs"
-    Wenn du den Slug aenderst, aendern sich alle URLs innerhalb des Tenants. Lesezeichen und geteilte Links werden ungueltig. Aendere den Slug nur, wenn noetig.
+!!! warning "Slug ändern bricht URLs"
+    Wenn du den Slug änderst, ändern sich alle URLs innerhalb des Tenants. Lesezeichen und geteilte Links werden ungültig. Ändere den Slug nur, wenn nötig.
 
 ---
 
@@ -199,26 +199,26 @@ Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon)
 Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 
 1. Navigiere zu **Einstellungen** > **Mitgliedschaft** > **Tenant verlassen**
-2. Bestaetigen
+2. Bestätigen
 
 !!! warning "Als einziger Admin"
-    Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befoerdern oder den Tenant loeschen.
+    Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befördern oder den Tenant löschen.
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Kann ich Daten zwischen Tenants teilen?"
-    Nein — Ressourcen gehoeren immer zu genau einem Tenant. Cross-Tenant-Sharing ist bewusst nicht moeglich, um Datenisolation zu gewaehrleisten. Globale Stammdaten (Pflanzenarten, Schädlinge) sind hingegen fuer alle Tenants sichtbar.
+    Nein — Ressourcen gehören immer zu genau einem Tenant. Cross-Tenant-Sharing ist bewusst nicht möglich, um Datenisolation zu gewährleisten. Globale Stammdaten (Pflanzenarten, Schädlinge) sind hingegen für alle Tenants sichtbar.
 
 ??? question "Wie viele Tenants kann ich erstellen?"
     Es gibt keine technische Begrenzung. Du kannst beliebig viele Tenants erstellen und beitreten.
 
-??? question "Was passiert mit meinen Daten, wenn ich einen Tenant losche?"
-    Alle Ressourcen des Tenants werden geloescht. Dein persoenlicher Tenant und deine Mitgliedschaften in anderen Tenants sind davon nicht betroffen.
+??? question "Was passiert mit meinen Daten, wenn ich einen Tenant lösche?"
+    Alle Ressourcen des Tenants werden gelöscht. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind davon nicht betroffen.
 
-??? question "Sehen Tenant-Admins meine persoenlichen Zimmerpflanzen?"
-    Nein. Dein persoenlicher Tenant ist vollstaendig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persoenlichen Tenant sehen.
+??? question "Sehen Tenant-Admins meine persönlichen Zimmerpflanzen?"
+    Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
 
 ---
 

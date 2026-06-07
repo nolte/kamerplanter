@@ -20,7 +20,7 @@ Kamerplanter can be operated in different ways — from a single `docker compose
 
 ### Kubernetes
 
-- [Deployment Profiles](deployment-profiles.md) — Which components do I need? Comparing Minimal to SaaS
+- [Deployment Profiles](betriebsprofile.md) — Which components do I need? Comparing Minimal to SaaS
 - [Kubernetes](kubernetes.md) — Cluster prerequisites and deploying Kamerplanter
 - [Helm Charts](helm.md) — Chart structure, configuration, and customization
 - [ArgoCD](argocd.md) — GitOps-based deployment

@@ -1,6 +1,6 @@
 # Dünge-Logik
 
-Kamerplanter berechnet präzise Mischverhältnisse für Nährstofflösungen, überwacht Ihr EC-Budget und erinnert Sie an Gießtermine. Ob Hydroponik mit EC-Kalkulation oder organische Freilanddüngung — das System unterstützt beide Ansätze.
+Kamerplanter berechnet präzise Mischverhältnisse für Nährstofflösungen, überwacht dein EC-Budget und erinnert dich an Gießtermine. Ob Hydroponik mit EC-Kalkulation oder organische Freilanddüngung — das System unterstützt beide Ansätze.
 
 ---
 
@@ -16,7 +16,7 @@ Kamerplanter berechnet präzise Mischverhältnisse für Nährstofflösungen, üb
 
 ### Elektrische Leitfähigkeit (EC)
 
-Die Elektrische Leitfähigkeit (EC) misst die Konzentration gelöster Nährstoffe im Gießwasser in Millisiemens pro Zentimeter (mS/cm). Sie ist der wichtigste Kennwert für die Nährstoffdosierung:
+Die elektrische Leitfähigkeit (EC) misst die Konzentration gelöster Nährstoffe im Gießwasser in Millisiemens pro Zentimeter (mS/cm). Sie ist der wichtigste Kennwert für die Nährstoffdosierung:
 
 - **Zu niedrig**: Pflanze hungert, Mangelerscheinungen möglich
 - **Optimal**: Pflanze wächst bestmöglich
@@ -33,7 +33,7 @@ Typische EC-Zielwerte:
 
 ### EC-Budget
 
-Das **EC-Budget** ist die Differenz zwischen dem EC-Zielwert der aktuellen Phase und dem EC-Wert Ihres Ausgangswassers. Dieses Budget verteilt Kamerplanter auf die einzelnen Düngerkomponenten.
+Das **EC-Budget** ist die Differenz zwischen dem EC-Zielwert der aktuellen Phase und dem EC-Wert deines Ausgangswassers. Dieses Budget verteilt Kamerplanter auf die einzelnen Düngerkomponenten.
 
 **Beispiel:**
 - EC-Ziel für Blüte: 1,8 mS/cm
@@ -49,11 +49,11 @@ Das **EC-Budget** ist die Differenz zwischen dem EC-Zielwert der aktuellen Phase
 
 ### Schritt 1: Zum Bereich Düngung navigieren
 
-Klicken Sie in der Navigation auf **Düngung → Dünger**.
+Klicke in der Navigation auf **Düngung → Dünger**.
 
 ### Schritt 2: Neuen Dünger anlegen
 
-Klicken Sie auf **Dünger hinzufügen**.
+Klicke auf **Dünger hinzufügen**.
 
 ### Schritt 3: Dünger-Daten ausfüllen
 
@@ -86,51 +86,51 @@ Ein Nährstoffplan definiert die Dosierungen aller Dünger für jede Wachstumsph
 
 ### Schritt 1: Neuen Nährstoffplan anlegen
 
-Navigieren Sie zu **Düngung → Nährstoffpläne** und klicken Sie auf **Neuer Plan**.
+Navigiere zu **Düngung → Nährstoffpläne** und klicke auf **Neuer Plan**.
 
 ### Schritt 2: Plan benennen und Substrat wählen
 
-Geben Sie einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wählen Sie das Substrat-Typ (Erde, Coco, Hydroponik). Das Substrat beeinflusst die EC-Toleranz und CalMag-Empfehlungen.
+Gib einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wähle den Substrat-Typ (Erde, Coco, Hydroponik). Das Substrat beeinflusst die EC-Toleranz und CalMag-Empfehlungen.
 
 ### Schritt 3: Phaseneinträge hinzufügen
 
-Für jede Wachstumsphase fügen Sie die Dünger-Dosierungen ein:
+Für jede Wachstumsphase fügst du die Dünger-Dosierungen ein:
 
-1. Klicken Sie auf **Phase hinzufügen**.
-2. Wählen Sie die Phase (Keimung, Vegetativ, Blüte, usw.).
-3. Tragen Sie für jeden Dünger die Dosierung in ml/L ein.
+1. Klicke auf **Phase hinzufügen**.
+2. Wähle die Phase (Keimung, Vegetativ, Blüte, usw.).
+3. Trage für jeden Dünger die Dosierung in ml/L ein.
 4. Das System berechnet sofort die Gesamt-EC und zeigt an, ob das Budget eingehalten wird.
 
 !!! warning "EC-Budget-Überschreitung"
-    Wenn Ihre eingegebenen Dosierungen das EC-Budget überschreiten, erscheint eine Warnung. Kamerplanter gibt dann einen Anpassungsvorschlag, bei dem die einzelnen Komponenten proportional reduziert werden.
+    Wenn deine eingegebenen Dosierungen das EC-Budget überschreiten, erscheint eine Warnung. Kamerplanter gibt dann einen Anpassungsvorschlag, bei dem die einzelnen Komponenten proportional reduziert werden.
 
 ### Schritt 4: Plan einem Pflanzdurchlauf zuweisen
 
-1. Öffnen Sie den gewünschten **Pflanzdurchlauf** unter **Durchläufe**.
-2. Klicken Sie auf **Nährstoffplan zuweisen**.
-3. Wählen Sie den Plan aus der Liste.
+1. Öffne den gewünschten **Pflanzdurchlauf** unter **Durchläufe**.
+2. Klicke auf **Nährstoffplan zuweisen**.
+3. Wähle den Plan aus der Liste.
 
 Alle Pflanzen in diesem Durchlauf nutzen von nun an diesen Plan für ihre Gießempfehlungen.
 
 ---
 
-## Gießereignis erfassen (Feeding Event)
+## Gießereignis erfassen (Feeding Event — Dünge-/Bewässerungseintrag)
 
-Nach jedem Düngen dokumentieren Sie ein Gießereignis. Das hilft beim Verfolgen der tatsächlichen Nährstoffgabe und der Substrat-EC über die Zeit.
+Nach jedem Düngen dokumentierst du ein Gießereignis. Das hilft beim Verfolgen der tatsächlichen Nährstoffgabe und der Substrat-EC über die Zeit.
 
 ### Schnell erfassen über den Pflanzdurchlauf
 
-1. Öffnen Sie einen **Pflanzdurchlauf**.
-2. Klicken Sie auf **Gießen bestätigen** (oder **Gießen — schnell**).
-3. Bestätigen Sie die vorgeschlagene Menge und EC — oder passen Sie sie an.
+1. Öffne einen **Pflanzdurchlauf**.
+2. Klicke auf **Gießen bestätigen** (oder **Gießen — schnell**).
+3. Bestätige die vorgeschlagene Menge und EC — oder passe sie an.
 
 ### Detailliert erfassen
 
-1. Navigieren Sie zu **Düngung → Gießereignisse**.
-2. Klicken Sie auf **Neues Ereignis**.
-3. Wählen Sie Pflanze(n) oder Pflanzdurchlauf.
-4. Tragen Sie die tatsächlich verwendeten Mengen ein.
-5. Hinterlegen Sie optional Ist-EC, pH und Abfluss-EC (für Runoff-Analyse).
+1. Navigiere zu **Düngung → Gießereignisse**.
+2. Klicke auf **Neues Ereignis**.
+3. Wähle Pflanze(n) oder Pflanzdurchlauf.
+4. Trage die tatsächlich verwendeten Mengen ein.
+5. Hinterlege optional Ist-EC, pH und Abfluss-EC (für Runoff-Analyse).
 
 !!! tip "Runoff-EC messen"
     Bei Topf- und Coco-Kulturen gibt die Abfluss-EC (das Wasser, das unten aus dem Topf läuft) Auskunft über die Salzakkumulation im Substrat. Ist die Abfluss-EC deutlich höher als die Eingabe-EC, ist es Zeit für einen Spülgang.
@@ -139,14 +139,14 @@ Nach jedem Düngen dokumentieren Sie ein Gießereignis. Das hilft beim Verfolgen
 
 ## Spülprotokoll (Flushing)
 
-Vor der Ernte kann ein Spülgang helfen, überschüssige Salze aus dem Substrat zu waschen. Kamerplanter führt Sie durch diesen Prozess.
+Vor der Ernte kann ein Spülgang helfen, überschüssige Salze aus dem Substrat zu waschen. Kamerplanter führt dich durch diesen Prozess.
 
 !!! note "Wissenschaftlicher Stand"
     Das Flushing ist in Gärtner-Kreisen weit verbreitet, der wissenschaftliche Nachweis für verbesserten Geschmack ist aber umstritten. Bei Living Soil und organischer Düngung wird ausdrücklich davon abgeraten, da das Mikrobiom geschädigt wird.
 
-1. Öffnen Sie die Pflanze und klicken Sie auf **Spülprotokoll starten**.
+1. Öffne die Pflanze und klicke auf **Spülprotokoll starten**.
 2. Das System schlägt eine Dauer vor (abhängig vom Substrat-Typ).
-3. Während des Spülens wechseln Sie zu reinem, pH-adjustiertem Wasser.
+3. Während des Spülens wechsle zu reinem, pH-adjustiertem Wasser.
 4. Kamerplanter erstellt automatisch Gieß-Aufgaben für den Spülzeitraum.
 
 **Empfohlene Spüldauer (Orientierungswerte):**
@@ -193,7 +193,7 @@ Kamerplanter zeigt in der Pflanzendetailansicht den Nährstoffbedarf der Pflanze
 
 CalMag-Supplemente (Calcium-Magnesium) sind bei weichem Leitungswasser und Osmosewasser wichtig, da diese Wasser-Typen kaum natürliche Mineralien enthalten.
 
-Kamerplanter berechnet automatisch den CalMag-Bedarf, wenn Sie die Wasserquelle auf Ihrer Site hinterlegt haben:
+Kamerplanter berechnet automatisch den CalMag-Bedarf, wenn du die Wasserquelle auf deiner Site hinterlegt hast:
 
 - **100% Osmosewasser**: Volles CalMag-Supplement (ca. 0,5–1,5 ml/L je nach Phase)
 - **50/50 Mischung (RO + Leitungswasser)**: Halbe CalMag-Menge
@@ -207,13 +207,13 @@ Kamerplanter berechnet automatisch den CalMag-Bedarf, wenn Sie die Wasserquelle 
     Ein **Nährstoffplan** ist das Rezept — er definiert für jede Phase, welche Dünger in welcher Menge verwendet werden sollen. Ein **Gießereignis** ist die Aufzeichnung einer tatsächlich durchgeführten Düngung. Das eine ist die Planung, das andere die Dokumentation.
 
 ??? question "Muss ich jeden Gießvorgang erfassen?"
-    Nein, das ist optional. Kamerplanter funktioniert auch ohne vollständige Gieß-Dokumentation. Wenn Sie aber die Runoff-EC verfolgen oder die Nährstoffgabe optimieren möchten, lohnt sich eine konsequente Erfassung.
+    Nein, das ist optional. Kamerplanter funktioniert auch ohne vollständige Gieß-Dokumentation. Wenn du aber die Runoff-EC verfolgen oder die Nährstoffgabe optimieren möchtest, lohnt sich eine konsequente Erfassung.
 
 ??? question "Warum schlägt das System CalMag vor, obwohl ich hartes Wasser habe?"
     Wenn Coco Coir als Substrat eingestellt ist, empfiehlt Kamerplanter immer CalMag — unabhängig von der Wasserhärte. Coco Coir bindet Calcium und Magnesium aktiv, weshalb der Bedarf höher ist als bei Erde.
 
 ??? question "Kann ich einen bestehenden Nährstoffplan für neue Pflanzdurchläufe wiederverwenden?"
-    Ja. Beim Zuweisen eines Plans zu einem Pflanzdurchlauf wählen Sie aus allen vorhandenen Plänen. So können Sie einen bewährten Plan für mehrere Durchläufe nutzen.
+    Ja. Beim Zuweisen eines Plans zu einem Pflanzdurchlauf wählst du aus allen vorhandenen Plänen. So kannst du einen bewährten Plan für mehrere Durchläufe nutzen.
 
 ---
 

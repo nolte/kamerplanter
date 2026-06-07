@@ -1,6 +1,6 @@
 # Authentication
 
-Kamerplanter supports two authentication methods: **local accounts** (email + password) and **federated accounts** (OAuth 2.0 / OIDC via Google, GitHub, Apple, or generic providers). For machine-to-machine integrations (Home Assistant, CI/CD), **API keys** are available.
+Kamerplanter supports two authentication methods: **local accounts** (email + password) and **federated accounts** (OAuth 2.0 / OpenID Connect (OIDC) via Google, GitHub, Apple, or generic providers). For machine-to-machine (M2M) integrations (Home Assistant, CI/CD), **API keys** are available.
 
 !!! note "Light Mode"
     In light mode (`KAMERPLANTER_MODE=light`), authentication is not required. All auth endpoints under `/auth/...` are disabled in this mode. This section applies to full mode only.
@@ -14,9 +14,9 @@ Kamerplanter supports two authentication methods: **local accounts** (email + pa
 | Access Token (JWT) | 15 minutes | `Authorization: Bearer <token>` | Via refresh token |
 | Refresh Token | 30 days | HttpOnly cookie `kp_refresh` | Rotation on every renewal |
 
-The **access token** is a signed JWT (HS256). It contains the user ID and expires after 15 minutes. It should be kept in application memory — never in localStorage.
+The **access token** is a signed JSON Web Token (JWT) using the HMAC-SHA256 (HS256) algorithm. It contains the user ID and expires after 15 minutes. It should be kept in application memory — never in localStorage.
 
-The **refresh token** is set as an HttpOnly cookie. It is not readable by JavaScript, protecting against XSS attacks. On every call to `/auth/refresh`, the token is rotated — the old token is invalidated and a new one issued.
+The **refresh token** is set as an HttpOnly cookie. It is not readable by JavaScript, protecting against Cross-Site Scripting (XSS) attacks. On every call to `/auth/refresh`, the token is rotated — the old token is invalidated and a new one issued.
 
 ---
 
@@ -131,7 +131,7 @@ X-CSRF-Token: <csrf-token>
 ```
 
 !!! note "CSRF Protection"
-    Token-mutating endpoints (`/refresh`, `/logout`, `/logout-all`) require the `X-CSRF-Token` header. The CSRF token is set as a regular cookie `kp_csrf` and is readable by JavaScript. It is renewed on login and refresh.
+    Token-mutating endpoints (`/refresh`, `/logout`, `/logout-all`) require the `X-CSRF-Token` header. The Cross-Site Request Forgery (CSRF) token is set as a regular cookie `kp_csrf` and is readable by JavaScript. It is renewed on login and refresh.
 
 **Response (200 OK):**
 
@@ -244,7 +244,7 @@ The server sets the cookies and redirects to the frontend:
 
 ## API Keys (M2M Integration)
 
-API keys enable machine access without interactive login — for example for Home Assistant, Grafana, or CI/CD pipelines.
+API keys enable machine-to-machine (M2M) access without interactive login — for example for Home Assistant, Grafana, or CI/CD pipelines.
 
 ### Create an API key
 
@@ -345,7 +345,7 @@ After multiple failed login attempts, the account is temporarily locked. The API
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `JWT_SECRET_KEY` | `change-me-...` | Signing key for JWTs — generate in production with `openssl rand -hex 32` |
-| `JWT_ALGORITHM` | `HS256` | Signing algorithm |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm (HS256 = HMAC-SHA256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token validity in minutes |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token validity in days |
 | `REQUIRE_EMAIL_VERIFICATION` | `false` | Enforce email verification before first login |

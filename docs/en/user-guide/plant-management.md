@@ -1,6 +1,6 @@
 # Managing Master Data
 
-Kamerplanter stores all basic plant data -- species, cultivars, and botanical families -- as **master data**. This forms the basis for planting runs, nutrient plans, phase control, and care reminders.
+Kamerplanter stores all basic plant data — species, cultivars, and botanical families — as **master data**. This forms the basis for planting runs, nutrient plans, phase control, and care reminders.
 
 ## Overview
 
@@ -72,25 +72,8 @@ Families group related species and form the basis for crop rotation planning. Ka
 
 ---
 
-## Preparing Master Data with AI
-
-Manually collecting all plant data from various sources is time-consuming. Kamerplanter therefore offers an **AI-powered pipeline** that fully prepares and quality-checks new plants.
-
-The pipeline uses Claude Code Agents to:
-
-1. **Automatically generate plant documents** -- An agent researches taxonomy, growth phases, nutrient profiles, pests, and companion planting data
-2. **Perform scientific review** -- A second agent checks the data from an agrobiology perspective
-3. **Deliver import-ready CSV data** -- Each document contains ready-made CSV lines for bulk import
-
-!!! example "Example invocation in Claude Code"
-    ```
-    Create a plant document for basil
-    ```
-    Claude Code recognizes the context and automatically starts the appropriate agent.
-
-Currently over **32 plants** are fully documented -- including vegetables, herbs, ornamentals, and houseplants.
-
-:material-arrow-right: **[Detailed guide: Preparing plant data with AI](../guides/ai-plant-data-pipeline.md)**
+!!! tip "Advanced / For developers"
+    **Preparing master data with AI:** If you are a developer or system administrator working with the Kamerplanter codebase, you can use the built-in Claude Code agent pipeline to generate and scientifically review new plant species documents automatically. The pipeline covers taxonomy, growth phases, nutrient profiles, pest data, and companion planting relationships, and outputs import-ready CSV for bulk upload. See the full guide: [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md).
 
 ---
 
@@ -119,7 +102,7 @@ flowchart LR
 
 1. Navigate to **Master Data** > **Import**
 2. Select the **Entity** (Species, Cultivar, Family, or Nutrient Plan)
-3. Upload your **CSV file** -- encoding and delimiter are auto-detected
+3. Upload your **CSV file** — encoding and delimiter are auto-detected
 4. Review the **Preview**: Each row is validated individually, errors are shown per field
 5. Choose the **Duplicate strategy** (Skip, Update, or Fail)
 6. Click **Confirm Import**
@@ -139,7 +122,7 @@ flowchart LR
 
 ## See Also
 
-- [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md) -- Detailed guide to the AI pipeline
-- [Growth Phases](growth-phases.md) -- Phase control per species
-- [Planting Runs](planting-runs.md) -- Accompany plants from sowing to harvest
-- [Fertilization](fertilization.md) -- Nutrient plans and feeding charts
+- [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md) — Detailed guide to the AI pipeline
+- [Growth Phases](growth-phases.md) — Phase control per species
+- [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest
+- [Fertilization](fertilization.md) — Nutrient plans and feeding charts

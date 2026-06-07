@@ -10,7 +10,7 @@ Der Plattform-Admin-Bereich ist ausschließlich für Nutzer mit der Plattform-Ro
 - Zugang über `/admin/platform` (im Full-Modus)
 
 !!! warning "Nicht mit Tenant-Admin verwechseln"
-    Die Plattform-Admin-Rolle ist eine **plattformweite** Sonderrolle. Sie berechtigt zum Zugriff auf Daten aller Mandanten. Die Tenant-Admin-Rolle dagegen ist auf einen einzelnen Mandanten beschränkt und wird über **Einstellungen > Mandanten > Mitglieder** vergeben.
+    Die Plattform-Admin-Rolle ist eine **plattformweite** Sonderrolle, die zum Zugriff auf Daten aller Mandanten berechtigt. Die Tenant-Admin-Rolle dagegen ist auf einen einzelnen Mandanten beschränkt und wird über **Einstellungen > Mandanten > Mitglieder** vergeben.
 
 ---
 
@@ -29,7 +29,7 @@ Der Plattform-Admin-Bereich ist ausschließlich für Nutzer mit der Plattform-Ro
 
 ## Mandantenverwaltung
 
-Im Bereich **Admin > Mandanten** können Sie:
+Im Bereich **Admin > Mandanten** kannst du:
 
 - Alle Mandanten der Plattform einsehen (Name, Slug, Mitgliederzahl, Erstellungsdatum)
 - Einzelne Mandanten deaktivieren oder löschen
@@ -37,13 +37,13 @@ Im Bereich **Admin > Mandanten** können Sie:
 - Mitglieder eines Mandanten stellvertretend verwalten
 
 !!! danger "Mandanten löschen ist irreversibel"
-    Das Löschen eines Mandanten entfernt alle zugehörigen Daten (Pflanzen, Durchläufe, Protokolle). Diese Aktion kann nicht rückgängig gemacht werden. Erstellen Sie vorher ein Daten-Export für den betroffenen Mandanten.
+    Das Löschen eines Mandanten entfernt alle zugehörigen Daten (Pflanzen, Durchläufe, Protokolle). Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten.
 
 ---
 
 ## Nutzerverwaltung
 
-Im Bereich **Admin > Nutzer** können Sie:
+Im Bereich **Admin > Nutzer** kannst du:
 
 - Alle Nutzerkonten der Plattform einsehen
 - Nutzerkonten sperren oder deaktivieren
@@ -52,7 +52,7 @@ Im Bereich **Admin > Nutzer** können Sie:
 - DSGVO-Anfragen (Datenlöschung, Datenauskunft) bearbeiten
 
 !!! note "DSGVO-Anfragen"
-    Betroffenenrechte nach Art. 15–21 DSGVO stehen Nutzern über die Self-Service-API unter `/api/v1/privacy/` zur Verfügung. Als Platform-Admin können Sie Anfragen im Admin-Bereich einsehen und bearbeiten. Weitere Informationen: [Datenschutz (DSGVO)](privacy.md).
+    Betroffenenrechte nach Art. 15–21 DSGVO stehen Nutzern über die Self-Service-API unter `/api/v1/privacy/` zur Verfügung. Als Platform-Admin kannst du Anfragen im Admin-Bereich einsehen und bearbeiten. Weitere Informationen: [Datenschutz (DSGVO)](privacy.md).
 
 ---
 
@@ -69,7 +69,7 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 ## OIDC-Provider
 
-Unter **Admin > OIDC-Provider** konfigurieren Sie föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
+Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
 Mehr dazu: [Authentifizierung](../api/authentication.md).
 

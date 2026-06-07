@@ -1,53 +1,53 @@
 # Pflegeerinnerungen
 
-Kamerplanter erinnert dich automatisch daran, welche Pflanzen heute Wasser, Duenger oder Pflege brauchen — ohne dass du Cron-Ausdruecke oder Workflow-Templates kennen musst. Ein Fingertipp genuegt zur Bestaetigung. Das System lernt aus deinem Pflegeverhalten und passt Intervalle automatisch an.
+Kamerplanter erinnert dich automatisch daran, welche Pflanzen heute Wasser, Dünger oder Pflege brauchen — ohne dass du Cron-Ausdrücke oder Workflow-Templates kennen musst. Ein Fingertipp genügt zur Bestätigung. Das System lernt aus deinem Pflegeverhalten und passt Intervalle automatisch an.
 
 ---
 
 ## Voraussetzungen
 
 - Mindestens eine Pflanze ist angelegt
-- Der Pflanzinstanz wurde ein Care Profile zugewiesen (wird automatisch beim ersten Zugriff erstellt)
+- Der Pflanzinstanz wurde ein Care Profile (Pflegeprofil) zugewiesen (wird automatisch beim ersten Zugriff erstellt)
 
 ---
 
 ## Der Pflege-Kalender
 
-Navigiere zu **Pflege** > **Heute faellig**, um alle Pflanzen zu sehen, die heute Aufmerksamkeit brauchen. Die Karten sind nach Dringlichkeit sortiert:
+Navigiere zu **Pflege** > **Heute fällig**, um alle Pflanzen zu sehen, die heute Aufmerksamkeit brauchen. Die Karten sind nach Dringlichkeit sortiert:
 
 | Farbe | Bedeutung |
 |-------|-----------|
-| Rot | Ueberfaellig (Pflanze leidet moeglicherweise) |
-| Orange | Heute faellig |
-| Gelb | Bald faellig (1–2 Tage) |
-| Gruen | Kuerzlich gepflegt |
+| Rot | Überfällig (Pflanze leidet möglicherweise) |
+| Orange | Heute fällig |
+| Gelb | Bald fällig (1–2 Tage) |
+| Grün | Kürzlich gepflegt |
 
-### Pflege bestaetigen
+### Pflege bestätigen
 
 1. Klicke auf die Pflegekarte der Pflanze
-2. Klicke auf den grossen **Erledigt**-Button
-3. Fertig — das System merkt sich den Zeitpunkt und berechnet den naechsten Termin
+2. Klicke auf den großen **Erledigt**-Button
+3. Fertig — das System merkt sich den Zeitpunkt und berechnet den nächsten Termin
 
 !!! tip "Adaptives Lernen"
-    Wenn du eine Pflanze konsequent 8 statt 7 Tage nach der letzten Bestaetigung giesst, passt das System das Intervall nach 3 aufeinanderfolgenden Bestaedigungen automatisch an. Der Lerneffekt ist auf ±1 Tag pro Schritt begrenzt und kann das Intervall maximal um ±30% veraendern.
+    Wenn du eine Pflanze konsequent 8 statt 7 Tage nach der letzten Bestätigung gießt, passt das System das Intervall nach 3 aufeinanderfolgenden Bestätigungen automatisch an. Der Lerneffekt ist auf ±1 Tag pro Schritt begrenzt und kann das Intervall maximal um ±30% verändern.
 
 ---
 
 ## Care Profiles
 
-Jede Pflanze hat ein **Care Profile** mit den Pflegeintervallen fuer diese spezifische Pflanze. Das Profil wird automatisch aus den Stammdaten der Art generiert und kann danach angepasst werden.
+Jede Pflanze hat ein **Care Profile** (Pflegeprofil) mit den Pflegeintervallen für diese spezifische Pflanze. Das Profil wird automatisch aus den Stammdaten der Art generiert und kann danach angepasst werden.
 
-### Care Profile oeffnen
+### Care Profile öffnen
 
-1. Navigiere zu **Pflanzen** > gewuenschte Pflanze
+1. Navigiere zu **Pflanzen** > gewünschte Pflanze
 2. Klicke auf den Tab **Pflege**
 3. Klicke auf **Care Profile bearbeiten**
 
 ### Pflege-Stile (Care Style Presets)
 
-Das System kennt vordefinierte Pflege-Stile fuer typische Pflanzengruppen:
+Das System kennt vordefinierte Pflege-Stile für typische Pflanzengruppen:
 
-| Pflege-Stil | Giessen (Sommer) | Winter-Faktor | Typische Pflanzen |
+| Pflege-Stil | Gießen (Sommer) | Winter-Faktor | Typische Pflanzen |
 |-------------|-----------------|---------------|-------------------|
 | `tropical` | Alle 7 Tage | 1,5× | Monstera, Philodendron, Ficus |
 | `succulent` | Alle 14 Tage | 2,5× | Echeveria, Haworthia, Aloe |
@@ -60,59 +60,59 @@ Das System kennt vordefinierte Pflege-Stile fuer typische Pflanzengruppen:
 | `custom` | Frei konfigurierbar | Frei | — |
 
 !!! warning "Nicht alle Sukkulenten sind Kakteen"
-    Kakteen (Cactaceae) und Sukkulenten wie Echeveria oder Haworthia gehoeren verschiedenen Familien an. Der Pflege-Stil `cactus` gilt nur fuer echte Kakteen. Echeveria und Haworthia nutzen `succulent`. Lithops und andere Mesembs (Aizoaceae) brauchen eine noch spezifischere Logik und sollten mit `custom` konfiguriert werden.
+    Kakteen (Cactaceae) und Sukkulenten wie Echeveria oder Haworthia gehören verschiedenen Familien an. Der Pflege-Stil `cactus` gilt nur für echte Kakteen. Echeveria und Haworthia nutzen `succulent`. Lithops und andere Mesembs (Aizoaceae) brauchen eine noch spezifischere Logik und sollten mit `custom` konfiguriert werden.
 
-### Giesshinweise
+### Gießhinweise
 
 Das Care Profile zeigt nicht nur *wann*, sondern auch *wie* gegossen werden soll:
 
-| Pflege-Stil | Giessmethode |
+| Pflege-Stil | Gießmethode |
 |-------------|-------------|
-| `tropical` | Von oben giessen, bis Wasser unten herauslaeuft. Ueberschuss nach 30 Min. wegkippen. |
+| `tropical` | Von oben gießen, bis Wasser unten herausläuft. Überschuss nach 30 Min. wegkippen. |
 | `orchid` | Tauchbad: Topf 10–15 Min. in zimmerwarmes Wasser, dann abtropfen lassen. |
-| `calathea` | Von oben mit kalkarmem Wasser giessen. Blaetter nicht benetzen. |
-| `cactus` | Kraeftig durchgiessen, vollstaendig austrocknen lassen. |
+| `calathea` | Von oben mit kalkarmem Wasser gießen. Blätter nicht benetzen. |
+| `cactus` | Kräftig durchgießen, vollständig austrocknen lassen. |
 
-!!! info "Wasserqualitaet"
-    Fuer Calatheen und Orchideen empfiehlt das System Regenwasser oder gefiltertes Wasser — diese Pflanzen reagieren empfindlich auf Kalk im Leitungswasser (braune Blattspitzen).
+!!! info "Wasserqualität"
+    Für Calatheen und Orchideen empfiehlt das System Regenwasser oder gefiltertes Wasser — diese Pflanzen reagieren empfindlich auf Kalk im Leitungswasser (braune Blattspitzen).
 
 ---
 
 ## Automatische Erinnerungstypen
 
-Das System generiert taeglich Erinnerungen fuer folgende Pflegeaufgaben:
+Das System generiert täglich Erinnerungen für folgende Pflegeaufgaben:
 
-| Erinnerungstyp | Ausloser | Prioritaet |
+| Erinnerungstyp | Auslöser | Priorität |
 |----------------|---------|------------|
-| **Giessen** | Intervall seit letzter Bestaetigung | Hoch |
-| **Duengen** | Intervall + nur in Aktivmonaten | Mittel |
+| **Gießen** | Intervall seit letzter Bestätigung | Hoch |
+| **Düngen** | Intervall + nur in Aktivmonaten | Mittel |
 | **Umtopfen** | Monate seit letztem Umtopfen | Niedrig |
-| **Schaedlingskontrolle** | Festes Intervall (Standard: 14 Tage) | Mittel |
-| **Standort-Check** | Saisonal: Oktober + Maerz | Mittel |
-| **Luftfeuchte-Check** | Heizperiode (Okt–Maerz) | Mittel |
+| **Schädlingskontrolle** | Festes Intervall (Standard: 14 Tage) | Mittel |
+| **Standort-Check** | Saisonal: Oktober + März | Mittel |
+| **Luftfeuchte-Check** | Heizperiode (Okt–März) | Mittel |
 | **Winterschutz** | Oktober (Nordhalbkugel) | Hoch |
-| **Fruehjahrs-Auspacken** | Maerz (Nordhalbkugel) | Hoch |
+| **Frühjahrs-Auspacken** | März (Nordhalbkugel) | Hoch |
 | **Knollen ausgraben** | Vor erstem Frost (Oktober) | Kritisch |
 
-### Duenge-Schutz (Dormanz-Guard)
+### Dünge-Schutz (Dormanz-Guard)
 
-Duengungs-Erinnerungen werden **nicht** generiert, wenn:
-- Der aktuelle Monat ausserhalb der `Aktivmonate` des Pflege-Stils liegt (z.B. November–Februar fuer die meisten Zimmerpflanzen)
-- Die Pflanze sich in einer Ruhephase befindet (Winterruhe, Seneszenz, Abhaertungsphase)
+Düngungs-Erinnerungen werden **nicht** generiert, wenn:
+- Der aktuelle Monat außerhalb der `Aktivmonate` des Pflege-Stils liegt (z.B. November–Februar für die meisten Zimmerpflanzen)
+- Die Pflanze sich in einer Ruhephase befindet (Winterruhe, Seneszenz, Abhärtungsphase)
 
-!!! tip "Warum kein Duenger im Winter?"
-    Bei reduziertem Licht im Winter sinkt die Photosynthese-Rate. Zimmerpflanzen koennen die Naehrstoffe nicht verwerten — Duenger akkumuliert als Salz im Substrat und schaedigt die Wurzeln.
+!!! tip "Warum kein Dünger im Winter?"
+    Bei reduziertem Licht im Winter sinkt die Photosynthese-Rate. Zimmerpflanzen können die Nährstoffe nicht verwerten — Dünger akkumuliert als Salz im Substrat und schädigt die Wurzeln.
 
 ---
 
 ## Saisonale Anpassung
 
-Das System passt Giessintervalle automatisch an die Jahreszeit an:
+Das System passt Gießintervalle automatisch an die Jahreszeit an:
 
 - **Nordhalbkugel**: Winter = November–Februar, Sommer = Mai–August
-- **Suedhalbkugel**: Winter = Mai–August, Sommer = November–Februar
+- **Südhalbkugel**: Winter = Mai–August, Sommer = November–Februar
 
-Die Hemisphare wird aus dem Standort der Pflanze abgeleitet (`Site.hemisphere`). Das effektive Giessintervall berechnet sich als:
+Die Hemisphäre wird aus dem Standort der Pflanze abgeleitet (`Site.hemisphere`). Das effektive Gießintervall berechnet sich als:
 
 ```
 Effektives Intervall = Basis-Intervall × Winter-Faktor
@@ -125,38 +125,38 @@ Effektives Intervall = Basis-Intervall × Winter-Faktor
 
 ---
 
-## Ueberwinterungsmanagement
+## Überwinterungsmanagement
 
-Fuer Pflanzen, die Winterschutz brauchen, bietet Kamerplanter ein vollstaendiges Ueberwinterungs-System.
+Für Pflanzen, die Winterschutz brauchen, bietet Kamerplanter ein vollständiges Überwinterungs-System.
 
-### Winterhaerte-Ampel
+### Winterhärte-Ampel
 
 Jede Pflanze bekommt eine farbige Bewertung basierend auf ihrer Frostempfindlichkeit und deiner Klimazone:
 
 | Ampel | Bedeutung | Typische Pflanzen |
 |-------|-----------|-------------------|
-| Gruen | Winterhart — kein Schutz noetig | Stachelbeere, Apfelbaum, Tulpen |
-| Gelb | Schutzbeduerftiger — Mulch oder Vlies | Rosen, Lavendel, Stauden |
-| Rot | Muss frostfrei ueberwintern | Oleander, Zitrus, Dahlien |
+| Grün | Winterhart — kein Schutz nötig | Stachelbeere, Apfelbaum, Tulpen |
+| Gelb | Schutzbedürftig — Mulch oder Vlies | Rosen, Lavendel, Stauden |
+| Rot | Muss frostfrei überwintern | Oleander, Zitrus, Dahlien |
 
 !!! warning "Dahlien und Knollen"
-    Dahlien, Gladiolen und Canna muessen vor dem ersten Frost ausgegraben werden. Das System sendet eine **Kritische Erinnerung** mit dem Knolle-Ausgraben-Hinweis sobald die Temperaturprognose auf Frost hinweist.
+    Dahlien, Gladiolen und Canna müssen vor dem ersten Frost ausgegraben werden. Das System sendet eine **Kritische Erinnerung** mit dem Knollen-Ausgraben-Hinweis, sobald die Temperaturprognose auf Frost hinweist.
 
 ### Knollen-Zyklus verfolgen
 
-Fuer Pflanzen mit Knollen oder Zwiebeln (Dahlien, Gladiolen, Canna, Tulpen) kannst du den vollstaendigen Jahreszyklus dokumentieren:
+Für Pflanzen mit Knollen oder Zwiebeln (Dahlien, Gladiolen, Canna, Tulpen) kannst du den vollständigen Jahreszyklus dokumentieren:
 
-1. Auspflanzen → Bluehen → Ausgraben → Trocknen → Einlagern → Kontrollieren → Vorziehen
+1. Auspflanzen → Blühen → Ausgraben → Trocknen → Einlagern → Kontrollieren → Vorziehen
 
-Navigiere zu **Pflanzen** > gewuenschte Pflanze > Tab **Ueberwinterung**, um den Status zu verwalten.
+Navigiere zu **Pflanzen** > gewünschte Pflanze > Tab **Überwinterung**, um den Status zu verwalten.
 
 ### Freiland-Pflege-Stile
 
-Ergaenzend zu den Zimmerpflanzen-Stilen gibt es Presets fuer Freilandpflanzen:
+Ergänzend zu den Zimmerpflanzen-Stilen gibt es Presets für Freilandpflanzen:
 
 | Pflege-Stil | Winter-Aktion | Typische Pflanzen |
 |-------------|--------------|-------------------|
-| `outdoor_perennial` | Winterschutz pruefen (Mulch, Vlies) | Rittersporn, Phlox, Stauden |
+| `outdoor_perennial` | Winterschutz prüfen (Mulch, Vlies) | Rittersporn, Phlox, Stauden |
 | `frost_tender_tuber` | AUSGRABEN + frostfrei lagern | Dahlie, Gladiole, Canna |
 | `frost_tender_container` | Ins Winterquartier (5–12°C, hell) | Oleander, Zitrus, Olive |
 | `fruit_tree` | Kalkanstrich, Stammschutz | Apfel, Birne, Kirsche |
@@ -170,41 +170,41 @@ Das System kennt die Pflegeanforderungen von 10 Pflanzenfamilien und ordnet neue
 
 | Familie | Auto-Stil |
 |---------|-----------|
-| Araceae (Aronstabgewaechse) | `tropical` |
-| Cactaceae (Kakteengewaechse) | `cactus` |
-| Marantaceae (Marantengewaechse) | `calathea` |
+| Araceae (Aronstabgewächse) | `tropical` |
+| Cactaceae (Kakteengewächse) | `cactus` |
+| Marantaceae (Marantengewächse) | `calathea` |
 | Orchidaceae (Orchideen) | `orchid` |
-| Crassulaceae (Dickblattgewaechse) | `succulent` |
-| Asphodelaceae (Affodillgewaechse) | `succulent` |
-| Lamiaceae (Lippenbluetengewaechse) | `mediterranean` |
+| Crassulaceae (Dickblattgewächse) | `succulent` |
+| Asphodelaceae (Affodillgewächse) | `succulent` |
+| Lamiaceae (Lippenblütengewächse) | `mediterranean` |
 | Polypodiaceae / Pteridaceae (Farne) | `fern` |
-| Liliaceae / Amaryllidaceae (Liliengewaechse) | `outdoor_perennial` |
-| Solanaceae (Nachtschattengewaechse) | `outdoor_annual_veg` |
+| Liliaceae / Amaryllidaceae (Liliengewächse) | `outdoor_perennial` |
+| Solanaceae (Nachtschattengewächse) | `outdoor_annual_veg` |
 
 !!! tip "Automatische Zuweisung"
-    Wenn du eine neue Pflanzinstanz anlegst, weist das System automatisch den passenden Care Style basierend auf der botanischen Familie zu. Du kannst den Stil jederzeit manuell ueberschreiben.
+    Wenn du eine neue Pflanzinstanz anlegst, weist das System automatisch den passenden Care Style basierend auf der botanischen Familie zu. Du kannst den Stil jederzeit manuell überschreiben.
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
-??? question "Die Erinnerung erscheint zu spaet — kann ich das anpassen?"
-    Ja. Oeffne das Care Profile der Pflanze und reduziere das Intervall. Alternativ wird das System nach ein paar Bestaedigungen das Muster erkennen und das Intervall automatisch anpassen.
+??? question "Die Erinnerung erscheint zu spät — kann ich das anpassen?"
+    Ja. Öffne das Care Profile der Pflanze und reduziere das Intervall. Alternativ wird das System nach ein paar Bestätigungen das Muster erkennen und das Intervall automatisch anpassen.
 
-??? question "Ich habe eine Pflanze vergessen zu giessen — wie setze ich den Zaehler zurueck?"
-    Bestatige die Pflege manuell im Pflege-Dashboard. Das System setzt den Timer auf "jetzt" zurueck, egal wie lange die letzte Bestaetigung zurueckliegt.
+??? question "Ich habe eine Pflanze vergessen zu gießen — wie setze ich den Zähler zurück?"
+    Bestätige die Pflege manuell im Pflege-Dashboard. Das System setzt den Timer auf "jetzt" zurück, egal wie lange die letzte Bestätigung zurückliegt.
 
-??? question "Warum bekomme ich im Dezember keine Duenge-Erinnerung fuer meine Monstera?"
-    Richtig so — Monstera (care_style: `tropical`) bekommt den Duenge-Aktiv-Zeitraum Maerz–Oktober. Im Dezember ist dieser Zeitraum abgelaufen, da Zimmerpflanzen im Winter bei geringem Licht keine Naehrstoffe aufnehmen koennen.
+??? question "Warum bekomme ich im Dezember keine Dünge-Erinnerung für meine Monstera?"
+    Richtig so — Monstera (care_style: `tropical`) bekommt den Dünge-Aktiv-Zeitraum März–Oktober. Im Dezember ist dieser Zeitraum abgelaufen, da Zimmerpflanzen im Winter bei geringem Licht keine Nährstoffe aufnehmen können.
 
-??? question "Meine Dahlie hat eine gruene Ampel — aber ich weiss, dass sie Schutz braucht."
-    Die Ampel berechnet sich aus dem `frost_sensitivity`-Wert der Art UND deiner Klimazone. Pruefe, ob die richtige Klimazone bei deinem Standort eingestellt ist. Du kannst den Care Style auch manuell auf `frost_tender_tuber` setzen.
+??? question "Meine Dahlie hat eine grüne Ampel — aber ich weiß, dass sie Schutz braucht."
+    Die Ampel berechnet sich aus dem `frost_sensitivity`-Wert der Art UND deiner Klimazone. Prüfe, ob die richtige Klimazone bei deinem Standort eingestellt ist. Du kannst den Care Style auch manuell auf `frost_tender_tuber` setzen.
 
 ---
 
 ## Siehe auch
 
-- [Pflanzdurchlaeufe](planting-runs.md)
+- [Pflanzdurchläufe](planting-runs.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Standorte & Substrate](locations-substrates.md)
 - [Kalender](calendar.md)

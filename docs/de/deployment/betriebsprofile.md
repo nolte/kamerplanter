@@ -1,10 +1,10 @@
 # Betriebsprofile
 
-Kamerplanter ist modular aufgebaut. Du entscheidest selbst, welche Komponenten du brauchst — von einer schlanken Installation auf dem Raspberry Pi bis zum vollstaendigen Multi-Tenant-Setup auf Kubernetes. Diese Seite hilft dir, das richtige Profil fuer deinen Anwendungsfall zu finden.
+Kamerplanter ist modular aufgebaut. Du entscheidest selbst, welche Komponenten du brauchst — von einer schlanken Installation auf dem Raspberry Pi bis zum vollständigen Multi-Tenant-Setup auf Kubernetes. Diese Seite hilft dir, das richtige Profil für deinen Anwendungsfall zu finden.
 
 ---
 
-## Komponentenuebersicht
+## Komponentenübersicht
 
 Jede Kamerplanter-Installation besteht aus einem **Kern** (immer erforderlich) und **optionalen Komponenten**, die du je nach Bedarf aktivierst.
 
@@ -12,9 +12,9 @@ Jede Kamerplanter-Installation besteht aus einem **Kern** (immer erforderlich) u
 
 | Komponente | Aufgabe |
 |------------|---------|
-| **Backend** (FastAPI) | REST-API, Geschaeftslogik, Phasensteuerung, Duengeplaene |
-| **Frontend** (React) | Web-Oberflaeche |
-| **ArangoDB** | Primaere Datenbank (Dokumente + Graph-Abfragen) |
+| **Backend** (FastAPI) | REST-API, Geschäftslogik, Phasensteuerung, Düngeplanе |
+| **Frontend** (React) | Web-Oberfläche |
+| **ArangoDB** | Primäre Datenbank (Dokumente + Graph-Abfragen) |
 | **Valkey** (Redis-kompatibel) | Cache und Celery-Broker |
 | **Celery Worker + Beat** | Hintergrundaufgaben (Pflegeerinnerungen, Datenanreicherung, KI-Tipps) |
 
@@ -24,20 +24,20 @@ Jede Kamerplanter-Installation besteht aus einem **Kern** (immer erforderlich) u
 |------------|---------|------------------|---------------|
 | **Betriebsmodus** | `light` = kein Login, ein Nutzer; `full` = JWT-Auth, Multi-Tenant | — | `KAMERPLANTER_MODE` |
 | **KI-Assistent** | Pflegetipps, Diagnosen, Empfehlungen per Sprachmodell | 2--8 GB RAM (lokal) | `AI_DEFAULT_PROVIDER` |
-| **Ollama** | Lokale Ausfuehrung von Sprachmodellen (kein Datentransfer) | 4--16 GB RAM, optional GPU | Docker-Profil `ollama` |
+| **Ollama** | Lokale Ausführung von Sprachmodellen (kein Datentransfer) | 4--16 GB RAM, optional GPU | Docker-Profil `ollama` |
 | **Knowledge Service** | RAG-Pipeline: Wissensbasis durchsuchen, Kontext anreichern | 512 MB RAM | Eigenes Deployment |
-| **VectorDB** (pgvector) | Vektorspeicher fuer RAG-Embeddings | 256 MB RAM | `VECTORDB_ENABLED` |
+| **VectorDB** (pgvector) | Vektorspeicher für RAG-Embeddings | 256 MB RAM | `VECTORDB_ENABLED` |
 | **Embedding Service** | ONNX-basierte Embedding-Berechnung (kein PyTorch) | 512 MB RAM | Eigenes Deployment |
-| **Reranker Service** | Cross-Encoder Re-Ranking fuer hoehere RAG-Praezision (ADR-007) | 1,5–4 GB RAM | `RERANKER_URL` |
+| **Reranker Service** | Cross-Encoder Re-Ranking für höhere RAG-Präzision (ADR-007) | 1,5–4 GB RAM | `RERANKER_URL` |
 | **TimescaleDB** | Zeitreihendaten von Sensoren, automatisches Downsampling | 256--512 MB RAM | `TIMESCALEDB_ENABLED` |
 | **Home Assistant** | Sensor- und Aktor-Integration (Temperatur, Luftfeuchte, Lampen) | Extern | `HA_URL` + `HA_ACCESS_TOKEN` |
-| **Externe Datenanreicherung** | Pflanzendaten von GBIF und Perenual automatisch ergaenzen | — | `PERENUAL_API_KEY` |
+| **Externe Datenanreicherung** | Pflanzendaten von GBIF und Perenual automatisch ergänzen | — | `PERENUAL_API_KEY` |
 
 ---
 
-## Profile im Ueberblick
+## Profile im Überblick
 
-Die folgende Matrix zeigt fuenf vordefinierte Profile. Jedes Profil ist eine Empfehlung — du kannst jederzeit einzelne Komponenten hinzufuegen oder weglassen.
+Die folgende Matrix zeigt fünf vordefinierte Profile. Jedes Profil ist eine Empfehlung — du kannst jederzeit einzelne Komponenten hinzufügen oder weglassen.
 
 | | Minimal | Hobby | Standard | Profi | SaaS |
 |---|:---:|:---:|:---:|:---:|:---:|
@@ -50,7 +50,7 @@ Die folgende Matrix zeigt fuenf vordefinierte Profile. Jedes Profil ist eine Emp
 | **Home Assistant** | — | Optional | Optional | Ja | Optional |
 | **Externe Anreicherung** | — | Optional | Ja | Ja | Ja |
 | **Celery Worker** | Ja | Ja | Ja | Ja | Ja |
-| **Zielgruppe** | Raspberry Pi, Ausprobieren | Hobby-Gaertner, Home-Server | Engagierte Hobbyisten, kleine Gemeinschaftsgaerten | Indoor-Growing, grosse Gemeinschaftsgaerten | Managed Hosting, mehrere Mandanten |
+| **Zielgruppe** | Raspberry Pi, Ausprobieren | Hobby-Gärtner, Home-Server | Engagierte Hobbyisten, kleine Gemeinschaftsgärten | Indoor-Growing, große Gemeinschaftsgärten | Managed Hosting, mehrere Mandanten |
 | **RAM gesamt** | ~1 GB | ~3 GB | ~4 GB | ~6 GB | ~8 GB |
 
 ---
@@ -115,9 +115,9 @@ services:
     depends_on: [backend]
 ```
 
-### Was fehlt im Vergleich zum naechsten Profil?
+### Was fehlt im Vergleich zum nächsten Profil?
 
-Ohne KI-Assistent bekommst du keine automatischen Pflegetipps und Diagnosen. Du kannst Ollama jederzeit spaeter hinzufuegen, ohne Daten zu verlieren.
+Ohne KI-Assistent bekommst du keine automatischen Pflegetipps und Diagnosen. Du kannst Ollama jederzeit später hinzufügen, ohne Daten zu verlieren.
 
 ---
 
@@ -125,7 +125,7 @@ Ohne KI-Assistent bekommst du keine automatischen Pflegetipps und Diagnosen. Du 
 
 ### Zielgruppe
 
-Du hast 10--50 Pflanzen und einen Home-Server (NAS, alter Desktop, NUC). Du moechtest KI-gestuetzte Pflegetipps, aber deine Daten sollen dein Netzwerk nicht verlassen. Login brauchst du nicht — du bist der einzige Nutzer.
+Du hast 10--50 Pflanzen und einen Home-Server (NAS, alter Desktop, NUC). Du möchtest KI-gestützte Pflegetipps, aber deine Daten sollen dein Netzwerk nicht verlassen. Login brauchst du nicht — du bist der einzige Nutzer.
 
 ### Voraussetzungen
 
@@ -173,11 +173,11 @@ services:
 ```
 
 !!! tip "Modellwahl"
-    Starte mit `gemma3:4b` — das laeuft auf den meisten Rechnern ab 2020 ohne GPU. Details zur Modellwahl findest du unter [KI-Provider einrichten](../user-guide/ai-providers.md#ollama-lokal-empfohlen).
+    Starte mit `gemma3:4b` — das läuft auf den meisten Rechnern ab 2020 ohne GPU. Details zur Modellwahl findest du unter [KI-Provider einrichten](../user-guide/ai-providers.md#ollama-lokal-empfohlen).
 
-### Was fehlt im Vergleich zum naechsten Profil?
+### Was fehlt im Vergleich zum nächsten Profil?
 
-Ohne Full-Modus kannst du keine weiteren Nutzer einladen. Ohne TimescaleDB werden Sensordaten nicht langfristig gespeichert. Beides laesst sich spaeter aktivieren.
+Ohne Full-Modus kannst du keine weiteren Nutzer einladen. Ohne TimescaleDB werden Sensordaten nicht langfristig gespeichert. Beides lässt sich später aktivieren.
 
 ---
 
@@ -185,7 +185,7 @@ Ohne Full-Modus kannst du keine weiteren Nutzer einladen. Ohne TimescaleDB werde
 
 ### Zielgruppe
 
-Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. Mehrere Personen sollen eigene Konten haben. Du moechtest KI-Tipps und optional Sensordaten langfristig speichern.
+Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. Mehrere Personen sollen eigene Konten haben. Du möchtest KI-Tipps und optional Sensordaten langfristig speichern.
 
 ### Voraussetzungen
 
@@ -240,10 +240,10 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
               TIMESCALEDB_ENABLED: "false"
     ```
 
-!!! note "TimescaleDB nur bei Sensoren noetig"
+!!! note "TimescaleDB nur bei Sensoren nötig"
     Wenn du keine Sensoren oder Home-Assistant-Anbindung planst, kannst du TimescaleDB weglassen. Manuelle Messwerte werden in ArangoDB gespeichert. TimescaleDB lohnt sich erst bei automatischer, hochfrequenter Datenerfassung.
 
-### Was fehlt im Vergleich zum naechsten Profil?
+### Was fehlt im Vergleich zum nächsten Profil?
 
 Ohne TimescaleDB kein automatisches Downsampling von Sensordaten. Ohne Home Assistant keine automatische Sensorerfassung und Aktorsteuerung. Ohne Knowledge Service / RAG keine kontextangereicherten KI-Antworten aus der Wissensbasis.
 
@@ -253,14 +253,14 @@ Ohne TimescaleDB kein automatisches Downsampling von Sensordaten. Ohne Home Assi
 
 ### Zielgruppe
 
-Du betreibst professionelles Indoor-Growing oder einen grossen Gemeinschaftsgarten mit Rollenverwaltung. Sensoren und Aktoren sind ueber Home Assistant angebunden. Du willst lueckenlose Zeitreihen, KI-gestuetzte Diagnosen mit RAG-Kontext und Cloud-Fallback fuer das Sprachmodell.
+Du betreibst professionelles Indoor-Growing oder einen großen Gemeinschaftsgarten mit Rollenverwaltung. Sensoren und Aktoren sind über Home Assistant angebunden. Du willst lückenlose Zeitreihen, KI-gestützte Diagnosen mit RAG-Kontext und Cloud-Fallback für das Sprachmodell.
 
 ### Voraussetzungen
 
 - Kubernetes-Cluster (3+ Nodes empfohlen)
-- 6--8 GB RAM fuer Kamerplanter-Pods
+- 6--8 GB RAM für Kamerplanter-Pods
 - Home Assistant Instanz im Netzwerk
-- Optional: GPU-Node fuer schnellere KI-Inferenz
+- Optional: GPU-Node für schnellere KI-Inferenz
 
 ### Aktivierte Komponenten
 
@@ -330,11 +330,11 @@ controllers:
 ```
 
 !!! warning "Secrets nicht in values.yaml"
-    API-Keys und Tokens gehoeren in Kubernetes Secrets oder einen externen Secret-Manager (z.B. Sealed Secrets, External Secrets Operator). Verwende `secretKeyRef` in den Helm Values.
+    API-Keys und Tokens gehören in Kubernetes Secrets oder einen externen Secret-Manager (z.B. Sealed Secrets, External Secrets Operator). Verwende `secretKeyRef` in den Helm Values.
 
-### Was fehlt im Vergleich zum naechsten Profil?
+### Was fehlt im Vergleich zum nächsten Profil?
 
-Im Profi-Profil betreibst du eine einzelne Instanz fuer deine Organisation. Das SaaS-Profil fuegt Multi-Mandanten-Isolation, horizontale Skalierung und Cloud-KI als Primaerprovider hinzu.
+Im Profi-Profil betreibst du eine einzelne Instanz für deine Organisation. Das SaaS-Profil fügt Multi-Mandanten-Isolation, horizontale Skalierung und Cloud-KI als Primärprovider hinzu.
 
 ---
 
@@ -342,12 +342,12 @@ Im Profi-Profil betreibst du eine einzelne Instanz fuer deine Organisation. Das 
 
 ### Zielgruppe
 
-Du betreibst Kamerplanter als Plattform fuer mehrere unabhaengige Mandanten (Gaerten, Betriebe, Gemeinschaften). Jeder Mandant hat eigene Daten, Rollen und Einstellungen. Du brauchst horizontale Skalierung und zuverlaessige Cloud-KI.
+Du betreibst Kamerplanter als Plattform für mehrere unabhängige Mandanten (Gärten, Betriebe, Gemeinschaften). Jeder Mandant hat eigene Daten, Rollen und Einstellungen. Du brauchst horizontale Skalierung und zuverlässige Cloud-KI.
 
 ### Voraussetzungen
 
 - Kubernetes-Cluster mit Autoscaling
-- 8+ GB RAM fuer Kamerplanter-Pods
+- 8+ GB RAM für Kamerplanter-Pods
 - Managed-Datenbank-Dienste empfohlen (ArangoDB Oasis, Managed PostgreSQL)
 - Cloud-KI-Provider-Konto (OpenAI oder Anthropic)
 
@@ -384,7 +384,7 @@ controllers:
 ```
 
 !!! tip "Managed Datenbanken"
-    Im SaaS-Betrieb empfiehlt sich der Einsatz von Managed-Datenbank-Diensten statt selbst betriebener Container. Das reduziert den Betriebsaufwand fuer Backups, Updates und Hochverfuegbarkeit erheblich.
+    Im SaaS-Betrieb empfiehlt sich der Einsatz von Managed-Datenbank-Diensten statt selbst betriebener Container. Das reduziert den Betriebsaufwand für Backups, Updates und Hochverfügbarkeit erheblich.
 
 ---
 
@@ -398,11 +398,11 @@ Die Profile oben sind Empfehlungen. Du kannst jede Komponente einzeln aktivieren
 | KI-Pflegetipps? | `AI_DEFAULT_PROVIDER` | `ollama`, `llamacpp`, `openai`, `anthropic`, `openai-compatible`, `none` |
 | Sensordaten-Zeitreihen? | `TIMESCALEDB_ENABLED` | `true` / `false` |
 | RAG-Wissensbasis? | `VECTORDB_ENABLED` | `true` / `false` |
-| Re-Ranking (hoehere Praezision)? | `RERANKER_URL` | HTTP-URL des Reranker-Service (leer = deaktiviert) |
+| Re-Ranking (höhere Präzision)? | `RERANKER_URL` | HTTP-URL des Reranker-Service (leer = deaktiviert) |
 | Home Assistant? | `HA_URL` + `HA_ACCESS_TOKEN` | URL + Token (leer = deaktiviert) |
 | Pflanzendaten-Anreicherung? | `PERENUAL_API_KEY` | API-Key (leer = nur GBIF) |
 
-In Docker Compose aktivierst du optionale Dienste ueber Profile:
+In Docker Compose aktivierst du optionale Dienste über Profile:
 
 ```bash
 # Nur Kern:
@@ -418,7 +418,7 @@ docker compose --profile ollama --profile timescaledb --profile vectordb up -d
 !!! note "Reranker im Docker-Compose-Profil `vectordb`"
     Der `reranker-service` ist dem Docker-Compose-Profil `vectordb` zugeordnet und wird zusammen mit Knowledge Service und VectorDB gestartet. Der Reranker ist ressourcenintensiver als Embedding Service und VectorDB — auf schwacher Hardware kann `RERANKER_URL` leer gelassen werden, um nur Hybrid Search ohne Re-Ranking zu nutzen.
 
-Eine vollstaendige Liste aller Umgebungsvariablen findest du unter [Umgebungsvariablen](../reference/environment-variables.md).
+Eine vollständige Liste aller Umgebungsvariablen findest du unter [Umgebungsvariablen](../reference/environment-variables.md).
 
 ---
 
@@ -444,23 +444,23 @@ flowchart TD
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
-### Kann ich spaeter auf ein groesseres Profil wechseln?
+### Kann ich später auf ein größeres Profil wechseln?
 
-Ja. Alle Profile nutzen dieselbe Datenbank. Du kannst jederzeit Komponenten hinzufuegen (z.B. Ollama aktivieren, TimescaleDB starten, von Light auf Full wechseln), ohne Daten zu verlieren. Beim Wechsel von Light auf Full musst du einmalig ein Passwort fuer den bestehenden System-Benutzer setzen.
+Ja. Alle Profile nutzen dieselbe Datenbank. Du kannst jederzeit Komponenten hinzufügen (z.B. Ollama aktivieren, TimescaleDB starten, von Light auf Full wechseln), ohne Daten zu verlieren. Beim Wechsel von Light auf Full musst du einmalig ein Passwort für den bestehenden System-Benutzer setzen.
 
-### Kann ich Ollama auf einem Raspberry Pi ausfuehren?
+### Kann ich Ollama auf einem Raspberry Pi ausführen?
 
-Ja, ab dem Raspberry Pi 5 mit 8 GB RAM. Verwende ein kleines Modell wie `llama3.2:3b`. Die Antwortzeiten liegen bei 15--30 Sekunden pro Tipp — akzeptabel, aber nicht schnell. Auf dem Raspberry Pi 4 ist die Leistung fuer groessere Modelle nicht ausreichend.
+Ja, ab dem Raspberry Pi 5 mit 8 GB RAM. Verwende ein kleines Modell wie `llama3.2:3b`. Die Antwortzeiten liegen bei 15--30 Sekunden pro Tipp — akzeptabel, aber nicht schnell. Auf dem Raspberry Pi 4 ist die Leistung für größere Modelle nicht ausreichend.
 
 ### Brauche ich TimescaleDB, wenn ich keine Sensoren habe?
 
-Nein. Ohne automatische Sensordatenerfassung (IoT/MQTT oder Home Assistant) bringt TimescaleDB keinen Vorteil. Manuelle Messwerte (pH, EC) werden in ArangoDB gespeichert. Du kannst TimescaleDB spaeter aktivieren, wenn du Sensoren anbindest.
+Nein. Ohne automatische Sensordatenerfassung (IoT/MQTT oder Home Assistant) bringt TimescaleDB keinen Vorteil. Manuelle Messwerte (pH, EC) werden in ArangoDB gespeichert. Du kannst TimescaleDB später aktivieren, wenn du Sensoren anbindest.
 
 ### Was passiert, wenn ich keinen KI-Provider konfiguriere?
 
-Kamerplanter funktioniert vollstaendig ohne KI. Wenn `AI_DEFAULT_PROVIDER=none` gesetzt ist (oder kein Provider konfiguriert), werden die KI-Tipp-Karten in der Oberflaeche nicht angezeigt. Alle regelbasierten Funktionen (Phasensteuerung, Duengeplaene, Pflegeerinnerungen) arbeiten unabhaengig vom KI-Provider.
+Kamerplanter funktioniert vollständig ohne KI. Wenn `AI_DEFAULT_PROVIDER=none` gesetzt ist (oder kein Provider konfiguriert), werden die KI-Tipp-Karten in der Oberfläche nicht angezeigt. Alle regelbasierten Funktionen (Phasensteuerung, Düngepläne, Pflegeerinnerungen) arbeiten unabhängig vom KI-Provider.
 
 ---
 
@@ -469,6 +469,6 @@ Kamerplanter funktioniert vollstaendig ohne KI. Wenn `AI_DEFAULT_PROVIDER=none` 
 - [Light-Modus](../user-guide/light-mode.md) — Details zum Betrieb ohne Authentifizierung
 - [KI-Provider einrichten](../user-guide/ai-providers.md) — Ollama, OpenAI, Anthropic und andere Provider konfigurieren
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Sensor- und Aktor-Anbindung
-- [Umgebungsvariablen](../reference/environment-variables.md) — Vollstaendige Variablenreferenz
+- [Umgebungsvariablen](../reference/environment-variables.md) — Vollständige Variablenreferenz
 - [Kubernetes](kubernetes.md) — Cluster-Setup und Deployment
-- [Infrastruktur — Skaffold-Profile](../architecture/infrastructure.md#skaffold-profile-und-module) — Skaffold-Module (`-m ki`) fuer den KI-Stack
+- [Infrastruktur — Skaffold-Profile](../architecture/infrastructure.md#skaffold-profile-und-module) — Skaffold-Module (`-m ki`) für den KI-Stack

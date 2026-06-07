@@ -1,6 +1,6 @@
 # Tankmanagement
 
-Tanks verwalten Ihre Wassertanks, Nährstoffreservoirs und Gießwasserbehälter. Sie erfassen Füllstände, dokumentieren Befüllungen mit vollständigen Mischrezepten und planen Wartungsarbeiten wie Wasserwechsel und Sonden-Kalibrierungen.
+Tanks verwalten deine Wassertanks, Nährstoffreservoirs und Gießwasserbehälter. Du erfasst Füllstände, dokumentierst Befüllungen mit vollständigen Mischrezepten und planst Wartungsarbeiten wie Wasserwechsel und Sonden-Kalibrierungen.
 
 ---
 
@@ -32,13 +32,13 @@ Kamerplanter unterscheidet fünf Tank-Typen:
 
 ### Schritt 1: Zur Tankübersicht navigieren
 
-Klicken Sie in der Navigation auf **Standorte** und öffnen Sie eine Site. Im Tab **Tanks** sehen Sie alle Tanks dieser Site.
+Klicke in der Navigation auf **Standorte** und öffne eine Site. Im Tab **Tanks** siehst du alle Tanks dieser Site.
 
-Alternativ: Navigieren Sie zu **Standorte → Tanks** für eine site-übergreifende Übersicht.
+Alternativ: Navigiere zu **Standorte → Tanks** für eine site-übergreifende Übersicht.
 
 ### Schritt 2: Neuen Tank erstellen
 
-Klicken Sie auf **Tank hinzufügen**.
+Klicke auf **Tank hinzufügen**.
 
 ### Schritt 3: Tank konfigurieren
 
@@ -52,7 +52,7 @@ Klicken Sie auf **Tank hinzufügen**.
 
 ### Schritt 4: Sensoren verknüpfen (optional)
 
-Wenn Sie einen Sensor für Füllstand, EC oder pH im Tank haben, können Sie diesen über **Sensor verknüpfen** dem Tank zuordnen. Die aktuellen Sensorwerte erscheinen dann in der Tank-Detailansicht.
+Wenn du einen Sensor für Füllstand, EC oder pH im Tank hast, kannst du diesen über **Sensor verknüpfen** dem Tank zuordnen. Die aktuellen Sensorwerte erscheinen dann in der Tank-Detailansicht.
 
 ---
 
@@ -62,9 +62,9 @@ Der Tankzustand gibt Auskunft über den aktuellen Füllstand, EC- und pH-Wert so
 
 ### Neuen Messwert eintragen
 
-1. Öffnen Sie einen Tank.
-2. Klicken Sie auf **Zustand erfassen** (Tab **Zustand**).
-3. Tragen Sie die aktuellen Werte ein:
+1. Öffne einen Tank.
+2. Klicke auf **Zustand erfassen** (Tab **Zustand**).
+3. Trage die aktuellen Werte ein:
 
 | Parameter | Beschreibung |
 |-----------|-------------|
@@ -76,17 +76,17 @@ Der Tankzustand gibt Auskunft über den aktuellen Füllstand, EC- und pH-Wert so
 4. Speichern. Der Wert erscheint in der Zustandshistorie.
 
 !!! tip "Regelmäßige Messungen"
-    In der Tank-Detailansicht sehen Sie einen Graphen der EC- und pH-Verläufe über Zeit. Regelmäßige Messungen helfen, Trends früh zu erkennen — z.B. ansteigenden EC durch Wasserverdunstung.
+    In der Tank-Detailansicht siehst du einen Graphen der EC- und pH-Verläufe über Zeit. Regelmäßige Messungen helfen, Trends früh zu erkennen — z.B. ansteigenden EC durch Wasserverdunstung.
 
 ---
 
 ## Tankbefüllung dokumentieren
 
-Jede Befüllung des Tanks — ob Vollwechsel, Auffüllen oder Nachdosierung — wird als unveränderliches Ereignis historisiert. So können Sie später nachvollziehen, was Ihre Pflanzen wann bekommen haben.
+Jede Befüllung des Tanks — ob Vollwechsel, Auffüllen oder Nachdosierung — wird als unveränderliches Ereignis historisiert. So kannst du später nachvollziehen, was deine Pflanzen wann bekommen haben.
 
 ### Schritt 1: Befüllung erfassen
 
-Klicken Sie in der Tank-Detailansicht auf **Befüllung erfassen** (Tab **Befüllungen**).
+Klicke in der Tank-Detailansicht auf **Befüllung erfassen** (Tab **Befüllungen**).
 
 ### Schritt 2: Befüllungs-Typ wählen
 
@@ -104,14 +104,14 @@ Klicken Sie in der Tank-Detailansicht auf **Befüllung erfassen** (Tab **Befüll
 - Mischverhältnis RO/Leitungswasser (falls gemischt, in %)
 
 **Mischrezept (optional):**
-Verknüpfen Sie ein bestehendes Mischrezept aus Ihren Nährstoffplänen. Das übernimmt automatisch alle Dünger und Dosierungen.
+Verknüpfe ein bestehendes Mischrezept aus deinen Nährstoffplänen. Das übernimmt automatisch alle Dünger und Dosierungen.
 
 **Messwerte nach Befüllung:**
 - Gemessener EC-Wert nach dem Mischen
 - Gemessener pH-Wert nach der pH-Korrektur
 
 **Plan-Zielwerte:**
-Falls ein Nährstoffplan verknüpft ist, zeigt Kamerplanter den Soll-EC-Wert daneben. Sie sehen auf Anhieb, ob Ihr Ist-Wert dem Plan entspricht.
+Falls ein Nährstoffplan verknüpft ist, zeigt Kamerplanter den Soll-EC-Wert daneben. Du siehst auf Anhieb, ob dein Ist-Wert dem Plan entspricht.
 
 ### Schritt 4: Speichern
 
@@ -121,20 +121,20 @@ Die Befüllung wird in der Befüllungshistorie gespeichert. Ein neuer Tankzustan
 
 ## Wasserquellen-Defaults
 
-Wenn Sie Ihre Wasserquelle auf der Site konfiguriert haben (Leitungswasser-EC, ob RO-Anlage vorhanden usw.), schlägt Kamerplanter die Basis-EC und das Mischverhältnis automatisch vor:
+Wenn du deine Wasserquelle auf der Site konfiguriert hast (Leitungswasser-EC, ob RO-Anlage vorhanden usw.), schlägt Kamerplanter die Basis-EC und das Mischverhältnis automatisch vor:
 
 1. **Explizit eingetragen** im Befüllungsformular (höchste Priorität)
 2. **Aus dem Nährstoffplan** (wenn plan verknüpft)
 3. **Aus dem Site-Wasserprofil** (aus der Site-Konfiguration)
 4. **Manuelle Eingabe** (wenn keine der obigen Quellen Daten liefert)
 
-Die Quelle der Standardwerte wird im Formular angezeigt, sodass Sie immer wissen, woher die Vorbelegung stammt.
+Die Quelle der Standardwerte wird im Formular angezeigt, sodass du immer weißt, woher die Vorbelegung stammt.
 
 ---
 
 ## Wartungsaufgaben planen
 
-Tanks benötigen regelmäßige Wartung. Kamerplanter plant diese Wartungsaufgaben automatisch und erinnert Sie rechtzeitig.
+Tanks benötigen regelmäßige Wartung. Kamerplanter plant diese Wartungsaufgaben automatisch und erinnert dich rechtzeitig.
 
 ### Verfügbare Wartungsarten
 
@@ -150,17 +150,17 @@ Tanks benötigen regelmäßige Wartung. Kamerplanter plant diese Wartungsaufgabe
 
 ### Wartungsplan einrichten
 
-1. Öffnen Sie den Tank und wechseln Sie zum Tab **Wartung**.
-2. Klicken Sie auf **Wartungsplan hinzufügen**.
-3. Wählen Sie den Wartungstyp und das Intervall.
+1. Öffne den Tank und wechsle zum Tab **Wartung**.
+2. Klicke auf **Wartungsplan hinzufügen**.
+3. Wähle den Wartungstyp und das Intervall.
 4. Das System erstellt automatisch Aufgaben nach dem eingestellten Intervall.
 
 ### Durchgeführte Wartung dokumentieren
 
-Wenn Sie eine Wartung durchgeführt haben:
+Wenn du eine Wartung durchgeführt hast:
 
-1. Klicken Sie auf **Wartung erfassen** oder haken Sie die entsprechende Aufgabe ab.
-2. Tragen Sie Datum, Dauer und eventuelle Beobachtungen ein.
+1. Klicke auf **Wartung erfassen** oder hake die entsprechende Aufgabe ab.
+2. Trage Datum, Dauer und eventuelle Beobachtungen ein.
 3. Das nächste Wartungsdatum wird automatisch berechnet.
 
 ---
@@ -182,13 +182,13 @@ Diese Warnungen erscheinen in der Tank-Detailansicht und im Dashboard.
 ## Häufige Fragen
 
 ??? question "Wie viele Tanks kann ich anlegen?"
-    Es gibt keine Begrenzung. Sie können so viele Tanks anlegen, wie Sie physisch haben.
+    Es gibt keine Begrenzung. Du kannst so viele Tanks anlegen, wie du physisch hast.
 
 ??? question "Muss ich jeden Gießvorgang als Tankbefüllung erfassen?"
     Nein. Tankbefüllungen sind für das Befüllen und Wechseln des Tanks gedacht. Einzelne Gießvorgänge werden als **Gießereignisse** (FeedingEvents) erfasst — entweder über einen Pflanzdurchlauf oder direkt unter **Düngung → Gießereignisse**.
 
 ??? question "Wie kalibriere ich eine pH-Sonde richtig?"
-    Reinigen Sie die Sonde zuerst mit destilliertem Wasser. Tauchen Sie sie in eine Pufferlösung mit bekanntem pH-Wert (z.B. pH 7,0). Wenn der angezeigte Wert abweicht, stellen Sie den Kalibrierwert entsprechend ein. Wiederholen Sie mit einer zweiten Pufferlösung (z.B. pH 4,0). Dokumentieren Sie die Kalibrierung als Wartungseintrag.
+    Reinige die Sonde zuerst mit destilliertem Wasser. Tauche sie in eine Pufferlösung mit bekanntem pH-Wert (z.B. pH 7,0). Wenn der angezeigte Wert abweicht, stelle den Kalibrierwert entsprechend ein. Wiederhole den Vorgang mit einer zweiten Pufferlösung (z.B. pH 4,0). Dokumentiere die Kalibrierung als Wartungseintrag.
 
 ??? question "Was ist der Unterschied zwischen EC am Tank und EC an der Pflanze?"
     Die EC am Tank zeigt die Konzentration der Stammlösung. Die EC am Substrat-Abfluss (Runoff) zeigt, wie viel Salz sich im Substrat angesammelt hat. Beide Werte sind wichtig, aber sie messen verschiedene Dinge.

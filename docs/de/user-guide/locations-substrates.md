@@ -1,6 +1,6 @@
 # Standorte und Substrate
 
-Standorte beschreiben, wo Ihre Pflanzen wachsen — vom gesamten Garten bis zum einzelnen Topfplatz. Substrate definieren das Wachstumsmedium. Beide Konzepte bilden die räumliche Grundlage für alle anderen Funktionen in Kamerplanter.
+Standorte beschreiben, wo deine Pflanzen wachsen — vom gesamten Garten bis zum einzelnen Topfplatz. Substrate definieren das Wachstumsmedium. Beide Konzepte bilden die räumliche Grundlage für alle anderen Funktionen in Kamerplanter.
 
 ---
 
@@ -21,14 +21,14 @@ Site (Anlage)
         └── Slot (Pflanzplatz)
 ```
 
-**Site** ist Ihre übergeordnete Anlage — zum Beispiel "Mein Garten" oder "Wohnung Berlin". Auf Site-Ebene hinterlegen Sie die Wasserquelle, die Klimazone und die Gesamtfläche.
+**Site** ist deine übergeordnete Anlage — zum Beispiel "Mein Garten" oder "Wohnung Berlin". Auf Site-Ebene hinterlegst du die Wasserquelle, die Klimazone und die Gesamtfläche.
 
-**Location** ist ein konkreter Bereich innerhalb der Site — zum Beispiel "Growzelt A", "Hochbeet 1" oder "Südbalkon". Locations können auch weitere Locations enthalten: Sie können "Haus" → "Wohnzimmer" → "Fensterbank Süd" abbilden.
+**Location** ist ein konkreter Bereich innerhalb der Site — zum Beispiel "Growzelt A", "Hochbeet 1" oder "Südbalkon". Locations können auch weitere Locations enthalten: du kannst "Haus" → "Wohnzimmer" → "Fensterbank Süd" abbilden.
 
 **Slot** ist ein einzelner Pflanzplatz — zum Beispiel "Topf 3" oder "Reihe 2, Position 4". Slots sind immer die unterste Ebene und können genau einer Pflanze zugeordnet werden.
 
 !!! tip "Tipp: Wie tief strukturieren?"
-    Für einfache Setups (Balkon, ein Growzelt) reicht es, Sites und Locations anzulegen. Slots sind nützlich, wenn Sie viele Pflanzen im gleichen Bereich haben und jeden Platz einzeln verfolgen möchten.
+    Für einfache Setups (Balkon, ein Growzelt) reicht es, Sites und Locations anzulegen. Slots sind nützlich, wenn du viele Pflanzen im gleichen Bereich hast und jeden Platz einzeln verfolgen möchtest.
 
 ---
 
@@ -36,15 +36,15 @@ Site (Anlage)
 
 ### Schritt 1: Zur Standortverwaltung navigieren
 
-Klicken Sie in der linken Navigation auf **Standorte**. Die Übersichtsseite zeigt alle Ihre Sites mit einer Karte und einer Listensicht.
+Klicke in der linken Navigation auf **Standorte**. Die Übersichtsseite zeigt alle deine Sites mit einer Karte und einer Listensicht.
 
 ### Schritt 2: Neue Site erstellen
 
-Klicken Sie auf **Site hinzufügen** (oben rechts). Ein Formular öffnet sich.
+Klicke auf **Site hinzufügen** (oben rechts). Ein Formular öffnet sich.
 
 ### Schritt 3: Grunddaten ausfüllen
 
-Füllen Sie folgende Felder aus:
+Fülle folgende Felder aus:
 
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
@@ -54,54 +54,54 @@ Füllen Sie folgende Felder aus:
 | Zeitzone | Zeitzone für Aufgaben und Kalender | "Europe/Berlin" |
 
 !!! note "Erfahrungsstufen"
-    Je nach Ihrer Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) sehen Sie mehr oder weniger Felder. Experten sehen zusätzlich Felder für die Wasserquellen-Konfiguration, GPS-Koordinaten und die Frostdaten.
+    Je nach deiner Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) siehst du mehr oder weniger Felder. Experten sehen zusätzlich Felder für die Wasserquellen-Konfiguration, GPS-Koordinaten und die Frostdaten.
 
 ### Schritt 4: Wasserquelle konfigurieren (optional, ab Mittelstufe)
 
-Wenn Sie Ihr Leitungswasser oder eine Umkehrosmose-Anlage nutzen, hinterlegen Sie die Wasserwerte. Das System berechnet daraus automatisch Ihr EC-Budget, den CalMag-Bedarf und Mischungsempfehlungen.
+Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die Wasserwerte. Das System berechnet daraus automatisch dein EC-Budget, den CalMag-Bedarf und Mischungsempfehlungen.
 
 #### Leitungswasser-Profil
 
 | Feld | Einheit | Typischer Bereich (DE) | Beschreibung |
 |------|---------|----------------------|-------------|
-| EC | mS/cm | 0,3–0,8 | Elektrische Leitfaehigkeit — zeigt den Gesamtmineralgehalt |
-| pH | — | 7,0–8,0 | Saeuregrad des Wassers |
-| Gesamthaerte (GH) | ppm CaCO3 | 100–350 | Summe aller geloesten Mineralien (Ca + Mg) |
-| Karbonathaerte (KH) | ppm CaCO3 | 80–250 | Pufferkapazitaet des Wassers (Alkalinity) |
-| Calcium (Ca) | mg/L | 30–120 | Wichtig fuer CalMag-Berechnung |
-| Magnesium (Mg) | mg/L | 5–30 | Wichtig fuer CalMag-Berechnung |
+| EC | mS/cm | 0,3–0,8 | Elektrische Leitfähigkeit — zeigt den Gesamtmineralgehalt |
+| pH | — | 7,0–8,0 | Säuregrad des Wassers |
+| Gesamthärte (GH) | ppm CaCO3 | 100–350 | Summe aller gelösten Mineralien (Ca + Mg) |
+| Karbonathärte (KH) | ppm CaCO3 | 80–250 | Pufferkapazität des Wassers (Alkalinity) |
+| Calcium (Ca) | mg/L | 30–120 | Wichtig für CalMag-Berechnung |
+| Magnesium (Mg) | mg/L | 5–30 | Wichtig für CalMag-Berechnung |
 | Chlor | mg/L | 0–0,3 | Bei > 0,1 mg/L Wasser abstehen lassen oder filtern |
 | Chloramin | mg/L | 0 | In Deutschland selten eingesetzt |
 
-!!! info "Umrechnung deutscher Wasserhaerte"
-    Deutsche Wasserwerke geben die Haerte oft in °dH (Grad deutscher Haerte) an. So rechnen Sie um:
+!!! info "Umrechnung deutscher Wasserhärte"
+    Deutsche Wasserwerke geben die Härte oft in °dH (Grad deutscher Härte) an. So rechnest du um:
 
-    - **Gesamthaerte**: °dH × 17,848 = ppm CaCO3 (z.B. 11,6 °dH = 207 ppm)
-    - **Karbonathaerte**: °dH × 17,848 = ppm CaCO3 (z.B. 9,1 °dH = 162 ppm)
+    - **Gesamthärte**: °dH × 17,848 = ppm CaCO3 (z.B. 11,6 °dH = 207 ppm)
+    - **Karbonathärte**: °dH × 17,848 = ppm CaCO3 (z.B. 9,1 °dH = 162 ppm)
 
-#### Zusaetzliche Optionen
+#### Zusätzliche Optionen
 
-- **Hat RO-Anlage**: Aktivieren Sie dies, wenn Sie eine Umkehrosmose-Anlage haben. Das System berechnet dann Mischungsverhaeltnisse aus Leitungs- und RO-Wasser.
-- **Messdatum**: Datum der Wasseranalyse. Kamerplanter warnt Sie, wenn die Analyse aelter als 12 Monate ist.
-- **Quellennotiz**: Freitext fuer die Herkunft der Werte (z.B. "Hamburg Wasser Trinkwasseranalyse 2025").
+- **Hat RO-Anlage**: Aktiviere dies, wenn du eine Umkehrosmose-Anlage hast. Das System berechnet dann Mischungsverhältnisse aus Leitungs- und RO-Wasser.
+- **Messdatum**: Datum der Wasseranalyse. Kamerplanter warnt dich, wenn die Analyse älter als 12 Monate ist.
+- **Quellennotiz**: Freitext für die Herkunft der Werte (z.B. "Hamburg Wasser Trinkwasseranalyse 2025").
 
 !!! tip "Wasserwerte herausfinden"
-    Ihr lokales Wasserwerk stellt die Trinkwasseranalyse in der Regel kostenlos bereit — oft als PDF-Download auf der Website. Deutsche Wasserversorger sind nach Trinkwasserverordnung (TrinkwV §21) verpflichtet, diese Daten zu veroeffentlichen.
+    Dein lokales Wasserwerk stellt die Trinkwasseranalyse in der Regel kostenlos bereit — oft als PDF-Download auf der Website. Deutsche Wasserversorger sind nach Trinkwasserverordnung (TrinkwV §21) verpflichtet, diese Daten zu veröffentlichen.
 
     **Beispiele:**
 
     - **Hamburg**: [hamburgwasser.de/wasser](https://www.hamburgwasser.de/wasser) — PLZ-Suche unter "Mein Trinkwasser"
-    - **Berlin**: berliner-wasserbetriebe.de — Wasserqualitaet nach PLZ
-    - **Muenchen**: swm.de — Trinkwasseranalyse nach Versorgungsgebiet
+    - **Berlin**: berliner-wasserbetriebe.de — Wasserqualität nach PLZ
+    - **München**: swm.de — Trinkwasseranalyse nach Versorgungsgebiet
 
-    Alternativ koennen Sie die Werte selbst messen: Ein EC/TDS-Messgeraet (ab ca. 15 EUR) liefert den EC-Wert, ein pH-Messgeraet den pH. Fuer Calcium und Magnesium sind Tropfentests (GH/KH-Test aus der Aquaristik, ab ca. 8 EUR) eine guenstige Option.
+    Alternativ kannst du die Werte selbst messen: Ein EC/TDS-Messgerät (ab ca. 15 EUR) liefert den EC-Wert, ein pH-Messgerät den pH. Für Calcium und Magnesium sind Tropfentests (GH/KH-Test aus der Aquaristik, ab ca. 8 EUR) eine günstige Option.
 
 !!! warning "Warum genaue Wasserwerte wichtig sind"
-    Kamerplanter berechnet aus Ihren Wasserwerten das **EC-Budget** (wie viel Platz fuer Duenger bleibt) und die **CalMag-Korrektur** (ob zusaetzliches Calcium/Magnesium noetig ist). Ungenaue Werte fuehren zu falschen Duengeempfehlungen — im schlimmsten Fall zu Ueber- oder Unterduengung.
+    Kamerplanter berechnet aus deinen Wasserwerten das **EC-Budget** (wie viel Platz für Dünger bleibt) und die **CalMag-Korrektur** (ob zusätzliches Calcium/Magnesium nötig ist). Ungenaue Werte führen zu falschen Düngeempfehlungen — im schlimmsten Fall zu Über- oder Unterdüngung.
 
 ### Schritt 5: Speichern
 
-Klicken Sie auf **Speichern**. Die Site erscheint nun in der Übersicht.
+Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 
 ---
 
@@ -109,12 +109,12 @@ Klicken Sie auf **Speichern**. Die Site erscheint nun in der Übersicht.
 
 ### Location innerhalb einer Site anlegen
 
-1. Öffnen Sie eine Site durch Klick auf ihren Namen.
-2. Im Tab **Standorte** sehen Sie den Standortbaum.
-3. Klicken Sie auf **Location hinzufügen**.
-4. Wählen Sie einen **Location-Typ** aus der Liste (siehe Tabelle unten).
-5. Vergeben Sie einen eindeutigen Namen.
-6. Optional: Wählen Sie eine übergeordnete Location (für verschachtelte Strukturen).
+1. Öffne eine Site durch Klick auf ihren Namen.
+2. Im Tab **Standorte** siehst du den Standortbaum.
+3. Klicke auf **Location hinzufügen**.
+4. Wähle einen **Location-Typ** aus der Liste (siehe Tabelle unten).
+5. Vergib einen eindeutigen Namen.
+6. Optional: Wähle eine übergeordnete Location (für verschachtelte Strukturen).
 
 **Verfügbare Location-Typen:**
 
@@ -133,24 +133,24 @@ Klicken Sie auf **Speichern**. Die Site erscheint nun in der Übersicht.
 
 ### Slot innerhalb einer Location anlegen
 
-1. Öffnen Sie eine Location durch Klick auf ihren Namen im Baum.
-2. Klicken Sie auf **Slot hinzufügen**.
-3. Geben Sie eine Bezeichnung ein (z.B. "Topf 1" oder "Reihe A, Platz 3").
-4. Optional: Tragen Sie die Kapazität (Topfgröße in Liter) ein.
+1. Öffne eine Location durch Klick auf ihren Namen im Baum.
+2. Klicke auf **Slot hinzufügen**.
+3. Gib eine Bezeichnung ein (z.B. "Topf 1" oder "Reihe A, Platz 3").
+4. Optional: Trage die Kapazität (Topfgröße in Liter) ein.
 
 ---
 
 ## Substrate verwalten
 
-Ein Substrat beschreibt das Wachstumsmedium, in dem Ihre Pflanzen wurzeln. Kamerplanter unterscheidet verschiedene Substrat-Typen und ermöglicht die Verwaltung von Substrat-Chargen.
+Ein Substrat beschreibt das Wachstumsmedium, in dem deine Pflanzen wurzeln. Kamerplanter unterscheidet verschiedene Substrat-Typen und ermöglicht die Verwaltung von Substrat-Chargen.
 
 ### Neues Substrat anlegen
 
-1. Navigieren Sie zu **Standorte → Substrate**.
-2. Klicken Sie auf **Substrat hinzufügen**.
-3. Wählen Sie den **Substrat-Typ** (siehe Tabelle).
-4. Vergeben Sie einen Namen (z.B. "Bio-Erde Charge März 2026").
-5. Optional: Tragen Sie pH-Bereich, EC-Wert und Kapazität ein.
+1. Navigiere zu **Standorte → Substrate**.
+2. Klicke auf **Substrat hinzufügen**.
+3. Wähle den **Substrat-Typ** (siehe Tabelle).
+4. Vergib einen Namen (z.B. "Bio-Erde Charge März 2026").
+5. Optional: Trage pH-Bereich, EC-Wert und Kapazität ein.
 
 **Verfügbare Substrat-Typen:**
 
@@ -170,22 +170,22 @@ Ein Substrat beschreibt das Wachstumsmedium, in dem Ihre Pflanzen wurzeln. Kamer
 | Sphagnum | Torfmoos | Orchideen, Epiphyten |
 
 !!! warning "Coco Coir und CalMag"
-    Coco Coir bindet Calcium und Magnesium. Bei Coco-Substraten wird CalMag grundsätzlich empfohlen, auch bei hartem Leitungswasser. Kamerplanter weist Sie darauf hin, wenn ein Nährstoffplan für Coco-Pflanzen kein CalMag enthält.
+    Coco Coir bindet Calcium und Magnesium. Bei Coco-Substraten wird CalMag grundsätzlich empfohlen, auch bei hartem Leitungswasser. Kamerplanter weist dich darauf hin, wenn ein Nährstoffplan für Coco-Pflanzen kein CalMag enthält.
 
 ### Substrat einem Slot zuweisen
 
-1. Öffnen Sie den gewünschten Slot.
-2. Klicken Sie auf **Substrat zuweisen**.
-3. Wählen Sie ein vorhandenes Substrat aus der Liste.
+1. Öffne den gewünschten Slot.
+2. Klicke auf **Substrat zuweisen**.
+3. Wähle ein vorhandenes Substrat aus der Liste.
 4. Das Substrat ist nun diesem Slot zugeordnet.
 
 ### Substrat zur Wiederverwendung vorbereiten
 
-Nach Abschluss eines Anbauzyklus können Sie ein Substrat für die erneute Verwendung vorbereiten:
+Nach Abschluss eines Anbauzyklus kannst du ein Substrat für die erneute Verwendung vorbereiten:
 
-1. Öffnen Sie das Substrat in der Detailansicht.
-2. Klicken Sie auf **Zur Wiederverwendung vorbereiten**.
-3. Das System prüft den pH-Standardabweichung und die EC-Drift der bisherigen Nutzung.
+1. Öffne das Substrat in der Detailansicht.
+2. Klicke auf **Zur Wiederverwendung vorbereiten**.
+3. Das System prüft die pH-Standardabweichung und die EC-Drift der bisherigen Nutzung.
 4. Bei zu großer Drift erscheint eine Warnung — in diesem Fall empfiehlt sich neues Substrat.
 
 !!! note "Einweg-Substrate"
@@ -214,16 +214,16 @@ Nach Abschluss eines Anbauzyklus können Sie ein Substrat für die erneute Verwe
 ## Häufige Fragen
 
 ??? question "Kann ich einen Slot in eine andere Location verschieben?"
-    Ja. Öffnen Sie den Slot, klicken Sie auf **Bearbeiten** und wählen Sie eine neue übergeordnete Location. Eine laufende Pflanze bleibt dabei mit dem Slot verbunden.
+    Ja. Öffne den Slot, klicke auf **Bearbeiten** und wähle eine neue übergeordnete Location. Eine laufende Pflanze bleibt dabei mit dem Slot verbunden.
 
 ??? question "Was passiert, wenn ich eine Location lösche, die noch Pflanzen enthält?"
-    Kamerplanter lässt das Löschen nicht zu, solange noch Pflanzen oder Slots in der Location vorhanden sind. Entfernen Sie zuerst alle Pflanzen und Slots.
+    Kamerplanter lässt das Löschen nicht zu, solange noch Pflanzen oder Slots in der Location vorhanden sind. Entferne zuerst alle Pflanzen und Slots.
 
 ??? question "Kann ich die Standorthierarchie auch flacher halten?"
-    Ja. Sie können Pflanzen direkt einer Location zuweisen, ohne zwingend Slots zu erstellen. Slots sind sinnvoll, wenn Sie viele Pflanzen in einem Bereich präzise verfolgen möchten.
+    Ja. Du kannst Pflanzen direkt einer Location zuweisen, ohne zwingend Slots zu erstellen. Slots sind sinnvoll, wenn du viele Pflanzen in einem Bereich präzise verfolgen möchtest.
 
 ??? question "Wie hinterlege ich meinen eigenen Substrat-Mix?"
-    Wählen Sie beim Anlegen des Substrats den am besten passenden Typ und beschreiben Sie die Mischung im Notiz-Feld. Für Experten stehen zusätzliche Felder für pH-Bereich, Leitfähigkeit und Bewässerungsstrategie zur Verfügung.
+    Wähle beim Anlegen des Substrats den am besten passenden Typ und beschreibe die Mischung im Notiz-Feld. Für Experten stehen zusätzliche Felder für pH-Bereich, Leitfähigkeit und Bewässerungsstrategie zur Verfügung.
 
 ---
 

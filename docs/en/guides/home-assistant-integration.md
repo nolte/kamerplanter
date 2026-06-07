@@ -15,7 +15,7 @@ flowchart LR
 | Aspect | Details |
 |--------|---------|
 | **Repository** | `kamerplanter-ha` (standalone GitHub repo) |
-| **Installation** | HACS (Home Assistant Community Store) or manual |
+| **Installation** | HACS (Home Assistant Community Store, the standard HA add-on marketplace) or manual |
 | **Communication** | REST API polling against Kamerplanter backend |
 | **Authentication** | API key (`kp_` prefix) or Light mode (no auth) |
 | **Minimum HA version** | Home Assistant Core 2024.1+ |
@@ -27,7 +27,7 @@ flowchart LR
 
 ## Installation
 
-### Via HACS (recommended)
+### Via HACS (Home Assistant Community Store — recommended)
 
 1. Open **HACS** in Home Assistant
 2. Click **Integrations** > **Custom Repositories**
@@ -80,7 +80,7 @@ flowchart LR
 
 ## Auto-Discovery via mDNS (recommended)
 
-With mDNS announcement enabled, Home Assistant automatically detects the Kamerplanter backend on the local network — no manual URL entry required. The config flow starts directly at the authentication step.
+With multicast DNS (mDNS) announcement enabled, Home Assistant automatically detects the Kamerplanter backend on the local network — no manual URL entry required. The config flow starts directly at the authentication step.
 
 ```mermaid
 flowchart LR
@@ -355,7 +355,7 @@ The `phase_timeline` and `phase` sensors provide structured attributes that can 
 
 ### Retrieve Current Phase Details
 
-The `phase_timeline` sensor stores each phase as an attribute with status, start date, and duration. The `phase` sensor returns the current phase name -- combining both gives you dynamic access:
+The `phase_timeline` sensor stores each phase as an attribute with status, start date, and duration. The `phase` sensor returns the current phase name — combining both gives you dynamic access:
 
 ```yaml
 # Days in current phase (dynamic)
@@ -442,9 +442,9 @@ action:
 
 In addition to standard HA cards, the `kamerplanter-ha` repository provides optional **Custom Lovelace Cards**:
 
-- **Tank Card** -- Fill level, EC, pH, and water temperature at a glance
-- **Phase Timeline Card** -- Visual phase progression of a plant
-- **Nutrient Mix Card** -- Current mix with individual components
+- **Tank Card** — Fill level, EC, pH, and water temperature at a glance
+- **Phase Timeline Card** — Visual phase progression of a plant
+- **Nutrient Mix Card** — Current mix with individual components
 
 Cards are configured via the standard HA editor (entity picker, no YAML required).
 
@@ -464,6 +464,6 @@ Diagnostics data is available under **Settings** > **Integrations** > **Kamerpla
 
 ## See Also
 
-- [Sensors](../user-guide/sensors.md) -- Hybrid sensors with HA as data source
-- [Calendar](../user-guide/calendar.md) -- iCal feed for HA calendar entity
-- [Tank Management](../user-guide/tanks.md) -- Tank entities in detail
+- [Sensors](../user-guide/sensors.md) — Hybrid sensors with HA as data source
+- [Calendar](../user-guide/calendar.md) — iCal feed for HA calendar entity
+- [Tank Management](../user-guide/tanks.md) — Tank entities in detail

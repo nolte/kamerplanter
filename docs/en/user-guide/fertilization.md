@@ -72,9 +72,9 @@ Click **Add Fertilizer**.
     **Correct mixing sequence:**
     1. Water at room temperature (18–22 °C)
     2. Silicon additives (if used)
-    3. **CalMag** (always before sulphates!)
+    3. **CalMag** (always before sulfates!)
     4. Base A (calcium + micronutrients)
-    5. Base B (phosphorus + sulphur + magnesium)
+    5. Base B (phosphorus + sulfur + magnesium)
     6. Further supplements and boosters
     7. pH correction (pH Down / pH Up) — always last
 
@@ -82,7 +82,7 @@ Click **Add Fertilizer**.
 
 ## Creating a Nutrient Plan
 
-A nutrient plan defines the dosages of all fertilizers for each growth phase. It is the centrepiece of the fertilization logic.
+A nutrient plan defines the dosages of all fertilizers for each growth phase. It is the centerpiece of the fertilization logic.
 
 ### Step 1: Create a New Nutrient Plan
 
@@ -191,7 +191,7 @@ Kamerplanter shows the nutrient demand of the plant (from master data) in the pl
 
 ## CalMag: When and How Much?
 
-CalMag supplements (calcium-magnesium) are important with soft tap water and reverse osmosis water, since these lack natural minerals.
+CalMag supplements (calcium-magnesium supplements, commonly abbreviated CalMag) are important with soft tap water and reverse osmosis water, since these lack natural minerals.
 
 Kamerplanter calculates CalMag requirements automatically when you have entered the water source on your site:
 
@@ -207,7 +207,7 @@ Kamerplanter calculates CalMag requirements automatically when you have entered 
     A **nutrient plan** is the recipe — it defines which fertilizers to use in which amounts for each phase. A **feeding event** is the record of an actual fertilization session. One is planning, the other is documentation.
 
 ??? question "Do I have to record every watering?"
-    No, it is optional. Kamerplanter works without complete feeding documentation. If you want to track runoff EC or optimise nutrient delivery, thorough recording pays off.
+    No, it is optional. Kamerplanter works without complete feeding documentation. If you want to track runoff EC or optimize nutrient delivery, thorough recording pays off.
 
 ??? question "Why does the system suggest CalMag when I have hard water?"
     When coco coir is set as the substrate, Kamerplanter always recommends CalMag — regardless of water hardness. Coco coir actively binds calcium and magnesium, so the demand is higher than with soil.
@@ -222,4 +222,4 @@ Kamerplanter calculates CalMag requirements automatically when you have entered 
 - [Tank Management](tanks.md)
 - [Growth Phases](growth-phases.md)
 - [Guides: Mixing Nutrient Solutions](../guides/nutrient-mixing.md)
-- [Guides: VPD Optimisation](../guides/vpd-optimization.md)
+- [Guides: VPD Optimization](../guides/vpd-optimization.md)

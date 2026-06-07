@@ -1,6 +1,6 @@
 # Growth Phases
 
-Every plant in Kamerplanter passes through a sequence of growth phases. The system automatically adjusts recommendations for watering, fertilisation, light, and climate to the current phase. This ensures each plant receives exactly what it needs at its current stage of development.
+Every plant in Kamerplanter passes through a sequence of growth phases. The system automatically adjusts recommendations for watering, fertilization, light, and climate to the current phase. This ensures each plant receives exactly what it needs at its current stage of development.
 
 ---
 
@@ -46,7 +46,7 @@ stateDiagram-v2
 ## Viewing the Current Phase of a Plant
 
 1. Navigate to **Plants** and open a plant by clicking its name.
-2. The detail page shows the current phase with a coloured chip at the top.
+2. The detail page shows the current phase with a colored chip at the top.
 3. The **Growth Phases** tab shows the complete phase history with the date of each transition.
 
 ---
@@ -139,7 +139,7 @@ Perennial plants (houseplants, berry bushes, fruit trees) do not go through a si
 3. Confirm the start date of the rest phase.
 
 During the dormancy phase:
-- Fertilisation recommendations are suspended
+- Fertilization recommendations are suspended
 - Watering intervals are extended
 - Seasonal tasks appear (e.g. "Apply winter protection")
 

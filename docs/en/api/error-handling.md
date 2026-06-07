@@ -193,7 +193,7 @@ POST /api/v1/t/my-garden/harvest/batches
 ```
 
 !!! danger "Pre-harvest intervals are legally relevant"
-    The pre-harvest interval (Karenzzeit) between the last pesticide application and harvest is legally mandated (PflSchG/CanG). Clients must never suppress or ignore this error.
+    The pre-harvest interval (Karenzzeit) between the last pesticide application and harvest is legally mandated by the PflSchG (German Plant Protection Act) and CanG (German Cannabis Act). Clients must never suppress or ignore this error.
 
 ---
 
@@ -252,11 +252,11 @@ For unexpected internal errors, the API never exposes server-side details. The `
 
 ## Recommendations for API Clients
 
-- **Evaluate the error code, not just the HTTP status code.** Multiple semantically distinct errors can share the same status code (e.g. `KARENZ_VIOLATION`, `HST_VIOLATION`, and `ROTATION_VIOLATION` are all HTTP 422).
+- **Evaluate the error code, not just the HTTP status code.** Multiple semantically distinct errors can share the same status code. For example, `KARENZ_VIOLATION`, `HST_VIOLATION`, and `ROTATION_VIOLATION` are all HTTP 422.
 - **Log the `error_id`.** Always include the `error_id` in your own logs and in support requests.
 - **Iterate the `details` array** for field-specific error messages in form validation.
 - **Respond to `401` with a token refresh.** When the access token expires (15 min), the API returns `401 UNAUTHORIZED`. The client should automatically attempt a refresh.
-- **Do not retry `409 INVALID_RUN_STATE`.** This error indicates a business-level state conflict — the operation is only possible after a state change.
+- **Do not retry `409 INVALID_RUN_STATE`.** This error indicates a business-level state conflict. The operation is only possible after a state change.
 
 ---
 

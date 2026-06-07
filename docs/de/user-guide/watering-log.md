@@ -1,6 +1,6 @@
 # Gießprotokoll
 
-Das Gießprotokoll (WateringLog) ist das zentrale, vereinheitlichte Protokoll aller Bewässerungsvorgänge in Kamerplanter. Es fasst sowohl manuelle als auch automatisch erfasste Gießereignisse zusammen und bietet Ihnen eine lückenlose Übersicht über die Bewässerungshistorie Ihrer Pflanzen — als Grundlage für fundierte Entscheidungen bei Nährstoffplanung und Substratmanagement.
+Das Gießprotokoll (WateringLog) ist das zentrale, vereinheitlichte Protokoll aller Bewässerungsvorgänge in Kamerplanter. Es fasst sowohl manuelle als auch automatisch erfasste Gießereignisse zusammen und bietet dir eine lückenlose Übersicht über die Bewässerungshistorie deiner Pflanzen — als Grundlage für fundierte Entscheidungen bei Nährstoffplanung und Substratmanagement.
 
 ---
 
@@ -22,14 +22,14 @@ Kamerplanter unterscheidet drei verwandte Konzepte:
 | **WateringLog** | Vereinheitlichtes Protokoll — fasst WateringEvents und FeedingEvents in einer Ansicht zusammen | Automatisch aggregiert |
 
 !!! note "Unterschied zu FeedingEvents"
-    FeedingEvents dokumentieren Bewässerungen, bei denen Dünger hinzugefügt wurde — mit vollständigem Nährstoffprofil (EC-Ziel, pH-Ziel, Produktdosierungen). Das WateringLog zeigt beide Typen nebeneinander, damit Sie die Bewässerungshistorie ohne Kontextwechsel nachverfolgen können.
+    FeedingEvents dokumentieren Bewässerungen, bei denen Dünger hinzugefügt wurde — mit vollständigem Nährstoffprofil (EC-Ziel, pH-Ziel, Produktdosierungen). Das WateringLog zeigt beide Typen nebeneinander, damit du die Bewässerungshistorie ohne Kontextwechsel nachverfolgen kannst.
 
 ---
 
 ## Das Gießprotokoll aufrufen
 
-1. Navigieren Sie zu einem **Pflanzdurchlauf** oder einer **Pflanze**.
-2. Klicken Sie auf den Tab **Gießprotokoll** (oder **Bewässerung**).
+1. Navigiere zu einem **Pflanzdurchlauf** oder einer **Pflanze**.
+2. Klicke auf den Tab **Gießprotokoll** (oder **Bewässerung**).
 3. Die Protokollansicht zeigt alle Bewässerungsereignisse in chronologischer Reihenfolge.
 
 !!! info "Screenshot folgt"
@@ -55,13 +55,13 @@ Pro Eintrag werden folgende Informationen angezeigt:
 
 ## Gießereignis manuell eintragen
 
-1. Klicken Sie auf **Neues Gießereignis**.
-2. Tragen Sie Menge und Zeitpunkt ein.
+1. Klicke auf **Neues Gießereignis**.
+2. Trage Menge und Zeitpunkt ein.
 3. Optional: EC, pH und eine Notiz ergänzen.
-4. Klicken Sie auf **Speichern**.
+4. Klicke auf **Speichern**.
 
 !!! tip "Gießplan nutzen"
-    Wenn Sie einen Gießplan (WateringSchedule) für Ihren Pflanzdurchlauf konfiguriert haben, erzeugt Kamerplanter automatisch Aufgaben. Durch Bestätigung dieser Aufgaben werden Gießereignisse automatisch im Protokoll eingetragen — Sie müssen nichts manuell erfassen.
+    Wenn du einen Gießplan (WateringSchedule) für deinen Pflanzdurchlauf konfiguriert hast, erzeugt Kamerplanter automatisch Aufgaben. Durch Bestätigung dieser Aufgaben werden Gießereignisse automatisch im Protokoll eingetragen — du musst nichts manuell erfassen.
 
 ---
 
@@ -84,7 +84,7 @@ Das WateringLog ist eng mit der Dünge-Logik (REQ-004) verzahnt:
     Gießprotokolle werden entsprechend der Datenaufbewahrungsrichtlinie (NFR-011) gespeichert. Standardmäßig bleiben Roheinträge 90 Tage vollständig erhalten, danach werden sie zu täglichen Aggregaten verdichtet.
 
 ??? question "Kann ich Einträge im Protokoll nachträglich korrigieren?"
-    Ja. Klicken Sie auf einen Eintrag und wählen Sie **Bearbeiten**. Änderungen werden mit Zeitstempel protokolliert.
+    Ja. Klicke auf einen Eintrag und wähle **Bearbeiten**. Änderungen werden mit Zeitstempel protokolliert.
 
 ---
 

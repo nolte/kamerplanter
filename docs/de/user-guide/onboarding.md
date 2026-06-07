@@ -136,7 +136,7 @@ Wenn Kamerplanter im Light-Modus betrieben wird (z.B. auf einem Raspberry Pi ode
 
 ---
 
-## Haufige Fragen
+## Häufige Fragen
 
 ??? question "Kann ich ein Starter-Kit auch ablehnen und alles manuell einrichten?"
     Ja. Im Schritt "Starter-Kit wählen" gibt es die Option **Eigenes Setup** — damit überspringst du die automatische Entitäts-Erstellung und richtest alles über die normalen Menüs ein. Diese Option erscheint besonders dann, wenn kein Kit zu deinem Garten passt.

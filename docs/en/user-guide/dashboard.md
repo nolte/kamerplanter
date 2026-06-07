@@ -23,7 +23,7 @@ The dashboard opens automatically after logging in. You can reach it at any time
 
 ### Active Plants and Growth Phase
 
-The upper section shows an overview of all active plants with their current growth phase. Plants are colour-coded by phase:
+The upper section shows an overview of all active plants with their current growth phase. Plants are color-coded by phase:
 
 - Light green: Germination / Seedling
 - Green: Vegetative phase
@@ -39,7 +39,7 @@ The task block shows the next due tasks sorted by urgency:
 
 - Overdue tasks appear in red at the top
 - Tasks due today appear in orange
-- Tasks for the next 7 days appear in the default colour
+- Tasks for the next 7 days appear in the default color
 
 Click a task to open it or mark it directly as complete.
 
@@ -108,8 +108,8 @@ The dashboard adapts to your experience level (configurable under **Account → 
 ??? question "Why do I see no sensor data on the dashboard?"
     Sensor data appears on the dashboard only when at least one sensor is configured and active. If you have no smart home integration, use manual measurements — these appear on the dashboard too, labelled "Manual".
 
-??? question "Can I customise the dashboard or rearrange widgets?"
-    Full drag-and-drop dashboard customisation is planned for a future version. Currently the dashboard adapts automatically based on your experience level and the extent of your setup.
+??? question "Can I customize the dashboard or rearrange widgets?"
+    Full drag-and-drop dashboard customization is planned for a future version. Currently the dashboard adapts automatically based on your experience level and the extent of your setup.
 
 ??? question "Why do some plants not appear on the dashboard?"
     The dashboard shows only **active** plants (not completed, not removed). Plants in a completed planting run no longer appear. If an active plant is missing, check that it is in the correct tenant.

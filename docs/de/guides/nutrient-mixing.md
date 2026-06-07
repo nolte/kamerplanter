@@ -1,6 +1,6 @@
 # Nährlösung mischen
 
-Eine korrekt gemischte Nährlösung ist die Grundlage für gesundes Pflanzenwachstum. Kamerplanter berechnet automatisch EC-Budgets, skaliert Herstellerrezepte und validiert die Mischfolge — so werden Ausfällungen und Wirkungsverluste verhindert.
+Eine korrekt gemischte Nährlösung ist die Grundlage für gesundes Pflanzenwachstum. Kamerplanter berechnet automatisch EC-Budgets (das verfügbare Leitfähigkeits-Kontingent der Nährstoffe), skaliert Herstellerrezepte und validiert die Mischfolge — so werden Ausfällungen und Wirkungsverluste verhindert.
 
 !!! danger "Mischfolge einhalten"
     CalMag **immer zuerst** in Wasser einrühren, bevor andere Dünger hinzugefügt werden — insbesondere vor Sulfaten und Phosphaten. Falsche Reihenfolge führt zu Calciumsulfat-Ausfällungen (CaSO₄) und unwirksamer Nährlösung.
@@ -18,7 +18,7 @@ Eine korrekt gemischte Nährlösung ist die Grundlage für gesundes Pflanzenwach
 
 ## Das EC-Budget-Modell
 
-Kamerplanter berechnet, wie viel elektrische Leitfähigkeit die Düngemittel noch beisteuern dürfen — das EC-Budget:
+Das **EC-Budget** (Netto-Leitfähigkeitsspielraum) gibt an, wie viel elektrische Leitfähigkeit die Düngemittel noch beisteuern dürfen — abzüglich der bereits im Gießwasser enthaltenen Grundleitfähigkeit:
 
 ```
 EC_netto = EC_ziel - EC_mischwasser
@@ -35,9 +35,9 @@ EC_netto = EC_ziel - EC_mischwasser
 
 ---
 
-## Der 3-stufige EC-Budget-Pipeline
+## Die 3-stufige EC-Budget-Berechnungspipeline
 
-Kamerplanter wendet eine strukturierte 3-Stufen-Berechnung an:
+**Pipeline** bezeichnet hier die mehrstufige Abfolge von Berechnungsschritten, die Kamerplanter intern durchläuft, bevor eine fertige Mischanleitung ausgegeben wird.
 
 ### Stufe 1 — Wassergemisch (EC_mix)
 
@@ -58,7 +58,7 @@ Das EC-Netto-Budget wird in Segmente aufgeteilt (in dieser Reihenfolge):
 
 | Segment | Priorität | Beschreibung |
 |---------|-----------|-------------|
-| Silikat | 1 (erste Abzug) | Optionales Silikat wird vorab kalkuliert |
+| Silikat | 1 (erster Abzug) | Optionales Silikat wird vorab kalkuliert |
 | CalMag | 2 | Calcium-Magnesium-Lösung (Pflichtbestandteil bei Coco/Hydro) |
 | pH-Reserve | 3 | Puffer für pH-Adjuster (0,02–0,05 mS je nach Wasserhärte) |
 | Basisdünger | 4 | Restbudget wird auf Basisdünger verteilt |
@@ -108,7 +108,7 @@ Kamerplanter prüft automatisch folgende Kombinationen:
 | Nur-Blattdünger + Fertigationsdünger | Falsche Anwendung | Hinweis |
 
 !!! danger "Kritische Warnungen sofort beachten"
-    Erscheint eine rote Warnung in der Mischanleitung, hören Sie sofort auf und prüfen Sie die Dünger-Kombination. Eine ausgefällte Lösung lässt sich nicht mehr retten — komplettes Neuansetzen erforderlich.
+    Erscheint eine rote Warnung in der Mischanleitung, höre sofort auf und prüfe die Dünger-Kombination. Eine ausgefällte Lösung lässt sich nicht mehr retten — komplettes Neuansetzen erforderlich.
 
 ---
 
@@ -195,7 +195,7 @@ Die Wassertemperatur beeinflusst Löslichkeit und biologische Wirksamkeit:
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Meine Lösung ist weißlich/trüb nach dem Mischen — was ist passiert?"
     Trübung deutet auf Ausfällungen hin. Häufigste Ursache: CalMag wurde nach einem Sulfat oder Phosphat zugegeben. Lösung entsorgen, Behälter mit warmem Wasser spülen, Mischfolge korrigieren und neu ansetzen.

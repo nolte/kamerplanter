@@ -23,13 +23,13 @@ Every Kamerplanter installation consists of a **core** (always required) and **o
 | Component | Purpose | Resource requirements | Configuration |
 |-----------|---------|----------------------|---------------|
 | **Operating mode** | `light` = no login, single user; `full` = JWT auth, multi-tenant | — | `KAMERPLANTER_MODE` |
-| **AI assistant** | Care tips, diagnostics, recommendations via language model | 2--8 GB RAM (local) | `AI_DEFAULT_PROVIDER` |
-| **Ollama** | Local language model execution (no data leaves your network) | 4--16 GB RAM, optional GPU | Docker profile `ollama` |
+| **AI assistant** | Care tips, diagnostics, recommendations via language model | 2–8 GB RAM (local) | `AI_DEFAULT_PROVIDER` |
+| **Ollama** | Local language model execution (no data leaves your network) | 4–16 GB RAM, optional GPU | Docker profile `ollama` |
 | **Knowledge Service** | RAG pipeline: search knowledge base, enrich context | 512 MB RAM | Separate deployment |
 | **VectorDB** (pgvector) | Vector store for RAG embeddings | 256 MB RAM | `VECTORDB_ENABLED` |
 | **Embedding Service** | ONNX-based embedding computation (no PyTorch) | 512 MB RAM | Separate deployment |
 | **Reranker Service** | Cross-encoder re-ranking for higher RAG precision (ADR-007) | 1.5–4 GB RAM | `RERANKER_URL` |
-| **TimescaleDB** | Time-series sensor data, automatic downsampling | 256--512 MB RAM | `TIMESCALEDB_ENABLED` |
+| **TimescaleDB** | Time-series sensor data, automatic downsampling | 256–512 MB RAM | `TIMESCALEDB_ENABLED` |
 | **Home Assistant** | Sensor and actuator integration (temperature, humidity, lights) | External | `HA_URL` + `HA_ACCESS_TOKEN` |
 | **External enrichment** | Auto-enrich plant data from GBIF and Perenual | — | `PERENUAL_API_KEY` |
 
@@ -125,7 +125,7 @@ Without the AI assistant you get no automatic care tips or diagnostics. You can 
 
 ### Target audience
 
-You have 10--50 plants and a home server (NAS, old desktop, NUC). You want AI-powered care tips, but your data should not leave your network. You do not need login — you are the only user.
+You have 10–50 plants and a home server (NAS, old desktop, NUC). You want AI-powered care tips, but your data should not leave your network. You do not need login — you are the only user.
 
 ### Requirements
 
@@ -173,7 +173,7 @@ services:
 ```
 
 !!! tip "Model selection"
-    Start with `gemma3:4b` — it runs on most machines from 2020 onwards without a GPU. For details on model selection, see [AI Provider Setup](../user-guide/ai-providers.md#ollama-lokal-empfohlen).
+    Start with `gemma3:4b` — it runs on most machines from 2020 onwards without a GPU. For details on model selection, see [AI Provider Setup](../user-guide/ai-providers.md#ollama-local-recommended).
 
 ### What you gain by upgrading
 
@@ -190,7 +190,7 @@ You are an engaged hobbyist or run a small community garden. Multiple people sho
 ### Requirements
 
 - Docker Compose or Kubernetes cluster
-- 4--6 GB free RAM
+- 4–6 GB free RAM
 - Server, NUC, or small K8s cluster
 
 ### Active components
@@ -258,7 +258,7 @@ You run professional indoor growing or a large community garden with role manage
 ### Requirements
 
 - Kubernetes cluster (3+ nodes recommended)
-- 6--8 GB RAM for Kamerplanter pods
+- 6–8 GB RAM for Kamerplanter pods
 - Home Assistant instance on the network
 - Optional: GPU node for faster AI inference
 
@@ -452,7 +452,7 @@ Yes. All profiles use the same database. You can add components at any time (e.g
 
 ### Can I run Ollama on a Raspberry Pi?
 
-Yes, starting with the Raspberry Pi 5 with 8 GB RAM. Use a small model like `llama3.2:3b`. Response times are 15--30 seconds per tip — acceptable but not fast. The Raspberry Pi 4 does not have sufficient performance for larger models.
+Yes, starting with the Raspberry Pi 5 with 8 GB RAM. Use a small model like `llama3.2:3b`. Response times are 15–30 seconds per tip — acceptable but not fast. The Raspberry Pi 4 does not have sufficient performance for larger models.
 
 ### Do I need TimescaleDB without sensors?
 

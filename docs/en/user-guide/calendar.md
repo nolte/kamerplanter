@@ -32,11 +32,11 @@ For daily use the **week** or **list view** is recommended.
 
 ---
 
-## Event Categories and Colour Coding
+## Event Categories and Color Coding
 
-Each event category has its own colour for quick visual orientation:
+Each event category has its own color for quick visual orientation:
 
-| Colour | Category | Description |
+| Color | Category | Description |
 |--------|----------|-------------|
 | Blue | Tasks | All scheduled care tasks |
 | Green | Phase Transitions | Planned or completed phase changes |
@@ -181,7 +181,7 @@ For the sowing calendar to calculate correct dates, enter the last frost date fo
     The iCal feed is generated in real time on every request from the external app. The refresh frequency depends on the external calendar app — Google Calendar refreshes approximately every 24 hours, Apple Calendar every 12 hours.
 
 ??? question "Can I split the calendar across multiple people in the garden?"
-    Yes. You can create multiple feeds with different filters (e.g. by location or category) and share them with different people. Each tenant member gets their personalised calendar feed this way.
+    Yes. You can create multiple feeds with different filters (e.g. by location or category) and share them with different people. Each tenant member gets their personalized calendar feed this way.
 
 ---
 

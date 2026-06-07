@@ -63,7 +63,7 @@ Kamerplanter verwendet folgende Zielkorridore, die im Backend als Systemkonstant
 | Ausspülung (Flushing) | 0,8 – 1,2 | 55 – 65 % | 20 – 24 °C |
 
 !!! danger "Hohe Luftfeuchte in der Blüte"
-    Über 60 % relative Luftfeuchte in der Blütephase begünstigt Botrytis (Grauschimmel) stark. Halten Sie die Luftfeuchte konsequent unter 55 % — besonders in der letzten Blütewoche.
+    Über 60 % relative Luftfeuchte in der Blütephase begünstigt Botrytis (Grauschimmel) stark. Halte die Luftfeuchte konsequent unter 55 % — besonders in der letzten Blütewoche.
 
 ---
 
@@ -144,7 +144,7 @@ VPD beeinflusst direkt, wie schnell die Pflanze Wasser aufnimmt. Bei hohem VPD (
 - VPD > 1,5 kPa: Bewässerungsfrequenz erhöhen, Hitzestress beobachten
 
 !!! tip "Substrat als Puffer nutzen"
-    Coco- und Rockwool-Substrate trocknen bei hohem VPD besonders schnell aus. Soil-Substrate puffern besser. Passen Sie die Bewässerungsfrequenz entsprechend an oder setzen Sie auf automatische Bewässerung via Gießplan.
+    Coco- und Rockwool-Substrate trocknen bei hohem VPD besonders schnell aus. Soil-Substrate puffern besser. Passe die Bewässerungsfrequenz entsprechend an oder setze auf automatische Bewässerung via Gießplan.
 
 ---
 
@@ -152,19 +152,19 @@ VPD beeinflusst direkt, wie schnell die Pflanze Wasser aufnimmt. Bei hohem VPD (
 
 Kamerplanter erlaubt, phasenbezogene VPD-Zielwerte pro Anforderungsprofil anzupassen:
 
-1. Navigieren Sie zu **Stammdaten > [Art] > Lebenszyklus > [Phase] > Anforderungsprofil**.
-2. Passen Sie `vpd_target_kpa` und die Min/Max-Grenzen an.
+1. Navigiere zu **Stammdaten > [Art] > Lebenszyklus > [Phase] > Anforderungsprofil**.
+2. Passe `vpd_target_kpa` und die Min/Max-Grenzen an.
 3. Kamerplanter vergleicht bei vorhandenen Sensordaten den gemessenen Wert mit dem Zielkorridor und zeigt Warnungen im Dashboard.
 
 !!! example "Angepasste VPD-Ziele für empfindliche Sorten"
-    Tropische Pflanzen wie Chili oder Basilikum reagieren empfindlicher auf hohes VPD. Setzen Sie den Vegetativ-Zielkorridor enger auf 0,7–1,0 kPa für diese Arten.
+    Tropische Pflanzen wie Chili oder Basilikum reagieren empfindlicher auf hohes VPD. Setze den Vegetativ-Zielkorridor enger auf 0,7–1,0 kPa für diese Arten.
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Muss ich VPD täglich berechnen?"
-    Nein. Wenn Sie einmal optimale Temperatur-Luftfeuchte-Kombinationen für Ihre Wachstumsphase kennen (z. B. 25 °C / 60 % für Vegetativ), können Sie diese als Richtwerte am Controller einstellen. Kamerplanter unterstützt Sie mit Warnungen, wenn Sensordaten vom Zielkorridor abweichen.
+    Nein. Wenn du einmal optimale Temperatur-Luftfeuchte-Kombinationen für deine Wachstumsphase kennst (z. B. 25 °C / 60 % für Vegetativ), kannst du diese als Richtwerte am Controller einstellen. Kamerplanter unterstützt dich mit Warnungen, wenn Sensordaten vom Zielkorridor abweichen.
 
 ??? question "Blatttemperatur vs. Lufttemperatur — was messe ich?"
     Standard-Hygrometer messen Lufttemperatur und -feuchte. Das ist für die Praxis ausreichend. Die Blatttemperatur liegt typisch 1–3 °C unter der Lufttemperatur. Für höchste Genauigkeit kann ein Infrarot-Thermometer direkt auf das Blatt gerichtet werden.

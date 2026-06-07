@@ -23,16 +23,16 @@ Automatisch (IoT/MQTT) → Home Assistant REST API → Wetter-API (Freiland) →
 Sensoren (z.B. SCD40, AHT20, Xiaomi Bodensensor) senden Daten direkt per MQTT oder über Home Assistant an Kamerplanter. Keine Benutzeraktion erforderlich.
 
 **2. Home Assistant (halbautomatisch)**
-Home Assistant liefert Sensorwerte über seine REST API. Das ist sinnvoll, wenn Ihre Sensoren bereits in Home Assistant integriert sind.
+Home Assistant liefert Sensorwerte über seine REST API. Das ist sinnvoll, wenn deine Sensoren bereits in Home Assistant integriert sind.
 
 **3. Wetter-API (nur Freiland)**
 Für Freilandstandorte (Garten, Balkon) kann Kamerplanter Klimadaten vom Deutschen Wetterdienst (DWD), Open-Meteo oder OpenWeatherMap abrufen. Kein Sensor nötig.
 
 **4. Manuelle Eingabe**
-Sie tragen Messwerte selbst ein. Kamerplanter erinnert Sie mit Aufgaben, wann eine Messung fällig ist.
+Du trägst Messwerte selbst ein. Kamerplanter erinnert dich mit Aufgaben, wann eine Messung fällig ist.
 
 !!! note "Jede Messung hat eine Herkunfts-Kennzeichnung"
-    In der Detailansicht sehen Sie immer, woher ein Messwert stammt: Sensor, Home Assistant, Wetter-API oder manuell. So wissen Sie, wie belastbar der Wert ist.
+    In der Detailansicht siehst du immer, woher ein Messwert stammt: Sensor, Home Assistant, Wetter-API oder manuell. So weißt du, wie belastbar der Wert ist.
 
 ---
 
@@ -40,15 +40,15 @@ Sie tragen Messwerte selbst ein. Kamerplanter erinnert Sie mit Aufgaben, wann ei
 
 ### Schritt 1: Site oder Location öffnen
 
-Navigieren Sie zu **Standorte** und öffnen Sie die Site oder Location, zu der der Sensor gehört.
+Navigiere zu **Standorte** und öffne die Site oder Location, zu der der Sensor gehört.
 
 ### Schritt 2: Sensor hinzufügen
 
-Klicken Sie auf **Sensor hinzufügen** (Icon in der Site-Detailseite oben rechts oder im Tab Sensoren).
+Klicke auf **Sensor hinzufügen** (Icon in der Site-Detailseite oben rechts oder im Tab Sensoren).
 
 ### Schritt 3: Sensor konfigurieren
 
-Füllen Sie das Formular aus:
+Fülle das Formular aus:
 
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
@@ -60,21 +60,21 @@ Füllen Sie das Formular aus:
 
 ### Schritt 4: Verbindung testen
 
-Klicken Sie auf **Verbindung prüfen**. Kamerplanter versucht, den aktuellen Wert abzurufen. Bei Erfolg erscheint der Messwert.
+Klicke auf **Verbindung prüfen**. Kamerplanter versucht, den aktuellen Wert abzurufen. Bei Erfolg erscheint der Messwert.
 
 ---
 
 ## Messwerte manuell eingeben
 
-Wenn Sie keine Sensoren verwenden oder ein Sensor ausgefallen ist, können Sie Messwerte manuell eintragen.
+Wenn du keine Sensoren verwendest oder ein Sensor ausgefallen ist, kannst du Messwerte manuell eintragen.
 
 ### Schritt 1: Zur Pflanze oder zum Standort navigieren
 
-Öffnen Sie eine Pflanze oder einen Standort und suchen Sie den Tab **Messwerte** oder **Sensordaten**.
+Öffne eine Pflanze oder einen Standort und suche den Tab **Messwerte** oder **Sensordaten**.
 
 ### Schritt 2: Messung erfassen
 
-Klicken Sie auf **Messung hinzufügen** und tragen Sie die Werte ein:
+Klicke auf **Messung hinzufügen** und trage die Werte ein:
 
 **Klimaparameter:**
 - Temperatur (°C)
@@ -93,7 +93,7 @@ Klicken Sie auf **Messung hinzufügen** und tragen Sie die Werte ein:
 - DLI (mol/m²/d) — Tageslichtintegral (wird aus PPFD × Beleuchtungsstunden berechnet)
 
 !!! tip "VPD automatisch berechnen lassen"
-    Das Dampfdruckdefizit (VPD) müssen Sie nicht selbst messen. Wenn Sie Temperatur und Luftfeuchte eingeben, berechnet Kamerplanter den VPD-Wert automatisch nach der Tetens-Formel.
+    Das Dampfdruckdefizit (VPD) musst du nicht selbst messen. Wenn du Temperatur und Luftfeuchte eingibst, berechnet Kamerplanter den VPD-Wert automatisch nach der Tetens-Formel.
 
 ---
 
@@ -146,27 +146,27 @@ Das Tageslichtintegral ist die Gesamtlichtmenge über einen Tag. Es wird aus PPF
 ## Sensoren für Freiland: Wetter-API einrichten
 
 !!! warning "Noch nicht implementiert"
-    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert (REQ-005 v2.3) aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten. Aktuell werden Freiland-Messwerte nur ueber Home Assistant oder manuelle Eingabe erfasst.
+    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert (REQ-005 v2.3) aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten. Aktuell werden Freiland-Messwerte nur über Home Assistant oder manuelle Eingabe erfasst.
 
-Wenn Sie keinen Sensor im Freien haben, können Sie Klimadaten vom Wetterdienst abrufen.
+Wenn du keinen Sensor im Freien hast, kannst du Klimadaten vom Wetterdienst abrufen.
 
 ### Schritt 1: Standortkoordinaten hinterlegen
 
-Öffnen Sie Ihre Site und tragen Sie unter **Experten-Einstellungen** die GPS-Koordinaten ein (Breitengrad, Längengrad).
+Öffne deine Site und trage unter **Experten-Einstellungen** die GPS-Koordinaten ein (Breitengrad, Längengrad).
 
 ### Schritt 2: Wetter-Datenquelle auswählen
 
-Wählen Sie die bevorzugte Datenquelle:
+Wähle die bevorzugte Datenquelle:
 - **Open-Meteo** (empfohlen): Kostenlos, kein API-Key erforderlich
 - **Deutscher Wetterdienst (DWD)**: Offizielle deutsche Wetterdaten
 - **OpenWeatherMap**: Global, 1000 kostenlose Anfragen/Tag
 
 ### Schritt 3: Aktualisierungsintervall festlegen
 
-Wählen Sie, wie oft die Wetterdaten abgerufen werden sollen (empfohlen: stündlich).
+Wähle, wie oft die Wetterdaten abgerufen werden sollen (empfohlen: stündlich).
 
 !!! note "Wetterdaten als Ergänzung"
-    Wetterdaten spiegeln die Bedingungen am Wettermessstandort wider, nicht exakt in Ihrem Garten. Bei Abweichungen (z.B. durch einen schattigen Standort) sollten Sie die Werte manuell anpassen.
+    Wetterdaten spiegeln die Bedingungen am Wettermessstandort wider, nicht exakt in deinem Garten. Bei Abweichungen (z.B. durch einen schattigen Standort) solltest du die Werte manuell anpassen.
 
 ---
 
@@ -188,10 +188,10 @@ Kurze Ausfälle (unter 2 Stunden) werden durch Interpolation der letzten bekannt
     Nein. Kamerplanter funktioniert vollständig mit manuell eingetragenen Messwerten. Sensoren und Smart-Home-Integration sind optional — sie erleichtern die Arbeit, sind aber keine Voraussetzung.
 
 ??? question "Wie verbinde ich einen Xiaomi-Sensor mit Kamerplanter?"
-    Xiaomi-Sensoren lassen sich am einfachsten über Home Assistant einbinden. Installieren Sie die Xiaomi-Integration in Home Assistant, binden Sie den Sensor ein und verbinden Sie dann Home Assistant mit Kamerplanter über den Entity-Namen.
+    Xiaomi-Sensoren lassen sich am einfachsten über Home Assistant einbinden. Installiere die Xiaomi-Integration in Home Assistant, binde den Sensor ein und verbinde dann Home Assistant mit Kamerplanter über den Entity-Namen.
 
 ??? question "Kann ich mehrere Sensoren für denselben Standort haben?"
-    Ja. Sie können beliebig viele Sensoren einem Standort zuordnen. Wenn z.B. Temperatur und Luftfeuchte von verschiedenen Geräten kommen, konfigurieren Sie diese als separate Sensoren.
+    Ja. Du kannst beliebig viele Sensoren einem Standort zuordnen. Wenn z.B. Temperatur und Luftfeuchte von verschiedenen Geräten kommen, konfiguriere diese als separate Sensoren.
 
 ??? question "Was bedeutet der Hinweis 'Messung veraltet'?"
     Kamerplanter zeigt diesen Hinweis, wenn die letzte Messung eines Parameters älter als das konfigurierte Überwachungsintervall ist. Das ist ein Hinweis, dass eine neue Messung fällig ist.

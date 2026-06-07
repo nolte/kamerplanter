@@ -177,7 +177,7 @@ Skaffold richtet folgende Port-Forwardings ein:
 
 ### Skaffold-Profile und -Module
 
-Die `skaffold.yaml` enthält zwei Konfigurationen: die Hauptkonfiguration (Backend + Frontend) mit Profilen und ein separates **KI-Modul** fuer den Knowledge/AI-Stack.
+Die `skaffold.yaml` enthält zwei Konfigurationen: die Hauptkonfiguration (Backend + Frontend) mit Profilen und ein separates **KI-Modul** für den Knowledge/AI-Stack.
 
 | Profil / Modul | Befehl | Komponenten |
 |----------------|--------|-------------|

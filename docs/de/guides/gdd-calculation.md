@@ -51,7 +51,7 @@ GDD_akkumuliert = Σ GDD_Tag  (von Tag 1 bis heute)
 | Karotte | 4 | Ernte nach ~1000–1200 GDD |
 
 !!! tip "Basistemperatur in den Stammdaten pflegen"
-    Tragen Sie die Basistemperatur einer Art direkt in den Stammdaten unter dem Reiter "Wachstumsanforderungen" ein. Kamerplanter verwendet diesen Wert automatisch bei der GDD-Berechnung für alle Pflanzen dieser Art.
+    Trage die Basistemperatur einer Art direkt in den Stammdaten unter dem Reiter "Wachstumsanforderungen" ein. Kamerplanter verwendet diesen Wert automatisch bei der GDD-Berechnung für alle Pflanzen dieser Art.
 
 ---
 
@@ -77,13 +77,13 @@ Kamerplanter kann GDD-basierte Phasenübergangsregeln auswerten. Wenn eine Pflan
 
 ### Konfiguration einer GDD-Übergangsregel
 
-1. Öffnen Sie die Stammdaten der gewünschten Pflanzenart.
-2. Navigieren Sie zu **Lebenszyklus > Übergangskriterien**.
-3. Wählen Sie für den gewünschten Phasenübergang den Typ **GDD-basiert**.
-4. Tragen Sie den Schwellenwert in GDD ein.
+1. Öffne die Stammdaten der gewünschten Pflanzenart.
+2. Navigiere zu **Lebenszyklus > Übergangskriterien**.
+3. Wähle für den gewünschten Phasenübergang den Typ **GDD-basiert**.
+4. Trage den Schwellenwert in GDD ein.
 
 !!! example "Beispiel: Tomate Vegetativ → Blüte"
-    Tragen Sie 400 GDD als Schwellenwert für den Übergang von der vegetativen Phase in die Blütephase ein. Sobald die Pflanze diesen Wert erreicht hat, erscheint ein Übergangshinweis im Dashboard.
+    Trage 400 GDD als Schwellenwert für den Übergang von der vegetativen Phase in die Blütephase ein. Sobald die Pflanze diesen Wert erreicht hat, erscheint ein Übergangshinweis im Dashboard.
 
 ---
 
@@ -129,16 +129,16 @@ Pflanzen sind keine Kalender. Ihre Entwicklung wird durch aufgenommene Wärmeene
 
 ---
 
-## Haeufige Fragen
+## Häufige Fragen
 
 ??? question "Welche Basistemperatur soll ich für Cannabis verwenden?"
-    Die meisten Cannabis-Sorten verwenden T_base = 10 °C. Manche Indoor-Züchter setzen 15 °C, da die Pflanzen nie unter dieser Temperatur kultiviert werden. Konsistenz ist wichtiger als der Absolutwert — verwenden Sie für alle Pflanzen einer Art denselben Wert.
+    Die meisten Cannabis-Sorten verwenden T_base = 10 °C. Manche Indoor-Züchter setzen 15 °C, da die Pflanzen nie unter dieser Temperatur kultiviert werden. Konsistenz ist wichtiger als der Absolutwert — verwende für alle Pflanzen einer Art denselben Wert.
 
 ??? question "Muss ich täglich Temperaturen erfassen?"
     Für Indoor-Anbau mit konstanter Temperatur reicht ein Tagesdurchschnitt. Für Außenanlagen empfiehlt sich die Min/Max-Methode mit einem Thermometer. Zukünftig kann Kamerplanter Wetterdaten automatisch über die DWD-/Open-Meteo-Integration beziehen (REQ-005).
 
 ??? question "GDD-Wert ist unrealistisch hoch, was ist falsch?"
-    Prüfen Sie, ob die Basistemperatur in den Stammdaten korrekt eingetragen ist. Eine versehentlich auf 0 °C gesetzte Basistemperatur summiert jede Umgebungswärme auf.
+    Prüfe, ob die Basistemperatur in den Stammdaten korrekt eingetragen ist. Eine versehentlich auf 0 °C gesetzte Basistemperatur summiert jede Umgebungswärme auf.
 
 ---
 
