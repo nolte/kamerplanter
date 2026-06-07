@@ -67,19 +67,36 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: kamerplanter-security
         run: |
+          # NOTE: deliberately *without* `--wait`. With `--wait`, compose
+          # aborts this step the instant the backend container exits during
+          # its lifespan startup — before the readiness step below (which
+          # captures container logs) ever runs, leaving the actual crash
+          # invisible. We start detached and diagnose in the next step.
           docker compose \
             -f docker-compose.e2e.yml \
             -f docker-compose.security.override.yml \
-            up -d --wait backend frontend
+            up -d backend frontend
 
       - name: Wait for stack readiness
+        env:
+          COMPOSE_PROJECT_NAME: kamerplanter-security
         run: |
           # Probes the same liveness path used by the docker-compose
           # healthcheck (/api/v1/health/live) and the served frontend root.
           # Window is 360s (60 retries × 6s) so the wait-loop survives the
           # backend's first-run migrations + seeds, which the e2e compose
           # base file invokes before declaring the service healthy.
+          backend_cid="$(docker compose -p kamerplanter-security ps -aq backend)"
           for i in $(seq 1 60); do
+            # Fail fast (and dump logs) if the backend exited instead of
+            # spinning the full 360s window against a dead container.
+            state="$(docker inspect -f '{{.State.Status}} (exit {{.State.ExitCode}})' "$backend_cid" 2>/dev/null || echo missing)"
+            case "$state" in
+              exited*|dead*|missing)
+                echo "::error::backend container is '$state' during startup" >&2
+                break
+                ;;
+            esac
             if curl -fsS http://127.0.0.1:8000/api/v1/health/live >/dev/null \
                && curl -fsS http://127.0.0.1:5173/ >/dev/null; then
               echo "stack ready (try $i)"
@@ -87,8 +104,16 @@ jobs:
             fi
             sleep 6
           done
-          echo "::error::stack did not become ready within 360s" >&2
-          docker compose -p kamerplanter-security logs --tail 200 backend frontend
+          echo "::error::stack did not become ready" >&2
+          echo "::group::backend container state"
+          docker compose -p kamerplanter-security ps -a
+          echo "::endgroup::"
+          echo "::group::backend logs (last 500 lines)"
+          docker compose -p kamerplanter-security logs --no-color --tail 500 backend
+          echo "::endgroup::"
+          echo "::group::frontend logs (last 100 lines)"
+          docker compose -p kamerplanter-security logs --no-color --tail 100 frontend
+          echo "::endgroup::"
           exit 1
 
       - name: Generate OpenAPI spec from running backend
