@@ -3,16 +3,16 @@ on:
 
 jobs:
   static:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-pre-commit.yaml@v1.1.19
+    uses: nolte/gh-plumbing/.github/workflows/reusable-pre-commit.yaml@v1.1.20
 
   security:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-trivy.yaml@v1.1.19
+    uses: nolte/gh-plumbing/.github/workflows/reusable-trivy.yaml@v1.1.20
     permissions:
       contents: read
       security-events: write
       actions: read
 
   chain-bench:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-chain-bench.yaml@v1.1.19
+    uses: nolte/gh-plumbing/.github/workflows/reusable-chain-bench.yaml@v1.1.20
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
