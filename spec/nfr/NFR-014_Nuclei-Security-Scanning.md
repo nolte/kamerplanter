@@ -56,7 +56,7 @@ NFR-009 schützt vor verwundbaren Bibliotheken **bevor** sie deployt werden. NFR
 **um** Regressionen in der Sicherheitskonfiguration sofort sichtbar zu machen.
 
 **Als** Backend-Entwickler
-**möchte ich** dass exponierte Debug-Endpunkte, leakende Headers und vergessene Standard-Logins automatisch erkannt werden
+**möchte ich** dass exponierte Debug-Endpunkte, Header mit Informationsleck und vergessene Standard-Logins automatisch erkannt werden
 **um** keine kritische Konfiguration zu übersehen.
 
 **Als** Frontend-Entwickler
@@ -102,7 +102,7 @@ Praktisches Beispiel:
 | Backend-API (FastAPI) — `/api/v1/...` | Nuclei `http://backend:8000` | Pro PR + täglich |
 | Frontend-Bundle & statische Assets — `/` | Nuclei `http://frontend:5173` | Pro PR + täglich |
 | Reverse-Proxy / Ingress (Traefik) | Nuclei gegen Public-Hostname auf Staging | Täglich |
-| OpenAPI-Specifikation — `/api/v1/openapi.json` | Nuclei `-input openapi.json` | Pro PR |
+| OpenAPI-Spezifikation — `/api/v1/openapi.json` | Nuclei `-input openapi.json` | Pro PR |
 | Kamerplanter-Knowledge-Service (sofern deployt) | Nuclei gegen Service-URL | Pro PR + täglich |
 
 ### 2.2 Was MUSS gefunden werden
@@ -126,7 +126,7 @@ Praktisches Beispiel:
 - **Tiefes Fuzzing** und Active-Scan von Parametern → siehe NFR-015 (ZAP Full-Scan).
 - **Authentifizierte Business-Logic-Tests** (z. B. Tenant-Isolation, AuthZ-Matrix) → siehe NFR-015 + dedizierte Selenium-Tests aus NFR-008a.
 - **CVE-Scanning der Dependencies vor Deployment** → siehe NFR-009.
-- **SAST / Source-Code-Analyse** → ausserhalb des Scopes dieses NFR (eigenes Backlog).
+- **SAST / Source-Code-Analyse** → außerhalb des Scopes dieses NFR (eigenes Backlog).
 
 ---
 
@@ -160,7 +160,7 @@ nuclei \
 
 **MUSS**: Das öffentliche `nuclei-templates`-Repository (`projectdiscovery/nuclei-templates`) wird vor jedem Lauf via `-update-templates` aktualisiert.
 
-**SOLL**: Templates der Kategorie `intrusive` und `dos` werden ausschliesslich gegen dedizierte Test-Umgebungen ausgeführt — niemals gegen Staging mit produktiven Daten.
+**SOLL**: Templates der Kategorie `intrusive` und `dos` werden ausschließlich gegen dedizierte Test-Umgebungen ausgeführt — niemals gegen Staging mit produktiven Daten.
 
 ### 3.2 Eigene Templates
 
@@ -170,7 +170,7 @@ nuclei \
 |---|---|---|
 | `kamerplanter-security-headers.yaml` | Prüft `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | High |
 | `kamerplanter-cors-misconfig.yaml` | Prüft, dass `Access-Control-Allow-Origin: *` nicht in Kombination mit `Allow-Credentials` ausgeliefert wird | High |
-| `kamerplanter-debug-endpoints.yaml` | Prüft, dass `/docs`, `/redoc`, `/openapi.json` in produktiver Umgebung gemäss Konfiguration entweder gesperrt oder authentifiziert sind | Medium |
+| `kamerplanter-debug-endpoints.yaml` | Prüft, dass `/docs`, `/redoc`, `/openapi.json` in produktiver Umgebung gemäß Konfiguration entweder gesperrt oder authentifiziert sind | Medium |
 | `kamerplanter-tenant-leak.yaml` | Prüft, dass `tenant_key` / `tenant_slug` nicht in Fehlerantworten unauthentifizierter Requests erscheint | High |
 | `kamerplanter-jwt-leak.yaml` | Prüft, dass JWTs nicht in URL-Pfaden, Logs (`/health`-Response), HTML-Antworten oder im Frontend-Bundle in `localStorage`/`sessionStorage`/Service-Worker-Caches geschrieben werden (Headless-Mode mit `headless: true`) | Critical |
 | `kamerplanter-source-map.yaml` | Prüft, dass `*.map`-Dateien nicht in produktiven Frontend-Builds ausgeliefert werden | Medium |
@@ -215,7 +215,7 @@ http:
 
 ### 3.3 Template-Versionierung & Reproduzierbarkeit
 
-**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync abbildet und kein `.git`-Verzeichnis erzeugt:
+**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync durchführt und kein `.git`-Verzeichnis erzeugt:
 
 ```yaml
 - name: Pin Nuclei Templates
@@ -356,7 +356,7 @@ jobs:
 
 ### 4.3 OpenAPI-Scan
 
-**MUSS**: Vor jedem Merge wird die OpenAPI-Specifikation gegen Nuclei mit `-input` gescannt — damit deklarierte Routen (auch undokumentierte) abgedeckt sind:
+**MUSS**: Vor jedem Merge wird die OpenAPI-Spezifikation mit `-input` gegen Nuclei gescannt — damit deklarierte Routen (auch undokumentierte) abgedeckt sind:
 
 ```bash
 curl -s http://localhost:8000/api/v1/openapi.json -o openapi.json
@@ -458,7 +458,7 @@ suppressions:
                    │
          ┌─────────▼──────────┐
          │  GitHub-Issue      │  ── Label: security, nuclei, severity-XX
-         │  automatisch       │  ── Assignee: rotating Security-Owner
+         │  automatisch       │  ── Assignee: rotierender Security-Owner
          │  geöffnet          │  ── Body: Template-ID, URL, Snippet
          └─────────┬──────────┘
                    │
@@ -469,7 +469,7 @@ suppressions:
          └─────────┬──────────┘
                    │
          ┌─────────▼──────────┐
-         │  Fix gemerged      │  ── Issue schliesst automatisch,
+         │  Fix gemerged      │  ── Issue schließt automatisch,
          │  → Re-Scan         │     sobald nächster Scan negativ
          └────────────────────┘
 ```
@@ -481,7 +481,7 @@ suppressions:
 **MUSS**: SARIF-Reports werden in GitHub Code Scanning hochgeladen — damit Findings:
 - Direkt im PR-Diff sichtbar sind (Inline-Annotations)
 - In `Security` → `Code scanning alerts` zentral landen
-- Über die GraphQL-API abgreifbar sind (für Dashboards)
+- Über die GraphQL-API abrufbar sind (für Dashboards)
 
 ---
 
@@ -579,19 +579,19 @@ suppressions:
 
 | Risiko | Auswirkung | Wahrscheinlichkeit | Mitigation |
 |---|---|---|---|
-| **Information Disclosure durch ungeprüfte Endpunkte** | Leak von `.env`, JWT-Tokens, Tenant-IDs → DSGVO-Verstoss, Vertrauensschaden | Hoch | NFR-014 PR-Gate, Pflicht-Template-Sets |
+| **Information Disclosure durch ungeprüfte Endpunkte** | Leak von `.env`, JWT-Tokens, Tenant-IDs → DSGVO-Verstoß, Vertrauensschaden | Hoch | NFR-014 PR-Gate, Pflicht-Template-Sets |
 | **Bekannte CVEs in eingesetzten Frameworks unentdeckt** | Ausnutzung publik dokumentierter Schwachstellen | Mittel | Nightly-Scan mit `cves`-Tag, NFR-009 als zusätzliche Ebene |
 | **Default-Logins in mit-deployten Tools** | Vollständige Übernahme administrativer Komponenten | Mittel | Pflicht-Aktivierung `default-logins`-Templates |
 | **Fehlende Security-Headers** | XSS-Filter, MIME-Sniffing-Angriffe, Clickjacking | Hoch | Eigenes Template `kamerplanter-security-headers.yaml` |
 | **CORS-Misconfiguration** | Cross-Origin-Datenzugriff auf authentifizierte APIs | Mittel | Eigenes Template `kamerplanter-cors-misconfig.yaml` |
-| **Source-Maps in Produktion** | Vollständige Frontend-Logik öffentlich, einschliesslich API-Aufrufe | Mittel | Eigenes Template `kamerplanter-source-map.yaml` |
+| **Source-Maps in Produktion** | Vollständige Frontend-Logik öffentlich, einschließlich API-Aufrufe | Mittel | Eigenes Template `kamerplanter-source-map.yaml` |
 | **False-Positive-Müdigkeit (Alert Fatigue)** | Echte Findings werden ignoriert | Mittel | Triage-Workflow mit verpflichteten Suppression-Begründungen und Ablaufdaten |
 
 ---
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-04-28
 **Review**: Pending

@@ -88,10 +88,10 @@ Konsistent mit dem etablierten Projekt-Pattern (External Enrichment, Notificatio
 - **Interface (ABC):** `domain/interfaces/object_storage_adapter.py`
 - **Implementierungen:** `data_access/storage/<backend>_adapter.py`
 - **Registry:** `data_access/storage/registry.py` — Class-Level-Decorator-Pattern, Auswahl per Konfigurations-Schluessel
-- **Service-Layer:** `services/attachment_service.py` — kennt nur das Interface, niemals einen konkreten Backend
+- **Service-Layer:** `services/attachment_service.py` — kennt nur das Interface, niemals ein konkretes Backend
 - **Dependency Injection:** FastAPI `Depends(get_object_storage)` liefert den per Konfiguration aktivierten Adapter
 
-**Begruendung:** Weder Service- noch API-Layer duerfen einen Backend-Wechsel beruehren. Ein neuer Backend (z.B. Google Drive) wird durch einen einzelnen Adapter realisiert, nicht durch Aenderungen quer durch den Stack.
+**Begruendung:** Weder Service- noch API-Layer duerfen einen Backend-Wechsel beruehren. Ein neues Backend (z.B. Google Drive) wird durch einen einzelnen Adapter realisiert, nicht durch Aenderungen quer durch den Stack.
 
 ### 2.2 Trennung von Metadaten und Inhalt
 
@@ -131,10 +131,10 @@ t/personal_max/exports/2026/04/01HQ8X9V3J7P5K2N4M6T8R0S2Y.pdf
 
 Streng konform zu NFR-001:
 
-- Frontend kennt keinen Storage-Backend, keine Bucket-Namen, keine Region
+- Frontend kennt kein Storage-Backend, keine Bucket-Namen, keine Region
 - Uploads laufen entweder ueber das Backend (`POST /api/v1/t/{tenant_slug}/attachments`) oder via **Pre-Signed URL**, die das Backend kurzlebig (max. 15 min) signiert
 - Downloads laufen entweder als gestreamter Backend-Response oder via Pre-Signed Download-URL
-- Das Backend setzt die ACL — der Storage-Backend ist niemals oeffentlich oder anonym lesbar
+- Das Backend setzt die ACL — das Storage-Backend ist niemals oeffentlich oder anonym lesbar
 
 ---
 
@@ -144,17 +144,17 @@ Streng konform zu NFR-001:
 
 | Backend | Schluessel | Anwendungsfall | Voraussetzungen |
 |---------|-----------|----------------|-----------------|
-| **Local Filesystem (PV)** | `local-fs` | Light-Modus (REQ-027), Self-Hosted, Single-Node, Dev | Kubernetes-Volume mit `ReadWriteMany` (RWX) bei >1 Replica; sonst RWO |
+| **Local Filesystem (PV)** | `local-fs` | Light-Modus (REQ-027), Self-Hosted, Single-Node, Dev | Kubernetes-Volume mit `ReadWriteMany` (RWX) bei >1 Replica; sonst `ReadWriteOnce` (RWO) |
 | **S3-kompatibles Object Storage** | `s3` | Production / Community / Enterprise; deckt MinIO, AWS S3, Hetzner Object Storage, Backblaze B2, Wasabi, Cloudflare R2, Scaleway, GCS (S3-API), DigitalOcean Spaces ab | Endpoint, Region, Bucket, Access-Key, Secret-Key, optional KMS-Key |
 
 **Begruendung Phase-1-Auswahl:**
 
 - `local-fs` deckt alle Deployments **ohne** externe Abhaengigkeit ab — entscheidend fuer den Light-Modus (REQ-027) und die Hetzner-Empfehlung in NFR-012
-- `s3` deckt mit einem einzigen Adapter-Implementierung praktisch alle relevanten Cloud-Anbieter ab, weil sich AWS/GCP/Azure (via Tools)/MinIO/Hetzner/Backblaze auf das S3-Protokoll geeinigt haben
+- `s3` deckt mit einer einzigen Adapter-Implementierung praktisch alle relevanten Cloud-Anbieter ab, weil sich AWS/GCP/Azure (via Tools)/MinIO/Hetzner/Backblaze auf das S3-Protokoll geeinigt haben
 
 ### 3.2 Phase 2 — Geplante Erweiterungen (Roadmap, nicht in v1.0)
 
-Folgende Backends sind **architektonisch vorgesehen**, aber nicht Teil von v1.0. Sie werden zu spaeteren Releases als zusaetzliche Adapter ausgeliefert. Der Adapter-Vertrag (Abschnitt 4.2) ist so geschnitten, dass jeder dieser Backends ohne API-Aenderung nachgezogen werden kann.
+Folgende Backends sind **architektonisch vorgesehen**, aber nicht Teil von v1.0. Sie werden zu spaeteren Releases als zusaetzliche Adapter ausgeliefert. Der Adapter-Vertrag (Abschnitt 4.2) ist so geschnitten, dass jedes dieser Backends ohne API-Aenderung nachgezogen werden kann.
 
 | Backend | Schluessel | Anwendungsfall | Besonderheiten / Risiken |
 |---------|-----------|----------------|--------------------------|
@@ -163,9 +163,9 @@ Folgende Backends sind **architektonisch vorgesehen**, aber nicht Teil von v1.0.
 | **Nextcloud / WebDAV** | `webdav` | Privatnutzer / Hobbygaertner mit eigener Nextcloud, Self-Hosted-Communities, Datensouveraenitaet | WebDAV ist **kein** Object-Store; keine Pre-Signed URLs, kein atomares Multi-Part — Streaming-only; PROPFIND fuer Metadaten |
 | **Google Drive** | `gdrive` | Privatnutzer mit Google-Konto, geringe Einstiegshuerde | OAuth2-Flow pro Nutzer, nicht pro Tenant; API-Quotas; *kein klassisches Pre-Sign* — Tokens sind kurzlebig; Benennungs-Kollisionen moeglich |
 | **Dropbox** | `dropbox` | Privatnutzer, einfache UX | OAuth2; Long-Polling fuer Aenderungen statt Webhooks; pfadbasiert, kein Bucket-Konzept |
-| **Microsoft OneDrive / SharePoint** | `onedrive` | Enterprise-Kunden mit M365, Pri vatnutzer mit Office-Abo | Microsoft Graph API; Tenant-spezifische App-Registrierung; Drive-IDs |
+| **Microsoft OneDrive / SharePoint** | `onedrive` | Enterprise-Kunden mit M365, Privatnutzer mit Office-Abo | Microsoft Graph API; Tenant-spezifische App-Registrierung; Drive-IDs |
 | **Backblaze B2 (nativ)** | `b2` | Kostenoptimierte Backups, Cold-Storage | Native API ergaenzt die S3-API-Kompatibilitaet; oft guenstiger via native API |
-| **IPFS / S3-Gateway** | `ipfs` | Forschungs- und Communities mit dezentralem Anspruch | Content-Adressing statt Pfade; **keine** Loeschung im klassischen Sinn — DSGVO-Bewertung erforderlich, vermutlich nicht Tenant-loeschungs-konform |
+| **IPFS / S3-Gateway** | `ipfs` | Forschung und Communities mit dezentralem Anspruch | Content-Adressing statt Pfade; **keine** Loeschung im klassischen Sinn — DSGVO-Bewertung erforderlich, vermutlich nicht Tenant-loeschungs-konform |
 | **FTP / SFTP** | `sftp` | Legacy-Integrationen, Heim-NAS-Geraete | Kein natives Pre-Sign; Streaming-only; Verbindungspooling notwendig |
 
 **Hinweis zu Cloud-Konten privater Nutzer (Google Drive, Dropbox, OneDrive):** Diese Backends sind **pro Nutzer**, nicht **pro Tenant** authentifiziert. Eine OAuth-Token-Verwaltung pro `Membership` ist Voraussetzung. Tenant-Loeschung kann diese externen Daten **nur** dann entfernen, wenn Kamerplanter zur Loeschzeit noch ein gueltiges Token besitzt — andernfalls greift die DSGVO-Verantwortung des externen Anbieters. Diese Einschraenkung muss dem Nutzer im Einstellungs-UI explizit angezeigt werden.
@@ -208,7 +208,7 @@ Die Auswahl des Backends erfolgt **ausschliesslich** ueber Konfiguration — nie
 | Variable | Beschreibung |
 |----------|--------------|
 | `STORAGE_LOCAL_FS_ROOT` | Mount-Pfad innerhalb des Containers, z.B. `/data/attachments` |
-| `STORAGE_LOCAL_FS_PUBLIC_BASE_URL` | Base-URL des internen Backend-Endpunkts, der gestreamt ausliefert (z.B. `https://api.kamerplanter.local/api/v1/attachments`) |
+| `STORAGE_LOCAL_FS_PUBLIC_BASE_URL` | Base-URL des internen Backend-Endpunkts, der die Datei gestreamt ausliefert (z.B. `https://api.kamerplanter.local/api/v1/attachments`) |
 
 **Backend `s3`:**
 
@@ -227,7 +227,7 @@ Die Auswahl des Backends erfolgt **ausschliesslich** ueber Konfiguration — nie
 
 ### 4.2 Interface-Definition
 
-Das Adapter-Interface ist Backend-unabhaengig. Jeder Adapter aus Phase 1 oder Phase 2 muss exakt diese Methoden bedienen — wo ein Backend eine Methode nicht nativ unterstuetzt, ist die im Vertrag genannte Fallback-Strategie umzusetzen:
+Das Adapter-Interface ist Backend-unabhaengig. Jeder Adapter aus Phase 1 oder Phase 2 muss exakt diese Methoden bedienen — wenn ein Backend eine Methode nicht nativ unterstuetzt, ist die im Vertrag genannte Fallback-Strategie umzusetzen:
 
 | Methode | Verhalten | Fallback-Strategie (Backends ohne native Unterstuetzung) |
 |---------|-----------|-----------------------------------------------------------|
@@ -302,7 +302,7 @@ Pflicht-Reihenfolge fuer jeden Upload:
 10. **Metadaten-Persistenz** in ArangoDB
 11. **Audit-Log-Eintrag** — `who`, `when`, `tenant_key`, `attachment_id`, `category`, `byte_size`
 
-Fehlschlaegt einer der Schritte 4–7, wird der Upload **vor** dem Schreiben ins Storage abgebrochen — keine Orphan-Bytes.
+Fehlschlaegt einer der Schritte 4–7, wird der Upload **vor** dem Schreiben ins Storage abgebrochen — es bleiben keine verwaisten Bytes zurueck.
 
 ### 5.2 Default Mime-Type-Whitelist
 
@@ -458,7 +458,7 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 
 - Pre-Signed Download-URLs reduzieren Backend-Bandbreite signifikant — verbindlich fuer Production
 - Local-FS-Setups muessen das Backend-Streaming-Volumen in der Pod-Auslegung beruecksichtigen (NFR-012 §4.1)
-- Hetzner Object Storage und MinIO im Cluster haben **keine** Egress-Gebuehren — fuer Cost-Sensitive-Tenants empfohlen
+- Hetzner Object Storage und MinIO im Cluster haben **keine** Egress-Gebuehren — fuer kostensensible Tenants empfohlen
 
 ---
 
@@ -538,7 +538,7 @@ storage:
 | **AC-05** | Pre-Signed URLs haben eine TTL von max. 15 Minuten (Default), Fehlversuche bei laengerer TTL werden vom Backend abgelehnt. |
 | **AC-06** | Mime-Type- und Magic-Byte-Validierung blockiert alle Uploads, deren tatsaechlicher Inhalt nicht zur Whitelist passt. |
 | **AC-07** | Migration zwischen `local-fs` und `s3` ist mit dem Migrations-Skript verlustfrei moeglich (SHA-256-Verify auf 100 % der Objekte). |
-| **AC-08** | Storage-Health-Probe ist Teil des `/health/ready`-Endpunkts und blockiert Pod-Ready, wenn der konfigurierte Backend nicht erreichbar ist. |
+| **AC-08** | Storage-Health-Probe ist Teil des `/health/ready`-Endpunkts und blockiert Pod-Ready, wenn das konfigurierte Backend nicht erreichbar ist. |
 | **AC-09** | Existierende `photo_refs`-Felder (REQ-006/007/008/010/013) werden auf `attachment_id`-Listen migriert; eine vorhandene Migrations-Routine konvertiert Bestandsdaten. |
 | **AC-10** | Adapter-Vertrag (Abschnitt 4.2) ist als ABC implementiert und durch ein gemeinsames Test-Set verifiziert, das fuer jeden Adapter (Phase 1: `local-fs`, `s3`) gruen sein muss. |
 | **AC-11** | Dokumentation enthaelt Adapter-Roadmap (Phase 2: `azure-blob`, `gcs`, `webdav`, `gdrive`, `dropbox`, `onedrive`, `b2`) als Erweiterungspunkt. |
@@ -549,7 +549,7 @@ storage:
 
 | Nr. | Frage | Entscheider |
 |-----|-------|-------------|
-| O-01 | Soll Phase 2 nach Stabilitaet von v1.0 priorisiert werden nach Nutzerbedarf (Befragung) oder fix nach Roadmap? | Produkt |
+| O-01 | Soll Phase 2 nach Stabilisierung von v1.0 anhand des Nutzerbedarfs (Befragung) priorisiert werden oder fix nach Roadmap? | Produkt |
 | O-02 | Wird ein eingebauter MinIO-Operator als Helm-Subchart fuer Self-Hosted ausgeliefert, oder bleibt MinIO eine externe Voraussetzung? | DevOps |
 | O-03 | Welche Quota-Defaults gelten pro Skalierungsstufe (Small/Medium/Large/Enterprise gemaess NFR-012 §10)? | Produkt + Finance |
 | O-04 | Wird Application-Layer-Encryption (zusaetzlich zu Storage-Layer) fuer "Confidentiality-Mode"-Tenants angeboten? | Security |
@@ -566,4 +566,4 @@ NFR-013 etabliert die **Speicheranbindung** als austauschbaren Adapter und legt 
 3. Alle Anwendungsfaelle (Tagebuch, IPM, Ernte, Post-Harvest, Aufgaben, Importe, Exporte, KI-Bilderkennung) laufen ausschliesslich gegen das Adapter-Interface.
 4. Tenant-Isolation erfolgt durch das Schluessel-Schema `t/{tenant_key}/...` — DSGVO-Loeschung wird durch `delete_prefix` deterministisch.
 5. Pre-Signed URLs sind verbindlich fuer Production zur Bandbreitenentlastung; Backends ohne Pre-Sign-Faehigkeit fallen automatisch auf Backend-Proxy-Streaming zurueck.
-6. Kein Frontend kennt einen Storage-Backend, einen Bucket-Namen oder eine S3-URL — der Backend-Endpunkt mit `attachment_id` ist die einzige stabile Adresse.
+6. Kein Frontend kennt ein Storage-Backend, einen Bucket-Namen oder eine S3-URL — der Backend-Endpunkt mit `attachment_id` ist die einzige stabile Adresse.

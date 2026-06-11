@@ -37,10 +37,10 @@ Betroffene Module: [ALL]
 Die Kubernetes-basierte Plattform ermöglicht:
 
 1. **Cloud-Unabhängigkeit**: Deployment auf AWS, GCP, Azure oder On-Premise
-2. **Kosteneffizienz**: Automatische Skalierung verhindert Over-Provisioning
-3. **Zero-Downtime Deployments**: Rolling Updates ohne Service-Unterbrechung
-4. **Disaster Recovery**: Schnelle Wiederherstellung durch deklarative Manifests
-5. **Multi-Tenancy**: Isolierte Namespaces für verschiedene Kunden/Farmen
+2. **Kosteneffizienz**: Die automatische Skalierung verhindert Über-Provisionierung
+3. **Zero-Downtime-Deployments**: Rolling Updates ohne Unterbrechung des Dienstes
+4. **Disaster Recovery**: Schnelle Wiederherstellung durch deklarative Manifeste
+5. **Multi-Tenancy**: Isolierte Namespaces für verschiedene Kunden bzw. Farmen
 
 ### 1.3 Fachliche Beschreibung
 
@@ -48,9 +48,9 @@ Die Kubernetes-basierte Plattform ermöglicht:
 
 - **Normale Last**: 3 Backend-Pods, 2 Worker-Pods
 - **Erntezeit** (hohe Aktivität): Automatische Skalierung auf 10 Backend-Pods
-- **Nachts** (niedrige Last): Scale-down auf 2 Pods zur Kostenoptimierung
+- **Nachts** (niedrige Last): Herunterskalieren auf 2 Pods zur Kostenoptimierung
 
-Kubernetes orchestriert dies automatisch basierend auf CPU/Memory/Custom-Metrics.
+Kubernetes orchestriert dies automatisch anhand von CPU-, Memory- und Custom-Metriken.
 
 ---
 
@@ -65,7 +65,7 @@ Kubernetes orchestriert dies automatisch basierend auf CPU/Memory/Custom-Metrics
 |**I. Codebase**|Git Repository, ein Codebase pro Service|
 |**II. Dependencies**|requirements.txt, package.json|
 |**III. Config**|ConfigMaps, Secrets (nie im Code)|
-|**IV. Backing Services**|ArangoDB, Redis als attachable Resources|
+|**IV. Backing Services**|ArangoDB, Redis als anbindbare Ressourcen|
 |**V. Build/Release/Run**|Docker Build → Helm Release → K8s Run|
 |**VI. Processes**|Stateless Pods, State in Datenbanken|
 |**VII. Port Binding**|Services exponieren Ports (8000, 8529)|
@@ -145,9 +145,9 @@ metadata:
 
 **Namespace-Strategie**:
 
-- **dev**: Entwickler-Testing, keine Ressourcen-Limits
-- **staging**: Pre-Production, identisch zu Prod
-- **prod**: Production, strenge Limits, Monitoring
+- **dev**: Entwickler-Tests, keine Ressourcen-Limits
+- **staging**: Vorproduktion, identisch zu Prod
+- **prod**: Produktion, strenge Limits, Monitoring
 
 ### 3.2 Deployments (Stateless Workloads)
 
@@ -425,8 +425,8 @@ spec:
 **Wichtig bei StatefulSets**:
 
 - **Geordnete Identitäten**: arangodb-0, arangodb-1, arangodb-2
-- **Persistente PVCs**: Überleben Pod-Neustarts
-- **Headless Service**: Für Cluster-Kommunikation
+- **Persistente PVCs**: Überstehen Pod-Neustarts
+- **Headless Service**: Für die clusterinterne Kommunikation
 
 ### 3.4 Services
 
@@ -604,7 +604,7 @@ stringData:
 **Alternativen**:
 
 1. **Sealed Secrets**: Verschlüsselte Secrets in Git
-2. **External Secrets Operator**: Sync von Vault/AWS Secrets Manager
+2. **External Secrets Operator**: Synchronisierung aus Vault/AWS Secrets Manager
 3. **SOPS**: Verschlüsselung mit Age/PGP
 
 ---
@@ -739,8 +739,8 @@ spec:
 
 **Verhindert**:
 
-- Zu viele Pods werden gleichzeitig während Node-Drains entfernt
-- Service-Unterbrechungen bei Cluster-Upgrades
+- dass während eines Node-Drains zu viele Pods gleichzeitig entfernt werden
+- Unterbrechungen des Dienstes bei Cluster-Upgrades
 
 ---
 
@@ -750,10 +750,10 @@ spec:
 
 **Vorteile**:
 
-- **Templating**: Wiederverwendbare Manifests
-- **Versionierung**: Rollback zu vorherigen Versionen
+- **Templating**: Wiederverwendbare Manifeste
+- **Versionierung**: Rollback auf vorherige Versionen
 - **Parametrisierung**: Unterschiedliche Values für Dev/Staging/Prod
-- **Dependency Management**: Sub-Charts (z.B. Redis, PostgreSQL)
+- **Dependency Management**: Sub-Charts (z. B. Redis, PostgreSQL)
 
 ### 5.2 Backend Helm Chart mit bjw-s/common
 
@@ -1086,7 +1086,7 @@ async def get_plant(plant_id: str):
 
 **Default-Deny-Policy (Namespace-Level):**
 
-Alle Pods im Namespace starten ohne jegliche Netzwerkverbindung. Erlaubte Verbindungen werden explizit durch die nachfolgenden Policies freigeschaltet.
+Alle Pods im Namespace starten ohne jegliche Netzwerkverbindung. Erlaubte Verbindungen schalten die nachfolgenden Policies explizit frei.
 
 ```yaml
 # k8s/network-policies/default-deny.yaml
@@ -1235,7 +1235,7 @@ spec:
       port: 53
 ```
 
-**Hinweis:** Die Egress-Regel für externe APIs (`0.0.0.0/0:443`) erlaubt dem Backend HTTPS-Verbindungen zu Diensten wie GBIF, Perenual (REQ-011), OIDC-Providern (REQ-023), HaveIBeenPwned (REQ-023), und Sentry (NFR-001 §8.3). Private IP-Bereiche werden explizit ausgeschlossen, um Lateral Movement zu verhindern.
+**Hinweis:** Die Egress-Regel für externe APIs (`0.0.0.0/0:443`) erlaubt dem Backend HTTPS-Verbindungen zu Diensten wie GBIF, Perenual (REQ-011), OIDC-Providern (REQ-023), HaveIBeenPwned (REQ-023) und Sentry (NFR-001 §8.3). Private IP-Bereiche bleiben explizit ausgeschlossen, um Lateral Movement (die seitliche Ausbreitung eines Angreifers im Cluster) zu verhindern.
 
 ### 7.2 Pod Security Standards
 
@@ -1571,8 +1571,8 @@ spec:
 
 **Skaliert Nodes basierend auf**:
 
-- Pending Pods (scale up)
-- Unterausgelastete Nodes (scale down)
+- ausstehende Pods (Hochskalieren)
+- unterausgelastete Nodes (Herunterskalieren)
 
 ### 10.2 Spot Instances (AWS)
 
@@ -1643,8 +1643,8 @@ spec:
 
 **Verhindert**:
 
-- Entwickler überprovisionieren Dev-Umgebung
-- Einzelner Service monopolisiert Cluster
+- dass Entwickler die Dev-Umgebung überprovisionieren
+- dass ein einzelner Service den Cluster monopolisiert
 
 ---
 
@@ -1803,7 +1803,7 @@ kubectl run -it --rm test-external --image=busybox -n default -- wget -O- http:/
 |---|---|---|---|
 |**Keine Resource Limits**|Out-of-Memory Crashes, Node-Ausfälle|Hoch|Verpflichtende Limits|
 |**Fehlende Health Checks**|Pods bleiben trotz Fehler im Load Balancer|Mittel|Liveness/Readiness Probes|
-|**Keine Network Policies**|Lateral Movement bei Breach|Mittel|Default Deny Policy|
+|**Keine Network Policies**|Seitliche Ausbreitung (Lateral Movement) nach einem Einbruch|Mittel|Default-Deny-Policy|
 |**Manuelle Deployments**|Inkonsistente Umgebungen|Hoch|Helm + GitOps|
 |**Fehlende Backups**|Datenverlust bei Disaster|Niedrig|Velero + CronJobs|
 |**Single Point of Failure**|Kompletter Ausfall bei Pod-Crash|Hoch|min 3 Replicas + PDB|

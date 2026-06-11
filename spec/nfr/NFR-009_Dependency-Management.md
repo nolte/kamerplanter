@@ -53,7 +53,7 @@ NFR-009 definiert die **übergreifende Strategie für Dependency-Management** �
 
 **Sicherheit**:
 - 84% aller Sicherheitsvorfälle in Open-Source-Projekten gehen auf bekannte, aber ungepatchte Schwachstellen zurück (Quelle: Snyk State of Open Source Security 2024)
-- Das Kamerplanter-System verarbeitet Sensor- und Erntedaten — ein Kompromittierung hätte direkten geschäftlichen Schaden
+- Das Kamerplanter-System verarbeitet Sensor- und Erntedaten — eine Kompromittierung hätte direkten geschäftlichen Schaden zur Folge
 
 **Wartbarkeit**:
 - Beim Frontend-Upgrade (Februar 2026) wurden 21 veraltete Pakete mit bis zu 2 Major-Versionen Rückstand identifiziert
@@ -69,7 +69,7 @@ NFR-009 definiert die **übergreifende Strategie für Dependency-Management** �
 Praktisches Beispiel:
 
 > **Szenario**: Die Bibliothek `python-arango` veröffentlicht Version 8.2.0 mit einem Fix für eine kritische Deserialisierungs-Schwachstelle (CVE).
-> **Ohne NFR-009**: Der Entwickler bemerkt den CVE erst Wochen später bei einem manuellen `pip-audit`. Die Aktualisierung erfordert manuelle Prüfung, ob Breaking Changes vorliegen. Das Update wird auf „nächsten Sprint" verschoben.
+> **Ohne NFR-009**: Der Entwickler bemerkt den CVE erst Wochen später bei einem manuellen `pip-audit`. Die Aktualisierung erfordert manuelle Prüfung, ob Breaking Changes vorliegen. Das Update wird auf „nächsten Sprint“ verschoben.
 > **Mit NFR-009**: Renovate Bot erstellt innerhalb von Stunden einen PR mit dem Update. Die CI-Pipeline führt automatisch alle Tests aus NFR-008 durch. Bei grüner Pipeline wird der PR auto-gemergt (Minor-Update). Der CVE ist innerhalb eines Tages geschlossen.
 
 ---
@@ -103,7 +103,7 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 | **Container-Base-Images** | Wöchentlich | Montag 06:00–08:00 UTC |
 | **Helm Chart Dependencies** | Monatlich | Erster Montag des Monats |
 
-**MUSS**: Security-relevante Updates (CVE Critical/High) dürfen nicht durch das Schedule verzögert werden. Renovate erstellt diese PRs sofort unabhängig vom Zeitfenster.
+**MUSS**: Security-relevante Updates (CVE Critical/High) dürfen nicht durch den Zeitplan verzögert werden. Renovate erstellt diese PRs sofort und unabhängig vom Zeitfenster.
 
 ### 2.3 Lockfile-Pflicht
 
@@ -146,7 +146,7 @@ npm ci --ignore-scripts
 | **Lockfile-Handling** | Automatisch (`lockFileMaintenance`) | Grundlegend |
 | **Preis** | Kostenlos (Open Source & GitHub App) | Kostenlos (GitHub-integriert) |
 
-**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit (z.B. alle MUI-Pakete in einem PR), das feine Schedule und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind.
+**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit (z.B. alle MUI-Pakete in einem PR), der fein konfigurierbare Zeitplan und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind.
 
 ### 3.2 renovate.json5 Referenz-Konfiguration
 
@@ -794,8 +794,8 @@ git push origin pre-react-20
 
 **MUSS**: Renovate Dependency Dashboard ist als GitHub Issue aktiviert und zeigt:
 - Offene Dependency-PRs mit Status
-- Ausstehende Major-Updates (awaiting approval)
-- Ignorierte/postponed Updates mit Begründung
+- Ausstehende Major-Updates (warten auf Freigabe)
+- Ignorierte oder zurückgestellte Updates mit Begründung
 
 **SOLL**: Monatliches Review des Dependency Dashboards im Team-Meeting.
 
@@ -899,7 +899,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
 | **License-Compliance-Verstöße** | Rechtliche Konsequenzen bei Verwendung von Copyleft-Lizenzen in proprietärem Kontext | Mittel | Automatische Lizenz-Prüfung in CI, Allowlist erlaubter Lizenzen |
 | **Dependency-Konflikte durch fehlende Gruppierung** | Inkompatible Paketversionen (z.B. MUI-Komponenten mit unterschiedlichen Versionen) | Mittel | Renovate-Gruppierungsregeln stellen atomare Updates sicher |
 | **CI-Überlastung durch zu viele Dependency-PRs** | Lange Wartezeiten für Feature-PRs, erhöhte GitHub Actions-Kosten | Niedrig | Rate Limiting (5/Stunde, 10 gleichzeitig), wöchentliches Schedule |
-| **Lockfile-Drift zwischen Entwicklern** | „Works on my machine"-Probleme, nicht-reproduzierbare Builds | Mittel | Lockfile-Pflicht, `npm ci` in CI, `pip-compile` für Python |
+| **Lockfile-Drift zwischen Entwicklern** | „Works on my machine“-Probleme, nicht reproduzierbare Builds | Mittel | Lockfile-Pflicht, `npm ci` in CI, `pip-compile` für Python |
 
 ---
 

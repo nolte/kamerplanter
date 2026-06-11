@@ -125,7 +125,7 @@ Praktisches Beispiel:
 | Frontend | `vitest run --coverage` mit `coverage.thresholds.lines=80, branches=75` in `vitest.config.ts` | `npm run test:coverage` | Build fails |
 | Frontend Hooks/Utils | `vitest --coverage --coverage.include='src/hooks/**' --coverage.include='src/utils/**'` mit `lines=85` | separater CI-Step | Build fails |
 
-**SOLL**: Coverage-Reports als CI-Artefakt (HTML + Cobertura-XML) für 30 Tage aufbewahren — Pull-Request-Diff zeigt Coverage-Delta, regression alerts Slack-Notification.
+**SOLL**: Coverage-Reports als CI-Artefakt (HTML + Cobertura-XML) für 30 Tage aufbewahren — der Pull-Request-Diff zeigt das Coverage-Delta, und bei einer Verschlechterung wird eine Slack-Benachrichtigung ausgelöst.
 
 **SOLL**: PR-Template enthält Checkbox „Coverage-Schwellen geprüft (siehe CI-Output)".
 <!-- /Quelle: Widerspruchsanalyse W-018 -->
@@ -1006,14 +1006,14 @@ pytest tests/e2e/ --generate-protocol
 | **Fehlende Testdaten-Isolation** | Tests beeinflussen sich gegenseitig; nicht-deterministische Ergebnisse | Mittel | Cleanup-Fixtures, Transaktion-Rollback, Collection-Truncate |
 | **Keine Testprotokolle** | Fehlende Nachvollziehbarkeit, kein Audit-Trail, UI-Veränderungen unbemerkt | Mittel | Automatische Protokoll-Generierung, Screenshot-Checkpoints |
 | **Testcontainers nicht verfügbar** | Integrationstests können lokal nicht ausgeführt werden | Niedrig | Docker als Voraussetzung dokumentieren, CI als Fallback |
-| **Selenium-Abhängigkeit auf Browser-Version** | E2E-Tests brechen bei Browser-Updates | Mittel | chromedriver-autoinstaller, versionierte Browser in CI |
+| **Selenium-Abhängigkeit von der Browser-Version** | E2E-Tests brechen bei Browser-Updates | Mittel | chromedriver-autoinstaller, versionierte Browser in CI |
 | **Protokoll-Inflation** | Zu viele Protokolle verbrauchen Speicherplatz | Niedrig | Lokale Ablage, regelmäßige manuelle Bereinigung, nicht eingecheckt |
 
 ---
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-02-26
 **Review**: Pending

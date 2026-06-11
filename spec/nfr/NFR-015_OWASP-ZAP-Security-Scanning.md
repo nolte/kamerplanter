@@ -19,7 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows, tests/se
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 1.1 | 2026-04-29 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf strict 1:1 ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). §3.1 Domain-Korrektur: `@kamerplanter.test` (von Pydantic abgelehnt) → `@zap.kamerplanter.example`; Setup-Tooling unter `tests/security/zap-setup/` statt im Backend-Code; Pre-Deploy-Check als AQL-Daten-Prüfung formuliert. PR-#117-Review-Followup: §4.2 um zwei Pässe (auth + anonym) für Auth-Bypass-Detection erweitert (Findings-Logik-Tabelle, Out-of-Scope-Routen referenziert §3.4). §3.2 dokumentiert die Limitation, dass ZAP einen 401-Request nicht automatisch nach `refreshToken()` replay-t — Mitigation über erhöhte Test-Token-Lifetime und Pre-Auth via Setup-Skript. |
+| 1.1 | 2026-04-29 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf striktes 1:1-Mapping ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). §3.1 Domain-Korrektur: `@kamerplanter.test` (von Pydantic abgelehnt) → `@zap.kamerplanter.example`; Setup-Tooling unter `tests/security/zap-setup/` statt im Backend-Code; Pre-Deploy-Check als AQL-Daten-Prüfung formuliert. PR-#117-Review-Followup: §4.2 um zwei Pässe (auth + anonym) für Auth-Bypass-Detection erweitert (Findings-Logik-Tabelle, Out-of-Scope-Routen referenziert §3.4). §3.2 dokumentiert die Limitation, dass ZAP einen 401-Request nicht automatisch nach `refreshToken()` replay-t — Mitigation über erhöhte Test-Token-Lifetime und Pre-Auth via Setup-Skript. |
 | 1.0 | 2026-04-28 | Erstversion — OWASP ZAP Baseline-, Full- und API-Scan-Profile; authentifizierte Scans gegen Tenant-Routing; AjaxSpider für React-SPA; SARIF-Reporting, Build-Gate, Triage. |
 
 # NFR-015: OWASP-ZAP-Security-Scanning
@@ -55,7 +55,7 @@ NFR-015 deckt explizit **authentifizierte** Tests gegen die Anwendung ab — ink
 
 **Als** Security Officer
 **möchte ich** dass jede produktive Freigabe einen vollständigen DAST-Scan durchlaufen hat
-**um** Klassen von Schwachstellen wie Injection, XSS oder Broken Authentication systematisch auszuschliessen.
+**um** Klassen von Schwachstellen wie Injection, XSS oder Broken Authentication systematisch auszuschließen.
 
 **Als** Backend-Entwickler
 **möchte ich** dass die OpenAPI-Spec gegen die laufende API gescannt wird
@@ -80,24 +80,24 @@ NFR-015 deckt explizit **authentifizierte** Tests gegen die Anwendung ab — ink
 - OWASP Top 10 ist die international anerkannte Risiko-Taxonomie für Web-Anwendungen — ZAP deckt diese systematisch ab.
 
 **Multi-Tenant-Pflicht**:
-- REQ-024 (Mandantenverwaltung) verlangt strikte Tenant-Isolation. Ohne authentifizierte Cross-Tenant-Scans kann diese Eigenschaft nicht verifiziert werden — sie kann nur explizit getestet werden.
-- Eine versehentlich fehlende `require_permission()`-Dependency in einem neuen Endpunkt ist genau die Klasse Bug, die ZAP-Active-Scan in Kombination mit zwei authentifizierten Sessions zuverlässig erkennt.
+- REQ-024 (Mandantenverwaltung) verlangt strikte Tenant-Isolation. Diese Eigenschaft lässt sich nicht passiv ableiten, sondern nur durch explizite Tests nachweisen — und dafür braucht es authentifizierte Cross-Tenant-Scans.
+- Eine versehentlich fehlende `require_permission()`-Dependency in einem neuen Endpunkt ist genau die Art von Bug, die der ZAP-Active-Scan in Kombination mit zwei authentifizierten Sessions zuverlässig erkennt.
 
 **API-Schema-Konformität**:
 - Die FastAPI-OpenAPI-Spec dokumentiert die deklarierte Schnittstelle. ZAP-API-Scan prüft, ob die Implementierung dieser Deklaration auf Sicherheitsebene folgt (Auth, Schema-Validation, Error-Handling).
-- Drift zwischen Spec und Implementierung ist ein verbreiteter Quell für Information Disclosure.
+- Drift zwischen Spec und Implementierung ist eine verbreitete Quelle für Information Disclosure.
 
 **Abdeckung dynamischer SPAs**:
-- React-Apps (REQ-009 Dashboard, alle Pflegemasken aus NFR-010) sind nicht durch klassische HTML-Spider erreichbar — Routen werden client-seitig gerendert.
+- React-Apps (REQ-009 Dashboard, alle Pflegemasken aus NFR-010) sind für klassische HTML-Spider nicht erreichbar, weil die Routen clientseitig gerendert werden.
 - ZAP AjaxSpider startet eine echte Browser-Instanz (Chrome Headless via Selenium), klickt durch die SPA und erfasst dadurch alle erreichbaren Routen.
 
 ### 1.3 Fachliche Beschreibung
 
 Praktisches Beispiel:
 
-> **Szenario**: Ein neuer Endpunkt `GET /api/v1/t/{tenant_slug}/harvest/{key}` wird hinzugefügt, vergisst aber die `require_permission()`-Dependency. Authentifizierte Nutzer eines anderen Mandanten können den Endpunkt aufrufen, weil JWT-Validierung greift, Tenant-Authorisierung jedoch nicht.
+> **Szenario**: Ein neuer Endpunkt `GET /api/v1/t/{tenant_slug}/harvest/{key}` wird hinzugefügt, vergisst aber die `require_permission()`-Dependency. Authentifizierte Nutzer eines anderen Mandanten können den Endpunkt aufrufen, weil die JWT-Validierung greift, die Tenant-Autorisierung jedoch nicht.
 > **Ohne NFR-015**: Der Bug bleibt unbemerkt, bis ein Mandant zufällig auf fremde Daten stößt — oder ein Angreifer ihn gezielt sucht.
-> **Mit NFR-015**: ZAP führt einen authentifizierten Scan mit Session A (Mandant α) gegen Routen aus, die Session B (Mandant β) erstellt hat. Eine erfolgreiche 200-Antwort auf cross-tenant-Daten ist konfiguriert als Fail-Bedingung — das CI-Gate blockiert den Merge.
+> **Mit NFR-015**: ZAP führt einen authentifizierten Scan mit Session A (Mandant α) gegen Routen aus, die Session B (Mandant β) erstellt hat. Eine erfolgreiche 200-Antwort auf Cross-Tenant-Daten ist als Fail-Bedingung konfiguriert — das CI-Gate blockiert den Merge.
 
 ---
 
@@ -127,7 +127,7 @@ Praktisches Beispiel:
 ### 2.3 Was wird ausdrücklich NICHT durch NFR-015 abgedeckt
 
 - **Schnelles Template-Scanning** für bekannte CVEs / Misconfigurations → siehe NFR-014.
-- **Source-Code-Analyse (SAST)** → ausserhalb des Scopes.
+- **Source-Code-Analyse (SAST)** → außerhalb des Scopes.
 - **Penetration-Testing** durch externe Auditoren — NFR-015 ergänzt manuelle Pentests, ersetzt sie aber nicht.
 - **Last-/Performance-Tests** → eigenes Themengebiet.
 
@@ -137,7 +137,7 @@ Praktisches Beispiel:
 
 ### 3.1 Test-Identitäten
 
-**MUSS**: Drei dedizierte Testkonten existieren ausschliesslich in der Staging-/CI-Umgebung:
+**MUSS**: Drei dedizierte Testkonten existieren ausschließlich in der Staging-/CI-Umgebung:
 
 | Login | Tenant | Rolle | Zweck |
 |---|---|---|---|
@@ -145,15 +145,15 @@ Praktisches Beispiel:
 | `zap-tenant-a-viewer@zap.kamerplanter.example` | `zap-tenant-a` | viewer | Permission-Matrix-Tests |
 | `zap-tenant-b-admin@zap.kamerplanter.example` | `zap-tenant-b` | admin | Cross-Tenant-Negativtests gegen Mandant α |
 
-**Domain-Wahl**: `@zap.kamerplanter.example` ist eine Subdomain unter dem von RFC 2606 reservierten `.example`-TLD. Die ursprünglich vorgesehene `.test`-Domain wird vom Pydantic-`email-validator` als „special-use reserved name" abgelehnt (RFC 6761), sodass eine Registrierung auch über die öffentliche `/api/v1/auth/register`-Route fehlschlagen würde. Die Subdomain `zap.` macht zusätzlich klar, dass jedes Konto unter diesem Suffix ein DAST-Fixture ist.
+**Domain-Wahl**: `@zap.kamerplanter.example` ist eine Subdomain unter der von RFC 2606 reservierten `.example`-TLD. Die ursprünglich vorgesehene `.test`-Domain wird vom Pydantic-`email-validator` als „special-use reserved name" abgelehnt (RFC 6761), sodass eine Registrierung auch über die öffentliche `/api/v1/auth/register`-Route fehlschlagen würde. Die Subdomain `zap.` macht zusätzlich klar, dass jedes Konto unter diesem Suffix ein DAST-Fixture ist.
 
 **MUSS**: Diese Konten:
-- werden über externe Test-Tooling unter `tests/security/zap-setup/` angelegt — **nicht** über produktive Backend-Module. Das Setup-Skript spricht ausschliesslich gegen die öffentliche REST-API (`/api/v1/auth/register`, `/api/v1/tenants/...`),
+- werden über externe Test-Tooling unter `tests/security/zap-setup/` angelegt — **nicht** über produktive Backend-Module. Das Setup-Skript spricht ausschließlich gegen die öffentliche REST-API (`/api/v1/auth/register`, `/api/v1/tenants/...`),
 - existieren NICHT in produktiven Umgebungen,
-- haben Passwörter, die ausschliesslich als GitHub-Secrets verwaltet werden (`KP_ZAP_PWD_TENANT_A_ADMIN`, `KP_ZAP_PWD_TENANT_A_VIEWER`, `KP_ZAP_PWD_TENANT_B_ADMIN`),
+- haben Passwörter, die ausschließlich als GitHub-Secrets verwaltet werden (`KP_ZAP_PWD_TENANT_A_ADMIN`, `KP_ZAP_PWD_TENANT_A_VIEWER`, `KP_ZAP_PWD_TENANT_B_ADMIN`),
 - werden bei jedem Re-Build der Staging-Umgebung neu angelegt; Cleanup erfolgt durch Namespace-Lifecycle, nicht durch ein dediziertes Lösch-Skript.
 
-**MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) führt eine reine **Daten-Prüfung** auf der Prod-DB-Snapshot aus. Da Kamerplanter ArangoDB nutzt, ist die Prüfung als AQL-Query zu formulieren:
+**MUSS**: Ein Pre-Deploy-Check (Pipeline-Stufe vor jedem Prod-Release) führt eine reine **Daten-Prüfung** auf dem Prod-DB-Snapshot aus. Da Kamerplanter ArangoDB nutzt, ist die Prüfung als AQL-Query zu formulieren:
 
 ```aql
 FOR u IN users
@@ -162,11 +162,11 @@ FOR u IN users
   RETURN u._key
 ```
 
-Jedes zurückgelieferte Dokument ist ein Block-Finding und scheitert das Release. Da das Setup-Tooling ausschliesslich unter `tests/` lebt und nicht ins Produktiv-Image gelangt, ist dies eine reine Daten-Hygiene-Kontrolle — nicht eine Code-Existenz-Prüfung.
+Jedes zurückgelieferte Dokument ist ein Block-Finding und lässt das Release scheitern. Da das Setup-Tooling ausschließlich unter `tests/` lebt und nicht ins Produktiv-Image gelangt, ist dies eine reine Daten-Hygiene-Kontrolle und keine Code-Existenz-Prüfung.
 
 ### 3.2 ZAP-Auth-Konfiguration (JWT-basiert)
 
-**MUSS**: Authentifizierte Scans nutzen das JWT-Login-Endpoint (REQ-023). JWT-Bearer-Tokens werden über ein **HttpSender-Skript** auf jeden Folgerequest gesetzt — nicht über ein klassisches Authentication-Script. Begründung: Ein Authentication-Script setzt den Header nur auf den initialen Login-Reply; ZAP-interne Spider-/Scanner-Komponenten würden ohne HttpSender-Skript anschliessend ohne Bearer-Header weiterlaufen.
+**MUSS**: Authentifizierte Scans nutzen den JWT-Login-Endpoint (REQ-023). JWT-Bearer-Tokens werden über ein **HttpSender-Skript** auf jeden Folgerequest gesetzt — nicht über ein klassisches Authentication-Script. Begründung: Ein Authentication-Script setzt den Header nur auf den initialen Login-Reply; ZAP-interne Spider-/Scanner-Komponenten würden ohne HttpSender-Skript anschließend ohne Bearer-Header weiterlaufen.
 
 ```javascript
 // tests/security/zap-scripts/jwt-httpsender.js
@@ -212,11 +212,11 @@ function refreshToken(helper) {
 
 **Limitation — 401-Replay**: ZAPs Spider-/Scanner-Komponenten replayen einen Request, der ein `401` erhalten hat, **nicht** automatisch nach dem `refreshToken()`-Lauf. Das Skript stellt nur sicher, dass jeder *folgende* Request mit einem frischen Bearer ausgestattet wird; der ursprüngliche Request bleibt für die Findings-Auswertung als `401` sichtbar. Mitigation:
 
-- **Token-Lebensdauer ≥ Scan-Laufzeit** — JWT-Lifetime im Login (REQ-023) wird für ZAP-Test-Identitäten so gesetzt, dass die `Full-Scan`-Maximaldauer (6 h, §5.3) zuverlässig unter dem TTL liegt. Empfehlung: 8 h Test-Token-Lifetime, durchgesetzt über Konfiguration der Auth-Service-Settings nur in Staging/CI.
+- **Token-Lebensdauer ≥ Scan-Laufzeit** — JWT-Lifetime im Login (REQ-023) wird für ZAP-Test-Identitäten so gesetzt, dass die `Full-Scan`-Maximaldauer (6 h, §5.3) zuverlässig unter dem TTL liegt. Empfehlung: 8 h Test-Token-Lifetime, ausschließlich in Staging/CI über die Auth-Service-Settings durchgesetzt.
 - **Pre-Auth via Setup-Skript** — `seed-cross-tenant.sh` (§3.3) schreibt unmittelbar vor dem Scan-Start einen frischen Bearer in `ScriptVars`, damit der erste Request der Session bereits authentifiziert läuft.
-- **Soft-Fail-Triage** — Findings, die ausschliesslich auf einer 401-Response beruhen, werden im Triage-Workflow mit Confidence `Low` versehen und nicht als Auth-Bypass eskaliert.
+- **Soft-Fail-Triage** — Findings, die ausschließlich auf einer 401-Response beruhen, werden im Triage-Workflow mit Confidence `Low` versehen und nicht als Auth-Bypass eskaliert.
 
-**MUSS**: Die Credentials sind ausschliesslich als GitHub-Secrets (`ZAP_TENANT_A_PASSWORD`, `ZAP_TENANT_B_PASSWORD`) verfügbar — keine Klartext-Credentials in Skript oder Context-XML.
+**MUSS**: Die Credentials sind ausschließlich als GitHub-Secrets (`ZAP_TENANT_A_PASSWORD`, `ZAP_TENANT_B_PASSWORD`) verfügbar — keine Klartext-Credentials in Skript oder Context-XML.
 
 ### 3.3 Cross-Tenant-Negativtests
 
@@ -237,7 +237,7 @@ RESOURCE_A_KEY=$(curl -s -X POST \
 echo "RESOURCE_A_KEY=$RESOURCE_A_KEY" >> "$GITHUB_OUTPUT"
 ```
 
-**MUSS**: Eine ZAP-Passive-Rule prüft cross-tenant: Wenn der URL-Pfad `/api/v1/t/{tenant_slug}/...` einen anderen `tenant_slug` enthält als der `tenant_slug` im JWT-Payload des `Authorization`-Headers, und der Status `200`/`201` ist, wird ein High-Alert geraised. Skript-Skelett:
+**MUSS**: Eine ZAP-Passive-Rule prüft cross-tenant: Wenn der URL-Pfad `/api/v1/t/{tenant_slug}/...` einen anderen `tenant_slug` enthält als der `tenant_slug` im JWT-Payload des `Authorization`-Headers, und der Status `200`/`201` ist, wird ein High-Alert ausgelöst. Skript-Skelett:
 
 ```javascript
 // tests/security/zap-scripts/cross-tenant-passive.js
@@ -382,7 +382,7 @@ jobs:
     fail_action: true
 ```
 
-**MUSS**: Der API-Scan deckt ausschliesslich Routen ab, die in der OpenAPI deklariert sind. Routen, die in der Implementierung existieren aber nicht in OpenAPI auftauchen, sind ein eigenes Finding-Class (siehe §4.4).
+**MUSS**: Der API-Scan deckt ausschließlich Routen ab, die in der OpenAPI deklariert sind. Routen, die in der Implementierung existieren, aber nicht in OpenAPI auftauchen, bilden eine eigene Finding-Class (siehe §4.4).
 
 #### Auth-Bypass-Detection (zwei Pässe)
 
@@ -400,7 +400,7 @@ jobs:
 | `401` / `403` | `200` / `201` | Erwarteter Default — kein Finding. | — |
 | `401` / `403` | `401` / `403` | Token ist abgelaufen oder fehlerhaft — Lauf wird verworfen. | Job-Diagnose |
 
-**MUSS**: Die Implementation nutzt entweder zwei `action-api-scan`-Steps mit unterschiedlichen Context-Files (`zap-context-auth.xml` / `zap-context-anon.xml`) oder ein eigenes Active-Rule-Skript, das pro Route den Anonymen-Variant-Request schickt. Beide Pfade sind zulässig — die Wahl wird in `docs/security/zap-auth-bypass-impl.md` (Phase 3) festgelegt.
+**MUSS**: Die Implementierung nutzt entweder zwei `action-api-scan`-Steps mit unterschiedlichen Context-Files (`zap-context-auth.xml` / `zap-context-anon.xml`) oder ein eigenes Active-Rule-Skript, das pro Route den anonymen Variant-Request schickt. Beide Pfade sind zulässig — die Wahl wird in `docs/security/zap-auth-bypass-impl.md` (Phase 3) festgelegt.
 
 **MUSS**: Routen, die in §3.4 als „Out-of-Scope für unauthentifizierte Scans" markiert sind (`/auth/login`, `/auth/register`, `/auth/oauth/*`, `/calendar/feeds/{token}`, `/health`, `/ready`), werden vom anonymen Pass ausgeschlossen.
 
@@ -484,7 +484,7 @@ jobs:
 
 ### 5.1 Severity-Schwellen
 
-**MUSS**: ZAP-Risk-Level werden strict 1:1 auf das Severity-Modell aus NFR-014 gemappt; **Critical** entsteht ausschliesslich durch explizite Eskalations-Regeln, da ZAP von Haus aus nur drei Risiko-Stufen kennt:
+**MUSS**: ZAP-Risk-Level werden strikt 1:1 auf das Severity-Modell aus NFR-014 gemappt; **Critical** entsteht ausschließlich durch explizite Eskalations-Regeln, da ZAP von Haus aus nur drei Risiko-Stufen kennt:
 
 | ZAP Risk | Severity (NFR-Modell) | PR-Gate | Nightly | Aktion |
 |---|---|---|---|---|
@@ -530,7 +530,7 @@ jobs:
 
 ### 6.1 ZAP-Rules-Tuning
 
-**MUSS**: Regelanpassungen werden ausschliesslich in `tests/security/zap-rules.tsv` und `tests/security/zap-api-rules.tsv` versioniert:
+**MUSS**: Regelanpassungen werden ausschließlich in `tests/security/zap-rules.tsv` und `tests/security/zap-api-rules.tsv` versioniert:
 
 ```tsv
 # tests/security/zap-rules.tsv
@@ -688,7 +688,7 @@ jobs:
 | **Injection-Schwachstellen in Custom-Endpunkten** | RCE, SQL-Injection, NoSQL-Injection → Vollkompromittierung | Mittel | Active-Scan im Full-Profil mit OWASP-Top-10-Coverage |
 | **XSS in React-SPA** | Session-Hijacking, JWT-Diebstahl, Phishing innerhalb der Anwendung | Mittel | Baseline-Scan + AjaxSpider-Coverage, CSP-Pflicht aus NFR-014 |
 | **Broken Auth / Auth Bypass** | Ungeprüfte Endpunkte erlauben Zugriff ohne JWT-Validierung | Hoch | API-Scan gegen OpenAPI mit authentifizierten und unauthentifizierten Sessions |
-| **Spec-Drift API ↔ Implementierung** | Endpunkte existieren in der Implementation, aber nicht in OpenAPI → Schatten-API | Hoch | Spec-Drift-Job (§4.4), automatische Findings |
+| **Spec-Drift API ↔ Implementierung** | Endpunkte existieren in der Implementierung, aber nicht in OpenAPI → Schatten-API | Hoch | Spec-Drift-Job (§4.4), automatische Findings |
 | **Falsch konfigurierte Cookies (REQ-023 RefreshToken)** | Refresh-Token wird ohne `HttpOnly`/`Secure`/`SameSite` ausgeliefert → Session-Hijacking | Mittel | Baseline-Cookie-Rules, Active-Rule für Cookie-Flags |
 | **Veraltete IGNORE-Regeln** | Reale Findings werden ohne neue Bewertung dauerhaft unterdrückt | Mittel | Pflicht-Ablaufdaten in tsv, Karenz-CI-Job |
 | **Performance-Drift (Full-Scan zu langsam)** | Nightly läuft nicht zuverlässig durch, Findings altern | Niedrig | Performance-Schwellen + Soft-Fail-Issue mit Diagnose |
@@ -697,7 +697,7 @@ jobs:
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-04-28
 **Review**: Pending

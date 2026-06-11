@@ -45,7 +45,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 ### 1.2 Geschäftliche Motivation
 
-Diese NFR ist ein **Cross-Cutting Concern**, der alle 24 funktionalen Anforderungen (REQ-001 bis REQ-024) sowie das zukünftige REQ-025 (Datenschutz & Betroffenenrechte) betrifft. Sie adressiert:
+Diese NFR ist ein **Cross-Cutting Concern** (querschnittliche Anforderung), der alle 24 funktionalen Anforderungen (REQ-001 bis REQ-024) sowie das zukünftige REQ-025 (Datenschutz & Betroffenenrechte) betrifft. Sie adressiert:
 
 1. **DSGVO Art. 5 Abs. 1 lit. e (Speicherbegrenzung):** Personenbezogene Daten dürfen nur so lange gespeichert werden, wie es für den Verarbeitungszweck erforderlich ist.
 2. **DSGVO Art. 17 (Recht auf Löschung):** Betroffene können Löschung verlangen; das System muss diese technisch umsetzen können.
@@ -110,7 +110,7 @@ Sensor-Retention auf Stufe 2 + 3 wird nach DSGVO-Risikogruppe der Location (REQ-
 | `GREENHOUSE` | 90d | 2y | **10y (opt-in)** | ∞ (anonymisiert bei User-Löschung, R-19a) |
 | `OUTDOOR_OPEN` | 90d | **5y** | **20y (opt-in)** | ∞ |
 
-**Verlängerte Retention bei `GREENHOUSE` und `OUTDOOR_OPEN`:** Tenant-Admin muss explizit zustimmen (Opt-in), damit die längeren Stufen aktiviert werden. Default für alle Klassifizierungen ist die DSGVO-konservative 5-Jahres-Grenze auf Stufe 3. Begründung der Werte: Bei `OUTDOOR_OPEN` (Garten, Hochbeet) ist kein Personenbezug — Stundenmittelwerte enthalten keine Anwesenheits-Indikatoren, längere Aufbewahrung ist DSGVO-rechtlich unkritisch und fachlich für Mehrjähresanalysen wertvoll (Apfelbäume, Beerensträucher).
+**Verlängerte Retention bei `GREENHOUSE` und `OUTDOOR_OPEN`:** Tenant-Admin muss explizit zustimmen (Opt-in), damit die längeren Stufen aktiviert werden. Default für alle Klassifizierungen ist die DSGVO-konservative 5-Jahres-Grenze auf Stufe 3. Begründung der Werte: Bei `OUTDOOR_OPEN` (Garten, Hochbeet) besteht kein Personenbezug — Stundenmittelwerte enthalten keine Anwesenheits-Indikatoren. Eine längere Aufbewahrung ist daher DSGVO-rechtlich unkritisch und fachlich für mehrjährige Analysen wertvoll (Apfelbäume, Beerensträucher).
 
 **Forward-only-Klassifizierungs-Wechsel (Workshop-Frage 5):** Bei Wechsel der `data_classification` einer Location (z.B. `INDOOR_PRIVATE` → `OUTDOOR_OPEN`) gelten die neuen Retention-Fristen NUR für Sensor-Werte, die NACH dem Wechsel erfasst wurden. Bestehende Daten behalten ihre ursprüngliche Schutzklasse — verhindert nachträgliche Schutz-Senkung durch Klassifizierungs-Manipulation.
 
@@ -120,11 +120,11 @@ Sensor-Retention auf Stufe 2 + 3 wird nach DSGVO-Risikogruppe der Location (REQ-
 <!-- Quelle: Widerspruchsanalyse W-009 — Klimatische Extremwerte dauerhaft archivieren -->
 **Ausnahme: Klimatische Extremwert-Events:**
 
-Sensordaten-Rohdaten werden nach 90 Tagen aggregiert (R-14). Fuer die Pflanzenpflege-Analyse bei mehrjaehrigen Pflanzen (Perennials, Obstbaeume) werden jedoch **klimatische Extremereignisse** (Frost, Hitzewelle, Sturm) als eigenstaendige Event-Dokumente in ArangoDB dauerhaft archiviert. Diese Events enthalten keinen Personenbezug und unterliegen daher nicht der DSGVO-Loeschpflicht:
+Sensordaten-Rohdaten werden nach 90 Tagen aggregiert (R-14). Für die Pflanzenpflege-Analyse bei mehrjährigen Pflanzen (Perennials, Obstbäume) archiviert das System jedoch **klimatische Extremereignisse** (Frost, Hitzewelle, Sturm) als eigenständige Event-Dokumente in ArangoDB dauerhaft. Diese Events enthalten keinen Personenbezug und unterliegen daher nicht der DSGVO-Löschpflicht:
 
 - `ClimateEvent`-Dokument in ArangoDB (nicht TimescaleDB): `type` (frost/heat/storm), `location_key`, `start_at`, `end_at`, `min_temp`/`max_temp`, `severity`
-- Automatische Erkennung durch Schwellwert-Pruefung im Sensor-Ingestion-Task
-- Konfigurierbar: `SENSOR_RAW_RETENTION_DAYS` (Standard 90) erhoehbar fuer Perennial-Anlagen
+- Automatische Erkennung durch Schwellwert-Prüfung im Sensor-Ingestion-Task
+- Konfigurierbar: `SENSOR_RAW_RETENTION_DAYS` (Standard 90), erhöhbar für Perennial-Anlagen
 
 **TimescaleDB Continuous Aggregates:**
 
@@ -500,7 +500,7 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.4
 **Status**: Entwurf
 **Datum**: 2026-02-27
 **Security-Review**: Adressiert SEC-K-001, SEC-K-002, SEC-K-005

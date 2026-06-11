@@ -217,7 +217,7 @@ class SpeciesListPage(BasePage):
 
 ### 5.2 Locator-Hierarchie
 
-Locators in dieser Praezerenz-Reihenfolge verwenden:
+Locators in dieser Praezedenz-Reihenfolge verwenden:
 
 1. `[data-testid='...']` (bevorzugt)
 2. `#id` (wenn data-testid nicht verfuegbar)
@@ -330,17 +330,17 @@ assert row_count >= 1, "TC-REQ-001-029 FAIL: Expected at least 1 species row"
 
 Die `e2e_seed_data` Fixture (conftest.py, scope=session) MUSS:
 
-1. **Idempotent** sein — pruefen ob Daten bereits existieren bevor sie angelegt werden
+1. **Idempotent** sein — pruefen, ob Daten bereits existieren, bevor sie angelegt werden
 2. **Unterscheidbare Namen** verwenden — keine generischen "E2E-Test"-Namen
 3. **Realistische Werte** setzen — Klimazone, Flaeche, Zeitzone etc. befuellen
 4. **Mehrere Entitaeten** anlegen fuer Listentests (min. 2 Sites, 2 Locations)
 
 ### 7.2 Test-spezifische Daten
 
-Tests die eigene Daten erstellen (z.B. Delete-Tests) MUSS:
+Tests, die eigene Daten erstellen (z.B. Delete-Tests), MUESSEN:
 1. Eindeutige Namen mit `uuid.uuid4().hex[:6]` Suffix verwenden
-2. Nach dem Erstellen die Existenz verifizieren bevor der naechste Schritt laeuft
-3. Suchfunktion nutzen wenn Pagination die neue Entitaet verbergen koennte
+2. Nach dem Erstellen die Existenz verifizieren, bevor der naechste Schritt laeuft
+3. Suchfunktion nutzen, wenn Pagination die neue Entitaet verbergen koennte
 
 ```python
 # GUT:
@@ -398,7 +398,7 @@ Bei `--generate-protocol` wird `protokoll.md` erzeugt mit:
 
 ### 9.3 REQ-Abdeckungs-Tracking
 
-Das Protokoll MUSS pro REQ auflisten wie viele Tests zugeordnet sind:
+Das Protokoll MUSS pro REQ auflisten, wie viele Tests zugeordnet sind:
 
 ```markdown
 | REQ | Tests |

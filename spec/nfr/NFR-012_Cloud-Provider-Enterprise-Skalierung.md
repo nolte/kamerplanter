@@ -22,24 +22,24 @@ Betroffene Module: [ALL]
 ### 1.1 User Stories
 
 **Als** CTO / IT-Leiter
-**moechte ich** klar definierte Mindestanforderungen an einen Cloud-Provider
-**um** eine fundierte Entscheidung fuer den Enterprise-Betrieb von Kamerplanter treffen zu koennen.
+**möchte ich** klar definierte Mindestanforderungen an einen Cloud-Provider,
+**um** eine fundierte Entscheidung für den Enterprise-Betrieb von Kamerplanter treffen zu können.
 
 **Als** DevOps Engineer
-**moechte ich** eine Referenzarchitektur mit konkreten Ressourcen-Spezifikationen
+**möchte ich** eine Referenzarchitektur mit konkreten Ressourcen-Spezifikationen,
 **um** die Infrastruktur reproduzierbar aufzusetzen und zu skalieren.
 
 **Als** Datenschutzbeauftragter
-**moechte ich** dass der Cloud-Provider alle DSGVO-Anforderungen nachweislich erfuellt
-**um** die Compliance gegenueber Aufsichtsbehoerden sicherzustellen.
+**möchte ich**, dass der Cloud-Provider alle DSGVO-Anforderungen nachweislich erfüllt,
+**um** die Compliance gegenüber Aufsichtsbehörden sicherzustellen.
 
 ### 1.2 Geschaeftliche Motivation
 
-Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die **Skalierungsstrategie** fuer den Enterprise-Betrieb. Sie bildet die Grundlage fuer:
+Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die **Skalierungsstrategie** für den Enterprise-Betrieb. Sie bildet die Grundlage für:
 
-1. **Provider-Auswahl**: Bewertungsmatrix fuer AWS, GCP, Azure und kostenguenstige Alternativen
+1. **Provider-Auswahl**: Bewertungsmatrix für AWS, GCP, Azure und kostengünstige Alternativen
 2. **Kapazitaetsplanung**: Konkrete Ressourcen-Spezifikationen pro Skalierungsstufe
-3. **Kostensteuerung**: Transparente Kalkulation fuer Budget-Entscheidungen
+3. **Kostensteuerung**: Transparente Kalkulation für Budget-Entscheidungen
 4. **Compliance**: DSGVO-konforme Hosting-Anforderungen
 5. **Disaster Recovery**: Verbindliche RPO/RTO-Ziele
 
@@ -65,10 +65,10 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 | **Autoscaling** | HPA (CPU/Memory) | HPA + VPA + Cluster Autoscaler (0 bis N) |
 | **Namespaces** | dev, staging, prod | + Preview-Environments pro PR |
 | **Ingress** | Traefik (bereits spezifiziert, NFR-002) | Traefik + Cloud-LB davor |
-| **Node-Sizing (Stateless)** | 4 vCPU / 8 GB RAM | 8 vCPU / 16 GB (fuer Celery-Burst) |
+| **Node-Sizing (Stateless)** | 4 vCPU / 8 GB RAM | 8 vCPU / 16 GB (für Celery-Burst) |
 | **Node-Sizing (Stateful)** | 4 vCPU / 16 GB RAM | 8 vCPU / 32 GB (ArangoDB Cluster) |
 
-**Begruendung:** NFR-002 fordert horizontale Skalierung, Rolling Updates und Multi-Namespace-Isolierung. Das Referenzszenario (5 Gewaechshaeuser, 200 Pflanzen je) skaliert von 3 auf 10 Backend-Pods in Erntezeit.
+**Begründung:** NFR-002 fordert horizontale Skalierung, Rolling Updates und Multi-Namespace-Isolierung. Das Referenzszenario (5 Gewächshäuser mit je 200 Pflanzen) skaliert in der Erntezeit von 3 auf 10 Backend-Pods.
 
 ### 2.2 Stateless vs. Stateful Zuordnung
 
@@ -101,7 +101,7 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 | **Backup** | Taeglicher Snapshot + Point-in-Time Recovery |
 | **Encryption** | At-rest (Volume-Level) + in-transit (TLS) |
 
-**Begruendung:** 54 Document- und 75 Edge-Collections erfordern performante Graph-Traversals (Mischkultur-Kompatibilitaet, genetische Lineage, Companion Planting, rekursive Standort-Hierarchien).
+**Begründung:** 54 Document- und 75 Edge-Collections erfordern performante Graph-Traversals (Mischkultur-Kompatibilität, genetische Lineage, Companion Planting, rekursive Standort-Hierarchien).
 
 ### 3.2 TimescaleDB (Time-Series)
 
@@ -112,17 +112,17 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 | **Retention** | 90d raw, 2y hourly, 5y daily (NFR-011 §2.2) |
 | **HA** | Streaming Replication mit automatischem Failover |
 
-**Begruendung:** Sensor-Readings (Temperatur, Luftfeuchtigkeit, pH, EC, PPFD) erfordern minutengenaue Erfassung mit automatischer Aggregation. Das 3-Stufen-Downsampling (NFR-011) spart langfristig Storage bei gleichzeitiger Bewahrung historischer Trends.
+**Begründung:** Sensor-Readings (Temperatur, Luftfeuchtigkeit, pH, EC, PPFD) erfordern eine minutengenaue Erfassung mit automatischer Aggregation. Das 3-Stufen-Downsampling (NFR-011) spart langfristig Storage und bewahrt zugleich historische Trends.
 
 ### 3.3 PostgreSQL 18 + pgvector (RAG/Vector)
 
 | Anforderung | Spezifikation |
 |-------------|---------------|
-| **Extension** | pgvector fuer Embedding-Suche (1024-dim, HNSW-Index) |
+| **Extension** | pgvector für Embedding-Suche (1024-dim, HNSW-Index) |
 | **Storage** | 20 GB+ |
 | **RAM** | >= 4 GB (HNSW-Index im Speicher) |
 
-**Begruendung:** Wissensbasierte Pflanzenpflege-Empfehlungen ueber RAG-Pipeline (Embedding Service + LLM Adapter).
+**Begründung:** Wissensbasierte Pflanzenpflege-Empfehlungen über die RAG-Pipeline (Retrieval-Augmented Generation; Embedding Service + LLM Adapter).
 
 ### 3.4 Valkey 8.0+
 
@@ -151,7 +151,7 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 
 ### 4.2 GPU-Anforderungen (Optional)
 
-Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
+Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 
 | Anforderung | Spezifikation |
 |-------------|---------------|
@@ -172,8 +172,8 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **Network Policies** | Calico/Cilium — Namespace-Isolierung, DB-Pods nur von App-Pods erreichbar |
 | **WAF** | Cloud-WAF vor Ingress (OWASP Top 10) |
 | **DDoS Protection** | Cloud-native (AWS Shield / GCP Armor / Azure DDoS Protection) |
-| **Private Subnets** | DB-Nodes nicht oeffentlich erreichbar |
-| **MQTT Broker** | EMQX/Mosquitto fuer IoT-Sensorik (REQ-005, REQ-018) |
+| **Private Subnets** | DB-Nodes nicht öffentlich erreichbar |
+| **MQTT Broker** | EMQX/Mosquitto für IoT-Sensorik (REQ-005, REQ-018) |
 
 ### 5.2 Secret Management
 
@@ -181,7 +181,7 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 |-------------|---------------|
 | **Methode** | External Secrets Operator → Cloud KMS |
 | **Optionen** | HashiCorp Vault / AWS Secrets Manager / GCP Secret Manager / Azure Key Vault |
-| **Rotation** | Automatische Secret-Rotation fuer DB-Credentials |
+| **Rotation** | Automatische Secret-Rotation für DB-Credentials |
 | **Verbot** | Keine Secrets in Git, ConfigMaps oder Umgebungsvariablen im Klartext |
 
 ### 5.3 Pod Security
@@ -201,18 +201,18 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 
 | Komponente | Zweck | Managed-Option |
 |------------|-------|----------------|
-| **Prometheus** | Metriken (SLIs: Verfuegbarkeit, Latenz, Error Rate) | Grafana Cloud / Datadog |
+| **Prometheus** | Metriken (SLIs: Verfügbarkeit, Latenz, Error Rate) | Grafana Cloud / Datadog |
 | **Alertmanager** | Eskalation (P1→P4 Severity) | PagerDuty-Integration |
 | **Grafana** | Dashboards, SLO-Tracking, Error-Budget-Burn-Rate | Grafana Cloud |
 | **Fluentd/Fluent Bit** | Log-Aggregation (stdout → zentrale Plattform) | Cloud Logging / ELK / Loki |
-| **Sentry** | Error Tracking (optional, Consent-pflichtig gemaess REQ-025) | Sentry SaaS |
-| **Statuspage** | Externe Verfuegbarkeitsanzeige fuer Stakeholder | Atlassian Statuspage / Instatus |
+| **Sentry** | Error Tracking (optional, Consent-pflichtig gemäß REQ-025) | Sentry SaaS |
+| **Statuspage** | Externe Verfügbarkeitsanzeige für Stakeholder | Atlassian Statuspage / Instatus |
 
 ### 6.2 SLO-Ziele (aus NFR-007)
 
 | SLO | Ziel | Error Budget (30 Tage) |
 |-----|------|------------------------|
-| **Verfuegbarkeit** | >= 99,5 % | 3 Stunden 36 Minuten Downtime |
+| **Verfügbarkeit** | >= 99,5 % | 3 Stunden 36 Minuten Downtime |
 | **Latenz P50** | < 200 ms | — |
 | **Latenz P95** | < 500 ms | — |
 | **Latenz P99** | < 1.000 ms | — |
@@ -230,8 +230,8 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **Datenstandort** | **EU-Region Pflicht** | DSGVO Art. 44ff |
 | **Encryption at Rest** | AES-256 auf allen Volumes | Art. 32 DSGVO |
 | **Encryption in Transit** | TLS 1.3 zwischen allen Services | Art. 32 DSGVO |
-| **Backup-Verschluesselung** | Encrypted Snapshots, Geo-Redundanz innerhalb EU | Art. 32 DSGVO |
-| **Audit Logging** | Cloud-Audit-Trail fuer alle Admin-Operationen | Art. 5(2) Rechenschaftspflicht |
+| **Backup-Verschlüsselung** | Encrypted Snapshots, Geo-Redundanz innerhalb EU | Art. 32 DSGVO |
+| **Audit Logging** | Cloud-Audit-Trail für alle Admin-Operationen | Art. 5(2) Rechenschaftspflicht |
 | **Key Management** | Cloud KMS mit Customer-Managed Keys (CMK) | Art. 32 DSGVO |
 
 ### 7.2 Vertragliche Anforderungen
@@ -241,14 +241,14 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **DPA** | Auftragsverarbeitungsvertrag (Art. 28 DSGVO) mit Cloud-Provider |
 | **Zertifizierungen** | ISO 27001, SOC 2 Typ II, C5 (BSI) |
 | **Sub-Auftragsverarbeiter** | Transparente Liste, Widerspruchsrecht |
-| **Datenlokalisierung** | Keine Verarbeitung ausserhalb EU/EWR ohne Angemessenheitsbeschluss |
+| **Datenlokalisierung** | Keine Verarbeitung außerhalb EU/EWR ohne Angemessenheitsbeschluss |
 
-### 7.3 Technische DSGVO-Massnahmen
+### 7.3 Technische DSGVO-Maßnahmen
 
-| Massnahme | Spezifikation | Referenz |
+| Maßnahme | Spezifikation | Referenz |
 |-----------|---------------|----------|
-| **IP-Anonymisierung** | IPv4 letztes Oktett → 0, IPv6 → /48-Praefix, nach 7 Tagen | NFR-011 R-03 |
-| **Retention Enforcement** | Celery Master-Task, taegliche Ausfuehrung | NFR-011 §3 |
+| **IP-Anonymisierung** | IPv4 letztes Oktett → 0, IPv6 → /48-Präfix, nach 7 Tagen | NFR-011 R-03 |
+| **Retention Enforcement** | Celery Master-Task, tägliche Ausführung | NFR-011 §3 |
 | **Sensordaten-Downsampling** | 90d raw → 2y hourly → 5y daily | NFR-011 §2.2 |
 | **Consent-Middleware** | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
 | **Betroffenenrechte** | Self-Service API /api/v1/privacy/ (Art. 15–21) | REQ-025 |
@@ -261,7 +261,7 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 |-------------|---------------|
 | **Container Registry** | Private Registry (Harbor / ECR / GCR / ACR) |
 | **CI** | GitHub Actions (bereits spezifiziert) |
-| **CD** | Helm + Skaffold (bestehend), ArgoCD fuer GitOps empfohlen |
+| **CD** | Helm + Skaffold (bestehend), ArgoCD für GitOps empfohlen |
 | **Image Scanning** | Trivy / Snyk bei jedem Build |
 | **Preview Environments** | Ephemeral Namespace pro Pull Request |
 | **Rollback** | Helm Rollback, Ziel: < 30s Rollback-Zeit |
@@ -275,7 +275,7 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 
 | Kategorie | RPO | RTO | Backup-Methode |
 |-----------|-----|-----|----------------|
-| **ArangoDB** | 1h | 4h | Cluster-Replikation + taeglicher Snapshot |
+| **ArangoDB** | 1h | 4h | Cluster-Replikation + täglicher Snapshot |
 | **TimescaleDB** | 1h | 4h | Streaming Replication + WAL Archiving |
 | **pgvector/PostgreSQL** | 24h | 8h | Daily Snapshot |
 | **Redis** | Ephemeral (kein RPO) | 15min | Neu aufbauen aus DB |
@@ -283,10 +283,10 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 
 ### 9.2 Disaster-Recovery-Strategie
 
-| Massnahme | Spezifikation |
+| Maßnahme | Spezifikation |
 |-----------|---------------|
-| **Multi-AZ** | Alle Stateful-Workloads ueber mindestens 2 Availability Zones |
-| **Cross-Region Backup** | Taegliche Snapshot-Kopie in zweite EU-Region |
+| **Multi-AZ** | Alle Stateful-Workloads über mindestens 2 Availability Zones |
+| **Cross-Region Backup** | Tägliche Snapshot-Kopie in zweite EU-Region |
 | **Recovery-Tests** | Quartalsweiser DR-Test mit dokumentiertem Ergebnis |
 | **Runbook** | Dokumentierter Recovery-Prozess pro Service |
 
@@ -307,11 +307,11 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 
 | Metrik | Schwellwert | Aktion |
 |--------|------------|--------|
-| CPU-Auslastung Backend | > 70% ueber 5 Minuten | HPA: +1 Pod |
+| CPU-Auslastung Backend | > 70% über 5 Minuten | HPA: +1 Pod |
 | Celery Queue Length | > 100 pending Tasks | HPA: +1 Worker |
 | ArangoDB Disk Usage | > 80% | Alert + Storage erweitern |
-| TimescaleDB Disk Usage | > 75% | Alert + Retention pruefen |
-| API Latenz P95 | > 500ms ueber 10 Minuten | HPA + Investigate |
+| TimescaleDB Disk Usage | > 75% | Alert + Retention prüfen |
+| API Latenz P95 | > 500ms über 10 Minuten | HPA + Investigate |
 
 ---
 
@@ -325,13 +325,13 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **ArangoDB Managed** | Oasis | Oasis | Oasis | Self-hosted |
 | **TimescaleDB Managed** | Timescale Cloud | Timescale Cloud | Timescale Cloud | Self-hosted |
 | **Redis Managed** | ElastiCache | Memorystore | Azure Cache | Self-hosted |
-| **EU-Region** | Frankfurt (eu-central-1) | europe-west3 (Frankfurt) | West Europe (NL) | Falkenstein/Nuernberg |
-| **DPA/C5** | Ja | Ja | Ja | Ja (eingeschraenkt) |
+| **EU-Region** | Frankfurt (eu-central-1) | europe-west3 (Frankfurt) | West Europe (NL) | Falkenstein/Nürnberg |
+| **DPA/C5** | Ja | Ja | Ja | Ja (eingeschränkt) |
 | **GPU (LLM)** | p4d/g5 | L4/T4 | NC-Series | Nein |
-| **WAF** | AWS WAF | Cloud Armor | Azure WAF | Nein (extern noetig) |
-| **Secret Manager** | Secrets Manager | Secret Manager | Key Vault | Nein (Vault noetig) |
+| **WAF** | AWS WAF | Cloud Armor | Azure WAF | Nein (extern nötig) |
+| **Secret Manager** | Secrets Manager | Secret Manager | Key Vault | Nein (Vault nötig) |
 
-### 11.2 Kostenschaetzung (monatlich, Medium-Szenario)
+### 11.2 Kostenschätzung (monatlich, Medium-Szenario)
 
 | Posten | AWS | GCP | Azure | Hetzner |
 |--------|-----|-----|-------|---------|
@@ -342,32 +342,32 @@ Fuer lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **Load Balancer + Ingress** | ~50 EUR | ~30 EUR | ~50 EUR | ~20 EUR |
 | **Storage (SSD)** | ~100 EUR | ~90 EUR | ~100 EUR | ~30 EUR |
 | **Monitoring (Grafana Cloud)** | ~100 EUR | ~100 EUR | ~100 EUR | ~100 EUR |
-| **Summe (geschaetzt)** | **~1.430 EUR** | **~1.340 EUR** | **~1.430 EUR** | **~430 EUR** |
+| **Summe (geschätzt)** | **~1.430 EUR** | **~1.340 EUR** | **~1.430 EUR** | **~430 EUR** |
 
-**Hinweis:** Hetzner erfordert signifikant hoeheren Ops-Aufwand (Self-Managed Datenbanken, kein managed Redis/TimescaleDB, kein Cloud-WAF). Die Kostenersparnis wird teilweise durch Personalkosten kompensiert.
+**Hinweis:** Hetzner erfordert einen deutlich höheren Ops-Aufwand (Self-Managed Datenbanken, kein managed Redis/TimescaleDB, kein Cloud-WAF). Die Kostenersparnis wird teilweise durch Personalkosten aufgezehrt.
 
 ### 11.3 Empfehlung
 
-| Szenario | Empfohlener Provider | Begruendung |
+| Szenario | Empfohlener Provider | Begründung |
 |----------|---------------------|-------------|
-| **Startup/Small** | Hetzner Cloud + k3s | Kostenguenstig, EU-Standort, ausreichend fuer <10 Tenants |
-| **Medium** | GKE Autopilot | Bestes Preis-Leistungs-Verhaeltnis, starkes Autoscaling |
-| **Large/Enterprise** | EKS oder GKE | Volle Managed-Services, GPU-Verfuegbarkeit, SLA-Garantien |
-| **Reguliert (CanG)** | AWS (C5) oder Azure | Hoechste Zertifizierungsdichte, Compliance-Tools |
+| **Startup/Small** | Hetzner Cloud + k3s | Kostengünstig, EU-Standort, ausreichend für <10 Tenants |
+| **Medium** | GKE Autopilot | Bestes Preis-Leistungs-Verhältnis, starkes Autoscaling |
+| **Large/Enterprise** | EKS oder GKE | Volle Managed-Services, GPU-Verfügbarkeit, SLA-Garantien |
+| **Reguliert (CanG)** | AWS (C5) oder Azure | Höchste Zertifizierungsdichte, Compliance-Tools |
 
 ---
 
 ## 12. Zusammenfassung der Mindestanforderungen
 
-Ein Cloud-Provider fuer den Enterprise-Betrieb von Kamerplanter **MUSS** folgende Anforderungen erfuellen:
+Ein Cloud-Provider für den Enterprise-Betrieb von Kamerplanter **MUSS** folgende Anforderungen erfüllen:
 
 1. **Managed Kubernetes** (1.28+) mit Autoscaling und NetworkPolicies
 2. **EU-Rechenzentrum** (DSGVO-Pflicht) mit DPA und ISO 27001 / C5
-3. **Persistent SSD-Storage** (>= 3.000 IOPS) fuer ArangoDB und TimescaleDB
-4. **Private Networking** — Datenbanken nicht oeffentlich erreichbar
+3. **Persistent SSD-Storage** (>= 3.000 IOPS) für ArangoDB und TimescaleDB
+4. **Private Networking** — Datenbanken nicht öffentlich erreichbar
 5. **Secret Management** via Cloud KMS (keine Secrets in Git oder ConfigMaps)
-6. **Observability-Stack** (Prometheus/Grafana/Alertmanager) fuer SLO-Tracking
-7. **Backup mit RPO <= 1h** fuer alle Stateful Services
+6. **Observability-Stack** (Prometheus/Grafana/Alertmanager) für SLO-Tracking
+7. **Backup mit RPO <= 1h** für alle Stateful Services
 8. **TLS 1.3** auf allen Verbindungen (Ingress, Service-to-Service, DB)
 9. **Container Registry** mit automatischem Image-Scanning
-10. **Mindestens 6 Nodes** (3 Stateless + 3 Stateful) fuer Production-HA
+10. **Mindestens 6 Nodes** (3 Stateless + 3 Stateful) für Production-HA
