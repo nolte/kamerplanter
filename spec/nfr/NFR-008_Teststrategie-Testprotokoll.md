@@ -4,7 +4,7 @@ ID: NFR-008
 Titel: Teststrategie & Testprotokoll — Testpyramide, E2E-Tests, Protokollierung
 Kategorie: Qualitätssicherung Unterkategorie: Teststrategie, E2E-Testing, Testdokumentation Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: pytest, vitest, Selenium WebDriver, testcontainers, httpx, factory_boy
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.1 (Coverage-Schwellen messbar + CI-Gate, W-018)
 Autor: Business Analyst - Agrotech
@@ -1014,7 +1014,7 @@ pytest tests/e2e/ --generate-protocol
 **Dokumenten-Ende**
 
 **Version**: 1.1
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-26
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

@@ -5,7 +5,7 @@ Kategorie: Sicherheit / Qualitätssicherung
 Unterkategorie: DAST, Dynamic Application Security Testing, Authenticated Scanning
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: OWASP ZAP, ZAP Action (Baseline / Full / API), AjaxSpider, GitHub Actions, SARIF
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.1
 Autor: QA / Security Engineering
@@ -698,7 +698,7 @@ jobs:
 **Dokumenten-Ende**
 
 **Version**: 1.1
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-04-28
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

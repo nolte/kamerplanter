@@ -4,7 +4,7 @@ ID: NFR-001
 Titel: Strikte Trennung von Frontend und Backend (Separation of Concerns)
 Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
-Status: Produktionsreif
+Status: Genehmigt
 Priorität: Kritisch
 Version: 2.3
 Autor: Business Analyst - Agrotech
@@ -1662,10 +1662,10 @@ class WeatherStationAdapter:
 **Dokumenten-Ende**
 
 **Version**: 2.3
-**Status**: Produktionsreif
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-27
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)
 
 ### Changelog
 

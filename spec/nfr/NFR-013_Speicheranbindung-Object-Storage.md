@@ -5,7 +5,7 @@ Titel: Speicheranbindung & Object-Storage-Adapter
 Kategorie: Infrastruktur / Persistenz Unterkategorie: Object Storage, Binaerdaten, Adapter-Pattern, Multi-Backend
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
-Status: Entwurf
+Status: Genehmigt
 Prioritaet: Hoch
 Version: 1.1 (Adapter-Vertrag fuer DSGVO-Erasure, W-007 Fix)
 Autor: Business Analyst - Agrotech
@@ -567,3 +567,12 @@ NFR-013 etabliert die **Speicheranbindung** als austauschbaren Adapter und legt 
 4. Tenant-Isolation erfolgt durch das Schluessel-Schema `t/{tenant_key}/...` — DSGVO-Loeschung wird durch `delete_prefix` deterministisch.
 5. Pre-Signed URLs sind verbindlich fuer Production zur Bandbreitenentlastung; Backends ohne Pre-Sign-Faehigkeit fallen automatisch auf Backend-Proxy-Streaming zurueck.
 6. Kein Frontend kennt ein Storage-Backend, einen Bucket-Namen oder eine S3-URL — der Backend-Endpunkt mit `attachment_id` ist die einzige stabile Adresse.
+
+---
+
+**Dokumenten-Ende**
+
+**Version**: 1.1
+**Status**: Genehmigt
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

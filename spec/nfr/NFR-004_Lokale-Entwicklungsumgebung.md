@@ -4,7 +4,7 @@ ID: NFR-004
 Titel: Lokale Entwicklungsumgebung mit Skaffold
 Kategorie: Entwicklungsumgebung / Developer Experience Unterkategorie: Local Development, Hot Reload, DevOps Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Skaffold, Kubernetes, Docker, Helm
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
@@ -2081,7 +2081,7 @@ docker network connect kind kind-registry
 **Dokumenten-Ende**
 
 **Version**: 1.0
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-25
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

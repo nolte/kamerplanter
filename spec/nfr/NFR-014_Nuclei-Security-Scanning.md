@@ -5,7 +5,7 @@ Kategorie: Sicherheit / Qualitätssicherung
 Unterkategorie: DAST, Vulnerability-Scanning, Template-basierte Erkennung
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Nuclei (ProjectDiscovery), GitHub Actions, SARIF, OpenAPI
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.1
 Autor: QA / Security Engineering
@@ -592,7 +592,7 @@ suppressions:
 **Dokumenten-Ende**
 
 **Version**: 1.1
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-04-28
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

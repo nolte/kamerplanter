@@ -4,7 +4,7 @@ ID: NFR-006
 Titel: Strukturierte API-Fehlerbehandlung mit eindeutiger Tracking-ID
 Kategorie: API-Design Unterkategorie: Error Handling, Observability Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, FastAPI, structlog, Pydantic
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
@@ -733,7 +733,7 @@ kubectl logs deployment/agrotech-backend | grep "$ERROR_ID"
 **Dokumenten-Ende**
 
 **Version**: 1.0
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-26
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

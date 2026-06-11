@@ -5,7 +5,7 @@ Titel: Cloud-Provider-Anforderungen & Enterprise-Skalierung
 Kategorie: Infrastruktur / Cloud Unterkategorie: Cloud-Provider, Skalierung, HA, DSGVO-Hosting
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Valkey 8.0+, Traefik, Prometheus, Grafana
-Status: Entwurf
+Status: Genehmigt
 Prioritaet: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
@@ -371,3 +371,12 @@ Ein Cloud-Provider für den Enterprise-Betrieb von Kamerplanter **MUSS** folgend
 8. **TLS 1.3** auf allen Verbindungen (Ingress, Service-to-Service, DB)
 9. **Container Registry** mit automatischem Image-Scanning
 10. **Mindestens 6 Nodes** (3 Stateless + 3 Stateful) für Production-HA
+
+---
+
+**Dokumenten-Ende**
+
+**Version**: 1.0
+**Status**: Genehmigt
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

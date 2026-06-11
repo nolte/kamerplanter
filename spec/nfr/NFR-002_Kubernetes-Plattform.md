@@ -4,7 +4,7 @@ ID: NFR-002
 Titel: Kubernetes-basierte Ausführungsplattform
 Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, Skalierung, CI/CD Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
-Status: Entwurf
+Status: Genehmigt
 Priorität: Kritisch
 Version: 2.1
 Autor: Business Analyst - Agrotech
@@ -1947,10 +1947,10 @@ helm dependency build <chart-path>
 **Dokumenten-Ende**
 
 **Version**: 2.1
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-27
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)
 
 ### Changelog
 
