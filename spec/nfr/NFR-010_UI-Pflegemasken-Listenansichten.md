@@ -5,7 +5,7 @@ Kategorie: Usability / UI-Vollständigkeit
 Unterkategorie: CRUD-Masken, Listenansichten, Datenpflege
 Fokus: Frontend
 Technologie: React 18, TypeScript, MUI, Redux Toolkit, Zod, react-router-dom
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.1
 Autor: Business Analyst - Agrotech
@@ -554,7 +554,7 @@ Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen
 **Dokumenten-Ende**
 
 **Version**: 1.1
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-03-18
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

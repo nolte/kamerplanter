@@ -4,7 +4,7 @@ ID: NFR-007
 Titel: Betriebsstabilität & Monitoring — SLIs/SLOs, Alerting, Incident Response, Resilience
 Kategorie: Betrieb / Observability Unterkategorie: SLA, Alerting, Incident Management, Resilience Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Prometheus, Alertmanager, Grafana, Python, FastAPI, Kubernetes
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
@@ -1083,7 +1083,7 @@ spec:
 **Dokumenten-Ende**
 
 **Version**: 1.0
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-26
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

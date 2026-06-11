@@ -5,7 +5,7 @@ Kategorie: Wartbarkeit / Sicherheit
 Unterkategorie: Dependency-Lifecycle, Automatisierung, Compliance
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Renovate Bot, npm, pip, Docker, Helm, GitHub Actions
-Status: Entwurf
+Status: Genehmigt
 Priorität: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
@@ -906,7 +906,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
 **Dokumenten-Ende**
 
 **Version**: 1.0
-**Status**: Entwurf
+**Status**: Genehmigt
 **Letzte Aktualisierung**: 2026-02-26
-**Review**: Pending
-**Genehmigung**: Pending
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

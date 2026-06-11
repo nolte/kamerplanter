@@ -7,7 +7,7 @@ Kategorie: Datenschutz & Compliance
 Unterkategorie: Retention Policy, Datensparsamkeit, DSGVO
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
-Status: Entwurf
+Status: Genehmigt
 Priorität: Kritisch
 Version: 1.4 (Sensor-Retention nach data_classification, ADR-003)
 Datum: 2026-04-27
@@ -501,6 +501,8 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 **Dokumenten-Ende**
 
 **Version**: 1.4
-**Status**: Entwurf
+**Status**: Genehmigt
 **Datum**: 2026-02-27
 **Security-Review**: Adressiert SEC-K-001, SEC-K-002, SEC-K-005
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)

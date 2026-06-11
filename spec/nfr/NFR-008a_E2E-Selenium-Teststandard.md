@@ -5,7 +5,7 @@ Kategorie: Qualitaetssicherung
 Unterkategorie: E2E-Testing, Selenium, Testarchitektur
 Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: pytest, Selenium WebDriver, Chrome Headless, Page-Object-Pattern
-Status: Verbindlich
+Status: Genehmigt
 Prioritaet: Hoch
 Version: 1.0
 Autor: QA-Engineering
@@ -460,3 +460,12 @@ Die folgenden Dateien sind die **Referenz-Implementierung** (Gen-3-Standard) und
 | `tests/e2e/test_req001_cultivar.py` | Referenz-Test fuer Sub-Entity (Cultivar in Species) |
 | `tests/e2e/test_req002_standorte.py` | Referenz-Test fuer mehrstufige Hierarchie |
 | `tests/e2e/protocol_plugin.py` | Testprotokoll-Generator (NFR-008 §4.4) |
+
+---
+
+**Dokumenten-Ende**
+
+**Version**: 1.0
+**Status**: Genehmigt
+**Review**: Genehmigt
+**Genehmigung**: Genehmigt (2026-06-11)
