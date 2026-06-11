@@ -340,7 +340,7 @@ paths:
 <!-- Quelle: Smart-Home-HA-Integration Review A-001 -->
 #### API-Stabilität für M2M-Consumer
 
-Die REST API bedient nicht nur Browser-Clients (React-Frontend), sondern auch **Machine-to-Machine-Consumer**:
+Die REST API bedient nicht nur Browser-Clients (React-Frontend), sondern auch **Machine-to-Machine-Consumer (M2M)** — also Software-Clients, die ohne Benutzerinteraktion mit der API kommunizieren:
 
 - **Home Assistant Custom Integration** (`kamerplanter-ha`) — pollt Pflanzen-, Tank- und Aufgabendaten
 - **IoT-Gateways** — schreiben Sensordaten via `POST /api/v1/t/{slug}/observations`
@@ -447,7 +447,7 @@ const db = new Database({
 | Datenbank at-rest | ArangoDB-eigene Encryption-at-Rest (RocksDB) | Keine per-field-Verschlüsselung — Performance-SLOs (NFR-007 P50 <200ms) wären sonst gefährdet |
 | Transport | TLS 1.2+ (HTTPS, MQTT über Port 8883) | Pflicht für alle Netzwerkkommunikation |
 
-Alle übrigen Anwendungsdaten (Pflanzen, Standorte, Sensordaten, Aufgaben) werden **nicht** application-level-verschlüsselt, sondern durch Zugriffskontrolle (§5.1), Netzwerk-Isolation (§6) und Datenbank-Encryption-at-Rest geschützt.
+Alle übrigen Anwendungsdaten (Pflanzen, Standorte, Sensordaten, Aufgaben) werden **nicht** auf Anwendungsebene verschlüsselt, sondern durch Zugriffskontrolle (§5.1), Netzwerk-Isolation (§6) und Datenbank-Encryption-at-Rest geschützt.
 
 **Backend-Konfiguration**:
 
@@ -567,7 +567,7 @@ app.add_middleware(
 
 > **Referenz:** SEC-H-002 (IT-Security-Review)
 
-Rate Limiting ist eine **verbindliche Anforderung** für alle API-Endpunkte. Die Implementierung erfolgt über `slowapi` mit Redis-Backend zur cluster-weiten Synchronisierung.
+Die Begrenzung der Anfragerate (Rate Limiting) ist eine **verbindliche Anforderung** für alle API-Endpunkte. Die Implementierung erfolgt über `slowapi` mit Redis-Backend, das die Zählung clusterweit synchronisiert.
 
 **Differenzierte Rate-Limiting-Tiers:**
 
@@ -607,7 +607,7 @@ limiter = Limiter(
 
 > **Referenz:** SEC-M-003 (IT-Security-Review)
 
-Alle HTTP-Responses MÜSSEN die folgenden Security Headers enthalten. Die Header werden als Traefik-Middleware (siehe NFR-002 §3.5, `default-security-headers@kubernetescrd`) konfiguriert und gelten für alle Routen.
+Alle HTTP-Responses MÜSSEN die folgenden Sicherheits-Header (Security Headers) enthalten. Die Header werden als Traefik-Middleware (siehe NFR-002 §3.5, `default-security-headers@kubernetescrd`) konfiguriert und gelten für alle Routen.
 
 | Header | Wert | Begründung |
 |--------|------|-----------|
@@ -632,9 +632,9 @@ base-uri 'self';
 form-action 'self';
 ```
 
-- `'nonce-{random}'` für Inline-Scripts: Vite und MUI generieren zur Laufzeit Inline-Skripte. Die Nonce wird pro Request serverseitig erzeugt und als Meta-Tag im HTML-Template eingebettet.
-- `'unsafe-inline'` für Styles: MUI 7 verwendet Emotion (CSS-in-JS), das Inline-Styles injiziert. Langfristig SOLL auf Nonce-basierte Styles migriert werden.
-- `connect-src` erlaubt Sentry **nur nach Einwilligung** (siehe UI-NFR-013). Die CSP-Direktive ist präventiv gesetzt; die tatsächliche Initialisierung erfolgt consent-gesteuert.
+- `'nonce-{random}'` für Inline-Scripts: Vite und MUI erzeugen zur Laufzeit Inline-Skripte. Der Server erzeugt die Nonce pro Request und bettet sie als Meta-Tag in das HTML-Template ein.
+- `'unsafe-inline'` für Styles: MUI 7 verwendet Emotion (CSS-in-JS) und schleust dadurch Inline-Styles ein. Langfristig SOLL das Projekt auf Nonce-basierte Styles umstellen.
+- `connect-src` erlaubt Sentry **nur nach Einwilligung** (siehe UI-NFR-013). Die CSP-Direktive ist vorsorglich gesetzt; die tatsächliche Initialisierung erfolgt einwilligungsgesteuert.
 
 **Anforderungen:**
 
@@ -649,7 +649,7 @@ form-action 'self';
 
 > **Referenz:** SEC-H-003 (IT-Security-Review)
 
-Alle API-Endpunkte MÜSSEN maximale Feldlängen erzwingen. Die folgende Tabelle definiert die **zentrale Feldlängen-Policy**, die für alle REQs gilt, sofern nicht explizit abweichend spezifiziert.
+Alle API-Endpunkte MÜSSEN maximale Feldlängen erzwingen. Die folgende Tabelle definiert die **zentrale Feldlängen-Policy**, die für alle REQs gilt, sofern nichts ausdrücklich Abweichendes spezifiziert ist.
 
 **Zentrale Feldlängen-Policy:**
 
@@ -677,7 +677,7 @@ Alle API-Endpunkte MÜSSEN maximale Feldlängen erzwingen. Die folgende Tabelle 
 
 > **Referenz:** SEC-H-006 (IT-Security-Review)
 
-MQTT wird für die Kommunikation mit Sensoren (REQ-005) und Aktoren (REQ-018) eingesetzt. Da kompromittierte MQTT-Clients physische Schäden verursachen können (unkontrollierte Bewässerung, CO2-Zufuhr, Beleuchtung), gelten strenge Sicherheitsanforderungen.
+MQTT wird für die Kommunikation mit Sensoren (REQ-005) und Aktoren (REQ-018) eingesetzt. Da kompromittierte MQTT-Clients physische Schäden verursachen können — etwa durch unkontrollierte Bewässerung, CO2-Zufuhr oder Beleuchtung —, gelten strenge Sicherheitsanforderungen.
 
 **Anforderungen:**
 
@@ -701,7 +701,7 @@ MQTT wird für die Kommunikation mit Sensoren (REQ-005) und Aktoren (REQ-018) ei
 
 > **Referenz:** SEC-K-005 (IT-Security-Review)
 
-Sensordaten (CO2-Konzentration, Temperatur, Luftbewegung, manuelle Aktor-Overrides) können Rückschlüsse auf Anwesenheit und Verhalten von Personen ermöglichen — insbesondere in kleinen Räumen wie Growzelten oder Kellerräumen. Dies betrifft primär REQ-005 (Hybrid-Sensorik) und REQ-018 (Umgebungssteuerung/Aktorik).
+Sensordaten (CO2-Konzentration, Temperatur, Luftbewegung, manuelle Aktor-Overrides) können Rückschlüsse auf Anwesenheit und Verhalten von Personen zulassen — insbesondere in kleinen Räumen wie Growzelten oder Kellerräumen. Dies betrifft vorrangig REQ-005 (Hybrid-Sensorik) und REQ-018 (Umgebungssteuerung/Aktorik).
 
 Vor Inbetriebnahme der Sensorerfassung MUSS eine **Datenschutz-Folgenabschätzung (DSFA)** nach Art. 35 DSGVO durchgeführt werden. Die DSFA MUSS mindestens die folgenden Risiken bewerten:
 
@@ -842,7 +842,7 @@ spec:
 
 <!-- Quelle: IT-Security-Review SEC-M-004 -->
 
-Alle Kubernetes-Deployments MÜSSEN Security Contexts definieren, um die Angriffsfläche bei Container-Kompromittierung zu minimieren.
+Alle Kubernetes-Deployments MÜSSEN einen Security Context definieren, um die Angriffsfläche bei einer Kompromittierung des Containers zu minimieren.
 
 **Pod Security Context (alle Deployments):**
 
@@ -1061,7 +1061,7 @@ export async function apiCall<T>(
 
 **DSGVO-Konformität für Sentry:**
 
-Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adressen, URLs mit Tenant-Slugs, User-Agent, Session-Replay). Die folgenden Anforderungen gelten:
+Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adressen, URLs mit Tenant-Slugs, User-Agent, Session-Replay). Es gelten die folgenden Anforderungen:
 
 | # | Regel | Stufe |
 |---|-------|-------|
@@ -1075,7 +1075,7 @@ Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adre
 
 <!-- Quelle: IT-Security-Review SEC-H-007 -->
 
-Sicherheitsrelevante Ereignisse MÜSSEN in einem dedizierten Security-Audit-Log protokolliert werden. Das Audit-Log ist **append-only** und getrennt vom operativen Application-Log.
+Sicherheitsrelevante Ereignisse MÜSSEN in einem eigens dafür vorgesehenen Security-Audit-Log protokolliert werden. Das Audit-Log erlaubt nur Anfügen (**append-only**) und ist vom operativen Application-Log getrennt.
 
 **Pflicht-Events:**
 
@@ -1259,7 +1259,7 @@ db.provides_endpoint.save({
 
 > **Referenz:** SEC-H-007 (IT-Security-Review)
 
-Der Audit-Trail ist eine **verbindliche Anforderung**, kein optionales Feature. Alle sicherheitsrelevanten Ereignisse MÜSSEN in der `audit_logs`-Collection (mit `performed_by`- und `affected`-Edge-Collections) protokolliert werden.
+Der Audit-Trail ist eine **verbindliche Anforderung** und kein optionales Feature. Alle sicherheitsrelevanten Ereignisse MÜSSEN in der `audit_logs`-Collection (mit den Edge-Collections `performed_by` und `affected`) protokolliert werden.
 
 **Pflicht-Events:**
 
@@ -1471,7 +1471,7 @@ $ curl http://localhost:8000/api/v2/plants
 |**Logik-Duplikation**|Frontend und Backend berechnen GDD unterschiedlich|Mittel|Strikte Code-Ownership|
 |**Skalierungsprobleme**|Frontend und Backend können nicht getrennt skaliert werden|Hoch|Kubernetes HPA|
 |**Vendor Lock-in**|UI-Framework-Wechsel erfordert Backend-Refactoring|Niedrig|API Contracts|
-|**Hohe technische Schuld**|Monolithische Codebasis wird unmaintainable|Hoch|Architektur-Reviews|
+|**Hohe technische Schuld**|Monolithische Codebasis wird unwartbar|Hoch|Architektur-Reviews|
 
 ---
 
@@ -1493,7 +1493,7 @@ $ curl http://localhost:8000/api/v2/plants
 └─────────────┘
 ```
 
-Jeder Client nutzt die gleiche API ohne Backend-Änderungen.
+Jeder Client nutzt dieselbe API, ohne dass das Backend angepasst werden muss.
 
 ### 14.2 Microservices-Migration
 
@@ -1518,7 +1518,7 @@ Zukünftig (Microservices):
                   └────────────────┘
 ```
 
-API Contracts bleiben stabil, interne Architektur kann sich ändern.
+Die API-Contracts bleiben stabil, während sich die interne Architektur ändern kann.
 
 ### 14.3 Third-Party-Integrationen
 
@@ -1661,7 +1661,7 @@ class WeatherStationAdapter:
 
 **Dokumenten-Ende**
 
-**Version**: 2.1
+**Version**: 2.3
 **Status**: Produktionsreif
 **Letzte Aktualisierung**: 2026-02-27
 **Review**: Pending

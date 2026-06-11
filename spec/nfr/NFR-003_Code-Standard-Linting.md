@@ -22,7 +22,7 @@ Betroffene Module: [ALL]
 
 **Als** Tech Lead  
 **möchte ich** dass der gesamte Source Code auf Englisch verfasst wird  
-**um** internationale Entwickler problemlos onboarden zu können.
+**um** internationale Entwickler problemlos einarbeiten zu können.
 
 **Als** DevOps Engineer  
 **möchte ich** dass Code-Qualität automatisch im CI/CD-Prozess geprüft wird  
@@ -32,7 +32,7 @@ Betroffene Module: [ALL]
 **möchte ich** klare Formatierungs- und Linting-Regeln  
 **um** Zeit bei Code-Reviews zu sparen und mich auf fachliche Logik zu konzentrieren.
 
-**Als** AI-System (GitHub Copilot, ChatGPT)  
+**Als** KI-System (GitHub Copilot, ChatGPT)  
 **möchte ich** konsistent formatierten, englischsprachigen Code  
 **um** bessere Code-Vorschläge zu generieren.
 
@@ -40,18 +40,18 @@ Betroffene Module: [ALL]
 
 **Internationale Skalierung**:
 - 80% der Python-Entwickler weltweit arbeiten primär auf Englisch
-- Offshore-Entwicklung (z.B. Indien, Osteuropa) erfordert englische Codebase
-- Open-Source-Contributions nur mit englischem Code möglich
+- Offshore-Entwicklung (z. B. Indien, Osteuropa) erfordert eine englische Codebase
+- Open-Source-Beiträge sind nur mit englischem Code möglich
 
 **Technische Qualität**:
 - Konsistenter Code senkt Wartungskosten um 30-40%
 - Automatisches Linting verhindert 60% aller Bugs vor Produktion
 - Type Hints reduzieren Runtime-Fehler um 40%
 
-**AI-Integration**:
-- LLM-basierte Tools (Copilot, Cursor) sind auf englischen Code trainiert
+**KI-Integration**:
+- LLM-basierte Werkzeuge (Copilot, Cursor) sind auf englischen Code trainiert
 - Bessere Code-Completion bei konsistenten Namenskonventionen
-- Dokumentations-Generierung funktioniert nur mit englischen Docstrings
+- Die automatische Dokumentationsgenerierung funktioniert nur mit englischen Docstrings
 
 ### 1.3 Fachliche Beschreibung
 
@@ -111,7 +111,7 @@ def calculate_gdd(plant_id: str, base_temperature: float) -> float:
 **Begründung**: Deutsche Fachlichkeit, internationale Technologie.
 
 <!-- Quelle: Widerspruchsanalyse W-018 — Klarstellung Scope der Englisch-Pflicht -->
-**Klarstellung:** Die Englisch-Pflicht gilt ausschliesslich fuer Source Code, Code-Kommentare, Docstrings, Commit Messages und API-Dokumentation. Spezifikationsdokumente (`spec/**/*.md`), Nutzer-facing Dokumentation (`docs/`) und Anforderungsanalysen werden auf Deutsch verfasst.
+**Klarstellung:** Die Englisch-Pflicht gilt ausschließlich für Source Code, Code-Kommentare, Docstrings, Commit Messages und API-Dokumentation. Spezifikationsdokumente (`spec/**/*.md`), nutzerseitige Dokumentation (`docs/`) und Anforderungsanalysen werden auf Deutsch verfasst.
 
 ### 2.2 Englisch verpflichtend für
 
@@ -148,7 +148,7 @@ def calculate_gdd(plant_id: str, base_temperature: float) -> float:
 - Bevorzugter Stil: `str | None` (nicht `Optional[str]`), `list[str]` (nicht `List[str]`)
 - Type Aliases: `type PlantID = str` (Python 3.12+ `type`-Statement, nicht `TypeAlias`)
 - Union-Typen: `int | float` (nicht `Union[int, float]`)
-- Bestehender Code im Repository folgt bereits diesem Stil — Rueckfallmuster (`Optional`, `Union`, `List`, `Dict` aus `typing`) sind in neuem Code verboten
+- Bestehender Code im Repository folgt bereits diesem Stil — Rückfallmuster (`Optional`, `Union`, `List`, `Dict` aus `typing`) sind in neuem Code verboten
 
 **PEP 8 + Agrotech Extensions**:
 
@@ -325,7 +325,7 @@ db.befindet_sich_in.save(...)  // NIEMALS!
 | Tool | Version | Zweck | Verpflichtend |
 |------|---------|-------|---------------|
 | **Ruff** | >= 0.1.9 | All-in-One Linter (ersetzt Flake8, isort, etc.) | ✅ Ja |
-| **Black** | >= 23.12.0 | Code Formatter (unforgiving) | ✅ Ja |
+| **Black** | >= 23.12.0 | Code-Formatter (kompromisslos) | ✅ Ja |
 | **mypy** | >= 1.8.0 | Static Type Checker | ✅ Ja |
 | **Bandit** | >= 1.7.5 | Security Linter | ⚠️ Empfohlen |
 | **Safety** | >= 3.0.0 | Dependency Vulnerability Scanner | ⚠️ Empfohlen |
@@ -1447,9 +1447,9 @@ Proprietary - All rights reserved
 
 ### 8.1 Ausnahmen für Legacy-Code
 
-**Grandfathering-Regel**:
+**Grandfathering-Regel** (Bestandsschutz für Altcode):
 
-Existierender Code mit deutschen Identifiern darf **temporär** bleiben, MUSS aber:
+Bestehender Code mit deutschen Identifiern darf **temporär** bleiben, MUSS aber:
 
 1. **Dokumentiert werden**:
 ```python
@@ -1629,7 +1629,7 @@ Merging is blocked by required status checks.
 
 ## 10. Risiken bei Nicht-Einhaltung
 
-| Risiko | Auswirkung | Wahrscheinlichkeit | Mitigation |
+| Risiko | Auswirkung | Wahrscheinlichkeit | Gegenmaßnahme |
 |--------|------------|-------------------|------------|
 | **Gemischte Sprachen** | Code schwer wartbar, Onboarding verzögert | Hoch | Strikte CI-Checks |
 | **Fehlende Type Hints** | Runtime-Fehler, schwache IDE-Unterstützung | Mittel | mypy Strict Mode |
@@ -1746,7 +1746,7 @@ mypy --html-report ./mypy-report .
 
 **Dokumenten-Ende**
 
-**Version**: 2.0
+**Version**: 2.1
 **Status**: Produktionsreif
 **Letzte Aktualisierung**: 2026-02-25
 **Review**: Pending

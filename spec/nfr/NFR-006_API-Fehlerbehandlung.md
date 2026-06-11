@@ -25,7 +25,7 @@ Betroffene Module: [ALL]
 **um** Fehler schnell an das Backend-Team eskalieren zu können, ohne Log-Dateien selbst durchsuchen zu müssen.
 
 **Als** DevOps Engineer
-**möchte ich** dass jeder API-Fehler eine korrelierbare ID enthält, die in Logs, Monitoring und Alerting wiederverwendet wird
+**möchte ich**, dass jeder API-Fehler eine korrelierbare ID enthält, die in Logs, Monitoring und Alerting wiederverwendet wird
 **um** Fehlerursachen über alle Systemschichten hinweg nachvollziehen zu können.
 
 **Als** Endanwender
@@ -39,7 +39,7 @@ Ohne strukturierte Fehlerbehandlung:
 1. **Support-Aufwand steigt** – Fehler können nicht reproduziert oder nachverfolgt werden
 2. **MTTR (Mean Time to Resolve) erhöht sich** – Entwickler durchsuchen Logs manuell
 3. **Kundenzufriedenheit sinkt** – kryptische Fehlermeldungen frustrieren Anwender
-4. **Sicherheitsrisiken** – interne Details (Stack-Traces, DB-Fehlermeldungen) werden exponiert
+4. **Sicherheitsrisiken** – interne Details (Stack-Traces, DB-Fehlermeldungen) werden nach außen preisgegeben
 
 ### 1.3 Fachliche Beschreibung
 
@@ -48,7 +48,7 @@ Jede API-Antwort mit HTTP-Statuscode >= 400 muss ein einheitliches Fehler-Schema
 - **Maschinenlesbar** sein (fester Error-Code)
 - **Menschenlesbar** sein (beschreibende Nachricht)
 - **Nachverfolgbar** sein (eindeutige `error_id`)
-- **Sicher** sein (keine internen Details wie Stack-Traces oder DB-Queries exponieren)
+- **Sicher** sein (keine internen Details wie Stack-Traces oder DB-Queries preisgeben)
 
 Praktisches Beispiel:
 
@@ -408,7 +408,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 ## 6. Sicherheitsanforderungen
 
-### 6.1 Grundprinzip: Minimale Informationsexposition
+### 6.1 Grundprinzip: Minimale Preisgabe von Informationen
 
 Fehlermeldungen an den Client dürfen **ausschließlich fachliche Informationen** enthalten. Jede Information, die Rückschlüsse auf die eingesetzte Software, Infrastruktur, Architektur oder interne Systemstruktur zulässt, ist ein potenzieller Angriffsvektor und **MUSS** unterdrückt werden.
 

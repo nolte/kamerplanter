@@ -39,14 +39,14 @@ NFR-007 definiert **wie** die in NFR-001/002/006 beschriebene Monitoring-Infrast
 
 **Als** DevOps Engineer
 **möchte ich** automatische Alerting-Regeln mit klaren Eskalationsstufen
-**um** bei Störungen sofort benachrichtigt zu werden, ohne von Alert-Rauschen überflutet zu werden.
+**um** bei Störungen sofort benachrichtigt zu werden, ohne von einer Flut an Alarmen überschwemmt zu werden.
 
 **Als** Produktmanager
 **möchte ich** eine Statuspage und definierte Reaktionszeiten pro Schweregrad
 **um** gegenüber Stakeholdern verbindliche Verfügbarkeitszusagen machen zu können.
 
 **Als** Endanwender
-**möchte ich** dass das System bei Teilausfällen graceful degradiert statt vollständig auszufallen
+**möchte ich**, dass das System bei Teilausfällen kontrolliert herunterfährt, statt vollständig auszufallen,
 **um** auch bei Störungen weiterhin grundlegende Funktionen nutzen zu können.
 
 ### 1.2 Geschäftliche Motivation
@@ -54,10 +54,10 @@ NFR-007 definiert **wie** die in NFR-001/002/006 beschriebene Monitoring-Infrast
 Ohne definierte Betriebsziele und Reaktionsprozesse:
 
 1. **Keine messbaren Verfügbarkeitszusagen** — Stakeholder haben keine Grundlage für Verträge oder Erwartungen
-2. **Reaktive statt proaktive Störungsbehebung** — Fehler werden erst bemerkt, wenn Anwender sich beschweren
-3. **Hoher MTTR (Mean Time to Resolve)** — Ohne Eskalationsprozesse verzögert sich die Fehlerbehebung
-4. **Alert Fatigue** — Ohne Strukturierung werden Benachrichtigungen ignoriert
-5. **Kaskadierende Ausfälle** — Ohne Resilience-Patterns kann ein einzelner Dienst das gesamte System lahmlegen
+2. **Reaktive statt proaktiver Störungsbehebung** — Fehler werden erst bemerkt, wenn Anwender sich beschweren
+3. **Hoher MTTR (Mean Time to Resolve, mittlere Behebungsdauer)** — ohne Eskalationsprozesse verzögert sich die Fehlerbehebung
+4. **Alert Fatigue (Alarm-Müdigkeit)** — ohne Strukturierung werden Benachrichtigungen ignoriert
+5. **Kaskadierende Ausfälle** — ohne Resilience-Patterns (Widerstandsfähigkeitsmuster) kann ein einzelner Dienst das gesamte System lahmlegen
 6. **Fehlende Kapazitätsplanung** — Ressourcenengpässe werden zu spät erkannt
 
 ### 1.3 Fachliche Beschreibung
@@ -65,8 +65,8 @@ Ohne definierte Betriebsziele und Reaktionsprozesse:
 Praktisches Beispiel:
 
 > **Szenario**: ArangoDB antwortet 3 Sekunden lang nicht (z.B. durch Compaction).
-> **Ohne NFR-007**: API-Requests blockieren, Timeouts kaskadieren, alle Requests in der Queue stauen sich, Gesamtsystem fällt aus.
-> **Mit NFR-007**: Circuit Breaker öffnet nach 5 Fehlern, API liefert sofort 503 mit Retry-After-Header, Alarm wird an On-Call gesendet, Anwender sieht "Service vorübergehend eingeschränkt" statt endlos ladendem Spinner.
+> **Ohne NFR-007**: API-Requests blockieren, Timeouts kaskadieren, alle Requests in der Queue stauen sich, das Gesamtsystem fällt aus.
+> **Mit NFR-007**: Der Circuit Breaker öffnet nach 5 Fehlern, die API liefert sofort 503 mit Retry-After-Header, ein Alarm wird an den Bereitschaftsdienst (On-Call) gesendet, und der Anwender sieht "Service vorübergehend eingeschränkt" statt eines endlos ladenden Spinners.
 
 ---
 
@@ -573,7 +573,7 @@ circuit_breaker_state = Gauge(
 
 ### 4.2 Retry-Policies
 
-**MUSS**: Fehlgeschlagene Netzwerkoperationen werden mit Exponential Backoff und Jitter wiederholt.
+**MUSS**: Fehlgeschlagene Netzwerkoperationen werden mit exponentiellem Backoff (schrittweise wachsender Wartezeit) und Jitter (zufälliger Streuung) wiederholt.
 
 | Parameter | Wert | Beschreibung |
 |---|---|---|
@@ -701,12 +701,12 @@ service_degraded = Gauge(
 | Scope | Limit | Zeitfenster | Bemerkung |
 |---|---|---|---|
 | Global (alle Clients) | 10.000 Requests | 1 Minute | Gesamtlast-Schutz |
-| Per Client — Human (IP-basiert) | 100 Requests | 1 Minute | Standard fuer Browser-Clients |
-| Per Client — Service Account (API-Key) | 1.000 Requests | 1 Minute | Erhoehtes Limit fuer M2M (REQ-023 v1.7) |
-| Per Client — Service Account (Batch) | 10.000 Requests | 1 Minute | Fuer Batch-Sensor-Endpoints (REQ-005) |
+| Per Client — Human (IP-basiert) | 100 Requests | 1 Minute | Standard für Browser-Clients |
+| Per Client — Service Account (API-Key) | 1.000 Requests | 1 Minute | Erhöhtes Limit für M2M (REQ-023 v1.7) |
+| Per Client — Service Account (Batch) | 10.000 Requests | 1 Minute | Für Batch-Sensor-Endpoints (REQ-005) |
 | Per Endpunkt (Schreiboperationen) | 20 Requests | 1 Minute | Human-Clients; Service Accounts: 200/min |
 
-**Hinweis:** Service Accounts (REQ-023 v1.7, `account_type: 'service'`) erhalten ein separates Rate-Limit-Tier, da Home Assistant bei intensiver Sensor-Erfassung (REQ-005) die Human-Client-Limits ueberschreiten kann. Zusaetzlich SOLL ein Batch-Sensor-Endpoint (`POST /api/v1/t/{slug}/sensors/batch`) bereitgestellt werden, der mehrere Datenpunkte in einem Request verarbeitet.
+**Hinweis:** Service Accounts (REQ-023 v1.7, `account_type: 'service'`) erhalten ein separates Rate-Limit-Tier, da Home Assistant bei intensiver Sensor-Erfassung (REQ-005) die Limits für Human-Clients überschreiten kann. Zusätzlich SOLL ein Batch-Sensor-Endpoint (`POST /api/v1/t/{slug}/sensors/batch`) bereitgestellt werden, der mehrere Datenpunkte in einem Request verarbeitet.
 
 **MUSS**: Rate-Limit-Responses enthalten `Retry-After`-Header.
 **MUSS**: Rate-Limit-Überschreitungen werden als Prometheus-Counter gezählt (Label: `client_type: human|service`).
@@ -717,7 +717,7 @@ service_degraded = Gauge(
 
 <!-- Quelle: REQ-031 v2.0 -->
 
-KI-gestützte Endpoints (REQ-031 v2.0 KI-Assistent, REQ-035 Glossar, REQ-036 Diagnose-Assistent, REQ-033 MCP-Server) bringen eine eigene Klasse von Sicherheits- und Stabilitätsrisiken mit. Sie werden durch die folgenden zusätzlichen Maßnahmen abgesichert.
+KI-gestützte Endpoints (REQ-031 v2.0 KI-Assistent, REQ-035 Glossar, REQ-036 Diagnose-Assistent, REQ-033 MCP-Server) bringen eine eigene Klasse von Sicherheits- und Stabilitätsrisiken mit sich. Sie werden durch die folgenden zusätzlichen Maßnahmen abgesichert.
 
 #### 4.7.1 Prompt-Injection-Schutz
 
@@ -772,7 +772,7 @@ KI-gestützte Endpoints (REQ-031 v2.0 KI-Assistent, REQ-035 Glossar, REQ-036 Dia
 
 #### 4.7.5 Rate-Limits für LLM-Endpoints
 
-Zusätzlich zu §4.6 gelten dedizierte LLM-Limits, weil ein einzelner Aufruf erheblich teurer (Latenz, Kosten) ist als ein normaler API-Aufruf:
+Zusätzlich zu §4.6 gelten dedizierte LLM-Limits, weil ein einzelner Aufruf in Bezug auf Latenz und Kosten erheblich teurer ist als ein normaler API-Aufruf:
 
 | Scope | Limit | Zeitfenster | Bemerkung |
 |---|---|---|---|
@@ -867,7 +867,7 @@ Zusätzlich zu §4.6 gelten dedizierte LLM-Limits, weil ein einzelner Aufruf erh
 5. **Action Items** — Konkrete Maßnahmen mit Verantwortlichen und Fristen
 6. **Lessons Learned** — Was lief gut, was nicht?
 
-**MUSS**: Post-Mortems sind blameless — Fokus auf Systemverbesserung, nicht auf individuelle Schuldzuweisung.
+**MUSS**: Post-Mortems erfolgen ohne Schuldzuweisung (blameless) — der Fokus liegt auf der Systemverbesserung, nicht auf individueller Schuldzuweisung.
 
 ### 5.5 Statuspage
 
@@ -964,9 +964,9 @@ spec:
 
 **SOLL**: Für kritische Änderungen wird ein Canary Deployment durchgeführt.
 
-- 10 % des Traffics wird auf die neue Version geleitet
+- 10 % des Traffics werden auf die neue Version geleitet
 - Latenz und Error Rate der Canary werden mit der Baseline verglichen
-- Automatisches Rollback bei Verschlechterung > 10 % gegenüber Baseline
+- Automatisches Rollback bei einer Verschlechterung > 10 % gegenüber der Baseline
 - Schrittweise Traffic-Erhöhung: 10 % → 25 % → 50 % → 100 %
 
 **KANN**: Integration mit Flagger oder Argo Rollouts für automatisierte Canary-Analyse.
@@ -1003,7 +1003,7 @@ spec:
 **SOLL**: Wöchentliche automatische Reports über:
 
 - Ressourcenverbrauch-Trend (letzte 4 Wochen)
-- SLO-Einhallung pro Woche
+- SLO-Einhaltung pro Woche
 - Top-5 langsamste Endpunkte
 - Error-Budget-Verbrauch
 

@@ -22,22 +22,22 @@ Betroffene Module: [ALL]
 
 **Als** Entwickler  
 **möchte ich** eine zentrale, durchsuchbare Dokumentation  
-**um** schnell Antworten auf technische Fragen zu finden ohne Kollegen zu fragen.
+**um** schnell Antworten auf technische Fragen zu finden, ohne Kollegen fragen zu müssen.
 
 **Als** Tech Lead  
-**möchte ich** dass Dokumentation automatisch aus Code generiert wird (API Docs, Schemas)  
-**um** sicherzustellen dass Docs immer aktuell sind.
+**möchte ich**, dass Dokumentation automatisch aus dem Code generiert wird (API-Docs, Schemas),  
+**um** sicherzustellen, dass die Docs immer aktuell sind.
 
 **Als** neuer Entwickler  
 **möchte ich** interaktive Tutorials und Code-Beispiele  
 **um** schnell produktiv zu werden (< 2 Tage Onboarding).
 
 **Als** DevOps Engineer  
-**möchte ich** dass Dokumentation versioniert ist und mit Code deployed wird  
-**um** sicherzustellen dass Docs zur jeweiligen Release-Version passen.
+**möchte ich**, dass Dokumentation versioniert ist und gemeinsam mit dem Code deployt wird,  
+**um** sicherzustellen, dass die Docs zur jeweiligen Release-Version passen.
 
 **Als** Product Owner  
-**möchte ich** dass technische Architektur-Entscheidungen dokumentiert sind  
+**möchte ich**, dass technische Architektur-Entscheidungen dokumentiert sind,  
 **um** Kontext für zukünftige Entscheidungen zu haben.
 
 ### 1.2 Geschäftliche Motivation
@@ -1808,8 +1808,8 @@ data:
 
 ### 11.3 Style Guide
 
-**Ton & Voice**:
-- ✅ **Klar & Direkt**: "Install MkDocs" statt "You might want to consider installing"
+**Ton & Stil**:
+- ✅ **Klar & direkt**: "Install MkDocs" statt "You might want to consider installing"
 - ✅ **Aktiv**: "Run the command" statt "The command should be run"
 - ✅ **Präzise**: "Set replicas to 3" statt "Use a few replicas"
 - ❌ **Vermeiden**: Passive Voice, vage Begriffe ("might", "could", "some")
@@ -1881,7 +1881,7 @@ Term
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-02-25
 **Review**: Pending

@@ -7,9 +7,9 @@ Fokus: Frontend
 Technologie: React 18, TypeScript, MUI, Redux Toolkit, Zod, react-router-dom
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-26
+Datum: 2026-03-18
 Tags: [ui, crud, listenansicht, pflegemaske, vollständigkeit, datenpflege, usability]
 Abhängigkeiten: [NFR-001, NFR-003, NFR-006, UI-NFR-004, UI-NFR-008, UI-NFR-010]
 Betroffene Module: [Frontend]
@@ -189,7 +189,7 @@ Jede Domänenentität **MUSS** eine tabellarische Listenansicht besitzen, die au
 **MUSS**:
 - Jede Listenansicht MUSS ein Suchfeld oberhalb der Tabelle bereitstellen
 - Das Suchfeld durchsucht alle textuellen Spalten der Tabelle (Volltextsuche)
-- Sucheingaben werden mit Debouncing versehen (300ms Verzögerung, vgl. UI-NFR-003 R-017)
+- Sucheingaben werden entprellt (Debouncing, 300 ms Verzögerung, vgl. UI-NFR-003 R-017)
 - Die Suche erfolgt server-seitig (API-Parameter `search`)
 - Bei aktiver Suche wird die Ergebnisanzahl angezeigt (z.B. *„3 von 42 Ergebnissen"*)
 - Der Suchbegriff wird in der URL als Query-Parameter abgebildet (`?search=...`), damit gefilterte Ansichten teilbar sind (vgl. UI-NFR-005 R-003)
@@ -353,7 +353,7 @@ Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen
 | Entität | REQ | C | R | U | D | Begründung für fehlende Operationen |
 |---------|-----|---|---|---|---|--------------------------------------|
 | CareProfile | REQ-022 | Auto | Ja | Ja | Nein | 1:1-Beziehung zu PlantInstance. Löschen würde sofort Neuanlage erzwingen. `reset-profile` (auf Species-Defaults) ist die fachlich korrekte Alternative. |
-| CareConfirmation | REQ-022 | Ja | Ja | Nein | Nein | Immutables Event-Log (Audit-Trail). Nachträgliche Änderung würde Adaptive-Learning-Integrität gefährden. |
+| CareConfirmation | REQ-022 | Ja | Ja | Nein | Nein | Unveränderliches Event-Log (Audit-Trail). Eine nachträgliche Änderung würde die Integrität des Adaptive Learning gefährden. |
 
 ---
 
@@ -427,7 +427,7 @@ Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen
     - [ ] Einleitungstext oberhalb der Tabelle vorhanden (1–2 Sätze, i18n DE/EN)
     - [ ] Pagination mit konfigurierbaren Seitengrößen
     - [ ] Alle Spalten sind sortierbar (server-seitig, MUI `TableSortLabel`)
-    - [ ] Suchfeld oberhalb der Tabelle vorhanden (Volltextsuche mit 300ms Debouncing)
+    - [ ] Suchfeld oberhalb der Tabelle vorhanden (Volltextsuche mit 300 ms Debouncing)
     - [ ] Suchbegriff als URL-Query-Parameter abgebildet (`?search=...`)
     - [ ] Ergebnisanzahl bei aktiver Suche angezeigt
     - [ ] Leerzustand mit `EmptyState` und Erstell-Aktion

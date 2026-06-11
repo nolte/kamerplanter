@@ -39,19 +39,19 @@ Betroffene Module: [ALL]
 ### 1.2 Geschäftliche Motivation
 
 **Produktivitätssteigerung**:
-- Reduzierung der Feedback-Loop von 5-10 Minuten auf 10-30 Sekunden
+- Verkürzung der Feedback-Schleife von 5 bis 10 Minuten auf 10 bis 30 Sekunden
 - Automatisches Hot-Reload bei Code-Änderungen
-- Debugging im Kubernetes-Kontext (nicht nur Docker Compose)
+- Debugging im Kubernetes-Kontext (nicht nur in Docker Compose)
 
 **Kosteneffizienz**:
-- Keine Cloud-Kosten für Dev-Environments
-- Entwickler arbeiten offline (Zug, Flugzeug)
-- Schnelleres Onboarding (< 1 Tag statt 1 Woche)
+- Keine Cloud-Kosten für Entwicklungsumgebungen
+- Entwickler arbeiten offline (im Zug oder Flugzeug)
+- Schnelleres Onboarding (weniger als ein Tag statt einer Woche)
 
 **Qualitätssicherung**:
-- Production-Parity: Gleiche Helm Charts wie Production
-- Frühe Erkennung von K8s-spezifischen Problemen
-- Realistische Performance-Tests lokal möglich
+- Produktionsnähe: dieselben Helm-Charts wie in der Produktion
+- Frühe Erkennung Kubernetes-spezifischer Probleme
+- Realistische Performance-Tests bereits lokal möglich
 
 ### 1.3 Fachliche Beschreibung
 
@@ -146,13 +146,13 @@ build:
       dockerfile: Dockerfile
 ```
 
-**File Sync** (1-5 Sekunden):
-- Python-Dateien direkt in Container kopieren
-- Kein Docker Build nötig
+**File Sync** (1 bis 5 Sekunden):
+- Python-Dateien direkt in den Container kopieren
+- Kein Docker-Build nötig
 - FastAPI Auto-Reload greift
 
-**Rebuild** (20-60 Sekunden):
-- Neue Dependency in requirements.txt
+**Rebuild** (20 bis 60 Sekunden):
+- Neue Abhängigkeit in requirements.txt
 - Dockerfile-Änderung
 - Statische Assets
 
@@ -164,7 +164,7 @@ build:
 
 | Tool | Pros | Cons | Empfehlung |
 |------|------|------|------------|
-| **Kind** | Schnell, CI-freundlich, Multi-Node | Kein LoadBalancer (nutze Port-Mapping) | ✅ Primär |
+| **Kind** | Schnell, CI-freundlich, Multi-Node | Kein LoadBalancer (Port-Mapping nutzen) | ✅ Primär |
 | **Minikube** | Stabil, Feature-reich, GUI | Ressourcen-intensiv, langsamer | ⚠️ Alternative |
 | **k3s/k3d** | Leichtgewichtig, Production-like | Komplexeres Setup | ⚠️ Advanced |
 | **Docker Desktop** | Einfach, GUI | Mac/Windows only, langsam | ❌ Nicht empfohlen |
@@ -780,7 +780,7 @@ persistence:
 
 ### 4.5 Backend-URL Konfiguration (Frontend → Backend)
 
-Das Frontend muss in verschiedenen Umgebungen unterschiedliche Backend-Endpunkte nutzen. Dafür gibt es **drei Netzwerk-Ebenen** mit jeweils eigener Lösung:
+Das Frontend muss in verschiedenen Umgebungen unterschiedliche Backend-Endpunkte ansprechen. Dafür gibt es **drei Netzwerk-Ebenen** mit jeweils eigener Lösung:
 
 #### Architektur-Überblick
 
@@ -843,7 +843,7 @@ data:
     }
 ```
 
-Das Deployment mountet die ConfigMap als Volume auf `/etc/nginx/conf.d/default.conf` (subPath-Mount). Die Pod-Annotation `checksum/nginx-config` erzwingt einen automatischen Restart bei Konfigurationsänderung:
+Das Deployment bindet die ConfigMap als Volume unter `/etc/nginx/conf.d/default.conf` ein (subPath-Mount). Die Pod-Annotation `checksum/nginx-config` erzwingt einen automatischen Neustart, sobald sich die Konfiguration ändert:
 
 ```yaml
 # templates/deployment.yaml (Auszug)
@@ -867,7 +867,7 @@ template:
 
 #### Vite-Proxy (Entwicklung)
 
-Der Vite Dev Server liest die Backend-URL aus der Environment-Variable `VITE_BACKEND_URL`:
+Der Vite Dev Server liest die Backend-URL aus der Umgebungsvariable `VITE_BACKEND_URL`:
 
 ```ts
 // vite.config.ts
@@ -886,7 +886,7 @@ server: {
 | Skaffold Dev (Pod) | aus Helm Deployment-Env | `http://kamerplanter-backend:8000` |
 | Manuell überschrieben | `VITE_BACKEND_URL=http://192.168.1.50:8000 npm run dev` | Benutzerdefiniert |
 
-Im Helm-Deployment wird die Env-Var automatisch aus den Backend-Values injiziert:
+Im Helm-Deployment wird die Umgebungsvariable automatisch aus den Backend-Values gesetzt:
 
 ```yaml
 # templates/deployment.yaml (Auszug)
@@ -1911,9 +1911,9 @@ curl http://localhost:8000/api/v1/irrigation/calculate
 | **Setup-Zeit** | ✅ 5 Minuten | ⚠️ 30 Minuten |
 | **Ressourcen** | ✅ Leichtgewichtig | ⚠️ RAM-intensiv |
 
-**Empfehlung**: Docker Compose für Quick Start, Skaffold für Production-like Development.
+**Empfehlung**: Docker Compose für den schnellen Einstieg, Skaffold für produktionsnahe Entwicklung.
 
-> **Hinweis:** Es MUSS mindestens Docker Compose File Format Version `3.8` (Compose Spec) verwendet werden. Ältere Versionen (< 3.8) unterstützen wichtige Features wie `healthcheck`-Konfiguration und erweiterte `depends_on`-Syntax nicht vollständig.
+> **Hinweis:** Es MUSS mindestens die Docker-Compose-Dateiformat-Version `3.8` (Compose Spec) verwendet werden. Ältere Versionen (< 3.8) unterstützen wichtige Funktionen wie die `healthcheck`-Konfiguration und die erweiterte `depends_on`-Syntax nicht vollständig.
 
 ### 12.2 Warum Kind statt Minikube?
 
@@ -1929,7 +1929,7 @@ curl http://localhost:8000/api/v1/irrigation/calculate
 | **Dashboard** | ❌ Nein | ✅ Built-in |
 | **Addons** | ⚠️ Manuell | ✅ Einfach |
 
-**Empfehlung**: Kind für Production-like Development, Minikube für GUI-Liebhaber.
+**Empfehlung**: Kind für produktionsnahe Entwicklung, Minikube für Anwender, die eine grafische Oberfläche bevorzugen.
 
 ### 12.3 Warum nicht Tilt?
 
@@ -1940,7 +1940,7 @@ curl http://localhost:8000/api/v1/irrigation/calculate
 | **Complexity** | ⚠️ Eigene DSL (Starlark) | ✅ YAML |
 | **Adoption** | ⚠️ Weniger verbreitet | ✅ Industry Standard |
 
-**Empfehlung**: Skaffold für einfachere Onboarding, Tilt für Power-Users.
+**Empfehlung**: Skaffold für ein einfacheres Onboarding, Tilt für erfahrene Anwender.
 
 ---
 
