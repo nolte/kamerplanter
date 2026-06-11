@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.4 (Normalisierte EC-Dosierung mit Runtime-Berechnung)
+Version: 3.5 (Mikronährstoffe Mn/Zn/Cu/Mo, pH-gegatete Verfügbarkeit)
 ```
 
 ## 1. Business Case
@@ -360,6 +360,14 @@ Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequenc
     - `sulfur_ppm: Optional[float]`
     - `iron_ppm: Optional[float]` (Fe-Mangel = häufigste Mikronährstoff-Chlorose in Hydro/Coco)
     - `boron_ppm: Optional[float]` (B-Mangel = Wachstumsstörungen, besonders bei Ca-reicher Düngung)
+    <!-- Quelle: Plant-Profile Environmental Research 2026-06 (spec/analysis/plant-profile-completeness-research.md) -->
+    - `manganese_ppm: Optional[float]` (Mn — Photosynthese/Enzymaktivierung; Verfügbarkeit sinkt mit steigendem pH, Mangel häufig bei pH > 6.5 / kalkhaltigem Substrat.)
+    - `zinc_ppm: Optional[float]` (Zn — Auxin-Synthese/Internodien; Mangel = Stauchung, Kleinblättrigkeit. pH-abhängig verfügbar.)
+    - `copper_ppm: Optional[float]` (Cu — Enzyme/Lignifizierung; eng tolerierter Bereich, Überdosis phytotoxisch.)
+    - `molybdenum_ppm: Optional[float]` (Mo — Nitratreduktase/N-Fixierung; einziger Mikronährstoff, dessen Verfügbarkeit MIT steigendem pH zunimmt — Mangel bei sauren Substraten.)
+    <!-- /Quelle: Plant-Profile Environmental Research 2026-06 -->
+    <!-- Hinweis: Mikronährstoff-Verfügbarkeit ist pH-gegated über `Species.soil_ph_preference` bzw. `BotanicalFamily.soil_ph_preference` (REQ-001). -->
+
     - `feeding_frequency_per_week: Optional[int]` (**Deprecated zugunsten DeliveryChannel.schedule** (Abschnitt 4). Bei vorhandenen `delivery_channels` wird dieses Feld ignoriert.)
     - `volume_per_feeding_liters: Optional[float]` (**Deprecated zugunsten DeliveryChannel.method_params** (Abschnitt 4). Bei vorhandenen `delivery_channels` wird dieses Feld ignoriert.)
     - `watering_schedule_override: Optional[WateringSchedule]` (Phasen-spezifischer Override des Plan-Level-Gießplans. Ermöglicht unterschiedliche Gießfrequenzen pro Phase — z.B. 7 Tage in VEGETATIVE, 14 Tage in DORMANCY. `null` = Plan-Level-Gießplan gilt. Auch bei `delivery_channels=[]` nutzbar, d.h. Phasen ohne Düngung können trotzdem eigene Gießintervalle definieren.)

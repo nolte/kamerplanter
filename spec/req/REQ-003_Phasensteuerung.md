@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.5 (Saison-Sensor-Aggregate, ADR-003)
+Version: 2.6 (Umgebungs-Physiologie: VPD-Schwelle, T_opt, Far-Red-Fraction)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.6 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** `requirement_profiles` um `vpd_threshold_kpa` + `vpd_sensitivity` (artspezifische VPD-Schwelle als echter Automatik-Trigger), `photosynthesis_temp_opt_c` (T_opt getrennt vom Tag-Zielwert) und `far_red_fraction` (phytochrom-prädiktive Shade-Avoidance-Metrik, ableitbar aus `light_spectrum`) erweitert. Quelle: `spec/analysis/plant-profile-completeness-research.md`. |
 | 2.5 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** SeasonalCycle um `sensor_aggregates`, `aggregate_computed_at`, `aggregate_computed_by`, `aggregate_source_retention_horizon`, `aggregate_config` erweitert. Neue `SensorAggregateEngine` mit avg/min/max/p10/p90 für Quantile-Sensoren und sum/avg_per_day für DLI. Celery-Task `compute_seasonal_aggregates_task` triggert beim Saisonende. Lazy Re-Computation bei Sensor-Drift. Backfill-Migration für bestehende Saisons. |
 | 2.4 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Direkter Phasenwechsel auf einer `PlantInstance`, die Mitglied eines aktiven `PlantingRun` ist (`run_contains` mit `detached_at = null`, `run.status = 'active'`), wird abgelehnt. `PhaseTransitionEngine.assert_transition_allowed()` führt einen AQL-Lookup durch und wirft `RunMembershipConflictError` → API liefert HTTP 409 mit strukturiertem Fehler-Body. Batch-Phasenwechsel ist All-or-Nothing. Drei neue DoD-Punkte (§6). |
 | 2.3 | (vorher) | DORMANCY-Phase für perenniale Zimmerpflanzen, Abgrenzung FLUSHING vs. DORMANCY. |
@@ -79,6 +80,12 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
     - `humidity_day_percent: int`
     - `humidity_night_percent: int`
     - `vpd_target_kpa: float`
+    <!-- Quelle: Plant-Profile Environmental Research 2026-06 (spec/analysis/plant-profile-completeness-research.md) -->
+    - `vpd_threshold_kpa: Optional[float]` (Art-/phasenspezifische VPD-Obergrenze, ab der die stomatäre Leitfähigkeit kollabiert und Photosynthese/Wachstum einbrechen (Carbon-Starvation/hydraulischer Stress). Ergänzt den `vpd_target_kpa`-Zielwert um eine individuelle Schwelle → echter Automatik-Trigger statt globalem Korridor. Einheit: kPa.)
+    - `vpd_sensitivity: Optional[Literal['low', 'medium', 'high']]` (Stomatäre Empfindlichkeit gegenüber VPD-Schwankungen — `high` = enger Korridor, vorsichtigere Entfeuchtung/Bewässerung.)
+    - `photosynthesis_temp_opt_c: Optional[float]` (Temperaturoptimum der Photosynthese (T_opt) für diese Phase, getrennt von `temperature_day_c`. Akklimatisationsplastisch — verschiebt sich mit der Wuchstemperatur (kalt gewachsen → niedrigeres Optimum). Steuert die Klima-Feinregelung in kontrollierten Umgebungen. Einheit: °C.)
+    - `far_red_fraction: Optional[float]` (Dunkelrot-Anteil FR/(R+FR), 0–1 — phytochrom-prädiktive Metrik für Shade-Avoidance/Streckung/Blüteinduktion. Robuster als das R:FR-Verhältnis, das unter schmalbandigem LED gegen unendlich geht. Ableitbar aus `light_spectrum`. Offenes Tageslicht ≈ 0.5; hoher FR-Anteil fördert Streckung.)
+    <!-- /Quelle: Plant-Profile Environmental Research 2026-06 -->
     - `co2_ppm: Optional[int]`
     - `irrigation_frequency_days: float`
     - `irrigation_volume_ml_per_plant: int`

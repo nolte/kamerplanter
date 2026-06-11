@@ -191,6 +191,12 @@ Jedes Pflanzendokument MUSS exakt diese Struktur haben. Alle Felder orientieren 
 | Allelopathie-Score | {-1.0 bis +1.0} | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | {heavy_feeder/medium_feeder/light_feeder/nitrogen_fixer} | `species.nutrient_demand_level` |
 | Gründüngung geeignet | {true/false} | `species.green_manure_suitable` |
+| Photosynthese-Typ | {c3/c4/cam} | `species.photosynthesis_type` |
+| Lebensdauer (Jahre) | {z.B. 5–10; nur bei perennial} | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | {true/false} | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | {true/false} | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | {z.B. 60} | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | {z.B. 12 — Blüteinduktion Kurztagblüher} | `lifecycle_configs.critical_day_length_hours` |
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -245,6 +251,22 @@ Jedes Pflanzendokument MUSS exakt diese Struktur haben. Alle Felder orientieren 
 | Rankhilfe/Stütze nötig | {true/false} | `species.support_required` |
 | Substrat-Empfehlung (Topf) | {Freitext, z.B. "Durchlässige Zimmerpflanzenerde mit Perlite-Anteil"} | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+> Physiologische Steuer-Parameter für professionelle Pflege über alle Umgebungen (Indoor, Growzelt, Hydro/Coco/Soil, Gewächshaus, Freiland, Kübel). **Wichtig:** LCP, Wurzeltiefe und Salztoleranz sind akklimatisations-/umweltplastisch — als Spanne angeben, nicht als fixen Einzelwert. Quelle: `spec/analysis/plant-profile-completeness-research.md`.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD) | {z.B. 10 — Indoor schattentolerant} | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD) | {z.B. 17 — sonnenadaptiert} | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | {deep_shade/shade/partial_shade/full_sun} | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | {z.B. 30–60} | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | {sensitive/moderate/tolerant} | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | {sensitive/moderately_sensitive/moderately_tolerant/tolerant} | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | {z.B. 2.5} | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | {z.B. 9.9} | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | {z.B. 4.5–5.5 für Heidelbeere} | `species.soil_ph_preference` |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -275,6 +297,10 @@ Für jede Phase ein Profil:
 | Luftfeuchtigkeit Tag (%) | {z.B. 60–70} | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | {z.B. 65–75} | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | {z.B. 0.8–1.2} | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | {z.B. 1.6 — ab hier stomatärer Kollaps} | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | {low/medium/high} | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | {z.B. 25 — getrennt vom Tag-Zielwert} | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | {0–1, z.B. 0.1} | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | {z.B. 800–1200} | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | {z.B. 2–3} | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | {z.B. 200–500} | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -288,6 +314,12 @@ Für jede Phase ein Profil:
 | {Vegetativ} | {3:1:2} | {1.2–1.8} | {5.8–6.2} | {150} | {50} | {–} | {3} |
 | {Blüte} | {1:3:2} | {1.4–2.0} | {6.0–6.5} | {120} | {60} | {–} | {2} |
 | {Reife} | {0:1:2} | {0.8–1.2} | {6.0–6.5} | {80} | {40} | {–} | {1} |
+
+**Mikronährstoffe je Phase (ppm, optional — über Fe/B hinaus):** Die Bioverfügbarkeit ist pH-abhängig (die meisten Mikros bei pH 6,0–6,5 verfügbar; Mo umgekehrt). Nur eintragen wenn art-/phasenspezifisch belegt.
+
+| Phase | B (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|---------|----------|----------|----------|----------|---------|
+| {Vegetativ} | {0.5} | {0.5} | {0.05} | {0.05} | {0.01} | `nutrient_profiles.boron/manganese/zinc/copper/molybdenum_ppm` |
 
 ### 2.4 Phasenübergangsregeln
 

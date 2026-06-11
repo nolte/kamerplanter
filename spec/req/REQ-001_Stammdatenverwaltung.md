@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.1 (Atomic Promotion + parent_species_key + promotion_audit_log, ADR-002)
+Version: 4.2 (Umgebungs-Physiologie: LCP, Wurzelzone, Salztoleranz, Photosynthese-Typ)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.2 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** Neue physiologische Steuer-Felder auf Species: `light_compensation_point_ppfd_min/max` (LCP für Standort-Eignungscheck), `shade_tolerance`, `photosynthesis_type` (C3/C4/CAM-Modifikator), `effective_root_depth_cm` + `waterlogging_tolerance` (Wurzelzone/Crop-Steering), `salt_tolerance_class/_ece_threshold_ds_m/_slope_pct` (Maas-Hoffman), optionaler `soil_ph_preference`-Override (ergänzt Family-Default, gated Mikronährstoff-Verfügbarkeit REQ-004). Quelle: `spec/analysis/plant-profile-completeness-research.md` (Deep-Research, adversarial verifiziert). |
 | 4.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext + Export):** `parent_species_key` als optionales Feld auf Species (KI-Genus-Fallback REQ-031 §4.2). `revision`-Feld + `promoted_at` + `promoted_from_tenant` auf Species/Cultivar. Promotion-Workflow als atomare AQL-Transaktion mit Optimistic Locking spezifiziert. Cultivars werden NICHT automatisch mit Species mitpromoted (Workshop-Entscheidung). Neue Collection `promotion_audit_log` (5J Retention, NFR-011 R-19). |
 | 4.0 | 2026-03-16 | **Stammdaten-Scoping:** `origin`-Feld + `tenant_key` auf Species/Cultivar. Drei-Schichten-Architektur: Globale Stammdaten (KA-Admin) → Tenant-Overlay (`tenant_species_config`, `tenant_cultivar_config`) → Tenant-eigene Stammdaten. Edge `tenant_has_access` für Sichtbarkeitssteuerung. Cultivar-Zuweisung transitiv über Species. Promotion-Workflow (tenant→system in-place). Merge-Logik im Service. Neue User Stories, AQL-Queries, Akzeptanzkriterien. |
 | 3.1 | 2026-03 | Agrarbiologie-Review Korrekturen |
@@ -99,6 +100,19 @@ Zusätzlich erfasst das System:
     <!-- /Quelle: G-001, G-006 -->
     <!-- Quelle: Agrarbiologie-Review AB-004, 2026-03 -->
     - `traits: Optional[list[str]]` (Tags auf Species-Ebene, z.B. `['ornamental']`. Analog zu Cultivar.traits, aber für art-übergreifende Eigenschaften. Gültige Werte: `'ornamental'`, `'edible'`, `'medicinal'`, `'fragrant'`, `'bee_friendly'`, `'native'`. Validierung identisch zu Cultivar.traits-Validator.)
+    <!-- Quelle: Plant-Profile Environmental Research 2026-06 -->
+    # Umgebungs-Physiologie / Standortqualität (Quelle: spec/analysis/plant-profile-completeness-research.md)
+    - `light_compensation_point_ppfd_min: Optional[int]` (LCP-Untergrenze in µmol/m²/s — Lichtintensität, bei der die Netto-Photosynthese null ist. Treibt den Standort-Eignungscheck: verfügbares Licht muss LCP unter Sommer-Worst-Case mit ~20 % Puffer über 12 h übersteigen, sonst Warnung „Platz zu dunkel". Akklimatisationsplastisch → als Range modellieren, kein Einzelwert. Indoor-Bereich generell 10–15.)
+    - `light_compensation_point_ppfd_max: Optional[int]` (LCP-Obergrenze, sonnenadaptiert — z.B. *Ficus benjamina* ~6 schatten- bis ~17 sonnenadaptiert.)
+    - `shade_tolerance: Optional[Literal['deep_shade', 'shade', 'partial_shade', 'full_sun']]` (Strukturierte Schatten-/Sonnenexposition für die Standortplatzierung — ergänzt LCP qualitativ.)
+    - `photosynthesis_type: Optional[Literal['c3', 'c4', 'cam']]` (Photosynthese-Typ als WUE-/Transpirations-**Modifikator** für VPD-/Bewässerungslogik — NICHT als alleiniger Trockenheits-/Klima-Prädiktor verwenden (adversarial widerlegt). `cam` = invertierte Stomata-/VPD-Logik (nächtliche Öffnung), relevant für Sukkulenten/Orchideen.)
+    - `effective_root_depth_cm: Optional[int]` (Typische effektive Wurzeltiefe für Bewässerungstiefe/Crop-Steering. Umweltabhängig-plastisch: Infiltration von oben + Grundwasser von unten; im Kübel durch Topfvolumen begrenzt. Richtwert, kein fixer Artkonstantwert.)
+    - `waterlogging_tolerance: Optional[Literal['sensitive', 'moderate', 'tolerant']]` (Staunässe-/Sauerstoffmangel-Toleranz der Wurzelzone — steuert Drainage-Empfehlung und Gießobergrenze. `sensitive` = wurzelfäulegefährdet bei Staunässe.)
+    - `salt_tolerance_class: Optional[Literal['sensitive', 'moderately_sensitive', 'moderately_tolerant', 'tolerant']]` (Qualitative Salztoleranz-Klasse nach Maas-Hoffman, S/MS/MT/T.)
+    - `salt_tolerance_ece_threshold_ds_m: Optional[float]` (Schwellen-ECe in dS/m (= mS/cm), ab der der Ertrag sinkt (Maas-Hoffman-Parameter `a`). Art-individuelle EC-Grenze, ergänzt den phasenbezogenen Ziel-EC. Relevant für Leitungswasser-Härte und Düngesalz-Akkumulation in Kübel/Hydro/Coco.)
+    - `salt_tolerance_slope_pct: Optional[float]` (Ertragsverlust in %/dS/m oberhalb der Schwelle (Maas-Hoffman-Parameter `b`); Modell `Yr = 100 − b(ECe − a)`.)
+    - `soil_ph_preference: Optional[PhRange]` (Art-spezifischer pH-Vorzugsbereich (min_ph, max_ph) — optionaler Override des `BotanicalFamily.soil_ph_preference`-Defaults für Arten, die von der Familie abweichen, z.B. Heidelbeere/Rhododendron sauer 4.5–5.5. Gated die pH-abhängige Mikronährstoff-Verfügbarkeit (REQ-004).)
+    <!-- /Quelle: Plant-Profile Environmental Research 2026-06 -->
 
 - **`:Cultivar`** - Sorte/Zuchtform
   - Properties:
