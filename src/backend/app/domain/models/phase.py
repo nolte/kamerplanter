@@ -70,22 +70,23 @@ class NutrientProfile(BaseModel):
     magnesium_ppm: int | None = Field(default=None, ge=0)
     # ── Mikronährstoffe (REQ-004 v3.5) — explicit fields, analog to calcium/magnesium ──
     # pH-gated availability per Species/BotanicalFamily.soil_ph_preference (REQ-001).
-    manganese_ppm: int | None = Field(
+    # float (not int): micronutrients in nutrient solution are typically < 1 ppm (e.g. Mo ~0.05).
+    manganese_ppm: float | None = Field(
         default=None,
         ge=0,
         description="Mn — photosynthesis/enzyme activation; availability drops as pH rises.",
     )
-    zinc_ppm: int | None = Field(
+    zinc_ppm: float | None = Field(
         default=None,
         ge=0,
         description="Zn — auxin synthesis/internodes; pH-dependent availability.",
     )
-    copper_ppm: int | None = Field(
+    copper_ppm: float | None = Field(
         default=None,
         ge=0,
         description="Cu — enzymes/lignification; narrow tolerance band, phytotoxic in excess.",
     )
-    molybdenum_ppm: int | None = Field(
+    molybdenum_ppm: float | None = Field(
         default=None,
         ge=0,
         description="Mo — nitrate reductase/N-fixation; availability increases with rising pH.",

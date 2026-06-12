@@ -129,6 +129,14 @@ class TestNutrientProfileMicronutrients:
         assert p.copper_ppm == 1
         assert p.molybdenum_ppm == 1
 
+    def test_micronutrients_sub_ppm_float(self):
+        # Solution micronutrients are typically < 1 ppm — must not truncate to int.
+        p = NutrientProfile(manganese_ppm=0.55, zinc_ppm=0.3, copper_ppm=0.05, molybdenum_ppm=0.05)
+        assert p.manganese_ppm == 0.55
+        assert p.zinc_ppm == 0.3
+        assert p.copper_ppm == 0.05
+        assert p.molybdenum_ppm == 0.05
+
     def test_micronutrient_negative_rejected(self):
         with pytest.raises(ValidationError):
             NutrientProfile(manganese_ppm=-1)
