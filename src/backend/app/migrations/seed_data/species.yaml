@@ -155,6 +155,17 @@ species:
     greenhouse_recommended: true
     support_required: true
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 13
+    light_compensation_point_ppfd_max: 14
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.8
 
   - scientific_name: Nicotiana tabacum
     common_names: [Tobacco, Tabak]
@@ -377,6 +388,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 6
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 8
 
   - scientific_name: Salvia officinalis
     common_names: [Sage, Salbei]
@@ -401,6 +420,13 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.8
 
   - scientific_name: Lavandula angustifolia
     common_names: [Lavender, Lavendel]
@@ -631,6 +657,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   # -- Brassicaceae (6) --
   - scientific_name: Brassica oleracea var. italica
@@ -757,6 +791,16 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.2
+    salt_tolerance_slope_pct: 13
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: Eruca vesicaria
     common_names: [Arugula, Rucola]
@@ -849,6 +893,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1
+    salt_tolerance_slope_pct: 19
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: Pisum sativum
     common_names: [Pea, Erbse]
@@ -875,6 +929,16 @@ species:
     balcony_suitable: "yes"
     support_required: true
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 80
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.4
+    salt_tolerance_slope_pct: 10.6
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Vicia faba
     common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
@@ -1528,6 +1592,18 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 17
+    light_compensation_point_ppfd_max: 22
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 3
+    salt_tolerance_slope_pct: 12
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: Sorghum bicolor
     common_names: [Sorghum, Hirse]
@@ -1722,6 +1798,14 @@ species:
     frost_sensitivity: sensitive
     plant_category: indoor_houseplant
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   # -- Marantaceae (1) --
   # Formerly Calathea orbifolia; reclassified Borchsenius et al. 2012
@@ -1946,6 +2030,16 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 9
+    light_compensation_point_ppfd_max: 39
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.5
 
   # -- Solanaceae (Petunia) --
   - scientific_name: Petunia x hybrida
@@ -1971,6 +2065,14 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.2
 
   # -- Verbenaceae (1) --
   - scientific_name: Verbena x hybrida
