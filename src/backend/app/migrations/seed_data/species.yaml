@@ -180,6 +180,15 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 0.96
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.5
 
   # -- Cannabaceae (2) --
   - scientific_name: Cannabis sativa
@@ -243,6 +252,13 @@ species:
     balcony_suitable: "no"
     support_required: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 150
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   # -- Lamiaceae (6) --
   - scientific_name: Ocimum basilicum
@@ -304,6 +320,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Thymus vulgaris
     common_names: [Thyme, Thymian]
@@ -403,6 +427,14 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   # -- Apiaceae (6) --
   - scientific_name: Daucus carota
@@ -924,6 +956,14 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: Trifolium pratense
     common_names: [Red Clover, Rotklee]
@@ -1148,6 +1188,13 @@ species:
     greenhouse_recommended: true
     support_required: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   # -- Asteraceae (6) --
   - scientific_name: Lactuca sativa
@@ -1245,6 +1292,18 @@ species:
     balcony_suitable: limited
     support_required: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 4.8
+    salt_tolerance_slope_pct: 5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Tagetes erecta
     common_names: [Marigold, Tagetes, Studentenblume]
@@ -1295,6 +1354,13 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.6
+      max_ph: 7.5
 
   - scientific_name: Artemisia dracunculus
     common_names: [Tarragon, Estragon]
@@ -1399,6 +1465,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: tolerant
+    salt_tolerance_ece_threshold_ds_m: 8
+    salt_tolerance_slope_pct: 5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Avena sativa
     common_names: [Oat, Hafer]
@@ -1579,6 +1655,14 @@ species:
     frost_sensitivity: sensitive
     plant_category: tropical_foliage
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    effective_root_depth_cm: 10
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 6.5
 
   # -- Rosaceae (1) --
   - scientific_name: Fragaria x ananassa
@@ -1661,6 +1745,15 @@ species:
     frost_sensitivity: sensitive
     plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 50
+    light_compensation_point_ppfd_max: 100
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
   # -- Asparagaceae (2) --
   - scientific_name: Dracaena trifasciata
@@ -1758,6 +1851,13 @@ species:
     support_required: false
     nutrient_demand_level: heavy_feeder
     hardiness_detail: "Hardy to -25 C (Zone 4). Rhizome overwinters frost-free in pond substrate at min. 60 cm water depth."
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.4
 
   # -- Araceae (3) --
   - scientific_name: Epipremnum aureum

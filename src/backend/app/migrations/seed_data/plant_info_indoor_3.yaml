@@ -75,6 +75,15 @@ new_species:
     support_required: true
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 25
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Neoregelia carolinae"
     common_names:
@@ -101,6 +110,13 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Nephrolepis exaltata"
     common_names:
@@ -130,6 +146,15 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 2
+    light_compensation_point_ppfd_max: 10
+    shade_tolerance: deep_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 6.5
 
   - scientific_name: "Opuntia microdasys"
     common_names:
