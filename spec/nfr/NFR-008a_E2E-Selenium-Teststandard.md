@@ -29,7 +29,7 @@ NFR-008 definiert das *Was* (Teststufen, Protokoll-Format, Screenshot-Checkpoint
 Dieses Dokument ist die **primaere Referenz** fuer:
 - `.claude/agents/selenium-test-generator.md` — beim Erzeugen neuer Tests
 - `.claude/agents/selenium-test-reviewer.md` — beim Pruefen bestehender Tests
-- `.claude/agents/e2e-result-reviewer.md` — beim Reviewen von Testergebnissen
+- `nolte-shared:e2e-result-reviewer` (Plugin-Agent) — beim Reviewen von Testergebnissen
 
 ---
 

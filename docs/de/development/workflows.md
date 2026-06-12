@@ -25,12 +25,12 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
     | Anforderungen reviewen | `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`, `casual-houseplant-user-reviewer` |
     | Implementieren | `fullstack-developer`, `/implement` |
     | Lokal testen | `unit-test-runner`, `/nolte-shared:quality-gate` |
-    | Code reviewen | `code-security-reviewer`, `frontend-usability-optimizer` |
+    | Code reviewen | `nolte-shared:code-security-reviewer`, `frontend-usability-optimizer` |
     | Doku schreiben | `mkdocs-documentation` |
     | Doku prüfen | `/nolte-shared:docs-freshness-checker` |
     | PR vorbereiten | `/pre-pr`, `pr-to-develop`, `/nolte-shared:pull-request-create` |
     | E2E-Tests | `e2e-testcase-extractor` → `selenium-test-generator` |
-    | E2E-Results | `e2e-result-reviewer` |
+    | E2E-Results | `nolte-shared:e2e-result-reviewer` |
     | HA-Integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
     | HA deployen | `/deploy-ha` |
     | Knowledge-Base | `/gen-knowledge`, `knowledge-chunk-author` |
@@ -47,7 +47,7 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 2. Anforderungen reviewen: `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`
 3. Implementieren: `fullstack-developer`
 4. Lokal testen: `/nolte-shared:quality-gate`
-5. Security reviewen: `code-security-reviewer`
+5. Security reviewen: `nolte-shared:code-security-reviewer`
 6. UI optimieren: `frontend-usability-optimizer`
 7. Dokumentation: `mkdocs-documentation`
 8. PR vorbereiten: `/pre-pr`, `/nolte-shared:pull-request-create`
@@ -57,7 +57,7 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 1. Testfälle ableiten: `e2e-testcase-extractor`
 2. Tests generieren: `selenium-test-generator` (NFR-008-konform)
 3. Tests reviewen: `selenium-test-reviewer`
-4. Ergebnisse analysieren: `e2e-result-reviewer`
+4. Ergebnisse analysieren: `nolte-shared:e2e-result-reviewer`
 
 ### Szenario 3: Anforderung reviewen
 
@@ -87,9 +87,8 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 
 | Modell | Einsatz | Beispiel |
 |--------|---------|----------|
-| **opus** | Komplexe Generierung, Architektur-Entscheidungen, umfangreiche Analysen | `fullstack-developer`, `ha-integration-developer`, `e2e-result-reviewer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `selenium-test-generator` |
+| **opus** | Komplexe Generierung, Architektur-Entscheidungen, umfangreiche Analysen | `fullstack-developer`, `ha-integration-developer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `selenium-test-generator` |
 | **sonnet** | Standard: Balance Qualität/Geschwindigkeit | Die meisten Agents (Reviews, Code-Fixes, Dokumentation) |
-| **haiku** | Schnell, einfache Prüfungen | `i18n-completeness-checker` |
 
 ---
 

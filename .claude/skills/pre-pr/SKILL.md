@@ -41,7 +41,7 @@ Warte auf alle Ergebnisse. Zaehle TC001-Warnings bei ruff NICHT als Fehler (beka
 
 ## Schritt 2: i18n-Vollstaendigkeit
 
-Starte den `i18n-completeness-checker` Agent:
+Starte den `nolte-shared:i18n-completeness-checker` Agent:
 
 Prompt: "Pruefe die i18n-Uebersetzungsdateien auf Vollstaendigkeit und erstelle einen Report."
 
@@ -55,7 +55,7 @@ Pruefe mit `git diff --name-only develop...HEAD` (oder `main...HEAD` falls devel
 - `src/backend/app/common/**`
 - `src/backend/app/tasks/**`
 
-Falls ja, starte den `code-security-reviewer` Agent:
+Falls ja, starte den `nolte-shared:code-security-reviewer` Agent:
 
 Prompt: "Pruefe die folgenden geaenderten Backend-Dateien auf Sicherheitsprobleme: {liste der geaenderten Dateien}"
 

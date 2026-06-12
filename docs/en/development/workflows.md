@@ -25,12 +25,12 @@ When do you use which agent or skill? This page complements the automatically ge
     | Review requirements | `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`, `casual-houseplant-user-reviewer` |
     | Implement | `fullstack-developer`, `/implement` |
     | Test locally | `unit-test-runner`, `/nolte-shared:quality-gate` |
-    | Review code | `code-security-reviewer`, `frontend-usability-optimizer` |
+    | Review code | `nolte-shared:code-security-reviewer`, `frontend-usability-optimizer` |
     | Write docs | `mkdocs-documentation` |
     | Check docs | `/nolte-shared:docs-freshness-checker` |
     | Prepare PR | `/pre-pr`, `pr-to-develop`, `/nolte-shared:pull-request-create` |
     | E2E tests | `e2e-testcase-extractor` → `selenium-test-generator` |
-    | E2E results | `e2e-result-reviewer` |
+    | E2E results | `nolte-shared:e2e-result-reviewer` |
     | HA integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
     | Deploy HA | `/deploy-ha` |
     | Knowledge base | `/gen-knowledge`, `knowledge-chunk-author` |
@@ -47,7 +47,7 @@ When do you use which agent or skill? This page complements the automatically ge
 2. Review requirements: `agrobiology-requirements-reviewer`, `it-security-requirements-reviewer`
 3. Implement: `fullstack-developer`
 4. Test locally: `/nolte-shared:quality-gate`
-5. Review security: `code-security-reviewer`
+5. Review security: `nolte-shared:code-security-reviewer`
 6. Optimize the UI: `frontend-usability-optimizer`
 7. Documentation: `mkdocs-documentation`
 8. Prepare the PR: `/pre-pr`, `/nolte-shared:pull-request-create`
@@ -57,7 +57,7 @@ When do you use which agent or skill? This page complements the automatically ge
 1. Derive test cases: `e2e-testcase-extractor`
 2. Generate tests: `selenium-test-generator` (NFR-008 compliant)
 3. Review tests: `selenium-test-reviewer`
-4. Analyze results: `e2e-result-reviewer`
+4. Analyze results: `nolte-shared:e2e-result-reviewer`
 
 ### Scenario 3: Review a requirement
 
@@ -87,9 +87,8 @@ When do you use which agent or skill? This page complements the automatically ge
 
 | Model | Use | Example |
 |--------|---------|----------|
-| **opus** | Complex generation, architecture decisions, extensive analyses | `fullstack-developer`, `ha-integration-developer`, `e2e-result-reviewer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `selenium-test-generator` |
+| **opus** | Complex generation, architecture decisions, extensive analyses | `fullstack-developer`, `ha-integration-developer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `selenium-test-generator` |
 | **sonnet** | Default: balance of quality and speed | Most agents (reviews, code fixes, documentation) |
-| **haiku** | Fast, simple checks | `i18n-completeness-checker` |
 
 ---
 
