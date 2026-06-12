@@ -647,6 +647,17 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 30
+    light_compensation_point_ppfd_max: 70
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.5
 
   - scientific_name: "Syringa vulgaris"
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
@@ -758,6 +769,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [1, 2, 3]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: "Prunus avium"
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]

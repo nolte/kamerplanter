@@ -28,6 +28,18 @@ species:
     support_required: true
     nutrient_demand_level: heavy_feeder
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 16
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 80
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.5
+    salt_tolerance_slope_pct: 9.9
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.8
 
   - scientific_name: Capsicum annuum
     common_names: [Pepper, Paprika, Chili]
@@ -184,6 +196,16 @@ species:
     greenhouse_recommended: true
     support_required: false
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.0
+    salt_tolerance_slope_pct: 8.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: Humulus lupulus
     common_names: [Hops, Hopfen]
@@ -236,6 +258,16 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.8
+    salt_tolerance_slope_pct: 9.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: Mentha piperita
     common_names: [Peppermint, Pfefferminze]
@@ -978,6 +1010,18 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 15
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.3
+    salt_tolerance_slope_pct: 13.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: Cichorium intybus
     common_names: [Chicory, "Chicorée", Wegwarte]
@@ -1267,6 +1311,13 @@ species:
     frost_sensitivity: sensitive
     plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: Spathiphyllum wallisii
     common_names: [Peace Lily, Einblatt]
@@ -1361,6 +1412,16 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.0
+    salt_tolerance_slope_pct: 33.0
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   # -- Urticaceae (1) --
   - scientific_name: Pilea peperomioides

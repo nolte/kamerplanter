@@ -305,6 +305,16 @@ new_species:
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
     bloom_months: [1, 2, 3, 4, 5]  # VOLL-002: typical bloom Jan-May after autumn cool period
+    photosynthesis_type: cam
+    light_compensation_point_ppfd_min: 5
+    light_compensation_point_ppfd_max: 15
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.0
 
   - scientific_name: "Philodendron hederaceum"
     common_names:
