@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-01
-> **Quellen:** PFAF, RHS, UMN Extension, Ohio State University, Plantura, Koppert, fryd.app, LfL Bayern, ASPCA, COMPO Expert
+> **Quellen:** PFAF, RHS, UMN Extension, Ohio State University, Plantura, Koppert, fryd.app, LfL Bayern, ASPCA, COMPO Expert, FAO, Rutgers NJAES, UNH Extension, UF/IFAS, Frontiers/ScienceDirect/MDPI, LSU AgCenter <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -21,6 +21,18 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temperature, degC) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | -- (einjaehrig in Mitteleuropa, daher nicht anwendbar) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (critical day length, h) | -- (tagneutral / day_neutral, keine kritische Tageslaenge fuer Bluehinduktion) | `lifecycle_configs.critical_day_length_hours` |
+| Bestaeuber erforderlich (requires pollinator) | false (selbstbefruchtend / self-pollinating; perfekte zwittrige Blueten) | `species.requires_pollinator` |
+| Bestaeuber-Gruppe (pollinator group) | self_fertile | `species.pollinator_group` |
+| Kompatible Bestaeuber (compatible pollinators) | -- (Selbstbefruchter; keine Fremdbestaeubung noetig. Vibration -- Wind, Hummeln oder mechanisch unter Glas -- verbessert Pollenfreisetzung und Fruchtansatz) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, wird in Mitteleuropa als Einjaehrige kultiviert. Abstirben bei Temperaturen unter 0 degC. | `species.hardiness_detail` |
@@ -102,6 +114,23 @@ Hinweis: Bei indeterminierten (Stab-)Tomaten ist regelmaessiges Ausgeizen (Entfe
 
 **Hinweis:** Tomaten sind Starkzehrer und benoetigen in Topfkultur regelmaessige Duengung und gleichmaessige Wasserversorgung. Ungleichmaessiges Giessen fuehrt zu Bluetenendfaeule (BER) und Platzfruechten. Selbstbewurzelte Tomaten im Kuebel sind anfaelliger fuer Welkekrankheiten als im Freiland -- Gewaechshaus bietet beste Ergebnisse.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: kein belastbarer, durch 2 Quellen bestaetigter Punktwert/Spanne fuer Solanum lycopersicum gefunden --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 60--100 (Hauptwurzelzone der Wasseraufnahme; max. Durchwurzelung bis 150 cm in tiefgruendigen Boeden) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | 2.5 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 9.9 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min--max) | 6.0--6.8 | `species.soil_ph_preference` |
+
+Hinweis: Tomate ist staunaesseempfindlich (sensitive) -- Wurzelhypoxie loest binnen Stunden Stomata-Schluss, Blattepinastie und Ethylen-bedingte Schaeden aus; Drainage ist Pflicht. Salztoleranz nach FAO-Klassifikation "moderately sensitive" (Maas-Hoffman: ECe-Schwelle 2.5 dS/m, danach 9.9 % Ertragsverlust je dS/m, bezogen auf Fruchtertrag).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -163,6 +192,12 @@ Hinweis: Bei indeterminierten (Stab-)Tomaten ist regelmaessiges Ausgeizen (Entfe
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberhalb Stomata-Schluss / Transpirationsstress) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.2--0.4 (supplementaer; Optimum ~0.40, darueber Ertragsrueckgang) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 800--1200 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -179,6 +214,12 @@ Hinweis: Bei indeterminierten (Stab-)Tomaten ist regelmaessiges Ausgeizen (Entfe
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberhalb Stress; Blueten reagieren empfindlich auf hohe VPD) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.2--0.4 (supplementaer; beschleunigt Bluehinduktion, Optimum ~0.40) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 800--1200 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -197,6 +238,12 @@ Hinweis: Temperaturen ueber 32 degC Tag bzw. ueber 25 degC Nacht verursachen Blu
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberhalb Transpirationsstress) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.2--0.4 (supplementaer; bis ~0.40 +Fruchtertrag) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 1000--2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -223,16 +270,21 @@ Hinweis: Pflanze wird nicht mehr aktiv gepflegt. Letzte gruene Fruechte ernten u
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.5--0.8 | 5.8--6.2 | 80 | 40 | 30 | 2 |
-| Vegetativ | 3-1-2 | 1.2--1.8 | 5.8--6.2 | 150 | 50 | 50 | 3 |
-| Bluete | 2-3-3 | 1.6--2.2 | 5.8--6.5 | 180 | 60 | 60 | 3 |
-| Fruchtreife | 1-2-4 | 1.8--2.5 | 6.0--6.5 | 200 | 60 | 50 | 2 |
-| Seneszenz | 0-0-0 | 0.0--0.4 | 6.0--6.5 | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.5--0.8 | 5.8--6.2 | 80 | 40 | 30 | 2 | 0.5--0.8 | 0.3 | 0.05--0.2 | 0.05 |
+| Vegetativ | 3-1-2 | 1.2--1.8 | 5.8--6.2 | 150 | 50 | 50 | 3 | 0.5--0.8 | 0.3 | 0.05--0.2 | 0.05 |
+| Bluete | 2-3-3 | 1.6--2.2 | 5.8--6.5 | 180 | 60 | 60 | 3 | 0.5--0.8 | 0.3 | 0.05--0.2 | 0.05 |
+| Fruchtreife | 1-2-4 | 1.8--2.5 | 6.0--6.5 | 200 | 60 | 50 | 2 | 0.5--0.8 | 0.3 | 0.05--0.2 | 0.05 |
+| Seneszenz | 0-0-0 | 0.0--0.4 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Ca-Mangel in der Fruchtphase fuehrt zu Bluetenendfaeule (Blossom End Rot, BER). Erhoehter Kalium-Bedarf ab Fruchtbildung fuer Geschmack und Fruchtfestigkeit.
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis (Mikronaehrstoffe): Mn/Zn/Cu/Mo sind Naehrloesungs-Konzentrationen (solution ppm) und bleiben ueber alle aktiven Phasen weitgehend konstant. Werte entsprechen gaengigen Hydroponik-Rezepturen (Ohio State / UF-IFAS): Mn 0.55--0.8, Zn 0.3--0.33, Cu 0.05--0.2, Mo 0.05 ppm. Bei pH 5.8--6.2 sind die Mikronaehrstoffe optimal pflanzenverfuegbar.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -503,3 +555,21 @@ Roma VF,Solanum lycopersicum,USDA,,determinate;paste_type,75,fusarium;verticilli
 10. Canna Research -- Naehrstoff-Leitfaden: https://www.canna.com/en/research
 11. Haifa Group -- Tomato Crop Guide: https://www.haifa-group.com/crop-guide/vegetables/tomato/crop-guide-tomato-plant-nutrition
 12. UMN Extension -- Tomato nutrient management: https://extension.umn.edu/vegetables/growing-tomatoes
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. FAO Crop Information -- Tomato (Wurzeltiefe, Wasseraufnahmezone 0.7--1.5 m): https://www.fao.org/land-water/databases-and-software/crop-information/tomato/en/
+14. FAO Irrigation & Drainage Paper 61, Annex 1 -- Crop salt tolerance data (Tomate ECe-Schwelle 2.5 dS/m, Slope 9.9 %, "moderately sensitive"): https://www.fao.org/4/y4263e/y4263e0e.htm
+15. Springer / Modeling Earth Systems and Environment -- GDD-Modell Processing Tomato (Basistemperatur 10 degC, Cutoff 30 degC): https://link.springer.com/article/10.1007/s40808-018-0460-y
+16. AGRR -- Tomato Temperature Requirements by Growth Stage (Basistemperatur 10 degC): https://agrr.net/research/en/research_reports/tomato/01_environmental_requirements/temperature_requirements.html
+17. Frontiers in Plant Science -- Sub-high Temperature/High Light Photosynthesis Tomato (Optimum 15--32 degC, ~500--800 PPFD): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2017.00365/full
+18. Rutgers NJAES FS678 -- Growing Tomatoes in the Home Garden (Boden-pH 6.2--6.8, Vollsonne): https://njaes.rutgers.edu/fs678/
+19. UNH Extension -- Growing Vegetables: Tomatoes (Boden-pH, Vollsonne 6--8 h): https://extension.unh.edu/resource/growing-vegetables-tomatoes-fact-sheet-1
+20. Ohio State University / CFAES -- Hydroponic Nutrient Solution for Greenhouse Tomato (Mikronaehrstoffe Mn 0.55 / Zn 0.33 / Cu 0.05 / Mo 0.05 ppm): https://cfaes.osu.edu/fact-sheet/hydroponic-nutrient-solution-optimized-greenhouse-tomato-production
+21. UF/IFAS HS796/CV216 -- Nutrient Solution Formulation for Hydroponic Tomatoes (Mn 0.8 / Zn 0.3 / Cu 0.2 / Mo 0.05 ppm, pH 5.8--6.2): https://edis.ifas.ufl.edu/publication/CV216
+22. Frontiers in Plant Science -- Dose-response of tomato fruit yield to far-red fraction (Optimum FR/(R+FR) ~0.40): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1618171/full
+23. ScienceDirect -- Supplemental far-red light influences flowering in tomato (R:FR, Bluehbeschleunigung): https://www.sciencedirect.com/science/article/pii/S0098847223002332
+24. MDPI Applied Sciences -- Effect of VPD Regulation on Tomato Growth (VPD-Bereich vegetativ/Bluete): https://www.mdpi.com/2076-3417/12/7/3667
+25. ScienceDirect -- Vapour pressure deficit affects crop water productivity, yield, quality in tomatoes: https://www.sciencedirect.com/science/article/pii/S0378377424002142
+26. Frontiers in Plant Science -- Stress response in tomato as influenced by repeated waterlogging (Staunaesse-Empfindlichkeit): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2024.1331281/full
+27. LSU AgCenter -- Pollinating Greenhouse Tomatoes with Vibrators/Blowers (Selbstbefruchtung, Vibration): https://www.lsuagcenter.com/portals/communications/publications/agmag/archive/2005/winter/pollinatinggreenhousetomatoeswithvibratorsblowers
+28. Seeds of Diversity -- Greenhouse Tomatoes / Pollination (selbstfertil, perfekte Blueten): https://seeds.ca/pollinator/bestpractices/greenhouse_tomatoes.html
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

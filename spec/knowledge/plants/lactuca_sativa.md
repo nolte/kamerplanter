@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** Hortipendium, Wikipedia, Bio-Gaertner, fryd.app, samen.de, naturadb.de, grove.eco, effizientduengen.de, Nature Scientific Reports (DLI Lettuce), ResearchGate, Koraylights
+> **Quellen:** Hortipendium, Wikipedia, Bio-Gaertner, fryd.app, samen.de, naturadb.de, grove.eco, effizientduengen.de, Nature Scientific Reports (DLI Lettuce), ResearchGate, Koraylights, FAO, USDA ARS, UC IPM, MDPI Horticulturae, Frontiers in Plant Science, Hort Americas, University of Maryland Extension <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Langtagspflanze -- lange Tage und hohe Temperaturen loesen "Schiessen" / Bluete aus; kurze Tage und kuehle Temperaturen foerdern Blattbildung) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (klassische C3-Pflanze; reagiert stark positiv auf CO2-Anreicherung) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4--4.5 (Kuehlsaison-Kultur) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjaehrig, keine Dormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Bluete/Schiessen wird durch Langtag + Hitze ausgeloest, nicht durch Kaeltereiz) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (critical day length, h) | ~12 (Schiessen wird oberhalb ca. 12 h Tageslaenge induziert; sortenabhaengig) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| USDA Zonen | 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | USDA Zonen | 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | moderate | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Vertraegt leichte Froeste bis -5 degC. Junge Pflanzen frosthaerter als aeltere. In Mitteleuropa ganzjaehrig mit Schutz (Vlies, Fruehbeet, Gewaechshaus) anbaubar. Hitze ueber 25 degC fuehrt zu Schiessen (Bluetenbildung) und Bitterkeit. | `species.hardiness_detail` |
@@ -48,6 +56,10 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 |------|------|---------|
 | Vermehrungsmethoden | seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestaeuber erforderlich (requires pollinator) | false (ueberwiegend Selbstbefruchter -- kleistogame Bluete, bis ca. 100% selbstfertil; Insektenbestaeubung nicht noetig, Fremdbefruchtung < 5%) | `species.requires_pollinator` |
+| Bestaeuber-Gruppe (pollinator group) | -- (Selbstbestaeubung) | `species.pollinator_group` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Keimhinweise:**
 - Optimale Keimtemperatur: 10--16 degC (Kaltkeimer!)
@@ -99,6 +111,22 @@ Hinweis: Bei Pflueck- und Schnittsalat einzelne aeussere Blaetter pfleuecken; da
 
 **Hinweis:** Salat ist eine der besten Einsteiger-Kulturen und ideal fuer Hydroponic, Indoor-Gardening und kleine Flaechen. Sehr kurze Kulturdauer (30--60 Tage) erlaubt mehrere Saetze pro Saison. Hitzeschutz im Sommer (Schattierung, Mulch) verzoegert das Schiessen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD umol/m2/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 30 (ca. 17 unter HPS, bis ca. 30 unter LED; Literaturmittel ~20) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (volle Sonne im Fruehjahr/Herbst; im Sommer Halbschatten/Nachmittagsschatten vorteilhaft, verzoegert Schiessen) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15--45 (flaches, vorwiegend in den oberen 30 cm liegendes Wurzelwerk; Romana tiefer) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Staunaesse fuehrt zu Sauerstoffmangel, Wurzel-/Fussfaeule; gute Drainage noetig) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (USDA MS-Klasse) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | 1.3 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 13 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min--max) | 6.0--7.0 (optimal 6.0--6.5) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -128,6 +156,12 @@ Hinweis: Salat hat keine echte Bluete-Phase im Nutzanbau -- das "Schiessen" ist 
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.8 (oberhalb steigt Trockenstress fuer Keimlinge) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Salat reagiert stark auf VPD; niedriges VPD foerdert spaeter Tipburn) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--25 (Photosynthese-Optimum; Kulturtemperatur bewusst niedriger gehalten) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht, nie austrocknen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -144,6 +178,12 @@ Hinweis: Salat hat keine echte Bluete-Phase im Nutzanbau -- das "Schiessen" ist 
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--40 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -160,6 +200,12 @@ Hinweis: Salat hat keine echte Bluete-Phase im Nutzanbau -- das "Schiessen" ist 
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberhalb Trockenstress; unterhalb 0.6 Tipburn-Risiko durch schwache Ca-Transpiration) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (VPD-Management ist zentral fuer Tipburn-Praevention) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--25 (max. Photosyntheserate bei ca. 23) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 (Salat reagiert sehr positiv auf CO2-Erhoehung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (gleichmaessige Feuchtigkeit kritisch -- Trockenstress fuehrt zu Bitterkeit und Schiessen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -178,6 +224,12 @@ Hinweis: Salat reagiert negativ auf zu hohe Lichtintensitaet (DLI > 14 mol/m2/Ta
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -194,6 +246,19 @@ Hinweis: Morgenernte liefert die besten Ergebnisse (hoechster Wassergehalt, knac
 | Ernte | 2-1-2 | 0.8--1.2 | 5.8--6.5 | 100 | 35 | 20 | 2 |
 
 Hinweis: Calcium ist besonders wichtig fuer Salat -- Ca-Mangel verursacht Tipburn (Blattrandnekrose), das haeufigste physiologische Problem. EC ueber 1.8 mS vermeiden (Salzempfindlichkeit). Nitrat-Akkumulation bei uebertriebener N-Duengung beachten.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (Spurenelemente) je Phase** -- typische Zielkonzentrationen in hydroponischer Naehrloesung (modifizierte Hoagland-Basis):
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Keimung | -- | -- | -- | -- | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Saemling | 0.3--0.5 | 0.05--0.2 | 0.03--0.05 | 0.01--0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Vegetativ | 0.5--1.0 | 0.1--0.5 | 0.05--0.1 | 0.03--0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Ernte | 0.5--0.8 | 0.1--0.3 | 0.05--0.1 | 0.03--0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+
+Hinweis: Spurenelemente werden ueblicherweise ueber das Base-/Micro-Konzentrat (z.B. Flora Micro) komplett abgedeckt; eine separate Dosierung ist im Hobby-Anbau selten noetig. Mn ist an der Photosynthese beteiligt, Mo am Nitrat-Stoffwechsel (wichtig wegen Nitrat-Akkumulation bei Salat).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -449,3 +514,18 @@ Batavia 'Grazer Krauthaeuptel',Lactuca sativa,,,heat_tolerant;heirloom,60,,open_
 10. grove.eco -- Kopfsalat: https://www.grove.eco/pflanzen/lactuca-sativa-capitata-butterhead/
 11. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
 12. fryd.app -- Mischkultur Salat: https://fryd.app/magazin/mischkultur-salat
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. PLOS One / PMC -- CO2 enrichment in Lactuca sativa (Salat als C3-Pflanze): https://pmc.ncbi.nlm.nih.gov/articles/PMC9897578/
+14. Wikipedia -- Growing degree-day (GDD-Basistemperaturen Kuehlsaison-Kulturen): https://en.wikipedia.org/wiki/Growing_degree-day
+15. FAO -- Annex 1: Crop salt tolerance data (Salat: ECe-Schwelle 1.3 dS/m, Slope 13%, MS): https://www.fao.org/4/y4263e/y4263e0e.htm
+16. USDA ARS -- Shannon & Grieve, Tolerance of vegetable crops to salinity (Salat MS-Klasse): https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf
+17. Frontiers in Plant Science -- Flowering Time Regulation in Lettuce (fakultative Langtagspflanze, kritische Tageslaenge): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.632708/full
+18. MDPI Horticulturae -- Light Intensity and Temperature on Photosynthesis of Lettuce (Photosynthese-T_opt ~23 degC): https://www.mdpi.com/2311-7524/8/2/178
+19. ResearchGate -- Photosynthetic characteristics of lettuce / light response curve (Lichtkompensationspunkt ~17--30 umol): https://www.researchgate.net/publication/340752242
+20. UC IPM -- Lettuce, Selecting the Field (Boden-pH 6.0--6.5): https://ipm.ucanr.edu/agriculture/lettuce/selecting-the-field/
+21. Soil and Health Library -- Root Development of Vegetable Crops, Ch. XXXIV (Wurzeltiefe Salat): https://soilandhealth.org/wp-content/uploads/01aglibrary/010137veg.roots/010137ch34.html
+22. Hort Americas -- Understanding Vapor Pressure Deficit (VPD 0.8--1.2 kPa, Tipburn-Kopplung): https://hortamericas.com/blog/science/understanding-vapor-pressure-deficit-vpd/
+23. whyfarmit.com -- Best Nutrients for Hydroponic Lettuce (Mikronaehrstoff-ppm-Bereiche): https://whyfarmit.com/hydroponic-lettuce-nutrients/
+24. University of Maryland Extension -- Growing Lettuce in a Home Garden (Halbschatten-Toleranz): https://extension.umd.edu/resource/growing-lettuce-home-garden
+25. Nature -- Natural Cross-Pollination in Lettuce, Lactuca sativa L. (Selbstbefruchter, Fremdbefruchtung < 5%): https://www.nature.com/articles/1811084a0
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temperature, °C) | 5.2 | `species.base_temp` |
+| Lebensdauer (lifespan, Jahre) | 10–30 (Hybridteerosen 6–10; Strauch-/Alte Rosen 20–50+) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterchilling nötig für synchronen Knospenbruch) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (moderne remontierende Rosen sind tagneutral/photoperiod-insensitiv; keine Kälte-Blüteinduktion) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN --> (moderne Gartenrosen tagneutral; keine kritische Tageslänge für Blüteninduktion) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–9b (je nach Art/Sorte) | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Je nach Sorte unterschiedlich: moderne Edelrosen bis -15°C; robuste Strauchrosen bis -25°C; Norddeutschland Zone 7b–8a: Hybridteerosen brauchen Winterschutz; Strauchrose gut überwinternder | `species.hardiness_detail` |
@@ -45,6 +54,11 @@
 |------|------|---------|
 | Vermehrungsmethoden | cutting_stem, grafting | `species.propagation_methods` |
 | Schwierigkeit | moderate | `species.propagation_difficulty` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestäuber erforderlich (requires pollinator) | false (selbstfruchtbar bzw. insektenbestäubt; Hagebutten sind nicht das Anbauziel; kein Pollenspender für Zier-/Schnittnutzung nötig) | `species.requires_pollinator` |
+| Bestäuber-Gruppe (pollinator group) | <!-- nicht zutreffend --> (pollinator_group ist eine Obst-Kreuzbefruchtungsgruppe; bei selbstfruchtbarer Zier-/Schnittrose nicht relevant — Selbstfruchtbarkeit ist bereits über requires_pollinator=false abgebildet) | `species.pollinator_group` |
+| Kompatible Bestäuber (compatible pollinators) | — (keine Pollenspender-Sorte erforderlich; Insektenbesuch v. a. durch Bienen) | `cultivars.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.4 Toxizität & Allergene
 
@@ -82,6 +96,22 @@
 | Rankhilfe/Stütze nötig | true (Kletterrosen; Hochstamm-Rosen) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Hochwertige Rosenerde; pH 6,0–6,5; humusreich; gut drainiert | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) min | 30 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) max | 70 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (optimal full_sun; toleriert lichten Halbschatten mit weniger Blüten & höherem Pilzdruck) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–60 (Feinwurzeln 20–45 cm; Ankerwurzeln bis ~90 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Wurzelfäule bei „nassen Füßen"; nur in gut drainiertem Boden) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (salt tolerance threshold, dS/m) | 2.4–3.0 (kultivar-/unterlagenabhängig; Schäden ab 0.5–3.0 dS/m) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-b-Wert für Rosa) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–6.5 (tolerabel bis 7.0) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +140,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (VPD threshold, kPa) | 1.2 (oberhalb sinkt Blattfläche; erhöhter Wassertransport in Blütentrieben) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (photosynthesis temp optimum, °C) | 22–30 (Wachstumsoptimum ~22 °C; akute Netto-Photosynthese-Optima 30–37 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> (kein belegter quantitativer Zielwert für Rosa; hohes R:FR fördert Knospenbruch) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 2000–5000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -123,6 +159,19 @@
 | Vegetativ | 3:1:2 | 1.5–2.0 | 6.0–6.5 | 150 | 50 | — | 3 |
 | Blüte | 1:2:2 | 1.5–2.2 | 6.0–6.5 | 150 | 60 | — | 2 |
 | Nachblüte | 1:2:3 | 1.2–1.8 | 6.0–6.5 | 120 | 50 | — | 2 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Nährlösung, Soilless-Richtwerte für Rosen)**
+
+Umgerechnet aus rosen-spezifischen Nährlösungs-Richtwerten (Fe 150, Mn 10, Zn 12, Cu 5 µmol/L); für aktive Wachstums-/Blütephasen. Winterruhe: keine Düngung.
+
+| Nährstoff | Wert (ppm) | KA-Feld |
+|-----------|-----------|---------|
+| Mangan (manganese, Mn) | 0.5 | `nutrient_profiles.manganese_ppm` |
+| Zink (zinc, Zn) | 0.5–0.8 | `nutrient_profiles.zinc_ppm` |
+| Kupfer (copper, Cu) | 0.3 | `nutrient_profiles.copper_ppm` |
+| Molybdän (molybdenum, Mo) | <!-- DATEN FEHLEN --> (keine zwei belegten rosen-spezifischen Nährlösungswerte) | `nutrient_profiles.molybdenum_ppm` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -303,3 +352,19 @@ Rosa spp.,"Gartenrose;Rose;Garden Rose",Rosaceae,Rosa,perennial,long_day,shrub,f
 2. [Gartenratgeber Rosen](https://www.gartenratgeber.net/pflanzen/rosen-buschrosen-strauchrosen.html) — Schnitt, Anbau
 3. [Hortipendium Rosen im Garten](https://www.hortipendium.de/Rosen_im_Garten) — IPM, Krankheiten
 4. [Grafin von Zeppelin Rosen](https://graefin-von-zeppelin.de/blogs/garten-tipps/rosen-rosa-pflanzen-pflege-standort) — Standort, Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Pasian & Lieth: Prediction of flowering rose shoot development based on air temperature and thermal units (Scientia Horticulturae)](https://www.sciencedirect.com/science/article/abs/pii/0304423894900809) — GDD-Basistemperatur 5.2 °C für Rosa hybrida
+6. [Pest Prophet: Rose Growing Degree Day Model](https://blog.pestprophet.com/how-to-use-the-rose-growing-degree-day-model/) — GDD-Basisschwelle 41.4 °F (≈5.2 °C), Bestätigung Basistemperatur
+7. [Photosynthetic response of Rosa bracteata and Rosa rugosa to temperature and light (Scientia Horticulturae)](https://www.sciencedirect.com/science/article/abs/pii/S0304423899001387) — C3-Charakter, Lichtkompensationspunkt, Schattentoleranz
+8. [Ushio et al.: Effects of temperature on photosynthesis and plant growth in the assimilation shoots of a rose (Soil Science & Plant Nutrition)](https://onlinelibrary.wiley.com/doi/10.1111/j.1747-0765.2007.00234.x) — Photosynthese-Temperaturoptimum Rosa hybrida (akut 30–37 °C, Wachstum ~22 °C)
+9. [Compensation Point overview (ScienceDirect Topics)](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — Lichtkompensationspunkt Einzelstamm-/Miniaturrosen 30–70 µmol/m²/s
+10. [Salt Tolerance of Selected Roses / Salinity affects growth & quality of rose (ResearchGate)](https://www.researchgate.net/publication/267277477_Salt_Tolerance_of_Selected_Roses) — Salzempfindlichkeit, ECe-Schwelle 0.5–3.0 dS/m
+11. [Cabrera: Effect of Saline Water Irrigation on Rose Rootstocks (HortScience, PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC2817996/) — Salztoleranz-Schwellen, Wachstumsreduktion ab 3.0–6.0 dS/m
+12. [Best Soil for Roses / Rose Soil pH (Blooming Expert; Illinois Extension Drainage-Test)](https://www.bloomingexpert.com/tips/roses/best-soil-2/) — Boden-pH 6.0–6.5, Staunässe-Empfindlichkeit, Drainage
+13. [High Vapor Pressure Deficits decrease leaf area in rose flower stems (ISHS Acta Horticulturae 751_50)](https://ishs.org/ishs-article/751_50/) — VPD-Sensitivität & -Schwelle für Rosen
+14. [Influence of Additional Micronutrient Supply on Rose Cultivars in Soilless Culture (J. Plant Nutrition); Effects of temperature on photosynthesis (Tandfonline)](https://www.tandfonline.com/doi/abs/10.1080/01904160802244662) — Nährlösungs-Mikronährstoffe Fe/Mn/Zn/Cu für Rosen
+15. [Make it bloom! CONSTANS contributes to day neutrality in rose (J. Experimental Botany, PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7337180/) — Tagneutralität moderner remontierender Rosen
+16. [How Long Do Rose Bushes Live? (Biology Insights); Epic Gardening Long-Lifespan Roses](https://biologyinsights.com/how-long-do-rose-bushes-live/) — Lebensdauer 6–50+ Jahre nach Typ
+17. [The Rose Root System: Depth, Care, and Common Problems (ScienceInsights); Plant IDs](https://scienceinsights.org/the-rose-root-system-depth-care-and-common-problems/) — Wurzeltiefe Feinwurzeln 20–45 cm, Ankerwurzeln bis ~90 cm
+18. [What Pollinates Roses? (Biology Insights); David Austin Breeding Programme](https://biologyinsights.com/what-pollinates-roses-and-how-to-attract-them/) — Selbst-/Insektenbestäubung, Bienen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

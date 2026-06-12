@@ -22,9 +22,16 @@
 | Wurzelanpassungen | aerial, epiphytic | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 15–25+ | `lifecycle_configs.typical_lifespan_years` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam (obligater CAM-Stoffwechsel / crassulacean acid metabolism; nächtliche CO₂-Fixierung via PEPC, tagsüber Refixierung durch Rubisco — epiphytische Wasserspar-Anpassung) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (GDD-Konzept für tropische CAM-Epiphyten nicht etabliert; Wachstum kommt unterhalb ca. 12–15 °C zum Stillstand, aber keine belegte GDD-Basistemperatur aus seriösen Quellen) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false (kein Vernalisationsreiz im botanischen Sinne; Blüteninduktion durch thermoperiodischen Kühlreiz: Nachttemperatur 13–16°C für 4–6 Wochen im Herbst) | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | Entfällt — tagesneutral (day_neutral). Phalaenopsis ist nicht photoperiodisch; die Blüte wird durch Temperatur (Kühlreiz), nicht durch Tageslänge induziert. | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b, 12a | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10°C, optimal Tages 21–27°C / Nachts 16–19°C. Für Blüteninduktion 4–6 Wochen Nachttemperatur 13–16°C (Herbst) wichtig. | `species.hardiness_detail` |
@@ -94,6 +101,21 @@
 | Rankhilfe/Stütze nötig | true (Blütenspross mit Bambusstab stützen) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Spezielle Orchideenrinde (Pinienrinde, grob, pH 5.5–6.0). Kein normales Substrat! Transparenter Topf bevorzugt (Luftwurzeln brauchen Licht). Orchideen-Kunststofftöpfe mit vielen Löchern ideal. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | 5–15 (sehr niedrig; als CAM-Pflanze positive Netto-CO₂-Aufnahme bereits bei < 5 µmol/m²/s nachts; an Schwachlicht adaptiert, untere Wuchsgrenze ~46 µmol/m²/s, Optimum 100, Photoinhibition > 325) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade (helles indirektes Licht; verträgt Schatten dank CAM, aber direkte Mittagssonne verursacht Photoinhibition/Blattverbrennung) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–15 (epiphytisch; Luft-/Rindenwurzeln, keine echte Bodenwurzelung — auf Topfvolumen begrenzt) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (stehendes Wasser im Topf/Herz führt rasch zu Wurzel- und Crown-Rot) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (Wurzelspitzen verbrennen schon bei geringer Salzkonzentration; Bewässerungswasser ≤ 0,5 dS/m empfohlen, EC > 1,25 dS/m schädlich, Flush bei Medium-EC ~2,0 dS/m) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> (Maas-Hoffman-Schwellenwert für epiphytische Orchideen nicht etabliert; Praxis-Richtwert Bewässerungswasser ≤ 0,5 dS/m, jedoch kein peer-reviewed ECe-Threshold) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Slope für Phalaenopsis publiziert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.0 (Substrat-pH der Orchideenrinde; leicht sauer) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -122,6 +144,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (Obergrenze für dünnblättrige Orchideen; darüber Wasserstress/Wurzelverbrennung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high (epiphytische Schwachlicht-CAM-Pflanze, empfindlich gegen hohe VPD) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (Tag-Optimum für CAM-Nettofixierung im vegetativen Wachstum 29/25–32/28 °C Tag/Nacht; max. Tages-CO₂-Aufnahme jedoch schon bei niedrigeren Nachttemperaturen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> (kein belegter Zielwert; bekannt ist nur die Richtung: hohes R:FR / niedrige FR-Fraktion fördert die Blütensprossbildung, PSS 0,85 vs. ~0,71 bei Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -138,6 +166,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (Obergrenze; bei Kühlreiz weiterhin dünnblättrig-empfindlich) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (während der herbstlichen Kühlinduktion am Tag deutlich abgesenkt; CAM bleibt aktiv, Optimum der reinen CO₂-Aufnahme nahe 20 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> (numerischer Zielwert nicht belegt; hohes R:FR / niedrige FR-Fraktion kann den Kühlreiz teilweise ersetzen und die Blütensprossbildung fördern) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -154,18 +188,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (Obergrenze; Forschungspraxis ~0,81 kPa in der Blüte) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high (offene Blüten zusätzlich empfindlich gegen Austrocknung und Botrytis) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (kühlere Blütephase; Maximum der täglichen CO₂-Aufnahme nahe 20 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> (kein belegter Zielwert für die Vollblüte) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Vegetatives Wachstum | 3:1:1 (Stickstoff-betont) | 0.6–1.0 | 5.5–6.0 | 80 | 30 |
-| Blüteninduktion | 1:3:2 (Phosphor-betont) | 0.4–0.8 | 5.5–6.0 | 60 | 25 |
-| Vollblüte | 1:2:1 | 0.4–0.8 | 5.5–6.0 | 60 | 20 |
-| Regeneration | 1:1:1 | 0.4–0.6 | 5.5–6.0 | 60 | 25 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Vegetatives Wachstum | 3:1:1 (Stickstoff-betont) | 0.6–1.0 | 5.5–6.0 | 80 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüteninduktion | 1:3:2 (Phosphor-betont) | 0.4–0.8 | 5.5–6.0 | 60 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vollblüte | 1:2:1 | 0.4–0.8 | 5.5–6.0 | 60 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Regeneration | 1:1:1 | 0.4–0.6 | 5.5–6.0 | 60 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für Phalaenopsis liegen keine belastbaren, phasenspezifischen Mikronährstoff-Sollwerte (ppm) aus mindestens zwei unabhängigen, seriösen Quellen vor → als `<!-- DATEN FEHLEN -->` markiert. In der Praxis werden Mn, Zn, Cu, Mo, Fe und B über komplette Orchideen-Volldünger in chelatierter Form (EDTA für Mn/Zn/Cu) in sehr geringer Konzentration zugeführt; die Spanne zwischen Mangel und Toxizität ist eng, daher keine Schätzwerte eingetragen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -238,6 +283,23 @@ Orchideen in Rinde brauchen mehr Stickstoff (30-10-10) als in Torf. "Einmal im M
 | Nov–Apr | Blüte genießen | Stabil stellen, nicht umstellen, mäßig wässern | mittel |
 | Ganzjährig | Luftwurzeln belassen | Luftwurzeln NICHT in die Erde stecken, nicht abschneiden | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Phalaenopsis ist nicht winterhart (frost_sensitivity = tender) und wird in Mitteleuropa (USDA 6–8) ganzjährig im Haus kultiviert. Eine Überwinterung im Freiland ist ausgeschlossen; das "Winterquartier" ist die normale beheizte Wohnung mit Spezialbedingungen während der herbstlichen Blüteninduktion.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | red (muss frostfrei im Haus überwintern; RHS-Härtegrad H1b = Mindesttemperatur 10–15 °C) | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors (ganzjährig drinnen; falls im Sommer am geschützten Standort draußen, spätestens bei Nachttemperatur < 15 °C hereinholen) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9 (September) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | resume_warmth (nach der Blüte zurück zu warmem Standort 21–27 °C Tag; ggf. Umtopfen) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 4 (April) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 16–24 (Tag 18–24, Nacht 16–19; für Blüteninduktion vorübergehend Nacht 13–16, nie unter 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (Ost-/Westfenster; im lichtarmen Winter ggf. Pflanzenlicht, da kürzere Tage) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Bewässerung | reduziert (Gießintervall 10–14 Tage; kühler = langsamerer Verbrauch, Staunässe strikt vermeiden) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -268,6 +330,18 @@ Orchideen in Rinde brauchen mehr Stickstoff (30-10-10) als in Torf. "Einmal im M
 | Alkohol 70% | mechanical | Isopropanol | Wattestäbchen | 0 Tage | Schmierläuse, Schildlaus |
 | Zimt (Cinnamon) | cultural | Zimtaldehyd | Schnittflächen bestäuben | 0 | Bakterielle Fäule präventiv |
 | Systeminsektizid | chemical | Imidacloprid | Stäbchen | 14 Tage | Schmierläuse, Schildlaus |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit | Optimale Bedingungen |
+|----------|--------------------|----------------|--------------|------------------|----------------------|
+| Australischer Marienkäfer / Mealybug Destroyer | Cryptolaemus montrouzieri | Schmierläuse | 2–5 Käfer je befallene Pflanze | 2–4 Wochen | 18–27 °C, rel. Luftfeuchte ≥ 70 %; abends ausbringen |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | nach Befallsstärke (Herstellerangabe), Erstbesatz bei niedrigem Befall | 2–3 Wochen | 20–25 °C, ~83–87 % rel. Luftfeuchte |
+| Florfliegenlarve | Chrysoperla carnea | Schmierläuse, Blattläuse, Spinnmilben | nach Herstellerangabe je Pflanze/Fläche | 1–2 Wochen | warm, windgeschützt; universeller Allesfresser |
+
+**Hinweis:** Biologische Bekämpfung eignet sich vor allem im Gewächshaus oder Wintergarten mit stabiler Wärme und hoher Luftfeuchte. Im Wohnraum sind Nützlinge schwer zu etablieren; hier bleiben mechanische Methoden (Alkohol-Wattestäbchen) und Neemöl erste Wahl.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -312,3 +386,19 @@ Phalaenopsis spp.,"Schmetterlingsorchidee;Phalaenopsis;Moth Orchid",Orchidaceae,
 3. [UConn Extension — Orchid Care and Repotting](https://homegarden.cahnr.uconn.edu/factsheets/orchid-care-and-repotting/) — Umtopfen, Substrate
 4. [Orchid Bliss — Beginner Care](https://orchidbliss.com/phalaenopsis-orchid-care-for-beginners/) — Praxishinweise
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizitätsdaten (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Hogewoning et al. 2021, Plant, Cell & Environment — CAM-physiology and carbon gain of Phalaenopsis](https://onlinelibrary.wiley.com/doi/abs/10.1111/pce.13960) — CAM-Photosynthese, Lichtabhängigkeit (Photosynthese-Typ)
+7. [Photosynthetic acclimation of CAM orchid Phalaenopsis to light level — Scientific Reports 2025](https://www.nature.com/articles/s41598-025-96167-4) — CAM-Bestätigung, Lichtakklimatisation
+8. [ASHS/JASHS 137(6) 2012 — Photosynthetic Light Requirements of Phalaenopsis amabilis](https://journals.ashs.org/jashs/view/journals/jashs/137/6/article-p465.xml) — PPFD-Sättigung 130–200, Photoinhibition > 325, Schwachlicht-Toleranz, LCP < 5 µmol nachts
+9. [American Orchid Society — Humidity and Vapor Pressure Deficit](https://www.aos.org/orchids/articles/humidity-and-vapor-pressure-deficit) — VPD-Bereich 0,5–1,2 kPa für dünnblättrige Orchideen
+10. [Vegetative traits predict flowering quality in Phalaenopsis — PMC8112652](https://pmc.ncbi.nlm.nih.gov/articles/PMC8112652/) — VPD 1,0 kPa vegetativ / 0,81 kPa Blüte
+11. [Effects of chilling on photosynthetic performance of CAM orchid Phalaenopsis — PMC9732388](https://pmc.ncbi.nlm.nih.gov/articles/PMC9732388/) — T_opt CAM, Kühlreiz, CO₂-Aufnahme nahe 20 °C
+12. [Temperature during the day, but not during the night, controls flowering of Phalaenopsis](https://www.researchgate.net/publication/6721557_Temperature_during_the_day_but_not_during_the_night_controls_flowering_of_Phalaenopsis_orchids) — tagesneutral, temperaturinduzierte Blüte
+13. [Greenhouse Grower — How Temperature and Photoperiod Impact Orchid Spiking](https://www.greenhousegrower.com/production/plant-culture/blooming-potted-production/how-temperature-and-photoperiod-impact-orchid-spiking/) — day-neutral, Kühlnacht-Induktion
+14. [Can a high R:FR ratio replace temperature-induced inflorescence development in Phalaenopsis? — ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S0098847215000945) — R:FR / Far-Red, PSS 0,85 vs. 0,71
+15. [St. Augustine Orchid Society — Soluble Salts (S. Bottom)](https://staugorchidsociety.org/PDF/SolubleSaltsbySueBottom.pdf) — Salzempfindlichkeit, EC-Richtwerte (≤ 0,5 / Flush bei ~2,0 dS/m)
+16. [American Orchid Society — Fertilizer](https://www.aos.org/orchid-care/fertilizer) — EC/TDS-Grenzwerte, Mikronährstoffe in Volldünger
+17. [RHS — Biological control in the garden](https://www.rhs.org.uk/prevention-protection/biological-control-garden) — Nützlinge (Cryptolaemus, Phytoseiulus)
+18. [RHS Hardiness Ratings (PDF)](https://www.rhs.org.uk/plants/pdfs/rhs-hardiness-rating.pdf) — Härtegrad H1b (10–15 °C) für Überwinterung
+19. [Colorado State University — Biological Control Organisms for Insects and Mites](https://webdoc.agsci.colostate.edu/bspm/InsectInformation/Factsheets/BioControlSuppliers.pdf) — Ausbringraten/Bedingungen Nützlinge
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

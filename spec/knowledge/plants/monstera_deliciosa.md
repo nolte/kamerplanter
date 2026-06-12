@@ -17,16 +17,27 @@
 | Familie | Araceae | `species.family` -> `botanical_families.name` |
 | Gattung | Monstera | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Wurzelanpassungen | aerial, epiphytic | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 40+ (Indoor: 10-20) | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temperature, C) | <!-- DATEN FEHLEN: kein publizierter GDD-Basistemperatur-Wert fuer Monstera deliciosa in serioesen Quellen auffindbar; tropische Art ohne agronomische GDD-Kalibrierung. Wachstumsstillstand < 12 C ist belegt (vgl. hardiness_detail), ersetzt aber keine GDD-Basistemperatur. --> | `species.base_temp` |
+| Kritische Tageslaenge (critical day length, h) | Entfaellt (day_neutral -- tagneutrale Art, keine kritische Tageslaenge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 
 <!-- MN-001: dormancy_required: false ist biologisch korrekt -- Monstera hat keine obligate Ruhephase (keine Knospenruhe, kein Laubeinzug). Die saisonale Wachstumsverlangsamung im mitteleuropaeischen Winter (Nov-Feb) durch reduziertes Tageslicht (DLI 1-3 mol/m²/d) wird als kulturpraktische DORMANCY-Phase im Naehrstoffplan abgebildet (vgl. REQ-003 v2.3). -->
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindesttage (vernalization min days) | Entfaellt (vernalization_required = false; tropische Art ohne Kaeltebeduerfnis) | `lifecycle_configs.vernalization_min_days` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 10a, 10b, 11a, 11b, 12a, 12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | sensitive | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10 C, optimal 18-27 C. Bei unter 12 C Wachstumsstillstand. | `species.hardiness_detail` |
@@ -106,6 +117,22 @@
 
 **Hinweis:** Monstera deliciosa ist eine klassische Topf-/Zimmerpflanze. In Mitteleuropa ausschliesslich Indoor oder im beheizten Gewaechshaus. Der Topf sollte grosszuegig gewaehlt werden, da die Pflanze kraeftige Wurzeln bildet. Umtopfen alle 1--2 Jahre in einen ca. 5 cm groesseren Topf. Schwere Toepfe (Ton/Keramik) bieten bessere Stabilitaet fuer grosse Exemplare mit Kletterhilfe.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.8 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD umol/m2/s) | <!-- DATEN FEHLEN: kein art-spezifischer, quantitativer LCP-Messwert (PPFD) fuer Monstera deliciosa in mind. 2 serioesen Quellen auffindbar. Als ausgepraegte Schattenpflanze (siehe shade_tolerance) liegt der LCP niedrig, eine konkrete Spanne wird ohne Beleg nicht geraten. --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (light compensation point, PPFD umol/m2/s) | <!-- DATEN FEHLEN: siehe LCP min. --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20--40 (Topfkultur; natuerliche, flach gehaltene Wurzeln, im Topf auf Gefaessmasse begrenzt; vgl. min_container_depth_cm = 25) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Schwellenwert (ECe) fuer Monstera deliciosa publiziert; Art nicht in salztoleranz-kalibrierten Kulturlisten (FAO/USDA) enthalten. --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope fuer Monstera deliciosa publiziert. --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min--max) | 5.5--6.5 (optimal; toleriert 5.5--7.0, schwach sauer bis neutral) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -138,6 +165,12 @@ Monstera deliciosa ist eine perenniale Zimmerpflanze ohne festes Ernte-Ziel. Die
 | Luftfeuchtigkeit Tag (%) | 70-80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70-80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6-0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | <!-- DATEN FEHLEN: kein art-spezifischer, gemessener Photosynthese-Temperaturoptimum-Wert fuer Monstera deliciosa in mind. 2 serioesen Quellen. Kultur-Optimaltemperatur 22-26 C (siehe temperature_day_c) ist NICHT mit dem gaswechsel-gemessenen T_opt gleichzusetzen. --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: kein art-spezifischer Far-Red-Fraction-Zielwert fuer Monstera deliciosa belegt. --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | Substrat konstant feucht, nicht nass | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50-100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -155,6 +188,12 @@ Monstera deliciosa ist eine perenniale Zimmerpflanze ohne festes Ernte-Ziel. Die
 | Luftfeuchtigkeit Tag (%) | 60-70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60-70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100-200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -172,6 +211,12 @@ Monstera deliciosa ist eine perenniale Zimmerpflanze ohne festes Ernte-Ziel. Die
 | Luftfeuchtigkeit Tag (%) | 50-70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55-70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200-500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -189,6 +234,12 @@ Monstera deliciosa ist eine perenniale Zimmerpflanze ohne festes Ernte-Ziel. Die
 | Luftfeuchtigkeit Tag (%) | 40-60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45-60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: siehe Phase Bewurzelung. --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 10-14 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 150-300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -201,6 +252,20 @@ Monstera deliciosa ist eine perenniale Zimmerpflanze ohne festes Ernte-Ziel. Die
 | Juvenil | 1:1:1 | 0.4-0.8 | 5.5-6.5 | 40 | 20 | -- | 1 |
 | Aktives Wachstum | 3:1:2 | 0.8-1.4 | 5.5-6.5 | 80 | 40 | -- | 2 |
 | Ruheperiode | 0:0:0 | 0.0 | 5.5-6.5 | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (micronutrients) je Phase -- Mn/Zn/Cu/Mo:**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Bewurzelung | -- | -- | -- | -- |
+| Juvenil | <!-- DATEN FEHLEN: kein art-spezifischer Mangan-Zielwert (ppm) fuer Monstera deliciosa publiziert. --> | <!-- DATEN FEHLEN: kein art-spezifischer Zink-Zielwert. --> | <!-- DATEN FEHLEN: kein art-spezifischer Kupfer-Zielwert. --> | <!-- DATEN FEHLEN: kein art-spezifischer Molybdaen-Zielwert. --> |
+| Aktives Wachstum | <!-- DATEN FEHLEN: siehe Juvenil. --> | <!-- DATEN FEHLEN: siehe Juvenil. --> | <!-- DATEN FEHLEN: siehe Juvenil. --> | <!-- DATEN FEHLEN: siehe Juvenil. --> |
+| Ruheperiode | -- | -- | -- | -- |
+
+*Hinweis: Fuer Monstera deliciosa existieren keine art-spezifischen, peer-reviewten Mikronaehrstoff-Zielkonzentrationen (Mn/Zn/Cu/Mo). Die Versorgung erfolgt praxisueblich ueber den Mikronaehrstoff-Anteil eines vollwertigen Zimmerpflanzen-Komplettduengers (siehe 3.1). KA-Felder: `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`.*
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -411,3 +476,10 @@ Borsigiana,Monstera deliciosa,--,--,compact;fast_growing,clone
 5. NCSU Plant Toolbox -- Monstera: https://plants.ces.ncsu.edu/plants/monstera-deliciosa/
 6. Royal Horticultural Society -- Monstera deliciosa: https://www.rhs.org.uk/plants/monstera-deliciosa
 7. COMPO Gruenpflanzen- und Palmenduenger: https://www.compo.de/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. Plants For A Future (PFAF) -- Monstera deliciosa (Ceriman, Windowleaf): https://pfaf.org/user/Plant.aspx?LatinName=Monstera+deliciosa -- Boden-pH-Vorzug (schwach sauer/neutral, 5.5-6.0, tol. 5-7.5), Schattentoleranz (Vollschatten bis Halbschatten, bevorzugt schattig), Feuchte/Drainage (well-drained noetig -> Staunaesse sensitiv), Wurzelcharakteristik (Hemiepiphyt).
+9. Mosa et al. -- "Phenotypic differences in sun and shade leaves of Monstera deliciosa (Araceae)", Revista de Biologia Tropical (Univ. Costa Rica): https://revistas.ucr.ac.cr/index.php/rrbt/article/view/410 -- Heteroblastie, Sonnen-/Schattenblatt-Anpassung, Understory-Hemiepiphyt mit Sonnenflecken-Lichtumfeld (Beleg fuer ausgepraegte Schattentoleranz).
+10. Winter & Smith et al. -- "Carbon isotope composition ... reflects a CAM continuum" (Flora 2021, ScienceDirect): https://www.sciencedirect.com/science/article/pii/S1433831921000317 -- C3- vs. CAM-Abgrenzung in Araceae; Hemiepiphyten der Gattung Monstera als C3-Pflanzen eingeordnet.
+11. Foliage Factory -- Epiphytes vs Soil / Aroid Care (Monstera, Philodendron, Anthurium, Epipremnum als C3-Pflanzen): https://foliage-factory.com/blogs/plant-care/epiphytes-vs-soil-houseplants -- Bestaetigung Photosynthese-Typ c3 fuer Indoor-Aroideen inkl. Monstera.
+12. Grossiord et al. (2020) -- "Plant responses to rising vapor pressure deficit", New Phytologist 226:1550-1566: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16485 -- VPD-Stomataschluss/Stress bei duennblaettrigen Pflanzen; Grundlage fuer VPD-Schwelle (~1.5 kPa) und hohe VPD-Sensitivitaet tropischer Blattpflanzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

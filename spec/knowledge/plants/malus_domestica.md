@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temperature, °C) | 5–6 | `species.base_temp` |
+| Lebensdauer (lifespan, Jahre) | 40–80 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization / chilling required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (chilling, Tage) | 21–42 (≈ 500–1000 Chill Hours bei 0–7 °C) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | DATEN FEHLEN — Apfel-Blüteninduktion ist chilling-/temperaturgesteuert, kein belastbarer photoperiodischer Schwellenwert | `lifecycle_configs.critical_day_length_hours` <!-- DATEN FEHLEN --> |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; Knospen frostempfindlich bei Spätfrost (-3 bis -5°C); in Norddeutschland Spätfrostlagen meiden; geschützte Sorten wählen | `species.hardiness_detail` |
@@ -82,6 +91,30 @@
 | Rankhilfe/Stütze nötig | false (Spalierform: ja) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche Obstbaumerde; pH 5,5–6,5; gut drainiert; Schicht Kies am Boden | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | 8 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 16 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–50 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | DATEN FEHLEN — kein belastbarer artspezifischer Maas-Hoffman-Schwellenwert | `species.salt_tolerance_ece_threshold_ds_m` <!-- DATEN FEHLEN --> |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | DATEN FEHLEN — kein belastbarer artspezifischer Maas-Hoffman-Slope | `species.salt_tolerance_slope_pct` <!-- DATEN FEHLEN --> |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+### 1.8 Bestäubung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Bestäuber erforderlich (requires pollinator) | true (selbstinkompatibel via gametophytischer Selbstinkompatibilität / GSI; Fremdbefruchter, Pollensorte zweiter Sorte nötig) | `species.requires_pollinator` |
+| Bestäuber-Gruppe (pollinator group) | Blühgruppen A–F (1–6); Befruchtung durch Sorte derselben oder direkt benachbarter Blühgruppe; Triploide (z. B. Boskoop) liefern sterilen Pollen und brauchen 2 diploide Befruchtersorten | `species.pollinator_group` |
+| Kompatible Befruchter (compatible pollinators) | Diploide Sorten überlappender Blütezeit (z. B. Elstar, Rewena, Gala, Golden Delicious); Zieräpfel (Malus floribunda/Evereste) als universelle Pollenspender | `cultivar.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +143,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | DATEN FEHLEN — kein belastbarer artspezifischer Stomata-Schließ-Schwellenwert | `requirement_profiles.vpd_threshold_kpa` <!-- DATEN FEHLEN --> |
+| VPD-Sensitivität (VPD sensitivity) | DATEN FEHLEN — keine belastbare Klassifizierung | `requirement_profiles.vpd_sensitivity` <!-- DATEN FEHLEN --> |
+| Photosynthese-T_opt (°C) | 20–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) (0–1) | DATEN FEHLEN — kein belastbarer artspezifischer Wert | `requirement_profiles.far_red_fraction` <!-- DATEN FEHLEN --> |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (Regen reicht meist; bei Trockenheit gießen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20000–50000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -122,6 +161,18 @@
 | Knospenauftrieb | 2:1:1 | — | 5.5–6.5 | 100 | 40 | — | 3 |
 | Fruchtentwicklung | 1:2:2 | — | 5.5–6.5 | 150 | 60 | — | 3 |
 | Reife | 0:1:2 | — | 5.5–6.5 | 100 | 40 | — | 2 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase** (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`)
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Knospenauftrieb | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> |
+| Fruchtentwicklung | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> |
+| Reife | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> | DATEN FEHLEN <!-- DATEN FEHLEN --> |
+
+Hinweis: Apfel ist im Freiland v. a. anfällig für Zink-, Mangan-, Kupfer- und Bormangel (Blattanalyse-gesteuerte Korrektur, oft als Blattdüngung). Belastbare artspezifische ppm-Sollwerte in der Nährlösung je Phase liegen aus den geprüften Quellen nicht vor und werden daher als DATEN FEHLEN markiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -300,3 +351,20 @@ Rewena,Malus domestica,scab_resistant;robust;organic,140,scab_resistant,open_pol
 2. [Compo Apfelbaum](https://www.compo.de/ratgeber/pflanzen/kraeuter-obst-gemuese/apfelbaum) — Anbau, Pflege
 3. [Bio-Gärtner Apfelbäume](https://www.bio-gaertner.de/pflanzen/Apfelbaeume) — Ökologischer Anbau, Schädlinge
 4. [Naturadb Malus domestica](https://www.naturadb.de/pflanzen/malus-domestica/) — Steckbrief
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [MSU Extension — Growing Degree Days: Apples](https://www.canr.msu.edu/apples/weather/growing-degree-days) — GDD-Basistemperatur, Phänologie-Schwellen
+6. [ISHS — Modeling apple bloom phenology](https://ishs.org/ishs-article/1160_29/) — Basistemperatur 6.11 °C, Blütenmodell
+7. [The Pharma Journal — Impact of accumulated GDD on phenology of apple (Malus domestica)](https://www.thepharmajournal.com/archives/2019/vol8issue6/PartP/8-6-70-819.pdf) — GDD je phänologischer Stufe, Basistemperatur
+8. [NMSU — Cold-Hardiness and Dormancy of Apple Trees](https://irrigationmanagement.nmsu.edu/documents/cold-hardiness.pdf) — Endodormanz, Chilling-Bedarf, Dormanz vs. Frosthärte
+9. [Gardening Know How — Chill Hours for Apple Trees](https://www.gardeningknowhow.com/edible/fruits/apples/chill-hours-for-apple-trees.htm) — Chill Hours 500–1000 bei 0–7 °C, Vernalisation
+10. [ScienceDirect — Photosynthetic Photon Flux Density (overview)](https://www.sciencedirect.com/topics/biochemistry-genetics-and-molecular-biology/photosynthetic-photon-flux-density) — Lichtkompensationspunkt C3-Pflanzen 8–16 µmol/m²/s
+11. [ScienceDirect — Light/Compensation Point (overview)](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — Lichtkompensationspunkt, Sonnen- vs. Schattenpflanzen
+12. [PMC — Red and Blue Netting Alters Leaf Characteristics in Apple Trees](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7828011/) — Apfel als lichtbedürftige C3-Art, Assimilationsraten Kronenzonen
+13. [Wikifarmer — Site Selection for Apple Trees: Soil Requirements](https://wikifarmer.com/library/en/article/apple-tree-soil-condition-and-preparation) — Wurzeltiefe 30–50 cm, Drainage, pH
+14. [Grow Organic — Ideal Soil pH for Apple Trees](https://www.groworganic.com/blogs/articles/apple-trees-that-thrive-climate-and-soil-compatibility) — Boden-pH-Vorzug 6.0–7.0
+15. [Springer (Plant and Soil) — Water use and sodium chloride uptake by apple trees](https://link.springer.com/article/10.1007/BF02107155) — Salzempfindlichkeit
+16. [PMC — Waterlogging Tolerance in Apple Rootstocks](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10253570/) — Staunässe-Empfindlichkeit
+17. [ScienceDirect — Photosynthetic responses to CO2 at different leaf temperatures in apple (Malus domestica)](https://www.sciencedirect.com/science/article/abs/pii/S0098847218300625) — Photosynthese-Temperaturoptimum 20–30 °C
+18. [WSU Tree Fruit — Cross-compatibility of apple cultivars and pollinizers](https://treefruit.wsu.edu/article/cross-compatibility-of-apple-cultivars-and-pollinizers/) — Selbstinkompatibilität, Befruchtersorten, Triploide
+19. [Orange Pippin Trees — Pollination of apple trees](https://www.orangepippintrees.com/articles/planting-growing/pollination-of-fruit-trees) — Blühgruppen A–F, Fremdbefruchtung, Triploid-Regel
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
