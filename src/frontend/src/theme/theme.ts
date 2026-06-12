@@ -15,10 +15,6 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
     shape: {
       borderRadius: radii.md,
     },
-    transitions: {
-      create: (props, options) =>
-        createTheme().transitions.create(props, options),
-    },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
