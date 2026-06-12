@@ -101,6 +101,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
     for entry in data.get("new_species", []):
         frost = entry.get("frost_sensitivity")
         pc = entry.get("plant_category")
+        ph_pref = entry.get("soil_ph_preference")
         species_list.append(
             Species(
                 scientific_name=entry["scientific_name"],
@@ -132,6 +133,17 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 balcony_suitable=(Suitability(entry["balcony_suitable"]) if entry.get("balcony_suitable") else None),
                 greenhouse_recommended=entry.get("greenhouse_recommended", False),
                 support_required=entry.get("support_required", False),
+                # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
+                photosynthesis_type=entry.get("photosynthesis_type"),
+                light_compensation_point_ppfd_min=entry.get("light_compensation_point_ppfd_min"),
+                light_compensation_point_ppfd_max=entry.get("light_compensation_point_ppfd_max"),
+                shade_tolerance=entry.get("shade_tolerance"),
+                effective_root_depth_cm=entry.get("effective_root_depth_cm"),
+                waterlogging_tolerance=entry.get("waterlogging_tolerance"),
+                salt_tolerance_class=entry.get("salt_tolerance_class"),
+                salt_tolerance_ece_threshold_ds_m=entry.get("salt_tolerance_ece_threshold_ds_m"),
+                salt_tolerance_slope_pct=entry.get("salt_tolerance_slope_pct"),
+                soil_ph_preference=PhRange(**ph_pref) if ph_pref else None,
             )
         )
     return species_list
@@ -530,6 +542,11 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 humidity_day_percent=req["humidity_day_percent"],
                 humidity_night_percent=req["humidity_night_percent"],
                 vpd_target_kpa=req["vpd_target_kpa"],
+                # ── Umgebungs-Physiologie (REQ-003 v2.6) ──
+                vpd_threshold_kpa=req.get("vpd_threshold_kpa"),
+                vpd_sensitivity=req.get("vpd_sensitivity"),
+                photosynthesis_temp_opt_c=req.get("photosynthesis_temp_opt_c"),
+                far_red_fraction=req.get("far_red_fraction"),
                 co2_ppm=req["co2_ppm"],
                 irrigation_frequency_days=req.get("irrigation_frequency_days"),
                 irrigation_volume_ml_per_plant=req["irrigation_volume_ml_per_plant"],
@@ -544,6 +561,12 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 target_ph=nut["target_ph"],
                 calcium_ppm=nut.get("calcium_ppm"),
                 magnesium_ppm=nut.get("magnesium_ppm"),
+                # ── Mikronährstoffe (REQ-004 v3.5) ──
+                manganese_ppm=nut.get("manganese_ppm"),
+                zinc_ppm=nut.get("zinc_ppm"),
+                copper_ppm=nut.get("copper_ppm"),
+                molybdenum_ppm=nut.get("molybdenum_ppm"),
+                micro_nutrients=nut.get("micro_nutrients", {}),
             )
             lifecycle_repo.create_nutrient_profile(nutrient)
 

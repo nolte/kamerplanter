@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -12,6 +13,18 @@ from app.common.enums import (
     Suitability,
     WateringMethod,
 )
+from app.domain.models.botanical_family import PhRange
+
+# ── Environmental-physiology literals (REQ-001 v4.2) ─────────────────
+type PhotosynthesisType = Literal["c3", "c4", "cam"]
+type ShadeTolerance = Literal["deep_shade", "shade", "partial_shade", "full_sun"]
+type WaterloggingTolerance = Literal["sensitive", "moderate", "tolerant"]
+type SaltToleranceClass = Literal[
+    "sensitive",
+    "moderately_sensitive",
+    "moderately_tolerant",
+    "tolerant",
+]
 
 # ── WateringGuide (embedded on Species/Cultivar) ─────────────────────
 
@@ -142,6 +155,57 @@ class Species(BaseModel):
     default_nutrient_plan_key: str | None = Field(
         default=None,
         description="Default NutrientPlan for this species — used as fallback when no plant-specific plan is assigned",
+    )
+    # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
+    # Light compensation point (LCP) drives the site-suitability check; modelled as a
+    # range because LCP is acclimation-plastic (shade- vs. sun-adapted).
+    photosynthesis_type: PhotosynthesisType | None = Field(
+        default=None,
+        description="Photosynthesis pathway as a WUE/transpiration modifier for VPD/irrigation logic "
+        "('cam' = inverted nocturnal stomata logic). Not a standalone drought predictor.",
+    )
+    light_compensation_point_ppfd_min: int | None = Field(
+        default=None,
+        ge=0,
+        description="Lower LCP bound in µmol/m²/s (shade-adapted) — drives 'too dark' site warning.",
+    )
+    light_compensation_point_ppfd_max: int | None = Field(
+        default=None,
+        ge=0,
+        description="Upper LCP bound in µmol/m²/s (sun-adapted).",
+    )
+    shade_tolerance: ShadeTolerance | None = Field(
+        default=None,
+        description="Qualitative shade/sun exposure for placement — complements LCP.",
+    )
+    effective_root_depth_cm: int | None = Field(
+        default=None,
+        ge=0,
+        le=500,
+        description="Typical effective rooting depth for irrigation depth / crop steering (plastic guideline).",
+    )
+    waterlogging_tolerance: WaterloggingTolerance | None = Field(
+        default=None,
+        description="Root-zone waterlogging/anoxia tolerance — drives drainage recommendation and watering cap.",
+    )
+    salt_tolerance_class: SaltToleranceClass | None = Field(
+        default=None,
+        description="Qualitative Maas-Hoffman salt tolerance class (S/MS/MT/T).",
+    )
+    salt_tolerance_ece_threshold_ds_m: float | None = Field(
+        default=None,
+        ge=0,
+        description="Maas-Hoffman threshold ECe in dS/m (= mS/cm) above which yield declines (parameter 'a').",
+    )
+    salt_tolerance_slope_pct: float | None = Field(
+        default=None,
+        ge=0,
+        description="Maas-Hoffman yield-loss slope in %/dS/m above threshold (parameter 'b').",
+    )
+    soil_ph_preference: PhRange | None = Field(
+        default=None,
+        description="Species-specific pH preference (min_ph, max_ph) — optional override of the "
+        "BotanicalFamily default; gates pH-dependent micronutrient availability (REQ-004).",
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None

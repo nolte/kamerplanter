@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import TransitionTriggerType
+
+# ── Environmental-physiology literals (REQ-003 v2.6) ─────────────────
+type VpdSensitivity = Literal["low", "medium", "high"]
 
 
 class RequirementProfile(BaseModel):
@@ -18,6 +22,29 @@ class RequirementProfile(BaseModel):
     humidity_day_percent: int = Field(default=60, ge=0, le=100)
     humidity_night_percent: int = Field(default=65, ge=0, le=100)
     vpd_target_kpa: float = Field(default=1.0, ge=0)
+    # ── Umgebungs-Physiologie (REQ-003 v2.6) ──
+    vpd_threshold_kpa: float | None = Field(
+        default=None,
+        ge=0,
+        description="Species/phase-specific VPD upper bound at which stomatal conductance collapses — "
+        "an individual automation trigger complementing vpd_target_kpa. Unit: kPa.",
+    )
+    vpd_sensitivity: VpdSensitivity | None = Field(
+        default=None,
+        description="Stomatal sensitivity to VPD swings — 'high' = narrow corridor, cautious dehumidification.",
+    )
+    photosynthesis_temp_opt_c: float | None = Field(
+        default=None,
+        description="Photosynthesis temperature optimum (T_opt) for this phase, separate from "
+        "temperature_day_c. Acclimation-plastic. Unit: °C.",
+    )
+    far_red_fraction: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Far-red fraction FR/(R+FR), 0–1 — phytochrome-predictive shade-avoidance metric. "
+        "Derivable from light_spectrum; open daylight ≈ 0.5.",
+    )
     co2_ppm: int | None = Field(default=None, ge=0)
     irrigation_frequency_days: float | None = Field(default=1.0, gt=0)
     irrigation_volume_ml_per_plant: int = Field(default=250, ge=0)
@@ -41,7 +68,32 @@ class NutrientProfile(BaseModel):
     target_ph: float = Field(default=6.0, ge=0, le=14)
     calcium_ppm: int | None = Field(default=None, ge=0)
     magnesium_ppm: int | None = Field(default=None, ge=0)
-    micro_nutrients: dict[str, int] = Field(default_factory=dict)
+    # ── Mikronährstoffe (REQ-004 v3.5) — explicit fields, analog to calcium/magnesium ──
+    # pH-gated availability per Species/BotanicalFamily.soil_ph_preference (REQ-001).
+    manganese_ppm: int | None = Field(
+        default=None,
+        ge=0,
+        description="Mn — photosynthesis/enzyme activation; availability drops as pH rises.",
+    )
+    zinc_ppm: int | None = Field(
+        default=None,
+        ge=0,
+        description="Zn — auxin synthesis/internodes; pH-dependent availability.",
+    )
+    copper_ppm: int | None = Field(
+        default=None,
+        ge=0,
+        description="Cu — enzymes/lignification; narrow tolerance band, phytotoxic in excess.",
+    )
+    molybdenum_ppm: int | None = Field(
+        default=None,
+        ge=0,
+        description="Mo — nitrate reductase/N-fixation; availability increases with rising pH.",
+    )
+    micro_nutrients: dict[str, int] = Field(
+        default_factory=dict,
+        description="Free-form additional micronutrients not covered by explicit fields above.",
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -223,6 +223,51 @@ $defs:
         enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
                succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
         description: "Broad category for UI grouping"
+      # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
+      photosynthesis_type:
+        type: [string, "null"]
+        enum: [c3, c4, cam, null]
+        description: "Photosynthesis pathway as WUE/transpiration modifier ('cam' = inverted nocturnal stomata)."
+      light_compensation_point_ppfd_min:
+        type: [integer, "null"]
+        minimum: 0
+        description: "Lower LCP bound in µmol/m²/s (shade-adapted)."
+      light_compensation_point_ppfd_max:
+        type: [integer, "null"]
+        minimum: 0
+        description: "Upper LCP bound in µmol/m²/s (sun-adapted)."
+      shade_tolerance:
+        type: [string, "null"]
+        enum: [deep_shade, shade, partial_shade, full_sun, null]
+        description: "Qualitative shade/sun exposure for placement."
+      effective_root_depth_cm:
+        type: [integer, "null"]
+        minimum: 0
+        maximum: 500
+        description: "Typical effective rooting depth for irrigation depth / crop steering."
+      waterlogging_tolerance:
+        type: [string, "null"]
+        enum: [sensitive, moderate, tolerant, null]
+        description: "Root-zone waterlogging/anoxia tolerance."
+      salt_tolerance_class:
+        type: [string, "null"]
+        enum: [sensitive, moderately_sensitive, moderately_tolerant, tolerant, null]
+        description: "Qualitative Maas-Hoffman salt tolerance class (S/MS/MT/T)."
+      salt_tolerance_ece_threshold_ds_m:
+        type: [number, "null"]
+        minimum: 0
+        description: "Maas-Hoffman threshold ECe in dS/m (= mS/cm), parameter 'a'."
+      salt_tolerance_slope_pct:
+        type: [number, "null"]
+        minimum: 0
+        description: "Maas-Hoffman yield-loss slope in %/dS/m, parameter 'b'."
+      soil_ph_preference:
+        type: object
+        description: "Species-specific pH preference override of the BotanicalFamily default (REQ-004 micronutrient gating)."
+        properties:
+          min_ph: { type: number, minimum: 3, maximum: 9 }
+          max_ph: { type: number, minimum: 3, maximum: 9 }
+        required: [min_ph, max_ph]
     required: [scientific_name, common_names, genus, growth_habit, root_type]
     additionalProperties: true
 
