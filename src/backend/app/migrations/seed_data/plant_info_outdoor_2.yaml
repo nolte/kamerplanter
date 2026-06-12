@@ -764,6 +764,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [5, 6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   - scientific_name: "Viburnum opulus"
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
@@ -791,6 +798,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 8.0
 
   - scientific_name: "Weigela florida"
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
@@ -818,6 +832,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
 
   # ---------- Fruit trees ----------
 
@@ -1183,6 +1205,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 5.5
 
   - scientific_name: "Vitis vinifera"
     common_names: [Weinrebe, Weintraube, Grape Vine]
@@ -1211,6 +1241,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [1, 2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 9.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.5
 
   # ---------- Herbs ----------
 
@@ -1472,6 +1512,18 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [4, 5, 9, 10]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 8
+    light_compensation_point_ppfd_max: 16
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 46
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.0
+    salt_tolerance_slope_pct: 7.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   # ---------- Green manure / cover crops ----------
 
@@ -1646,6 +1698,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6, 7, 8, 9]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: "Tropaeolum majus"
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
@@ -1677,6 +1737,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.1
+      max_ph: 7.8
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (14 existing species)

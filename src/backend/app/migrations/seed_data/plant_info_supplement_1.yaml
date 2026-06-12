@@ -51,7 +51,7 @@ new_species:
     propagation_methods: [cutting_leaf, seed, division]
     propagation_difficulty: easy
     container_suitable: "yes"
-    recommended_container_volume_l: 1
+    recommended_container_volume_l: "1"
     min_container_depth_cm: 8
     indoor_suitable: "yes"
     balcony_suitable: "no"
@@ -86,7 +86,7 @@ new_species:
     propagation_methods: [cutting_stem]
     propagation_difficulty: easy
     container_suitable: "yes"
-    recommended_container_volume_l: 5
+    recommended_container_volume_l: "5"
     min_container_depth_cm: 15
     indoor_suitable: "yes"
     balcony_suitable: limited
@@ -106,6 +106,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Dahlia x cultorum"
     common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]

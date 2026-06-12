@@ -715,6 +715,15 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: moderate
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 5
+    light_compensation_point_ppfd_max: 20
+    shade_tolerance: shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.0
+      max_ph: 6.5
 
   - scientific_name: "Stephanotis floribunda"
     common_names:
@@ -741,6 +750,12 @@ new_species:
     support_required: true
     nutrient_demand_level: medium_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Strelitzia reginae"
     common_names:
@@ -770,6 +785,14 @@ new_species:
     support_required: false
     nutrient_demand_level: medium_feeder
     frost_sensitivity: moderate
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Streptocarpus hybridus"
     common_names:
@@ -796,6 +819,16 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 25
+    shade_tolerance: shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Stromanthe sanguinea"
     common_names:
@@ -823,6 +856,16 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 50
+    light_compensation_point_ppfd_max: 100
+    shade_tolerance: shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.5
 
   - scientific_name: "Tillandsia usneoides"
     common_names:
@@ -853,6 +896,12 @@ new_species:
     support_required: true
     nutrient_demand_level: light_feeder
     frost_sensitivity: moderate
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.0
 
   - scientific_name: "Tradescantia zebrina"
     common_names:
@@ -882,6 +931,16 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Vriesea splendens"
     common_names:
@@ -910,6 +969,16 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: cam
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Yucca elephantipes"
     common_names:
@@ -939,6 +1008,14 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: moderate
+    photosynthesis_type: cam
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: tolerant
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: "Zamioculcas zamiifolia"
     common_names:
@@ -967,6 +1044,13 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: "Zantedeschia aethiopica"
     common_names:
@@ -999,6 +1083,14 @@ new_species:
     bloom_months: [3, 4, 5, 6]  # VOLL-002: typical bloom spring/early summer
     nutrient_demand_level: medium_feeder
     frost_sensitivity: moderate
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
 # ──────────────────────────────────────────────
 # 4. Species Enrichment (keine — alle 29 sind neu)

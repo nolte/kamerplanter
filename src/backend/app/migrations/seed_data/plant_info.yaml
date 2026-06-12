@@ -110,6 +110,15 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: "Apium graveolens var. rapaceum"
     common_names:

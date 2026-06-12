@@ -104,6 +104,18 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 5
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.1
+    salt_tolerance_slope_pct: 6.9
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.8
 
   - scientific_name: Solanum tuberosum
     common_names: [Potato, Kartoffel]
@@ -128,6 +140,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 3
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.7
+    salt_tolerance_slope_pct: 12.0
+    soil_ph_preference:
+      min_ph: 5.0
+      max_ph: 6.5
 
   - scientific_name: Physalis peruviana
     common_names: [Cape Gooseberry, Physalis, Andenbeere]
@@ -363,6 +385,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 8.0
 
   - scientific_name: Salvia rosmarinus
     common_names: [Rosemary, Rosmarin]
@@ -964,6 +994,16 @@ species:
     balcony_suitable: limited
     support_required: true
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 1
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 9.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: Glycine max
     common_names: [Soybean, Sojabohne]
@@ -1051,6 +1091,18 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 12.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   # -- Cucurbitaceae (6) --
   - scientific_name: Cucumis sativus
@@ -1394,6 +1446,13 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: Matricaria chamomilla
     common_names: [Chamomile, Kamille]
@@ -1480,6 +1539,18 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c4
+    light_compensation_point_ppfd_min: 6
+    light_compensation_point_ppfd_max: 14
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.7
+    salt_tolerance_slope_pct: 12.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.8
 
   - scientific_name: Triticum aestivum
     common_names: [Wheat, Weizen]
@@ -1507,6 +1578,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 120
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 6.0
+    salt_tolerance_slope_pct: 7.1
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: Hordeum vulgare
     common_names: [Barley, Gerste]
@@ -1626,6 +1707,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c4
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 185
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 6.8
+    salt_tolerance_slope_pct: 16.0
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   # -- Araceae (2) --
   - scientific_name: Monstera deliciosa
@@ -1679,6 +1770,16 @@ species:
     frost_sensitivity: sensitive
     plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 3
+    light_compensation_point_ppfd_max: 9
+    shade_tolerance: deep_shade
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   # -- Asparagaceae (1) --
   - scientific_name: Chlorophytum comosum
@@ -2098,6 +2199,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.5
 
   # -- Violaceae (1) --
   - scientific_name: Viola x wittrockiana
@@ -2125,6 +2236,10 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    effective_root_depth_cm: 6
+    soil_ph_preference:
+      min_ph: 5.4
+      max_ph: 6.2
 
 cultivars:
   Solanum lycopersicum:
