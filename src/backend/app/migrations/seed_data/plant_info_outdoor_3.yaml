@@ -107,6 +107,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 50
         photoperiod_hours: 8.0
         temperature_day_c: 4.0
@@ -115,7 +116,7 @@ growth_phases:
         humidity_night_percent: 100
         vpd_target_kpa: 0.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]
@@ -132,6 +133,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 600
         photoperiod_hours: 13.0
         temperature_day_c: 13.0
@@ -140,7 +142,7 @@ growth_phases:
         humidity_night_percent: 100
         vpd_target_kpa: 0.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [5, 10, 5]
@@ -157,6 +159,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 900
         photoperiod_hours: 15.0
         temperature_day_c: 19.0
@@ -165,7 +168,7 @@ growth_phases:
         humidity_night_percent: 100
         vpd_target_kpa: 0.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [10, 6, 6]
@@ -182,6 +185,7 @@ growth_phases:
       allows_harvest: false  # P-005: ornamental — no harvestable product
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 1400
         photoperiod_hours: 15.0
         temperature_day_c: 23.0
@@ -190,7 +194,7 @@ growth_phases:
         humidity_night_percent: 100
         vpd_target_kpa: 0.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [10, 10, 10]
@@ -207,6 +211,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 400
         photoperiod_hours: 11.5
         temperature_day_c: 14.0
@@ -215,7 +220,7 @@ growth_phases:
         humidity_night_percent: 100
         vpd_target_kpa: 0.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]

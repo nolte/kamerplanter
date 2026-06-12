@@ -466,6 +466,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -491,6 +493,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 200
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -516,6 +520,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 250
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -541,6 +547,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 200
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -567,6 +575,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 100
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -592,6 +602,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -617,6 +629,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 200
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -642,6 +656,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -667,6 +683,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 100
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -693,6 +711,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -718,6 +737,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
         light_ppfd_target: 250
         photoperiod_hours: 12.0
         temperature_day_c: 25.0
@@ -743,6 +763,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
         light_ppfd_target: 300
         photoperiod_hours: 12.0
         temperature_day_c: 25.0
@@ -768,6 +789,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: high
         light_ppfd_target: 250
         photoperiod_hours: 12.0
         temperature_day_c: 24.0
@@ -794,6 +816,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 24.0
         light_ppfd_target: 100
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -819,6 +843,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 24.0
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -844,6 +870,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 24.0
         light_ppfd_target: 100  # W-005: 200→100 (shade plant, 200 PPFD causes leaf burn)
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -869,6 +897,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 24.0
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -895,6 +925,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 200
         photoperiod_hours: 14.0
         temperature_day_c: 20.0
@@ -920,6 +952,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -945,6 +979,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 20.0
@@ -970,6 +1006,8 @@ growth_phases:
       allows_harvest: true
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -995,6 +1033,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 300
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -1020,6 +1060,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 0
         photoperiod_hours: 8.0
         temperature_day_c: 5.0
@@ -1046,6 +1088,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 0
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -1071,6 +1114,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         photoperiod_hours: 16.0
         temperature_day_c: 22.0
@@ -1096,6 +1140,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 600
         photoperiod_hours: 16.0
         temperature_day_c: 25.0
@@ -1121,6 +1166,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 700
         photoperiod_hours: 14.0
         temperature_day_c: 25.0
@@ -1146,6 +1192,7 @@ growth_phases:
       allows_harvest: true
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -1171,6 +1218,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -1323,6 +1371,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 0
         photoperiod_hours: 0.0
         temperature_day_c: 7.0
@@ -1348,6 +1397,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 200
         photoperiod_hours: 14.0
         temperature_day_c: 17.0
@@ -1373,6 +1423,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 18.0
@@ -1398,6 +1449,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 600
         photoperiod_hours: 16.0
         temperature_day_c: 22.0
@@ -1423,6 +1475,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -1448,6 +1501,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 200
         photoperiod_hours: 10.0
         temperature_day_c: 14.0
@@ -1474,6 +1528,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 100
         photoperiod_hours: 16.0
         temperature_day_c: 23.0
@@ -1499,6 +1554,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 225
         photoperiod_hours: 16.0
         temperature_day_c: 20.0
@@ -1524,6 +1580,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 400
         photoperiod_hours: 16.0
         temperature_day_c: 22.0
@@ -1549,6 +1606,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 500
         photoperiod_hours: 14.0
         temperature_day_c: 18.0
@@ -1574,6 +1632,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -1599,6 +1658,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 300
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -1801,6 +1861,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 18
         light_ppfd_target: 75
         photoperiod_hours: 14.0
         temperature_day_c: 21.0
@@ -1826,6 +1888,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 18
         light_ppfd_target: 150
         photoperiod_hours: 15.0
         temperature_day_c: 20.0
@@ -1851,6 +1915,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 18
         light_ppfd_target: 350
         photoperiod_hours: 14.0
         temperature_day_c: 20.0
@@ -1876,6 +1942,8 @@ growth_phases:
       allows_harvest: true
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 18
         light_ppfd_target: 350
         photoperiod_hours: 14.0
         temperature_day_c: 18.0
@@ -1901,6 +1969,8 @@ growth_phases:
       allows_harvest: true
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 18
         light_ppfd_target: 250
         photoperiod_hours: 12.0
         temperature_day_c: 16.0

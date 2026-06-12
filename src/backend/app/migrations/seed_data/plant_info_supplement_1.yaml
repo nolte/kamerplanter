@@ -412,15 +412,17 @@ growth_phases:
       duration_days_max: 150
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 23
         light_ppfd_target: 0
         dli_target_mol: 0
         photoperiod_hours: 0
         temperature_day_c: 7.0
-        temperature_night_c: 7.0
+        temperature_night_c: 5.0
         humidity_day_percent: 68
         humidity_night_percent: 68
         co2_ppm: 400
-        irrigation_frequency_days: 0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]
@@ -439,6 +441,8 @@ growth_phases:
       duration_days_max: 42
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 23
         light_ppfd_target: 175
         dli_target_mol: 12
         photoperiod_hours: 13
@@ -469,6 +473,8 @@ growth_phases:
       duration_days_max: 56
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 23
         light_ppfd_target: 600
         dli_target_mol: 30
         photoperiod_hours: 15
@@ -501,6 +507,8 @@ growth_phases:
       duration_days_max: 120
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 23
         light_ppfd_target: 800
         dli_target_mol: 35
         photoperiod_hours: 13
@@ -533,6 +541,8 @@ growth_phases:
       duration_days_max: 21
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 23
         light_ppfd_target: 100
         dli_target_mol: 5
         photoperiod_hours: 10
