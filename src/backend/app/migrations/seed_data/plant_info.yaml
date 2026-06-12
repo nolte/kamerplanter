@@ -136,6 +136,16 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.8
+    salt_tolerance_slope_pct: 6.2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (existing species - fill None/empty fields)

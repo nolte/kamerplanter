@@ -66,6 +66,18 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 18
+    light_compensation_point_ppfd_max: 21
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 14
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: Solanum melongena
     common_names: [Eggplant, Aubergine]
@@ -465,6 +477,15 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 8
+    soil_ph_preference:
+      min_ph: 5.3
+      max_ph: 7.8
 
   - scientific_name: Coriandrum sativum
     common_names: [Coriander, Koriander]
@@ -514,6 +535,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.8
+    salt_tolerance_slope_pct: 6.2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: Petroselinum crispum
     common_names: [Parsley, Petersilie]
@@ -565,6 +596,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 46
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.8
+    salt_tolerance_slope_pct: 9.2
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.8
 
   - scientific_name: Brassica oleracea var. botrytis
     common_names: [Cauliflower, Blumenkohl]
@@ -590,6 +631,14 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: Brassica oleracea var. gongylodes
     common_names: [Kohlrabi]
@@ -615,6 +664,14 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: Raphanus sativus
     common_names: [Radish, Rettich, Radieschen]
@@ -688,6 +745,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.8
+    salt_tolerance_slope_pct: 9.7
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 6.8
 
   # -- Fabaceae (6) --
   - scientific_name: Phaseolus vulgaris
@@ -959,6 +1026,16 @@ species:
     balcony_suitable: "no"
     greenhouse_recommended: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.5
+    salt_tolerance_slope_pct: 13
+    soil_ph_preference:
+      min_ph: 5.8
+      max_ph: 7.2
 
   - scientific_name: Luffa aegyptiaca
     common_names: [Luffa, Schwammgurke]
@@ -1046,6 +1123,14 @@ species:
     indoor_suitable: limited
     balcony_suitable: limited
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: Helianthus annuus
     common_names: [Sunflower, Sonnenblume]
@@ -1147,6 +1232,13 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.8
 
   # -- Poaceae (6) --
   - scientific_name: Zea mays
@@ -1242,6 +1334,14 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 120
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 8.6
 
   - scientific_name: Oryza sativa
     common_names: [Rice, Reis]
@@ -1362,6 +1462,13 @@ species:
     frost_sensitivity: sensitive
     plant_category: indoor_houseplant
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   # -- Bromeliaceae (1) --
   - scientific_name: Guzmania lingulata
@@ -1597,6 +1704,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.2
+      max_ph: 8.3
 
   # -- Geraniaceae (1) --
   - scientific_name: Pelargonium zonale

@@ -158,6 +158,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.2
+    salt_tolerance_slope_pct: 16
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: "Allium sativum"
     common_names: ["Knoblauch", "Garlic"]
@@ -197,6 +207,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.9
+    salt_tolerance_slope_pct: 14.3
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Anemone hupehensis"
     common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
@@ -234,6 +254,12 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Asparagus officinalis"
     common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
@@ -272,6 +298,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 4.1
+    salt_tolerance_slope_pct: 2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Astilbe chinensis"
     common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
@@ -307,6 +343,12 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: moderate
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Brassica oleracea var. sabellica"
     common_names: ["Gruenkohl", "Kale", "Borecole"]
@@ -344,6 +386,14 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Buxus sempervirens"
     common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
@@ -380,6 +430,15 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 9
+    light_compensation_point_ppfd_max: 24
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Calendula officinalis"
     common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
@@ -418,6 +477,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Clematis spp."
     common_names: ["Waldrebe", "Clematis"]
@@ -455,6 +521,14 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Cornus mas"
     common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
