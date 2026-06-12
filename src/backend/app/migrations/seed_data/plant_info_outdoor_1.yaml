@@ -565,6 +565,14 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 80
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Delphinium elatum"
     common_names: ["Rittersporn", "Delphinium", "Larkspur"]
@@ -602,6 +610,14 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   - scientific_name: "Echinacea purpurea"
     common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
@@ -637,6 +653,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: true
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
 # ==============================================================================
 # S4  SPECIES ENRICHMENT (18 existing species)

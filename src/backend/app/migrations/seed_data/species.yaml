@@ -428,6 +428,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1
+    salt_tolerance_slope_pct: 14
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: Foeniculum vulgare
     common_names: [Fennel, Fenchel]
@@ -453,6 +463,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.64
+    salt_tolerance_slope_pct: 4.5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Anethum graveolens
     common_names: [Dill]
@@ -510,6 +530,15 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: Apium graveolens
     common_names: [Celery, Sellerie]
@@ -720,6 +749,14 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: Brassica oleracea var. capitata
     common_names: [Cabbage, "Weißkohl"]
@@ -855,6 +892,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: nitrogen_fixer
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 130
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 5
+    salt_tolerance_slope_pct: 20
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
   - scientific_name: Lens culinaris
     common_names: [Lentil, Linse]
@@ -928,6 +975,16 @@ species:
     greenhouse_recommended: true
     support_required: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 70
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.5
+    salt_tolerance_slope_pct: 13
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: Cucumis melo
     common_names: [Melon, Melone, Honigmelone]
@@ -954,6 +1011,16 @@ species:
     balcony_suitable: "no"
     greenhouse_recommended: true
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1
+    salt_tolerance_slope_pct: 8.4
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: Cucurbita pepo
     common_names: [Zucchini, Squash]
@@ -979,6 +1046,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 4.9
+    salt_tolerance_slope_pct: 10.5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: Cucurbita maxima
     common_names: [Pumpkin, "Kürbis", "Riesenkürbis"]
@@ -1002,6 +1079,16 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     nutrient_demand_level: heavy_feeder
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.2
+    salt_tolerance_slope_pct: 16
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.8
 
   - scientific_name: Citrullus lanatus
     common_names: [Watermelon, Wassermelone]
@@ -1596,6 +1683,13 @@ species:
     frost_sensitivity: sensitive
     plant_category: succulent_cactus
     nutrient_demand_level: light_feeder
+    photosynthesis_type: cam
+    shade_tolerance: deep_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   # -- Asparagaceae (3) --
   - scientific_name: Dracaena fragrans
@@ -1623,6 +1717,15 @@ species:
     nutrient_demand_level: light_feeder
     hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin."
     bloom_months: [5, 6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
   # -- Nymphaeaceae (1) --
   - scientific_name: Nymphaea alba
@@ -1678,6 +1781,13 @@ species:
     frost_sensitivity: sensitive
     plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: deep_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   # -- Amaryllidaceae (1) --
   - scientific_name: Allium schoenoprasum

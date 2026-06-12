@@ -901,6 +901,14 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Codiaeum variegatum"
     common_names: [Croton, Wunderstrauch, Garden Croton, "Joseph's Coat"]
@@ -923,6 +931,13 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Coffea arabica"
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
@@ -946,6 +961,14 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 6.5
 
   - scientific_name: "Crassula ovata"
     common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
@@ -969,6 +992,14 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: cam
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Ctenanthe burle-marxii"
     common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant]
@@ -991,6 +1022,16 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 50
+    light_compensation_point_ppfd_max: 100
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Curio rowleyanus"
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
@@ -1014,6 +1055,14 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 10
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Cyclamen persicum"
     common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen]
@@ -1037,6 +1086,12 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Dendrobium nobile"
     common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
@@ -1060,6 +1115,13 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Dieffenbachia seguine"
     common_names: [Dieffenbachie, Stumme Bohne, Dumb Cane, Leopard Lily]
@@ -1082,6 +1144,16 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: medium_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 8
+    light_compensation_point_ppfd_max: 16
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 2
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Dracaena angolensis"
     common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
@@ -1104,6 +1176,13 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 8.5
 
   - scientific_name: "Dracaena marginata"
     common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree]
@@ -1126,6 +1205,17 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 50
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT

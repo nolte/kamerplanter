@@ -67,6 +67,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: true
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   # Petunia x hybrida removed — already defined in species.yaml.
   # Enrichment fields moved to species_enrichment section below.

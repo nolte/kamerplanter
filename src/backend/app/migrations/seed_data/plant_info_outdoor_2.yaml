@@ -374,6 +374,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [4, 5]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Geranium sanguineum"
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
@@ -404,6 +412,12 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 8
 
   - scientific_name: "Helleborus niger"
     common_names: [Christrose, Schneerose, Christmas Rose]

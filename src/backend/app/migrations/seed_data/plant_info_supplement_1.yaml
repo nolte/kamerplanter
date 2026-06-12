@@ -145,6 +145,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: true
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7
 
 # ==============================================================================
 # S3  LIFECYCLE CONFIGS
