@@ -155,7 +155,7 @@ Beim Kauf unbedingt Sorte beachten — Stecklinge/Topfpflanzen sind meist Franz�
 | VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
 | VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
 | Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
-| Far-Red-Fraction FR/(R+FR) | 0.20 | `requirement_profiles.far_red_fraction` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |

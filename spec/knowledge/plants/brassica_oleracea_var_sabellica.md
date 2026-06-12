@@ -143,7 +143,7 @@
 | VPD-Schwelle (kPa) | 1.2 (stomatärer Kollaps deutlich oberhalb des Zielkorridors; kühl-/feuchteliebend) | `requirement_profiles.vpd_threshold_kpa` |
 | VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
 | Photosynthese-T_opt (°C) | 20–23 | `requirement_profiles.photosynthesis_temp_opt_c` |
-| Far-Red-Fraction FR/(R+FR) | 0.30–0.35 (offenes Tageslicht, Vollsonnen-Freilandkultur) | `requirement_profiles.far_red_fraction` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht, Vollsonnen-Freilandkultur ≈ 0.5) | `requirement_profiles.far_red_fraction` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 (im Winter weniger) | `requirement_profiles.irrigation_frequency_days` |

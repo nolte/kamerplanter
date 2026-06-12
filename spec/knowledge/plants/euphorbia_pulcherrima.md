@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 5–10 (Wildform/Kübel; als Zimmerpflanze 2–3) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | ~12.25 (Blüteinduktion bei Photoperiode ≤ ca. 12¼ h bzw. Dunkelphase ≥ 11¾ h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | In Mitteleuropa nur als Zimmerpflanze; Frostgrenze ca. +5°C | `species.hardiness_detail` |
@@ -84,6 +93,25 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige Zimmerpflanzenerde; keine Staunässe; pH 6.0–6.5 | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine Maas-Hoffman-Schwelle publiziert; Anbau-Empfehlung Substrat-EC 2.6–4.6 mS/cm (PourThru) ist kein ECe-Schwellenwert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.8–6.5 | `species.soil_ph_preference` |
+
+> **Hinweis Licht:** Poinsettie ist im Freiland eine Halbschatten-Pflanze (partial_shade) und akklimatisiert sich in Innenräumen an niedrige Lichtintensitäten (bis ~10 µmol/m²/s); produktionsoptimal sind dagegen ~500 µmol/m²/s (PPFD). Ein artspezifischer Lichtkompensationspunkt-Zahlenwert (light compensation point, Netto-Photosynthese = 0) ist publiziert gemessen, aber ohne belastbare µmol-Angabe aus zwei unabhängigen Quellen — daher als DATEN FEHLEN markiert (keine Erfindung).
+> **Hinweis Salz/pH:** Poinsettie reagiert empfindlich auf hohe lösliche Salze (soluble salts) im Substrat. Der Species-pH-Vorzug 5.8–6.5 (leicht sauer; gärtnerischer Standard für Poinsettien 5.5–6.5) ist der breitere Toleranzbereich; die engeren Empfehlungswerte in §1.6 (6.0–6.5) und §2.3 (6.0–6.5) liegen vollständig innerhalb dieses Bereichs (gemeinsame Schnittmenge 6.0–6.5) — kein Widerspruch.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +139,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.50 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,18 +161,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.50 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–6 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Akklimatisierung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Blüteinduktion | 1:2:3 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Blüte | 0:1:2 | 0.6–1.0 | 6.0–6.5 | 80 | 30 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Akklimatisierung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | — | — | — |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.25 | 0.05 | 0.1 |
+| Blüteinduktion | 1:2:3 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.25 | 0.05 | 0.2 |
+| Blüte | 0:1:2 | 0.6–1.0 | 6.0–6.5 | 80 | 30 | — | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.3<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.15 | 0.05 | 0.1 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Hinweis Mikronährstoffe:** Molybdän (Mo) ist beim Weihnachtsstern der kritischste Mikronährstoff; ein konstantes Feed-Programm (constant liquid feed) hält ~0.1–1.2 ppm Mo aufrecht (poinsettie-spezifisch erhöht), Blattgewebe-Zielwerte 1–5 ppm Mo. Mangan (Mn) liegt im CLF i.d.R. bei ~50 % des Eisengehalts; Blattgewebe-Sufficiency Mn 45–300 ppm, Zn 25–100 ppm, Cu 3–25 ppm, Mo 1–5 ppm. Die ppm-Werte oben beziehen sich auf die Düngerlösung (Feed-Solution), nicht auf Blattgewebe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 2.4 Phasenübergangsregeln
 
@@ -218,6 +263,23 @@ Der Weihnachtsstern ist als Kurztagspflanze auf exakt gesteuerte Beleuchtung ang
 | Okt | Kurztag-Behandlung | Ab 1. Oktober tägl. 14 Stunden Dunkelheit (Karton) | hoch |
 | Nov | Blüteinduktion kontrollieren | Hochblätter müssen sich färben | hoch |
 | Dez | Dekorativer Höhepunkt | Zimmerwarm, heller Standort, sparsam gießen | niedrig |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (spätestens wenn Außentemperatur < 10 °C) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | prune | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (Rückschnitt auf ~15 cm; Sommerausstellung erst nach den Eisheiligen Mitte Mai) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (Blütephase); nicht unter 12 °C | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (Süd-/Ostfenster), kein direktes Mittagslicht | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam; Substrat antrocknen lassen, keine Staunässe | `overwintering_profiles.winter_quarter_watering` |
+
+> **Hinweis:** Der Weihnachtsstern ist frostempfindlich (tender) und wird in Mitteleuropa (USDA 6–8) ausschließlich frostfrei als Zimmerpflanze überwintert (move_indoors), nicht ausgegraben/eingelagert. Im Sommer kann er ins Freie (move_outdoors) gestellt werden, sobald keine Nachtfröste mehr drohen; Rücktransport ins Haus, bevor die Temperatur unter ~10 °C fällt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -299,3 +361,14 @@ Euphorbia pulcherrima,Weihnachtsstern;Poinsettie;Christmas Star,Euphorbiaceae,Eu
 3. [Feey – Weihnachtsstern](https://feey.ch/pages/weihnachtsstern) — Steckbrief, Überwinterung
 4. [Zimmerpflanzen-Portal](https://www.zimmerpflanzen-portal.de/weihnachtsstern-euphorbia-pulcherrima/) — Schädlinge, Krankheiten
 5. [Landwirtschaft BW – Nützlinge Weihnachtsstern](https://www.landwirtschaft-bw.de/site/pbs-bw-new/get/documents/MLR.LEL/PB5Documents/ltz_ka/Arbeitsfelder/Pflanzenschutz/N%C3%BCtzlinge/Zierpflanzenbau/Gesch%C3%BCtzter%20Anbau%20(Gew%C3%A4chshaus)/Sch%C3%A4dlinge%20und%20N%C3%BCtzlingseinsatz%20weihnachtsstern.pdf) — Biologischer Pflanzenschutz
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [UF/IFAS – Poinsettia Production Guidelines](https://hort.ifas.ufl.edu/floriculture/poinsettia/production_guidelines.shtml) — Basistemperatur, pH, Temperaturführung
+7. [Aggie Horticulture (Texas A&M) – Poinsettia Cultural Characteristics](https://aggie-horticulture.tamu.edu/ornamental/the-texas-poinsettia-producers-guide/cultural-characteristics/) — Photoperiode, kritische Dunkelphase, Temperatur
+8. [Aggie Horticulture (Texas A&M) – Poinsettia Nutrition](https://aggie-horticulture.tamu.edu/ornamental/the-texas-poinsettia-producers-guide/poinsettia-nutrition/) — Mikronährstoffe, Molybdän, Mangan
+9. [ScienceDirect – Growth and development of poinsettia under reduced air temperature](https://www.sciencedirect.com/science/article/abs/pii/S0304423816303491) — GDD-Basistemperatur 10 °C, Wuchsoptima
+10. [Greenhouse Grower – How to Manage the 3 M's of Poinsettias (Mn, Mo, Mg)](https://www.greenhousegrower.com/production/fertilization/how-to-manage-the-3-ms-of-poinsettias-manganese-molybdenum-and-magnesium/) — Mn/Mo-Bedarf, Blattgewebewerte
+11. [UMass Extension – Fertilizer Recommendations for Poinsettias](https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/fertilizer-recommendations-for-poinsettias) — Feed-pH, Mikronährstoff-Programm
+12. [Greenhouse Grower – Producing Poinsettias Sustainably](https://www.greenhousegrower.com/crops/producing-poinsettias-sustainably/) — Substrat-EC/Salzempfindlichkeit
+13. [HGTV – Poinsettia Care Through Winter and Beyond](https://www.hgtv.com/gardening/flowers-and-plants/poinsettia-care-through-winter-and-beyond) — Überwinterungstemperatur, frostfrei
+14. [Oklahoma State University Extension – Poinsettia Care](https://extension.okstate.edu/fact-sheets/poinsettia-care) — Überwinterung, Rückschnitt, Standort
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

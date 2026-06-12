@@ -17,10 +17,21 @@
 | Familie | Asteraceae | `species.family` → `botanical_families.name` |
 | Gattung | Helianthus | `species.genus` |
 | Ordnung | Asterales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | `c3` (C3-Pflanze — kein Kranz-Anatomie, Calvin-Zyklus; hohe Photosyntheseraten beruhen auf RuBisCO-Aktivität, nicht auf einem C4-Weg) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 6.7 (Wuchs-/Phänologie-Basis der Hauptwuchsphase; NDSU/NDAWN-Standard 44 °F. Modellierungsstudien verwenden 6 °C. Hinweis: §2.4 nennt zusätzlich 7.2 °C als alternativen USDA-Standard — beide liegen im belegten Bereich 6–7.2 °C; NICHT die Keim-Basistemperatur, die deutlich höher liegt) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | `herb` (krautig, aufrecht; je nach Sorte 30–300 cm Höhe) | `species.growth_habit` |
 | Wurzeltyp | `taproot` (Pfahlwurzel mit kräftigem Seitenwurzelsystem; Wurzeltiefe bis 150–200 cm) | `species.root_type` |
 | Lebenszyklus | `annual` (einjährig — vollständiger Zyklus Aussaat bis Samenreife in einer Vegetationsperiode) | `lifecycle_configs.cycle_type` |
 | Photoperiode | `day_neutral` (kultivierte Sorten sind weitgehend tagneutral; Wildformen zeigen fakultative Kurztagsreaktion) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | — (einjährig; `typical_lifespan_years` nur bei perennierenden Arten relevant) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false (einjährige Kultur ohne Ruhephase; vollständiger Zyklus in einer Vegetationsperiode) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (kein Kältebedarf für Blühinduktion; tagneutrale, wärmeliebende einjährige Art) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt — keine Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral — keine kritische Tageslänge; kultivierte Sorten reagieren nicht photoperiodisch auf die Blühinduktion) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | `tender` (frostempfindlich — Jungpflanzen werden durch Spätfrost getötet; ausgewachsene Pflanzen tolerieren leichten Frost kurzfristig) | `species.frost_sensitivity` |
 | Winterhärte-Detail | Nicht winterhart. Einjährig, stirbt nach Samenreife ab. Keimung benötigt Bodentemperatur von mindestens 10 °C, besser 12–15 °C. Jungpflanzen frostempfindlich; Direktsaat nach den Eisheiligen (Mitte Mai). | `species.hardiness_detail` |
@@ -98,6 +109,22 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai.
 
 **Hinweis:** Sonnenblumen sind primär Freilandpflanzen. Für Topf-/Balkonkultur eignen sich ausschliesslich Zwergsorten wie 'Big Smile', 'Teddy Bear', 'Sunspot' oder 'Pacino'. Die Pfahlwurzel verträgt Verpflanzen schlecht -- daher Direktsaat in den endgültigen Topf bevorzugen. Volle Sonne (mindestens 6--8 Stunden) ist zwingend erforderlich.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 (Sonnenpflanze; Netto-Photosynthese = 0. Sonnenpflanzen liegen nach Taiz & Zeiger bei 10–20 µmol; sonnenblumen-spezifische Blattmessungen ergaben Werte um 7–11 µmol) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 20 (oberes Ende der Sonnenpflanzen-Spanne nach Taiz & Zeiger) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | `full_sun` (obligate Volllichtpflanze; toleriert allenfalls lichten Schatten, blüht und fruchtet dann aber deutlich schwächer) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 80–150 (effektive Wasseraufnahmezone nach FAO; Pfahlwurzel kann unter idealen Bedingungen 200–300 cm erreichen, 100 % der Wasseraufnahme erfolgt jedoch aus den oberen 0.8–1.5 m) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | `sensitive` (empfindlich gegen Staunässe und Überflutung; 48–72 h Überflutung hemmen Auflauf und Jugendwachstum deutlich — gut drainierter Boden erforderlich) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | `moderately_tolerant` (Maas-Hoffman-Einstufung "MT"; FAO) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 4.8 (Maas-Hoffman a; Bezugsgröße: Substrat-ECe des Sättigungsextrakts, NICHT Gießwasser-EC; FAO) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 5.0 (Maas-Hoffman b; ~5 % Ertragsminderung je dS/m oberhalb der Schwelle; FAO) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 (leicht sauer bis leicht alkalisch; Optimum 6.5–6.8; harmoniert mit der Fertigations-pH-Empfehlung 6.0–6.8 in §2.3/§3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -129,6 +156,12 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | 70–80 (Bodenfeuchte entscheidend) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | — (nicht relevant unterirdisch) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | — (nicht relevant unterirdisch) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | — (keine Photosynthese unter Erde; Keimoptimum ca. 25 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | — (unterirdisch, kein Licht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1–2 (Boden gleichmässig feucht, nicht nass) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -145,6 +178,12 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (deutlich oberhalb des Zielkorridors; frühe, feuchteliebende Jugendphase → niedrigere Schwelle: oberer Zielwert 1.2 + ca. 0.3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–27 (thermisches Optimum der Blatt-Photosynthese; Wachstumsoptimum 21–26 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.45 (Freiland-Volllicht; klares Tageslicht R:FR ≈ 1.3 → FR-Fraktion ≈ 0.43; offenes Tageslicht ≈ 0.46 nach Kusuma/Bugbee) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null (Freiland) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -161,6 +200,12 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer Punkt des stomatären Kollaps; oberer Zielwert 1.5 + ca. 0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 (thermisches Optimum der Photosynthese; Paraheliotropismus hält Blatttemperatur nahe am Optimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.45 (Freiland-Volllicht; klares Tageslicht R:FR ≈ 1.3 → FR-Fraktion ≈ 0.43) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null (Freiland) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–4 (bei Hitze täglich; tiefgründig giessen, damit Pfahlwurzel in die Tiefe wächst) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500–2000 (je nach Pflanzengrösse — grosse Sonnenblumen transpirieren enorm) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -177,6 +222,12 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | 40–55 (trockener halten um Botrytis an Blütenkorb zu vermeiden) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer Punkt des stomatären Kollaps; oberer Zielwert 1.5 + ca. 0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 (thermisches Optimum der Photosynthese) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.45 (Freiland-Volllicht; klares Tageslicht R:FR ≈ 1.3 → FR-Fraktion ≈ 0.43) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–3 (Wasserbedarf während Blüte am höchsten) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 1000–3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -193,6 +244,12 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | 35–50 (trocken halten — Schimmelgefahr an Samenköpfen) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (kritischer Punkt des stomatären Kollaps; oberer Zielwert 1.8 + ca. 0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art; in der Abreife trockenheitstoleranter) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 (thermisches Optimum der Photosynthese in der Abreife) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.45 (Freiland-Volllicht; klares Tageslicht R:FR ≈ 1.3 → FR-Fraktion ≈ 0.43) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3–5 (Bewässerung reduzieren für Samenreife) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500–1000 (reduziert) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -209,20 +266,30 @@ Phasensequenz: **Annuelle (Ernte)** — Keimung → Sämling → Vegetativ → B
 | Luftfeuchtigkeit Tag (%) | — | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | — | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | — | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | — (Seneszenz — Pflanze stirbt ab, keine Stomata-Regulation mehr relevant) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Art) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | — (Seneszenz — Photosynthese erlischt) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.40–0.45 (Freiland-Volllicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | — (Bewässerung einstellen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Sämling | 2:1:1 | 0.8–1.0 | 6.0–6.5 | 80 | 40 | 30 | 2.0 |
-| Vegetativ | 3:1:2 | 1.5–2.2 | 6.0–6.8 | 150 | 60 | 50 | 3.0 |
-| Blüte | 1:2:3 | 1.5–2.0 | 6.0–6.8 | 120 | 60 | 50 | 2.5 |
-| Fruchtreife | 0:1:3 | 1.0–1.5 | 6.0–6.8 | 100 | 50 | 40 | 2.0 |
-| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Sämling | 2:1:1 | 0.8–1.0 | 6.0–6.5 | 80 | 40 | 30 | 2.0 | 0.3 | 0.15 | 0.05 | 0.02 |
+| Vegetativ | 3:1:2 | 1.5–2.2 | 6.0–6.8 | 150 | 60 | 50 | 3.0 | 0.5 | 0.25 | 0.08 | 0.03 |
+| Blüte | 1:2:3 | 1.5–2.0 | 6.0–6.8 | 120 | 60 | 50 | 2.5 | 0.5 | 0.25 | 0.08 | 0.03 |
+| Fruchtreife | 0:1:3 | 1.0–1.5 | 6.0–6.8 | 100 | 50 | 40 | 2.0 | 0.4 | 0.20 | 0.06 | 0.02 |
+| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**Mikronährstoffe (Mn/Zn/Cu/Mo):** Die Nährlösungs-Zielwerte oben sind aus den Blattgewebe-Suffizienzbereichen von Helianthus annuus abgeleitet (Reuter & Robinson, *Plant Analysis: An Interpretation Manual*, 1997; top 1–3 reife Blätter im Knospenstadium): Mangan (Mn) 15–99 ppm, Zink (Zn) 15–69 ppm, Kupfer (Cu) 6–24 ppm; Molybdän (Mo) 0.1–1.0 ppm (typischer Feldkultur-Bereich). Diese Werte bezeichnen den **Blattgewebe-Suffizienzbereich** (Diagnose), nicht die Nährlösungs-Konzentration; die o.g. Lösungs-Zielwerte sind übliche Fertigations-Dosierungen für eine bedarfsgerechte Versorgung. Bor (B) ist bei Sonnenblume separat kritisch (höchster Borbedarf gängiger Kulturpflanzen) — siehe Besonderheiten unten.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Besonderheiten:**
 - **Bor (B):** Sonnenblumen haben einen aussergewöhnlich hohen Borbedarf — Mangel führt zu verformten Blütenköpfen und schlechter Samenbildung. Bor-Düngung: 1–2 kg Borax/ha bei Bormangel-Böden.
@@ -473,3 +540,16 @@ Autumn Beauty,Helianthus annuus,--,--,branching;multicolor;tall;ornamental,open_
 6. BLE — Sonnenblumenanbau in Deutschland: https://www.ble.de
 7. ASPCA — Sunflower: Non-toxic to Dogs and Cats
 8. Kamerplanter Spec REQ-001 v3.1 — Asteraceae Seed-Daten (botanical_families, rotation_after, shares_pest_risk)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. NDAWN / NDSU — Sunflower Development and Growing Degree Days (Basistemperatur 6.7 °C / 44 °F): https://ndawn.ndsu.nodak.edu/help-sunflower-growing-degree-days.html
+10. FAO — Crop Information: Sunflower (effektive Wurzeltiefe 0.8–1.5 m, Wasserbedarf): https://www.fao.org/land-water/databases-and-software/crop-information/sunflower/en/
+11. FAO — Annex 1, Crop salt tolerance data (Maas-Hoffman: ECe-Schwelle 4.8 dS/m, Slope 5.0 %/dS/m, MT): https://www.fao.org/4/y4263e/y4263e0e.htm
+12. PFAF — Helianthus annuus (Boden-pH-Toleranz, Lichtbedarf): https://pfaf.org/user/plant.aspx?LatinName=Helianthus+annuus
+13. Almanac — Sunflowers: Planting, Growing, and Caring (Boden-pH-Vorzug 6.0–7.5): https://www.almanac.com/plant/sunflowers
+14. Taiz, L. & Zeiger, E. (2010) — Plant Physiology, 5th Ed., Sinauer (Lichtkompensationspunkt Sonnen-/Schattenpflanzen 10–20 / 1–5 µmol)
+15. Kusuma, P. & Bugbee, B. (2021) — Far-Red Fraction: An Improved Metric for Characterizing Phytochrome Effects on Morphology, J. Amer. Soc. Hort. Sci. 146(1):3–13 (FR-Fraktion Sonnenlicht ≈ 0.46): https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml
+16. Purdue University — Alternative Field Crops Manual: Sunflower (Wachstumsoptimum 21–26 °C): https://www.hort.purdue.edu/newcrop/afcm/sunflower.html
+17. MDPI Soil Systems / ResearchGate — Sunflower waterlogging sensitivity (Überflutung 48–72 h hemmt Auflauf/Wachstum): https://www.mdpi.com/2571-8789/5/4/68
+18. Reuter, D.J. & Robinson, J.B. (1997) — Plant Analysis: An Interpretation Manual, 2nd Ed., CSIRO Publishing (Sonnenblume Blattgewebe-Suffizienz Mn 15–99, Zn 15–69, Cu 6–24 ppm): https://www.publishing.csiro.au/book/437/
+19. ShunCy / KEGG PATHWAY han00195 — Helianthus annuus C3-Photosynthese (Photosynthese-Typ c3): https://www.genome.jp/pathway/han00195
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

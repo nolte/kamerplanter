@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchsphase (base temp, °C) | <!-- DATEN FEHLEN --> kein artspezifischer, belegter Phänologie-/Wuchs-Basiswert auffindbar; Art ist Kühljahreszeit-Staude (cool-season), generischer Cool-Season-Basiswert ~5 °C, aber nicht artspezifisch quellenbelegt | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (kurzlebige Staude; bei heiß-feuchten Sommern oft nur 1–2; Teilung alle 2–3 Jahre verjüngt) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterruhe, Laub stirbt ein) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (Art-Typ benötigt Kältereiz zur Blühinduktion; ~6 Wochen Kälte wirksam; Ausnahme: gezüchtete Guardian-Serie ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 42 (~6 Wochen Kältebehandlung) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 14 (fakultativer Langtagblüher; Blühinduktion bei Tageslänge > 14 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–7b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; in Norddeutschland absolut winterhart; empfindlich gegen Spätfröste nach frühem Austrieb | `species.hardiness_detail` |
@@ -88,6 +97,22 @@
 | Rankhilfe/Stütze nötig | true (hohe Rispen windbruchgefährdet; Staudenringe oder Bambusstäbe nötig) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, humusreiche, tiefgründige Erde; pH 6,5–7,5; gut wasserhaltend | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein artspezifischer Messwert auffindbar; als Sonnenpflanze (Sonnenblätter) liegt der LCP höher als bei Schattenpflanzen, jedoch ohne belegte Spanne | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> siehe oben | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (RHS: „all delphiniums like full sun“, Blüte im Schatten schwach; in heißen Lagen Nachmittagsschatten toleriert) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–90 (tiefreichendes faseriges/fleischig-faseriges Wurzelsystem bis ~90 cm — keine echte Pfahlwurzel, konsistent mit `root_type` = fibrous — plus oberflächennahe Faserwurzeln; daher Min-Topftiefe ≥ 40 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (RHS: gedeiht nicht in dauernass/winternassen Böden; Kronen-/Wurzelfäule bei schlechter Drainage) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Zierstaude, kein Halophyt; keine dokumentierte Salztoleranz) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Wert für die Art belegt | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Wert für die Art belegt | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.5–7.5 (neutral bis leicht alkalisch; konsistent mit §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +143,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (deutlich über Ziel-Oberkante 1.2; kritischer Punkt stomatären Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (C3-Staude, kühl-/feuchteliebend) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–22 (Kühljahreszeit-Art; Hitzestress oberhalb ~25 °C, verträgt warm-feuchte Nächte schlecht) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Freiland-Vollsonnenpflanze; Anker offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -131,6 +162,18 @@
 | Blüte | 1:2:2 | 1.4–1.8 | 6.5–7.0 | 150 | 70 | – | 2 |
 | Regeneration | 2:1:2 | 1.0–1.4 | 6.5–7.0 | 120 | 60 | – | 2 |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (ppm):** Für *Delphinium elatum* liegen keine artspezifischen Mikronährstoff-Sollwerte vor. Die folgenden Werte sind allgemeine Richtwerte für nährstoffliebende Stauden (orientiert an Standard-Nährlösungen) und decken Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) ab:
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Sämling | 0.3 | 0.03 | 0.02 | 0.02 |
+| Vegetativ | 0.5 | 0.05 | 0.05 | 0.05 |
+| Blüte | 0.5 | 0.05 | 0.05 | 0.05 |
+| Regeneration | 0.5 | 0.05 | 0.05 | 0.05 |
+| Winterruhe | – | – | – | – |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -294,3 +337,11 @@ Delphinium elatum,"Hoher Rittersporn;Garten-Rittersporn;Garden Delphinium",Ranun
 2. [Plantura Rittersporn](https://www.plantura.garden/blumen-stauden/rittersporn/rittersporn-pflanzenportrait) — Portrait, Toxizität
 3. [Pflanzen-Kölle Rittersporn Pflege](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meinen-rittersporn-richtig/) — Pflege
 4. [Baldur-Garten Rittersporn](https://www.baldur-garten.de/onion/content/pflege-tipps/gartenstauden/rittersporn) — Schnitt, Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — How to grow perennial delphiniums](https://www.rhs.org.uk/plants/delphinium/perennial/growing-guide) — Vollsonne (full_sun), Staunässe-/Winternässe-Empfindlichkeit, Drainage
+6. [NC State Extension — Delphinium](https://plants.ces.ncsu.edu/plants/delphinium/) — Lichtbedarf, Drainage/Kronenfäule, Standort
+7. [Greenhouse Product News — Delphinium elatum Guardian Series](https://gpnmag.com/article/perennial-solutions-delphinium-elatum-guardian-series/) — Langtag (> 14 h) + Vernalisation (~6 Wochen), Art-Typ vs. Guardian-Ausnahme
+8. [yourflowersguide — Delphinium als kurzlebige Staude](https://yourflowersguide.com/delphinium-elatum/delphiniums-short-lived-perennials-keep-coming-back/) — Lebensdauer 3–5 Jahre, Teilung/Verjüngung
+9. [greg.app — Delphinium Roots 101](https://greg.app/delphiniums-roots/) — tiefreichendes faseriges/fleischig-faseriges Wurzelsystem (~90 cm; keine echte Pfahlwurzel) + oberflächliche Faserwurzeln, Staunässe-Empfindlichkeit
+10. [gardenia.net — Delphinium Care](https://www.gardenia.net/guide/learn-how-to-plant-and-care-for-your-delphiniums) — Boden-pH 6.5–7.5, Optimaltemperatur, Hitzeempfindlichkeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

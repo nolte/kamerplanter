@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN --> kein art-spezifischer Wuchs-/Phänologie-Basiswert aus 2 unabhängigen seriösen Quellen belegbar; verfügbar ist nur eine Keim-Basistemperatur (~5 °C, Kamkar et al.), die NICHT als Wuchs-GDD-Basis umetikettiert werden darf | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (fakultativ; Kältereiz >5 Tage unter ~7 °C induziert Schossen — im Knollenanbau unerwünscht) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 5 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN --> Langtag-Schosser belegt (Langtag + Hitze beschleunigen das Schossen), aber kein quellenbelegter numerischer Schwellenwert in Stunden auffindbar | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Verträgt leichte Fröste bis -5°C; Kälteexposition (Vernalisation) fördert Schossen bei nachfolgendem Langtag → schossfeste Sorten bei früher Aussaat wählen | `species.hardiness_detail` |
@@ -84,6 +92,28 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, lockere Gartenerde; pH 6,0–7,5; tief durchlässig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe, dS/m) | 1.26 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 14.24 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweise:**
+- Der Lichtkompensationspunkt (light compensation point) ist als Spanne für C3-Blattgemüse angegeben (Netto-Photosynthese = 0). Der Sättigungsbereich liegt deutlich höher (Ziel-PPFD 300–600, siehe §2.2) und gehört NICHT in dieses Feld.
+- Fenchel ist ein C3-Vollsonnenstandort-Gewächs; verträgt Halbschatten (partial_shade), liefert dort aber weniger Knollenmasse.
+- Salztoleranz bezieht sich auf die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht auf die Gießwasser-EC. Schwelle 1.26 dS/m und Slope 14.24 %/dS/m gelten für NaCl-Stress (Maas-Hoffman-Modell, Semiz & Suarez 2015); eine zweite Feldstudie nennt eine höhere Schwelle (2.64 dS/m, Slope 4.5 %), bestätigt aber die Einordnung als "moderately salt sensitive". Konservativer (niedrigerer) Schwellenwert eingetragen.
+- pH-Vorzug quellentreu auf 6.0–7.0 gesetzt und mit §1.6 (Topf-pH 6,0–7,5) sowie §2.3 (Nährlösungs-pH 6.0–6.5) harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,18 +141,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Sämling | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 80 | 30 | — | 2 |
-| Knollenentwicklung | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Reife | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 80 | 30 | — | 2 | 0.5 | 0.1 | 0.05 | 0.05 |
+| Knollenentwicklung | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 | 0.5 | 0.1 | 0.05 | 0.05 |
+| Reife | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 1 | 0.5 | 0.1 | 0.05 | 0.05 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo):** Es liegen keine art-spezifischen Knollenfenchel-Sollwerte aus 2 unabhängigen Quellen vor. Eingetragen sind allgemein anerkannte Gemüse-Hydroponik-Standardwerte (Penn State Extension; UF/IFAS CV216) → `nutrient_profiles.manganese_ppm` = 0.5, `nutrient_profiles.zinc_ppm` = 0.1, `nutrient_profiles.copper_ppm` = 0.05, `nutrient_profiles.molybdenum_ppm` = 0.05. In der Keimphase (EC 0) keine Mikronährstoffe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -171,6 +211,25 @@ Fenchel braucht mäßige Nährstoffe — auf zu nährstoffreichen Böden bildet 
 | Aug–Okt | Ernte | Bei Knollendurchmesser 8–10 cm; knapp über Boden abschneiden | hoch |
 | Okt | Beetpflege | Reste kompostieren; kein Fenchel auf gleicher Fläche im Folgejahr | niedrig |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Knollenfenchel wird in Mitteleuropa (USDA 6–8) als einjährige Kultur gezogen und ist frostempfindlich (half_hardy; verträgt nur leichten Frost bis ca. -5 °C). Eine echte Überwinterung der Pflanze im Freiland ist nicht vorgesehen. Geerntete Knollen lassen sich jedoch frostfrei einlagern; nicht abgeerntete Pflanzen können im Kübel frostfrei überwintert werden.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober, vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 2–10 (kühl, frostfrei; Knollenlagerung ca. 1–4 °C in feuchtem Sand) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell bis kühl-schattig (bei Kübelhaltung hell; reine Knollenlagerung dunkel) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam, nur Ballen leicht feucht halten | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** `frost_free` gewählt, weil die frostempfindliche Pflanze/Knolle frostfrei drinnen überwintert wird — nicht `dig_and_store` (das gilt für ausdauernde Knollen-/Zwiebelgewächse wie Dahlie/Gladiole, die jährlich wieder austreiben; Knollenfenchel treibt nach Einlagerung nicht erneut zur Knolle aus).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -196,6 +255,10 @@ Fenchel braucht mäßige Nährstoffe — auf zu nährstoffreichen Böden bildet 
 |----------|---------------|---------------------|------------------------|
 | Schwebfliegen (Syrphidae) | Blattläuse | natürlich anlocken durch Blüten | — |
 | Schlupfwespen | Blattläuse | natürlich vorhanden | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Blattlaus-Schlupfwespe (Aphidius colemani) | Blattläuse (Aphis spp.) | 0,1–3 Tiere/m² (wöchentlich bis Etablierung) | 14 (mind. 2 Freilassungen im Wochenabstand) |
+| Gallmücke (Aphidoletes aphidimyza) | Blattläuse (Aphis spp.) | 2–5 Puppen/m² (Wiederholung nach 2–4 Wochen) | 14–28 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -274,3 +337,16 @@ Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;
 2. [Samen.de Fenchel](https://samen.de/blog/fenchel-erfolgreich-anbauen-umfassender-leitfaden-von-der-aussaat-bis-zur-ernte.html) — Anbaupraxis, Norddeutschland
 3. [Kraut&Rüben Knollenfenchel](https://www.krautundrueben.de/steckbrief-knollenfenchel) — Steckbrief, Sortenempfehlungen
 4. [Bio-Gärtner Fenchel](https://www.bio-gaertner.de/Pflanzen/Fenchel) — Ökologischer Anbau
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — How to grow Florence Fennel](https://www.rhs.org.uk/vegetables/florence-fennel/grow-your-own) — Standort (Vollsonne), Boden, Staunässe-Empfindlichkeit, Schossneigung
+6. [Wisconsin Horticulture — Fennel, Foeniculum vulgare](https://hort.extension.wisc.edu/articles/fennel-foeniculum-vulgare/) — Biennie/Einjährigkeit, Schossen durch Vernalisation + Langtag + Trockenheit
+7. [USU Extension — How to Grow Fennel in Your Garden](https://extension.usu.edu/yardandgarden/research/fennel-in-the-garden) — Vollsonne, pH 6,0–7,0, gleichmäßige Feuchte, Schossen
+8. [Semiz & Suarez (2015) — Yield response of fennel (Foeniculum vulgare Mill.) to irrigation with saline water, Acta Agriculturae Scandinavica B](https://www.tandfonline.com/doi/full/10.1080/09064710.2014.888469) — Maas-Hoffman-Salztoleranz (Schwelle 1.26 dS/m, Slope 14.24 %/dS/m), Klassifikation "moderately salt sensitive"
+9. [Performance of Fennel under Saline Water Irrigation (semi-arid), ResearchGate](https://www.researchgate.net/publication/305442895) — zweite Salztoleranz-Studie (Schwelle 2.64 dS/m, Slope 4.5 %)
+10. [Kamkar et al. — Influence of Temperature on Seed Germination Response of Fennel](https://www.researchgate.net/publication/269994571_Influence_of_Temperature_on_Seed_Germination_Response_of_Fennel) — Keim-Basistemperatur ~5 °C (Kardinaltemperaturen der Keimung; KEIN Wuchs-GDD-Wert)
+11. [Harvest to Table — How to Plant and Grow Florence Fennel](https://harvesttotable.com/how_to_grow_florence_fennel/) — optimale Wachstumstemperatur 15–24 °C, Schossen durch Hitze/Langtag, Wurzeltiefe/Topftiefe
+12. [Grow Organic — Overwintering Fennel](https://www.groworganic.com/blogs/articles/overwintering-fennel-a-comprehensive-guide) — frostfreie Überwinterung, Knollen-Lagerung (kühl, feucht)
+13. [Penn State Extension — Hydroponics: Essential Nutrients](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — allgemeine Gemüse-Mikronährstoff-Richtwerte (Mn/Zn/Cu/Mo)
+14. [UF/IFAS CV216 — Nutrient Solution Formulation for Hydroponic Tomatoes](https://edis.ifas.ufl.edu/publication/CV216) — Mikronährstoff-Standardkonzentrationen Gemüse
+15. [Sound Horticulture / PMC — Aphidius colemani & Aphidoletes aphidimyza Ausbringraten](https://soundhorticulture.com/pages/aphids) — Nützling-Ausbringraten gegen Blattläuse (0,1–3 Tiere bzw. 2–5 Puppen/m²)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

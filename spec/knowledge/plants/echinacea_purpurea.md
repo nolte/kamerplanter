@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (Korrektur: E. purpurea ist botanisch ein Zwischentagspflanze/intermediate-day plant — Blüte ist bei 13–15 h am vollständigsten und wird bei langen Tagen (LD, ≥16 h, rot-defizitär) gehemmt; die Blühinduktion ist primär vernalisationsgesteuert, nicht photoperiodisch. Da das KA-Enum kein `intermediate_day` kennt, ist `day_neutral` der korrekte konservative Wert; der frühere Wert `long_day` widerspricht der Quellenlage [Runkle et al. 2001].) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sehr winterhart bis -40°C (USDA 3a); in Norddeutschland absolute Dauerfrosteignung; Pflanzenstängel als Winterschutz stehen lassen (auch Vogelfutter) | `species.hardiness_detail` |
@@ -28,6 +28,12 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> krautige Prärie-Staude der Asteraceae; C3-Stoffwechsel (keine Sukkulente/CAM, kein C4-Gras) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> Kein quellengesicherter Wuchs-/Phänologie-GDD-Basiswert für E. purpurea aus ≥2 unabhängigen seriösen Quellen auffindbar (verbreitete Forcing-Modelle wie FlowersOnTime nennen keinen publizierten species-spezifischen Base-Wert). Nicht aus Keim-/Kardinaltemperaturen umetikettiert. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | 3–5 (kultiviert; durch Teilung alle 3–4 Jahre verlängerbar; Wildexemplare deutlich älter) | `lifecycle_configs.typical_lifespan_years` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->Gardenia, Old Farmer's Almanac<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->winterruhende krautige Staude (oberirdisches Absterben, Austrieb aus der Wurzel im Frühjahr)<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation erforderlich (vernalization) | true (Kältereiz, chilling) — Mindest-Kältephase ca. 6–10 Wochen bei ~5 °C beschleunigt/fördert die Blüte; Erstjahrsblüte ohne Vernalisation unzuverlässig | `lifecycle_configs.vernalization_required` / `lifecycle_configs.vernalization_min_days` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->MSU Floriculture (Vernalization-Serie), Runkle et al. 2001<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | — (day_neutral im KA-Modell; botanisch Zwischentagspflanze mit Optimum 13–15 h, aber keine echte Kurz-/Langtag-Kardinallänge — daher kein KA-Wert) | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->Runkle et al. 2001 (Photocontrol of flowering, J. Amer. Soc. Hort. Sci.)<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +88,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, durchlässige Gartenerde mit Kompost; pH 6,0–7,0; sandiger Lehm | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) min | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt (PPFD µmol/m²/s) max | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (gedeiht in voller Sonne; toleriert lichten Halbschatten, blüht dort aber schwächer) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–40 (Boden zur Pflanzung 30–38 cm / 12–15 in lockern; faseriges Wurzelwerk, kein tiefer Pfahlwurzel-Typ wie E. angustifolia) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (benötigt durchlässigen Boden; Wurzelfäule bei stehender Nässe — vgl. §5.2) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (NaCl-Stressstudien zeigen Wachstums-/Photosyntheserückgang bereits bei moderater Salinität; im Artvergleich deutlich salzempfindlicher als E. angustifolia; Landschaftsbau-Listen führen die Art zwar trockenheitstolerant, jedoch nicht als ausgesprochen salztolerant — daher Maas-Hoffman-Klasse MS statt MT) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m; Maas-Hoffman a) | <!-- DATEN FEHLEN --> (kein quellengesicherter Maas-Hoffman-Schwellenwert für E. purpurea; vorhandene Studien testen NaCl-Konzentrationen ohne abgeleitete ECe-Schwelle) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m; Maas-Hoffman b) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 (harmonisiert mit §1.6 Substrat-Empfehlung) | `species.soil_ph_preference` |
+
+Quellen: Missouri Botanical Garden Plant Finder; RHS; NC State Extension / NC State Salt-Tolerant-Plants-Liste; PubMed 27352527 (Salztoleranz-Studie); biorxiv 2022 (K⁺-Homöostase & Salztoleranz Echinacea).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -104,7 +128,11 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 300–600 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 20–35 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | day_neutral / kein Trigger <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (Korrektur des früheren Werts „14–16": Blüte ist bei 13–15 h optimal und wird bei ≥16 h gehemmt — eine fixe 14–16-h-Vorgabe als Blüh-Trigger widerspricht der Quellenlage; Blühinduktion ist vernalisationsgesteuert, daher kein photoperiodischer Phasenübergangs-Trigger.) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
+| VPD-Schwelle (kPa) | 1.8 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (kritischer Punkt stomatären Kollaps, deutlich oberhalb des Ziel-Korridors 0.8–1.5; Oberkante 1.5 + ~0.3–0.5) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (C3-Staude, keine Sukkulente/CAM) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (warmgemäßigte C3-Sommerblüherin; deckt sich mit Tag-Temperatur-Optimum) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (Freiland-Vollsonne-Anker nach Zhen & Bugbee; offenes Tageslicht/Vollsonne ≈ 0.5 bei R:FR ≈ 1.1 — Vollsonnen-Standort) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | Temperatur Tag (°C) | 18–28 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 10–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
@@ -192,6 +220,21 @@ Echinacea ist sehr robust und kaum von Schädlingen oder Krankheiten befallen.
 | Echter Mehltau | fungal | Weißer Belag | Trockenheit + Hitze | 5–10 | vegetative (selten) |
 | Wurzelfäule | fungal | Welke; schwarze Wurzeln | Staunässe | 7–14 | seedling |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Schlupfwespe (parasitoid wasp) | Aphidius colemani | Blattläuse (Aphis spp.) | ~0,5–1 Tier/m² je Freilassung, mehrfach | ca. 2–3 Wochen |
+| Gallmücke (predatory midge) | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | ~1–2 Larven/m² | ca. 2–3 Wochen |
+| Marienkäfer (ladybird) | Adalia bipunctata / Hippodamia spp. | Blattläuse (Aphis spp.) | nach Befallsstärke (Eier/Larven) | ca. 1–2 Wochen |
+| Australischer Marienkäfer / Mehlkäfer-Destroyer | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcidae) | ~0,2–0,4 Käfer/m² (Freiland niedrig; Gewächshaus höher) | ca. 3–4 Wochen |
+
+Hinweis: Nützling-Wirt-Zuordnung gilt für die in §5.1 gelisteten Schädlinge. Aphidius/Aphidoletes/Marienkäfer wirken gegen Blattläuse; Cryptolaemus montrouzieri ist der spezifische Gegenspieler von Schmier-/Wollläusen (Pseudococcidae) — nicht mit Schildlaus-Parasitoiden verwechseln. Echinacea blüht zudem als Nektar-/Pollenquelle und fördert natürlich vorkommende Blattlausräuber (Schwebfliegen, Florfliegen).
+
+Quellen: RHS Aphid Predators; Koppert / UC IPM (Cryptolaemus montrouzieri); Evergreen Growers (Aphidius colemani/ervi).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -234,7 +277,7 @@ Echinacea ist sehr robust und kaum von Schädlingen oder Krankheiten befallen.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months,pruning_type,pruning_months
-Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asteraceae,Echinacea,perennial,long_day,herb,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Nordamerika, Prärie",limited,25,30,120,60,45,no,limited,false,false,light_feeder,hardy,"7;8;9;10","7;8;9;10",spring_pruning,"3"
+Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asteraceae,Echinacea,perennial,day_neutral,herb,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Nordamerika, Prärie",limited,25,30,120,60,45,no,limited,false,false,light_feeder,hardy,"7;8;9;10","7;8;9;10",spring_pruning,"3"
 ```
 
 ---
@@ -245,3 +288,16 @@ Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asterace
 2. [Compo Purpur-Sonnenhut](https://www.compo.de/ratgeber/pflanzen/balkon-kuebelpflanzen/purpur-sonnenhut) — Anbau, Pflege
 3. [Lubera Roter Sonnenhut](https://www.lubera.com/de/gartenbuch/roter-sonnenhut-echinacea-pflege-p2744) — Pflege, Verwendung
 4. [Naturadb Echinacea purpurea](https://www.naturadb.de/pflanzen/echinacea-purpurea/) — Steckbrief, Eigenschaften
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Runkle et al. 2001 — Photocontrol of flowering and stem extension of the intermediate-day plant Echinacea purpurea (PubMed 11473702)](https://pubmed.ncbi.nlm.nih.gov/11473702/) — Photoperiod-Klassifikation (intermediate-day), Optimum 13–15 h, LD-Hemmung
+6. [MSU Floriculture — Vernalization series](https://www.canr.msu.edu/resources/vernalization-part-3) — Vernalisation/Chilling-Bedarf, Forcing von Echinacea
+7. [Missouri Botanical Garden — Echinacea purpurea Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c580) — Sonne/Halbschatten, Boden, Trockenheit/Staunässe, Maße
+8. [RHS — Echinacea purpurea](https://www.rhs.org.uk/plants/41568/echinacea-purpurea/details) — Standort, Boden-pH, Pflege
+9. [NC State Extension — Echinacea purpurea Plant Toolbox](https://plants.ces.ncsu.edu/plants/echinacea-purpurea/) — Standort, Salztoleranz, Wuchsdaten
+10. [PubMed 27352527 — Study on Salt Tolerance of Echinacea purpurea](https://pubmed.ncbi.nlm.nih.gov/27352527/) — Salzstress (NaCl-Konzentrationen), keine ECe-Schwelle
+11. [bioRxiv 2022 — Potassium homeostasis and Echinacea salinity tolerance](https://www.biorxiv.org/content/10.1101/2022.10.10.511607.full.pdf) — Artvergleich Salztoleranz (purpurea salzempfindlicher als angustifolia)
+12. [Gardenia — Echinacea (Coneflower) Grow & Care](https://www.gardenia.net/guide/echinacea-how-to-grow-and-care) — Lebensdauer, Teilung, Wurzeltiefe
+13. [Old Farmer's Almanac — Coneflowers](https://www.almanac.com/plant/coneflowers) — Lebensdauer, Pflege, Wurzeltiefe
+14. [RHS — Aphid Predators](https://www.rhs.org.uk/biodiversity/aphid-predators) — Nützlinge gegen Blattläuse
+15. [Koppert / UC IPM — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Mehlkäfer-Destroyer, Ausbringrate gegen Schmierläuse
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

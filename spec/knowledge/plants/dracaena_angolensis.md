@@ -18,6 +18,10 @@
 | Familie | Asparagaceae | `species.family` → `botanical_families.name` |
 | Gattung | Dracaena | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-Basiswert für Dracaena angolensis auffindbar --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -89,6 +93,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kakteenerde oder Einheitserde + 40% Sand/Perlite. pH 5.5–7.0. Sehr gute Drainage ist essentiell — Staunässe ist die einzige ernsthafte Bedrohung. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein publizierter Netto-Kompensationspunkt für Dracaena angolensis/Sansevieria belegt --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Schwellenwert (a) für die Art belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope (b) für die Art belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Die Art ist sehr anpassungsfähig an die Lichtmenge — sie bevorzugt volle Sonne bzw. helles Licht (bis ~6 h direkte Sonne verträglich), toleriert aber auch Halbschatten und niedrige Lichtmengen bei reduziertem Wachstum (`partial_shade` bildet die Schattentoleranz ab, nicht die optimale Lichtstufe). Das Wurzelsystem ist flach und rhizombildend; sandige, durchlässige Substrate bzw. Felsspalten. Hohe Salz- und Trockentoleranz (geeignet für Küstenstandorte), aber sehr empfindlich gegen Staunässe — Wurzelfäule durch Überwässerung ist die Haupt-Todesursache. Der pH-Vorzug 6.0–6.5 liegt innerhalb der in §1.6/§2.3 genannten breiteren Kulturspanne pH 5.5–7.0.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,6 +134,12 @@
 | Temperatur Nacht (°C) | 13–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 30–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5, Halbschatten leicht höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -121,16 +148,29 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 50–300 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 3–10 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 10–20 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5, Halbschatten leicht höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 28–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.5–0.9 | 5.5–7.0 | 60 | 25 |
-| Winterruhe | 0:0:0 | 0.0–0.2 | 5.5–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.5–0.9 | 5.5–7.0 | 60 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0–0.2 | 5.5–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Für Dracaena angolensis sind keine artspezifisch belegten Mikronährstoff-Zielwerte (Mn/Zn/Cu/Mo in ppm) publiziert. Als leichter Zehrer (`light_feeder`) deckt ein vollständiger Grünpflanzen-/Sukkulentendünger mit Spurenelementen den Bedarf; Werte daher als `DATEN FEHLEN` markiert statt generische Hydrokultur-Richtwerte fachlich falsch der Art zuzuschreiben.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -174,6 +214,23 @@ Leichter Zehrer. Monatlich April bis September. Oktober bis März kein Dünger. 
 | Schädlingskontroll-Intervall (Tage) | 21 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mitte Mai, nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 10–18 (Minimum 10, nicht kälter) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, südorientiertes Fenster | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sehr sparsam, ca. 1× pro Monat; Substrat fast trocken halten | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Nicht frosthart (`frost_free`). Die Pflanze wird als frostempfindliche Kübel-/Zimmerpflanze frostfrei drinnen überwintert. Vor dem ersten Frost (spätestens bei nächtlichen Temperaturen nahe 10 °C, i. d. R. Oktober) ins Haus holen; im Frühjahr nach den Eisheiligen (Mitte Mai) wieder hinaus, ggf. abhärten. Im Winterquartier hell und kühl (10–18 °C) stellen und nur minimal gießen — moderat kühle, frostfreie Nächte (13–16 °C) fördern eine gesunde Ruhephase, ohne die Kälteschwelle zu unterschreiten. Die Mindesttemperatur liegt bei ~10 °C; bereits Temperaturen unter ~10 °C verursachen Kälteschäden, weshalb die Ruhephasen-Nachttemperaturen klar darüber gehalten werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -198,6 +255,17 @@ Leichter Zehrer. Monatlich April bis September. Oktober bis März kein Dünger. 
 | Weniger gießen | cultural | Drastische Reduktion | 0 | Fäule (Prävention) |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 | Wollschildläuse |
 | Neemöl | biological | Sprühen 0.5% | 0 | Alle Schädlinge |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit |
+|----------|--------------------|--------------------|---------------------|-------------------|
+| Australischer Marienkäfer (mealybug destroyer) | Cryptolaemus montrouzieri | Wollschildläuse (Pseudococcus spp., Pseudococcidae) | 2–10 | 4–8 Wochen |
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 6–10 (bis 50 bei Starkbefall) | 2–3 Wochen |
+
+**Hinweis:** Beide Nützlinge benötigen Temperaturen über ~18 °C und ausreichende Aktivität des Schädlings; Ausbringung 1–3× im Abstand von 1–2 Wochen wiederholen. Bei Zimmerkultur ist mechanische/kulturelle Bekämpfung (§5.3) meist ausreichend; Nützlinge lohnen sich v. a. bei größeren Beständen oder im Gewächshaus. Hinweis zur Zuordnung: *Cryptolaemus* bekämpft Schmierläuse/Wollläuse (Pseudococcidae) — *Aphytis*-Schlupfwespen wären hier fachlich falsch (diese parasitieren Panzer-/Deckelschildläuse der Diaspididae, die an dieser Art nicht typisch sind).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -234,3 +302,13 @@ Dracaena angolensis,"Zylindrische Sansevierie;Afrikanischer Speer;Speerpflanze;A
 3. [Epic Gardening — Sansevieria cylindrica](https://www.epicgardening.com/sansevieria-cylindrica/) — Kulturdaten
 4. [Garden Beast — Sansevieria cylindrica](https://gardenbeast.com/sansevieria-cylindrica-guide/) — Pflegehinweise
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (giftig — Saponine)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [ScienceDirect — Relationships between leaf succulence and Crassulacean acid metabolism in the genus Sansevieria (Asparagaceae)](https://www.sciencedirect.com/science/article/abs/pii/S0367253019304931) — Peer-reviewed Beleg für CAM-Photosynthese bei Sansevieria/Dracaena (7 von 10 untersuchten Arten CAM)
+7. [EarthOne — How To Grow Dracaena angolensis](https://earthone.io/plant/dracaena%20angolensis) — Boden-pH-Vorzug (6.5), Lichtbedarf, Trockentoleranz
+8. [PlantCareToday — Snake Plant Soil / Sansevieria Cylindrica Care](https://plantcaretoday.com/sansevieria-cylindrica.html) — Substrat, pH (leicht sauer 6.0–6.5), Staunässe/Wurzelfäule, Lichtansprüche
+9. [Sansevieria Plant Botanical Guide — Taxonomy & Leaf Science](https://sansevieriaplant.com/blog/sansevieria-plant-botanical-guide/) — Salz-/Trockentoleranz, flaches Rhizom-Wurzelsystem, CAM-Trockenadaption
+10. [Gardenia.net — Snake Plant Care & Best Varieties](https://www.gardenia.net/guide/snake-plant-care-best-varieties) — Salztoleranz, Küstentauglichkeit
+11. [GardenBeast — Sansevieria Cylindrica Guide (African Spear)](https://gardenbeast.com/sansevieria-cylindrica-guide/) — Überwinterung, Mindesttemperatur 10 °C, Winterruhe, kühle Nachttemperaturen
+12. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Wollläuse, Ausbringrate/Etablierung
+13. [Koppert — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Nützling gegen Spinnmilben, Ausbringrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

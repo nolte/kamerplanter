@@ -20,6 +20,10 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Wurzelanpassungen | aerial, epiphytic, stoloniferous | `species.root_adaptations` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (Wuchs, °C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 10+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
@@ -37,6 +41,10 @@
 | Traits | ornamental | `species.traits` |
 
 **Hinweis:** Epipremnum aureum wurde lange als *Scindapsus aureus* oder *Pothos aureus* geführt. Der verbreitete Handelsname "Pothos" ist botanisch irreführend (echte Pothos-Gattung ist eine separate Gattung). Im Handel auch als "Devil's Ivy" bekannt, da extrem widerstandsfähig auch unter schlechten Bedingungen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Photosynthese & GDD):** Als Araceen-Unterwuchskletterer (understory vine) nutzt *Epipremnum aureum* den C3-Photosyntheseweg (C3 pathway); CAM/C4-Anpassungen sind nicht belegt (PeerJ 2025, ScienceDirect 2022). Die GDD-Basistemperatur (base temperature) von 10 °C ist die Wuchs-/Kälteschwelle (chilling threshold): Unterhalb 10 °C verlangsamt sich das Wachstum stark, Kälteschäden setzen ein. Sie ist konsistent mit der Mindesttemperatur (10 °C) aus §1.1 und stützt sich auf die allgemeine GDD-Konvention höherer Basiswerte für tropische Arten — ein artspezifisch publiziertes Wuchs-GDD-Modell existiert für Pothos nicht. **Kritische Tageslänge (critical day length):** Die Art ist tagneutral (day_neutral) — sie bildet keine photoperiodische Blühinduktion aus, daher wird KEINE kritische Tageslänge gesetzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -95,6 +103,29 @@
 | Rankhilfe/Stütze nötig | false (optional — Moosstab fördert größere Blätter) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, durchlässige Einheitserde mit 20–30% Perlite. Leicht saures bis neutrales Substrat (pH 6.1–6.5). Guter Wasserabzug wichtig. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–25 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Schwellenwert (a) für Epipremnum aureum aus 2 unabhängigen Quellen belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Slope (b) für Epipremnum aureum belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.1–6.5 | `species.soil_ph_preference` |
+
+**Hinweise §1.7:**
+- **Lichtkompensationspunkt (light compensation point, LCP):** Es liegt kein Pothos-spezifischer Messwert vor; die Spanne 10–25 µmol/m²/s leitet sich aus der belegten LCP-Klasse schattentoleranter Unterwuchspflanzen (10–50 µmol/m²/s) ab. Pothos hält bei <50 µmol/m²/s noch positive Netto-Photosynthese und liegt damit im unteren Bereich dieser Klasse. Nur der Kompensationspunkt (Netto-Photosynthese = 0) ist hier angegeben; die Lichtsättigung (light saturation) liegt für Sonnenblätter im Kronendach bei ~1000 µmol/m²/s (PeerJ 2025) — dieser Wert gehört NICHT ins LCP-Feld.
+- **Schattentoleranz:** Understory-Art, "shade-tolerant" aber bei Wahl helleres indirektes Licht bevorzugend → `partial_shade`. Verträgt keine direkte Vollsonne (Blattverbrennung) und verliert bei zu wenig Licht die Variegation.
+- **Staunässe (waterlogging):** Hoch empfindlich — bei wassergesättigtem Substrat Wurzelfäule (root rot) durch Sauerstoffmangel; durchlässiges Substrat zwingend (Wisconsin Extension; mehrere Care-Quellen). Harmoniert mit §5.2 (Wurzelfäule).
+- **Salztoleranz:** Salinitätsstress reduziert Wachstumsparameter signifikant; in Landschafts-Salztoleranzlisten als gering salztolerant geführt → Klasse `sensitive`. Bezugsgröße der (fehlenden) ECe-Schwelle wäre die Substrat-Sättigungsextrakt-Leitfähigkeit (saturated paste extract, ECe), nicht die Gießwasser-EC.
+- **Boden-pH:** 6.1–6.5 (leicht sauer) — quellentreu übernommen und konsistent mit §1.6 (pH 6.1–6.5) und §2.3 (6.0–6.5).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -121,6 +152,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -137,6 +174,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–29 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -153,17 +196,27 @@
 | Luftfeuchtigkeit Tag (%) | 40–55 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Etablierung | 1:1:1 | 0.4–0.8 | 6.0–6.5 | 60 | 20 | — | 1 |
-| Aktives Wachstum | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Etablierung | 1:1:1 | 0.4–0.8 | 6.0–6.5 | 60 | 20 | — | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.25<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.02<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.01<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Aktives Wachstum | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.1<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für *Epipremnum aureum* existieren keine artspezifischen Mikronährstoff-Sollwerte; die angegebenen ppm-Werte folgen der Standard-Vollnährlösung nach Hoagland (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01–0.05 ppm), in der Etablierungsphase halbiert. Werte als Orientierung für Hydrokultur/Düngelösung — bei reiner Topfkultur i.d.R. über das Basis-Düngemittel abgedeckt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -240,6 +293,21 @@ Efeututen sind ausgesprochene Schwachzehrer — Überdüngung führt zu Blattver
 
 Nicht erforderlich — Zimmerpflanze. Bei Balkonhaltung ab Oktober hereinholen (Temperatur unter 15°C meiden).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 14–20 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (kein direktes Sonnenlicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam — Substrat zwischen den Gaben gut abtrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis Überwinterung:** *Epipremnum aureum* ist nicht frosthart (USDA 10–12) und überwintert als Kübel-/Zimmerpflanze ganzjährig frostfrei im Innenraum (`frost_free`). Mindesttemperatur 10 °C, im Winterquartier 14–20 °C anstreben. Bei Sommer-Außenhaltung auf Balkon/Terrasse rechtzeitig vor den ersten Herbstnächten unter 15 °C (i.d.R. Oktober) hereinholen und im Frühjahr erst nach den Eisheiligen (Mitte Mai) wieder nach draußen. Keine Knollen/Erdbevorratung erforderlich (kein `dig_and_store`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -265,8 +333,14 @@ Nicht erforderlich — Zimmerpflanze. Bei Balkonhaltung ab Oktober hereinholen (
 
 | Nützling | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit (Tage) |
 |----------|---------------|---------------------|------------------------|
-| Phytoseiulus persimilis | Spinnmilbe | 10–20 | 14–21 |
-| Chrysoperla carnea (Larven) | Schmierläuse, Weiße Fliege | 5–10 | 14 |
+| Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 10–20 | 14–21 |
+| Chrysoperla carnea (Larven) | Blattläuse (ergänzend junge Schmierläuse) | 5–10 | 14 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Encarsia formosa | Weiße Fliege (Trialeurodes vaporariorum) | 1–10 (≥ 5 Freilassungen im Abstand 1–2 Wochen) | 14–21 |
+| Steinernema feltiae (Nematoden) | Trauermücke (Bradysia spp., Larven) | Gießen ins Substrat, ~0.5 Mio./m² | 7–14 |
+
+**Hinweis Nützling-Zuordnung:** Gegen Weiße Fliege ist die Schlupfwespe *Encarsia formosa* der spezifische Gegenspieler (parasitiert Larven), gegen Spinnmilben die Raubmilbe *Phytoseiulus persimilis* und gegen Trauermückenlarven die Nematode *Steinernema feltiae*. Florfliegenlarven (*Chrysoperla carnea*) sind primär Blattlausräuber und nur ergänzend gegen junge Schmierläuse wirksam — sie sind kein verlässlicher Gegenspieler adulter Weißer Fliegen (daher hier präzisiert).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -342,3 +416,15 @@ Pearls and Jade,Epipremnum aureum,"ornamental;variegated;compact",clone
 3. [ASPCA Animal Poison Control](https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants) — Toxizitätsdaten
 4. [New York Botanical Garden Research Guide](https://libguides.nybg.org/pothos) — Botanische Hintergründe
 5. [NASA Clean Air Study (Wolverton 1989)](https://ntrs.nasa.gov/citations/19930073077) — Luftreinigungskapazität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PeerJ (2025) — Increasing leaf sizes of the vine Epipremnum aureum: photosynthesis and respiration](https://peerj.com/articles/19214/) — C3-Photosynthese, Lichtsättigung (~1000 µmol/m²/s Kronendach, ~100 µmol/m²/s Unterwuchs)
+7. [ScienceDirect (2022) — Untangling leaf expansion triggers in Epipremnum aureum (Araceae)](https://www.sciencedirect.com/science/article/abs/pii/S0367253022001359) — Araceen-Unterwuchsphysiologie, Blattgrößen-Plastizität
+8. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur-Konvention (höhere Basiswerte für tropische Arten)
+9. [MDPI Life (2022) — Low-Temperature Stress on Pothos (Epipremnum aureum) Leaves](https://www.mdpi.com/2075-1729/12/9/1432) — Kälteschäden, Mindesttemperatur/Chilling-Injury
+10. [University of Wisconsin Horticulture Extension — Pothos](https://hort.extension.wisc.edu/articles/pothos-epipremmum-aureum/) — Lichtansprüche, Staunässe/Wurzelfäule, Pflege
+11. [ResearchGate — Growth Analysis of Epipremnum aureum in Response to Salinity Stress](https://www.researchgate.net/publication/370762781) — Salzempfindlichkeit (sensitive)
+12. [UC ANR / Hawai'i CTAHR Salt-Tolerance Lists](https://www.ctahr.hawaii.edu/oc/freepubs/pdf/l-13.pdf) — Einstufung als gering salztolerant
+13. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen (Mn/Zn/Cu/Mo)
+14. [Grokipedia — Compensation point](https://grokipedia.com/page/Compensation_point) — Lichtkompensationspunkt schattentoleranter Unterwuchspflanzen (10–50 µmol/m²/s)
+15. [Koppert — Encarsia formosa](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/encarsia-formosa/) — Ausbringrate/Etablierung Weiße-Fliege-Schlupfwespe
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

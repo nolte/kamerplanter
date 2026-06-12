@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchsphase (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig, nicht zutreffend) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich ab 0 °C; alle Pflanzenteile; typisch nach Eisheiligen (Mitte Mai) auspflanzen | `species.hardiness_detail` |
@@ -28,6 +37,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Befruchter-Sorte erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | — (kein Obst-Fremdbefruchter; selbstkompatibel, leer) | `species.pollinator_group` |
+| Kompatible Befruchter-Sorten | — (nicht zutreffend) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> Bestäubungshinweis: *Cucurbita maxima* ist einhäusig (monoecious) mit getrennten männlichen und weiblichen Blüten und selbstkompatibel — es ist daher **keine** zweite Befruchter-Sorte (pollenizer cultivar) nötig (`requires_pollinator = false`, keine pomologische Kreuzbefruchtungsgruppe). Der Fruchtansatz ist jedoch **insektenbestäubt** und ohne Bienen-/Hummelflug stark eingeschränkt (ohne Insektenbesuch kein Fruchtansatz); bei schlechtem Bestäuberflug morgens manuell bestäuben (vgl. §4.2). Bestäubende Insekten gehören in diesen Freitext, nicht in das Sortenfeld `compatible_pollinators`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +100,24 @@
 | Rankhilfe/Stütze nötig | true (für rankende Sorten über Gestell) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Sehr nährstoffreiche, lockere Erde mit viel Kompost; pH 6,0–6,8 | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein cucurbita-spezifischer Wert aus ≥2 unabhängigen seriösen Quellen belegt | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein cucurbita-spezifischer Wert aus ≥2 unabhängigen seriösen Quellen belegt | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 100–150 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe, dS/m) | 3.2 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 16 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–6.8 | `species.soil_ph_preference` |
+
+> Hinweis: Effektive Wurzeltiefe nach FAO-56 Tab. 22 (Pumpkin/Winter Squash 1,0–1,5 m); überwiegend flach- bis mittelwurzelnd mit weit streichendem Wurzelsystem. Salztoleranz-Kennwerte (ECe-Schwelle, Slope) sind Maas-Hoffman-Werte für Squash/Kürbis (FAO/Ayers & Westcot, Substrat-Sättigungsextrakt-ECe), nicht Gießwasser-EC. C. maxima gilt innerhalb der Gattung als vergleichsweise salzrobust, in der absoluten FAO-Klassifikation jedoch als mäßig empfindlich (moderately_sensitive).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +146,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (vpd threshold, kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (photosynthesis temp opt, °C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,19 +168,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (vpd threshold, kPa) | 2.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (photosynthesis temp opt, °C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (Reifeförderung durch leichten Trockenstress) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Sämling | 1:1:1 | 0.8–1.2 | 6.0–6.8 | 80 | 40 | — | 2 |
-| Vegetativ | 3:1:2 | 1.5–2.5 | 6.0–6.8 | 150 | 60 | 20 | 3 |
-| Blüte | 1:2:3 | 1.5–2.0 | 6.0–6.8 | 120 | 70 | — | 2 |
-| Fruchtreife | 0:1:3 | 1.0–1.5 | 6.0–6.8 | 100 | 50 | — | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.8–1.2 | 6.0–6.8 | 80 | 40 | — | 2 | 0.4–0.5 | 0.1–0.3 | 0.03–0.05 | 0.02–0.05 |
+| Vegetativ | 3:1:2 | 1.5–2.5 | 6.0–6.8 | 150 | 60 | 20 | 3 | 0.5–0.8 | 0.3–0.5 | 0.05–0.1 | 0.03–0.05 |
+| Blüte | 1:2:3 | 1.5–2.0 | 6.0–6.8 | 120 | 70 | — | 2 | 0.5–0.8 | 0.3–0.5 | 0.05–0.1 | 0.03–0.05 |
+| Fruchtreife | 0:1:3 | 1.0–1.5 | 6.0–6.8 | 100 | 50 | — | 1 | 0.4–0.5 | 0.1–0.3 | 0.03–0.05 | 0.02–0.05 |
+
+> Mikronährstoff-Spannen (Mn/Zn/Cu/Mo) nach cucurbit-spezifischen Nährlösungsempfehlungen (Haifa Cucumber Crop Guide, Cornell Greenhouse Hydroponic Recipes; KA-Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -196,6 +248,18 @@ Kürbis ist Starkzehrer mit sehr hohem Nährstoffbedarf — das Pflanzloch vor d
 | Aug | Brett/Unterlage | Unter Früchte legen verhindert Fäulnis | mittel |
 | Sep–Okt | Ernte | Stiel verholzt, hohl klingt, Schale hart | hoch |
 | Okt | Winterlager | Kühl (10–15 °C), trocken, Frost vermeiden; hält Monate | mittel |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | — (nicht zutreffend: einjährig, stirbt nach der Ernte ab) | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | none | `overwintering_profiles.winter_action` |
+| Frühjahrs-Maßnahme (spring action) | — (nicht zutreffend) | `overwintering_profiles.spring_action` |
+
+> *Cucurbita maxima* ist eine einjährige, frostempfindliche Kulturpflanze (annual, tender). Die **Pflanze selbst wird nicht überwintert** — sie stirbt nach der Fruchtreife bzw. beim ersten Frost ab; eine Überwinterung im KA-Sinne (mulch/fleece/move_indoors/dig_store) ist daher nicht zutreffend. Überwintert werden lediglich die **Früchte** als Lagergut (Winterlager kühl 10–15 °C, trocken, frostfrei; siehe §4.2) — das ist Post-Harvest-Lagerung, keine Pflanzen-Überwinterung. Die Vermehrung im Folgejahr erfolgt ausschließlich über Saatgut.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -297,3 +361,17 @@ Atlantic Giant,Cucurbita maxima,–,–,"giant;exhibition",120,,open_pollinated
 2. [Kürbis pflanzen — Plantura](https://www.plantura.garden/gemuese/kuerbis/kuerbis-pflanzen) — Pflege, Zeitplan
 3. [Ökologischer Kürbisanbau — oekolandbau.de](https://www.oekolandbau.de/landwirtschaft/pflanze/spezieller-pflanzenbau/gemuese/feldgemuesebau/kuerbisse/) — NPK, Anbau
 4. [Floragard Cucurbita maxima](https://www.floragard.de/de-de/pflanzeninfothek/pflanze/gemuese/cucurbita-maxima) — Pflanzendaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO — Annex 1: Crop salt tolerance data (Ayers & Westcot)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz Squash/Kürbis: ECe-Schwelle 3,2 dS/m, Slope 16 %/dS/m, Klasse moderately sensitive (Maas-Hoffman)
+6. [FAO Irrigation & Drainage Paper 56, Table 22 — Maximum rooting depth (Nevada DWR mirror)](https://water.nv.gov/mapping/et/Docs/Annex_1.pdf) — Effektive Wurzeltiefe Pumpkin/Winter Squash 1,0–1,5 m
+7. [Penn State Extension — Understanding Growing Degree Days](https://extension.psu.edu/understanding-growing-degree-days) — GDD-Basistemperatur warmer Saisongemüse 10 °C (50 °F)
+8. [UMN Extension — Growing pumpkins and winter squash](https://extension.umn.edu/vegetables/pumpkins-and-winter-squash) — Wachstumsstopp unter 50 °F (10 °C), Optimaltemperaturen 24–29 °C
+9. [Oklahoma State University Extension — Squash and Pumpkin Production (HLA-6026)](https://extension.okstate.edu/fact-sheets/print-publications/hla/squash-and-pumpkin-production-hla-6026.pdf) — Wachstum stoppt unter 50 °F, Optimaltemperaturen
+10. [The Old Farmer's Almanac — Growing Pumpkins](https://www.almanac.com/plant/pumpkins) — Boden-pH 6,0–6,8, Vollsonne, Starkzehrer
+11. [Mississippi State University Extension — Growing Pumpkins for the Home Garden](https://extension.msstate.edu/publications/growing-pumpkins-for-the-home-garden) — Boden-pH 6,0–6,8, Standort
+12. [Haifa Group — Crop Guide: Nutrients for Cucumber](https://www.haifa-group.com/cucumber-0/crop-guide-nutrients-cucumber) — Mikronährstoff-Konzentrationen (Mn/Zn/Cu/Mo) in Cucurbit-Nährlösung
+13. [Cornell Greenhouse — A Recipe for Hydroponic Success](http://hort.cornell.edu/greenhouse/crops/factsheets/hydroponic-recipes.pdf) — Hydroponik-Nährlösung mit Mikronährstoffen
+14. [Zhen & Bugbee 2021, ASHS JASHS 146(1): Far-red Fraction — An Improved Metric for Characterizing Phytochrome Effects on Morphology](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) — Far-Red-Fraction-Anker: Tageslicht ≈ 0,5; direkte Sonne ≈ 0,2
+15. [MDPI Plants 2025, 14(11):1674 — Salt Stress Leads to Morphological and Transcriptional Changes in Roots of Pumpkins (Cucurbita spp.)](https://www.mdpi.com/2223-7747/14/11/1674) — relative Salztoleranz C. maxima vs. C. moschata
+16. [PMC3722171 — Pollination Services Provided by Bees in Pumpkin Fields](https://pmc.ncbi.nlm.nih.gov/articles/PMC3722171/) — Cucurbita einhäusig, insektenbestäubt, ohne Insektenbesuch kein Fruchtansatz
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

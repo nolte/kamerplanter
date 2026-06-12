@@ -21,6 +21,14 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Gymnocalycium auffindbar; verfügbare Quellen nennen nur Survival-/CAM-Schwellen (Mindesttemperatur ~10°C, CAM-Stomata schließen >18°C Nacht), keine GDD-Basis --> | `species.base_temp` |
+| Lebensdauer (Jahre) | veredelt ('Hibotan'-Pfropfung) 3–5; chlorophyllhaltige Wildform mehrere Jahrzehnte (≥ 20) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (h) | — (tagneutral; Blühinduktion durch kühle Trockenruhe, nicht über Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Nicht frosthart; Mindesttemperatur 10°C; Zimmerpflanze | `species.hardiness_detail` |
@@ -30,6 +38,10 @@
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 
 **Biologische Besonderheit — Veredelung:** Der im Handel erhältliche "Mondkaktus" ist ein veredelter Kaktus — ein Gymnocalycium mihanovichii 'Hibotan' (chlorophyll-freie Mutante in Rot, Orange, Gelb oder Violett) wird auf einen grünen Pfropfunterlage-Kaktus (häufig Hylocereus undatus = Drachenfrucht-Kaktus) aufgepfropft. Der bunte Scion ist vollständig von der Unterlage abhängig (kein Chlorophyll). Lebensdauer: 3–5 Jahre, da die Unterlage (Hylocereus) oft schneller wächst als der Scion.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Dormanz & Blühinduktion:** *Gymnocalycium* benötigt eine ausgeprägte kühle (5–12 °C), vollständig trockene, helle Winterruhe von 2–4 Monaten als zwingenden Auslöser der Blütenknospenbildung im Folgefrühjahr — ohne diese Ruhe wächst die Pflanze vegetativ weiter, blüht aber nicht (`dormancy_required: true`). Es handelt sich um eine kalt-trockene Ruhephase (Dormanz), nicht um eine Vernalisation im engeren Sinn (`vernalization_required: false`); die Blühinduktion läuft tagneutral, also nicht über die Photoperiode. Für das veredelte Hibotan-Produkt ist die kühle Ruhe weniger blührelevant (der chlorophyllfreie Scion blüht selten), bleibt aber für die Gesundheit des Pfropfsystems empfehlenswert. Lebensdauer-Spanne: veredeltes Exemplar 3–5 Jahre, chlorophyllhaltige Wildform mehrere Jahrzehnte.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -87,6 +99,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Handelsübliche Kakteenerde; pH 6.0–7.0; exzellente Drainage obligatorisch; nie Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point) min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe dS/m) | <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Schwellenwert für Gymnocalycium belegt; Cactaceae generell salzempfindlich, aber kein quantitativer ECe-Schwellenwert in seriösen Quellen --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Slope belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweise zu 1.7:** Lichtkompensationspunkt aus Habitat-Einordnung abgeleitet — *G. mihanovichii* ist ein Unterholz-Kaktus (im natürlichen Bestand im Schatten größerer Pflanzen, vgl. §1.1), schattentolerante Arten zeigen niedrige LCP-Werte von 10–50 µmol/m²/s; die hier angegebene Spanne 10–30 ordnet die Art im schattentoleranten Bereich ein (nur Kompensationspunkt, nicht Sättigung/Photoinhibition). Kakteen tolerieren zwar hohe PPFD-Werte (bis nahe 2000 µmol/m²/s) ohne Photoinhibition, der chlorophyll-freie veredelte Scion verbrennt jedoch in direkter Mittagssonne — daher Halbschatten (`partial_shade`). Salztoleranz: Cactaceae reagieren generell empfindlich auf erhöhte Substrat-Salinität (ECe), *G. mihanovichii* ist kein Halophyt; die Bezugsgröße ist die Substrat-ECe (nicht die Gießwasser-EC). Boden-pH 6.0–7.5 harmonisiert mit §1.6 (Substrat-Empfehlung pH 6.0–7.0) und §2.3 (Nährlösung pH 6.0–7.0).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +144,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 (Substrat vollständig trocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 30–80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -130,17 +166,27 @@
 | Luftfeuchtigkeit Tag (%) | 20–40 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 20–40 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.5–3.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 3.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 12–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 21–30 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 10–30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Vegetativ | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 |
-| Blüte | 0:1:2 | 0.3–0.5 | 6.0–7.0 | 30 | 15 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Vegetativ | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:1:2 | 0.3–0.5 | 6.0–7.0 | 30 | 15 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen (Mn/Zn/Cu/Mo):** Kakteen benötigen Mangan, Zink, Kupfer und Molybdän als Spurenelemente (trace elements) in sehr geringen Mengen; handelsübliche Kakteendünger (z.B. Compo, WUXAL) enthalten diese in chelatierter/sulfatierter Form. Quantitative, artspezifische ppm-Zielwerte für *G. mihanovichii* sind in seriösen Quellen jedoch nicht belegt — die Felder bleiben als `DATEN FEHLEN` markiert. In der Winterruhe wird nicht gedüngt (NPK 0:0:0), daher entfallen die Mikronährstoffe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -194,6 +240,11 @@ Sehr sparsam düngen — maximal einmal pro Monat während der Wachstumsphase (A
 |------|------|---------|
 | Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | none | `overwintering_profiles.winter_action` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winter-Maßnahme Monat | 10 (Okt: an kühlen, hellen Winterstandort umstellen, Gießen einstellen) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (März: an wärmeren/helleren Standort zurück, langsam wieder angießen) | `overwintering_profiles.spring_action_month` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winterquartier Temp min (°C) | 8 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 15 | `overwintering_profiles.winter_quarter_temp_max` |
 | Winterquartier Licht | bright | `overwintering_profiles.winter_quarter_light` |
@@ -224,6 +275,17 @@ Sehr sparsam düngen — maximal einmal pro Monat während der Wachstumsphase (A
 | Isopropanol | mechanical | Isopropylalkohol | Wattestäbchen | 0 | Wollläuse |
 | Stumpf-Abtrennen | cultural | — | Faulige Stellen steril abschneiden; Holzkohle | 0 | Fäule |
 | Substrat erneuern | cultural | — | Topf komplett neu | 0 | Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug Destroyer) | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 10–20 Käfer/m² (Spanne 5–40/m²), 2–3 Ausbringungen im Abstand von 1–2 Wochen | 2–4 Wochen; optimal bei 25–28°C |
+| Raubmilbe (predatory soil mite) | Stratiolaelaps scimitus (syn. Hypoaspis miles) | Wurzelmilben (Rhizoglyphus echinopus), Trauermücken-Larven | 100–500 Milben/m² (vorbeugend), bodengestützt eingebracht | 2–3 Wochen |
+
+**Hinweise zu 5.4:** *Cryptolaemus montrouzieri* (Mealybug Destroyer) ist der klassische Wolllaus-Antagonist (Larven und Adulte fressen Schmierläuse/Pseudococcidae); für den indoor gehaltenen Mondkaktus eher bei stärkerem Befall mehrerer Pflanzen sinnvoll. *Stratiolaelaps scimitus* lebt im oberen Substrat und erbeutet Wurzel-/Knollenmilben sowie Trauermückenlarven — passend gegen die in §5.1 gelistete Wurzelmilbe. Etablierung gelingt nur in feuchtem, nicht staunässendem Substrat; beim trocken gehaltenen Kaktus daher punktuell bei akutem Wurzelmilbenbefall einsetzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -266,3 +328,23 @@ Gymnocalycium mihanovichii,Mondkaktus;Bunter Pfropfkaktus;Moon Cactus,Cactaceae,
 3. [Wikipedia — Gymnocalycium mihanovichii](https://en.wikipedia.org/wiki/Gymnocalycium_mihanovichii) — Taxonomie, Pfropfung
 4. [Succulents and Sunshine — Moon Cactus](https://www.succulentsandsunshine.com/types-of-succulents/gymnocalycium-mihanovichii-moon-cactus/) — Pflegehinweise
 5. [MasterClass — Moon Cactus Care Guide](https://www.masterclass.com/articles/moon-cactus-care-guide) — Vermehrung, Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Wikipedia — Crassulacean acid metabolism (CAM)](https://en.wikipedia.org/wiki/Crassulacean_acid_metabolism) — CAM-Photosynthese-Typ (>99 % der Cactaceae sind CAM)
+7. [Henry Shaw Cactus and Succulent Society — C3, C4, CAM](https://hscactus.org/resources/digest/plant-info/c3-c4-cam/) — CAM-Einordnung Kakteen/Sukkulenten
+8. [PubMed — CAM photosynthesis in columnar cactus seedlings (Am. J. Bot. 94:1344)](https://pubmed.ncbi.nlm.nih.gov/21636502/) — Lichtanspruch CAM-Kakteen, Toleranz hoher PPFD
+9. [Springer/Oecologia — Water relations and photosynthesis of Ferocactus acanthodes](https://link.springer.com/article/10.1007/BF00345817) — CAM-Temperaturoptimum nächtlicher CO₂-Fixierung; stomatäre Reaktion auf Temperatur
+10. [PlantIn — Moon Cactus Care](https://myplantin.com/plant/246) — Boden-pH 6.0–7.5, Standort/Drainage
+11. [The Bloom UP — Gymnocalycium mihanovichii](https://www.thebloomup.com/gymnocalycium-mihanovichii/) — Substrat-pH, schnell drainierend
+12. [growplants.org — Gymnocalycium mihanovichii](https://www.growplants.org/growing/gymnocalycium-mihanovichii) — flaches, feines Wurzelsystem; flache Töpfe
+13. [Tula House — Gymnocalycium mihanovichii](https://tula.house/blogs/tulas-plant-library/gymnocalycium-mihanovichii) — flache Wurzeln, Topftiefe
+14. [Semantic Scholar — Salinity Tolerance of Cacti and Succulents (Schuch & Kelly)](https://www.semanticscholar.org/paper/Salinity-Tolerance-of-Cacti-and-Succulents-Schuch-Kelly/ebde84504c21858024b88ba9006d7ec05ca6fa4f) — generelle Salzempfindlichkeit von Kakteen (ECe-Bezug)
+15. [Gardenia.net — Moon Cactus (Temperatur)](https://www.gardenia.net/plant/gymnocalycium-mihanovichii-moon-cactus-grow-care-guide) — Wachstumstemperatur-Optimum 20–30 °C
+16. [greg.app — Moon Cactus Temperature](https://greg.app/moon-cactus-temperature/) — Tag-/Nachttemperaturbereiche
+17. [American Orchid Society — Humidity and VPD](https://www.aos.org/orchids/articles/humidity-and-vapor-pressure-deficit) — CAM-Pflanzen tolerieren hohe VPD (geringe VPD-Sensitivität)
+18. [Zhen & Bugbee — Photosynthesis in sun and shade: far-red photons (New Phytologist 2022)](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Anteil im Unterholz/Schatten
+19. [Viriar — understory light quality / Far-Red](https://www.biorxiv.org/content/10.1101/829036v1.full) — erhöhter Far-Red-Anteil unter Kronendach (Unterholz-Habitat)
+20. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Wolllaus-Nützling, Ausbringrate/Etablierung
+21. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Raubmilbe gegen Wurzel-/Bodenmilben, Ausbringrate
+22. [The Cactus Expert — Fertilizer / trace elements](https://www.cactusexpert.org/cultivation-of-cacti/fertilizer.html) — Mn/Zn/Cu/Mo als Spurenelemente bei Kakteen (qualitativ)
+23. [Viriar — Gymnocalycium baldianum (Dormanz/Blüte)](https://www.viriar.com/blogs/cactus-encyclopedia/gymnocalycium-baldianum) — kühle, trockene Winterruhe als Blühtrigger; Cafe Planta/Cactus Classification — Lebensdauer
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

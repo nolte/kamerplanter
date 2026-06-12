@@ -29,6 +29,15 @@
 | Nährstoffbedarf-Stufe | `heavy_feeder` (Starkzehrer — benötigt nährstoffreichen Boden und regelmäßige Düngung für optimale Blühleistung und Knollenentwicklung) | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | `['ornamental', 'bee_friendly']` (wichtiger Insektenmagnet; Pollen- und Nektarlieferant für Bienen und Hummeln von Mitte Sommer bis Frost) | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | `c3` (krautige Asteraceae-Staude, kein Sukkulent/Kaktus/CAM und keine C4-Anatomie; folgt dem C3-Standardpfad wie nahezu alle Stauden und Gemüse) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (Wuchs-GDD-Basis der wärmeliebenden Hauptwuchsphase; Dahlie ist eine frostempfindliche Warmwetter-Knollenstaude, Bodentemperatur < 15 °C verzögert/verhindert Austrieb, aktives Wachstum erst deutlich oberhalb 10 °C — Standard-Basiswert für warm-season-Arten, NICHT der Keim-/Pflanzschwellenwert) | `species.base_temp` |
+| Lebensdauer (Jahre) | 5–10 (perennierende Knollenstaude; gut gepflegte und jährlich geteilte Knollen können viele Jahre kultiviert werden, einzelne Knollencluster degenerieren ohne Teilung) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Knollen durchlaufen jährlich eine echte Winterruhe; in Mitteleuropa Zwangsruhe durch Frost/Einlagerung, siehe §4.3) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (kein Kältereiz für Blühinduktion nötig; Knollen treiben nach Ruhe ohne Kältebedarf aus — die Winterruhe ist Frostschutz-/Lagerruhe, keine Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | null (nicht anwendbar, vernalization_required = false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 12–13 (Kurztag-/Quantitativreaktion: Photoperiode ≤ 10–12 h fördert Tuberisierung, ≥ 16 h hemmt sie; Schwelle der Knollenbildung um ~12–13 h. Die BLÜTE ist dagegen weitgehend tagneutral und temperaturgesteuert — kritische Tageslänge bezieht sich auf die Tuberisierung, konsistent mit `photoperiod_type: short_day`) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis zur Taxonomie:** Der korrekte wissenschaftliche Name der Garten-Dahlie ist botanisch umstritten. *Dahlia pinnata* Cav. (1791) gilt als Typusart der Gartendahlien-Hybriden. Ältere Literatur verwendet *Dahlia variabilis* Desf. Als Hybridkomplex wird oft *Dahlia × hybrida* verwendet. Für Kamerplanter-Import: `Dahlia pinnata` als Arten-Datensatz, `Embassy` als separater `Cultivar`-Datensatz mit `parent_species: Dahlia pinnata`.
 
@@ -112,6 +121,23 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai (ca. 15. Mai).
 | Substrat-Empfehlung (Topf) | Durchlässige, humusreiche Kübelpflanzenerde; 20–30 % Perlite oder grobem Sand für Drainage; pH 6.2–7.0. Drainagschicht im Topfboden obligatorisch. |  — |
 | Substrat-Empfehlung (Beet) | Lockere, tiefgründige, gut durchlässige Gartenerde, reich an Humus; Ton- und Schwerstböden vorab mit Sand und Kompost verbessern; pH 6.5–7.0 | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein dahlienspezifisch belegter Kompensationspunkt aus mind. 2 seriösen Quellen auffindbar) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | `full_sun` (benötigt 6–8 h direktes Sonnenlicht täglich; kann in Vollschatten nicht kultiviert werden; toleriert allenfalls Halbschatten mit deutlich reduzierter Blüte und schwächerem, vergeiltem Wuchs) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (Speicherknollen in den oberen 10–20 cm; feine Saugwurzeln (feeder roots) reichen 30–45 cm tief zur Wasseraufnahme — lockerer Boden auf 30 cm Tiefe empfohlen) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | `sensitive` (verträgt keine nassen Füße; gesättigter Boden entzieht den Wurzeln Sauerstoff, Knollen faulen — gut durchlässiger Boden bzw. Hochbeet/Kübel obligatorisch) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN --> (UF/IFAS führt die Bodensalztoleranz der Dahlie als „unknown"; keine zwei unabhängigen seriösen Quellen mit affirmativer Klassenzuordnung. Praxis-Hinweis: in Topfkultur wird wöchentliches Auswaschen (Leaching) gegen Salzanreicherung empfohlen, was auf praktische Salzempfindlichkeit hindeutet — als Freitext, nicht als belegter Klassenwert) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-Schwellenwert; Bezugsgröße wäre Substrat-ECe, nicht Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-Slope) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.0 (leicht sauer bis neutral; konsistent von RHS und mehreren Fachquellen genannt; harmonisiert mit §1.6 Beet pH 6.5–7.0 und §2.3 6.2–7.0) | `species.soil_ph_preference` |
+
+**Hinweis Lichtansprüche:** Dahlie ist ein sonnenadaptierter C3-Lichttyp (Sonnenblatt-Charakteristik). Der Kompensationspunkt liegt artübergreifend bei Sonnenpflanzen typischerweise im Bereich ~20–40 µmol/m²/s, ein dahlienspezifischer Messwert ist jedoch nicht aus zwei seriösen Quellen belegbar; das KA-Feld bleibt daher leer. Lichtsättigung und Optimumwerte gehören NICHT in das Kompensationspunkt-Feld.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -144,6 +170,12 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Temperatur Nacht (°C) | 4–10 (gleichmäßig) | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit (%) | 60–75 (mäßig feucht; zu trocken → Knollen schrumpeln; zu feucht → Fäulnis) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | null (nicht anwendbar — Knollen ohne aktiven Gaswechsel; kein Steuerungsparameter) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | null (nicht anwendbar — ruhende Knolle ohne Transpiration) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `low` (ruhendes Speichergewebe; reagiert kaum auf VPD) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | null (keine Photosynthese während Dormanz; Lagertemperatur siehe oben) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | null (Dunkellagerung) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | nicht relevant | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 0 (keine Bewässerung während Dormanz; gelegentlich Lagermedium leicht anfeuchten wenn Knollen schrumpeln) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -160,6 +192,12 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt des stomatären Kollaps, deutlich oberhalb des Zielkorridors; junge Austriebe sind feuchteliebend → niedrigere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (krautiges C3-Gewebe, weder besonders robust noch sukkulent-tolerant) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühlere Voranzucht; geile Triebe bei Wärme vermeiden) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (gefiltertes Fensterbank-/Indirektlicht; offenes Tageslicht/direkte Sonne ≈ 0.5, gefiltertes Licht leicht höherer FR-Anteil) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Außenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (mäßig feucht; Knolle nicht nass halten — Fäulnisgefahr) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 (je nach Topfgröße) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -176,6 +214,12 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Luftfeuchtigkeit Tag (%) | 40–65 (Außenklima) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–75 (Außenklima) | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberhalb des Zielkorridors; abhärtende Pflanze gewöhnt sich an Außenklima) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (krautiges C3-Gewebe) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (Abhärtung bei moderaten Temperaturen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (zunehmend offenes Tageslicht/Freiland-Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Außenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -192,6 +236,12 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Luftfeuchtigkeit Tag (%) | 40–65 (Außenklima; gute Luftzirkulation wichtig gegen Mehltau) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer stomatärer Kollaps deutlich oberhalb des Korridors; Hauptwuchsphase bei voller Sonne) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (krautiges C3-Gewebe) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 (optimaler Wuchstemperaturbereich; über 30 °C hemmt Photosynthese und Wachstum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Freiland-Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Außenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 (je nach Wetter; Substrat gleichmäßig feucht, nicht nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 (stark wachsende Pflanze hat hohen Wasserbedarf; in Hitze täglich gießen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -208,6 +258,12 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Luftfeuchtigkeit Tag (%) | 40–65 (hohe Luftfeuchte + schlechte Belüftung = Mehltau- und Botrytis-Risiko) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (Hochsommer-Spitzenlast; stomatärer Kollaps oberhalb des Korridors, an heißen Mittagen erreichbar — dann Beschattung/Mulch) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (krautiges C3-Gewebe) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 (Blühentwicklung am schnellsten bei 22–24 °C; über 30 °C reduziert Blütenqualität und Tuberisierung) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Freiland-Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Außenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–3 (Hochsommer: täglich gießen möglich; immer morgens, nie abends — Botrytis-Prävention) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 (große Pflanze mit hoher Blühlast hat maximalen Wasserbedarf) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -224,20 +280,29 @@ Dahlia 'Embassy' ist eine Knollenstaude mit jährlichem Vegetationszyklus. In Mi
 | Luftfeuchtigkeit Tag (%) | 50–75 (Herbstklima) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (niedrige Schwelle; feuchtes Herbstklima, kühle Temperaturen, abnehmende Transpiration) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (krautiges, alterndes C3-Gewebe) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 12–18 (Herbsttemperaturen; Photosyntheseleistung sinkt mit der Seneszenz) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (offenes Tageslicht/Vollsonne ≈ 0.5; tiefstehende Herbstsonne leicht erhöhter FR-Anteil) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Außenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 (deutlich reduzieren; fördert Knollenreifung und -abhärtung) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Dormanz | 0:0:0 | 0.0 | — | — | — | — | — |
-| Voranzucht | 1:1:1 | 0.4–0.8 | 6.2–6.8 | 60 | 30 | — | 2 |
-| Abhärtung | 1:1:1 | 0.6–1.0 | 6.2–6.8 | 80 | 40 | — | 2 |
-| Vegetativ | 3:1:2 | 1.0–1.6 | 6.2–7.0 | 120 | 50 | 30 | 3 |
-| Blüte | 1:3:3 | 1.0–1.6 | 6.2–7.0 | 100 | 60 | 30 | 2 |
-| Seneszenz | 0:0:2 | 0.4–0.8 | 6.2–7.0 | 40 | 20 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Dormanz | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Voranzucht | 1:1:1 | 0.4–0.8 | 6.2–6.8 | 60 | 30 | — | 2 | 0.5 | 0.1 | 0.03 | 0.02 |
+| Abhärtung | 1:1:1 | 0.6–1.0 | 6.2–6.8 | 80 | 40 | — | 2 | 0.5 | 0.1 | 0.03 | 0.02 |
+| Vegetativ | 3:1:2 | 1.0–1.6 | 6.2–7.0 | 120 | 50 | 30 | 3 | 0.8 | 0.2 | 0.05 | 0.05 |
+| Blüte | 1:3:3 | 1.0–1.6 | 6.2–7.0 | 100 | 60 | 30 | 2 | 0.6 | 0.15 | 0.05 | 0.04 |
+| Seneszenz | 0:0:2 | 0.4–0.8 | 6.2–7.0 | 40 | 20 | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+*Mikronährstoffe (Mn/Zn/Cu/Mo): Es existieren keine dahlienspezifischen, peer-reviewten Sollwerte. Die Werte folgen allgemeinen Hoagland-/Fertigationsrichtwerten für blühende Zierpflanzen (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) und sind als Orientierungsspanne zu verstehen; Spurenelement-Vollausstattung üblicherweise über ein Komplett-Mikronährstoffsupplement abgedeckt.*
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Wichtig:** Hoher Stickstoff in der Blüte- und Seneszenz-Phase führt zu weichem, fäulnisanfälligem Knollengewebe und stark reduzierter Blütenbildung. Kalium und Phosphor priorisieren.
 
@@ -542,6 +607,12 @@ Embassy,Dahlia pinnata,,,"ornamental;bee_friendly;cut_flower",90,,clone
 | Genaue Wuchshöhe Embassy | UNSICHER | Quellen variieren: ilovedahlia.com nennt ca. 90 cm, dutchgrown.com nennt ~127 cm (50 Zoll). Mittelwert ~110 cm im Dokument verwendet. |
 | ADS-Blütendurchmesser | LEICHT UNSICHER | 10 cm wird konsistent genannt; ADS-Klassifikation SD (Small Decorative) entspricht 10–15 cm Durchmesser |
 | Photoperiod Embassy-Cultivar | ANNAHME | Embassy-spezifische Photoperiodendaten nicht verfügbar; Verhalten der Elternart Dahlia pinnata angewendet |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| `species.light_compensation_point_ppfd_min/max` | FEHLT | Kein dahlienspezifischer Kompensationspunkt aus 2 seriösen Quellen belegbar; sonnenadaptierter C3-Typ, artübergreifend ~20–40 µmol/m²/s (nur Freitext-Hinweis in §1.7) |
+| `species.salt_tolerance_class` / `_ece_threshold_ds_m` / `_slope_pct` | FEHLT | UF/IFAS führt Bodensalztoleranz als „unknown"; keine 2 affirmativen Quellen für Klasse/Maas-Hoffman-Werte; Praxis legt Salzempfindlichkeit nahe (Leaching empfohlen), aber nicht klassifizierbar |
+| Mikronährstoffe Mn/Zn/Cu/Mo je Phase | RICHTWERT | Keine dahlienspezifischen Sollwerte; allgemeine Hoagland-/Fertigationsrichtwerte für Zierpflanzen verwendet (§2.3) |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -567,3 +638,15 @@ Embassy,Dahlia pinnata,,,"ornamental;bee_friendly;cut_flower",90,,clone
 18. [Penn State Extension — Don't Ditch Those Dahlias](https://extension.psu.edu/dont-ditch-those-dahlias-easy-tips-for-winter-storage) — Winterlagerung
 19. [ASPCA — Toxic and Non-Toxic Plants: Dahlia](https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants) — Toxizitätsdaten für Haustiere
 20. [NC State Extension — Dahlia Plant Toolbox](https://plants.ces.ncsu.edu/plants/dahlia/) — USDA-Härtezonen, Grunddaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+21. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Standort (volle Sonne), feuchter, durchlässiger Boden, Staunässe-Empfindlichkeit (§1.7)
+22. [Longfield Gardens — How Deep Do Dahlia Roots Grow?](https://www.longfield-gardens.com/blogs/dahlia-care/how-deep-do-dahlia-roots-grow) — Wurzeltiefe (Speicherknollen 10–20 cm, Saugwurzeln 30–45 cm), Staunässe (§1.7)
+23. [Longfield Gardens — Why Did My Dahlia Tubers Rot?](https://www.longfield-gardens.com/blogs/dahlia-care/why-did-my-dahlia-tubers-rot-and-how-to-save-them) — Staunässe-Empfindlichkeit, Sauerstoffmangel bei gesättigtem Boden (§1.7)
+24. [Longfield Gardens — Do Dahlias Need Full Sun to Grow?](https://www.longfield-gardens.com/blogs/dahlia-care/do-dahlias-need-full-sun-to-grow) — Vollsonnenbedarf 6–8 h, kein Vollschatten (§1.7 shade_tolerance)
+25. [Epic Gardening — Do Dahlias Like Full Sun, Partial Shade, or Fully Shaded Areas?](https://www.epicgardening.com/dahlias-sun-or-shade/) — Sonnenbedarf, Halbschatten-Toleranz (§1.7 shade_tolerance)
+26. [Longfield Gardens — What Soil Do Dahlias Grow Best In?](https://www.longfield-gardens.com/blogs/dahlia-care/what-soil-do-dahlias-grow-best-in) — Boden-pH 6.5–7.0, durchlässiger Boden (§1.7 soil_ph_preference)
+27. [Dahlia Doctor — How Temperature & Day Length Impact Dahlia Growth & Tubers](https://www.dahliadoctor.com/blogs/second-blog/timing-is-everything-how-temperature-and-day-length-affect-dahlia-growth-and-tuber-formation) — Kurztag-Tuberisierung (10–12 h fördernd, 16 h+ hemmend), T_opt, kritische Tageslänge (§1.1, §2.2)
+28. [Longfield Gardens — What Temperature Do Dahlias Need to Grow?](https://www.longfield-gardens.com/blogs/dahlia-care/what-temperature-do-dahlias-need-to-grow) — Warmwetter-Charakter, Wuchsoptima 20–24 °C, Pflanzschwelle 15 °C Bodentemperatur (§1.1 base_temp, §2.2 T_opt)
+29. [UF/IFAS Environmental Horticulture — Dahlia spp. Fact Sheet](https://hort.ifas.ufl.edu/database/documents/pdf/shrub_fact_sheets/dahsppa.pdf) — Bodensalztoleranz „unknown" (§1.7 Salztoleranz-Datenlücke)
+30. [Zhen, S. & Bugbee, B. (2022) — Far-red photons in sun and shade, New Phytologist](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Anker Far-Red-Fraction (offenes Tageslicht/Vollsonne ≈ 0.5, R:FR ≈ 1.1; Schatten/Unterwuchs höher) (§2.2 far_red_fraction)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,11 +20,21 @@
 | Ordnung | Zingiberales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> keine belegte Wuchs-GDD-Basis für diese tropische Zierstaude; Art wird nicht über Wärmesummen (Growing Degree Days) kultiviert | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindest-Tage | — (entfällt, tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, kein Kurztag-/Langtagblüher) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 11a, 11b, 12a, 12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 16°C, optimal 18–27°C. | `species.hardiness_detail` |
@@ -89,6 +99,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, humusreiche, gut drainierte Erde mit leichter Feuchtigkeitsspeicherung. pH 6.0–7.0. Mix aus Einheitserde + Perlite (20%) + Kokosfaser (15%). | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | 50–100 | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Schwellenwert für diese Art; Klasse sensitive entspricht qualitativ einer niedrigen Schwelle (< 2 dS/m Substrat-ECe) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Slope für diese Art | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Der Lichtkompensationspunkt (light compensation point, LCP, Netto-Photosynthese = 0) ist aus Messungen an *Calathea insignis* (= älteres Synonym für *G. lancifolia*) mit 100 µmol/m²/s und der nahverwandten *C. makoyana* mit 50 µmol/m²/s belegt; die Spanne 50–100 deckt beide Marantaceen-Messwerte ab. Der Lichtsättigungspunkt (light saturation point) liegt bei *C. insignis* bei rund 600 µmol/m²/s, bei *C. makoyana* bei 400 — diese Sättigungswerte gehören NICHT ins LCP-Feld. Typische Schattenpflanze (shade plant) des Regenwald-Unterwuchses, daher `shade` (kein partial_shade). Salzempfindlichkeit: Calathea reagiert auf Fluorid, Chlorid und harte Wassersalze mit Tip-Burn (Blattspitzennekrose), daher Salztoleranz-Klasse `sensitive`; Bezugsgröße bei einem etwaigen ECe-Wert wäre die Substrat-ECe, nicht die Gießwasser-EC. Boden-pH 6.0–6.5 ist quellentreu (leicht sauer); breiterer tolerierter Bereich bis 7.0 deckt sich mit §1.6/§2.3.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,6 +140,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> kein artspezifischer Messwert; als Regenwald-Unterwuchspflanze unter Blätterdach tendenziell FR-angereichert (> 0.5 unter dichtem Kronendach), aber ohne belegte Messung für G. lancifolia nicht quantifiziert | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -121,17 +154,27 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 60–200 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 3–9 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 6.0–7.0 | 50 | 20 |
-| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 6.0–7.0 | 50 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–7.0 | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -174,6 +217,23 @@ Leichter Zehrer. Monatlich April bis August, halbe Empfehlungsdosis. Oktober bis
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | true | `care_profiles.humidity_check_enabled` |
 
+### 4.3 Überwinterung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profile.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profile.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober, vor erstem Frost / Nachttemperaturen < 16 °C) | `overwintering_profile.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profile.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mitte/Ende Mai, nach den Eisheiligen) | `overwintering_profile.spring_action_month` |
+| Winterquartier Temperatur (°C) | 16–22 | `overwintering_profile.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (PPFD 60–200 µmol/m²/s); kein direktes Sonnenlicht | `overwintering_profile.winter_quarter_light` |
+| Winterquartier Gießen | reduziert, gleichmäßig leicht feucht (Gießintervall 10–14 Tage); Staunässe vermeiden, weiches/kalkarmes Wasser | `overwintering_profile.winter_quarter_watering` |
+
+**Hinweis:** Reine Zimmer-/Kübelpflanze ohne Frosttoleranz (Mindesttemperatur 16 °C). Daher `frost_free` (frostfreies Überwintern im Innenraum), KEIN Ausgraben/Einlagern (`dig_and_store` wäre nur für Knollengewächse korrekt). Ein sommerlicher Aufenthalt im Freien (Schatten/Halbschatten) ist optional; in Mitteleuropa (USDA 6–8) muss die Pflanze ganzjährig bzw. spätestens ab Oktober frostfrei im Haus stehen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -199,6 +259,18 @@ Leichter Zehrer. Monatlich April bis August, halbe Empfehlungsdosis. Oktober bis
 |---------|-----|-----------|------------|-------|
 | Luftfeuchtigkeit erhöhen | cultural | Luftbefeuchter | 0 | Spinnmilbe (Prävention) |
 | Neemöl | biological | Sprühen 0.3% | 0 Tage | Spinnmilbe, Schmierläuse |
+
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Nützling | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|----------------|--------------|------------------|
+| Raubmilbe *Phytoseiulus persimilis* | Spinnmilbe (*Tetranychus urticae*) | 2–50 Stück/m² je Ausbringung, wöchentlich wiederholen bis Befall erloschen | 2–3 Wochen (optimal 17–28 °C, > 60 % rel. Luftfeuchte) |
+| Australischer Marienkäfer *Cryptolaemus montrouzieri* (Schmierlaus-Räuber) | Schmierlaus (*Pseudococcus* spp.) | ca. 5 Käfer/befallene Pflanze; 2–3 kleinere Ausbringungen besser als eine große | 4–8 Wochen bis sichtbare Reduktion |
+| Schlupfwespe *Aphidius colemani* | Blattläuse (*Aphis* spp.) | 0,25–4 Tiere/m² je Ausbringung, mind. 2–3 Ausbringungen im Wochenabstand | ca. 2 Wochen (überlappende Generationen) |
+
+**Hinweis:** Nützling-Wirt-Zuordnung fachlich getrennt: *Phytoseiulus persimilis* ausschließlich gegen Spinnmilben, *Cryptolaemus montrouzieri* gegen Schmierläuse (Wollläuse), *Aphidius colemani* gegen Blattläuse. Im Wohnraum sind Nützlinge nur eingeschränkt praktikabel (Flugverhalten, Luftfeuchte); Einsatz primär im Gewächshaus oder isolierten Quarantänebereich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -236,3 +308,14 @@ Goeppertia lancifolia,"Klapperschlangen-Calathea;Lanzettblatt-Calathea;Rattlesna
 3. [Smart Garden Guide — Rattlesnake Plant](https://smartgardenguide.com/rattlesnake-plant-care-calathea-lancifolia/) — Pflegehinweise
 4. [Plant Care Today — Rattlesnake Plant](https://plantcaretoday.com/rattlesnake-plant.html) — Schädlinge
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NCBI/PMC — Biochemical and Physiological Characteristics of Photosynthesis in Plants of Two Calathea Species](https://pmc.ncbi.nlm.nih.gov/articles/PMC5877565/) — Lichtkompensationspunkt (LCP) *C. insignis* 100 / *C. makoyana* 50 µmol/m²/s, Lichtsättigung 600 / 400 µmol/m²/s, Schattenpflanzen-Charakteristik
+7. [Springer/Oecologia — Comparative life history and physiology of two understory Neotropical herbs](https://link.springer.com/article/10.1007/BF00320821) — *Calathea* als schattentolerante Regenwald-Unterwuchsstaude (shade tolerance)
+8. [Wikipedia / e-monocot — Marantaceae (Zingiberales, Monokotyledonen)](http://families.e-monocot.org/classification/marantaceae) — taxonomische Einordnung, C3-Stoffwechsel (keine CAM-/C4-Sukkulentenfamilie)
+9. [Agri Farming — Calathea Brown Tips: Humidity vs Water Quality](https://www.agrifarming.in/calathea-brown-tips-fixes) — Salz-/Fluorid-Empfindlichkeit (sensitive), Tip-Burn durch harte Wassersalze
+10. [Healthy Houseplants — Rattlesnake Plant Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/rattlesnake-plant-calathea-lancifolia-care-guide/) — Staunässe-Empfindlichkeit (Wurzelfäule bei waterlogging), Boden-pH leicht sauer
+11. [Greg.app — Soil for Calathea Rattlesnake](https://greg.app/calathea-rattlesnake-soil/) — Boden-pH-Vorzug 6.0–6.5, gut drainiert
+12. [Koppert — Phytoseiulus persimilis (Spinnmilben-Raubmilbe)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate/Etablierung Spinnmilbenkontrolle
+13. [Koppert — Aphidius colemani (Blattlaus-Schlupfwespe)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate/Etablierung Blattlauskontrolle
+14. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet (Schmierlaus-Räuber)](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringrate/Etablierung Schmierlauskontrolle
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

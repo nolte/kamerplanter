@@ -21,6 +21,24 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweise zu ergänzten Feldern:**
+- **Photosynthese-Typ (CAM):** Peer-reviewed belegt — *Senecio rowleyanus* betreibt Crassulacean Acid Metabolism (CAM) mit nächtlicher CO₂-Fixierung (Lange & Zuber 1999, *Photosynthetica*; Teeri et al., *Botanical Gazette*). Typisch für blattsukkulente Asteraceae der Gattung Curio.
+- **GDD-Basistemperatur:** Für *Curio rowleyanus* ist keine belegte Wuchs-/Phänologie-GDD-Basistemperatur auffindbar (kein landwirtschaftlicher Kulturstatus, kein Feld-Phänologie-Datensatz). Daher als DATEN FEHLEN markiert — kein Keim- oder Kardinalwert wird ersatzweise als Wuchsbasis eingetragen.
+- **Lebensdauer:** Mehrere Quellen nennen übereinstimmend eine typische Kulturlebensdauer von 3–5 Jahren; durch Stecklingsvermehrung praktisch unbegrenzt verlängerbar (Almanac; succulentsandsunshine).
+- **Dormanz/Vernalisation:** Die Art geht NICHT in echte Vollruhe (Wachstum verlangsamt sich winters nur). Ein kühler, trockener Winterrest (~10–15 °C) FÖRDERT die Blüte fakultativ (facultative cool-trigger), ist aber kein obligater Kältebedarf — daher `vernalization_required = false`. Tropisch-subtropische Herkunft (Ostkap Südafrika) ohne strikten Chilling-Bedarf.
+- **Kritische Tageslänge:** Tagneutral (day_neutral) — die Blühinduktion erfolgt temperatur-/trockenheitsgesteuert, nicht photoperiodisch. Kein kritischer Tageslängenwert wird erfunden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostfrei halten, keine Temperaturen unter 5°C | `species.hardiness_detail` |
@@ -84,6 +102,29 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kakteenerde oder Zimmerpflanzenerde + 50% Perlite; hervorragende Drainage; flache Schale besser als tiefer Topf | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | 15–30 | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–10 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweise zu §1.7:**
+- **Lichtkompensationspunkt (light compensation point, LCP):** Kein artspezifischer Messwert für *Curio rowleyanus* publiziert. Eingetragen ist die für schatten-/halbschattenadaptierte CAM-Sukkulenten belegte LCP-Spanne (10–50 µmol/m²/s; ScienceDirect "Light Compensation"; rseco.org "Photosynthesis in sun and shade"), für diese unter Büschen/zwischen Steinen wachsende Art im unteren Bereich angesetzt (15–30). Nur der Kompensationspunkt — Sättigungs-/Optimumwerte (Wuchs-PPFD 150–400, siehe §2.2) sind hier bewusst NICHT vermischt.
+- **Schattentoleranz:** University-Extension (Wisconsin Horticulture) beschreibt die natürliche Wuchsweise „unter Büschen oder zwischen Steinen zum Schutz vor intensiver Sonne" → partial_shade. Verträgt zwar helles indirektes bis kurzzeitiges Sonnenlicht, direkte Mittagssonne verbrennt jedoch die Perlen.
+- **Effektive Wurzeltiefe:** Schwaches, oberflächliches Wurzelsystem („weak surface root system, will not produce an extensive root system"; Wisconsin Horticulture); flache Schalen empfohlen — konsistent mit §1.6 (Min. Topftiefe 8 cm).
+- **Staunässe-Toleranz (waterlogging tolerance):** sensitive — Wurzelfäule durch Überwässerung/stehende Nässe ist häufigster Todesgrund (Wisconsin Horticulture; Succulent City), konsistent mit §5.2.
+- **Salztoleranz:** sensitive — flaches Wurzelsystem reagiert empfindlich auf Salzakkumulation aus Über­düngung (Succulentsbox; Succulent City). Bezugsgröße wäre Substrat-ECe (nicht Gießwasser-EC); da keine quantitative Maas-Hoffman-Schwelle/-Slope für diese Art publiziert ist, bleiben beide Felder als DATEN FEHLEN markiert. Niedrige Dünge-EC in §2.3/§3.2 (0.5–1.0 mS) ist mit der Klasse sensitive konsistent.
+- **Boden-pH-Vorzug:** Quellen streuen von 5.5–6.5 (gritty cactus mix) bis 6.6–7.5 (neutral). Quellentreu auf die überlappende Spanne 6.0–7.0 gesetzt; harmoniert mit dem in §2.3/§3.2 verwendeten Düngewasser-pH 6.0–6.5 (am unteren Rand des Vorzugsbereichs).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +152,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,25 +174,43 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 21–35 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweise zu §2.2 (ergänzte Felder):**
+- **VPD-Schwelle (vpd_threshold_kpa):** Kritischer Punkt des stomatären Kollaps, DEUTLICH oberhalb des vpd_target-Korridors (oberer Zielwert + ~0.3–0.5 kPa): Vegetativ 1.5 → 1.9; Sommerruhe 1.8 → 2.2. Die trocken-/hitzeadaptierte Sommerruhe verträgt eine höhere Schwelle. Als CAM-Sukkulente mit nächtlich öffnenden Stomata reagiert die Art generell tolerant auf hohe Tages-VPD.
+- **VPD-Sensitivität:** low — CAM-Sukkulenten halten ihre Stomata tagsüber geschlossen und sind dadurch gegenüber hohem VPD unempfindlich (allgemeine CAM-Physiologie; siehe §1.1-Hinweise).
+- **Photosynthese-T_opt:** Spanne aus dem in der Literatur belegten Kultur-Wohlfühlbereich (18–27 °C; betweentwothorns, plantworldlondon) und der höheren Tages-Decarboxylierungs-Phase (Phase III) von CAM-Pflanzen; phasenweise differenziert (Sommerruhe wärmer). Bezieht sich auf die Tages-Calvin-Phase, nicht auf die nächtliche CO₂-Fixierung.
+- **Far-Red-Fraction FR/(R+FR):** Halbschattiger Naturstandort unter Büschen → erhöhter Far-Red-Anteil gegenüber offenem Tageslicht (Anker: offenes Tageslicht/Vollsonne ≈ 0.5 bei R:FR ≈ 1.1; Schatten/Unterwuchs unter Pflanzendach höher, da Blätter Rot stärker absorbieren als Far-Red; Zhen & Bugbee). Für die schattige Unterwuchs-Belichtung 0.55–0.65 angesetzt (über dem offenen Tageslicht). NICHT zu verwechseln mit dem (inversen) R:FR-Verhältnis.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Etablierung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Vegetativ | 2:1:3 | 0.5–0.8 | 6.0–6.5 | 60 | 30 | — | 1 |
-| Blüte | 1:2:2 | 0.6–1.0 | 6.0–6.5 | 60 | 30 | — | 1 |
-| Sommerruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Etablierung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Vegetativ | 2:1:3 | 0.5–0.8 | 6.0–6.5 | 60 | 30 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 1:2:2 | 0.6–1.0 | 6.0–6.5 | 60 | 30 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Sommerruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen (Mn/Zn/Cu/Mo):** Für *Curio rowleyanus* (ausgesprochener Schwachzehrer, light_feeder) existieren keine artspezifisch publizierten Mn/Zn/Cu/Mo-Zielkonzentrationen aus zwei unabhängigen seriösen Quellen. Diese Mikronährstoffe werden in der Praxis über einen stark verdünnten Vollnährstoff-/Sukkulentendünger (max. halbe Dosierung, siehe §3.2) miteingetragen; eigenständige ppm-Ziele werden mangels Beleg als DATEN FEHLEN markiert statt erfunden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
 | Von → Nach | Trigger | Tage/GDD | Bedingungen |
 |------------|---------|----------|-------------|
 | Etablierung → Vegetativ | time_based | 21–42 Tage | Neue Triebe gebildet |
-| Vegetativ → Blüte | time_based | 150–240 Tage | Winterblüher — kurze Tage im Herbst |
+| Vegetativ → Blüte | time_based | 150–240 Tage | Blühinduktion durch kühlen, trockenen Winterrest (~10–15 °C, reduziertes Gießen) — temperatur-/trockenheitsgesteuert, NICHT photoperiodisch (tagneutral, day_neutral) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
 | Blüte → Sommerruhe | time_based | 30–60 Tage | Sommer, Hitze |
 | Sommerruhe → Vegetativ | time_based | 60–90 Tage | Herbst, kühlere Temperaturen |
 
@@ -331,3 +396,16 @@ Curio rowleyanus,Perlenschnur;Erbsenpflanze;String of Pearls,Asteraceae,Curio,pe
 3. [Feey – Erbsenpflanze](https://www.feey-pflanzen.de/pages/erbsenpflanze) — Steckbrief
 4. [Pflanzenfreunde – Senecio rowleyanus](https://www.pflanzenfreunde.com/lexika/sukkulenten/senecio-rowleyanus.htm) — Kulturtipps
 5. [PictureThis – Senecio rowleyanus](https://www.picturethisai.com/de/wiki/Senecio_rowleyanus.html) — Taxonomie
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Lange & Zuber (1999), Photosynthetica – Influence of Leaf "Windows" on CAM in Senecio rowleyanus](https://link.springer.com/article/10.1023/A:1007031106812) — peer-reviewed: CAM-Photosynthese-Beleg (Photosynthese-Typ)
+7. [Teeri et al., Botanical Gazette – Anatomy of Succulence and CAM in 15 Species of Senecio](https://www.journals.uchicago.edu/doi/abs/10.1086/337701) — peer-reviewed: CAM/Sukkulenz in Senecio/Curio (Photosynthese-Typ, VPD-Sensitivität)
+8. [University of Wisconsin–Madison Horticulture Extension – String of Pearls, Senecio rowleyanus](https://hort.extension.wisc.edu/articles/string-of-pearls-senecio-rowleyanus/) — University Extension: Schattentoleranz (Wuchs unter Büschen), oberflächliches Wurzelsystem (Wurzeltiefe), Drainage, Frostempfindlichkeit, Winterrest/Blühtrigger, Staunässe
+9. [The Old Farmer's Almanac – String of Pearls Plant Care](https://www.almanac.com/plant/how-care-string-pearls-plant) — Lebensdauer 3–5 Jahre, keine Vollruhe, Winterrest fördert Blüte fakultativ
+10. [Succulents and Sunshine – Senecio rowleyanus String of Pearls](https://www.succulentsandsunshine.com/types-of-succulents/senecio-rowleyanus-string-of-pearls/) — Lebensdauer, Kulturhinweise (Bestätigung Lebensdauer/Dormanz)
+11. [Planet Desert – String of Pearls Care & Growing Guide](https://planetdesert.com/blogs/news/string-of-pearls-plant-care-growing-guide) — Lichtexposition (partial_shade/full sun), Temperaturbereich, gritty/well-drained Substrat (pH-Spanne)
+12. [Succulent City – String of Pearls Root Rot](https://succulentcity.com/string-of-pearls-root-rot/) — Staunässe-/Salzempfindlichkeit (waterlogging_tolerance, salt_tolerance_class)
+13. [Succulents Box – Common Problems of String of Pearls](https://succulentsbox.com/blogs/blog/common-problems-of-string-of-pearls-and-how-to-fix-them) — Salzakkumulation aus Überdüngung (Salztoleranz sensitive)
+14. [ScienceDirect Topics – Light Compensation (overview)](https://www.sciencedirect.com/topics/engineering/light-compensation) — LCP-Definition und -Bereiche schattentoleranter/CAM-Pflanzen (10–50 µmol/m²/s)
+15. [rseco.org – Photosynthesis in sun and shade](https://rseco.org/book/export/html/257.html) — LCP-Spannen Sonnen-/Schattenpflanzen (Lichtkompensationspunkt)
+16. [Garden Pals / americangardener u.a. – String of Pearls pH & Substrat](https://gardenpals.com/string-of-pearls/) — Boden-pH-Vorzug (Spannenabgleich 5.5–7.5 → 6.0–7.0)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

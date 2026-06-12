@@ -19,6 +19,10 @@
 | Ordnung | Ericales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert auffindbar; verfügbare Quellen nennen nur das Photosynthese-Optimum (~16 °C), nicht die GDD-Basis --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 3–10 | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
@@ -94,6 +98,24 @@
 
 ---
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein validierter Maas-Hoffman-Schwellenwert (ECe) für Cyclamen persicum publiziert; Praxis-Richtwert ist Substrat-EC (Sättigungspaste) ≤ 1, was die Einstufung "sensitive" stützt, aber keine belegte Maas-Hoffman a darstellt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Slope (b) für Cyclamen persicum --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Cyclamen persicum ist eine schattenverträgliche Unterholz-Staude (shade-adapted understory herb) mit niedrigem Lichtkompensationspunkt (light compensation point) — sie behauptet sich im Halbschatten unter Baumkronen. Der angegebene Bereich nennt ausschließlich den Kompensationspunkt (Netto-Photosynthese = 0); der Sättigungspunkt (light saturation point) liegt deutlich höher und ist hier bewusst nicht eingetragen. Die Knolle besitzt keine schützende Korkschicht, sondern nur eine dünne, durchlässige Epidermis und ist dadurch besonders empfindlich gegen osmotischen Schock durch lösliche Salze (salt-sensitive); Gärtner halten die Substrat-EC (Sättigungspaste, nicht Gießwasser-EC) bei oder unter 1 dS/m. Staunässe (waterlogging) führt rasch zu Knollen-/Kronenfäule (crown rot).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenübersicht
@@ -117,6 +139,13 @@
 | Temperatur Nacht (°C) | 8–14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -135,6 +164,17 @@
 |-------|----------------|---------|-----|----------|----------|
 | Vegetativ/Blüte | 1:2:2 | 0.4–0.8 | 5.5–6.5 | 50 | 20 |
 | Sommerdormanz | 0:0:0 | 0.0 | 5.5–6.5 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Vollnährlösung, aktive Phase):** Die folgenden Spurenelement-Zielwerte (micronutrients) sind kein cyclamen-spezifischer Forschungswert, sondern entsprechen den etablierten Floriculture-Vollnährlösungs-Richtwerten (Hoagland-abgeleitet); bei salzempfindlichem Cyclamen am unteren Ende anwenden.
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Vegetativ/Blüte | 0.5 | 0.05 | 0.02 | 0.01 |
+| Sommerdormanz | — | — | — | — |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -182,7 +222,7 @@ Alle 2–3 Wochen während der aktiven Wachstums-/Blütezeit (Oktober–März), 
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | dig_and_store | `overwintering_profiles.hardiness_rating` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 — korrigiert von needs_protection auf dig_and_store: die Knolle wird nach der Blüte eingezogen und trocken eingelagert (winter_action dig_store), das passende Enum ist dig_and_store -->
 | Winter-Maßnahme | dig_store (nach Blüte einziehen lassen, Knolle trocken lagern) | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 5 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | replant (im Herbst neu einpflanzen) | `overwintering_profiles.spring_action` |
@@ -221,6 +261,20 @@ Alle 2–3 Wochen während der aktiven Wachstums-/Blütezeit (Oktober–März), 
 | Kupfermittel | biological | Sprühen 0.1% | 3 Tage | Botrytis |
 | Abgestorbene Blüten entfernen | cultural | Täglich kontrollieren | 0 | Botrytis (Prävention) |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Neoseiulus (Amblyseius) cucumeris | Alpenveilchen-Milbe (Phytonemus pallidus) | 50–100/m² (Räuber:Beute ≥ 1:10, früh ausbringen) | 2–4 Wochen |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Myzus persicae) | 0.25–4/m², wöchentlich bis Mumien sichtbar | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Myzus persicae), bei höherem Befall | 1–4/m², ergänzend zu Aphidius | 2–3 Wochen |
+| Nematode | Steinernema feltiae | Trauermücken-Larven (Bradysia spp.) | ~0.5 Mio./m² Substratoberfläche (Bodengießen) | < 1 Woche (Larvenabtötung in ~48 h) |
+| Raubmilbe (Boden) | Stratiolaelaps scimitus (Hypoaspis miles) | Trauermücken-Larven (Bradysia spp.) | 100–250/m² auf der Substratoberfläche | 2–3 Wochen |
+
+**Hinweis:** Raubmilben können die Alpenveilchen-Milbe nicht vollständig tilgen — entscheidend ist die frühe Ausbringung bei niedrigem Befall (Räuber:Beute mindestens 1:10). Gegen Trauermücken wirkt die Kombination aus Nematoden (rasche Larvenabtötung) und Boden-Raubmilbe (dauerhafte Unterdrückung) am besten.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -256,3 +310,21 @@ Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen
 2. [Missouri Botanical Garden — Cyclamen persicum](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=a444) — Botanische Daten
 3. [UK Houseplants — Cyclamen](https://www.ukhouseplants.com/plants/cyclamen) — Kulturdaten, Schädlinge
 4. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (giftig — Saponine)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [NC State Extension Gardener Plant Toolbox — Cyclamen](https://plants.ces.ncsu.edu/plants/cyclamen/) — Lichtbedarf / Schattenverträglichkeit (part shade to full shade), Standort
+6. [Pacific Bulb Society — Cyclamen Tubers](https://www.pacificbulbsociety.org/pbswiki/index.php/CyclamenTubers) — Knollenbau, flaches Wurzelsystem (Wurzeln an der Knollenunterseite)
+7. [RHS — Cyclamen Growing Guide](https://www.rhs.org.uk/plants/cyclamen/growing-guide) — Pflanztiefe der Knolle (flach), Wurzeltiefe
+8. [Cafe Planta — Temperature Tolerance of Cyclamen](https://cafeplanta.com/a/blog/the-temperature-tolerance-of-cyclamen-a-comprehensive-guide) — Kühle Optimaltemperatur, Knospenausfall > 21 °C
+9. [ResearchGate — Root-Zone Cooling Improves Growth of Cyclamen persicum under Heat Stress](https://www.researchgate.net/publication/270586317_Root-Zone_Cooling_Improves_Growth_of_Cyclamen_persicum_under_Heat_Stress) — Netto-CO₂-Assimilation maximal bei ~16 °C Wurzelzonentemperatur (Photosynthese-Optimum)
+10. [Greenhouse Grower — 5 Things You Should Know About Growing Cyclamen](https://www.greenhousegrower.com/production/plant-culture/blooming-potted-production/5-things-you-should-know-about-growing-cyclamen/) — Salzempfindlichkeit, Substrat-EC ≤ 1, osmotischer Schock der Knolle
+11. [UMass Extension Floriculture — Water Quality: Salinity, Sodium and Chloride](https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/umass-extension-floriculture-water-quality-project-i-salinity) — Salinität / EC-Management in der Floriculture
+12. [My Garden NZ — Watering Cyclamen: Overwatering Signs](https://www.mygarden.co.nz/watering-cyclamen-frequency-methods-overwatering-signs/) — Staunässe-Empfindlichkeit, Knollen-/Kronenfäule
+13. [University of Arkansas — Greenhouse Mineral Nutrition (Unit 08)](https://greenhouse.hosted.uark.edu/Unit08/Printer_Friendly.html) — Floriculture-Mikronährstoff-Richtwerte (Mn/Zn/Cu/Mo)
+14. [Greenhouse Grower — Understanding Plant Nutrition: Micronutrients](https://www.greenhousegrower.com/production/fertilization/understanding-plant-nutrition-fertilizers-and-micronutrients/) — Mikronährstoff-Verhältnisse in Nährlösungen
+15. [Royal Brinkman — Cyclamen Mite Control](https://royalbrinkman.com/knowledge-center/crop-protection-disinfection/pests/cyclamen-mite) — Biologische Bekämpfung Alpenveilchen-Milbe (Amblyseius/Neoseiulus cucumeris)
+16. [PubMed — Biological control of strawberry tarsonemid mite Phytonemus pallidus using Neoseiulus (Amblyseius)](https://pubmed.ncbi.nlm.nih.gov/11508527/) — Räuber:Beute-Verhältnis 1:10 für N. cucumeris gegen P. pallidus
+17. [Sound Horticulture — Aphidius colemani](https://soundhorticulture.com/products/aphidius-colemani) — Ausbringrate Schlupfwespe gegen Blattläuse (0.25–4/m²)
+18. [Bugs for Growers — Beneficial Nematodes & Predatory Mites for Fungus Gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae + Stratiolaelaps scimitus gegen Trauermücken (Bradysia)
+19. [Grokipedia — Compensation point](https://grokipedia.com/page/Compensation_point) — Lichtkompensationspunkt schattentoleranter Unterholz-Kräuter (10–50 µmol/m²/s)
+20. [The Practical Planter — Soil and Fertilizer for Cyclamen](https://thepracticalplanter.com/soil-and-fertilizer-for-cyclamen/) — Boden-pH-Vorzug 5.5–6.5
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

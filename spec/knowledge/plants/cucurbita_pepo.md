@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral (Tagesneutral -- Bluete weitgehend unabhaengig von der Taglaenge, primaer temperatur- und altersgesteuert) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (Cucurbitaceae sind durchgaengig C3-Pflanzen -- kein C4/CAM dokumentiert) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 10 (Wuchs-/Phaenologie-Basis der Hauptwuchsphase fuer waermeliebende Kuerbisgewaechse; berichtete Tbase 8--10 degC, konservativ 10) | `species.base_temp` |
+| Lebensdauer (Jahre) | -- (einjaehrig, nicht perennial) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (waermeliebend, kein Kaeltebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (tagneutral/day_neutral -- keine kritische Tageslaenge, Bluete temperatur- und altersgesteuert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei ersten Nachtfroesten ab. Mindesttemperatur fuer Wachstum ca. 10 degC. In Mitteleuropa einjaehrig kultiviert (Freiland Mitte Mai--Oktober). | `species.hardiness_detail` |
@@ -102,6 +111,26 @@ Hinweis: Zucchini werden normalerweise nicht zurueckgeschnitten. Abgestorbene od
 
 **Hinweis:** Zucchini sind wahre Ertragsmonster -- eine einzige Pflanze kann 5--15 kg Fruechte pro Saison liefern. Pflanzabstand nicht unterschaetzen (mind. 80 cm). Bestaeubung durch Insekten (Bienen, Hummeln) notwendig; bei schlechtem Fruchtansatz Handbestaeubung durchfuehren (maennliche Bluete abzupfen und auf weibliche Bluete druecken). Maennliche Blueten haben duenne Stiele, weibliche haben eine kleine Frucht am Stiel.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 18 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 45--60 (Hauptwurzelzone; Feinwurzelmasse konzentriert in den oberen 15--30 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 4.9 (Maas-Hoffman a; Bezug Substrat-ECe im Saettigungsextrakt, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 10.5 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.0 | `species.soil_ph_preference` |
+
+**Hinweis Licht:** Cucurbita pepo ist eine ausgepraegte Sonnenpflanze (full_sun); die Netto-Photosynthese zeigt im Freiland keine Lichtsaettigung bis ~1400 umol/m2/s -- der Saettigungspunkt liegt also sehr hoch. Der hier eingetragene Lichtkompensationspunkt (Light Compensation Point, LCP -- Netto-Photosynthese = 0) ist davon getrennt zu betrachten; der Wertebereich 18--40 umol/m2/s ist aus C3-Cucurbiten-/Gemuese-Daten (Tomaten-LCP 13--36 umol/m2/s) abgeleitet.
+
+**Hinweis Salz:** Die FAO-/Maas-Hoffman-Tabelle fuehrt "Squash, zucchini" mit Schwelle 4.9 dS/m, Slope 10.5 %/dS/m und Klasse MT (moderately_tolerant); die nah verwandte Form "Squash, scallop" liegt mit 3.2 dS/m / 16 %/dS/m bei MS (moderately sensitive). Fuer Zucchini quellentreu der MT-Wert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +161,12 @@ Hinweis: Zucchini sind Dauertraeger -- nach Beginn der Bluete bilden sich laufen
 | Luftfeuchtigkeit Tag (%) | 75--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (oberer Zielwert + ~0.3; feuchteliebende Keimphase, niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Dunkelkeimer -- nicht lichtgesteuert; Anker offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +183,12 @@ Hinweis: Zucchini sind Dauertraeger -- nach Beginn der Bluete bilden sich laufen
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Anker offenes Tageslicht/Vollsonne im Freiland ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +205,12 @@ Hinweis: Zucchini sind Dauertraeger -- nach Beginn der Bluete bilden sich laufen
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert + ~0.4; stomataerer Kollaps deutlich oberhalb des Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Anker offenes Tageslicht/Vollsonne im Freiland ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +229,12 @@ Hinweis: Zucchini sind extrem wuchskraeftig und bilden in kurzer Zeit grosse Bla
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Anker offenes Tageslicht/Vollsonne im Freiland ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (hoher Wasserbedarf bei Fruchtbildung!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--2000 (grosse Pflanzen mit vielen Fruechten benoetigen bis zu 2L/Tag) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -208,13 +261,16 @@ Hinweis: Nach dem ersten Frost stirbt die Pflanze ab. Pflanzenreste kompostieren
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.6--1.0 | 5.8--6.5 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.6--2.2 | 5.8--6.5 | 150 | 50 | 40 | 4 |
-| Bluete/Frucht | 2-3-4 | 2.0--2.8 | 5.8--6.5 | 180 | 60 | 50 | 4 |
-| Seneszenz | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.6--1.0 | 5.8--6.5 | 80 | 30 | 20 | 2 | 0.5 | 0.2 | 0.05 | 0.05 |
+| Vegetativ | 3-1-2 | 1.6--2.2 | 5.8--6.5 | 150 | 50 | 40 | 4 | 0.8 | 0.3 | 0.1 | 0.05 |
+| Bluete/Frucht | 2-3-4 | 2.0--2.8 | 5.8--6.5 | 180 | 60 | 50 | 4 | 0.8 | 0.3 | 0.1 | 0.05 |
+| Seneszenz | 0-0-0 | 0.0 | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronaehrstoffe Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) ergaenzt; Werte aus Standard-Hydroponik-Rezepturen fuer Fruchtgemuese (UF/IFAS CV216: Mn 0.8, Zn 0.3, Cu 0.2, Mo 0.05 ppm; allgemeine Hydro-Spannen Mn 0.5--1, Zn 0.05--0.3, Cu 0.05--0.2, Mo 0.05 ppm). -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Zucchini sind echte Starkzehrer und benoetigen durchgehend hohe Naehrstoffversorgung. Calcium ist besonders wichtig waehrend der Fruchtbildung -- Calciummangel fuehrt zu Bluetenendfaeule (braune, eingesunkene Stelle am Bluetenende der Frucht). EC ueber 3.0 mS vermeiden (Salztoxizitaet).
 
@@ -472,3 +528,15 @@ Zuboda (Pötschke Historisch),Cucurbita pepo,Pötschke,,heirloom;high_yield,55,,
 10. ResearchGate -- Response of Zucchini to EC: https://www.researchgate.net/publication/276139259
 11. Food Safety News -- Cucurbitacin Poisoning: https://www.foodsafetynews.com/2024/11/scientists-highlight-zucchini-poisoning-case/
 12. igworks.com -- Hydroponic Squash and Zucchini: https://igworks.com/blogs/growing-guides/growing-hydroponic-squash-and-zucchini
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. ScienceDirect -- Base and upper temperature thresholds for GDD (zucchini Tbase 8--10 degC): https://www.sciencedirect.com/science/article/pii/S037837742500469X
+14. ResearchGate -- Estimation of base temperature & GDD at phenological stages in Cucurbita (medicinal pumpkin): https://www.researchgate.net/publication/289618684
+15. FAO -- Crop salt tolerance data (Annex 1; Squash zucchini ECe 4.9 dS/m, Slope 10.5 %, MT; Squash scallop 3.2 / 16 / MS): https://www.fao.org/4/y4263e/y4263e0e.htm
+16. USDA-ARS / M.C. Shannon & C.M. Grieve -- Tolerance of vegetable crops to salinity: https://www.ars.usda.gov/arsuserfiles/20361500/pdf_pubs/P1567.pdf
+17. FAO Irrigation and Drainage Paper 56 -- Crop evapotranspiration, Table 22 (effective rooting depth): https://www.fao.org/4/x0490e/x0490e00.htm
+18. OSU Horticulture -- Squash, Zucchini and Summer (Anbau, Boden-pH): https://horticulture.oregonstate.edu/oregon-vegetables/squash-zucchini-and-summer
+19. ASHS HortTechnology -- Far-red photons & light compensation point of leaf photosynthesis in tomato (LCP 13--36 umol/m2/s; FR-Anker): https://journals.ashs.org/view/journals/horttech/35/2/article-p186.xml
+20. Springer/Oecologia -- Cucurbita pepo zeigt keine Lichtsaettigung bis 1400 umol/m2/s (Sonnenpflanze): https://link.springer.com/article/10.1007/BF00341354
+21. MSU Extension -- Phytophthora crown rot on cucurbits (Staunaesse-Empfindlichkeit): https://www.canr.msu.edu/news/phytophthora-crown-rot-on-cucurbits-and-peppers-requires-aggressive-approach
+22. UF/IFAS CV216 -- Nutrient Solution Formulation for Hydroponic Tomatoes (Mikronaehrstoffe Mn/Zn/Cu/Mo): https://ask.ifas.ufl.edu/publication/CV216
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

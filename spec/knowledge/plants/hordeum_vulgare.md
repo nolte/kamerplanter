@@ -21,6 +21,19 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.5 | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (nur Wintergerste) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 30–45 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN --> (Langtag-quantitativ, keine scharfe Schwelle belegt) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweise §1.1:** Gerste ist ein gemäßigtes C3-Getreide (kein C4/CAM). Die GDD-Basistemperatur 4,5 °C ist die in Mitteleuropa übliche Wuchs-Basis für Wintergetreide (Weizen/Gerste/Roggen/Hafer); alternativ wird in nordamerikanischen Modellen (NDAWN/ND State) 0 °C als phänologisch best-fit-Basis verwendet — dieser 0-°C-Wert ist eine Modellkonvention, NICHT die hier eingetragene agronomische Wuchs-Basis. Gerste ist eine Langtagpflanze (long-day): Sie blüht quantitativ früher bei zunehmender Tageslänge, hat aber keine scharfe kritische Tageslänge wie ein obligater Kurztag-/Langtagblüher — daher `critical_day_length_hours` als DATEN FEHLEN markiert. Wintergerste hat eine fakultative bis obligate Vernalisationsanforderung (Kältereiz ca. 3–12 °C, Optimum ~9 °C, sortenabhängig im Mittel ~32 Tage, bis ~45 Tage); Sommergerste benötigt keine Vernalisation (`vernalization_required` daher sortentypabhängig). `dormancy_required = false`: Gerste durchläuft keine vegetative Ruhephase im Lebenszyklus; eine reine Samen-Nachreife-/Keimruhe (seed dormancy) nach der Ernte ist davon zu trennen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sommergerste: frostempfindlich; Wintergerste: winterhart bis -15°C (unter Schneedecke), ohne Schnee bis -10°C; Vernalisation (Vernalization) für Wintergerste notwendig | `species.hardiness_detail` |
@@ -28,6 +41,16 @@
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Pollenpartner erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Pollenpartner-Gruppe (pollinator group) | — (leer; Selbstbefruchter) | `species.pollinator_group` |
+| Kompatible Befruchtersorten (compatible pollinators) | — (leer; Selbstbefruchter) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Bestäubung:** Gerste ist überwiegend selbstbefruchtend (autogam, ~99 % Selbstbefruchtung; oft kleistogam = die Blüte bestäubt sich im geschlossenen Zustand). Sie ist kein Obst-Fremdbefruchter und benötigt KEINEN Pollenpartner (`requires_pollinator = false`); `pollinator_group` und `compatible_pollinators` bleiben daher leer (pomologische Kreuzbefruchtungsgruppen und Befruchtersorten sind hier nicht anwendbar). Eine geringe windvermittelte Fremdbefruchtung (0–10 %) ist möglich, spielt für die Befruchtungssicherheit aber keine Rolle.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +105,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte nährstoffarme Erde; pH 6,0–7,5; gut drainiert | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point) min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt (light compensation point) max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 100–150 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 8.0 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (% Ertragsrückgang pro dS/m) | 5.0 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweise §1.7:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist für *Hordeum vulgare* nicht aus zwei unabhängigen, art-spezifischen quantitativen Quellen belegbar und daher als DATEN FEHLEN markiert (Studien nennen für Gerste primär einen Lichtsättigungspunkt von ca. 400 µmol/m²/s sowie einen relativ — ca. 73 % — niedrigeren Kompensationspunkt als Weizen, ohne absoluten µmol-Wert für Gerste). Schattentoleranz: Gerste ist auf Vollsonne (`full_sun`, ≥ 6 h direkte Sonne) gezüchtet und braucht volles Licht für maximalen Ertrag; sie ist allerdings ein vergleichsweise schattenakklimatisierungsfähiges Getreide (physiologische Anpassung, geringere Dunkelatmung), was sie toleranter als Weizen macht — dies bleibt jedoch Freitext und ändert die Standort-Einstufung `full_sun` nicht. Effektive Wurzeltiefe nach FAO-56 (Tabelle 22) Zr = 1,0–1,5 m. Staunässe: Gerste reagiert empfindlich (`sensitive`) bereits auf kurzzeitige Vernässung (Ertragsverluste bis ~70 %). Salztoleranz nach Maas & Hoffman (1977): Schwellen-ECe 8,0 dS/m (gemessen als Substrat-ECe des Sättigungsextrakts, NICHT als Gießwasser-EC), Slope 5,0 %/dS/m, Klassifikation „tolerant" — Gerste zählt zu den salztolerantesten annuellen Kulturen; der ECe-Wert > 6 dS/m ist mit der Klasse `tolerant` konsistent. Der pH-Vorzug 6,0–7,5 ist quellentreu (Gerste bevorzugt 6,0–8,0, ist aber empfindlich gegen sauren Boden pH < 5) und mit den pH-Angaben in §1.6 und §2.3 derselben Datei harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -107,6 +148,12 @@
 | Temperatur Nacht (°C) | 4–14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 12–17 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Bestockung
@@ -120,6 +167,12 @@
 | Temperatur Nacht (°C) | 5–12 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–1.1 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–6 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Schossen
@@ -133,6 +186,12 @@
 | Temperatur Nacht (°C) | 8–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Ährenschieben / Blüte
@@ -145,6 +204,12 @@
 | Temperatur Nacht (°C) | 10–16 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–8 | `requirement_profiles.irrigation_frequency_days` |
 
 **KRITISCH — Blüte:** Spätfröste bei BBCH 49–55 (Ährenschieben) können erhebliche Ertragsausfälle verursachen. Keine Bodenatmosphäre-Kältewellen in dieser Phase.
@@ -158,17 +223,28 @@
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–55 (trocken = Qualitätserhalt) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.2–2.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–21 (Wasserreduktion) | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5–7.5 | — | — |
-| Bestockung | 3:1:2 | 0.8–1.2 | 6.5–7.5 | 80 | 30 |
-| Schossen | 3:1:2 | 1.2–1.8 | 6.5–7.5 | 100 | 40 |
-| Blüte | 1:2:2 | 1.0–1.5 | 6.5–7.5 | 80 | 40 |
-| Abreife | 0:1:2 | 0.6–1.0 | 6.5–7.5 | 60 | 25 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm)<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5–7.5 | — | — | — | — | — | — |
+| Bestockung | 3:1:2 | 0.8–1.2 | 6.5–7.5 | 80 | 30 | 20–150 | 18–70 | 4.5–15 | 0.1–2.0 |
+| Schossen | 3:1:2 | 1.2–1.8 | 6.5–7.5 | 100 | 40 | 20–150 | 18–70 | 4.5–15 | 0.1–2.0 |
+| Blüte | 1:2:2 | 1.0–1.5 | 6.5–7.5 | 80 | 40 | 20–150 | 18–70 | 4.5–15 | 0.1–2.0 |
+| Abreife | 0:1:2 | 0.6–1.0 | 6.5–7.5 | 60 | 25 | 20–150 | 18–70 | 4.5–15 | 0.1–2.0 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweise §2.3 (Mikronährstoffe):** Die Mn/Zn/Cu/Mo-Werte sind die Gewebe-Sufficiency-Bereiche (plant tissue sufficiency ranges) für Kleingetreide (Small Grain: Gerste, Hafer, Roggen, Weizen) nach SERA-6/SCSB-394 und mappen auf `nutrient_profiles.manganese_ppm` / `nutrient_profiles.zinc_ppm` / `nutrient_profiles.copper_ppm` / `nutrient_profiles.molybdenum_ppm`. Sie gelten von „Seedling to Tillering / Jointing to Flag Leaf" bis „Flag Leaf Maturity" gleich und sind daher über die Düngephasen konstant; in der Keimung erfolgt keine Düngung (—). Plausibilitätsabgleich mit MSU E-486 (Mn 30–200, Zn 30–100, Cu 8–20, Mo 0,8–5 ppm) konsistent in derselben Größenordnung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 2.4 Phasenübergangsregeln
 
@@ -232,6 +308,23 @@ Gerste reagiert sehr sensibel auf N-Überdüngung (Lagergefahr). Braugerste: Nie
 | Jun–Jul | Ernte Wintergerste | Bei Körnerfeuchte 14–15%; Drusch | hoch |
 | Jul–Aug | Ernte Sommergerste | Drusch; Nachtrocknung bei Feuchtigkeit | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung (nur Wintergerste)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | none | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11–2 (Nov–Feb) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | <!-- DATEN FEHLEN --> (Feldgetreide: Andüngung/Schröpfen, kein passender Enum-Wert) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (März) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (Freilandüberwinterung, kein Quartier) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland, natürliches Tageslicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | — (Freiland, Niederschlag) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweise §4.3:** Nur Wintergerste überwintert im Freiland; sie ist `hardy` und übersteht unter geschlossener Schneedecke bis ca. -15 °C, ohne Schnee bis ca. -10 °C (siehe §1.1 Winterhärte-Detail). Eine aktive Winterschutz-Maßnahme ist im Feldbau nicht üblich (`winter_action = none`); die natürliche Schneedecke wirkt als Isolation. Im Frühjahr erfolgt keine der im Enum {uncover|move_outdoors|replant|prune|harden_off} hinterlegten Überwinterungs-Frühjahrsaktionen — die feldbauliche Frühjahrspflege (Startgabe N, ggf. Schröpfen/Walzen) lässt sich nicht verlustfrei auf das Enum abbilden, daher DATEN FEHLEN für `spring_action`. Es gibt kein frostfreies Winterquartier (Freilandüberwinterung) — die Quartier-Felder bleiben leer. Sommergerste ist nicht winterhart (`half_hardy`, siehe §1.1) und wird nicht überwintert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -271,6 +364,17 @@ Gerste reagiert sehr sensibel auf N-Überdüngung (Lagergefahr). Braugerste: Nie
 | Saatgutbeizung | chemical | Tebuconazol | Beize | — | Brandkrankheiten, Streifenkrankheit |
 | Pyrethroid | chemical | Deltamethrin | Sprühen bei Befallsbeginn | 14 | Blattläuse, Hähnchen |
 | Resistente Sorten | cultural | — | Sortenwahl | 0 | Mehltau, Gelbrost, Netzflecken |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.5 Nützlinge (Biologische Bekämpfung — Ausbringung)
+
+| Nützling | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|---------------|-----------------|------------------|
+| Zehrwespe (Aphidius colemani) | Blattläuse (Rhopalosiphum padi, Sitobion avenae) | 0,25–4 /m² je Freilassung, 3× wiederholen | Mumien nach ca. 2–3 Wochen sichtbar |
+| Gallmücke (Aphidoletes aphidimyza) | Blattläuse (Rhopalosiphum padi, Sitobion avenae) | 1–10 /m² je Freilassung, wöchentlich bis Kontrolle | ca. 2–3 Wochen (Nachttemp. > 12 °C nötig) |
+
+**Hinweise §5.5:** Diese Augmentations-Ausbringraten und Etablierungszeiten stammen aus der kommerziellen Schutzkultur (Gewächshaus/Folientunnel) und sind hier als Orientierung gelistet — *Hordeum vulgare* ist eine Freilandkultur, in der eine flächige Nützlings-Augmentation/m² praktisch unüblich und für Feldgerste nicht als belegter Praxiswert verfügbar ist (im Feld wirken die natürlichen Antagonisten aus §5.3: Marienkäfer, *Aphidius ervi*, Laufkäfer). Fachliche Wirt-Zuordnung: *Aphidius* (Zehrwespe) und *Aphidoletes* (Gallmücke) sind Blattlaus-Antagonisten und damit den Hauptschädlingen der Gerste (Getreideblattläuse, §5.1) korrekt zugeordnet — sie wirken NICHT gegen Getreidehähnchen oder Fritfliege.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -343,3 +447,21 @@ Quench,Hordeum vulgare,"two_row;spring_barley;malting",90,certified
 3. [University of California Cooperative Extension — Barley](https://ucanr.edu) — Nährstoffbedarf, IPM
 4. [DLG Merkblätter Getreide](https://www.dlg.org) — Pflanzenschutz, Krankheiten
 5. [Saaten-Union Sortenkatalog Gerste](https://www.saaten-union.de) — Sorteneigenschaften, Brauqualität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NDAWN — Barley Growing Degree Day Information (North Dakota State University)](https://ndawn.ndsu.nodak.edu/help-barley-growing-degree-days.html) — GDD-Basistemperatur Gerste (0 °C Modellbasis; Wuchsgrenze ~5,6 °C)
+7. [Base and upper temperature thresholds for GDD — review (ScienceDirect, 2025)](https://www.sciencedirect.com/science/article/pii/S037837742500469X) — Basistemperatur 4,5 °C für Weizen/Gerste/Roggen/Hafer (Mitteleuropa)
+8. [FAO Irrigation & Drainage Paper 56, Table 22 — Single Crop Coefficients & Rooting Depth](https://www.fao.org/4/x0490e/x0490e0e.htm) — Effektive Wurzeltiefe Gerste Zr 1,0–1,5 m
+9. [FAO — Annex 1: Crop salt tolerance data (Y4263E)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz Gerste: ECe-Schwelle 8,0 dS/m, Slope 5,0 %/dS/m, „tolerant"
+10. [USDA-ARS / USDA Agriculture Handbook 60 — Plant Salt Tolerance (Maas & Hoffman 1977)](https://www.handbook60.org/hb60/plants) — Maas-Hoffman-Salztoleranzparameter Getreide
+11. [SERA-6 / SCSB-394 — Reference Sufficiency Ranges for Plant Analysis (Southern Region), Small Grain (Plank & Donohue)](https://aesl.ces.uga.edu/sera6/PUB/scsb394.pdf) — Gewebe-Sufficiency Mn 20–150, Zn 18–70, Cu 4,5–15, Mo 0,1–2,0 ppm
+12. [MSU Extension E-486 — Secondary and Micronutrients for Vegetable and Field Crops](https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486) — Plausibilitätsabgleich Mikronährstoff-Normalbereiche
+13. [Cabrera-Bosquet et al. / Wheat & barley shade acclimation (Scientific Reports 2019)](https://www.nature.com/articles/s41598-019-46027-9) — Schattentoleranz/Vollsonne, Lichtkompensationspunkt relativ zu Weizen
+14. [Wikifarmer — Barley Soil requirements](https://wikifarmer.com/library/en/article/barley-soil-preparation-soil-requirements-and-seeding-requirements) — Boden-pH-Vorzug 6,0–8,0, Empfindlichkeit gegen pH < 5
+15. [Barley waterlogging tolerance (Taylor & Francis, 2023)](https://www.tandfonline.com/doi/full/10.1080/1343943X.2023.2246215) — Staunässeempfindlichkeit (sensitive), Ertragsverlust bis ~70 %
+16. [Yamori et al. 2013 — Temperature response of photosynthesis in C3/C4/CAM (Review)](https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf) — C3-Photosynthese-T_opt gemäßigt; Gerste ~15 °C
+17. [Influence of vernalization and daylength on flowering-time genes in barley (J. Exp. Bot. 2009)](https://academic.oup.com/jxb/article/60/7/2169/684156) — Gerste = Langtagpflanze; Vernalisationsanforderung Wintergerste
+18. [Hybrids fine-tuning flowering time of winter barley (PMC 2022)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9011329/) — Vernalisations-Mindestdauer Wintergerste (~32 Tage Mittel, bis ~45 Tage)
+19. [Zhen & Bugbee — Far-red fraction metric (J. ASHS 2021)](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) — Far-Red-Fraction offenes Tageslicht/direkte Sonne ≈ 0,46–0,5
+20. [OGTR — The Biology of Hordeum vulgare L. (barley)](https://www.ogtr.gov.au/sites/default/files/2021-11/the_biology_of_hordeum_vulgare_l_barley_november_2021.pdf) — Autogamie/Selbstbefruchtung (~99 %), Kleistogamie, geringe Auskreuzung
+21. [Koppert — Aphidius colemani / Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Nützling-Ausbringraten & Etablierungszeit (Blattlaus-Antagonisten)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

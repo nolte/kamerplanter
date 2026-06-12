@@ -19,11 +19,20 @@
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> kein belegter Wuchs-/Phänologie-Basiswert für diese Zimmerpflanze auffindbar | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–25+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | Entfällt — tagneutral (day_neutral), keine kritische Tageslänge | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10°C, optimal 18–27°C. Unter 10°C Kälteschäden möglich. | `species.hardiness_detail` |
@@ -96,6 +105,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kaktus-/Sukkulentenerde oder Einheitserde mit 30–40% Perlite/Sand. Sehr durchlässig, kein Staunasser Topf. Tongefäße ideal für schnellere Austrocknung. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein artspezifischer LCP-Messwert in seriösen Quellen belegt | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein artspezifischer LCP-Messwert in seriösen Quellen belegt | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> qualitativ "high" (UF/IFAS), kein quantitativer Maas-Hoffman-ECe-Schwellenwert belegt | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Slope belegt | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweis Standortqualität:** Schatten-/Sonnentoleranz nach UF/IFAS "Part shade — prefers warm, sunny locations, but tolerates some shade; protect from hot afternoon sun", in Mitteleuropa (USDA 9–11 nur als Kübel-/Zimmerpflanze) entspricht das hellem, indirektem Licht. Hohe Salztoleranz (UF/IFAS: "Tolerance to soil and foliar salt exposure is high") qualitativ belegt, daher Klasse `tolerant`; ein quantitativer ECe-Schwellenwert (Bezugsgröße Substrat-ECe, nicht Gießwasser-EC) ist nicht publiziert. Boden-pH-Vorzug harmonisiert mit der pH-Angabe 6.0–7.0 in §2.3 (leicht sauer bis neutral). Staunässe-Toleranz `sensitive` wegen hoher Anfälligkeit für Wurzelfäule (vgl. §5.2).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -121,6 +148,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.4–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -137,16 +170,26 @@
 | Luftfeuchtigkeit Tag (%) | 25–45 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 25–45 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.4–0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 28–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Aktives Wachstum | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 20 | — | 1 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 20 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Für die Mikronährstoffe Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) liegen keine artspezifischen, zweifach belegten ppm-Zielwerte für *Dracaena trifasciata* vor. Als ausgesprochener Schwachzehrer (`light_feeder`) wird die Art mit stark verdünnter Volldüngung (1/3–1/2 Normaldosis, EC 0.4–0.8) versorgt; die im Mehrnährstoffdünger enthaltenen Mikronährstoffe genügen. Daher hier `<!-- DATEN FEHLEN -->` statt eines erfundenen Zahlenwerts. `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -216,6 +259,23 @@ Bogenhanf ist der archetypische Schwachzehrer — er speichert Nährstoffe in se
 | Okt–Feb | Winterruhe | Sehr sparsam gießen (1x/Monat oder seltener), kein Dünger | hoch |
 | Ganzjährig | Blätter reinigen | Staubige Blätter feucht abwischen (fördert Lichtaufnahme) | niedrig |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (September/Oktober, vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5–6 (nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 12–18 (min. 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; auch schwächeres Licht toleriert | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sehr sparsam, ca. 1×/Monat oder seltener | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis Überwinterung:** Nicht frosthart (USDA 9–11; in Mitteleuropa USDA 6–8 nicht winterhart). Eine im Sommer auf Balkon/Terrasse stehende Pflanze muss frostfrei im Haus überwintern (`frost_free`, nicht `dig_and_store` — es gibt keine einzulagernde Knolle). Mindesttemperatur 10°C, darunter Kälteschäden (vgl. §1.1 Winterhärte-Detail). Im Winterquartier kein Dünger, Wassergaben drastisch reduzieren, um Wurzelfäule zu vermeiden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -244,6 +304,17 @@ Bogenhanf ist der archetypische Schwachzehrer — er speichert Nährstoffe in se
 | Alkohol (70%) | mechanical | Isopropanol | Mit Wattestäbchen tupfen | 0 | Schmierläuse |
 | Systeminsektizid | chemical | Imidacloprid | Stäbchen ins Substrat | 14 | Schmierläuse |
 | Umtopfen | cultural | — | Befallene Erde komplett entfernen, Wurzeln abspülen | 0 | Wurzelschmierlaus, Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit | Hinweis |
+|----------|--------------------|----------------|--------------|------------------|---------|
+| Australischer Marienkäfer (Mealybug Destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | ca. 5–10 Käfer/m² (0.5–1/sq ft), 2–3 kleinere Freilassungen | mehrere Wochen (mehrere Generationen) | Optimal 25–29°C, 70–80% rF; mehrere Teilausbringungen besser als eine Großgabe |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | ca. 5–10 Milben/m² (0.5/sq ft), wöchentlich bei Bedarf | ca. 9 Tage bis erste Populationsreduktion | Benötigt ~70% rF im Bestand; Nachsetzen empfohlen, da Räuber nach Tilgung verhungert |
+
+**Hinweis Nützlinge:** Cryptolaemus montrouzieri ist der etablierte Gegenspieler von Weichschmierläusen (Pseudococcus), passend zum Schmierlausbefall in §5.1. Phytoseiulus persimilis bekämpft die Gemeine Spinnmilbe (Tetranychus urticae). Im Innenraum bei trockener Heizungsluft ist die für P. persimilis nötige Luftfeuchte (~70%) oft zu niedrig — dann ergänzend Luftfeuchte erhöhen oder auf Amblyseius-/Neoseiulus-Arten ausweichen. Nützlingseinsatz nicht mit chemischen Systeminsektiziden (§5.3, Imidacloprid) kombinieren.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -300,3 +371,14 @@ Futura Superba,Dracaena trifasciata,"ornamental;variegated;compact",clone
 3. [Royal Horticultural Society](https://www.rhs.org.uk/) — Botanische Einordnung, Kulturempfehlungen
 4. [World of Succulents](https://worldofsucculents.com/how-to-grow-and-care-for-sansevieria/) — Sukkulenten-Pflegeansprüche
 5. [NASA Clean Air Study (Wolverton 1989)](https://ntrs.nasa.gov/citations/19930073077) — Luftreinigungskapazität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Maréchaux et al. / ScienceDirect — Leaf succulence & Crassulacean Acid Metabolism in Sansevieria (Asparagaceae)](https://www.sciencedirect.com/science/article/abs/pii/S0367253019304931) — CAM-Photosynthese-Typ (7 von 10 untersuchten Sansevieria-Arten CAM)
+7. [UF/IFAS Environmental Horticulture — Sansevieria trifasciata Fact Sheet](https://hort.ifas.ufl.edu/shrubs/SANTRIB.PDF) — Salztoleranz (hoch), Lichtbedarf (Part shade), Standortqualität
+8. [UF/IFAS Extension Nassau County — Fact sheet: Sansevieria trifasciata](https://blogs.ifas.ufl.edu/nassauco/2017/06/10/fact-sheet-sansevieria-trifasciata/) — Lichtbedarf/Schattentoleranz, Substrat
+9. [UF/IFAS Assessment — Sansevieria trifasciata Weed Risk Assessment](https://assessment.ifas.ufl.edu/site/assets/files/4978/sansevieria_trifasciata_wra.pdf) — Standort- und Toleranzangaben
+10. [All Snake Plant — How Deep Do Snake Plant Roots Grow](https://allsnakeplant.com/how-deep-do-snake-plant-roots-grow/) — Effektive Wurzeltiefe (15–30 cm, flach, Rhizom)
+11. [Cornell CALS NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringung/Etablierung
+12. [Kansas State Research & Extension — Phytoseiulus persimilis, Biological Control Agent of the Twospotted Spider Mite (MF3665)](https://bookstore.ksre.ksu.edu/pubs/phytoseiulus-persimilis-biological-control-agent-of-the-twospotted-spider-mite_MF3665.pdf) — Ausbringrate, Etablierungszeit
+13. [ScienceDirect — Cryptolaemus montrouzieri overview](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/cryptolaemus-montrouzieri) — Marienkäfer gegen Schmierläuse, Ausbringrate
+14. [Biology Insights — Snake Plant Temperature Tolerance and Ideal Conditions](https://biologyinsights.com/snake-plant-temperature-tolerance-and-ideal-conditions/) — Optimaltemperatur 18–27/29°C, Mindesttemperatur 10°C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

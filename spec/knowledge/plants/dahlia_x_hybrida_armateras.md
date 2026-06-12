@@ -46,6 +46,15 @@
 | Nährstoffbedarf-Stufe | `heavy_feeder` (Starkzehrer — Blütendurchmesser 12–15 cm erfordert intensive P/K-Versorgung; N-Überschuss hemmt Blüte massiv) | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | `['ornamental', 'bee_friendly']` (wichtige Bienenweide im Hochsommer; ornamental als Schnittblume und Beetpflanze) | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | `c3` (krautige Staude der Asteraceae; kein C4-/CAM-Stoffwechsel — Standardweg für nahezu alle Zierstauden) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (Wuchs-GDD-Basis der Hauptwuchsphase; wärmeliebende Art mexikanischer Herkunft, Auspflanzen erst bei Bodentemperatur ≥ 15 °C, aktives Wachstum 21–27 °C — konventionelle Warm-Season-Basis; **kein artspezifischer Phänologie-Basiswert publiziert**, Wert folgt der agronomischen Warm-Season-Konvention 10 °C) | `species.base_temp` |
+| Lebensdauer (Jahre) | viele Jahre / klonal quasi unbegrenzt durch jährliche Knollenteilung; einzelne Mutterknolle nur 1–2 Jahre produktiv, Sorte überdauert durch Teilung Jahrzehnte | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Knollen durchlaufen jährlich eine Ruheperiode/Dormanz vor Wiederaustrieb; im Winterlager keine Belichtung, kaum Feuchte nötig) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropisch-subtropische Herkunft; KEIN Kältebedarf für Blühinduktion — Dormanz wird durch Kälte erzwungen, nicht physiologisch benötigt) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 12 (bezieht sich auf die Tuberisierung/Knollenbildung: Photoperiode ≤ 10–12 h fördert Knollenansatz, > 16 h hemmt ihn; Blüteninitiierung ist tagneutral bis fakultativ-kurztägig und nicht obligat photoperiodisch) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Sortenspezifische Merkmale (Cultivar Armateras):**
 
@@ -135,6 +144,22 @@ Quellen: ASPCA Toxic and Non-Toxic Plants (Dahlia — toxic to dogs and cats), W
 | Substrat-Empfehlung (Topf) | Durchlässige, nährstoffreiche Kübelpflanzenerde mit 20–30 % Perlite-Anteil; pH 6.0–7.0; kein Staunässerisiko — Ablaufloch zwingend | — |
 | Substrat-Empfehlung (Freiland) | Lockerer, humusreicher, gut durchlässiger Gartenboden; pH 6.0–7.0; schwere Tonböden mit Sand und Kompost verbessern | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 (sonnenadaptierte C3-Pflanze; Netto-Photosynthese = 0; **kein dahlienspezifischer Messwert publiziert** — Spanne aus C3-Sonnenpflanzen-Literatur, höhere Atmung als Schattenpflanzen) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 (oberes Ende für sonnenadaptierte C3-Blätter bei warmen Temperaturen; steigt mit Temperatur durch höhere Atmung) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | `full_sun` (RHS: „warm, sheltered, sunny spot"; Floret: mind. 6 h direkte Sonne täglich; in Vollschatten kein Gedeihen, in Halbschatten vergeilt und blüht spärlich) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (flaches Feeder-Wurzelsystem dicht unter der Oberfläche; Wurzeln strahlen bis ~45 cm seitlich aus, Knollen 10–15 cm tief) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | `sensitive` (RHS: „may rot in waterlogged soil"; Knollen faulen bei stehender Nässe — free-draining zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | `sensitive` (Glycophyt; Zierpflanze ohne Salztoleranz, reagiert mit Blattrand-Nekrosen und Wuchsdepression auf Salzstress) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (kein artspezifischer Maas-Hoffman-Schwellenwert a für Dahlia publiziert; qualitativ in die salzempfindliche Klasse <2 dS/m Substrat-ECe einzuordnen, aber kein belegter Zahlenwert) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Slope b für Dahlia publiziert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.0 (optimaler Vorzug leicht sauer bis neutral; liegt innerhalb der im Dokument genannten tolerierten Spanne 6.0–7.0 in §1.6/§2.3 — Vorzug ⊂ Toleranz, kein Widerspruch) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -169,6 +194,12 @@ Knolle treibt nach dem Auspflanzen aus. Kein Gießen bis erste Triebe sichtbar �
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomatären Kollaps, deutlich oberhalb des Zielkorridors; feuchteliebende Austriebsphase → niedrigere Schwelle als spätere Phasen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude mit normalem stomatärem Regelverhalten; weiches Jungtriebgewebe reagiert empfindlich auf Trockenstress) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (C3-Optimum der Netto-CO₂-Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne; Zhen & Bugbee: direkte Solarstrahlung ≈ 0.46–0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland-Ambientwert) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 0 (NICHT gießen bis Austrieb sichtbar!) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0 (erst nach erstem Triebdurchbruch minimal gießen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -187,6 +218,12 @@ Intensive Wachstumsphase, Laubaufbau. Entspitzen (Pinching) bei 30–40 cm.
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ~0.4 kPa; stomatärer Kollaps bei kräftigem Laubaufbau) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; üppiges weiches Laub bei guter N-Versorgung trockenstressempfindlich) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (C3-Optimum der Netto-CO₂-Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne; Zhen & Bugbee ≈ 0.46–0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (nach Bedarf; Fingertest: obere 5 cm trocken = gießen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 (je nach Topfgröße/Freiland) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -205,6 +242,12 @@ Knospenansatz, wichtige Phase für Blütenqualität. Erster Düngereinsatz mit F
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert + ~0.4 kPa; etabliertes Gewebe toleriert höhere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; stabile Knospenphase, aber Trockenstress mindert Knospenqualität) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (C3-Optimum der Netto-CO₂-Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne; Zhen & Bugbee ≈ 0.46–0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 (Wasserbedarf steigt durch Knospenentwicklung) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 750–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -223,6 +266,12 @@ Hauptblühzeit mit kontinuierlichem Deadheading. Höchster Wasserverbrauch. Rege
 | Luftfeuchtigkeit Tag (%) | 45–65 (zu hohe Luftfeuchte fördert Botrytis in Blüten!) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (oberer Zielwert + ~0.4 kPa; höchste Toleranzschwelle der Vollblühphase, darüber stomatärer Kollaps und Blüten-/Knospenabwurf) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; bei extremer Hitze/Trockenheit Blütenschäden, aber kein CAM-Schutzmechanismus) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (C3-Optimum der Netto-CO₂-Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne; Zhen & Bugbee ≈ 0.46–0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–3 (heiße Sommertage: täglich; Daumen-/Fingertest entscheidend) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 (stark abhängig von Temperatur und Topfgröße) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -241,6 +290,12 @@ Pflanze zieht nach erstem Frost ein. Knollen weiter reifen lassen, dann ausgrabe
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | null (nicht anwendbar — Knollen ohne aktiven Gaswechsel; kein Steuerungsparameter) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | null (nicht anwendbar — Pflanze zieht ein, kein aktiver stomatärer Gaswechsel mehr) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `low` (einziehende/seneszente Pflanze; physiologische Aktivität minimal, Trockenheit sogar erwünscht für Knollenreife) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 (C3-Optimum, nur für verbleibendes aktives Restlaub relevant) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne; Zhen & Bugbee ≈ 0.46–0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (stark reduziert; Knollenreifung wird durch Trockenheit gefördert) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -256,6 +311,20 @@ Pflanze zieht nach erstem Frost ein. Knollen weiter reifen lassen, dann ausgrabe
 | Seneszenz & Knollenreife | 0:0:0 (kein Dünger — Reifung ohne zusätzliche Nährstoffe) | 0.0 | 6.0–7.0 | — | — | — | — |
 
 **Wichtigster Grundsatz:** Zu viel Stickstoff (N) ist der häufigste Düngungsfehler bei Dahlien. Übermäßiges N führt zu üppigem, weichem Laub, schwachen Stängeln, wenigen oder gar keinen Blüten und schlecht gelagerten Knollen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Knollenaustreibung | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetatives Wachstum | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Knospenbildung | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Seneszenz & Knollenreife | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+Hinweis: Für *Dahlia pinnata* sind keine art- bzw. phasenspezifischen Sollwerte (ppm) für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) in seriösen Quellen (Extension/peer-reviewed) publiziert. Die Mikronährstoffversorgung erfolgt in der Praxis über ausgewogene Volldünger/organische Grunddüngung; daher hier `<!-- DATEN FEHLEN -->` statt erfundener Zahlenwerte (KA-Felder `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -557,3 +626,19 @@ Dahlien-Knollen folgen einem klar strukturierten 6-Phasen-Jahreszyklus, der in R
 15. [Epic Gardening — Dahlia Companion Plants](https://www.epicgardening.com/dahlia-companion-plants/) — Mischkultur-Analyse
 16. [Greg App — Dahlia Lifecycle](https://greg.app/dahlias-lifecycle/) — Wachstumsphasen-Überblick
 17. [Wag Walking — Dahlia Poisoning in Cats](https://wagwalking.com/cat/condition/dahlia-poisoning-1) — Symptome Dahlia-Vergiftung Katzen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+18. [MSU Extension — Reducing time to flower in dahlias](https://www.canr.msu.edu/news/reducing-time-to-flower-in-dahlias) — Dahlien als tagneutral/fakultativ-kurztägig; Photoperiode und Blütezeit
+19. [Dahlia Doctor — How Temperature & Day Length Impact Dahlia Growth & Tubers](https://www.dahliadoctor.com/blogs/second-blog/timing-is-everything-how-temperature-and-day-length-affect-dahlia-growth-and-tuber-formation) — Tuberisierung kurztaggesteuert (10–12 h fördert, >16 h hemmt); Temperaturoptimum Knollenbildung
+20. [Epic Gardening — Do Dahlias Like Full Sun, Partial Shade?](https://www.epicgardening.com/dahlias-sun-or-shade/) — Sonnenbedarf 6–8 h, flaches Feeder-Wurzelsystem (~45 cm seitlich), Staunässe-Intoleranz
+21. [Longfield Gardens — What Soil Do Dahlias Grow Best In?](https://www.longfield-gardens.com/blogs/dahlia-care/what-soil-do-dahlias-grow-best-in) — Boden-pH-Vorzug 6.5–7.0
+22. [Greeny Gardener — pH For Dahlias](https://greenygardener.com/ph-for-dahlias/) — pH-Vorzug 6.5–7.0 (Zweitbeleg)
+23. [Longfield Gardens — Soil Temperature for Planting / Temperature to Grow Dahlias](https://www.longfield-gardens.com/blogs/dahlia-care/what-temperature-do-dahlias-need-to-grow) — Min-Bodentemperatur 15 °C, aktives Wachstum 21–27 °C (Warm-Season-Einordnung, GDD-Basis)
+24. [Longfield Gardens — How Many Years Do Dahlia Tubers Last?](https://www.longfield-gardens.com/blogs/dahlia-care/how-many-years-do-dahlia-tubers-last) — Knollen-Lebensdauer, klonale Vermehrung über Jahrzehnte durch Teilung
+25. [Longfield Gardens — Are Dahlia Plants Annuals or Perennials? / Winter dormancy](https://www.longfield-gardens.com/blogs/dahlia-care/are-dahlia-plants-perennials-or-annuals) — Dormanz erforderlich, KEINE Vernalisation (tropische Herkunft)
+26. [Zhen & Bugbee (2022), New Phytologist — Photosynthesis in sun and shade: the surprising importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — FR-Fraction direkter Solarstrahlung ≈ 0.46–0.5
+27. [Wiley/PCE — The temperature response of C3 and C4 photosynthesis (Sage & Kubien 2007)](https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-3040.2007.01682.x) — C3-Photosynthese-Optimum 25–30 °C
+28. [ScienceDirect — Compensation Point overview](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — Lichtkompensationspunkt sonnenadaptierter C3-Pflanzen ~20–50 µmol/m²/s
+29. [Frontiers in Plant Science — Response of ornamental plants to salinity](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12343571/) — Salztoleranz-Klassifikation Zierpflanzen (sensitive 0–3 dS/m ECe); Glycophyten salzempfindlich
+30. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Vollsonne, free-draining, „may rot in waterlogged soil" (Sonnen-/Staunässe-Beleg)
+31. [Floret Flowers — How to Grow Dahlias](https://www.floretflowers.com/resources/how-to-grow-dahlias/) — Vollsonne mind. 6 h, free-draining (Zweitbeleg Sonne/Drainage)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

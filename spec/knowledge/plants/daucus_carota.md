@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, Johnny's Seeds, NCSU Extension, UF/IFAS Extension, Plantura, fryd.app, Hortipendium, Mein schoener Garten, Gartenjournal, Old Farmer's Almanac, DeepGreen Permaculture
+> **Quellen:** ASPCA, Johnny's Seeds, NCSU Extension, UF/IFAS Extension, Plantura, fryd.app, Hortipendium, Mein schoener Garten, Gartenjournal, Old Farmer's Almanac, DeepGreen Permaculture, MDPI Plants, FAO (Salztoleranz), Wikipedia (Salt tolerance of crops), GrowVeg
 
 ---
 
@@ -20,7 +20,17 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial (Speicherwurzel im 1. Jahr, Bluete/Samenbildung im 2. Jahr; wird als einjaehrig kultiviert) | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day (Langtagspflanze -- laengere Tage foerdern vegetatives Wachstum; Vernalisation + Langtag loest Bluete im 2. Jahr aus) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral (tagneutral -- die Bluete wird durch Vernalisation/Kaeltereiz induziert, NICHT durch die Tageslaenge; peer-reviewed bestaetigt: post-vernalisation day length nicht entscheidend. In der Literatur wurde die Moehre kontrovers als Langtag- ODER Tagneutralpflanze beschrieben; massgeblich ist der Vernalisationsbedarf) | `lifecycle_configs.photoperiod_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (Apiaceae, kuehlliebendes C3-Gemuese) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 4.5 (Wuchs-GDD-Basis der Hauptwuchsphase; belegter Bereich 4--6 degC fuer Moehre -- kuehlliebende Kultur. NICHT die Keim-Basistemperatur) | `species.base_temp` |
+| Dormanz erforderlich | false (kein Dormanzbruch noetig) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (Kaeltereiz < 10 degC loest die Bluete im 2. Jahr aus) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 42 (ca. 6--8 Wochen bei 2--5 degC / < 10 degC; genotypabhaengig) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (tagneutral -- keine kritische Tageslaenge; Bluete vernalisationsgesteuert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Saemlinge vertragen leichte Froeste bis -3 degC. Reife Moehren koennen bei Abdeckung (Mulch/Vlies) bis -8 degC im Boden verbleiben. Starker Dauerfrost zerstoert die Wurzeln. | `species.hardiness_detail` |
@@ -102,6 +112,24 @@ Hinweis: Kein Rueckschnitt noetig. Kraut nicht abschneiden, da die Pflanze es fu
 
 **Hinweis:** Moehren bevorzugen lockere, sandige Lehmboeden. Schwere Tonboeden und Steine verursachen verkrueppelte, gespaltene Wurzeln. Frische Stallmistduengung vermeiden -- foerdert Beinigkeit (verzweigte Wurzeln) und lockt Moehrenfliegen an.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: keine zwei unabhaengigen carrot-spezifischen Messwerte fuer den Lichtkompensationspunkt auffindbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (volle Sonne, mind. 6 h direktes Sonnenlicht fuer kraeftige Wurzeln; vertraegt etwas Schatten, aber nicht optimal) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--60 (medium-rooted; aktive Bewaesserungs-/Wurzelzone. Boden mind. 30 cm tief lockern, fuer lange Sorten bis ~46 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive (gute Drainage essenziell; staunasse Boeden verursachen Wurzelfaeule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.0 (Maas-Hoffman a; Bezugsgroesse Substrat-ECe im Wurzelraum, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 14 (Maas-Hoffman b; 14% Ertragsrueckgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.8 (leicht sauer bis neutral; harmoniert mit pH 6.0--7.0 in 1.6/2.3) | `species.soil_ph_preference` |
+
+Hinweis: Die Moehre ist salzempfindlich (sensitive) -- bereits ab einer Substrat-Leitfaehigkeit (ECe) von 1.0 dS/m sinkt der Ertrag um ca. 14% je weiterer dS/m (Maas & Hoffman). Die hier genannte effektive Wurzeltiefe ist die agronomisch aktive Zone der Wasseraufnahme; einzelne Wurzeln koennen unter guenstigen Bedingungen deutlich tiefer reichen (in Studien > 1 m).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -131,6 +159,12 @@ Hinweis: Moehren werden im 1. Kulturjahr vor der Bluete geerntet (Speicherwurzel
 | Luftfeuchtigkeit Tag (%) | 70--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- <!-- DATEN FEHLEN: keine carrot-spezifische VPD-Kollaps-Schwelle aus zwei serioesen Quellen; zudem Freiland-Direktsaat ohne VPD-Steuerung --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Gemuese; feuchteliebende Keimphase) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 13--18 (kuehlliebende Keim-/Fruehphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein belegter carrot-spezifischer Wert --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (Boden feucht halten bis Keimung!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--20 (feiner Spruehstrahl, Samen nicht ausschwemmen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -149,6 +183,12 @@ Hinweis: Moehren keimen langsam (10--21 Tage). Boden MUSS in dieser Zeit gleichm
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- <!-- DATEN FEHLEN: keine carrot-spezifische VPD-Kollaps-Schwelle aus zwei serioesen Quellen; Freiland --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Gemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 (kuehlliebende Kultur) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein belegter carrot-spezifischer Wert --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -167,6 +207,12 @@ Hinweis: Vereinzeln auf 3--5 cm Abstand, sobald die Pflanzen 3--5 cm hoch sind. 
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- <!-- DATEN FEHLEN: keine carrot-spezifische VPD-Kollaps-Schwelle aus zwei serioesen Quellen; Freiland --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Gemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (agronomischer Optimumbereich der Wurzelbildung; Wuchsoptimum 15.5--21 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein belegter carrot-spezifischer Wert --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (gleichmaessig, nicht schwankend) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -185,6 +231,12 @@ Hinweis: Gleichmaessige Wasserversorgung ist entscheidend. Schwankungen (trocken
 | Luftfeuchtigkeit Tag (%) | -- (natuerlich) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | -- | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- <!-- DATEN FEHLEN: keine carrot-spezifische VPD-Kollaps-Schwelle aus zwei serioesen Quellen; Freiland --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Gemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 13--18 (kuehle Endphase foerdert Zuckereinlagerung und Lagerfaehigkeit) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein belegter carrot-spezifischer Wert --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (vor Ernte 2--3 Tage nicht giessen fuer bessere Lagerfaehigkeit) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 (reduziert) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -201,6 +253,19 @@ Hinweis: Erntezeitpunkt nach Sortenbeschreibung. Bundmoehren koennen ab ca. 60 T
 | Ernte | 0-1-2 | 0.6--1.0 | 6.0--6.8 | 80 | 35 | 25 | 2 |
 
 Hinweis: Moehren sind Mittelzehrer. Stickstoff-Ueberangebot foerdert ueppiges Kraut auf Kosten der Wurzelbildung und verschlechtert Lagerf aehigkeit. Kalium ist der wichtigste Naehrstoff fuer die Wurzelentwicklung (Geschmack, Farbe, Lagerfaehigkeit). Frischen Stallmist vermeiden -- foerdert Beinigkeit und Moehrenfliege.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (Mn/Zn/Cu/Mo):**
+
+| Mikronaehrstoff | Wert (ppm) | KA-Feld |
+|----------------|-----------|---------|
+| Mangan (Mn) | -- <!-- DATEN FEHLEN: keine zwei unabhaengigen carrot-spezifischen Gewebe-Sufficiency-Werte auffindbar --> | `nutrient_profiles.manganese_ppm` |
+| Zink (Zn) | -- <!-- DATEN FEHLEN --> | `nutrient_profiles.zinc_ppm` |
+| Kupfer (Cu) | -- <!-- DATEN FEHLEN --> | `nutrient_profiles.copper_ppm` |
+| Molybdaen (Mo) | -- <!-- DATEN FEHLEN --> | `nutrient_profiles.molybdenum_ppm` |
+
+Hinweis: Carrot-spezifische Sufficiency-Bereiche fuer Mn/Zn/Cu/Mo liessen sich nicht aus zwei unabhaengigen serioesen Quellen (Extension-Gewebeanalyse) belegen und bleiben daher offen. Fachlich praxisrelevanter ist bei Moehren der Bor-Bedarf (Bor-Mangel -> Risse/Hohlraeume in der Wurzel, siehe 3.4) sowie ein Mn/Cu-Mangelrisiko bei pH > 7.5.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -422,7 +487,7 @@ Moehren haben je nach Cultivar unterschiedliche Resistenzen, besonders gegen Alt
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat
-Daucus carota subsp. sativus,Moehre;Karotte;Mohrrube;Gelbe Ruebe;Carrot,Apiaceae,Daucus,biennial,long_day,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b,0.1,"Europa, Westasien"
+Daucus carota subsp. sativus,Moehre;Karotte;Mohrrube;Gelbe Ruebe;Carrot,Apiaceae,Daucus,biennial,day_neutral,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b,0.1,"Europa, Westasien"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -453,3 +518,14 @@ Rodelika,Daucus carota,Bingenheim,,high_yield;heirloom,100,,open_pollinated
 9. Hortipendium -- Moehren: https://www.hortipendium.de/Moehren
 10. Old Farmer's Almanac -- Carrots: https://www.almanac.com/plant/carrots
 11. StonePost Gardens -- What to Plant After Carrots: https://stonepostgardens.com/what-to-plant-after-carrots/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. MDPI Plants (2022) -- "Vernalization Requirement, but Not Post-Vernalization Day Length, Conditions Flowering in Carrot (Daucus carota L.)": https://www.mdpi.com/2223-7747/11/8/1075 -- Beleg fuer Photoperiode day_neutral (vernalisationsgesteuerte Bluete, Tageslaenge nicht massgeblich)
+13. Nature Scientific Reports (2020) -- "The Response of COL and FT Homologues to Photoperiodic Regulation in Carrot": https://www.nature.com/articles/s41598-020-66807-y -- Beleg fuer kontroverse Langtag-/Tagneutral-Einstufung
+14. FAO -- Annex 1: Crop salt tolerance data (Maas & Hoffman): https://www.fao.org/4/y4263e/y4263e0e.htm -- Beleg fuer Salztoleranz: ECe-Schwelle 1.0 dS/m, Slope 14%/dS/m, Rating sensitive
+15. Wikipedia -- Salt tolerance of crops (Maas 1986, Carrot 1.0 dS/m / 14%): https://en.wikipedia.org/wiki/Salt_tolerance_of_crops -- zweite Quelle Salztoleranz
+16. ScienceDirect (2025) -- "Base and upper temperature thresholds for GDD (FAO56rev) review": https://www.sciencedirect.com/science/article/pii/S037837742500469X -- Beleg GDD-Basistemperatur Moehre 4--6 degC
+17. GrowVeg -- Vegetable Root Depths Revealed: https://www.growveg.com/guides/vegetable-root-depths-revealed-use-this-guide-to-make-smarter-planting-decisions/ -- Beleg effektive Wurzeltiefe (medium-rooted, ~46 cm)
+18. Epic Gardening -- How to Vernalize Carrots / GroEat Vernalization: https://www.epicgardening.com/vernalizing-carrots/ -- Beleg Vernalisation 6--8 Wochen < 10 degC
+19. Greg / The Corner Plot -- Optimal Temperature for Carrots (15.5--21 degC): https://thecornerplot.blog/2023/05/27/carrots-and-the-ideal-growing-temperature-what-you-need-to-know/ -- Beleg Photosynthese-/Wuchs-T_opt
+20. Old Farmer's Almanac / Garden Tutor -- Carrot soil pH 6.0--6.8: https://www.almanac.com/plant-ph -- Beleg Boden-pH-Vorzug
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
