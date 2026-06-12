@@ -13,6 +13,17 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    server: {
+      deps: {
+        // @mui/material's Transition.mjs (MUI 9.1.1+) does an extensionless
+        // directory import of react-transition-group, which ships no
+        // "exports" map. Vitest's Node ESM resolver rejects that, while the
+        // Vite build resolves it fine. Inlining the @mui packages and
+        // react-transition-group routes them through Vitest's transform
+        // pipeline, which resolves the import the same way the build does.
+        inline: [/@mui\//, 'react-transition-group'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
