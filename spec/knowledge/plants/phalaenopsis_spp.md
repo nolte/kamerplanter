@@ -290,7 +290,7 @@ Phalaenopsis ist nicht winterhart (frost_sensitivity = tender) und wird in Mitte
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Bewertung | red (muss frostfrei im Haus überwintern; RHS-Härtegrad H1b = Mindesttemperatur 10–15 °C) | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Bewertung | frost_free (muss frostfrei/warm im Haus überwintern, RHS-Härtegrad H1b = Mindesttemperatur 10–15 °C; UI-Ampel = rot) | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors (ganzjährig drinnen; falls im Sommer am geschützten Standort draußen, spätestens bei Nachttemperatur < 15 °C hereinholen) | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 9 (September) | `overwintering_profiles.winter_action_month` |
 | Frühjahrs-Maßnahme | resume_warmth (nach der Blüte zurück zu warmem Standort 21–27 °C Tag; ggf. Umtopfen) | `overwintering_profiles.spring_action` |
