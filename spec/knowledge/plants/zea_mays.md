@@ -29,6 +29,15 @@
 | Naehrstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c4 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutrale Kultursorten; kein Kurztag-Trigger) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Besonderheit C4-Photosynthese:** Mais nutzt den C4-Photosyntheseweg (im Gegensatz zum C3-Weg der meisten Gemuese). C4-Pflanzen sind deutlich effizienter bei hoher Lichtintensitaet, Hitze und trockenem Wetter. Mais kann bei 1000–2000 µmol/m²/s PPFD noch effektiv photosynthetisieren (kein Lichtsaettigungspunkt wie bei C3-Pflanzen).
 
@@ -97,7 +106,25 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Rankhilfe/Stuetze noetig | false (standfest; aber bei Sturm unterstuetzen: Anhaeufen um Stumpf) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | — (keine Topfkultur empfohlen) | -- |
 
-**Freiland-Substrat:** Tiefgruendiger, warmer Boden mit guter Wasserspeicherung und Drainage. pH 6.0–7.0. Humusreicher Lehmboden ist ideal. Sandige Boeden benoetigen mehr Waesserung und Duengung.
+**Freiland-Substrat:** Tiefgruendiger, warmer Boden mit guter Wasserspeicherung und Drainage. pH 6.0–6.8 (siehe §1.7). Humusreicher Lehmboden ist ideal. Sandige Boeden benoetigen mehr Waesserung und Duengung.
+
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 6 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 14 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 60–100 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 1.7 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 12 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.8 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**Hinweise §1.7:** Mais ist eine C4-Vollsonnenpflanze (full_sun) und reagiert empfindlich auf Lichtmangel/Beschattung im Bestand; der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt artbedingt niedrig bei ca. 6–14 µmol/m²/s, das Sättigungs-Optimum dagegen sehr hoch (kein C3-typischer Sättigungspunkt, vgl. §1.1). Rund 95 % der Wurzelmasse liegen in 0–60 cm; einzelne Wurzeln reichen bis ~120–150 cm (vgl. §4.1). Staunässe ist kritisch — Mais ist ein Trockenfeldkulturgewächs. Salztoleranz nach Maas-Hoffman: ECe-Schwelle 1.7 dS/m (bezogen auf den Substrat-Sättigungsextrakt ECe, NICHT auf die Gießwasser-EC), Slope ca. 12 % Ertragsverlust je dS/m oberhalb der Schwelle (Süßmais ~11.5 %), Einstufung moderately_sensitive.
 
 ---
 
@@ -130,6 +157,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 (Boden gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 (Bereich um Saatkorn) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -146,6 +179,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -162,6 +201,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 30–35 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 (tiefgruendig; 30–40 cm tief) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -178,6 +223,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–33 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (kritische Phase; Wasserdefizit = Luecken im Kolben) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -196,20 +247,32 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 26–32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 800–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Saemling | 2:1:1 | 0.5–0.8 | 6.0–7.0 | 80 | 30 | 15 | 2 |
-| Vegetativ | 4:1:2 | 1.0–1.8 | 6.0–7.0 | 150 | 50 | 25 | 3 |
-| Bestaeubing | 3:2:3 | 1.2–2.0 | 6.0–7.0 | 130 | 60 | 25 | 2 |
-| Kolbenbildung | 1:2:4 | 1.0–1.6 | 6.0–7.0 | 100 | 50 | 20 | 2 |
-| Reife | 0:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 30 | 15 | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Saemling | 2:1:1 | 0.5–0.8 | 6.0–7.0 | 80 | 30 | 15 | 2 | 0.5 | 0.5 | 0.1 | 0.02 |
+| Vegetativ | 4:1:2 | 1.0–1.8 | 6.0–7.0 | 150 | 50 | 25 | 3 | 1.5 | 1.5 | 0.3 | 0.05 |
+| Bestaeubing | 3:2:3 | 1.2–2.0 | 6.0–7.0 | 130 | 60 | 25 | 2 | 1.5 | 2.0 | 0.3 | 0.05 |
+| Kolbenbildung | 1:2:4 | 1.0–1.6 | 6.0–7.0 | 100 | 50 | 20 | 2 | 1.0 | 1.0 | 0.2 | 0.05 |
+| Reife | 0:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 30 | 15 | 1 | 0.5 | 0.5 | 0.1 | 0.02 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoff-Hinweis:** Typische Zielwerte in Naehrloesung/Boden fuer Mais: Mangan (Mn) 0.5–2 ppm, Zink (Zn) 0.5–2 ppm, Kupfer (Cu) 0.1–0.5 ppm, Molybdaen (Mo) 0.02–0.05 ppm. Zink ist der praxisrelevanteste Mikronaehrstoff bei Mais (Zn-Mangel = weiss-gestreifte Blaetter, vgl. §3.3).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Stickstoff-Bedarf:** Mais hat den hoechsten N-Bedarf aller haeufigen Gartengemuese. Ca. 200–250 kg N/ha im Landwirtschaftsmassstab. Im Hausgarten entspricht dies ca. 20–25 g N/m².
 
@@ -416,7 +479,7 @@ Die Drei-Schwestern-Mischkultur ist das bekannteste und wirkungsvollste Mischkul
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level
-Zea mays,Mais;Zuckermais;Maize;Sweet Corn,Poaceae,Zea,annual,short_day,herb,fibrous,2a–10b,0.1,Mesoamerika,no,—,50,150–250,30–50,30–40,no,no,false,false,heavy_feeder
+Zea mays,Mais;Zuckermais;Maize;Sweet Corn,Poaceae,Zea,annual,day_neutral,herb,fibrous,2a–10b,0.1,Mesoamerika,no,—,50,150–250,30–50,30–40,no,no,false,false,heavy_feeder
 ```
 
 ### 9.2 Cultivar CSV-Zeilen
@@ -441,3 +504,16 @@ Noa (suedtirol),Zea mays,85–95,yellow;field_corn;regional,open_pollinated,Regi
 5. Meine-Ernte — Zuckermais anbauen, pflegen, ernten und lagern — https://www.meine-ernte.de/pflanzen-a-z/gemuese/zuckermais/
 6. Gartenpaten — Mais vom Kern zum Kolben — https://www.gartenpaten.org/tipps-tricks/mais-vom-kern-zum-kolben
 7. Wikipedia — Maize/Zea mays — https://en.wikipedia.org/wiki/Maize
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. Bayer Crop Science US — Corn Growth Stages and GDU Requirements (GDD-Basistemperatur 10°C / 50°F) — https://www.cropscience.bayer.us/articles/bayer/corn-growth-stages-and-gdu-requirements
+9. NDSU NDAWN — Corn Growing Degree Days Help (Basistemperatur 10°C, Cutoff 30°C) — https://ndawn.ndsu.nodak.edu/help-corn-growing-degree-days.html
+10. USDA-ARS — Salt sensitivity of corn at various growth stages (Maas-Hoffman ECe-Schwelle 1.7 dS/m, Slope ~12 %) — https://www.ars.usda.gov/arsuserfiles/20361500/pdf_pubs/P780.pdf
+11. Wikipedia — Salt tolerance of crops (Mais moderately sensitive, ECe 1.7 dS/m, 12 %/dS/m) — https://en.wikipedia.org/wiki/Salt_tolerance_of_crops
+12. UNL Extension (G2245) — Corn Soil-Water Extraction and Effective Rooting Depth (~95 % Wurzeln in 0–60 cm, effektiv bis ~100 cm) — https://extensionpubs.unl.edu/publication/g2245/2014/html/view
+13. Lund et al. 2014, PMC4085954 — Acclimation of C4 metabolism to low light in maize (Lichtkompensationspunkt C4 ~6–14 µmol/m²/s, Schattenempfindlichkeit) — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4085954/
+14. Wikifarmer — Maize Soil Requirements (Boden-pH 6.0–6.8) — https://wikifarmer.com/maize-soil-preparation-soil-requirements-and-seeding-requirements/
+15. Bayer Crop Science US — High pH and Salt Issues in Corn (optimaler Boden-pH 5.8–6.8) — https://www.cropscience.bayer.us/articles/bayer/high-ph-and-salt-issues-in-corn
+16. PMC166765 — Sensitivity of Photosynthesis in a C4 Plant, Maize, to Heat Stress (Photosynthese-Optimum warm, Hemmung > ~38°C) — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC166765/
+17. Frontiers in Plant Science 2020 (fpls.2020.581156) — Far-Red und PAR-Definition (FR-Fraction ~0.46 direkte Sonne bei R:FR ~1.2) — https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.581156/full
+18. Envirevo Agritech — Optimizing Hydroponic Nutrient Requirements (Mikronaehrstoff-Zielwerte Mn/Zn/Cu/Mo) — https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

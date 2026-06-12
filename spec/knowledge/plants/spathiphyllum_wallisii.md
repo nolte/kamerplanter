@@ -18,6 +18,9 @@
 | Gattung | Spathiphyllum | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | -- | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -25,6 +28,10 @@
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN: tagneutrale Art (photoperiod_type=day_neutral), kein Kurztag-/Langtag-Schwellenwert vorhanden --> | `lifecycle_configs.critical_day_length_hours` |
+| GDD-Basistemperatur (base temp, C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phaenologie-GDD-Basiswert fuer Spathiphyllum in der Literatur. Tropische Art ohne Kaeltetoleranz; Wachstum bereits bei ca. 13 C unterdrueckt, Kaelteschaden < 10 C (UF/IFAS EP101, EP161) -- diese Werte sind jedoch Schadens-/Mindesttemperaturen, KEINE belegte GDD-Wuchsbasis --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10b, 11a, 11b, 12a, 12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | sensitive | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 13 C, optimal 18-24 C. Kaelteschaden ab unter 10 C. | `species.hardiness_detail` |
@@ -106,6 +113,28 @@
 
 **Hinweis:** Spathiphyllum ist eine ideale Zimmerpflanze fuer schattige bis halbschattige Standorte. Sie eignet sich besonders fuer Badezimmer (hohe Luftfeuchtigkeit). Der Topf sollte nicht zu gross gewaehlt werden -- leicht eingeengte Wurzeln foerdern die Bluete. Umtopfen nur wenn die Wurzeln den Topf vollstaendig ausfuellen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.8 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD umol/m2/s) | 3 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 9 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | deep_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15--25 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | moderate | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | <!-- DATEN FEHLEN: keine Maas-Hoffman-Saettigungsextrakt-Schwelle (ECe) fuer diese Zierpflanze publiziert. Belegt ist nur eine Substrat-Bodenloesungs-Schwelle (soluble salts, pour-through): Toxizitaet ab 3 dS/m, Pflege-Korridor 0.8-1.2 dS/m (UF/IFAS EP161) -- das ist NICHT die ECe-Bezugsgroesse und darf nicht als Maas-Hoffman a uebernommen werden --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope fuer Spathiphyllum publiziert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 5.5--6.5 (leicht sauer; NCSU "Acid <6.0", weitere Quellen 5.8-6.5; harmonisiert mit SS1.6/SS2.3) | `species.soil_ph_preference` |
+
+**Hinweis (Lichtkompensationspunkt):** Nach Akklimatisierung an Innenraum-Lichtniveaus liegt der Lichtkompensationspunkt von *Spathiphyllum wallisii* 'Mauna Loa' unter 9 umol/m2/s PPFD (Giorgioni & Neretti, ISHS Acta Hortic. 881). Der hier angegebene Wert ist ausschliesslich der Kompensationspunkt (Netto-Photosynthese = 0); Saettigungs-/Optimumwerte sind nicht eingeschlossen. Der sehr niedrige Kompensationspunkt belegt die ausgepraegte Tiefschatten-Vertraeglichkeit (Understory-Art).
+
+**Hinweis (Staunaesse):** Spathiphyllum waechst in der Natur an Bach- und Flussufern sowie in feuchten Waldsenken auf "feuchtem, aber sauerstoffreichem" Boden -- vertraegt also gleichmaessige Feuchte und kurzzeitige Vernaessung, reagiert aber bei dauerhafter Staunaesse mit Wurzel-/Rhizomfaeule (Klasse moderate, NICHT tolerant). Sub-Irrigation wird in der kommerziellen Produktion ausdruecklich empfohlen (Missouri Botanical Garden, UF/IFAS).
+
+**Hinweis (Salz):** Sehr salzempfindlich -- hohe loesliche Salze verursachen rasch Blattrand-/Blattspitzennekrosen. Bezugsgroesse fuer die EC-Schwellenwerte ist die Substrat-Bodenloesung (pour-through), nicht der Gieswasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -141,6 +170,12 @@ Spathiphyllum wallisii ist eine perenniale Zimmerpflanze. Sie kann Indoor zur Bl
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 4-5 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100-200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 24-26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6-0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Aktives Wachstum (Maerz-Oktober)
 
@@ -158,6 +193,12 @@ Spathiphyllum wallisii ist eine perenniale Zimmerpflanze. Sie kann Indoor zur Bl
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 150-400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 25-28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Bluete (Flowering)
 
@@ -175,6 +216,12 @@ Spathiphyllum wallisii ist eine perenniale Zimmerpflanze. Sie kann Indoor zur Bl
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 150-400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 25-28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5-0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Ruheperiode (November-Februar)
 
@@ -192,6 +239,12 @@ Spathiphyllum wallisii ist eine perenniale Zimmerpflanze. Sie kann Indoor zur Bl
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 7-10 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100-250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6-0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.3 Naehrstoffprofile je Phase
 
@@ -201,6 +254,21 @@ Spathiphyllum wallisii ist eine perenniale Zimmerpflanze. Sie kann Indoor zur Bl
 | Aktives Wachstum | 3:1:2 | 0.4-0.8 | 5.5-6.5 | 40 | 20 | -- | 1 |
 | Bluete | 2:3:2 | 0.4-0.8 | 5.5-6.5 | 40 | 25 | -- | 1 |
 | Ruheperiode | 0:0:0 | 0.0 | 5.5-6.5 | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe je Phase (ppm in der Naehrloesung)**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Etablierung | -- | -- | -- | -- |
+| Aktives Wachstum | 0.5 | 0.05 | 0.02 | 0.01 |
+| Bluete | 0.5 | 0.05 | 0.02 | 0.01 |
+| Ruheperiode | -- | -- | -- | -- |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`.
+
+**Hinweis (Mikronaehrstoffe):** Die Werte folgen der Standard-Hoagland-Spurenelementbasis (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm), die fuer schwachzehrende Zierlaubpflanzen passend ist. Spathiphyllum nimmt Eisen und Mangan im Bereich pH 5.8-6.5 am besten auf; oberhalb pH 6.8 treten Fe-/Mn-Mangelsymptome auf. In den naehrstofffreien Phasen (Etablierung, Ruheperiode) werden keine Mikronaehrstoffe ergaenzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Spathiphyllum ist ein Schwachzehrer und reagiert empfindlich auf Ueberdüngung. Fluessigduenger immer auf halbe Konzentration verduennen. Bei EC ueber 1.0 mS drohen Blattrandnekrosen (braune Blattspitzen).
 
@@ -295,7 +363,22 @@ Wie bei allen Zimmerpflanzen-Fluessigduengern:
 
 ### 4.3 Ueberwinterung
 
-Entfaellt -- reine Zimmerpflanze, ganzjaehrig Indoor bei Raumtemperatur. Im Winter lediglich Giessen reduzieren und Duengung einstellen. Spathiphyllum ist kaelteempfindlicher als Monstera -- Minimum 15 C.
+Reine Zimmerpflanze, ganzjaehrig Indoor bei Raumtemperatur. Im Winter lediglich Giessen reduzieren und Duengung einstellen. Spathiphyllum ist kaelteempfindlicher als Monstera -- Minimum 15 C. Eine echte Freiland-Ueberwinterung in Mitteleuropa (USDA 6-8) ist ausgeschlossen; die Pflanze wird frostfrei im Haus ueberwintert.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Rating (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 10 (spaetestens vor erstem Frost, Oktober) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 6 (nach den Eisheiligen, ab Mitte Mai/Juni) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (C) | 16-22 (Minimum 15, nie unter 13) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | Hell bis halbschattig, indirektes Tageslicht; ggf. Pflanzenlicht bei dunklem Standort | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | Reduziert -- Substrat oberflaechlich abtrocknen lassen, Giessintervall 7-10 Tage; keine Staunaesse | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis (Ueberwinterung):** `move_indoors`/`move_outdoors` gelten nur, falls die Pflanze im Sommer halbschattig auf Balkon/Terrasse stand (siehe SS1.7 Balkon-/Terrassenanbau = limited). Wird sie ganzjaehrig drinnen kultiviert, entfaellt der Standortwechsel; relevant bleibt dann nur das frostfreie Winterquartier (frost_free) mit reduziertem Giessen und Duengestopp. Kaelteschaden tritt bereits ab unter 10 C (ca. 45 F) auf, Wachstumsstopp/"unsichtbare" Kaelteschaedigung schon ab ca. 11-13 C (UF/IFAS EP101).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 4.4 Standort-Empfehlungen
 
@@ -417,3 +500,12 @@ Sensation,Spathiphyllum wallisii,--,--,large_leaved,clone
 5. NCSU Plant Toolbox -- Spathiphyllum: https://plants.ces.ncsu.edu/plants/spathiphyllum/
 6. Old Farmer's Almanac -- Peace Lily Care: https://www.almanac.com/plant/peace-lilies
 7. Wikipedia -- NASA Clean Air Study: https://en.wikipedia.org/wiki/NASA_Clean_Air_Study
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. Giorgioni, M.E. & Neretti, U. (2010) -- Effects of Artificial Light Intensity and Ambient CO2 Level on Photosynthesis of Araceae Species Commonly Used for Interior Landscaping (Acta Hortic. 881, ISHS): https://www.ishs.org/ishs-article/881_114/ -- belegt Lichtkompensationspunkt < 9 umol/m2/s PPFD fuer Spathiphyllum wallisii 'Mauna Loa' nach Akklimatisierung
+9. UF/IFAS EDIS ENH958/EP161 -- Cultural Guidelines for Commercial Production of Interiorscape Spathiphyllum: https://edis.ifas.ufl.edu/publication/EP161 -- loesliche Salze/EC (Toxizitaet ab 3 dS/m, Pflege 0.8-1.2 dS/m), pH, Licht, Temperatur, 3-1-2-Duengung
+10. UF/IFAS EDIS ENH841/EP101 -- Chilling Injury in Tropical Foliage Plants: I. Spathiphyllum: https://edis.ifas.ufl.edu/publication/EP101 -- Kaelteschaden-Schwellen (Schaden ab ca. 7 C/45 F, Wachstumsunterdrueckung ab 11 C/52 F), keine GDD-Basis
+11. NCSU Extension Gardener Plant Toolbox -- Spathiphyllum (Boden-pH "Acid <6.0", Tiefschatten/Deep shade): https://plants.ces.ncsu.edu/plants/spathiphyllum/
+12. Yamori, W., Hikosaka, K. & Way, D.A. (2013) -- Temperature response of photosynthesis in C3, C4, and CAM plants (Photosynthesis Research): https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf -- Einordnung tropischer Understory-Laubpflanzen als C3, Temperaturoptima
+13. Bulb Society -- Peace Lily / Spathiphyllum wallisii (Boden-pH 5.8-6.5, niedrige loesliche Salze, Fe/Mn-Aufnahme): https://bulbsociety.org/plant-peace-lily/
+14. Hoagland solution (Standard-Spurenelementbasis Mn/Zn/Cu/Mo): https://en.wikipedia.org/wiki/Hoagland_solution
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

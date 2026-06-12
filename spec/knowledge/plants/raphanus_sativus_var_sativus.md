@@ -21,6 +21,16 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (schosst bei Langtagsbedingungen >14h) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 4.4--5.0 (Kuehlsaison-Kultur / cool-season crop; konsistent mit GDD-Hinweis §2.4) | `species.base_temp` |
+| Lebensdauer (Jahre) | -- (nicht anwendbar, einjaehrig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (Vernalisation/Kaeltereiz loest das UNERWUENSCHTE Schossen aus; fuer die Knollennutzung wird sie gerade VERMIEDEN -- daher false fuer die Kulturfuehrung) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- (nicht anwendbar) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 14 (Langtagblueher / long-day plant -- Bluehinduktion/Schossen oberhalb ~13--14h Tageslaenge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| USDA Zonen | 2a; 3a; 4a; 5a; 6a; 7a; 8a; 9a; 10a | `species.hardiness_zones` |
 | USDA Zonen | 2a; 3a; 4a; 5a; 6a; 7a; 8a; 9a; 10a | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Frosthart bis ca. -5 degC. Keimung ab 5 degC Bodentemperatur. Jungpflanzen vertragen leichte Froeste (-2 degC). Kein Winteranbau moeglich, aber sehr fruehe Aussaat (Maerz) und spaete Herbstaussaat (September) problemlos. | `species.hardiness_detail` |
@@ -108,6 +118,24 @@ Hinweis: Kein Rueckschnitt erforderlich. Bei zu dichter Aussaat Saemling auf 3--
 
 **Hinweis:** Radieschen sind das ideale Einsteigergemuese: schnelle Ernte (3--4 Wochen), anspruchslos, platzsparend. Perfekt als Lueckenfueller zwischen Hauptkulturen (Markierungssaat fuer langsam keimende Moehren) und als Vorkultur/Nachkultur. Bei Temperaturen ueber 25 degC und Langtag (>14h) steigt die Schossgefahr -- dann Sorten mit geringer Schossneigung waehlen oder Aussaat-Pause einlegen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--45 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.2 (Maas-Hoffman a; Bezugsgroesse: Substrat-ECe des gesaettigten Bodenextrakts, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 13 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.0--7.0 | `species.soil_ph_preference` |
+
+Hinweis: Der Lichtkompensationspunkt (light compensation point, LCP -- Netto-Photosynthese = 0) ist fuer Radieschen nicht eigenstaendig publiziert; angegeben ist die fuer krautige C3-Blattgemuese typische Spanne (Tomate als verwandte C3-Art: ~18--21 umol/m2/s). Lichtsaettigung (light saturation) liegt hingegen weit hoeher (~300--700 umol/m2/s) und gehoert NICHT in das LCP-Feld. Trotz Einstufung full_sun toleriert Radieschen Halbschatten (partial_shade), bildet dort aber mehr Laub statt Knolle. Die Salztoleranz-Werte (ECe 1.2 dS/m, Slope 13 %/dS/m, Klasse MS) stammen aus der FAO-/USDA-Standardtabelle (Maas-Hoffman, bezogen auf den Speicher-/Knollenertrag).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -137,6 +165,12 @@ Hinweis: Die Gesamtkulturzeit betraegt nur 22--35 Tage (sortenabhaengig). Fruehl
 | Luftfeuchtigkeit Tag (%) | 70--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (stomataerer Kollaps; deutlich oberhalb des Ziel-Korridors; frueheste, feuchteliebende Phase -> niedrigste Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht halten, nie staunass) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -153,6 +187,12 @@ Hinweis: Die Gesamtkulturzeit betraegt nur 22--35 Tage (sortenabhaengig). Fruehl
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (stomataerer Kollaps; deutlich oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -171,6 +211,12 @@ Hinweis: In dieser Phase werden die Keimblaetter entfaltet und die ersten echten
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (stomataerer Kollaps; deutlich oberhalb des Ziel-Korridors -- bei Ueberschreiten drohen Trockenstress, holzige/pelzige Knollen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (gleichmaessig! Trockenstress fuehrt zu holzigen, pelzigen Knollen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -189,6 +235,12 @@ Hinweis: Die kritischste Phase -- hier entscheidet sich Knollengroesse und -qual
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (stomataerer Kollaps; deutlich oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -197,12 +249,15 @@ Hinweis: Erntereife erkennen: Knolle ragt leicht aus der Erde, Durchmesser 2--3 
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.6 | 6.0--6.8 | 60 | 30 | 20 | 1 |
-| Knollenbildung | 1-2-3 | 0.8--1.2 | 6.0--6.8 | 80 | 40 | 30 | 2 |
-| Erntereife | 0-1-2 | 0.6--0.8 | 6.0--6.8 | 60 | 30 | 20 | 1 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.4--0.6 | 6.0--6.8 | 60 | 30 | 20 | 1 | 0.5 | 0.5 | 0.1 | 0.05 |
+| Knollenbildung | 1-2-3 | 0.8--1.2 | 6.0--6.8 | 80 | 40 | 30 | 2 | 0.5 | 0.5 | 0.1 | 0.05 |
+| Erntereife | 0-1-2 | 0.6--0.8 | 6.0--6.8 | 60 | 30 | 20 | 1 | 0.5 | 0.5 | 0.1 | 0.05 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06: Mikronaehrstoff-Spalten Mn/Zn/Cu/Mo ergaenzt (nutrient_profiles.manganese/zinc/copper/molybdenum_ppm) -->
+<!-- Mn/Zn/Cu/Mo: hydroponische Standard-Loesungskonzentrationen fuer Blattgemuese; Radieschen gelten als Mn-empfindlich -> Mn nicht unter 0.5 ppm absenken. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Radieschen sind Schwachzehrer und benoetigen nur minimale Duengung. Zu viel Stickstoff fuehrt zu ueppigem Laub auf Kosten der Knollenbildung -- das ist der haeufigste Anfaengerfehler! Kalium foerdert Knollenbildung und Geschmack. Bor-Mangel fuehrt zu hohlen, rissigen Knollen (Bor-Gehalt im Giesswasser beachten).
 
@@ -481,3 +536,20 @@ Zlata,Raphanus sativus var. sativus,,,round;yellow;mild;unusual_color,30,none,op
 13. PNW Pest Management Handbooks -- Radish downy mildew: https://pnwhandbooks.org/plantdisease/host-disease/radish-raphanus-sativus-downy-mildew
 14. IGWorks -- Hydroponic Radish: https://igworks.com/blogs/growing-guides/growing-hydroponic-radish
 15. Almanac -- How to Grow Radishes: https://www.almanac.com/plant/radishes
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. PubMed (Ueno et al. 2003) -- Photorespiration in hybrids between Diplotaxis tenuifolia (C3-C4) and radish (C3): https://pubmed.ncbi.nlm.nih.gov/12857835/ (Beleg Photosynthese-Typ C3)
+17. Iowa State Extension -- Using Growing Degree Days to Manage the Home Garden: https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden (cool-season-Basistemperatur ~40 degF / 4.4--5 degC)
+18. PSU / MSU Extension -- Understanding Growing Degree Days (Basis 40 degF fuer Kuehlsaison-Kulturen): https://extension.psu.edu/understanding-growing-degree-days
+19. Springer Nature -- Identification of vernalization-related genes and cold memory element (CME) in radish: https://link.springer.com/article/10.1007/s11103-023-01412-x (Vernalisation/Schossen in Raphanus sativus)
+20. Euphytica (Springer) -- Some effects of the photoperiod on growth and pithiness of radishes (Schossverhalten bei 8/10/12/14/19/24 h Tageslaenge): https://link.springer.com/article/10.1007/BF00022078 (Beleg Langtag, kritische Tageslaenge ~14 h)
+21. Biology Insights -- What Is a Long-Day Plant and How Does It Flower (Radieschen als long-day plant, kritische Tageslaenge ~13--14 h): https://biologyinsights.com/what-is-a-long-day-plant-and-how-does-it-flower/
+22. FAO Irrigation & Drainage Paper -- Annex 1, Crop salt tolerance data (Radish: ECe-Schwelle 1.2 dS/m, Slope 13 %/dS/m, MS): https://www.fao.org/4/y4263e/y4263e0e.htm
+23. Shannon & Grieve -- Tolerance of vegetable crops to salinity (USDA-ARS; Radieschen salzempfindlich, Maas-Hoffman-Parameter): https://www.ars.usda.gov/arsuserfiles/20361500/pdf_pubs/P1567.pdf
+24. Garden Betty -- Root Depth of Vegetables Chart (Radieschen flachwurzelnd, 30--46 cm in offenem Boden): https://gardenbetty.com/how-deep-are-the-roots-of-garden-vegetables/
+25. GrowVeg -- Vegetable Root Depths Revealed (shallow-rooted vegetables, effektive Wurzelzone): https://www.growveg.com/guides/vegetable-root-depths-revealed-use-this-guide-to-make-smarter-planting-decisions/
+26. Oregon State University -- Oregon Vegetables: Radish (Globe radishes shallow rooted, full sun, gleichmaessige Bewaesserung): https://horticulture.oregonstate.edu/oregon-vegetables/radish-0
+27. Texas A&M AgriLife -- Radish Commercial Crop Guide (Optimaltemperatur 10--18 degC, Anbaubedingungen): https://aggie-horticulture.tamu.edu/vegetable/wp-content/uploads/sites/10/2011/10/radish.pdf
+28. PSU Extension -- Hydroponics Systems and Principles of Plant Nutrition (Mikronaehrstoff-Loesungskonzentrationen Mn/Zn/Cu/Mo fuer Gemuese): https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess
+29. MSU Extension E-486 -- Secondary and Micro-nutrients for Vegetable and Field Crops (Radieschen als Mn-empfindliche Kultur): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
+30. ASHS HortTechnology -- Contribution of Far-red Photons to Light Compensation Point in Tomato (C3-LCP-Vergleichswerte): https://journals.ashs.org/view/journals/horttech/35/2/article-p186.xml
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

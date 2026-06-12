@@ -21,6 +21,16 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 20–50 (Standort produktiv; einzelne Reben deutlich älter) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (chilling/Endodormanz-Bruch, nicht echte Vernalisation) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (chilling, abgeleitet aus ~600 h bei 0–7°C) | 25 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein photoperiodischer Blühtrigger --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 5a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C (europäische Sorten); PIWI-Sorten (pilzwiderstandsfähig) besser für Norddeutschland; auf Reblaus-resistente Unterlagen achten | `species.hardiness_detail` |
@@ -28,6 +38,16 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestäuber erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | <!-- leer: selbstfruchtbar, keine pomologische Gruppe --> | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten (compatible pollinators) | <!-- leer: selbstfruchtbar --> | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Bestäubung:** Kultivierte Weinreben tragen zwittrige (hermaphrodite), selbstfruchtbare Blüten und sind auf Selbstbestäubung (Windbestäubung) ausgelegt — eine zweite Sorte als Pollenspender ist NICHT erforderlich. Insekten spielen eine untergeordnete Rolle; ungünstige Witterung (Wind/Regen) zur Blüte kann den Fruchtansatz beeinträchtigen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -94,6 +114,24 @@
 
 **Norddeutschland:** Spalier an Südwand empfohlen für maximale Wärmeausbeute. Gewächshaus oder Folientunnel verlängert die Saison und schützt vor Pilzkrankheiten (weniger Niederschlag auf Laub).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: in Literatur untersucht, aber kein konsistenter Zahlenwert aus 2 Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–100 (Hauptmasse Feinwurzeln 30–45 cm; in lockerem Boden tiefer) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m; Maas-Hoffman a) | 1.5 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m; Maas-Hoffman b) | 9.6 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweise:** Lichtsättigung (light saturation) liegt deutlich höher (~550–1200 µmol/m²/s, temperaturabhängig) — gehört NICHT in den Kompensationspunkt. Weinrebe reagiert morphologisch eher auf Blaulicht-Attenuierung als auf R:FR. Der pH-Vorzug 6.0–6.5 ist enger als die in §1.6/§2.3 genannte Toleranzspanne (pH 6.0–7.5), die den noch verträglichen Bereich beschreibt — das Optimum liegt bei pH ~6.5. ECe-Schwelle bezieht sich auf den Bodensättigungsextrakt (soil saturation extract ECe), NICHT auf die Gießwasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -122,6 +160,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 5000–15000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -138,6 +182,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 5000–15000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -151,6 +201,18 @@
 | Fruchtreife | 1:1:3 | — | 6.0–7.5 | 80 | 50 | — | 2 |
 | Holzreife | 0:1:2 | — | 6.0–7.5 | 60 | 40 | — | 1 |
 | Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (micronutrients) je Phase:**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Austrieb | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Fruchtreife | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+> Hinweis: Mn/Zn/Cu/Mo werden von der Weinrebe nur in sehr geringen Mengen benötigt; ihre Verfügbarkeit ist stark pH-abhängig. Spitzenbedarf (Zn, B) tritt um Blüte und Véraison auf, dann oft als Blattdüngung (foliar) appliziert. Belastbare, quellengestützte ppm-Sollwerte für Nährlösungen (fertigation) ließen sich nicht aus zwei unabhängigen Quellen bestätigen — Felder daher als DATEN FEHLEN markiert (KA-Felder: `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -319,3 +381,17 @@ Vitis vinifera,"Weinrebe;Weintraube;Grape Vine",Vitaceae,Vitis,perennial,day_neu
 3. [Gaertnernwir — Weinrebe](https://gaertnernwir.de/weinrebe-vitis-vinifera/) — Schädlinge, Krankheiten
 4. [Naturadb — Vitis vinifera](https://www.naturadb.de/pflanzen/vitis-vinifera/) — Steckbrief
 5. [Hausgarten — Weintrauben](https://www.hausgarten.net/weintrauben-vitis/) — Pflege umfassend
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [eVineyard Blog — Growing Degree Days in the Vineyard](https://www.evineyardapp.com/blog/2017/03/01/why-the-need-to-calculate-growing-degree-days-in-vineyard/) — GDD-Basistemperatur 10°C, Phänologie
+7. [AJEV — Budbreak and Flowering Base Temperatures for Vitis vinifera (Douro)](https://www.ajevonline.org/content/49/1/74) — GDD-Basistemperatur, Phänologie-Schwellen
+8. [Frontiers in Plant Science — Current progress in salt tolerance in Vitis vinifera (PMC10881718)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10881718/) — Salztoleranz-Klasse moderately sensitive, ECe-Schwelle, Slope
+9. [USDA-ARS — Grape Rootstock Response to Salinity (Suarez 2019)](https://www.ars.usda.gov/ARSUSERFILES/51100/2019SuarezAgronomy.PDF) — Maas-Hoffman ECe-Schwellen je Unterlage
+10. [StonePost Gardens — How Deep Do Grapevine Roots Grow](https://stonepostgardens.com/how-deep-do-grapevine-roots-grow/) — effektive Wurzeltiefe, Feinwurzelzone
+11. [Cornell — Soil pH and Mineral Nutrition of Vitis vinifera Varieties](https://blogs.cornell.edu/newfruit/files/2017/01/Soil-pH-and-Mineral-Nutrition-of-Vitis-vinifera-Varieties-copy-16qst74.pdf) — Boden-pH-Vorzug 6.0–6.5
+12. [Greer & Weedon, Plant Cell & Environment — Photosynthetic responses to temperature of Vitis vinifera Semillon](https://pubmed.ncbi.nlm.nih.gov/22150771/) — T_opt ~30°C, Lichtsättigung 550–1200 µmol
+13. [Frontiers in Plant Science — Flooding Responses on Grapevine (PMC6443911)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6443911/) — Staunässe-/Hypoxie-Empfindlichkeit
+14. [Canadian Journal of Plant Science — Bud dormancy, chilling requirement, cold hardiness in Vitis vinifera](https://cdnsciencepub.com/doi/10.1139/cjps-2020-0332) — Endodormanz/Chilling-Bedarf (~600 h bei 0–7°C)
+15. [Trione Vineyards — Vitis vinifera Vines are Hermaphroditic / self-pollinating](https://trionewinery.com/2021/04/21/vitis-vinifera-vines-are-hermaphroditic/) — Selbstfruchtbarkeit, Windbestäubung
+16. [PNAS — Multiple independent recombinations led to hermaphroditism in grapevine (PMC8053984)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8053984/) — zwittrige, selbstfruchtbare Blüten
+17. [Blue light attenuation mediates shade acclimation of Vitis vinifera cv. Malbec (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S0098847218310268) — Vollsonne R:FR ≈ 1.1, Schatten/Unterwuchs R:FR < 1.1
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

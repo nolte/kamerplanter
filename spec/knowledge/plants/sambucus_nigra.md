@@ -20,7 +20,16 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day; Blüte temperatur-/chilling-gesteuert, nicht photoperiodisch) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (laubabwerfendes Gehölz, kein C4/CAM) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (Phänologie-Modelle nutzen GDD über einer Basistemperatur, aber kein quellentreuer art-spezifischer Wuchs-Basiswert auffindbar; Keim-/Kardinalwerte bewusst NICHT als Wuchs-GDD übernommen) | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN --> (oberirdische Triebe kurzlebig, Wurzelstock regeneriert über Ausläufer; keine zwei Quellen mit konkreter Jahreszahl) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (echte Winterruhe/Endodormanz, Knospenbruch erst nach Kälteperiode) | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich | true (chilling — Endodormanz-Bruch durch Kältereiz; substanzieller Kältebedarf, Elderberry-Sorten ≥ 700 Chill Hours bei 0–7 °C) | `lifecycle_configs.vernalization_required` |
+| Chilling Mindest-Tage | <!-- DATEN FEHLEN --> (kein art-spezifischer Tage-Wert in Tagen belegt; nur Chill-Hours-Größenordnung auf Sortenebene) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagneutral; Tagneutralität in `photoperiod_type=day_neutral` abgebildet, kein numerischer Stunden-Schwellwert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; in Norddeutschland absolut winterhart; wächst heimisch | `species.hardiness_detail` |
@@ -89,6 +98,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, humusreiche, feuchte Erde; pH 5,5–7,0; verträgt auch feuchte Standorte | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 8 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 16 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (verträgt Halbschatten/lichten Wald, fruchtet aber in voller Sonne besser; schlecht in tiefem Schatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–90 (flachwurzelnd, kritische Aufnahmezone 15–25 cm / 6–10″, Gesamtdurchwurzelung bis ~60–90 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | moderate (mag gleichmäßig feuchten, aber gut drainierten Boden; bei Staunässe Damm-/Hochbeetpflanzung empfohlen) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-a-Wert für Sambucus nigra) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-b-Wert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.0–8.0 (quellentreu PFAF; Vorzugsbereich humusreich/feucht pH 5,5–7,0 gemäß §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,12 +137,18 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 300–700 (Sonne bis Halbschatten) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 20–35 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14–16 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (deskriptive sommerliche Tageslänge im Freiland, KEIN photoperiodischer Blühtrigger — Art ist day_neutral) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 18–28 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 10–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberhalb des Zielkorridors; kritischer Punkt stomatären Kollaps, oberer Zielwert 1.4 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 (temperate Laubgehölz-Photosynthese-Optimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne-Anker; unter eigenem Laubdach geringfügig höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 5000–15000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -131,6 +162,18 @@
 | Fruchtentwicklung | 1:1:3 | 0.8–1.2 | 5.5–7.0 | 100 | 50 | – | 1 |
 | Herbst | 0:1:2 | 0.5–0.8 | – | – | – | – | – |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo) je Wuchsphase** — `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`:
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Frühjahr/Auswuchs | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Fruchtentwicklung | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+Hinweis: Für die genügsame, vorwiegend organisch über Boden/Kompost versorgte Freilandkultur von *Sambucus nigra* sind keine art-spezifischen Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo in ppm) aus zwei unabhängigen seriösen Quellen belegbar. Werte bewusst als fehlend markiert statt generische Hydroponik-Richtwerte zu übernehmen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -213,6 +256,19 @@ Holunder ist ausgesprochen genügsam. Auf nährstoffreichen Gartenböden ist oft
 | Marienkäfer | biological | natürlich | Fördern | 0 | Blattläuse |
 | Befallene Triebe entfernen | cultural | – | Sofort | 0 | Virosen |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|-----------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (u. a. Aphis sambuci) | 0,5–1 Stk./m² (wiederholt) | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis sambuci) | 1–3 Larven/m² | 2–3 Wochen |
+| Schwebfliegen | Syrphidae (z. B. Epistrophe eligans) | Blattläuse (Aphis sambuci) | Förderung durch Blühangebot (kein Stückwert) | saisonal (Frühjahr) |
+| Marienkäfer | Coccinellidae | Blattläuse | natürlicher Zuflug fördern | saisonal |
+
+Hinweis: *Sambucus nigra* dient selbst als Reservoir-/Überwinterungsgehölz für aphidophage Schwebfliegen und andere Nützlinge; die Förderung erfolgt überwiegend konservierend (Habitat/Blühangebot) statt durch Stück-Ausbringung. Aphidius/Aphidoletes sind Blattlaus-Spezialisten und passen zum Leitschädling Aphis sambuci.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -249,7 +305,7 @@ Holunder ist ausgesprochen genügsam. Auf nährstoffreichen Gartenböden ist oft
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Sambucus nigra,"Schwarzer Holunder;Fliederbeere;Hollerbusch;Black Elderberry",Adoxaceae,Sambucus,perennial,long_day,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",-0.2,"Europa, Nordafrika, Westasien",limited,65,50,700,500,300,no,no,false,false,medium_feeder,false,hardy,"5;6;7"
+Sambucus nigra,"Schwarzer Holunder;Fliederbeere;Hollerbusch;Black Elderberry",Adoxaceae,Sambucus,perennial,day_neutral,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",-0.2,"Europa, Nordafrika, Westasien",limited,65,50,700,500,300,no,no,false,false,medium_feeder,false,hardy,"5;6;7"
 ```
 
 ---
@@ -260,3 +316,11 @@ Sambucus nigra,"Schwarzer Holunder;Fliederbeere;Hollerbusch;Black Elderberry",Ad
 2. [LWG Bayern Schwarzer Holunder](https://www.lwg.bayern.de/gartenakademie/gartendokumente/infoschriften/085865/index.php) — Fachliches Steckbrief
 3. [Native Plants Sambucus nigra](https://www.native-plants.de/1293/schwarzer-holunder) — Wildpflanzen-Steckbrief
 4. [DCM Holunder im Garten](https://cuxin-dcm.de/hobby/gartentipps/holunder-im-garten-sorten-pflege-ernte-rezepte-so-gelingt-der-anbau) — Ernte, Sorten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Sambucus nigra](https://pfaf.org/user/plant.aspx?latinname=Sambucus+nigra) — Boden-pH (5,0–8,0), Schatten-/Halbschattentoleranz, Wurzelmuster (Ausläufer), Feuchtevorzug
+6. [UF/IFAS HS1390 — Elderberry and Elderflower (Sambucus spp.) Cultivation Guide](https://ask.ifas.ufl.edu/publication/HS1390) — Chilling-/Dormanzbedarf, Wurzelsystem, Staunässe-Management
+7. [West Virginia University Extension — Elderberry](https://extension.wvu.edu/agriculture/horticulture/elderberry) — flaches fibröses Wurzelsystem, kritische Aufnahmezone 15–25 cm, Staunässe/Damm­pflanzung
+8. [NC State Extension — Sambucus nigra Plant Toolbox](https://plants.ces.ncsu.edu/plants/sambucus-nigra/) — Standort, Sonne/Halbschatten, Bodenansprüche, Winterhärte
+9. [Wojciechowicz-Żytko et al. — Sambucus nigra L. as a reservoir of beneficial insects (Diptera, Syrphidae)](https://www.researchgate.net/publication/311972995_Sambucus_nigra_L_as_a_reservoir_of_beneficial_insects_Diptera_Syrphidae) — Aphis sambuci, aphidophage Schwebfliegen (Epistrophe eligans) als Nützlinge
+10. [Frontiers in Plant Science — Interactive Effects of Chilling, Photoperiod, and Forcing Temperature on Flowering Phenology of Temperate Woody Plants](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.00443/full) — Temperatur-/Chilling-Steuerung der Blühphänologie (Beleg day_neutral statt long_day)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -28,8 +28,21 @@
 | Allelopathie-Score | -0.3 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | 30–50 (Gartenkultur; Botanische Gärten >100) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true | `lifecycle_configs.vernalization_required` |
+| Chilling-Mindestdauer (Tage) | 28 (4–6 Wochen Kälte zum Brechen der Blütenknospen-Endodormanz) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein echter Kurz-/Langtagblüher --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Rhododendron hat ausgeprägte Allelopathie durch Phenole — Bodenanreicherung mit Laubabwurf hemmt Nachbarpflanzen unter dem Strauch.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Photosynthese & GDD):** Rhododendron ist eine immergrüne C3-Pflanze. Die GDD-Basistemperatur 5 °C entspricht dem für holzige Gehölze etablierten Wuchs-/Knospenbruch-Basiswert (Budbreak Tb ≈ 5 °C; Blüh-Tb 6–7 °C). Es handelt sich NICHT um einen Keim-Basiswert. Die "Vernalisation" ist botanisch korrekt ein Kältebedürfnis (Chilling/Endodormanz-Bruch der Blütenknospen), keine echte Vernalisation krautiger Pflanzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -94,6 +107,27 @@
 
 **pH-KRITISCH:** pH >6,0 führt zu Chlorose (Eisenmangel). Regelmäßig pH messen!
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 11 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Wert für Rhododendron --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 4.5–5.5 | `species.soil_ph_preference` |
+
+**Hinweise zur Umgebungs-Physiologie:**
+- **Lichtkompensationspunkt:** Niedrig (5–11 µmol/m²/s, gemessen an drei *Rhododendron*-Arten) — typisch für schattentolerante Unterwuchs-Pflanzen. Der separate Lichtsättigungspunkt (LSP) liegt deutlich höher bei ~510–665 µmol/m²/s (nicht in das LCP-Feld eintragen).
+- **Salztoleranz:** Als holziges Moorbeet-Gehölz mit feinem, flachem Faserwurzelsystem ist Rhododendron salzempfindlich (Klasse `sensitive`); deshalb auch die Empfindlichkeit gegen hartes/salzhaltiges Gießwasser (vgl. §3.3, §4.1). Es liegt keine quantifizierte Maas-Hoffman-Schwelle (Substrat-ECe) für die Gattung vor.
+- **pH-Konsistenz:** Der Vorzugsbereich 4,5–5,5 (RHS/Extension) liegt innerhalb des in §1.6/§2.3 genannten tolerierten Kulturbereichs pH 4,0–5,5; pH >6,0 löst Chlorose aus.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -122,9 +156,19 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 2000–5000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweise zur Blüte-Phase:** Die VPD-Schwelle (1,1 kPa) liegt deutlich oberhalb des Zielkorridors (Oberkante 0,8 kPa) und markiert den kritischen Punkt des stomatären Kollaps für diese feuchteliebende Halbschatten-Phase. VPD-Sensitivität ist `high` (dünne, immergrüne Blätter, flaches Faserwurzelsystem reagieren empfindlich auf trockene Luft). Die Far-Red-Fraction 0,5–0,6 entspricht dem teilbeschatteten Standort (offenes Tageslicht ≈ 0,5; unter leichtem Gehölz-/Unterwuchsschatten leicht erhöht).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.3 Nährstoffprofile je Phase
 
@@ -133,6 +177,17 @@
 | Blüte | 1:2:1 | 0.6–1.0 | 4.0–5.5 | 50 | 30 | — | 3 |
 | Vegetativ/Knospendiff. | 1:1:1 | 0.6–1.0 | 4.0–5.5 | 60 | 40 | — | 3 |
 | Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo, ppm):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ/Knospendiff. | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+**Hinweis (Mikronährstoffe):** Für Rhododendron sind KEINE artspezifischen Mn/Zn/Cu/Mo-Zielwerte aus seriösen Quellen belegt; daher als DATEN FEHLEN markiert (KA-Felder `nutrient_profiles.manganese_ppm/zinc_ppm/copper_ppm/molybdenum_ppm`). Als grobe Orientierung gilt für schwachzehrende Ericaceen die allgemeine Gewächshaus-Nährlösungs-Spanne (Mn ≈ 0,25; Zn ≈ 0,13; Cu ≈ 0,02; Mo ≈ 0,02 ppm), die NICHT als artspezifischer Wert eingetragen wird. Entscheidend bleibt der niedrige Substrat-pH (4,0–5,5): Bei korrektem pH sind Mn/Fe gut verfügbar; pH >6,0 verursacht Mangan-/Eisen-Chlorose.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **WARNUNG:** KEIN Kalk, KEIN kalkhaltiger Dünger, KEIN Leitungswasser in Kalkregionen → Chlorose!
 
@@ -314,3 +369,14 @@ Rhododendron spp.,"Rhododendron;Alpenrose",Ericaceae,Rhododendron,perennial,day_
 3. [Plantura — Rhododendron düngen](https://www.plantura.garden/gehoelze/rhododendron/rhododendron-duengen) — Dünger, Zeitpunkt
 4. [Pflanzen-Kölle — Rhododendron](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meinen-rhododendron-richtig/) — Dickmaulrüssler, Schnitt
 5. [Love the Garden — Rhododendron Pflege](https://www.lovethegarden.com/de-de/artikel/rhododendron-pflege) — Standort, Chlorose
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PMC — How do leaf anatomies and photosynthesis of three Rhododendron species relate to their natural environments?](https://pmc.ncbi.nlm.nih.gov/articles/PMC5432949/) — peer-reviewed: Lichtkompensationspunkt (LCP 5,16–10,84 µmol/m²/s), Lichtsättigungspunkt (LSP ~510–665 µmol/m²/s), C3-Charakter
+7. [PMC — The Light Dependence of Mesophyll Conductance in Evergreen Sclerophyllous Rhododendron Species](https://pmc.ncbi.nlm.nih.gov/articles/PMC7697185/) — peer-reviewed: Photosynthese RuBP-carboxylierungslimitiert (C3), immergrüne Sklerophyllie
+8. [Glendoick — What's wrong with my Rhododendron?](https://glendoick.com/Rhododendron-Problems) — Staunässe-Empfindlichkeit (häufigste Todesursache), pH 4,5–5,5, Phytophthora durch schlechte Drainage
+9. [JARS / Virginia Tech — Soil pH And Rhododendrons](https://scholar.lib.vt.edu/ejournals/JARS/v41n4/v41n4-delp.htm) — Boden-pH-Vorzug 4,5–5,5, Mikronährstoff-Verfügbarkeit
+10. [Pacific Northwest Pest Management — Rhododendron Phytophthora Root Rot](https://pnwhandbooks.org/plantdisease/host-disease/rhododendron-phytophthora-root-rot) — University Extension: Wurzelfäule bei Staunässe, Salz-/Drainage-Empfindlichkeit
+11. [greg.app — Rhododendron Roots](https://greg.app/rhododendron-plants-roots/) — Wurzeltiefe 30–45 cm, flaches Faserwurzelsystem
+12. [PMC — Interactive Effects of Chilling, Photoperiod, and Forcing Temperature on Flowering Phenology of Temperate Woody Plants](https://pmc.ncbi.nlm.nih.gov/articles/PMC7176907/) — peer-reviewed: GDD-Basistemperatur Budbreak ~5 °C, Chilling-Bedürfnis holziger Sträucher
+13. [ISHS — Flowering Response of Azalea (Rhododendron simsii) to Cold Treatment](https://ishs.org/ishs-article/990_7/) — Chilling/Kältebedarf 4–6 Wochen zum Brechen der Blütenknospen-Dormanz
+14. [USU Extension — Salinity and Plant Tolerance](https://extension.usu.edu/irrigation/research/salinity-and-plant-tolerance) — University Extension: ECe-Klassifizierung (sensitive <2 dS/m), holzige Ziergehölze überwiegend salzempfindlich
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

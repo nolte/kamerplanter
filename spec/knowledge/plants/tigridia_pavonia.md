@@ -29,6 +29,15 @@
 | Naehrstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | ornamental; bee_friendly | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | <!-- DATEN FEHLEN: kein publizierter Wuchs-GDD-Basiswert fuer Tigridia/Iridaceae aus zwei unabhaengigen Quellen auffindbar; nur Keim-/Kardinalwerte. Faustregel waermeliebend ~10 degC nicht belegt --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 10+ (klonal langlebig: Einzelkorm erschoepft sich jaehrlich und wird durch Tochterkormen/Offsets ersetzt; Horst persistiert ueber Jahre, Teilung ca. alle 3 Jahre empfohlen) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (ausgepraegte sommer-/winterliche Knollenruhe; in Mitteleuropa durch Ausgrabung/Trockenlagerung erzwungen) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (kein Kaeltebedarf; benoetigt keine Chill-Stunden zum Bluehen -- subtropische Hochland-Herkunft) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- (entfaellt; vernalization_required=false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral) -- keine kritische Tageslaenge; numerisches Feld bleibt leer --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Tigridia pavonia ist ein knollenbildendes Geophyt der Familie Iridaceae (Schwertliliengewaechse). Die kurzlebigen Blueten -- jede Einzelbluete oeffnet nur einen einzigen Tag -- erscheinen nacheinander ueber mehrere Wochen. Gegen Ende der Vegetationsperiode erschoepft sich die Mutterknolle vollstaendig und wird von bis zu 5 Tochterzwiebeln ersetzt. Dies ist ein wichtiger Unterschied zu echten Zwiebelpflanzen (Tulpe, Narzisse): Bei Tigridia handelt es sich botanisch korrekt um eine Knolle (Corm), nicht um eine echte Zwiebel. Allelopathische Wirkung ist bisher nicht nachgewiesen (Neutralwert 0.0).
 
@@ -95,6 +104,24 @@ Hinweis: Nach dem Ende der Bluehperiode (September/Oktober) das Laub stehen lass
 | Rankhilfe/Stuetze noetig | false (bei windigen Standorten optionale Stuetze bei > 60 cm Wuchshoehe empfehlenswert) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Locker-sandig-lehmige Erde (Verhaeltnis: 1 Teil Gartenboden, 1 Teil Sand/Perlite, 1 Teil Kompost). pH 6.0--6.5. Sehr gute Drainage zwingend -- Staunasse fuehrt zu Knollenfaeule. Alternativ: Standard-Balkonkaestenerde mit 30% Perlite-Zusatz. | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15--30 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN: keine artspezifische Salztoleranz-Klassifizierung fuer Tigridia pavonia aus zwei unabhaengigen Quellen; naheverwandte Iridaceae (Gladiolus) reagieren empfindlich (Wachstumsdepression schon ab ECe 2--6 dS/m), Einstufung 'sensitive' plausibel, aber nicht direkt belegt --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN: kein publizierter ECe-Schwellenwert (Substrat-ECe) fuer die Art --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Slope fuer die Art --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.0 | `species.soil_ph_preference` |
+
+Hinweis: Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist artspezifisch nicht gemessen; angegeben ist die fuer C3-Sonnenpflanzen (shade-intolerant) typische Spanne von 20--40 µmol/m²/s. Tigridia pavonia ist ausgesprochen sonnenliebend und vertraegt keinen Schatten (full_sun; "cannot grow in the shade", PFAF). Die Art reagiert empfindlich auf Staunaesse (waterlogging_tolerance = sensitive) -- Ueberwaesserung und nasser Boden sind die haeufigste Schadensursache und beguenstigen Knollenfaeule. Der pH-Vorzug 6.0--7.0 ist quellentreu eingegrenzt: PFAF nennt "mildly acid, neutral and basic (mildly alkaline)", die Kultur-Empfehlungen in §1.6/§2.3 nennen 6.0--6.5; die Spanne 6.0--7.0 harmonisiert beides ohne Ueberdehnung. Zur Salztoleranz liegen keine artspezifischen Daten vor; die nahe verwandte Gattung Gladiolus (Iridaceae) gilt als salzempfindlich (morphologische Wachstumsdepression bereits bei ECe 2--6 dS/m), was eine 'sensitive'-Einstufung nahelegt, ohne sie direkt zu belegen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -129,6 +156,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer Punkt stomataerer Kollaps; deutlich oberhalb Zielkorridor; feuchteliebende Fruehphase niedrigere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Aussenluft; keine Erhoehung noetig) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5--7 (Boden leicht feucht halten; Knolle braucht kaum Wasser vor Austreiben) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -145,6 +178,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 40--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt stomataerer Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne, suedexponiert; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Aussenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2--4 (gleichmaessig feucht; Substrat zwischen Gaben nicht vollstaendig austrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200--400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -161,6 +200,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 45--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt stomataerer Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (zunehmende Direktsonnenexposition; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3--5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -177,6 +222,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 40--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (kritischer Punkt stomataerer Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 24--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (volle Sonne; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Aussenluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2--3 (regelmaessig giessen; Trockenheit in dieser Phase verzoegert Bluetenbildung) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 250--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -193,6 +244,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 40--60 (nicht zu hoch -- Botrytis-Risiko an Bluetenblaettern) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (kritischer Punkt stomataerer Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (volle Sonne; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2--3 (bei Hitze taeglich; morgens giessen, niemals auf Blueten) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300--500 (bei Hitze > 28 degC erhoehen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -209,6 +266,12 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 45--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer Punkt stomataerer Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Herbstsonne, offenes Tageslicht; R:FR ~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4--7 (reduzieren; Boden trockener halten fuer Knollenreife) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -225,23 +288,33 @@ Hinweis: Phase 3 (Abhaertung) ist nur relevant fuer vorgezogene Innenpflanzen --
 | Luftfeuchtigkeit Tag (%) | 50--65 (zu trocken = Knollen schrumpfen; zu feucht = Faeulnis) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (keine aktive Steuerung) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- (keine aktive Steuerung waehrend Dormanz; Trockenlagerung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | low (eingelagerte Trockenknolle ohne aktive Transpiration) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | -- (keine Photosynthese; Knolle blattlos eingelagert) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- (Dunkellagerung; kein Licht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | -- (keine Anforderung) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 0 (kein Gießen waehrend Dormanz -- Knollen trocken lagern) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Austrieb | 1:1:1 | 0.4--0.8 | 6.0--6.5 | 60 | 20 | -- | 1 |
-| Vegetativ | 2:1:1 | 0.8--1.2 | 6.0--6.5 | 100 | 30 | -- | 2 |
-| Abhaertung | 1:1:1 | 0.6--1.0 | 6.0--6.5 | 80 | 25 | -- | 1 |
-| Knospenbildung | 1:2:2 | 1.0--1.4 | 6.0--6.5 | 80 | 35 | -- | 1 |
-| Bluete | 0:2:2 | 0.8--1.2 | 6.0--6.5 | 60 | 30 | -- | 1 |
-| Abreife | 0:1:2 | 0.4--0.8 | 6.0--6.5 | 40 | 20 | -- | -- |
-| Dormanz | 0:0:0 | 0.0 | -- | -- | -- | -- | -- |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Austrieb | 1:1:1 | 0.4--0.8 | 6.0--6.5 | 60 | 20 | -- | 1 | 0.3 | 0.1 | 0.03 | 0.02 |
+| Vegetativ | 2:1:1 | 0.8--1.2 | 6.0--6.5 | 100 | 30 | -- | 2 | 0.5 | 0.15 | 0.05 | 0.03 |
+| Abhaertung | 1:1:1 | 0.6--1.0 | 6.0--6.5 | 80 | 25 | -- | 1 | 0.4 | 0.1 | 0.04 | 0.02 |
+| Knospenbildung | 1:2:2 | 1.0--1.4 | 6.0--6.5 | 80 | 35 | -- | 1 | 0.5 | 0.15 | 0.05 | 0.03 |
+| Bluete | 0:2:2 | 0.8--1.2 | 6.0--6.5 | 60 | 30 | -- | 1 | 0.4 | 0.1 | 0.04 | 0.03 |
+| Abreife | 0:1:2 | 0.4--0.8 | 6.0--6.5 | 40 | 20 | -- | -- | 0.2 | 0.05 | 0.02 | 0.02 |
+| Dormanz | 0:0:0 | 0.0 | -- | -- | -- | -- | -- | -- | -- | -- | -- |
 
 Hinweis: Tigridia pavonia ist ein Schwach- bis Mittelzehrer. Die haeufigste Pflegefehlerquelle ist Ueberdungung mit Stickstoff, die ueppiges Blattwachstum auf Kosten der Knollenentwicklung und Bluetenbildung foerdert. In der Knospen- und Bluetephase ist Phosphor und Kalium (P, K) wichtiger als Stickstoff. Keine Duengung waehrend der Dormanz.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis zu den Mikronaehrstoffen (Mn/Zn/Cu/Mo): Fuer Tigridia pavonia liegen keine artspezifischen Mikronaehrstoff-Sollwerte aus der Literatur vor. Die angegebenen ppm-Werte sind die fuer Schwach- bis Mittelzehrer ueblichen Standard-Fertigationsbereiche einer ausgewogenen Naehrstoffloesung (Manganese/Mangan, Zinc/Zink, Copper/Kupfer, Molybdenum/Molybdaen) und dienen als Orientierung, nicht als gemessene Artwerte. In der Praxis decken handelsuebliche Vollduenger (z.B. Hakaphos, Compo) diese Spurenelemente bereits ab; eine separate Mikronaehrstoffgabe ist bei dieser Art im Normalfall nicht noetig.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -529,3 +602,13 @@ name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resist
 12. procvetok.com -- Tigridiya Knollenentwicklung: [https://procvetok.com/en/plants/lukovichnye-rasteniya-tigridiya/](https://procvetok.com/en/plants/lukovichnye-rasteniya-tigridiya/) — Knolle-Entwicklungszyklus, Duengungsplan
 13. harvesttotable.com -- Grow Tigridia: [https://harvesttotable.com/how-to-grow-tigridia/](https://harvesttotable.com/how-to-grow-tigridia/) — NPK-Empfehlungen, Bluehfoerderung
 14. highcountrygardens.com -- Growing Tigridia: [https://www.highcountrygardens.com/content/gardening/growing-tigridia-tiger-flowersmexican-shell-flower](https://www.highcountrygardens.com/content/gardening/growing-tigridia-tiger-flowersmexican-shell-flower) — USDA-Zone, Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. EarthOne -- How To Grow Tigridia pavonia: [https://earthone.io/plant/tigridia%20pavonia](https://earthone.io/plant/tigridia%20pavonia) — Heimat (Kiefern-/Eichenwald ~2500 m), Vollsonne, sandig-trockene Boeden, keine Schattentoleranz
+16. greg.app -- Tigridia Pavonia Water & Light: [https://greg.app/plant-care/tigridia-pavonia](https://greg.app/plant-care/tigridia-pavonia) — Lichtbedarf (direkte Sonne), Schatten-Intoleranz, Empfindlichkeit gegen nassen Boden
+17. PFAF Plant Database -- Tigridia pavonia (Soil/Light Detail): [https://pfaf.org/User/plant.aspx?latinname=Tigridia+pavonia](https://pfaf.org/User/plant.aspx?latinname=Tigridia+pavonia) — Boden-pH "mildly acid, neutral and basic (mildly alkaline)", light/medium (sandy/loamy), "cannot grow in the shade", well-drained
+18. Useful Tropical Plants -- Tigridia pavonia: [https://tropical.theferns.info/viewtropical.php?id=Tigridia+pavonia](https://tropical.theferns.info/viewtropical.php?id=Tigridia+pavonia) — Standort, Bodenansprueche, Vollsonne
+19. ScienceDirect Topics -- Light Compensation Point: [https://www.sciencedirect.com/topics/engineering/light-compensation](https://www.sciencedirect.com/topics/engineering/light-compensation) — Definition LCP; hoehere Kompensationspunkte bei Sonnenpflanzen vs. Schattenpflanzen
+20. PMC -- Irradiance, carbon balance and shade-tolerance in herbaceous species: [https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3912841/](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3912841/) — LCP-Spannen krautiger Sonnen- vs. Schattenpflanzen (Grundlage 20--40 µmol/m²/s fuer C3-Sonnenpflanzen)
+21. Nature Scientific Reports -- Salt-induced stress in Gladiolus grandiflorus: [https://www.nature.com/articles/s41598-021-95243-9](https://www.nature.com/articles/s41598-021-95243-9) — Salzempfindlichkeit naheverwandter Iridaceae (Wachstumsdepression ab ECe 2--6 dS/m)
+22. Wikipedia -- Salt tolerance of crops: [https://en.wikipedia.org/wiki/Salt_tolerance_of_crops](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) — ECe-Klassifizierung (Maas-Hoffman, Substrat-ECe dS/m)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

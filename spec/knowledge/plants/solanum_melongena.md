@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual (in Mitteleuropa); perennial (Tropen) | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10–11 (Wuchs-/Phänologie-Basis der Hauptwuchsphase; warmliebende Solanaceae) | `species.base_temp` |
+| Lebensdauer (Jahre, nur perennial) | 2–3 (kurzlebige Staude in frostfreien Tropen/Subtropen; in Mitteleuropa einjährig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false (tropische Art ohne Kältedormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tagneutrale Art ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (entfällt; false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Schwellenwert; Photoperiodik über photoperiod_type=day_neutral abgebildet --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Wird in Mitteleuropa als einjährige Kultur angebaut. Abstirben bei Temperaturen unter 2°C. In subtropischen Klimazonen mehrjährig. | `species.hardiness_detail` |
@@ -48,6 +57,11 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 |------|------|---------|
 | Vermehrungsmethoden | seed; cutting_stem | `species.propagation_methods` |
 | Schwierigkeit | moderate (empfindlichere Keimung als Tomate) | `species.propagation_difficulty` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Befruchter erforderlich (requires pollinator) | false (selbstfruchtbar; zwittrige „perfekte" Blueten mit Staub- und Fruchtblatt) | `species.requires_pollinator` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**Bestaeubungs-Hinweis (kein KA-Feld):** Aubergine ist selbstfruchtbar und benoetigt KEINE Befruchtersorte (`pollinator_group` bleibt leer — kein Obst-Fremdbefruchter). Im Gewaechshaus ohne Insekten verbessert Vibrationsbestaeubung (leichtes Schuetteln der Bluetenstaende, „buzz pollination") den Fruchtansatz.
 
 **Keimhinweise:**
 - Optimale Keimtemperatur: 25–30°C (Heizmatte fast unverzichtbar)
@@ -95,6 +109,24 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Rankhilfe/Stuetze noetig | true (Fruchtlast kann Aeste brechen; Spiralstab oder Schnur) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche, humose Pflanzerde (Tomatenpflanzerde geeignet) mit gutem Wasserhaltvermoegens; pH 5.8–6.8; gute Drainage. Kompostbeimischung 20–30% empfohlen. | -- |
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (mind. 6–8 h direkte Sonne; nicht schattentolerant) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–60 (Pfahlwurzel bis ~60 cm; aktive Hauptzone obere 30–45 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (gedeiht nicht auf schlecht drainierten Boeden; gute Drainage erforderlich) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (Maas & Hoffman) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.1 (Substrat-ECe im Saettigungsextrakt; Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 6.9 (Maas-Hoffman b; Ertragsrueckgang je dS/m oberhalb Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.8–6.8 | `species.soil_ph_preference` |
+
+**Hinweis (kein KA-Feld):** Der Lichtkompensationspunkt steigt mit der Blatttemperatur; bei >30 °C liegt er hoeher. Die Lichtsaettigung liegt mit ~1000–1100 µmol/m²/s sehr hoch (linearer Anstieg der Nettophotosynthese bis dahin) — dieser Wert gehoert NICHT in das Kompensationspunkt-Feld, sondern erklaert den hohen Lichtbedarf der Art.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -124,6 +156,12 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 70–85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-Anker; bei FR-armem LED-Spektrum niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Substrat feucht halten; nie austrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -140,6 +178,12 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-Anker; bei FR-armem LED-Spektrum niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -156,6 +200,12 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-/Vollsonnen-Anker; bei FR-armem LED-Spektrum niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -172,6 +222,12 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 55–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 26–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-/Vollsonnen-Anker; bei FR-armem LED-Spektrum niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -190,20 +246,27 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 55–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 26–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-/Vollsonnen-Anker; bei FR-armem LED-Spektrum niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 (regelmaessig; Trockenheit foerdert Bitterkeit) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–900 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0 | — | — | — | — |
-| Saemling | 2:1:1 | 0.6–0.8 | 5.8–6.2 | 100 | 40 | 20 | 2 |
-| Vegetativ | 3:1:2 | 1.2–1.8 | 5.8–6.2 | 150 | 50 | 25 | 3 |
-| Bluete | 1:2:3 | 1.4–2.0 | 6.0–6.5 | 130 | 60 | 30 | 2 |
-| Fruchtreife | 1:2:3 | 1.4–2.0 | 6.0–6.5 | 120 | 60 | 25 | 2 |
-| Seneszenz | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | 15 | 1 |
+<!-- Mn/Zn/Cu/Mo-Spalten: Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0 | — | — | — | — | — | — | — | — |
+| Saemling | 2:1:1 | 0.6–0.8 | 5.8–6.2 | 100 | 40 | 20 | 2 | 0.4 | 0.08 | 0.04 | 0.04 |
+| Vegetativ | 3:1:2 | 1.2–1.8 | 5.8–6.2 | 150 | 50 | 25 | 3 | 0.6 | 0.10 | 0.05 | 0.05 |
+| Bluete | 1:2:3 | 1.4–2.0 | 6.0–6.5 | 130 | 60 | 30 | 2 | 0.6 | 0.10 | 0.05 | 0.05 |
+| Fruchtreife | 1:2:3 | 1.4–2.0 | 6.0–6.5 | 120 | 60 | 25 | 2 | 0.6 | 0.10 | 0.05 | 0.05 |
+| Seneszenz | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | 15 | 1 | 0.3 | 0.06 | 0.03 | 0.03 |
 
 ### 2.4 Phasenubergangsregeln
 
@@ -290,6 +353,21 @@ Auberginen reagieren aehnlich wie Tomaten auf Calciummangel (Bluetenendfaeule / 
 | Jun–Sep | Duengen | 14-taeglich mit Fluessigduenger | mittel |
 | Jun–Sep | Pinzieren und Stuetzen | Auf 3–4 Haupttriebe; Fruechte begrenzen auf 4–6 | mittel |
 | Jul–Okt | Ernte | Vor voller Reife (Farbe sortentypisch; Haut glänzt noch) | hoch |
+
+### 4.3 Ueberwinterung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+In Mitteleuropa wird die Aubergine ueblicherweise einjaehrig kultiviert. Eine Ueberwinterung ist nur als frostfreie Kuebel-/Topfpflanze sinnvoll (in den Tropen mehrjaehrig); der Ertrag im Folgejahr ist meist geringer als bei Neuanzucht.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) + Monat | move_indoors (Okt., vor erstem Frost) | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Massnahme (spring action) + Monat | move_outdoors (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action` |
+| Winterquartier — Temperatur (°C) | 15–18 (frostfrei, hell und warm; unter 10 °C Wachstumsstillstand/Schaeden) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier — Licht | hell (Suedfenster oder Pflanzenlampe; Lichtmangel fuehrt zu Vergeilung) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier — Gießen | sparsam; Substrat nur leicht feucht halten; Staunaesse vermeiden | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -433,3 +511,16 @@ Diamond F1,Solanum melongena,65–75,dark_purple;hybrid;disease_tolerant,hybrid 
 5. USDA Plant Materials — Solanum melongena Plant Guide — https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_some.pdf
 6. Purdue University Horticulture — Aubergine/Eggplant Growing Guide — https://hort.purdue.edu/newcrop/morton/cape_gooseberry.html
 7. Plantura — Aubergine anbauen Sortenvergleich — https://www.plantura.garden/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. ScienceDirect (Pereira et al. 2025) — Base and upper temperature thresholds for GDD (FAO56rev) Review; Eggplant Tbase zwischen 10–11 °C — https://www.sciencedirect.com/science/article/pii/S037837742500469X
+9. Pioneer Agronomy — C3 and C4 Photosynthesis: Implications for Crop Production (Solanaceae/Gemuese als C3) — https://www.pioneer.com/us/agronomy/c3-c4-photosynthesis-crop-production.html
+10. Heuvelink/de Koning (1996), ScienceDirect — Effects of Light and CO2 on Net Photosynthesis Rates of Aubergine (Lichtkompensationspunkt, Lichtsaettigung ~1100 µmol/m²/s) — https://www.sciencedirect.com/science/article/abs/pii/S0305736483710267
+11. ScienceDirect Topics — Light Compensation (LCP-Definition, Spannen, Temperaturabhaengigkeit) — https://www.sciencedirect.com/topics/engineering/light-compensation
+12. USDA-ARS (Heakal/Shalhevet; Plant and Soil) — Salt tolerance of eggplant: moderately sensitive, ECe-Schwelle 1.1 dS/m, Slope 6.9 %/dS/m (Maas-Hoffman) — https://link.springer.com/article/10.1007/BF02378847
+13. USDA-ARS — Effects of Salinity on Eggplant (Solanum melongena L.) (Maas & Hoffman Klassifikation) — https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P2269.pdf
+14. USU Extension — How to Grow Eggplant in Your Garden (Vollsonne, 6–8 h; nicht schattentolerant; Drainage) — https://extension.usu.edu/yardandgarden/research/eggplant-in-the-garden
+15. The Old Farmer's Almanac — Planting and Growing Eggplant (Vollsonne; gut drainierter Boden; kein Staunaesse) — https://www.almanac.com/plant/eggplants
+16. MU Extension — Eggplant Production (Pfahlwurzel ~50–60 cm; tiefwurzelndes Gemuese; pH-Vorzug) — https://extension.missouri.edu/publications/g6369
+17. UF/IFAS EDIS HS796/CV216 — Nutrient Solution Formulation for Hydroponic Tomatoes (Mikronaehrstoff-Richtwerte Mn/Zn/Cu/Mo; auf Solanaceae-Fruchtgemuese uebertragbar) — https://edis.ifas.ufl.edu/publication/CV216
+18. Gardener's Path — Tips for Pollinating Eggplant by Hand (selbstfruchtbar, zwittrige Blueten; Vibrationsbestaeubung) — https://gardenerspath.com/plants/vegetables/hand-pollinate-eggplant/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

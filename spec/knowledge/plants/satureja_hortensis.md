@@ -20,8 +20,17 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–11b (annual) | `species.hardiness_zones` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | – (einjährig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | – | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein echter Kurztag-/Langtag-Blüher --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Einjährig — stirbt nach erstem Frost; Winter-Bohnenkraut (S. montana) ist winterhart bis -15°C | `species.hardiness_detail` |
 | Heimat | Östliches Mittelmeergebiet, Kleinasien | `species.native_habitat` |
@@ -30,6 +39,10 @@
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 
 **Hinweis zu verwandten Arten:** Satureja montana (Winter-Bohnenkraut) ist mehrjährig und winterhart bis -15°C. S. hortensis (Sommer-Bohnenkraut) ist einjährig und frostempfindlich. Beide werden in der Küche verwendet; S. montana hat ein intensiveres, schärferes Aroma.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zur Photoperiode (Korrektur):** Die frühere Einstufung `long_day` ist nicht belegt. Sommer-Bohnenkraut blüht entwicklungsgesteuert mit Erreichen der Blühreife (etwa 70–80 Tage nach Aussaat, Blütezeit Juli–September) und nicht in Reaktion auf eine kritische Tageslänge. Es ist daher als tagneutral (`day_neutral`) einzustufen; die Werte in §1.1, §2.2 (`photoperiod_hours` als Kulturlicht-Empfehlung, nicht als Blühtrigger) und §8 wurden entsprechend harmonisiert. Als C3-Pflanze nutzt die Art den normalen C3-Photosyntheseweg (kein C4/CAM). Die GDD-Basistemperatur von 10 °C entspricht der Konvention für wärmeliebende, frostempfindliche Sommerannuelle der Lamiaceae (analog Basilikum, Keim-/Wuchsstillstand unterhalb ~10 °C) und bezieht sich auf die Hauptwuchsphase, nicht auf Keim-Kardinaltemperaturen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -94,6 +107,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige Kräutererde mit 20–30 % Perlite oder Grobsand; pH 6.5–7.5; keine nährstoffreiche Universalerde | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–25 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Wert; nur Keim-/Sämlingsdaten verfügbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Als ausgesprochene Sonnen- und Magerstandort-Pflanze des Mittelmeerraums verlangt Sommer-Bohnenkraut volle Sonne (`full_sun`) — PFAF und NC State Extension geben übereinstimmend an, dass die Art im Schatten nicht gedeiht. Der Lichtkompensationspunkt (light compensation point, LCP) ist als grobe Spanne für lichtbedürftige krautige C3-Sonnenpflanzen angegeben; nicht zu verwechseln mit Lichtsättigung oder Optimum. Die Art ist sehr staunässeempfindlich (`sensitive`): dauerfeuchte Böden führen rasch zu Wurzelfäule. Salztoleranz: Keim- und Sämlingsversuche (Iran) zeigen bereits ab ~40–150 mM NaCl deutliche Keimminderung — die Art gilt als `moderately_sensitive`; ein belastbarer Maas-Hoffman-Schwellenwert (bezogen auf Substrat-ECe) für etablierte Pflanzen liegt nicht vor und bleibt offen. Der Boden-pH-Vorzug 6.0–7.0 ist quellentreu übernommen (zusätzlich werden leicht alkalische Böden gut vertragen) und harmonisiert mit den pH-Angaben in §2.3 (6.0–7.0); die etwas höhere Topfsubstrat-Empfehlung in §1.6 (6.5–7.5) berücksichtigt die Pufferung gedüngter Kräutererde und steht dazu nicht im Widerspruch.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -121,6 +152,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Substrat feucht halten) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -137,6 +174,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 30–80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -153,6 +196,12 @@
 | Luftfeuchtigkeit Tag (%) | 45–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (zwischen Gaben gut abtrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -169,18 +218,30 @@
 | Luftfeuchtigkeit Tag (%) | 40–55 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 (trockener Standort bevorzugt) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0–0.4 | 6.0–6.5 | – | – | – | – |
-| Sämling | 1:1:1 | 0.4–0.8 | 6.0–6.8 | 50 | 20 | – | 1 |
-| Vegetativ | 2:1:1.5 | 0.8–1.2 | 6.0–7.0 | 80 | 30 | – | 1.5 |
-| Blüte/Reife | 1:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 25 | – | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0–0.4 | 6.0–6.5 | – | – | – | – | – | – | – | – |
+| Sämling | 1:1:1 | 0.4–0.8 | 6.0–6.8 | 50 | 20 | – | 1 | 0.5 | 0.1 | 0.05 | 0.02 |
+| Vegetativ | 2:1:1.5 | 0.8–1.2 | 6.0–7.0 | 80 | 30 | – | 1.5 | 0.5–1.0 | 0.2–0.5 | 0.05–0.1 | 0.02–0.05 |
+| Blüte/Reife | 1:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 25 | – | 1 | 0.5 | 0.2 | 0.05 | 0.02 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Mangan- (Mn), Zink- (Zn), Kupfer- (Cu) und Molybdän- (Mo) Werte entsprechen den allgemeinen Empfehlungsbereichen für leichtzehrende Kräuter/Blattpflanzen in nährstofflöslicher Kultur. Da Sommer-Bohnenkraut ein Schwachzehrer (`light_feeder`) ist, sind die unteren Bandbreiten anzustreben; in gedüngter Kräutererde sind diese Mikronährstoffe meist bereits ausreichend enthalten.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Zu viel Stickstoff fördert übermäßiges Blattwachstum auf Kosten des Aromas. Der Carvacrol- und Thymolgehalt ist bei leicht gestresstem, magerbodenwachsendem Bohnenkraut am höchsten. EC-Werte niedrig halten!
 
@@ -190,7 +251,7 @@
 |------------|---------|----------|-------------|
 | Keimung → Sämling | time_based | 10–14 Tage | Keimblätter vollständig entfaltet |
 | Sämling → Vegetativ | time_based | 14–21 Tage | 3–4 echte Blattpaare; Pflanze 5–8 cm |
-| Vegetativ → Blüte/Reife | event_based | ab 45–60 Tagen | Erste Blütenknospen sichtbar; Tageslänge nimmt ab |
+| Vegetativ → Blüte/Reife | event_based | ab 45–60 Tagen | Erste Blütenknospen sichtbar; entwicklungsgesteuert mit Blühreife (tagneutral, kein Tageslängen-Trigger) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
 
 ---
 
@@ -386,7 +447,7 @@ Sommer-Bohnenkraut ist einjährig und wird nicht überwintert. Die Pflanze stirb
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Satureja hortensis,Sommer-Bohnenkraut;Summer Savory,Lamiaceae,Satureja,annual,long_day,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a;11b,0.2,Östliches Mittelmeer; Kleinasien,yes,1,15,20,25,20,limited,yes,false,false
+Satureja hortensis,Sommer-Bohnenkraut;Summer Savory,Lamiaceae,Satureja,annual,day_neutral,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a;11b,0.2,Östliches Mittelmeer; Kleinasien,yes,1,15,20,25,20,limited,yes,false,false
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -408,3 +469,14 @@ Saturn,Satureja hortensis,–,–,high_yield;aromatic,60–70,–,open_pollinate
 5. [grove.eco — Nachbarn und Fruchtfolge](https://www.grove.eco/en/plants/satureja-hortensis/) — Mischkultur-Daten, Aussaatzeiten
 6. [Harvest to Table — Savory Growing Guide](https://harvesttotable.com/how_to_grow_savory/) — Wachstumsphasen, Ernte
 7. [GartenVielfalt — Satureja hortensis](https://www.garten-vielfalt.de/de-de/gartenwelt/pflanzeninfothek/pflanzen/1313/satureja-hortensis) — Anbau Norddeutschland, Praxis
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. [PFAF — Satureja hortensis (Growing Conditions)](https://pfaf.org/user/Plant.aspx?LatinName=Satureja+hortensis) — Volle Sonne (kein Schatten), Staunässe-Intoleranz, Boden-pH-Reaktion (Quelle für §1.7 shade_tolerance, waterlogging_tolerance)
+9. [Johnny's Selected Seeds — Summer Savory Key Growing Information](https://www.johnnyseeds.com/growers-library/herbs/savory/summer-savory-key-growing-information.html) — Keim-/Wuchstemperaturen (Tag 30 °C / Nacht 20 °C), Abstand, Wuchshöhe (Quelle für base_temp-Konsistenz, T_opt)
+10. [Gardener's Path — How to Plant and Grow Summer Savory](https://gardenerspath.com/plants/herbs/summer-savory-tasty-herb-kitchen-garden/) — Blüte ab Hochsommer, Ernte vor Blüte, entwicklungsgesteuerte Blühreife (Quelle für day_neutral-Korrektur)
+11. [PlotMyGarden — How to Grow Summer Savory](https://plotmygarden.com/en/plants/summer-savory) — Boden-pH 6.0–7.0, gut durchlässig, kein Staunässe (Quelle für §1.7 soil_ph_preference)
+12. [Keshavarzi et al. — Effect of Salt Stress on Germination and Early Seedling Growth of Savory (Satureja hortensis)](https://www.researchgate.net/publication/221963341_Effect_of_Salt_Stress_on_Germination_and_Early_Seedling_Growth_of_Savory_Satureja_hortensis) — Keimminderung ab ~40–150 mM NaCl (Quelle für salt_tolerance_class moderately_sensitive)
+13. [Silver nanoparticles on salt tolerance of Satureja hortensis (Heliyon/PMC7895726)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7895726/) — Salzempfindlichkeit bei Keimung/Sämling (Quelle für salt_tolerance_class)
+14. [Effect of salinity on germination and seedling growth of … Satureja hortensis (ScienceDirect)](https://www.sciencedirect.com/science/article/pii/S1658077X17302011) — Salinitätsreaktion Keimung/Wuchs (Quelle für salt_tolerance_class)
+15. [ZE Bees and Trees Wiki — Hydroponic Nutrients for Leafy Greens](https://zebat.wiki/articles/tutorials/hydroponic_nutrients_leafygreens/) — Mikronährstoff-Bereiche Mn/Zn/Cu/Mo (Quelle für §2.3 Mikronährstoffe)
+16. [Harvest to Table — Root Depth / Container Depth Savory](https://harvesttotable.com/how_to_grow_savory/) — flacher Wurzelraum (~20 cm) (Quelle für effective_root_depth_cm)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

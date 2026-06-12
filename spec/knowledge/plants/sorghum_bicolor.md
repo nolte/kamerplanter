@@ -21,6 +21,19 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c4 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig/annuell; stirbt bei Frost) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropische C4-Pflanze ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 12.5 (fakultativer Kurztagblüher; Blüteninduktion bei Tageslänge ≤ ca. 12,5 h; moderne Kornsorten teils photoperiode-insensitiv) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**GDD-Basistemperatur-Hinweis:** Die GDD-Basistemperatur (base temp) der Hauptwuchsphase beträgt 10 °C (= 50 °F) — Standardwert für wärmeliebende C4-Sommerkulturen (Mais, Sorghum, Zuckermais). Dies ist die Wuchs-GDD-Basis, NICHT die höhere Keim-Mindestbodentemperatur (15 °C). Konsistent mit optimaler Wachstumstemperatur 25–35 °C (§1.1 Winterhärte-Detail). <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**Photoperiode-Hinweis:** Sorghum ist ein fakultativer Kurztagblüher (facultative short-day plant): Langtag verzögert die Blüte, Kurztag (≤ ca. 12,5 h) beschleunigt sie. Die Photoperiode-Sensitivität wird erst nach der ca. 14–21-tägigen Juvenilphase wirksam. Viele moderne Kornsorghum-Sorten sind züchterisch photoperiode-insensitiv (reduzierte Ma-Gene), weshalb in Mitteleuropa-Anbau die Blüte primär temperatur-/GDD-getrieben erfolgt. Die Einstufung `short_day` bleibt für die Art (Wildform/klassische Sorten) korrekt. <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 7a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich; Keimtemperatur min. 15°C (Bodentemperatur); optimale Wachstumstemperatur 25–35°C; stirbt bei Frost; in Mitteleuropa als Sommerkorn ab Ende Mai | `species.hardiness_detail` |
@@ -86,6 +99,25 @@
 | Rankhilfe/Stütze nötig | false (hohe Sorten windgefährdet; aber Selbststützer) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lehmige Erde; pH 5,5–7,5; tiefe Töpfe; trockenheitstolerante Erde | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 100–200 (Primärwurzel 100–150 cm, Sekundärsystem bis ~200 cm; max. ~185 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (staunässeempfindlich; mind. 30 frostfreie/staufreie Tage nach Auflauf nötig) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 6.8 (Substrat-ECe, Maas-Hoffman a; nicht Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 16 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–7.5 | `species.soil_ph_preference` |
+
+**Lichtkompensationspunkt-Hinweis:** Sorghum ist ein lichtbedürftiger C4-Crop mit hohem Lichtsättigungspunkt und ausgeprägter Schattenintoleranz (full_sun). Ein belegter Zahlenwert für den Licht-Kompensationspunkt (PPFD, Netto-Photosynthese = 0) in µmol/m²/s war über zwei unabhängige seriöse Quellen nicht auffindbar — daher als DATEN FEHLEN markiert (nicht zu verwechseln mit dem niedrigen CO₂-Kompensationspunkt ~0–10 ppm, der ein anderes Maß ist).
+
+**Salztoleranz-Hinweis:** Maas-Hoffman-Parameter (FAO Annex 1): Schwelle a = 6,8 dS/m bezogen auf den ECe des gesättigten Substrat-Extrakts (NICHT die Gießwasser-EC), darüber 16 % Ertragsverlust je dS/m. Die Einstufung moderately_tolerant (MT) passt zur Schwelle (> 6 dS/m). <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 30–35 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Vegetativ / Bestockung
 
@@ -126,6 +164,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.8 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 7–14 (sehr trockenheitstolerant) | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 30–35 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Blüte
 
@@ -138,6 +182,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–1.8 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 30–35 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland-Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.3 Nährstoffprofile je Phase
 
@@ -148,6 +198,9 @@
 | Vegetativ | 4:1:3 | 1.2–2.0 | 5.5–7.5 | 120 | 50 |
 | Blüte | 1:2:3 | 1.0–1.8 | 5.5–7.5 | 100 | 50 |
 | Reife | 0:1:2 | 0.6–1.0 | 5.5–7.5 | 60 | 30 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo, ppm):** Belegte Phasen-Sufficiency-Ranges für Mangan, Zink, Kupfer und Molybdän (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) waren über zwei unabhängige seriöse Quellen nicht eindeutig auffindbar — daher <!-- DATEN FEHLEN -->. Auffindbar waren lediglich kritische Blatt-Mangelschwellen (z. B. Mn-Blattkritikwert ~10–15 ppm im Booting-Stadium, University of Nebraska-Lincoln), die jedoch Defizienz-Grenzwerte und keine phasenbezogenen Nährlösungs-ppm darstellen. Zink ist neben Eisen der praktisch wichtigste Mikronährstoff bei Sorghum; übrige Mikronährstoffe sind bei Sorghum selten ertragslimitierend. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -228,6 +281,16 @@ Sorghum hat einen sehr hohen Kalium-Bedarf. Trockenheitstoleranz bedeutet NICHT 
 | Vogelschutznetze | cultural | — | Rispe abnetzen | 0 | Vögel |
 | Resistente Sorten | cultural | — | Sortenwahl | 0 | Rost, Mehltau |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|-----------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Schizaphis graminum) | 0,5–1 Tier/m² (kurativ höher) | 2–3 Wochen |
+| Blattlaus-Gallmücke | Aphidoletes aphidimyza | Blattläuse (Schizaphis graminum) | 1–4 Tiere/m² | 2–3 Wochen |
+
+**Hinweis:** Nützling-Wirt-Zuordnung fachlich auf den Hauptschädling Blattläuse abgestimmt (Aphidius/Aphidoletes → Blattläuse). Im Freiland fördern blühende Säume (z. B. Sesam als Begleitkultur, §6.2) zusätzlich aphidophage Schwebfliegen und Marienkäfer. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -298,3 +361,14 @@ Bepari,Sorghum bicolor,"grain_sorghum;medium_tall;early",105,open_pollinated
 3. [University of Nebraska Extension — Sorghum Production](https://extension.unl.edu) — Nährstoffbedarf
 4. [FAO Sorghum Crop Profile](https://www.fao.org/sorghum) — Globale Anbausysteme
 5. [Bayerische LfL — Sorghumhirse](https://www.lfl.bayern.de/ipz/getreide) — Mitteleuropa-Anbau
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [FAO — Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Maas-Hoffman Salztoleranz: ECe-Schwelle 6,8 dS/m, Slope 16 %/dS/m, Rating MT (moderately tolerant)
+7. [FAO Land & Water — Sorghum (crop water information)](https://www.fao.org/land-water/databases-and-software/crop-information/sorghum/en/) — Effektive Wurzeltiefe (Primärwurzel 1–1,5 m, Sekundärsystem bis 2 m), Wasserextraktion
+8. [Purdue Extension — Understanding Growing Degree Days](https://extension.purdue.edu/news/county/whitley/2025/08/understanding-growing-degree-days.html) — GDD-Basistemperatur 50 °F (10 °C) für Sorghum/Mais
+9. [Penn State Extension — Understanding Growing Degree Days](https://extension.psu.edu/understanding-growing-degree-days) — GDD-Basis warm-season crops (Sorghum 10 °C)
+10. [Murdy & Yeo / NCBI PMC — Photoperiod response and floral transition in sorghum](https://pmc.ncbi.nlm.nih.gov/articles/PMC5225928/) — Sorghum fakultativer Kurztagblüher, kritische Tageslänge ~12,5 h, Photoperiode-insensitive Sorten
+11. [Wikipedia — Salt tolerance of crops](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) — Bestätigung Sorghum MT, ECe-Schwelle 6,8 dS/m (nach Maas & Hoffman)
+12. [CSIRO Functional Plant Biology — Photosynthesis in Sorghum bicolor under temperature changes](https://www.publish.csiro.au/fp/PP9950885) — Photosynthese-Temperaturoptimum 30–35 °C
+13. [Butchee et al. 2012, Int. J. Agronomy — Determining Critical Soil pH for Grain Sorghum](https://onlinelibrary.wiley.com/doi/10.1155/2012/130254) — Boden-pH-Optimum/Toleranz, Säureempfindlichkeit
+14. [University of Nebraska-Lincoln Extension — Nutrient Management for Grain Sorghum (G1669)](https://extensionpublications.unl.edu/assets/html/g1669/build/g1669.htm) — Mikronährstoffe (Zn, Mn) kritische Blattwerte
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

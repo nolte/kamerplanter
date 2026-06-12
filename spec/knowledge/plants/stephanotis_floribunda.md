@@ -20,7 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- KORREKTUR: vormals short_day. S. floribunda ist photoperiodisch weitgehend tagneutral; dominanter Blühinduktionsfaktor sind kühle Nächte (~13–16 °C) im Winter, nicht die Tageslänge. Eine klassische Langtag-Einstufung mit kritischer Tageslänge ist nicht belegt. --><!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostfrei; Temperaturen unter 12°C hemmen Wachstum dauerhaft | `species.hardiness_detail` |
@@ -28,6 +28,16 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für S. floribunda auffindbar; Wachstum stagniert unter ~12–13 °C, aber das ist keine quellenbelegte GDD-Basis --> | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN: Quellen beschreiben langlebige, mehrjährige Liane ("long-term plant"), nennen aber keinen belegten Jahreswert --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN --> (tagneutral; Blühinduktion temperaturgesteuert über kühle Nächte, keine belegte photoperiodische Schwelle) | `lifecycle_configs.critical_day_length_hours` |
+<!-- Hinweis: S. floribunda ist Langtagblüher; Blüteninduktion ab ~14 h Photoperiode (oder 4 h Nachtunterbrechung). Der erforderliche 8–10-wöchige kühle Ruheabschnitt (cool rest, ~13–16 °C Nacht) ist eine kühletemperatur-gesteuerte Dormanz/Induktion, KEINE echte Vernalisation (kein Kältereiz <10 °C nötig) → dormancy_required=true, vernalization_required=false. Quellen: ourhouseplants, lifetips/Alibaba, Davis Floral Stephanotis Vine. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +92,29 @@
 | Rankhilfe/Stütze nötig | true | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Gut drainierte, nährstoffreiche Zimmerpflanzenerde; keine Staunässe; Rankgitter oder Drahtrahmen; Topf NICHT umstellen (Knospenfall!) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein art-spezifisch gemessener Kompensationspunkt (light compensation point) für S. floribunda in seriösen Quellen auffindbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: Quellen beschreiben flaches, feines, brüchiges Wurzelwerk und kleinen Topfbedarf, nennen aber keine belegte Wurzeltiefe in cm --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN: keine seriöse Salztoleranz-Einstufung für S. floribunda auffindbar --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Wert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+<!--
+Begründungen Sektion 1.7:
+- shade_tolerance=partial_shade: helles, indirektes/gefiltertes Licht; in Madagaskar als Halbschatten unter lichtem Küstenwald-Kronendach; RHS "Full sun" gilt für Kultur unter Glas mit Schattierung vor heißer Sonne. Kein Tiefschatten (deep_shade) tolerierend ("not the plant for a shady/low light location"). Quellen: ourhouseplants, RHS, gardenia.
+- waterlogging_tolerance=sensitive: Staunässe verursacht zuverlässig Wurzelfäule; Pflanze soll zwischen Wassergaben antrocknen. Quellen: yourflowersguide, plantgrowerworld, jardineriaon.
+- soil_ph_preference 5.5–6.5: leicht sauer bis neutral; mit pH-Angaben in §2.3 (6.0–6.5) harmonisiert. RHS nennt zusätzlich Alkali-Toleranz (acid/neutral/alkaline), die dominante Kultur-Empfehlung ist jedoch leicht sauer (5.5–6.5). Quellen: lifetips/Alibaba (5.5–6.5), RHS, gardenia.
+-->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +142,10 @@
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.1 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,18 +162,26 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Knospenbildung | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 2 |
-| Blüte | 1:2:3 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Knospenbildung | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 2 | DF | DF | DF | DF |
+| Blüte | 1:2:3 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 | DF | DF | DF | DF |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 | DF | DF | DF | DF |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoffe Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`): DF = DATEN FEHLEN. Für S. floribunda sind keine art-spezifischen, quellenbelegten Mn/Zn/Cu/Mo-Sollwerte je Phase auffindbar. Generische Hydroponik-/Hoagland-Richtwerte wurden bewusst NICHT als art-spezifische Werte eingetragen (keine Halluzination). -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -280,7 +325,7 @@
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Stephanotis floribunda,Brautstrauch;Madagaskarjasmin;Madagascar Jasmine,Apocynaceae,Stephanotis,perennial,short_day,vine,fibrous,10a;10b;11a;11b,0.0,Madagaskar,yes,10,20,500,200,—,yes,limited,true,true
+Stephanotis floribunda,Brautstrauch;Madagaskarjasmin;Madagascar Jasmine,Apocynaceae,Stephanotis,perennial,long_day,vine,fibrous,10a;10b;11a;11b,0.0,Madagaskar,yes,10,20,500,200,—,yes,limited,true,true
 ```
 
 ---
@@ -291,3 +336,11 @@ Stephanotis floribunda,Brautstrauch;Madagaskarjasmin;Madagascar Jasmine,Apocynac
 2. [Greg App – Stephanotis floribunda](https://greg.app/plant-care/stephanotis-floribunda) — Care Data
 3. [Weekand – How to Care for Stephanotis](https://www.weekand.com/home-garden/article/care-stephanotis-18054398.php) — Kulturtipps
 4. [Pflanzenfreunde – Stephanotis](https://www.pflanzenfreunde.com/stephanotis.htm) — DE Anleitung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS – Stephanotis floribunda (bridal wreath)](https://www.rhs.org.uk/plants/17784/stephanotis-floribunda/details) — Boden-pH (acid/neutral/alkaline), Sonnenlage, Drainage, Hardiness H1B (10–15 °C)
+6. [ourhouseplants – Stephanotis floribunda Guide](https://www.ourhouseplants.com/plants/stephanotis-floribunda) — Lichtbedarf, Schattenintoleranz, Winterruhe-Temperatur, Mindesttemperatur
+7. [lifetips/Alibaba – Stephanotis floribunda Care: Grow & Bloom](https://lifetips.alibaba.com/plant-care/stephanotis-floribunda) — Langtag-Induktion (~14 h / Nachtunterbrechung), kühle Ruhephase (8–10 Wochen), pH 5.5–6.5
+8. [Davis Floral Company – Stephanotis Vine (NCSU Hortscans, PDF)](https://hortscans.ces.ncsu.edu/uploads/s/t/stephano_51e40f167cb7b.pdf) — kommerzielle Kultur, Photoperiode/Nachtunterbrechung, Temperatur
+9. [yourflowersguide – Stephanotis Plant Care & Growing Guide](https://yourflowersguide.com/stephanotis/) — Staunässe-/Wurzelfäule-Empfindlichkeit, Drainage
+10. [Gardenia.net – Madagascar Jasmine (Stephanotis floribunda)](https://www.gardenia.net/plant/stephanotis-floribunda-madagascar-jasmine-grow-care-guide) — leicht saurer bis neutraler Boden, helles indirektes Licht
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

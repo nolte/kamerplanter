@@ -21,11 +21,18 @@
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam (schwach/fakultativ ausgeprägt — weak/facultative CAM) | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 50–150+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur Wuchs (°C) | <!-- DATEN FEHLEN — kein publizierter Wuchs-/Phänologie-GDD-Basiswert für Y. elephantipes/gigantea auffindbar; Wachstum stoppt praktisch unter ~10°C, Kälteschäden ab ~4°C, aber dies sind Minimal-/Schadschwellen, KEINE belegte GDD-Basis und werden daher nicht als base_temp eingetragen --> | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- entfällt: tagneutral (day_neutral) — kein Kurztag-/Langtagblüher, daher kein numerischer Stunden-Schwellwert; siehe lifecycle_configs.photoperiod_type --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich — übersteht keine anhaltenden Minustemperaturen. Kurzzeitig bis -2°C möglich, darunter Kälteschäden. In Mitteleuropa (USDA 7–8) zwingend als Kübelpflanze mit Winterquartier kultivieren. | `species.hardiness_detail` |
@@ -102,6 +109,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässiges Kakteensubstrat oder Allzweckerde (70%) gemischt mit Perlite (20%) und grobem Sand (10%). pH 6,0–7,0. Topf mit Drainageloch ist Pflicht — Staunässe ist der häufigste Todesgrund. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN — kein artspezifisch belegter Kompensationspunkt für Y. elephantipes/gigantea auffindbar; als lichtbedürftige Sonnenpflanze (full_sun) eher im oberen Bereich von Sonnenpflanzen, aber nicht aus 2 seriösen Quellen artgenau belegbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN — s. min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–60 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN — keine quantitativen Maas-Hoffman-ECe-Werte für Y. elephantipes publiziert; qualitativ als küsten-/salztolerant eingestuft (Klasse tolerant), Schwellwert daher nicht belegbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN — kein publizierter Slope-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweis:** *Yucca elephantipes* ist ausgesprochen lichtbedürftig und bevorzugt vollsonnige Standorte (mindestens 6 h direkte Sonne); Halbschatten wird toleriert, führt aber zu vergeiltem (spindeligem) Wuchs — daher `shade_tolerance: full_sun`. Das Wurzelsystem ist faserig (fibrous) und mittelflach; die Hauptwurzelzone liegt effektiv bei rund 30–60 cm (Container-Mindesttiefe 30 cm, im Freiland tiefere Verankerung). Gegenüber Staunässe ist die Art sehr empfindlich (`sensitive`) — Wurzel-/Stammfäule ist die häufigste Todesursache. Bezüglich Bodensalzgehalt gilt sie als salztolerant und küstentauglich (`tolerant`), quantitative ECe-Schwellen (Maas-Hoffman) sind jedoch nicht publiziert. Der pH-Vorzug 6,0–7,5 ist quellentreu (porös, durchlässig, schwach sauer bis neutral) und deckt die in §1.6 und §2.3 genannte engere Spanne 6,0–7,0 ab.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -134,6 +159,12 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | <!-- DATEN FEHLEN — für Sukkulenten-Typ ca. 0.8–1.5 kPa geschätzt --> | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Schwelle stomatären Kollaps; deutlich oberhalb des feuchteliebenden Etablierungs-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (CAM-/Sukkulenten-Typ mit nächtlichem Stomata-Öffnen → geringe VPD-Empfindlichkeit) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 (offenes Tageslicht/helles indirektes Licht; R:FR ≈ 1.1–1.2) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -152,6 +183,12 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | <!-- DATEN FEHLEN --> | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt; bei sukkulentem CAM-Typ hoch angesetzt) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.46–0.50 (direkte Vollsonne; R:FR ≈ 1.1–1.2) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -170,6 +207,12 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Luftfeuchtigkeit Tag (%) | 20–40 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 20–40 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | <!-- DATEN FEHLEN --> | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (höchste Schwelle; trockenheits-/hitzetolerante CAM-Phase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 26–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.46–0.50 (direkte Vollsonne; R:FR ≈ 1.1–1.2) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -188,6 +231,12 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | <!-- DATEN FEHLEN --> | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (niedrigere Schwelle in kühler, lichtarmer Ruhephase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (heller Innenstandort/Winterlicht, mehr diffuse Anteile; R:FR leicht reduziert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 21–35 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -206,6 +255,12 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | <!-- DATEN FEHLEN --> | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 (gemittelt über Jahreszyklus der etablierten Pflanze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.46–0.52 (je nach Sommer-Vollsonne vs. heller Innenstand im Winter) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14 (Sommer) / 28 (Winter) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 (je nach Topfgröße) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -221,6 +276,22 @@ Die Yucca elephantipes ist eine mehrjährige Zimmerpflanze ohne klassischen Ernt
 | Reife Dauerkultur | 1:1:1 (saisonal) | 0.4–0.8 | 6.0–7.0 | 40–80 | 20–40 | — | 1–2 |
 
 **Hinweis:** Yucca elephantipes ist ein ausgeprägter Schwachzehrer. Überdüngung führt zu Blattspitzenverbrennung und Salzakkumulation im Substrat. EC-Werte sind für Topfkultur mit Kakteenerde / Perlite-Mischung angegeben. In reiner Erde (ohne Nährstoff-Analyse) ist deutlich vorsichtigere Düngung ratsam.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Etablierung | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Aktives Wachstum | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Sommerpause | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Reife Dauerkultur | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+KA-Felder: `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+
+**Hinweis zu Mikronährstoffen:** Für *Yucca elephantipes* sind keine artspezifischen Mn-/Zn-/Cu-/Mo-Sollkonzentrationen (ppm) aus seriösen Quellen belegbar. Als Schwachzehrer in Topfkultur deckt ein handelsüblicher Kakteen-/Grünpflanzen-Volldünger den Mikronährstoffbedarf im Spurenbereich vollständig ab; eine separate Mikronährstoff-Dosierung ist nicht erforderlich und ein Überangebot (besonders Cu/Mn) eher schädlich. Daher bleiben die Felder mit `<!-- DATEN FEHLEN -->` markiert, statt unbelegte Werte einzutragen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -327,7 +398,7 @@ Yucca elephantipes reagiert sehr empfindlich auf Überdüngung. Häufigste Fehle
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free <!-- Quelle: Steckbrief-Erweiterung 2026-06 — korrigiert von needs_protection: Y. elephantipes ist frostempfindlich (tender) und wird in Mitteleuropa zwingend frostfrei drinnen überwintert (winter_action=move_indoors), nicht nur mit Schutz im Freien; daher Enum frost_free statt needs_protection --> | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off | `overwintering_profiles.spring_action` |
@@ -514,3 +585,15 @@ Silver Star,Yucca elephantipes,unbekannt,,variegated;ornamental;;none,clone
 13. [Gardenerdy — Yucca Plant Diseases](https://gardenerdy.com/yucca-plant-diseases/) — Pilzkrankheiten, Phytophthora, Pythium
 14. [Pet Poison Helpline — Yucca](https://www.petpoisonhelpline.com/poison/yucca/) — Toxizität, klinische Zeichen
 15. [PalmTalk Forum — Cold Hardiness Y. elephantipes](https://www.palmtalk.org/forum/topic/46928-true-cold-hardiness-of-yucca-elephantipes/) — Praxisbericht Winterhärte Zone 9b
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. [Heyduk et al. — Agavoideae: an emergent model clade for CAM evolutionary biology (Annals of Botany)](https://academic.oup.com/aob/article/132/4/727/7164427) — CAM-Evolution in Agavoideae/Yucca; obligate C3, fakultative/weak CAM und obligate CAM innerhalb der Gattung Yucca; Grundlage für Einordnung photosynthesis_type=cam (schwach/fakultativ)
+17. [Heyduk et al. 2019 — Shared expression of CAM genes pre-dates the origin of CAM in Yucca (J. Exp. Botany / PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6883266/) — Yucca-Photosynthese-Spektrum (Y. aloifolia CAM, Y. filamentosa C3, Y. gloriosa C3+CAM); weak-CAM-Kontext
+18. [Wikipedia — Yucca gigantea (Photosynthese-/Standort-/CAM-Kontext)](https://en.wikipedia.org/wiki/Yucca_gigantea) — semi-arider Standort, Trockenheitstoleranz, Wurzelfäule bei Überwässerung (Staunässe-Empfindlichkeit)
+19. [ForwardPlant — Soil for Growing Yucca gigantea](https://www.forwardplant.com/care/soil/yucca-gigantea/) — Boden-pH 6.5–7.5, poröses durchlässiges Substrat, Drainage; Beleg soil_ph_preference
+20. [UF/IFAS Gardening Solutions — Salt-Tolerant Plants](https://gardeningsolutions.ifas.ufl.edu/design/landscaping-for-specific-sites/salt-tolerant-plants/) — Yucca als salztolerante Küstenpflanze; Beleg salt_tolerance_class=tolerant
+21. [Weekand — Yucca for Coastal Planting](https://www.weekand.com/home-garden/article/yucca-coastal-planting-18070346.php) — Giant Yucca (Y. elephantipes) salztolerant/küstentauglich; Beleg salt_tolerance_class=tolerant
+22. [Planet Desert — Yucca Types, Care & Growing Guide](https://planetdesert.com/blogs/news/yucca-types-care-guide) — Lichtbedarf full sun (≥6 h Direktsonne), Staunässe-/Wurzelfäule-Empfindlichkeit; Beleg shade_tolerance=full_sun, waterlogging_tolerance=sensitive
+23. [UF/IFAS Fact Sheet ST-675 — Yucca elephantipes](https://hort.ifas.ufl.edu/trees/YUCELEA.pdf) — Wuchs, Standort, Wurzel-/Containerangaben; Beleg effective_root_depth_cm
+24. [allthingslighting.org — Far-Red Lighting and the Phytochromes](https://www.allthingslighting.org/far-red-lighting-and-the-phytochromes/) — Far-Red-Fraction FR/(R+FR) ≈ 0.46 / R:FR ≈ 1.1–1.2 in direkter Vollsonne, höher unter Schatten; Anker far_red_fraction
+25. [Yamori et al. 2013 — Temperature response of photosynthesis in C3, C4, and CAM plants (Plant Cell Environ./UWO PDF)](https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf) — Temperaturoptima CAM-Photosynthese; Grundlage photosynthesis_temp_opt_c und vpd_sensitivity=low
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -19,9 +19,16 @@
 | Ordnung | Commelinales | `botanical_families.order` |
 | Wuchsform | groundcover | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis pathway) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 3–10+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutrale Art (photoperiod_type=day_neutral), keine echte Kurztag-/Langtag-Steuerung; numerisches Stunden-Feld bleibt leer --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
@@ -88,6 +95,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale Einheitserde mit 20% Perlite. pH 6.0–7.0. Sehr anpassungsfähig. Ampelkultivierung beliebt. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für diese Zierpflanze auffindbar; qualitativ salzempfindlich (Blattspitzennekrose durch Salzakkumulation) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) auffindbar --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweis (Standortqualität):** Understory-/Uferart aus tropischen Wäldern; gedeiht im lichten Halbschatten bis hellen indirekten Licht. Direkte Vollsonne wird zwar toleriert, lässt aber die silberne Panaschierung verblassen (Blatt wird durchgehend purpurn). Der niedrige Lichtkompensationspunkt (10–30 µmol/m²/s) ist typisch für schattentolerante Krautpflanzen. Salzempfindlich: regelmäßiges Durchspülen des Substrats alle 2–3 Monate gegen Salzakkumulation (Blattspitzennekrose). Der hier genannte pH-Vorzug 5.5–6.5 (leicht sauer) ist enger als die in §1.6 genannte tolerierte Substratspanne 6.0–7.0; beide Spannen überlappen im optimalen Bereich um pH 6.0–6.5.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +137,12 @@
 | Temperatur Nacht (°C) | 12–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -122,15 +153,26 @@
 | Licht PPFD (µmol/m²/s) | 100–300 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 4–12 | `requirement_profiles.dli_target_mol` |
 | Temperatur Tag (°C) | 15–22 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 | 0.5 | 0.05 | 0.02 | 0.05 |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Die Mn/Zn/Cu/Mo-Werte der Wachstumsphase orientieren sich an der Hoagland-Standardlösung als Referenz und gelten für die verdünnt dosierte Nährlösung dieses Schwachzehrers (`light_feeder`). In der Winterruhe wird nicht gedüngt (alle Werte entfallen).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -174,6 +216,23 @@ Alle 4 Wochen April bis September. Kein Dünger Oktober bis März. Überdüngung
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | 10 | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | 5 | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 12–18 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (bright indirect) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam, Substrat zwischen den Gaben antrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis (Überwinterung):** Nicht frostharte Zimmer-/Kübelpflanze (USDA 9–11). In Mitteleuropa (USDA 6–8) ganzjährig nur drinnen oder im Sommer frostfrei auf Balkon/Terrasse kultivierbar. Vor dem ersten Frost bzw. wenn Nachttemperaturen unter ~10 °C fallen (Oktober) ins Haus holen, lange Triebe vorher einkürzen. Ab Mitte Mai (nach den Eisheiligen) wieder ins Freie. Über Winter hell und indirekt stellen, sparsam gießen, nicht düngen, vor Zugluft an kalten Fenstern schützen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -199,6 +258,20 @@ Alle 4 Wochen April bis September. Kein Dünger Oktober bis März. Überdüngung
 |---------|-----|-----------|------------|-------|
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Blattläuse |
 | Nematoden | biological | Gießen (Steinernema feltiae) | 0 Tage | Trauermücke |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–10 /m² | 2–3 Wochen |
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattlaus (Aphididae) | 0,5–1 /m² (präventiv) | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattlaus (Aphididae) | 1–10 /m² | 2–3 Wochen |
+| Bodenraubmilbe | Stratiolaelaps scimitus (Hypoaspis miles) | Trauermücke (Bradysia spp., Larven) | 100–500 /m² | 2–3 Wochen |
+| Nematode | Steinernema feltiae | Trauermücke (Bradysia spp., Larven) | ca. 500.000 /m² | 1–2 Wochen |
+
+**Hinweis (Nützlinge):** Raubmilbe *Phytoseiulus persimilis* braucht > 60 % rel. Luftfeuchte und Temperaturen 13–27 °C; nicht wirksam über 30 °C. Bei stärkerem Blattlausbefall *Aphidius* mit *Aphidoletes* kombinieren. Trauermücken-Larven im Substrat zweigleisig bekämpfen: Bodenraubmilbe (*Stratiolaelaps*) gegen Larven/Puppen plus *Steinernema feltiae* gegen Larven; vorbeugend früh nach dem Topfen ausbringen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -236,3 +309,20 @@ Tradescantia zebrina,"Dreimasterblume;Silbrige Tradescantie;Wandering Dude;Silve
 3. [The Sill](https://www.thesill.com/blogs/plants-101/how-to-care-for-a-tradescantia) — Praxiswissen
 4. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
 5. [Healthy Houseplants](https://www.healthyhouseplants.com/indoor-houseplants/silver-inch-plant-tradescantia-zebrina-care-guide-wandering-jew/) — Ganzjahrespflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Wikipedia — Tradescantia zebrina](https://en.wikipedia.org/wiki/Tradescantia_zebrina) — Heimat/Understory-Habitat, Frostempfindlichkeit, USDA-Zonen, Sonnentoleranz/Panaschierung
+7. [University of Wisconsin-Madison Extension — Tradescantia zebrina](https://hort.extension.wisc.edu/articles/tradescantia-zebrina/) — Standort, Pflege, Winter
+8. [NC State Extension Gardener Plant Toolbox — Tradescantia zebrina](https://plants.ces.ncsu.edu/plants/tradescantia-zebrina/) — Standort/Licht, Bodenansprüche, Taxonomie
+9. [ScienceDirect — Crassulacean Acid Metabolism in Three Species of Commelinaceae](https://www.sciencedirect.com/science/article/abs/pii/S0305736484711413) — Photosynthese-Typ: Tradescantia primär C3, nur fakultatives schwaches CAM-Cycling unter Trockenstress (andere Art)
+10. [Live to Plant — Tradescantia zebrina Soil pH](https://livetoplant.com/tradescantia-zebrina-plant-soil-how-to-choose-the-right-type/) — leicht saurer pH-Vorzug 5.5–6.5
+11. [Plantura — Tradescantia zebrina](https://plantura.garden/uk/houseplants/tradescantia-zebrina/tradescantia-zebrina-overview) — pH-Vorzug, Standort, Staunässe-Empfindlichkeit
+12. [Live to Plant — Tradescantia zebrina Roots and Stems](https://livetoplant.com/tradescantia-zebrina-plant-roots-and-stems-an-in-depth-look/) — flaches, faseriges Wurzelsystem (effektive Wurzeltiefe)
+13. [Houseplants Nook — Tradescantia Care Guide](https://houseplantsnook.com/ultimate-tradescantia-care-guide) — Salzempfindlichkeit/Blattspitzennekrose, Durchspülen, Staunässe
+14. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur 10 °C für wärmeliebende Arten
+15. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenzwerte Mn/Zn/Cu/Mo
+16. [Koppert — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Nützling Spinnmilbe, Ausbringrate, Etablierung
+17. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Bodenraubmilbe gegen Trauermücken, Ausbringrate
+18. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Gallmücke gegen Blattläuse, Ausbringrate
+19. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Schlupfwespe gegen Blattläuse, Ausbringrate
+20. [Bugs for Growers — Biocontrol of Fungus Gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae Ausbringrate gegen Trauermücken
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

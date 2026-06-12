@@ -18,9 +18,20 @@
 | Gattung | Viola | `species.genus` |
 | Ordnung | Malpighiales | `botanical_families.order` |
 | Wuchsform | `herb` | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | `c3` (krautige Zweikeimblättrige der Violaceae; Familie weder in den C4- noch in den CAM-Familien gelistet) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 4.1 (Wuchs-/Blühentwicklung; aus Blanchard & Runkle 2011 für Viola, kältetolerante Bedding-Plant-Kategorie ≤ 3.9–4.4 °C. NICHT die Keim-Basistemperatur — diese liegt höher) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | `fibrous` (flaches, feinfaseriges Wurzelsystem) | `species.root_type` |
 | Lebenszyklus | `biennial` (botanisch kurzlebig biennial/perennial, kulturell oft als Einjaehrige behandelt -- in Zone 7+ Ueberwinterung mit Fruehjahrsblute moeglich) | `lifecycle_configs.cycle_type` |
-| Photoperiode | `day_neutral` (blüht bei kühlen Temperaturen unabhängig von Tageslänge; Thermoinhibition ab 22 °C hemmt sowohl Keimung als auch Blüte) | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | `day_neutral` (moderne Bedding-Cultivars blühen temperaturgesteuert unabhängig von der Tageslänge; Thermoinhibition ab 22 °C hemmt sowohl Keimung als auch Blüte) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | 1–2 (botanisch kurzlebig biennial; kulturell als Einjährige geführt) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false (kontinuierlicher Wuchs in der kühlen Saison; keine echte Ruhephase erforderlich) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (moderne Bedding-Cultivars wie 'Starry Night' blühen ohne Kältereiz; Kälte beschleunigt nur die Keimung, ist für die Blüte aber nicht obligat) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | null (kein obligater Kältereiz) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: kein obligater Photoperioden-Schwellenwert. Ältere Literatur (Adams et al. 1997, cv. Universal Violet) beschreibt eine quantitative (fakultative) Langtag-Reaktion — Langtag beschleunigt die Blüte, ist aber nicht erforderlich; daher day_neutral und kein numerischer Stunden-Schwellenwert. --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | `hardy` (übersteht leichten bis mässigen Frost bis ca. -10 °C; Hauptblüher im Frühling und Herbst) | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis ca. -10 °C. In milden Wintern (Zone 7+) überwinternd mit Blüte im zeitigen Frühjahr. Strenge Kahlfröste unter -15 °C können Pflanzen töten. Schneedecke schützt natürlich. | `species.hardiness_detail` |
@@ -98,6 +109,22 @@ Quelle: ASPCA (als ungiftig gelistet), Kamerplanter REQ-001 Seed-Daten AB-015.
 
 **Hinweis:** Stiefmütterchen sind klassische Beet- und Balkonpflanzen. Sie eignen sich hervorragend für Balkonkästen, Pflanzschalen und niedrige Beeteinfassungen. Indoor-Kultur ist nicht empfehlenswert, da Stiefmütterchen kühle Temperaturen (10--18 °C) benötigen und ab 22 °C die Blüte eingestellt wird (Thermoinhibition).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein Viola-spezifischer Kompensationspunkt in der Literatur belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein Viola-spezifischer Kompensationspunkt in der Literatur belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | `partial_shade` (Vollsonne bis Halbschatten; in der kühlen Saison Vollsonne, bei Hitze profitiert die Pflanze von Nachmittagsschatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–15 (flaches, feinfaseriges Wurzelsystem; Düngebewässerung auf ca. 4–6 inch Wurzelzone bezogen) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | `sensitive` (verträgt keine "nassen Füße"; Sauerstoffmangel im Substrat begünstigt Pythium-/Schwarzfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | `sensitive` (Stiefmütterchen zählen zu den salzempfindlichsten Beetpflanzen; bei hoher Bodenlöslichkeit Blattrandnekrosen, Wuchshalbierung ab Substrat-ECe ≈ 7 dS/m, Absterben bei höheren Werten) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Schwellenwert (a) für Viola; vorhandene Daten nennen nur ECe ≈ 7 dS/m als Schädigungsbereich, nicht den Toleranz-Schwellenwert. Bezugsgröße wäre Substrat-ECe, nicht Gießwasser-EC --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Slope (b) für Viola --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 5.4–6.2 (Optimum 5.4–5.8 laut Extension; oberhalb 5.8 drohen Eisen-/Bor-Mangel. Oberer Wert auf die in §2.3 verwendete Spanne harmonisiert) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -129,6 +156,12 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 80–90 (Abdeckung/Dome) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80–90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.9 (kritischer Punkt oberhalb des Ziel-Korridors; feuchteliebende Keimphase → niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `high` (Keimlinge/Lichtkeimer reagieren empfindlich auf Austrocknung) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 (kühl; C3-Kühlsaison-Art) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-Anker, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null (Umgebung genügt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmässig feucht halten, Sprühen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10–20 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -145,6 +178,12 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `high` (Jungpflanzen) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-Anker) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1–2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20–50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -163,6 +202,12 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-/Vollsonne-Anker) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -179,6 +224,12 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 40–60 (Aussenluft) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (oberhalb des Ziel-Korridors; abgehärtete Pflanze toleriert höheres VPD) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne-Anker, Außenklima) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -195,6 +246,12 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 (optimale Blütenqualität; über 25 °C Leistungseinbruch) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne-Anker) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2–4 (witterungsabhängig) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -211,20 +268,28 @@ Phasensequenz: **Annuelle Zierpflanze** (Keimung → Sämling → Vegetativ → 
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (oberhalb des Ziel-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (Sommerhitze treibt in Seneszenz) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne-Anker) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | null | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3–5 (reduziert) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 5.5–6.0 | — | — | — | — |
-| Sämling | 1:1:1 | 0.5–0.8 | 5.5–6.0 | 60 | 30 | — | 1.5 |
-| Vegetativ | 2:1:2 | 0.8–1.2 | 5.5–6.2 | 80 | 40 | 30 | 2.0 |
-| Abhärtung | 1:1:2 | 0.6–1.0 | 5.5–6.2 | 70 | 35 | 25 | 1.5 |
-| Blüte | 1:2:2 | 0.8–1.2 | 5.5–6.2 | 80 | 40 | 30 | 2.0 |
-| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Mn/Zn/Cu/Mo-Spalten ergänzt; Werte = Standard-Zielkonzentrationen einer vollständigen Zierpflanzen-Nährlösung, da keine Viola-spezifischen ppm publiziert sind) -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 5.5–6.0 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.5–0.8 | 5.5–6.0 | 60 | 30 | — | 1.5 | 0.4 | 0.2 | 0.04 | 0.04 |
+| Vegetativ | 2:1:2 | 0.8–1.2 | 5.5–6.2 | 80 | 40 | 30 | 2.0 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Abhärtung | 1:1:2 | 0.6–1.0 | 5.5–6.2 | 70 | 35 | 25 | 1.5 | 0.4 | 0.2 | 0.04 | 0.04 |
+| Blüte | 1:2:2 | 0.8–1.2 | 5.5–6.2 | 80 | 40 | 30 | 2.0 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -470,3 +535,13 @@ Cats Mix,Viola x wittrockiana,--,--,whisker_markings;compact;early_flowering,f1_
 6. ASPCA — Toxic and Non-Toxic Plants: Pansy (als ungiftig gelistet)
 7. Kamerplanter Spec REQ-001 v3.1 — Seed-Daten Zierpflanzen-Species (Keimtemperaturen AB-007, Voranzucht-Korrektur AB-012, Toxizität AB-015)
 8. Kamerplanter Spec REQ-003 v2.2 — Phasensequenz Annuelle Zierpflanze (AB-008 Pikier-Übergang, AB-009 Abhärtung)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. Adams, Pearson & Hadley (1997), Annals of Botany 80:107 — Effects of Temperature, Photoperiod and Light Integral on Time to Flowering of Pansy (Viola × wittrockiana cv. Universal Violet): quantitative (fakultative) Langtag-Reaktion, Topt ≈ 21.7 °C: https://academic.oup.com/aob/article/80/1/107/2587650
+10. Blanchard & Runkle (2011), Scientia Horticulturae — Quantifying the thermal flowering rates of eighteen species of annual bedding plants: Basistemperatur Tb ≈ 4.1 °C für Viola: https://www.sciencedirect.com/science/article/abs/pii/S0304423810005467
+11. University of Arkansas Cooperative Extension — Pansies: Boden-pH 5.4–5.8, Eisen-/Bor-Mangel oberhalb pH 5.8, "wet feet" unverträglich (Staunässe): https://www.uaex.uada.edu/counties/white/news/horticulture/pansies.aspx
+12. Cornell University — Soluble Salts in Soils and Plant Health: Stiefmütterchen als eine der salzempfindlichsten Beetpflanzen, Absterben bei hoher Salzfracht, Wuchshalbierung bei EC ≈ 7.1: http://hort.cornell.edu/gardening/soil/salts.pdf
+13. UF/IFAS Gardening Solutions — Pansies: Vollsonne bis Halbschatten, Nachmittagsschatten bei Hitze: https://gardeningsolutions.ifas.ufl.edu/plants/ornamentals/pansies/
+14. Master Plant-Prod Inc. — Pansy Fertilizer Tips & Program: pH 5.4–5.7 (soilless), Eisen/Bor-Bedarf, EC 0.75–1.5 mS: https://www.plantprod.com/crop/pansy-fertilizer/
+15. University of Tennessee Extension PB1616 / Greenhouse-Production-Quellen — Standard-Mikronährstoff-Zielkonzentrationen vollständiger Zierpflanzen-Nährlösungen (Fe ~1, Mn ~0.5, Zn ~0.25, Cu ~0.05, Mo ~0.05 ppm): https://eastern.tennessee.edu/wp-content/uploads/sites/62/2020/02/UT-pb1616-plant-nutrition-and-fertilizers-for-greenhouse-production.pdf
+16. Greenhouse Product News (GPN) — Implications of Base Temperature / Viola 'Starry Night': kältetolerante Bedding-Plant-Kategorie, moderne Cultivars day-neutral ohne Vernalisationsbedarf: https://gpnmag.com/article/implications-base-temperature/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

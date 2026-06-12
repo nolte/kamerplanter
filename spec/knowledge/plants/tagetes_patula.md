@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.4 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Asteraceae-Forb; kein C4-/CAM-Syndrom belegt) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 1.1 (Entwicklungs-/Blührate-Basistemperatur Tmin nach Blanchard & Runkle bzw. MSU-Modellierung; NICHT Keim-Basis) | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig/annual; Feld nur für perennial relevant) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization) | false (tagneutral, kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), kein Kurz-/Langtag-Schwellenwert; quantitative Kurztagsreaktion ohne echten kritischen Schwellenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -84,6 +93,25 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale Erde; pH 5,5–7,0; gut drainiert | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Hinweis pH-Harmonisierung:** Die unter §1.7 belegte Spanne `soil_ph_preference` 6,0–7,5 (PFAF, UMN Extension, Missouri Botanical) liegt geringfügig höher als die ältere Topf-Substrat-Angabe 5,5–7,0 oben. Unterhalb pH 5,5 droht Mangan-/Eisen-Überschuss (Bronzefleckung der Blätter); der Optimumbereich ist pH 6,0–7,0.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Kompensationspunkt für Tagetes patula aus 2 unabhängigen seriösen Quellen belegt --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (mindestens 6 h direkte Sonne; in heißen Lagen etwas Nachmittagsschatten toleriert) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 (flachwurzelnde Beet-/Zwergform; Hauptdurchwurzelung in den oberen 15–30 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive (empfindlich gegen nasse Böden; Wurzelfäule bei Staunässe) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (Blüten-/Ertragsparameter reagieren empfindlicher als vegetative; Blattschäden ab Bewässerungs-EC 3,0 dS/m, deutliche Schäden bei 6,0 dS/m) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (Substrat-ECe) aus 2 unabhängigen Quellen; nur Bewässerungs-ECw-Effekte publiziert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6,0–7,5 (Optimum 6,0–7,0; verträgt mild sauer bis mild alkalisch) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +139,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer Schwellenwert oberhalb des Ziel-Korridors; ~0.4 kPa über Oberkante 1.5) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (mesophyte C3-Forb; kein Sukkulent/CAM) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–15 (instantanes Netto-Photosynthese-Optimum; ganztägige Wuchsleistung bei höheren Temperaturen bis ~30 °C, vgl. §2.2-Tagestemperatur) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, offenes Tageslicht; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -171,6 +205,16 @@ Tagetes braucht kaum Dünger. Auf mageren Böden blüht sie reicher. Auf überd�
 | Grauschimmel | fungal (Botrytis cinerea) | Schimmel an Blüten | Feuchtigkeit, enge Bepflanzung | 3–7 | flowering |
 | Echter Mehltau | fungal | Weißer Belag | Trockenheit+Wärme | 5–10 | vegetative |
 
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Nützling (beneficial) | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate / m² | Etablierungszeit |
+|-----------------------|---------------------|----------------|-------------------|------------------|
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 je Ausbringung; bei erstem Befall, 1–2× wöchentlich wiederholen | 2–3 Wochen (Vermehrung ~2× schneller als Spinnmilbe; optimal 15–25 °C) |
+| Schlupfwespe (parasitic wasp) | Aphidius colemani | Blattläuse (Aphididae) | 0,25–4 je Ausbringung; min. 3× wiederholen, vorbeugend wöchentlich | 2–3 Wochen bis Mumienbildung |
+| Gallmücke (predatory midge) | Aphidoletes aphidimyza | Blattläuse (Aphididae, Befallsherde) | 2–5 (Puppen); alle 2–4 Wochen wiederholen | 1–2 Wochen bis Larvenschlupf |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -230,3 +274,14 @@ Tagetes patula,"Studentenblume;Aufrechte Tagetes;Französische Tagetes;French Ma
 2. [Tagetes Nematoden — Gartenjournal.net](https://www.gartenjournal.net/tagetes-nematoden) — Nematoden-Bekämpfung
 3. [Compo Tagetes](https://www.compo.de/ratgeber/pflanzen/gartenpflanzen/tagetes) — Pflege, Aussaat
 4. [Kraut&Rüben Tagetes](https://www.krautundrueben.de/studentenblumen-tagetes-schuetzt-gemuese-vor-schaedlingen-201) — Mischkultur-Praxis
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Tagetes patula](https://pfaf.org/user/Plant.aspx?LatinName=Tagetes+patula) — Bodenansprüche (mild sauer/neutral/mild alkalisch), Lichtbedarf (Vollsonne, kein Schatten), Feuchte
+6. [Missouri Botanical Garden — Tagetes patula](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=a611) — Vollsonne, mittlerer Wasserbedarf, frostempfindlicher Annual, Blühzeit
+7. [UMN Extension — Marigolds](https://extension.umn.edu/flowers/marigolds) — Boden-pH 6–7, Mangan-/Eisen-Überschuss unter pH 5,5
+8. [Blanchard & Runkle — Quantifying the thermal flowering rates of 18 species of annual bedding plants (Scientia Horticulturae 2011)](https://www.sciencedirect.com/science/article/abs/pii/S0304423810005467) — Entwicklungs-Basistemperatur Tmin = 1,1 °C für Tagetes patula
+9. [Moccaldi & Runkle — Modeling Temperature & DLI on Growth and Flowering of Salvia and Tagetes patula (JASHS 132(3) 2007)](https://journals.ashs.org/jashs/view/journals/jashs/132/3/article-p283.xml) — Temperatur-/DLI-Modell, Blührate, Basistemperatur-Bestätigung
+10. [van Iersel — Temperature Effects on Photosynthesis, Growth & Maintenance Respiration of Marigold (ISHS Acta Hort.)](https://www.ishs.org/ishs-article/624_76) — Netto-Photosynthese-Optimum 14–15 °C, höhere Wuchsleistung bei ~30 °C
+11. [Responses of Marigold Cultivars to Saline Water Irrigation (HortTechnology 2018 / USDA-ARS)](https://www.ars.usda.gov/ARSUserFiles/50820500/GPRG/2018PublicationsandSummaries/2018_Responses%20of%20Marigold%20Cultivars%20to%20Saline%20Water%20Irrigation.pdf) — Salzempfindlichkeit, Blattschäden ab ECw 3,0–6,0 dS/m
+12. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate Spinnmilben-Raubmilbe (2–50/m²), Anwendung
+13. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) / [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Blattlaus-Nützlinge, Ausbringraten Aphidius/Aphidoletes
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

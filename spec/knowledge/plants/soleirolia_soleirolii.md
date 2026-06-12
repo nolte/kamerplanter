@@ -21,6 +21,14 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter Wuchs-/Phänologie-GDD-Basiswert publiziert | `species.base_temp` |
+| Lebensdauer (Jahre, lifespan) | <!-- DATEN FEHLEN --> mattenbildende Staude, langlebig; keine zwei unabhängigen Quellen für konkrete Jahreszahl | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (mediterrane, frostempfindliche Art ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> nicht zutreffend (tagneutral, kein Kurz-/Langtagblüher) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Kurzfristig bis -5°C; als Bodendecker in milden Regionen winterhart; in Mitteleuropa als Zimmerpflanze gehalten | `species.hardiness_detail` |
@@ -89,6 +97,26 @@
 
 **Terrarium/Flaschengarten:** Bubikopf ist eine ideale Terrariumpflanze — hohe Luftfeuchtigkeit und gleichmäßige Feuchtigkeit entsprechen seiner natürlichen Bergfelsen-Umgebung (Korsika, Sardinien).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN --> keine belegbare Einstufung | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis Licht:** Bubikopf ist eine ausgesprochene Schattenpflanze (deep-shade-tolerant) und überlebt in Unterwuchs-Lichtniveaus von 1–2 % des vollen Sonnenlichts. Der Lichtkompensationspunkt (Netto-Photosynthese = 0) liegt im untersten Bereich schattentoleranter Arten (10–50 µmol/m²/s). Direktsonne verbrennt das Laub. Aktives Wachstum (≠ Kompensationspunkt) setzt erst ab ca. 50–200 µmol/m²/s ein (siehe §2.2).
+
+**Hinweis pH:** Vorzug leicht sauer (5.0–6.0 nach EpicGardening/Florgeous); harmonisiert mit der Substrat-/Nährlösungsangabe pH 5.5–6.5 in §1.6 und §2.3. Die RHS führt die Art als gegenüber pH adaptabel (acid/neutral/alkaline), der Wachstums-Vorzug bleibt im sauren Bereich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -115,6 +143,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.75 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 (Substrat gleichmäßig feucht halten, nie austrocknen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +160,18 @@
 | Etablierung | 0:0:0 | 0.0 | 5.5–6.5 | — | — |
 | Vegetativ | 2:1:2 | 0.4–0.8 | 5.5–6.5 | 60 | 30 |
 | Blüte | 1:1:1 | 0.3–0.6 | 5.5–6.5 | 40 | 20 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (ppm):** Richtwerte für einen Schwachzehrer (light feeder) im leicht sauren Bereich, am unteren Rand üblicher Hydro-/Topfkultur-Mikronährstoffspannen gehalten.
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Etablierung | — | — | — | — |
+| Vegetativ | 0.3 | 0.15 | 0.04 | 0.03 |
+| Blüte | 0.2 | 0.1 | 0.03 | 0.02 |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -182,12 +228,19 @@ Schwachzehrer — sehr zurückhaltend düngen. Überdüngung führt zu zu rapide
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
-| Winter-Maßnahme | none (Zimmer) oder mulch (Freiland) | `overwintering_profiles.winter_action` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme + Monat | move_indoors (Okt) | `overwintering_profiles.winter_action` |
+| Frühjahrs-Maßnahme + Monat | move_outdoors (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winterquartier Temp min (°C) | 5 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 15 | `overwintering_profiles.winter_quarter_temp_max` |
 | Winterquartier Licht | semi_bright | `overwintering_profiles.winter_quarter_light` |
 | Winter-Gießen | reduced | `overwintering_profiles.winter_watering` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Rating:** `frost_free` ist der korrekte Enum-Wert: Bubikopf ist in Mitteleuropa (USDA 6–8) nicht winterhart und wird als frostempfindliche Kübel-/Zimmerpflanze frostfrei (≥ 5 °C) drinnen überwintert. Nur in milden Regionen (USDA 9a–11b) bleibt er im Freiland; dort genügt eine Mulchauflage (`needs_protection` wäre dort die Alternative).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -214,6 +267,19 @@ Schwachzehrer — sehr zurückhaltend düngen. Überdüngung führt zu zu rapide
 | Klebefallen gelb | cultural | — | Klebefalle über Topf | 0 | Trauermücken |
 | Neemöl Gießen | biological | Azadirachtin | 0.3% Lösung in Substrat | 3 | Trauermücken-Larven |
 | Substrat erneuern | cultural | — | Substrat komplett tauschen | 0 | Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe (Hypoaspis) | Stratiolaelaps scimitus | Trauermücken (Larven) | 100–250/m² präventiv, bis 1.000/m² kurativ | 2–3 Wochen |
+| Insektenpathogener Nematode | Steinernema feltiae | Trauermücken (Larven) | ca. 250.000–500.000/m² (Substratdrench) | wenige Tage |
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse | 0,5–3/m² präventiv, wöchentlich bis etabliert | 2–3 Wochen (Mumienbildung) |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse | 0,5–1/m², bei Befallsnestern höher | 2–3 Wochen |
+
+**Hinweis:** Nützling-Wirt-Zuordnung passt zu den in §5.1 gelisteten Schädlingen (Trauermücken *Bradysia* spp. → *Stratiolaelaps* + *Steinernema feltiae*; Blattläuse → *Aphidius colemani* + *Aphidoletes aphidimyza*). Die dauerfeuchten Terrarium-/Topfbedingungen begünstigen Trauermücken; *Steinernema feltiae* und *Stratiolaelaps* werden bevorzugt kombiniert ausgebracht.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -264,3 +330,17 @@ Soleirolia soleirolii,Bubikopf;Baby's Tears;Mind-Your-Own-Business,Urticaceae,So
 3. [Gardenia.net — Soleirolia soleirolii](https://www.gardenia.net/plant/soleirolia-soleirolii-baby-tears-grow-care-tips) — Kulturdaten
 4. [Plantophiles — Soleirolia soleirolii](https://plantophiles.com/plant-care/babys-tears-soleirolia-soleirolii/) — Schädlinge, Krankheiten
 5. [Guide to Houseplants — Baby's Tears](https://www.guide-to-houseplants.com/babys-tears.html) — Gießhinweise, Substrate
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Soleirolia soleirolii](https://www.rhs.org.uk/plants/17471/soleirolia-soleirolii/details) — pH-Adaptabilität, Sonne/Schatten, Feuchte (moist but well-drained), Hardiness H4
+7. [Missouri Botanical Garden — Soleirolia soleirolii Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=287425) — Wasserbedarf, Staunässe-Intoleranz, Optimaltemperatur (Tag 16–18 °C / Nacht 10–13 °C), Frostintoleranz
+8. [EpicGardening — Baby Tears Plant](https://www.epicgardening.com/baby-tears-plant/) — Boden-pH 5.0–6.0
+9. [Florgeous — Baby's Tears Plant Care](https://florgeous.com/babys-tears-plant-care/) — Boden-pH (sauer < 6.0)
+10. [Plantiary — Soleirolia soleirolii Care Guide](https://plantiary.com/plant/soleirolia-soleirolii_307.html) — flaches Wurzelsystem, Staunässe-Intoleranz
+11. [Functional Plant Biology — Low-level CAM in Pilea peperomioides (Urticaceae)](https://www.publish.csiro.au/fp/fulltext/FP20151) — Urticaceae primär C3-Photosynthese (CAM nur bei sukkulenten Stress-Ausnahmen); Begründung Einstufung c3
+12. [ScienceDirect — Light Compensation overview](https://www.sciencedirect.com/topics/engineering/light-compensation) — Lichtkompensationspunkt schattentoleranter Arten 10–50 µmol/m²/s
+13. [Grokipedia — Compensation point](https://grokipedia.com/page/Compensation_point) — Unterwuchs-Lichtniveaus 1–2 % Volllicht, niedriger LCP schattentoleranter Arten
+14. [Oxford Academic / Plant Physiology — Phytochrome B and low R:FR canopy shade](https://academic.oup.com/plphys/article/165/4/1698/6113297) — erhöhte Far-Red-Fraction (niedriges R:FR) im Schatten/Unterwuchs
+15. [Bugs for Growers — Biocontrol of fungus gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae + Stratiolaelaps scimitus Ausbringraten gegen Trauermücken
+16. [UC IPM — Fungus Gnats](https://ipm.ucanr.edu/home-and-landscape/fungus-gnats/) — Nematoden-/Raubmilben-Ausbringung gegen Trauermückenlarven
+17. [Sound Horticulture — Aphidius colemani / Aphidoletes aphidimyza Tech Sheets](https://soundhorticulture.com/pages/aphids) — Ausbringraten und Etablierungszeit Blattlaus-Nützlinge
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
