@@ -29,8 +29,21 @@
 | Naehrstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible; aromatic; medicinal; beer_brewing | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (typische C3-Pflanze; CO2-Assimilationsmaximum 21--39 degC) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 5 (Wuchs-/Phaenologiebasis; in der Hopfen-Phaenologie werden 0/5/10 degC verwendet, 5 degC konsistent mit Phasenuebergang in §2.4) | `species.base_temp` |
+| Lebensdauer (Jahre) | 20--25 (produktiv 15--20 Jahre je Pflanze; gut gepflegte Hopfengaerten 25+ Jahre) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (oberirdische Triebe sterben ab; Rhizom durchlaeuft Winterruhe; traditionell ~42 Tage Kuehlung bei 3 degC fuer Endodormanz-Bruch -- neuere Forschung relativiert dies) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Bluehinduktion wird durch Photoperiode gesteuert, nicht durch Kaeltereiz; Kuehlbedarf betrifft Endodormanz-Bruch [chilling], nicht echte Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- (keine echte Vernalisation; chilling-Richtwert Endodormanz ~42 Tage bei 3 degC nach traditionellem Modell) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 15 (Kurztagspflanze; Bluehinduktion unterhalb ~15--16.5 h kritischer Tageslaenge, sortenabhaengig) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Besonderheit:** Humulus lupulus ist eine zweihaeusige Pflanze (dioecieus). Nur weibliche Pflanzen bilden die aromatischen Hopfendolden (Cones) mit den Lupulindrüsen (Bitterstoff Humulon, Aromastoffe Myrcen, Linalool). Fuer die Bierproduktion und Ernte werden ausschliesslich weibliche Pflanzen kultiviert. Pflanzen aus Rhizomen sind immer weiblich.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Bestaeubung:** Hopfen ist KEIN obstbaulicher Fremdbefruchter -- die Bestaeubungsfelder (`species.requires_pollinator`, `species.pollinator_group`, `species.compatible_pollinators`) bleiben daher bewusst LEER bzw. nicht gesetzt. Hopfen ist windbestaeubt (anemophil) und zweihaeusig; fuer die Bierproduktion werden weibliche Pflanzen sogar UNBEFRUCHTET gehalten (samenlose Dolden bevorzugt), maennliche Pflanzen werden ferngehalten. Eine pomologische Kreuzbefruchtungsgruppe oder Befruchtersorten-Liste ist hier fachlich nicht anwendbar.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -99,6 +112,22 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte April bis Mitte M
 | Rankhilfe/Stuetze noetig | true (kritisch! Rankt sich im Uhrzeigersinn; braucht Draehte oder Stangen ab 4--6 m Hoehe) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlaessige, naehrstoffreiche Garten-/Beeterdegemisch mit Kompost-Anteil (30%). pH 6.0--8.0 toleriert, optimal 6.5--7.5. Guter Wasserabzug wichtig -- keine Staunaesse. | -- |
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD umol/m2/s) | <!-- DATEN FEHLEN --> (kein belegter Kompensationspunkt aus 2 unabhaengigen Quellen; Lichtsaettigung der Blaetter liegt sehr hoch bei ~1800--2000 umol/m2/s [Galena/Willamette], was eine ausgepraegte Sonnenpflanze kennzeichnet) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD umol/m2/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (kann lichten Halbschatten tolerieren, fuer Doldenertrag jedoch volle Sonne noetig; Schattenblaetter zeigen nahezu keine Netto-Photosynthese) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--90 (Hauptmasse der naehrstoffaufnehmenden Feinwurzeln in den oberen 0--30 cm; Wasserentzug bis ~90 cm; vertikale Tiefwurzeln reichen je nach Boden 1--2.25 m) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (vertraegt keine staunassen Boeden; braucht tiefgruendige, gut drainierte Standorte -- Wurzelfaeule-Gefahr) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN --> (Review-Lage uneindeutig: sortenabhaengige Akklimatisierung an salzige Standorte belegt, aber keine eindeutige Klassifizierung; nicht auf Salztoleranz gezuechtet) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-Schwellenwert fuer Hopfen) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-Slope fuer Hopfen) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.5 (optimaler Bereich; toleriert insgesamt pH 4.5--8.2, harmonisiert mit §1.6/§2.3/§3.4) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -133,6 +162,12 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | CO2 (ppm) | -- | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 0 (kein Giessen; Winterregen genuegt) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | -- (keine Anforderung; Rhizom in Dormanz) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | low (in Dormanz keine aktive Transpiration) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | -- (keine Photosynthese in Dormanz) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- (Rhizom unter Erde, keine Lichtanforderung) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Austrieb (bud_break)
 
@@ -147,6 +182,12 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Luftfeuchtigkeit Nacht (%) | 55--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.8 | `requirement_profiles.vpd_target_kpa` |
 | CO2 (ppm) | 400 (Aussenluft) | `requirement_profiles.co2_ppm` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (deutlich oberhalb des Zielkorridors; junge Austriebe feuchteliebend, niedrigere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Hopfen reagiert sehr empfindlich auf Wasserstress/stomataere Limitierung) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (kuehle Fruehjahrsbedingungen; Netto-Kohlenstoffbilanz positiv ab ~10 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (offenes Freiland/Vollsonne; R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Giessintervall (Tage) | 7--14 (sparsam, je nach Niederschlag) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -163,6 +204,12 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Luftfeuchtigkeit Nacht (%) | 55--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
 | CO2 (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt oberhalb des Zielkorridors; darueber stomataerer Kollaps/Wuchsstopp) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (sehr empfindlich gegen Wasserstress; starke stomataere Regulation, Xylem-Embolie-Anfaelligkeit) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 22--28 (CO2-Assimilationsmaximum 21--39 degC; US-Sorten hoeher, europ. Sorten [z.B. Saaz] tendenziell kuehler) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Vollsonne; bei Selbstbeschattung im dichten Bestand steigt FR-Anteil [Schattenfluchtreaktion: Internodien-Streckung]) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Giessintervall (Tage) | 3--7 (je nach Niederschlag und Temperatur) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 2000--5000 (grosse Pflanzen mit grossem Blattvolumen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -181,6 +228,12 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Luftfeuchtigkeit Nacht (%) | 50--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.6 | `requirement_profiles.vpd_target_kpa` |
 | CO2 (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (oberhalb des Zielkorridors; bei Ueberschreitung Trockenstress, der Doldenertrag und Alphasaeuregehalt mindert) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Wasserstress in der Doldenbildung reduziert Ertrag und Aromaqualitaet besonders stark) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 (kuehlere Temperaturen foerdern Aromastoffe und Doldenqualitaet; Strobilus-Kohlenstoffbilanz positiv bis ~27 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Vollsonne weiterhin) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Giessintervall (Tage) | 4--10 (gleichmaessige Feuchte, kein Trockenstress) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 2000--4000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -197,6 +250,12 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.8 | `requirement_profiles.vpd_target_kpa` |
 | CO2 (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (oberhalb des Zielkorridors; in der Abreife wird leichter Wasserstress toleriert/gewuenscht, daher hoehere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (in der Reifephase etwas robuster; kontrollierte Wasserreduktion foerdert Harz-/Aromadichte) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--22 (kuehle Spaetsommer-/Herbstbedingungen zur Ernte) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Giessintervall (Tage) | 7--14 (Wasser reduzieren foerdert Harzbildung und Aromadichte) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 1000--3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -218,6 +277,10 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Ernte | 0-1-2 | 0.8--1.4 | 6.0--7.0 | 80 | 40 | -- | 1 |
 
 **Stickstoffbedarf:** Im kommerziellen Anbau werden 120--150 kg N/ha empfohlen, aufgeteilt auf mindestens 3 Gaben zwischen April und Anfang Juli (MSU Extension). Zu viel N foerdert Blattwachstum auf Kosten der Dolden.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (Mn/Zn/Cu/Mo):** Phasenbezogene Soll-Konzentrationen (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) sind fuer Hopfen <!-- DATEN FEHLEN -->. Der OSU-Duengeleitfaden (FG 79) haelt ausdruecklich fest, dass keine etablierten Blattgewebe-Sufficiency-Standards fuer Hopfen existieren -- daher werden hier keine erfundenen ppm-Werte eingetragen. Belegte BODEN-Richtwerte (nicht Naehrloesung): Bor-Gabe empfohlen bei Boden-B < 1.5 ppm; Zink-Gabe bei DTPA-Zn < 1 ppm; Mangan-Verfuegbarkeit steigt bei sinkendem Boden-pH (pH > 5.7 halten, um Mn-Toxizitaet zu vermeiden). Bor- und Zinkmangel treten v.a. bei hohem pH (> 7.5) auf.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -457,7 +520,7 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,pruning_type,pruning_months
-Humulus lupulus,Hopfen;Echter Hopfen;Hop;Common Hop,Cannabaceae,Humulus,perennial,long_day,vine,rhizomatous,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b,-0.1,Europa; Westasien; Nordamerika,limited,40,50,400,150,120,no,limited,false,true,heavy_feeder,false,hardy,spring_pruning,3;4
+Humulus lupulus,Hopfen;Echter Hopfen;Hop;Common Hop,Cannabaceae,Humulus,perennial,short_day,vine,rhizomatous,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b,-0.1,Europa; Westasien; Nordamerika,limited,40,50,400,150,120,no,limited,false,true,heavy_feeder,false,hardy,spring_pruning,3;4
 ```
 
 ### 9.2 Cultivar CSV-Zeilen
@@ -484,3 +547,16 @@ Centennial,Humulus lupulus,S. T. Carpenter,aromatic;high_alpha,90,moderate_resis
 7. [MDPI Agriculture -- Hops as Multipurpose Crop](https://www.mdpi.com/2077-0472/11/6/484) -- Wachstumsphasen, Ertragsoptimierung
 8. [University of Florida EDIS -- Hops](https://edis.ifas.ufl.edu/publication/EP488) -- Anbaugrundlagen
 9. [Plantura -- Hopfenpflanzenportrait](https://www.plantura.garden/kraeuter/hopfen/hopfen-pflanzenportrait) -- Deutschsprachige Praxisinformationen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+10. [Lindgren et al. 2019, Scientific Reports -- Disentangling photoperiod from hop vernalization and dormancy](https://www.nature.com/articles/s41598-019-52548-0) -- Kurztagspflanze, kritische Tageslaenge, Vernalisation/Chilling (~42 Tage bei 3 degC traditionelles Modell), Dormanz
+11. [PFAF Plant Database -- Humulus lupulus (Growing Conditions)](https://pfaf.org/User/plant.aspx?LatinName=Humulus+lupulus) -- Boden-pH-Toleranz 4.5--8.2, Halbschatten/Sonne, Lebenszyklus
+12. [Phenological Assessment of Hops through BBCH Scale and Thermal-Based Growth Model, Agronomy 2024, 14(12):3045](https://doi.org/10.3390/agronomy14123045) -- GDD-Basistemperaturen (0/5/10 degC), Phaenologie
+13. [Photosynthetic Activity of Six Hop Cultivars under Different Temperature Treatments, HortScience 55(4) 2020](https://journals.ashs.org/hortsci/view/journals/hortsci/55/4/article-p403.xml) -- C3-Typ, CO2-Assimilationsmaximum 21--39 degC, T_opt
+14. [Humulus lupulus Strobilus Photosynthesis and Respiration Temperature Responses, PMC10223736](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10223736/) -- Strobilus-Kohlenstoffbilanz positiv 10--27 degC, T_opt Dolde
+15. [Resilience of hop to salinity, heat and drought stresses: a mini-review, Front. Plant Sci. 2022, PMC9749550](https://pmc.ncbi.nlm.nih.gov/articles/PMC9749550/) -- Salztoleranz uneindeutig/sortenabhaengig, keine ECe-Schwellen
+16. [High sensitivity of hop to limited soil water availability, Irrigation Science 2024](https://link.springer.com/article/10.1007/s00271-024-00929-3) -- VPD-/Wasserstress-Sensitivitaet, Stomata-Regulation, Xylem-Embolie
+17. [OSU Extension FG 79 -- Hops Fertilizer Guide](https://catalog.extension.oregonstate.edu/fg79) -- keine Hopfen-Blattgewebe-Sufficiency-Standards; Boden-Richtwerte B/Zn/Mn, pH-Mn-Beziehung
+18. [Distribution of root system of hop plants in hop gardens, ResearchGate 342406987](https://www.researchgate.net/publication/342406987) -- Wurzeltiefe (1--2.25 m), Feinwurzeln in oberen 0--30 cm, ~4.1 m3 durchwurzeltes Bodenvolumen
+19. [Erbar/ASHS -- Far-red Fraction: An Improved Metric for Characterizing Phytochrome Effects](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) -- FR/(R+FR) ~0.46--0.5 in direktem Sonnenlicht (R:FR ~1.1--1.3)
+20. [Hop strobilus / leaf light saturation, ResearchGate 250010335 & MSU/ScienceDirect](https://www.sciencedirect.com/science/article/pii/S0168192321003075) -- Lichtsaettigung Blaetter ~1800--2000 umol/m2/s (Sonnenpflanze), Schattenblaetter nahezu keine Photosynthese
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

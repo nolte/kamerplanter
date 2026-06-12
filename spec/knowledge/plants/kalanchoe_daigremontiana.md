@@ -29,6 +29,15 @@
 | Allelopathie-Score | -0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam (Crassulacean Acid Metabolism; obligater CAM-Stoffwechsel, nächtliche CO₂-Fixierung) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 (wärmeliebende tropische Art; konsistent mit Wuchstemperatur-Optimum 18–28 °C) | `species.base_temp` |
+| Lebensdauer (Jahre) | 2–3 (kurzlebig, monokarpisch; Mutterpflanze stirbt nach Blüte ab) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (Winterruhe/winter rest mit Gießreduktion; fördert Blühinduktion) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (tropische Madagaskar-Art ohne Kältebedarf; Blühinduktion photoperiodisch über Kurztag, nicht über Kälte) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | nicht relevant (keine Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 12 (qualitativer Kurztagblüher/short-day plant; Blüte bei Tageslängen ≤ 12 h, keine Blüte ab 15 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Biologische Besonderheit — Viviparie:** Kalanchoe daigremontiana bildet an den Blatträndern kleine Tochterbrut-Pflänzchen (Bulbillen) aus, die bei der Reife abfallen und sich selbständig einwurzeln. Diese Eigenschaft (Viviparie = lebend gebärend) macht die Pflanze zu einem der effizientesten Selbstvermehrar unter den Zimmerpflanzen. In warmen Klimazonen gilt sie als invasiv.
 
@@ -92,6 +101,22 @@
 | Rankhilfe/Stütze nötig | true (bei älteren Exemplaren durch Eigengewicht) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kakteen-/Sukkulentenerde; pH 6.0–7.5; sehr gute Drainage; Staunässe ist tödlich | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer numerischer LCP-Wert in mind. 2 Quellen belegt; Studien beschreiben nur qualitativ sinkenden LCP bei Schattenakklimatisation --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (NC State: Full sun 6 h+ und Partial Shade möglich; native offene Felsplatten Madagaskars; in heißen Lagen Mittagsschutz empfohlen) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–15 (flaches, kompaktes Faserwurzelsystem; bevorzugt leicht durchwurzelten Topfraum) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (hochgradig wurzelfäule-anfällig; "kein nasser Fuß"; Staunässe ist tödlich) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant (mehrfach als "moderately salt tolerant" beschrieben; Sukkulente sandiger, durchlässiger Böden) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (Substrat-ECe) für die Art --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 (Vorzugsbereich; NC State belegt breitere Toleranz von sauer < 6,0 bis alkalisch; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -120,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–55 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 35–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 (kritischer Punkt oberhalb des Zielkorridors; oberer Zielwert 2.0 + ~0.4; stomatärer Kollaps bei CAM später als bei C3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (CAM-Sukkulente; nächtliche Stomataöffnung, hohe Trockenheitstoleranz) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–25 (nächtliche CAM-CO₂-Fixierung optimal ~15 °C; Wuchsoptimum bis 25–28 °C tagsüber) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne-Anker; R:FR ≈ 1,1; lichthungrige Freiland-/Fensterkultur) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (Substrat vollständig trocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -130,6 +161,17 @@
 |-------|----------------|---------|-----|----------|----------|
 | Vegetativ | 1:2:2 | 0.4–0.8 | 6.0–7.5 | 50 | 25 |
 | Blüte | 0:1:2 | 0.3–0.5 | 6.0–7.5 | 30 | 15 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Vegetativ | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+
+Hinweis: Keine artspezifischen Mikronährstoff-Zielwerte (Mn/Zn/Cu/Mo) für *Kalanchoe daigremontiana* aus mind. 2 seriösen Quellen belegt. Als light_feeder genügt in der Praxis ein vollständig spurenelementhaltiger Sukkulentendünger (siehe §3.1); eigene ppm-Ziele bleiben mangels Beleg offen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -189,6 +231,11 @@ Sehr genügsam — im Zweifelsfall lieber nicht düngen. Maximal einmal pro Mona
 |------|------|---------|
 | Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | none | `overwintering_profiles.winter_action` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winter-Maßnahme Monat | 10 (Oktober: vor erstem Frost ins Haus; bei reiner Zimmerkultur kein Standortwechsel nötig — dann winter_action=none) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors (nur bei Sommerstand auf Balkon/Terrasse; nach den Eisheiligen schrittweise abhärten) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winterquartier Temp min (°C) | 7 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 15 | `overwintering_profiles.winter_quarter_temp_max` |
 | Winterquartier Licht | bright | `overwintering_profiles.winter_quarter_light` |
@@ -220,6 +267,19 @@ Sehr genügsam — im Zweifelsfall lieber nicht düngen. Maximal einmal pro Mona
 | Isopropanol 70% | biological | Isopropylalkohol | Wattestäbchen | 0 | Wollläuse |
 | Neemöl | biological | Azadirachtin | Sprühen 0.5% | 3 | Blattläuse, Milben |
 | Substrat erneuern | cultural | — | Kompletter Substratwechsel | 0 | Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 5–40 Käfer/m² je Freilassung; 3× im Abstand von 1–2 Wochen | 2–4 Wochen (optimal 25–28 °C) |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 2–50 Tiere/m² je Freilassung; 1–2× wöchentlich wiederholen | 1–2 Wochen (optimal 15–25 °C) |
+| Zehrwespe | Aphidius colemani | Blattläuse (Aphidoidea) | 0,25–4 Tiere/m² je Freilassung; ≥ 3× wiederholen | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphidoidea) | 2–5 Puppen/m² je Freilassung; nach 2–4 Wochen wiederholen | 2–4 Wochen |
+
+Hinweis: Nützlingseinsatz primär bei Kultur unter Glas/im Wintergarten praxisrelevant. Bei reiner Zimmerkultur reichen meist mechanische/kulturelle Maßnahmen (§5.3) aus. Wirt-Zuordnung: *Cryptolaemus* → Wollläuse (Pseudococcidae), *Phytoseiulus* → Spinnmilben, *Aphidius*/*Aphidoletes* → Blattläuse.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -270,3 +330,16 @@ Kalanchoe daigremontiana,Brutblatt;Teufelsrückgrat;Mother of Thousands,Crassula
 3. [Gardenia.net — Kalanchoe daigremontiana](https://www.gardenia.net/plant/kalanchoe-daigremontiana-mother-of-thousands) — Kulturdaten
 4. [Gardeningknowhow.com — Mother of Thousands](https://www.gardeningknowhow.com/houseplants/kalanchoe/growing-mother-of-thousands.htm) — Vermehrung
 5. [UK Houseplants — Mother of Thousands](https://www.ukhouseplants.com/plants/mother-of-thousands) — Temperatur, Gießen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PubMed — The 'mother of thousands' (Kalanchoë daigremontiana): a plant model for asexual reproduction and CAM studies](https://pubmed.ncbi.nlm.nih.gov/20147034/) — CAM-Photosynthese-Typ (obligater CAM)
+7. [Nature Communications — The Kalanchoë genome / convergent evolution and building blocks of CAM](https://www.nature.com/articles/s41467-017-01491-7) — CAM-Stoffwechsel, Photosynthese-Typ
+8. [Experts@Minnesota — Photoperiodic flower induction of several Kalanchoe species](https://experts.umn.edu/en/publications/photoperiodic-flower-induction-of-several-kalanchoe-species-and-o) — Kritische Tageslänge (~12 h), Kurztagblüher
+9. [Environmental influences on light and dark CO2 fixation by Kalanchoe daigremontiana (Can. J. Bot. b75-134)](https://www.nrcresearchpress.com/doi/10.1139/b75-134) — Nächtliche CAM-CO₂-Fixierung, Temperaturoptimum ~15 °C
+10. [Responses of Two CAM Species to Different Irradiances during Growth and Susceptibility to Photoinhibition (Plant Physiol.)](https://academic.oup.com/plphys/article/83/1/213/6084030) — Lichtkompensationspunkt qualitativ (Schattenakklimatisation/Photoinhibition)
+11. [GardenersPath — Monocarpic Succulents That Die After Flowering](https://gardenerspath.com/plants/succulents/monocarpic-succulents/) — Monokarpie, Lebensdauer 2–3 Jahre
+12. [Jardineria On — Kalanchoe daigremontiana](https://en.jardineriaon.com/kalanchoe-daigremontiana-care.html) — Winterruhe/Dormanz, Boden-pH (leicht sauer), Salztoleranz
+13. [NC State Extension — Kalanchoe daigremontiana (Plant Toolbox)](https://plants.ces.ncsu.edu/plants/kalanchoe-daigremontiana/) — Boden-pH-Spanne, Lichtexposition (Full sun/Partial shade), Drainage
+14. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling Wollläuse, Ausbringrate
+15. [Cornell NYSIPM — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Nützling Spinnmilben, Ausbringrate
+16. [UConn IPM — Biological Control of Aphids (Aphidius colemani / Aphidoletes aphidimyza)](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Nützlinge Blattläuse, Ausbringraten
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

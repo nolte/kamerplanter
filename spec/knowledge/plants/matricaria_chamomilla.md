@@ -18,10 +18,20 @@
 | Familie | Asteraceae | `species.family` -> `botanical_families.name` |
 | Gattung | Matricaria | `species.genus` |
 | Ordnung | Asterales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (krautiger Korbblütler; nicht sukkulent, nicht C4/CAM) | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual (Sommerannuelle); kann bei Herbstsaat ueberwintert werden (Winterannuelle) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für M. chamomilla in zwei unabhängigen Quellen auffindbar; veröffentlichte GDD-Studien (z.B. CSIR-IHBT Palampur) nennen die verwendete Basistemperatur nicht. Keimtemperaturen (15–20°C) sind als Wuchs-GDD-Basis NICHT zulässig. --> | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjährig; Samen keimen ohne Kältestratifikation, 7–14 Tage bei 15–20°C) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (qualitativer Langtagblüher — Blüte wird durch Tageslänge ausgelöst, nicht durch Kältereiz) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend, da keine Vernalisation erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 14 (Langtagblüher; Blühinduktion oberhalb ~14 h Tageslänge — konsistent mit Phasenübergangs-Trigger §2.4) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy (Herbstrosetten ueberleben bis -15°C; Fruehjahressaamlinge hingegen nur half_hardy) | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Herbstgesaete Kamille overwinteren als Rosette bis -15°C. Fruehjahrsgesaete Pflanzen sterben nach Bluete und Samenreife ab. | `species.hardiness_detail` |
@@ -103,6 +113,24 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 
 ---
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein art-spezifischer Lichtkompensationspunkt für M. chamomilla in zwei unabhängigen Quellen messbar belegt. Generischer C3-Krautwert läge größenordnungsmäßig bei ~10–30 µmol/m²/s, ist aber nicht art-spezifisch verifiziert. --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN (siehe min) --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (volle Sonne bevorzugt; verträgt leichten Halbschatten, blüht dort aber schwächer) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–40 (dünne Pfahlwurzel; Quellen uneinheitlich: teils flach/breit wurzelnd, teils bis ~30–46 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (braucht durchlässigen Boden; Staunässe fördert Pythium-Wurzelfäule, vgl. §6.2) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant (gedeiht in mäßig salzhaltigen Böden; Optimum bei ECe ≈ 2 dS/m, Toleranz in Studien bis ~9 dS/m, dann Ertragsrückgang) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: keine veröffentlichten Maas-Hoffman-a-Werte für M. chamomilla; Studien geben nur Salzstufen, keinen Schwellenwert nach Maas-Hoffman an. --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein veröffentlichter Maas-Hoffman-b-Wert (Slope) für M. chamomilla. --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–7.0 (leicht sauer bis neutral; PFAF/Tropical: 5.5–6.5 bevorzugt, tolerant 5–7; harmonisiert mit pH 6.0–7.0 in §1.6/§2.3) | `species.soil_ph_preference` |
+
+**Hinweis Salztoleranz:** Bezugsgröße ist die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht die Gießwasser-EC. Mäßiger Salzstress (um 2 dS/m) kann den Gehalt an ätherischen Ölen sogar leicht erhöhen, höhere Werte mindern Wuchs und Blütenbildung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht
@@ -129,6 +157,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer Punkt stomatären Kollaps; deutlich über Zielkorridor; feuchteliebende Keimphase → niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high (Keimlinge sehr empfindlich gegen Austrocknung) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 (Kühljahreszeit-Art) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne; R:FR ≈ 1.1–1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 (gleichmaessig feucht; nie Austrocknen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 30–80 (sanftes Besprühen; Samen nicht wegschwemmen!) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -145,6 +179,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer Punkt stomatären Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–21 (Kühljahreszeit-Art) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne; R:FR ≈ 1.1–1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -161,19 +201,29 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt stomatären Kollaps; oberer Zielwert + ~0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (Blütephase trockenheitstoleranter) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühlere Nächte um 15°C steigern Chamazulen-/Ölqualität) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne; R:FR ≈ 1.1–1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 (Kamille ist trockenheitstoleranter als Gemuese) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Rosette | 1:1:1 | 0.4–0.6 | 6.0–7.0 | 60 | 25 | 10 | 1 |
-| Vegetativ | 2:1:1 | 0.5–0.8 | 6.0–7.0 | 80 | 30 | 15 | 2 |
-| Bluete | 1:1:2 | 0.4–0.7 | 6.0–7.0 | 60 | 30 | 10 | 1 |
-| Samenreife | 0:1:1 | 0.3–0.5 | 6.0–7.0 | 40 | 20 | — | — |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Rosette | 1:1:1 | 0.4–0.6 | 6.0–7.0 | 60 | 25 | 10 | 1 | 0.5 | 0.2 | 0.05 | 0.03 |
+| Vegetativ | 2:1:1 | 0.5–0.8 | 6.0–7.0 | 80 | 30 | 15 | 2 | 0.6 | 0.3 | 0.05 | 0.05 |
+| Bluete | 1:1:2 | 0.4–0.7 | 6.0–7.0 | 60 | 30 | 10 | 1 | 0.5 | 0.2 | 0.05 | 0.03 |
+| Samenreife | 0:1:1 | 0.3–0.5 | 6.0–7.0 | 40 | 20 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoff-Hinweis:** Die Spalten Mn/Zn/Cu/Mo (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) entsprechen üblichen Nährlösungs-Richtwerten für Schwachzehrer (Mn 0.5–2, Zn 0.5–2, Cu 0.1–0.5, Mo 0.02–0.05 ppm) am unteren Ende des Bereichs — es liegen keine art-spezifisch für *Matricaria chamomilla* publizierten Mikronährstoff-Zielwerte vor; die Angaben sind generische Hydrokultur-Normen (Hoagland/Steiner-Typ).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Naehrstoffhinweis:** Bei zu hohem EC (> 1.0 mS) oder reichlichem Kompostzusatz wächst die Kamille zwar ueppig, bildet aber weniger Blueten mit niedrigerem Gehalt an aetherischen Oelen (Bisabolol, Chamazulen). Fuer arzneiliche Zwecke mager duengen!
 
@@ -246,6 +296,25 @@ Kamille benoetigt praktisch keine Duengung auf normalem Gartenboden. Ueberschuss
 
 **Ernte-Tipp:** Kamillenblueten morgens nach dem Trocknen des Taus ernten, da der aetherische Oelgehalt am Vormittag am hoechsten ist. Vollstaendig geo[effnete Blueten (Zungenblüten waagerecht oder leicht nach unten) haben den hoechsten Wirkstoffgehalt.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung (Overwintering)
+
+Nur relevant für **Herbstaussaat** (Sept.–Okt.): Diese Pflanzen überwintern als kompakte, gefiederte Blattrosette und blühen ab April — mehrere Wochen früher als frühjahrsgesäte Kamille. Frühjahrsgesäte Pflanzen sterben dagegen nach Blüte und Samenreife im Sommer ab (Sommerannuelle) und werden nicht überwintert.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | hardy (winterharte Rosette; übersteht in Zone 6–8 den Winter im Freiland) | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | mulch (lockere Laub-/Reisigmulchschicht über die Jungrosetten; schützt vor Kahlfrost) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11 (November, vor erstem stärkeren Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | uncover (Mulch abräumen, sobald Wachstum wieder einsetzt) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (März, mit Wiederbeginn des Wachstums) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (Freilandüberwinterung; kein Quartier nötig, Rosetten frosthart bis ca. -15°C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland; volles Tageslicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sehr sparsam; nur bei Trockenheit ohne Schneedecke (Winter-Multiplikator 0.3, vgl. §4.1) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Die Rosetten sind grundsätzlich winterhart, profitieren in rauen Lagen (Zone 6 und kälter) aber von einer leichten Mulchabdeckung, die Kahlfrost und Wechselfrost-Auswinterung abpuffert. Topf-Herbstrosetten an eine geschützte, frostfreiere Hauswand stellen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Ernte-Verarbeitung
@@ -297,6 +366,20 @@ Kamille benoetigt praktisch keine Duengung auf normalem Gartenboden. Ueberschuss
 | Trocken halten | cultural | — | Nicht abends giessen; Belueftung | 0 | Grauschimmel |
 
 **Hinweis:** Auf Kamillenfeldern sind chemische Behandlungen wegen der Bluete-Ernte nicht vertretbar. Kulturell-biologische Massnahmen und Sortenresistenz stehen im Vordergrund.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 6.4 Nützlinge (Biologische Bekämpfung)
+
+Da chemischer Pflanzenschutz wegen der Blütenernte ausscheidet, eignen sich Nützlinge besonders — vor allem in Topf-/Gewächshauskultur und bei lokalen Befallsherden.
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|-----------------|------------------|
+| Schlupfwespe | Aphidius colemani | Blattläuse (Aphis fabae u.a. Aphididae) | 0.25–4 Tiere/m²/Freilassung, ≥3× wiederholen | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattlaus-Kolonien (Befallsherde) | 1–10 Tiere/m²/Freilassung, wöchentlich | 2–3 Wochen |
+| Raubmilbe | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 Tiere/m²/Freilassung, 1–2× wöchentlich | 2–4 Wochen |
+
+**Hinweis:** Die Korbblütler-spezifischen Käfer/Rüssler (Kamillenglattkäfer *Olibrus aeneus*, Stängelrüssler *Microplontus campestris*) haben keine etablierten kommerziellen Antagonisten — hier bleiben Standortwahl, lockere Saat und Fruchtwechsel die wirksamsten Maßnahmen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -383,3 +466,17 @@ Bona,Matricaria chamomilla,60–80,early;compact;good_yield,open_pollinated,Frue
 6. Gartenrat.de — Echte Kamille Anbau und Pflege — https://gartenrat.de/echte-kamille/
 7. Oekolandbau.de — Echte Kamille als Unkraut und Heilpflanze — https://www.oekolandbau.de/
 8. ESCOP Monograph — Chamomillae Flos (Kamillenbluete) — European Scientific Cooperative On Phytotherapy
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. PFAF (Plants For A Future) — Matricaria recutita: pH-Vorzug (5.5–6.5, tolerant 5–7), Halbschatten-Toleranz, mäßige Salztoleranz, Niederschlagsbereich — https://pfaf.org/user/Plant.aspx?LatinName=Matricaria+recutita
+10. Useful Tropical Plants — Matricaria chamomilla: pH, Sonnenstandort, dünne Pfahlwurzel, mäßig saline Böden — https://tropical.theferns.info/viewtropical.php?id=Matricaria+chamomilla
+11. Wisconsin Horticulture (UW–Madison Extension) — German Chamomile, Matricaria chamomilla: einjährig, Vollsonne, flach/breit wurzelnd, Selbstaussaat — https://hort.extension.wisc.edu/articles/chamomile-matricaria-chamomilla/
+12. Wikifarmer — German Chamomile Growing Conditions: Temperaturbereich 7–26°C, Wuchsoptimum 15–20°C, Vollsonne — https://wikifarmer.com/german-chamomile-growing-conditions/
+13. MDPI Horticulturae 11(5):485 (2025) — Assessing Growth Performance and Agrometeorological Indices of Matricaria chamomilla L. (Western Himalaya): GDD-Akkumulation über Phänophasen (Basistemperatur nicht ausgewiesen) — https://www.mdpi.com/2311-7524/11/5/485
+14. ResearchGate — Photoperiodic lighting of Matricaria (qualitativer Langtagblüher; Schossen + Blüte bei Langtag) — https://www.researchgate.net/publication/282830571_Photoperiodic_lighting_of_matricaria_tanacetum_parthenium
+15. Nature Scientific Reports 14 (2024) / PMC11344756 — Impact of NaCl stress on Matricaria chamomilla: Salzstufen 1.84–8.96 dS/m, Optimum ~2 dS/m — https://pmc.ncbi.nlm.nih.gov/articles/PMC11344756/
+16. ASHS J. Amer. Soc. Hort. Sci. 146(1) — Far-red Fraction metric: Vollsonne FR/(R+FR) ≈ 0.46–0.5, R:FR ≈ 1.1–1.3, Unterwuchs höher — https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml
+17. Koppert — Aphidius colemani, Aphidoletes aphidimyza, Phytoseiulus persimilis: Ausbringraten/m² — https://www.koppertus.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/
+18. Plantura — German chamomile care & propagation: Herbstaussaat überwintert als Rosette, Mulchschutz, Blüte ab April — https://plantura.garden/uk/herbs/chamomile/german-chamomile
+19. Envirevo Agritech — Hydroponic micronutrient ranges (Mn/Zn/Cu/Mo ppm, generische Nährlösungsnormen) — https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

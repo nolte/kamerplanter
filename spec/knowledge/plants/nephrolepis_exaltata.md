@@ -17,6 +17,9 @@
 | Familie | Nephrolepidaceae | `species.family` → `botanical_families.name` |
 | Gattung | Nephrolepis | `species.genus` |
 | Ordnung | Polypodiales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | stoloniferous (Ausläufer) | `species.root_adaptations` |
@@ -25,6 +28,10 @@
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: keine belegte Wuchs-GDD-Basis für Nephrolepis; nur Kultur-Optima (16–24 °C) auffindbar, Keimwerte sind als Wuchsbasis ungeeignet --> | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutraler Farn (photoperiod_type=day_neutral), kein echter Kurztag-/Langtag-Blüher → kein numerischer Stunden-Wert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Halbfrosthart. Mindesttemperatur 5°C (Zimmerhaltung), optimal 16–24°C. Verträgt kurze Kälte bis 2°C, aber keine Dauertemperaturen unter 10°C. | `species.hardiness_detail` |
@@ -95,6 +102,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, gut wasserhaltige aber lockere Erde. Torffreie Variante: Kokosfaser + Perlite + Kompost (2:1:1). pH 5.0–6.5 (leicht sauer!). Ampelkultivierung beliebt. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | deep_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine Maas-Hoffman-Schwellwerte für Nephrolepis belegt; Quellen nennen nur qualitativ "poor salt tolerance" --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN: kein belegter Slope-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Als immergrüner Unterwuchsfarn feuchter Tropenwälder ist *N. exaltata* tiefschattentolerant (deep_shade — verträgt < 2 h Direktlicht), bevorzugt aber helles indirektes Licht; direkte Vollsonne führt zu Wedelnekrosen. Der niedrige Lichtkompensationspunkt (Spanne abgeleitet aus dem für schattentolerante Arten belegten Wert ≈ 5,3 µmol/m²/s und der allgemeinen Schattenfarn-Physiologie) erlaubt positive Netto-Photosynthese bereits bei sehr geringer Beleuchtung. Lichtsättigung schattenadaptierter Farne liegt bei ca. 200–400 µmol/m²/s (Photoinhibition oberhalb ~600) — dieser Sättigungswert gehört NICHT in das Kompensationspunkt-Feld. Die Salzempfindlichkeit (sensitive) zeigt sich praktisch in Salzschäden durch überdüngtes Substrat und kalkreiches Gießwasser (Blattspitzennekrosen).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -120,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.75 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -133,15 +164,26 @@
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.75 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 5.0–6.5 | 60 | 30 |
-| Winterruhe | 0:0:0 | 0.0 | 5.0–6.5 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 5.0–6.5 | 60 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 5.0–6.5 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Für *Nephrolepis exaltata* sind keine artspezifischen Sollwerte für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) in seriösen Quellen belegt; als salzempfindlicher Schwachzehrer (`light_feeder`) reicht die Mikronährstoff-Grundversorgung handelsüblicher Zimmerpflanzen-/Farndünger in halbierter Dosis. Werte daher als DATEN FEHLEN markiert statt mit generischen Hydroponik-Richtwerten zu hinterlegen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- nutrient_profiles.manganese_ppm / zinc_ppm / copper_ppm / molybdenum_ppm -->
 
 ---
 
@@ -198,6 +240,23 @@ Farne sind Schwachzehrer. Nur halbierte Normaldosis verwenden. April bis Septemb
 | Sep | Düngung beenden | Letzte Düngergabe | niedrig |
 | Okt–Mär | Weniger gießen | Substrat leicht trocknen lassen | mittel |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Okt, vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 12–18 (min. 5 °C, nie unter 10 °C dauerhaft) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | Hell, indirekt (kein Direktlicht); bei < 8 h Tageslicht Pflanzenlampe | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | Reduziert, Substrat nur leicht feucht halten (nicht austrocknen) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** *N. exaltata* ist nicht winterhart (USDA 9–11) und wird in Mitteleuropa (USDA 6–8) als frostfrei zu überwinternde Kübel-/Zimmerpflanze geführt (`frost_free`). Im Sommer im Halbschatten draußen, vor dem ersten Frost (spätestens Oktober) ins frostfreie, helle Innenquartier holen. Kritisch ist die Luftfeuchte: Heizungsluft (20–30 % RH) schädigt die Wedel; Luftbefeuchter oder kühl-feuchter Standort (Treppenhaus, helles Bad) empfohlen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -227,6 +286,19 @@ Farne sind Schwachzehrer. Nur halbierte Normaldosis verwenden. April bis Septemb
 | Neemöl (vorsichtig) | biological | Schwach verdünnt, 0.3% — erst an einzelnem Wedel testen! | 0 Tage | Spinnmilbe, Schmierläuse |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schildlaus |
 | Drainage verbessern | cultural | Untersetzer leeren nach Gießen | 0 | Wurzelfäule (Prävention) |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|-------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–10 /m² (bei Befall, ggf. wöchentl. wiederholen) | 2–3 Wochen |
+| Schlupfwespe | Metaphycus helvolus | Weichschildlaus (Coccus hesperidum, Coccidae) | 5 /m², 3 Freilassungen im 14-Tage-Abstand | 3–6 Wochen |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Schmierlaus/Wolllaus (Pseudococcus spp.) | 1–10 /m² (Schwerpunkt auf Befallsherde), 2–3× im 1–2-Wochen-Abstand | 3–4 Wochen |
+| Raubmilbe (Boden) | Stratiolaelaps scimitus (Hypoaspis miles) | Trauermücke (Bradysia spp., Larven) | 100–500 /m² ins Substrat | 2–4 Wochen |
+
+**Hinweis:** Nützling-Wirt-Zuordnung botanisch/entomologisch korrekt: *Metaphycus helvolus* parasitiert Weichschildläuse (Coccidae, hier *Coccus hesperidum*) — NICHT Panzer-/Deckelschildläuse. *Cryptolaemus montrouzieri* ist effektiv gegen Schmier-/Wollläuse. Ausbringung im geschlossenen Raum am wirksamsten bei 20–28 °C und hoher Luftfeuchte — Bedingungen, die für den Schwertfarn ohnehin angestrebt werden. Karenzzeit für alle Nützlinge: 0 Tage.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -280,3 +352,13 @@ Tiger Fern,Nephrolepis exaltata,"ornamental;variegated;yellow_green",clone
 3. [BBC Gardeners World — Boston Fern](https://www.gardenersworld.com/house-plants/how-to-grow-boston-fern/) — Praxishinweise
 4. [Gardenia.net](https://www.gardenia.net/plant/nephrolepis-exaltata) — Taxonomische Daten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Gago et al. 2013, Physiologia Plantarum — Photosynthesis limitations in three fern species](https://pubmed.ncbi.nlm.nih.gov/23692357/) — C3-Photosynthese-Typ der Farne (inkl. Nephrolepis), niedrige Photosynthese-/Leitfähigkeitswerte
+7. [UF/IFAS FP427 — Nephrolepis exaltata Boston Fern, Sword Fern](https://ask.ifas.ufl.edu/publication/FP427) — Schattentoleranz (Halb-/Vollschatten), geringe Salztoleranz (poor), USDA-Zonen
+8. [NC State Extension Gardener Plant Toolbox — Nephrolepis exaltata](https://plants.ces.ncsu.edu/plants/nephrolepis-exaltata/) — Tiefschattentoleranz (deep shade, < 2 h Direktlicht), Drainagebedarf, USDA-Zonen
+9. [Craine & Reich 2005, New Phytologist — Leaf-level light compensation points in shade-tolerant woody seedlings](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — Lichtkompensationspunkt schattentoleranter Arten ≈ 5,3 µmol/m²/s
+10. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) & [Cornell NYSIPM Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate/Etablierung Spinnmilben-Raubmilbe
+11. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate Wolllaus-Marienkäfer
+12. [AERU/U Hertfordshire — Metaphycus helvolus](https://sitem.herts.ac.uk/aeru/bpdb/Reports/2258.htm) & [Wikipedia — Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Weichschildlaus-Parasitoid, Ausbringrate 5/m²
+13. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Trauermücken-Bodenraubmilbe, Ausbringrate 100–500/m²
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

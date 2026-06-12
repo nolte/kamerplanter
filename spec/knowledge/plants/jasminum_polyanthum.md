@@ -2,7 +2,8 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-11
-> **Quellen:** [Gardenia.net – Jasminum polyanthum](https://www.gardenia.net/plant/jasminum-polyanthum-pink-jasmine), [Guide to Houseplants – Jasmine](https://www.guide-to-houseplants.com/jasmine-plant.html), [Forward Plant – Jasminum polyanthum](https://www.forwardplant.com/plant-info/jasminum-polyanthum/), [Wikipedia – Jasminum polyanthum](https://en.wikipedia.org/wiki/Jasminum_polyanthum)
+> **Aktualisiert:** 2026-06-12 (Steckbrief-Erweiterung: §1.1, §1.7, §2.2, §2.3, §4.3, §5.3)
+> **Quellen:** [Gardenia.net – Jasminum polyanthum](https://www.gardenia.net/plant/jasminum-polyanthum-pink-jasmine), [Guide to Houseplants – Jasmine](https://www.guide-to-houseplants.com/jasmine-plant.html), [Forward Plant – Jasminum polyanthum](https://www.forwardplant.com/plant-info/jasminum-polyanthum/), [Wikipedia – Jasminum polyanthum](https://en.wikipedia.org/wiki/Jasminum_polyanthum), [OurHouseplants – Jasmine](https://www.ourhouseplants.com/plants/jasmine), [RHS – Jasminum polyanthum](https://www.rhs.org.uk/plants/9457/jasminum-polyanthum/details)
 
 ---
 
@@ -20,8 +21,17 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 (Blüteninduktion temperatur-/kältegesteuert, nicht photoperiodisch) --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 8a–10b | `species.hardiness_zones` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-GDD-Basiswert für diese Art auffindbar; Keim-Basiswert nicht als Wuchsbasis verwendbar --> | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN: kein belegter typischer Lifespan-Wert auffindbar --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Kältereiz erforderlich (chilling) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (chilling, ≈6–8 Wochen kühle Nächte ~10–13°C) | 42 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- leer: kein echter Kurztag-/Langtagblüher, day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Kurze Fröste bis -5°C tolerierend; in Mitteleuropa Überwinterung bei 5–10°C | `species.hardiness_detail` |
 | Heimat | China (Yunnan), Myanmar | `species.native_habitat` |
@@ -84,6 +94,24 @@
 | Rankhilfe/Stütze nötig | true | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Gut drainierte Kübelpflanzenerde; pH 6.0–7.0; Rankgitter oder Spalier | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 35 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: keine belegte artspezifische Wurzeltiefe in cm; bekannt nur flaches faseriges (fibrous) System, Min-Topftiefe 20 cm --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | <!-- DATEN FEHLEN: keine belegte Salztoleranz-Einstufung auffindbar --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+> **Hinweis (Standort):** J. polyanthum gilt als Halbschatten-/Sonnenpflanze (full sun to part shade); zu viel Schatten reduziert Blüte und fördert vergeilten Wuchs. Quellenübergreifend wird ein etwas breiterer pH-Korridor von **5.5–7.0** (leicht sauer bis neutral) genannt; das KA-Feld `soil_ph_preference` ist hier auf den mit §1.6/§2.3 deckungsgleichen, quellengestützten Bereich **6.0–7.0** gesetzt. Der LCP-Bereich nennt ausschließlich den Lichtkompensationspunkt; Sättigungs-/Optimumwerte stehen in §2.2 (`light_ppfd_target`). <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +139,10 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.6 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 6–8 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,24 +159,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.7 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — |
-| Blüte | 1:2:2 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 1 |
-| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–7.0 | 120 | 50 | — | 2 |
-| Herbstreife | 0:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 30 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — | — | — |
+| Blüte | 1:2:2 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 1 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–7.0 | 120 | 50 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Herbstreife | 0:1:2 | 0.6–1.0 | 6.0–7.0 | 60 | 30 | — | 1 | 0.5 | 0.05 | 0.02 | 0.01 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 — Mikronährstoffe Mn/Zn/Cu/Mo: generische Richtwerte nach Hoagland-Standardnährlösung (keine artspezifischen Werte für J. polyanthum belegt); KA-Felder nutrient_profiles.manganese/zinc/copper/molybdenum_ppm -->
 
 ### 2.4 Phasenübergangsregeln
 
 | Von → Nach | Trigger | Tage/GDD | Bedingungen |
 |------------|---------|----------|-------------|
-| Winterruhe → Blüte | time_based | — | Winter/Frühjahr, kurze Tage + Kühle |
+| Winterruhe → Blüte | time_based | — | Winter/Frühjahr; Blüteninduktion durch Kältereiz (chilling) ~6–8 Wochen kühle Nächte 10–13 °C — nicht photoperiodisch <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
 | Blüte → Vegetativ | time_based | 60–90 Tage | Nach Rückschnitt |
 | Vegetativ → Herbstreife | time_based | 150–210 Tage | Herbst, Temperaturen sinken |
 | Herbstreife → Winterruhe | time_based | 30–60 Tage | Einwintern Oktober/November |
@@ -208,7 +245,7 @@ Die Überwinterung bei 5–10°C ist der Schlüssel für die Blüteninduktion �
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free <!-- Quelle: Steckbrief-Erweiterung 2026-06 — frostempfindliche Kübelpflanze, in Mitteleuropa (USDA 6–8) frostfrei drinnen bei 5–10 °C überwintert; korrigiert von needs_protection für korrektes move_indoors-Verhalten --> | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off | `overwintering_profiles.spring_action` |
@@ -246,6 +283,7 @@ Die Überwinterung bei 5–10°C ist der Schlüssel für die Blüteninduktion �
 | Aphidius colemani | Blattläuse | 5–10 | 7–14 |
 | Encarsia formosa | Weiße Fliege | 3–5 | 21–28 |
 | Phytoseiulus persimilis | Spinnmilben | 20–50 | 14 |
+| Metaphycus helvolus | Weichschildläuse (Coccus hesperidum, Coccidae) | 5 (3 Freilassungen, 14-tägig) | 21–35 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
 
 ### 5.4 Behandlungsmethoden
 
@@ -285,7 +323,7 @@ Die Überwinterung bei 5–10°C ist der Schlüssel für die Blüteninduktion �
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Jasminum polyanthum,Pink Jasmin;Vielblütiger Jasmin;Chinese Jasmine,Oleaceae,Jasminum,perennial,short_day,vine,fibrous,8a;8b;9a;9b;10a;10b,0.0,China Myanmar,yes,15,20,600,300,—,limited,yes,false,true
+Jasminum polyanthum,Pink Jasmin;Vielblütiger Jasmin;Chinese Jasmine,Oleaceae,Jasminum,perennial,day_neutral,vine,fibrous,8a;8b;9a;9b;10a;10b,0.0,China Myanmar,yes,15,20,600,300,—,limited,yes,false,true
 ```
 
 ---
@@ -297,3 +335,13 @@ Jasminum polyanthum,Pink Jasmin;Vielblütiger Jasmin;Chinese Jasmine,Oleaceae,Ja
 3. [Forward Plant – Jasminum polyanthum](https://www.forwardplant.com/plant-info/jasminum-polyanthum/) — Pests, Diseases
 4. [Wikipedia – Jasminum polyanthum](https://en.wikipedia.org/wiki/Jasminum_polyanthum) — Taxonomie, USDA Zones
 5. [The Green Thumbler – Pink Jasmine](https://www.thegreenthumbler.com/jasminum-polyanthum-pink-jasmine/) — Growing Tips
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [OurHouseplants – Jasmine (Jasminum polyanthum)](https://www.ourhouseplants.com/plants/jasmine) — Blüteninduktion durch Abkühlung im Herbst, Mindesttemperatur 5 °C
+7. [Guide to Houseplants – Chinese Jasmine](https://www.guide-to-houseplants.com/jasmine-plant.html) — Knospeninduktion: kühle Temperaturen 4–16 °C über ~6 Wochen im Herbst, sonst 18–24 °C
+8. [Joy Us Garden – How to Grow Pink Jasmine](https://www.joyusgarden.com/how-to-grow-pink-jasmine-vine/) — kühle Nächte/Temperaturen für Blütenbildung, Standort
+9. [RHS – Jasminum polyanthum (many-flowered jasmine)](https://www.rhs.org.uk/plants/9457/jasminum-polyanthum/details) — tender climber, frostfrei, well-drained, halbschattig
+10. [RHS – How to grow jasmine (Growing Guide)](https://www.rhs.org.uk/plants/jasmine/growing-guide) — Boden (fertil, gut drainiert), Sonne/Halbschatten, Staunässe-Empfindlichkeit
+11. [Wikipedia – C3 carbon fixation](https://en.wikipedia.org/wiki/C3_carbon_fixation) — C3 als dominanter Photosynthese-Pfad (Oleaceae/Jasminum, mesophytisch)
+12. [Hoagland solution – Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.01 ppm
+13. [Wikipedia – Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Parasitoid gegen Weichschildläuse (Coccus hesperidum), Ausbringung ~5/m², 14-tägig
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

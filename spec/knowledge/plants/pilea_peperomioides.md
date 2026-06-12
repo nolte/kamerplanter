@@ -21,9 +21,16 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–15 | `lifecycle_configs.typical_lifespan_years` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutrale Art (day_neutral); kein Kurztag-/Langtag-Schwellenwert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10°C, optimal 13–30°C. Sehr anpassungsfähig an normale Zimmertemperaturen. | `species.hardiness_detail` |
@@ -34,6 +41,10 @@
 | Traits | ornamental | `species.traits` |
 
 **Hinweis:** Pilea peperomioides erlangte ihre Popularität durch Weitergabe von Stecklingen unter Pflanzenenthusiasten — ursprünglich verbreitete ein norddeutscher Missionar die Pflanze in Europa in den 1970ern. Die charakteristischen runden, tellerförmigen Blätter an langen Stielen sind unverwechselbar. Die Pflanze dreht sich zum Licht — regelmäßiges Drehen verhindert einseitiges Wachstum.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Photosynthese):** Klassifizierung als **C3** (`photosynthesis_type = c3`). Eine peer-reviewte Studie (Holtum et al., *Functional Plant Biology* 48(7):683–690, 2020) weist nach, dass die semi-sukkulenten Blätter CO₂ im Licht **nahezu ausschließlich über C3** assimilieren; lediglich eine schwach ausgeprägte, fakultative CAM-Aktivität (low-level CAM, nächtliche Apfelsäure-Akkumulation) tritt unter Trockenstress auf. Da der C3-Weg dominiert und CAM nicht der Hauptmodus ist, wird hier `c3` gesetzt (nicht `cam`). Praktische Folge: keine sukkulententypische CAM-Trockenheitstoleranz unterstellen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -92,6 +103,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, gut durchlässige Einheitserde mit 20% Perlite. pH 6.0–7.0. Kokosfaser-basierte Mischungen funktionieren gut. Kleiner Topf bevorzugt — mag nicht zu viel Erdvolumen. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein quantitativer Maas-Hoffman-Schwellenwert (Substrat-ECe) für Pilea peperomioides in seriösen Quellen belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Als Unterwuchs-Art (understory) schattenverträglich, aber kein Tiefschatten — `partial_shade` (helles indirektes Licht, kein direkter Mittagssonnenstand). Der Lichtkompensationspunkt schattentoleranter krautiger Unterwuchspflanzen liegt typisch bei 10–50 µmol/m²/s; für Pilea ist die untere Spanne (10–30) plausibel. Angegeben ist ausschließlich der Kompensationspunkt (Netto-Photosynthese = 0), **nicht** der Sättigungspunkt. Flaches, mattenartiges Faserwurzelsystem ohne Tiefgang → kleine, flache Töpfe bevorzugt. Stark staunässe- und salzempfindlich: Überdüngung führt zu Salzkruste/Wurzelbrand; gelegentliches Durchspülen (Flushing) des Substrats empfohlen. Bezugsgröße einer etwaigen Salzschwelle wäre Substrat-ECe (Sättigungsextrakt), nicht die Gießwasser-EC. pH-Vorzug 6.0–7.0 stimmt mit §1.6 und §2.3 überein.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +145,12 @@
 | Temperatur Nacht (°C) | 13–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -124,16 +159,25 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 80–250 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 4–10 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 13–22 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 | 0.4 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.25 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.08 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | — | — | — |
 
 ---
 
@@ -187,6 +231,23 @@ Alle 4 Wochen März bis September. Kein Dünger Oktober bis Februar. Überdüngu
 | Sep | Düngung beenden | — | niedrig |
 | Okt–Feb | Reduzieres Gießen | Substrat zwischen Güssen mehr antrocknen lassen | mittel |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (Sep–Okt, vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 13–18 (Minimum 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (heller Fensterplatz, ggf. Pflanzenlicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam, Substrat zwischen Güssen antrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Pilea peperomioides ist nicht frosthart (`frost_free`): Sie wird als Kübel-/Zimmerpflanze frostfrei drinnen überwintert — kein Ausgraben/Einlagern von Knollen (kein `dig_and_store`), kein Mulch/Vlies im Freien. Mindesttemperatur 10°C (konsistent mit §1.1 Winterhärte-Detail). Ein optionaler Sommer-Aufenthalt im Halbschatten auf Balkon/Terrasse ist möglich; Ausräumen erst nach den Eisheiligen (Mitte Mai), Einräumen vor dem ersten Herbstfrost.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -213,6 +274,19 @@ Alle 4 Wochen März bis September. Kein Dünger Oktober bis Februar. Überdüngu
 | Gelbtafeln | mechanical | Aufhängen | 0 | Trauermücke |
 | Nematoden | biological | Gießen | 0 | Trauermücke (Larven) |
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Nematoden (Trauermücken-Nematode) | Steinernema feltiae | Trauermücke (Larven), Bradysia spp. | ~250.000 Inf.-Juvenile/m² Substratoberfläche (≈ 500–1.000/Topf), ins Gießwasser | Larvenbefall innerhalb weniger Tage reduziert; Wiederholung alle 1–2 Wochen |
+| Raubmilbe (Bodenraubmilbe) | Stratiolaelaps scimitus (syn. Hypoaspis miles) | Trauermücke (Larven/Puppen) | ~100–250/m² Substratoberfläche, auf das Substrat ausstreuen | dauerhafte Bodenpopulation; Wirkung über 2–4 Wochen aufbauend |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | ~10–30/m² (1–3/sq ft) präventiv, 5–10/sq ft bei Befall | Entwicklungszyklus ~9 Tage bei 20°C; Befallsreduktion in 2–3 Wochen |
+| Australischer Marienkäfer (Schmierlauszerstörer) | Cryptolaemus montrouzieri | Schmierlaus (Pseudococcus spp.) | ~2–10/m² je Freilassung, 2–3 kleinere Gaben im Abstand 1–2 Wochen | benötigt Schmierlaus-Kolonien als Nahrung; Etablierung über mehrere Wochen/Generationen |
+
+**Hinweis:** Nützlingseinsatz im Zimmer ist v. a. gegen Trauermücken (Nematoden/Raubmilben) praktikabel und etabliert. *Phytoseiulus persimilis* benötigt hohe Luftfeuchte (~70% im Bestand) zum Schlüpfen — bei trockener Zimmerluft ist die Wirkung gegen Spinnmilben begrenzt; ggf. mit Luftbefeuchtung kombinieren. *Cryptolaemus* überwintert in unseren Breiten nicht im Freien und ist eher für Gewächshaus/Wintergarten geeignet.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -249,3 +323,18 @@ Pilea peperomioides,"Chinesische Geldpflanze;Bauchnabelpflanze;Chinese Money Pla
 3. [PLNTS.com — Pilea Care](https://plnts.com/en/care/houseplants-family/pilea) — Ganzjahrespflege
 4. [The Little Botanical](https://thelittlebotanical.com/how-to-care-for-the-chinese-money-plant/) — Praxiswissen
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Holtum et al. (2020): Low-level CAM photosynthesis in Pilea peperomioides, Functional Plant Biology 48(7):683–690](https://www.publish.csiro.au/fp/fulltext/FP20151) — Photosynthese-Typ: C3-dominant mit fakultativer Low-Level-CAM (peer-reviewed)
+7. [PubMed 33287950 — Low-level CAM in Pilea peperomioides](https://pubmed.ncbi.nlm.nih.gov/33287950/) — Bestätigung Photosynthese-Klassifizierung
+8. [Wikipedia — Pilea peperomioides](https://en.wikipedia.org/wiki/Pilea_peperomioides) — Heimat (Yunnan, Unterwuchs/understory), Standort
+9. [pilea.com — Choosing the Best Soil / Pot Guide](https://www.pilea.com/post/choosing-the-best-soil-for-pilea-peperomioides) — pH 6.0–7.0, flaches Faserwurzelsystem, Staunässe-Empfindlichkeit
+10. [House Plant Journal — Pilea fertilizer burn](https://www.houseplantjournal.com/houseplant-qa/pilea-might-have-fertilizer-burn/) — Salzempfindlichkeit, Salzkruste/Wurzelbrand bei Überdüngung
+11. [ScienceDirect — Light compensation point overview](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — LCP schattentoleranter Unterwuchspflanzen 10–50 µmol/m²/s
+12. [Craine & Reich (2005): Leaf-level light compensation points in shade-tolerant woody seedlings, New Phytologist](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — niedrige LCP-Werte schattentoleranter Arten
+13. [UNH/Dickson (2018): Managing nutrient solutions for hydroponic crops (PDF)](https://www.negreenhouse.org/uploads/9/4/8/2/94821076/dickson_2018_negc_nutrient_and_ph_for_hydroponics.pdf) — Mikronährstoff-ppm (Fe 1.75, Mn 0.38, Zn 0.25, Cu 0.08, Mo 0.05)
+14. [GrowerTalks (2022): Nutritional Tips for Tropical Foliage Plants](https://www.growertalks.com/Article/?articleid=25993) — Mikronährstoff-Hierarchie tropischer Blattpflanzen (Fe>Mn>B>Zn>Cu>Mo)
+15. [RHS — Biological control in the garden](https://www.rhs.org.uk/prevention-protection/biological-control-garden) — Nützling-Wirt-Zuordnungen (S. feltiae, Hypoaspis, Phytoseiulus)
+16. [Jagdale et al. (2004): Steinernema feltiae against fungus gnats, Biological Control 29:296](https://www.sciencedirect.com/science/article/abs/pii/S1049964403001646) — Ausbringrate S. feltiae (~2,5×10⁵/m²)
+17. [Cornell NYSIPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate (1–3/sq ft) & Entwicklungszeit
+18. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Schmierlaus-Bekämpfung, Freilassungsrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

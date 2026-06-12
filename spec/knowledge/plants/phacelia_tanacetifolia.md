@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-11
-> **Quellen:** Phacelia Wikipedia, Gartenjournal.net Phacelia, Samen.de Phacelia, Agrarshop-online.com Phacelia
+> **Quellen:** Phacelia Wikipedia, Gartenjournal.net Phacelia, Samen.de Phacelia, Agrarshop-online.com Phacelia, NCSU Extension, USDA NRCS, PMC9694782, Cover Crops Canada, GoSeed, Springer (Plant & Soil), Epic Gardening, Wiley (siehe Quellenverzeichnis)
 
 ---
 
@@ -19,11 +19,25 @@
 | Ordnung | Boraginales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: keine belegte Wuchs-GDD-Basis; Literatur nennt nur Keim-/Emergenzschwelle ~3 °C, die nicht als Wuchsbasis verwendet werden darf --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | — (annuell, nicht zutreffend) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: keine belegte Kurz-/Langtag-Einstufung; Blüte bei Staffelaussaat über sehr unterschiedliche Tageslängen (Mai–Sep) spricht für tagneutrale, temperaturgesteuerte Blüte → photoperiod_type=day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhärte-Detail | Verträgt leichte Fröste (−4 °C); als Gründüngung auch in Norddeutschland bis Oktober aussäbar | `species.hardiness_detail` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winterhärte-Detail | Jungpflanzen vertragen Fröste bis durchschnittlich −8 °C (Winterkill bei ~18 °F / −7,8 °C); als Gründüngung auch in Norddeutschland bis Oktober aussäbar | `species.hardiness_detail` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | Heimat | Nordamerika (Wüstenregionen Mexiko, Südkalifornien) | `species.native_habitat` |
 | Allelopathie-Score | 0.3 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -82,6 +96,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale Gartenerde; pH 6,0–7,5; auch auf leichten Sandböden geeignet | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch belegter Kompensationspunkt; nur Sättigungs-/Vollsonnenangaben verfügbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch belegter Kompensationspunkt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 25–75 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert; Quellen nennen nur qualitativ "salinity rating low" --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+> **Hinweis (Freitext, nicht KA-Feld):** Phacelia ist sehr anpassungsfähig und toleriert Böden im weiten pH-Bereich 5,5–8,6; der oben genannte Vorzug 6,0–7,5 ist das Optimum (harmonisiert mit §1.6). Sie bevorzugt volle Sonne (Heimat: Wüstenregionen), verträgt aber Halbschatten und bleibt im Schatten länger grün — daher die Einstufung `partial_shade`. Pfahlwurzel mit dichten Faserwurzeln; Tiefenangaben in der Literatur reichen von 10 Zoll (~25 cm) bis ~75 cm.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +141,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (trockenverträglich) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -206,3 +244,13 @@ Phacelia tanacetifolia,"Bienenfreund;Rainfarn-Phazelie;Büschelschön;Lacy Phace
 2. [Gartenjournal.net Phacelia](https://www.gartenjournal.net/phacelia) — Anbaupraxis, Verwendung
 3. [Phacelia — Samen.de](https://samen.de/blog/phacelia-vielseitiger-helfer-im-garten.html) — Bienenweide, Gründüngung
 4. [Agrarshop-online.com Phacelia](https://www.agrarshop-online.com/phacelia.php) — Aussaatraten, Agrarpraxis
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [NCSU Extension Gardener Plant Toolbox — Phacelia tanacetifolia](https://plants.ces.ncsu.edu/plants/phacelia-tanacetifolia/) — Vollsonne, Staunässe-Empfindlichkeit, Winterhärte bis 18 °F
+6. [USDA NRCS Plant Guide — Lacy Phacelia (PHTA)](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_phta.pdf) — Wurzeltiefe 10–30 Zoll, Boden-pH 5,5–8,6, Standort
+7. [Effect of Sowing Date on the Development of Lacy Phacelia (PMC9694782)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9694782/) — Emergenz ab ~3 °C, Frosttoleranz Jungpflanzen bis −8 °C, Phänologie
+8. [Cover Crops Canada — Phacelia](https://covercrops.ca/phacelia/) — Salinity rating low (Salztoleranz), Schatten-/Spätfrosttoleranz, Drought
+9. [GoSeed.com — Phacelia Cover Crop](https://goseed.com/cover-crops/phoenixphacelia/) — Boden-pH-Optimum, Kältetoleranz, Wurzelstruktur
+10. [Springer (Plant and Soil) — Phacelia affects soil structure (taproot >70 cm)](https://link.springer.com/article/10.1007/s11104-019-04144-4) — Pfahlwurzel + dichte Faserwurzeln, Tiefe bis ~75 cm
+11. [Epic Gardening — How to Grow Phacelia](https://www.epicgardening.com/phacelia/) — Staunässe-/Lodging-Empfindlichkeit, Vollsonne, Drought
+12. [Wiley (Ecology & Evolution 2023) — C4 eudicots in Boraginaceae](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10720) — C4 in Boraginaceae nur Euploca/Heliotropium; Phacelia = C3
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-GDD-Basiswert; Origanum-Phänologiestudien nennen thermal time (°Cd), aber keine explizite Basistemperatur --> | `species.base_temp` |
+| Lebensdauer (Jahre, lifespan) | 5–7 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Blühinduktion erfolgt langtag-/photoperiodengesteuert, keine Kältepflicht zur Blüte) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h, critical day length) | <!-- DATEN FEHLEN: als Langtagblüher belegt, aber kein numerischer Stunden-Schwellwert für O. vulgare auffindbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C; Griechischer Oregano (ssp. hirtum) bis -15°C; Norddeutschland zuverlässig überwinternder Dauerstaude; mit Reisig-Abdeckung sicherer | `species.hardiness_detail` |
@@ -82,6 +91,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Magere, kalkhaltige, durchlässige Kräutererde; pH 6,5–8,0; kein Torf; Drainagschicht | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein speziesspezifischer Kompensationspunkt (Netto-Photosynthese = 0) für O. vulgare belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein speziesspezifischer Kompensationspunkt für O. vulgare belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (verträgt lichten Halbschatten; volle Sonne maximiert Ölgehalt/Aroma) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–20 (flachwurzelnd/rhizomatös; Hauptwurzelmasse in den oberen 6–8 inches) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Staunässe führt zu Wurzelfäule/Pythium; Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: keine sauberen Maas-Hoffman-Parameter für O. vulgare; verwandte O. onites zeigt bei 5 dS/m Substrat-Salinität 74–77% Ertragsverlust und Teilmortalität, ab 7 dS/m Totalausfall → Einstufung moderately_sensitive --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope für O. vulgare --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–8.0 (Optimum ~6.8; gedeiht auf kalkhaltigen, leicht alkalischen Böden) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,18 +135,28 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa, stomatärer Kollaps) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-/Vollsonne-Anker; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 (ausgesprochen trockenverträglich) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 7.0 | — | — | — | — |
-| Sämling | 1:1:1 | 0.3–0.5 | 6.5–7.0 | 40 | 15 | — | 1 |
-| Vegetativ | 1:0:1 | 0.5–0.8 | 6.5–7.5 | 60 | 25 | — | 1 |
-| Blüte | 0:1:1 | 0.4–0.6 | 6.5–7.5 | 50 | 20 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 7.0 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.3–0.5 | 6.5–7.0 | 40 | 15 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 1:0:1 | 0.5–0.8 | 6.5–7.5 | 60 | 25 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:1:1 | 0.4–0.6 | 6.5–7.5 | 50 | 20 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für *Origanum vulgare* sind keine speziesspezifischen Phasen-Zielwerte (ppm) für Mangan, Zink, Kupfer und Molybdän aus seriösen Quellen belegt. Als Schwachzehrer auf mageren, kalkreichen Böden ist eine separate Mikronährstoff-Düngung in der Regel nicht erforderlich; bei hohem pH ist allenfalls auf Fe-/Mn-Verfügbarkeit zu achten. Werte daher als `<!-- DATEN FEHLEN -->` markiert (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -201,6 +236,18 @@ Oregano ist sehr robust. Starke Aromastoffe (Carvacrol, Thymol) wirken als natü
 | Echter Mehltau | fungal | Weißer Belag | Trockenheit + Wärme | 5–10 | vegetative |
 | Wurzelfäule | fungal (Pythium spp.) | Welke, schwarze Wurzeln | Staunässe | 3–7 | alle |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|-------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | ca. 10–20/m² bei erstem Befall (Räuber:Beute ≈ 1:10–1:20) | 2–3 Wochen (Vermehrungsrate ~2× der Spinnmilbe) |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Aphis spp.) | ca. 0,5–1/m² präventiv, höher bei Befall | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | ca. 1–2/m² bei beginnendem Befall | 1–2 Wochen (optimal 21–25 °C, hohe Luftfeuchte) |
+
+> **Hinweis:** Oregano ist durch seine ätherischen Öle (Carvacrol, Thymol) ohnehin schädlingsabweisend; Nützlingseinsatz ist nur bei Indoor-/Gewächshaus- oder Trockenstress-bedingtem Spinnmilben-/Blattlausbefall relevant. Aphidius/Aphidoletes wirken im Freiland weniger zuverlässig als im geschützten Anbau.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -261,3 +308,15 @@ Origanum vulgare,"Oregano;Wilder Majoran;Dost;Wild Marjoram",Lamiaceae,Origanum,
 2. [Gartenrat.de Oregano](https://gartenrat.de/oregano/) — Anbau, Trocknen
 3. [Bio-Gärtner Oregano](http://www.bio-gaertner.de/pflanzen/Oregano/Anbau) — Ökologischer Anbau
 4. [Naturadb Origanum vulgare](https://www.naturadb.de/pflanzen/origanum-vulgare/) — Steckbrief, Eigenschaften
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Origanum vulgare](https://pfaf.org/user/plant.aspx?latinname=Origanum+vulgare) — Lebenszyklus (perennial), pH (mild sauer–leicht alkalisch), Schatten (full sun bis semi-shade), rhizomatöses Wurzelsystem, winterhart bis ~-20 °C / USDA 4–10
+6. [SciELO — Floral transition in Origanum vulgare L. (photoperiodic regimes)](https://www.scielo.cl/scielo.php?script=sci_arttext&pid=S0718-58392014000300014) — Beleg Langtagblüher (long-day plant), Blühinduktion durch zunehmende Tageslänge, keine Kältepflicht
+7. [ScienceDirect — Development in Origanum ssp.: phenological scale, thermal time requirements](https://www.sciencedirect.com/science/article/abs/pii/S0304423815000710) — phänologische Skala (V3→R6), thermal time (°Cd); kein expliziter Wuchs-GDD-Basiswert genannt
+8. [VeggieHarvest — Oregano Growing and Harvest Information](https://veggieharvest.com/herbs/oregano-growing-and-harvest-information/) — Lebensdauer (perennial, ~5–6 Jahre), Replant-Intervall
+9. [Hancioglu & Kurunç — Irrigation water salinity effects on oregano (Origanum onites L.)](https://www.sciencedirect.com/science/article/abs/pii/S0304423818309270) — Salztoleranz: 74–77 % Ertragsverlust bei 5 dS/m, Mortalität ab 5–7 dS/m (Einstufung moderately_sensitive)
+10. [Sweetish Hill — How Deep Do Oregano Roots Grow?](https://sweetishhill.com/how-deep-do-oregano-roots-grow/) — flachwurzelnd, Hauptwurzelmasse obere 6–8 inches (15–20 cm)
+11. [My City Garden — Container depth for growing herbs](https://www.my-city-garden.com/container-depth-growing-herbs/) — Mindest-Substrattiefe Oregano ~15 cm (6 inch), flaches Wurzelwerk
+12. [ResearchGate — Temperature Effects on the Morphological Development of Origanum vulgare](https://www.researchgate.net/publication/387692693_Temperature_Effects_on_The_Morphological_Development_of_Origanum_vulgare) — moderate Temperaturen 22–25 °C optimal für Zellteilung/Wachstum (T_opt)
+13. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Tetranychus urticae, Ausbringung/Etablierung
+14. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/wp-content/uploads/sites/3216/2022/12/2019Biologicalcontrolofaphidsfinal3.pdf) — Aphidius colemani / Aphidoletes aphidimyza gegen Blattläuse, Ausbringraten und Bedingungen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4 | `species.base_temp` |
+| Lebensdauer (Jahre) (lifespan) | 2–5 (kurzlebige Staude / short-lived perennial) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterruhe / dormancy) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (min days) | 42–56 (6–8 Wochen Kälte/chilling für zuverlässige Blüte) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) (critical day length) | <!-- DATEN FEHLEN: Langtagpflanze (long-day) bestätigt, aber kein belegter numerischer Stunden-Schwellenwert für L. polyphyllus auffindbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–7b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25 bis -35°C; in Norddeutschland absolut winterhart; Staunässe im Winter ist das größte Problem (tiefe Pfahlwurzel verottet bei Nässe) | `species.hardiness_detail` |
@@ -84,6 +93,22 @@
 | Rankhilfe/Stütze nötig | false (hohe Sorten können bei Wind kippen) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, sandige, leicht saure Erde; pH 5,5–6,5; kalkfrei; durchlässig; KEIN Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP-Wert für L. polyphyllus aus 2 unabhängigen Quellen belegbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (wächst in lichtem Halbschatten, blüht dort aber spärlich) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) (effective root depth) | 30–50 (tiefe Pfahlwurzel / taproot, Bodenlockerung 30–51 cm empfohlen) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Pfahlwurzel fäult bei Nässe; scharfe Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (meidet auch schwach saline Standorte) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: qualitativ salzsensitiv belegt, aber kein quantitativer Maas-Hoffman-Schwellenwert (Substrat-ECe) für L. polyphyllus auffindbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) (soil pH preference) | 5.5–6.5 (Kalkflieher/calcifuge; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +137,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) (VPD threshold, stomatärer Kollaps) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) (photosynthesis T_opt) | 18–22 (kühl-liebende Leguminose / cool-season legume) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Vollsonne / open full sun) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -183,6 +214,15 @@ Lupine als Stickstoff-Fixiererin NICHT mit Stickstoff düngen! Sie fixiert selbs
 | Wurzelfäule | fungal (Phytophthora spp.) | Welke, absterbende Triebe | Staunässe | 7–14 | alle |
 | Lupinen-Anthraknose | fungal (Colletotrichum lupini) | Braune Flecken, Stängelnekrosen | Nässe | 5–10 | vegetative, flowering |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung / Biological Control)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (pro m²) | Etablierungszeit |
+|----------|--------------------|----------------|------------------------|------------------|
+| Schlupfwespe (parasitoid wasp) | Aphidius colemani | Blattläuse (Aphis lupinorum) | 0,1–0,5/m² präventiv; 1–3/m² kurativ; 2 Freilassungen im Wochenabstand | 10–14 Tage bis Mumienbildung (10 % Mumien = Population kollabiert bald) |
+| Gallmücke (predatory gall midge) | Aphidoletes aphidimyza | Blattläuse (Aphis lupinorum) | 1–5/m²/Freilassung, wöchentlich wiederholt; alt.: 2–5 Puppen/m² | ~7–14 Tage; wirksam 20–30 °C |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -235,3 +275,13 @@ Lupinus polyphyllus,"Vielblättrige Lupine;Gartenlupine;Garden Lupin",Fabaceae,L
 2. [Samen.de Lupinen](https://samen.de/blog/lieblingspflanze-der-gaertner-lupinen-richtig-aussaeen-und-pflegen.html) — Aussaat, Pflege
 3. [Winterharte-Stauden Lupinus polyphyllus](https://winterharte-stauden.com/lupinus-polyphyllus-lupine/) — Winterhärte, Anbau
 4. [Gartenfreud-Gartenleid Lupinus](https://www.gartenfreud-gartenleid.de/lupinus.php) — Steckbrief, Eigenschaften
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Biological Flora of Central Europe – Lupinus polyphyllus Lindley (ScienceDirect, peer-reviewed)](https://www.sciencedirect.com/science/article/pii/S1433831922000579) — Salzmeidung (salt-avoidance), Wurzelsystem (Pfahlwurzel + Nodulation), Ökologie
+6. [Where Do Lupines Grow Best? Soil, Sun, and Climate (Biology Insights)](https://biologyinsights.com/where-do-lupines-grow-best-soil-sun-and-climate/) — Vollsonne, pH 5,5–7,0 (calcifuge), Pfahlwurzeltiefe 12–20 Zoll, Staunässe-Empfindlichkeit
+7. [Lupines: Annual vs Perennial (Alibaba LifeTips)](https://lifetips.alibaba.com/plant-care/lupines-annual-perennial) — Vernalisation 6–8 Wochen Kälte, kurzlebige Staude 2–4 Jahre, Mindest-Direktsonne
+8. [Are Lupines Perennials or Annuals? (The Plant Aide)](https://www.theplantaide.com/articles/108025.html) — Lebensdauer 3–5 Jahre, kurzlebige Staude
+9. [Growth and yield of white lupin (Lupinus albus): effect of sowing date (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/0378429094900574) — GDD-Basistemperatur 4 °C für Lupinus, thermische Zeit
+10. [Germination of Three Native Lupinus Species in Response to Temperature (Northwest Science, BioOne)](https://bioone.org/journals/Northwest-Science/volume-85/issue-2/046.085.0223/Germination-of-Three-Native-Lupinus-Species-in-Response-to-Temperature/10.3955/046.085.0223.pdf) — Kühltemperatur-Präferenz, Chilling-Begünstigung
+11. [Aphidius colemani Tech Sheet (Sound Horticulture)](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Ausbringrate Blattlaus-Schlupfwespe, Mumien-Etablierung
+12. [Aphidoletes aphidimyza (Koppert)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Ausbringrate Gallmücke gegen Blattläuse, Temperaturoptimum 20–30 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

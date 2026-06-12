@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral (Blüte überwiegend reife-/temperaturgesteuert, nicht echte Langtaginduktion — Langtag wirkt allenfalls sekundär fördernd) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; oberirdische Teile sterben ab, Rhizom überwintert sicher; in Norddeutschland problemlos im Freiland | `species.hardiness_detail` |
@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN: keine belegte Wuchs-GDD-Basis; nur Keim-Minimum ~20 °C dokumentiert, das hier nicht als Wuchsbasis verwendet wird --> | `species.base_temp` |
+| Lebensdauer (Jahre, produktiv) | 3–5 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | – (keine Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: keine belegte photoperiodische Schwellen-Tageslänge; Blüte korreliert mit Pflanzenreife, nicht mit definierter Kurz-/Langtag-Schwelle --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -86,6 +95,23 @@
 
 **Wichtig:** Melissa officinalis breitet sich durch Rhizome und Selbstaussaat stark aus. Im Beet Rhizomsperre oder regelmäßiges Ausgraben empfehlenswert. Im Topf gezügelt.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: keine belegten numerischen LCP-Werte für M. officinalis aus zwei unabhängigen Quellen; Art ist als Halbschatten-/Sonnenart eingestuft --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | ≈1.5 (Substrat-ECe; praktische Toleranzgrenze unter 1.6 dS/m, deutliche Schäden bei 4.4 dS/m) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) für M. officinalis --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Die Salztoleranz-Schwelle bezieht sich auf die Substrat-/Wurzelzonen-Salinität (ECe bzw. Bewässerungswasser-EC der Studien), nicht auf die Nährlösungs-Ziel-EC der Phasenprofile. Der Lichtsättigungspunkt liegt deutlich über dem Kompensationspunkt; M. officinalis erreicht unter Vollsonne die höchste Netto-CO₂-Assimilation, gilt aber zugleich als halbschattenverträglich (gehört nicht in das Kompensationspunkt-Feld). Der pH-Vorzug 6.0–7.0 ist mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährlösungs-pH 6.0–6.5) harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -115,6 +141,12 @@
 | Luftfeuchtigkeit Tag (%) | 65–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Substrat gleichmäßig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -131,6 +163,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -147,19 +185,29 @@
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | – | – | – | – |
-| Sämling | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 60 | 30 | – | 1 |
-| Vegetativ | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | – | 2 |
-| Ernte-/Blüte | 1:1:2 | 0.8–1.0 | 6.0–6.5 | 80 | 40 | – | 1 |
-| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | – | – | – | – | – | – | – | – |
+| Sämling | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 60 | 30 | – | 1 | 0.3 | 0.1 | 0.03 | 0.02 |
+| Vegetativ | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | – | 2 | 0.5 | 0.2 | 0.05 | 0.03 |
+| Ernte-/Blüte | 1:1:2 | 0.8–1.0 | 6.0–6.5 | 80 | 40 | – | 1 | 0.4 | 0.15 | 0.04 | 0.02 |
+| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen (Mn/Zn/Cu/Mo):** Für *Melissa officinalis* liegen keine artspezifischen Soll-ppm-Werte aus zwei unabhängigen Fachquellen vor. Die angegebenen Mn/Zn/Cu/Mo-Werte sind allgemeine Richtwerte einer ausgewogenen Hydro-/Nährlösung für Schwachzehrer-Kräuter (Lamiaceae) im üblichen Spurenelement-Bereich (Mn `nutrient_profiles.manganese_ppm`, Zn `nutrient_profiles.zinc_ppm`, Cu `nutrient_profiles.copper_ppm`, Mo `nutrient_profiles.molybdenum_ppm`) und sollten bei Vorliegen artspezifischer Blattanalysen ersetzt werden. <!-- DATEN FEHLEN: artspezifische Mn/Zn/Cu/Mo-Sollwerte -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -331,7 +379,7 @@ Zitronenmelisse ist Lamiaceae — wie Salbei, Thymian und Oregano ein mediterran
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Melissa officinalis,"Zitronenmelisse;Gartenmelisse;Lemon Balm",Lamiaceae,Melissa,perennial,long_day,herb,rhizomatous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.1,"Mittelmeerraum, Zentralasien",yes,7,20,80,60,35,limited,yes,false,false,light_feeder,false,hardy,"6;7;8"
+Melissa officinalis,"Zitronenmelisse;Gartenmelisse;Lemon Balm",Lamiaceae,Melissa,perennial,day_neutral,herb,rhizomatous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.1,"Mittelmeerraum, Zentralasien",yes,7,20,80,60,35,limited,yes,false,false,light_feeder,false,hardy,"6;7;8"
 ```
 
 ---
@@ -343,3 +391,14 @@ Melissa officinalis,"Zitronenmelisse;Gartenmelisse;Lemon Balm",Lamiaceae,Melissa
 3. [Wisconsin Horticulture Extension — Lemon Balm](https://hort.extension.wisc.edu/articles/lemon-balm-melissa-officinalis/) — Kulturdaten
 4. [Pflanzen-Kölle Zitronenmelisse](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meine-zitronenmelisse-richtig/) — Pflege, Düngung
 5. [Lemon Balm Companion Plants — Cultivated Earth](https://cultivatedearth.com/en/herbs/lemon-balm-companion-plants/) — Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PFAF — Melissa officinalis](https://pfaf.org/user/plant.aspx?latinname=Melissa+officinalis) — Schatten-/Sonnentoleranz (semi-shade/no shade), Boden-pH, Trockentoleranz, Staunässe-Empfindlichkeit
+7. [Acute and Rapid Response of Melissa officinalis and Mentha spicata to Saline Reclaimed Water (PMC9781781)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9781781/) — Salztoleranz: EC-Stufen 1.1 / 1.6 / 4.4 dS/m, praktische Toleranzgrenze < 1.6 dS/m, Schäden bei 4.4 dS/m
+8. [Changes in growth, oxidative metabolism and essential oil composition of lemon balm subjected to salt stress (Bonacina & Trevizan, Semantic Scholar)](https://www.semanticscholar.org/paper/Changes-in-growth,-oxidative-metabolism-and-oil-of-Bonacina-Trevizan/5c77c4c0b340c24da51cc37dba0e9056b1558272) — Salzstress, progressive Wuchshemmung, Tod aller Pflanzen bei 6 dS/m
+9. [Photosynthetic behavior, growth and essential oil production of Melissa officinalis cultivated under colored shade nets (SciELO Chil. J. Agric. Res. 2016)](https://www.scielo.cl/scielo.php?script=sci_arttext&pid=S0718-58392016000100017) — A/PPFD-Lichtkurven (C3-Verhalten), Halbschatten-/Sonnentoleranz, höchste Amax unter Vollsonne
+10. [Antioxidant Activity and Photosynthesis Efficiency in Melissa officinalis (Molecules 2023, PMC10053282)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10053282/) — Photosynthese-Messbedingungen (30 °C), Anbau bei 23/16 °C Tag/Nacht
+11. [Lemon Balm — Wisconsin Horticulture Extension](https://hort.extension.wisc.edu/articles/lemon-balm-melissa-officinalis/) — produktive Lebensdauer (Teilung/Ersatz nach 3–4 Saisons)
+12. [Melissa officinalis — Missouri Botanical Garden Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c857) — herbaceous perennial, Winter-Dieback/Dormanz, USDA 4–9
+13. [Lemon balm — Wikipedia](https://en.wikipedia.org/wiki/Lemon_balm) — Lichtkeimung, Keim-Minimum ~20 °C, Blütezeit, Familie/Taxonomie
+14. [Lemon balm (Melissa officinalis) — Gardenia.net](https://www.gardenia.net/plant/melissa-officinalis) — Wurzelsystem (faserig/rhizomatös, 15–30 cm Tiefe, 40–50 cm laterale Ausbreitung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

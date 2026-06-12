@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day: Blüten- und Knospenbildung der krautigen Pfingstrose sind autonom und photoperiod-unabhängig; gesteuert über Kältebedarf/Vernalisation, nicht über Tageslänge) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C und kälter; braucht kalten Winter für Blütenbildung (Vernalisierung); in ganz Norddeutschland problemlos | `species.hardiness_detail` |
@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 5 (kühl-temperierte Zierstaude; Basis der Frühjahrs-/Hauptwuchsphase, NICHT Keimbasis) | `species.base_temp` |
+| Lebensdauer (Jahre) | 50 (typisch; dokumentierter Bereich 30–100+ bei ungestörtem Standort) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (krautige Pfingstrose zieht im Winter vollständig ein; Endodormanz der Erneuerungsknospen) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (Kältebedarf/Chilling: Endodormanz-Bruch und Blütenbildung erfordern Winterkälte; korrekter Mechanismus = chilling, nicht klassische Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 42 (≈6 Wochen unter ~4–5 °C; ca. 500–1000 Chilling-Stunden je nach Sorte) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral) — kein numerischer Kurz-/Langtag-Schwellenwert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -88,6 +97,22 @@
 
 **Kritisch:** Standort einmal gewählt nicht mehr wechseln — Pfingstrosen brauchen 3–4 Jahre, um sich zu etablieren und blühen nach dem Umpflanzen jahrelang nicht.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer numerischer LCP-Wert für Paeonia lactiflora in seriöser Literatur belegt; Studien (PeerJ 2020) zeigen nur, dass Schatten den LCP senkt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe oben --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (RHS: Volllicht oder Halbschatten; volle Sonne für beste Blüte, toleriert Nachmittagsschatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40–60 (tiefreichendes, fleischiges Speicherwurzelsystem; tiefgründiger Boden essenziell) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (sehr staunässeempfindlich; Wurzelfäule bei stehender Nässe, gute Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (Blattwelke, Randnekrosen und Blattrandvergilbung schon bei mäßiger Bodensalinität, v.a. in Küstenlagen) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für Paeonia lactiflora; nur qualitative Salzempfindlichkeit dokumentiert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.0 (neutral bis schwach alkalisch; RHS: neutral/alkaline; konsistent mit §1.6 pH 6,5–7,0 / §2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,25 +137,35 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 400–700 (Volllicht essenziell für Blüte) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 25–40 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14–16 (natürliche Sommer-Tageslänge in Mitteleuropa; rein deskriptiv — Art ist tagneutral, Blüte wird NICHT über die Tageslänge gesteuert, siehe §1.1) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 18–24 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 10–16 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt stomatären Kollapses; deutlich oberhalb des Zielkorridors, oberer Zielwert 1,4 + ~0,4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium (mesophile C3-Staude; reagiert auf trockene Luft, aber kein extrem empfindlicher Typ) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (kühl-temperiert; 22/10 °C Tag/Nacht optimal für Blüten- und Stielentwicklung, nicht hitzetolerant) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-/Vollsonne-Anker; R:FR ≈ 1,1 unter offenem Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Einwurzelung | 0:1:1 | 0.6–0.8 | 6.5 | 60 | 30 | – | 1 |
-| Frühjahrsaustrieb | 2:1:2 | 1.0–1.4 | 6.5–7.0 | 100 | 50 | – | 2 |
-| Knospen/Blüte | 1:2:2 | 1.2–1.6 | 6.5–7.0 | 130 | 60 | – | 2 |
-| Nach Blüte | 1:1:2 | 0.8–1.2 | 6.5–7.0 | 100 | 50 | – | 1 |
-| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Einwurzelung | 0:1:1 | 0.6–0.8 | 6.5 | 60 | 30 | – | 1 | – | – | – | – |
+| Frühjahrsaustrieb | 2:1:2 | 1.0–1.4 | 6.5–7.0 | 100 | 50 | – | 2 | – | – | – | – |
+| Knospen/Blüte | 1:2:2 | 1.2–1.6 | 6.5–7.0 | 130 | 60 | – | 2 | – | – | – | – |
+| Nach Blüte | 1:1:2 | 0.8–1.2 | 6.5–7.0 | 100 | 50 | – | 1 | – | – | – | – |
+| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen (Mn/Zn/Cu/Mo):** Spalten ergänzt (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`). Für *Paeonia lactiflora* sind KEINE art-spezifischen, belegten Mn/Zn/Cu/Mo-ppm-Sollwerte je Phase in seriöser Literatur auffindbar — daher `–` (DATEN FEHLEN). Eine Grundversorgung erfolgt im Freiland über Kompost/organische Düngung; keine erfundenen Zahlenwerte eingetragen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -235,6 +270,20 @@ Pfingstrosen reagieren empfindlich auf zu viel Stickstoff — üppiges Laub, wen
 | Kupferfungizid | chemical | Kupferhydroxid | Frühjahr prophylaktisch | 7 | Botrytis |
 | Fungizid Tebuconazol | chemical | Triazol | Bei starkem Befall | 14 | Mehltau |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe (Thripsräuber) | Neoseiulus (Amblyseius) cucumeris | Thripse (Frankliniella occidentalis) | 50–100 Tiere/m² je Ausbringung; Tüten 1 je 1–2 m² | 2–3 Wochen |
+| Raubmilbe (Breitspektrum) | Amblyseius swirskii | Thripse (junge Larven), Weiße Fliege | 50–100 Tiere/m² | 2–3 Wochen |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Aphis gossypii) | 0,25–4 Tiere/m² je Ausbringung; 3× wiederholen | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis gossypii) | 1–5 Tiere/m² | 2–3 Wochen |
+| Raubmilbe (Spinnmilbenräuber) | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 2–6 Tiere/m² (bei Befall) | 2–3 Wochen |
+
+**Hinweis:** Nützlingseinsatz vor allem unter Glas/im geschützten Anbau relevant; im Freiland etablieren sich Blattlausgegenspieler (Marienkäfer, Schwebfliegen) meist natürlich. Gegen die HARMLOSEN Ameisen auf Knospen (siehe §5.2) ist KEIN Nützling nötig.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -281,7 +330,7 @@ Pfingstrosen reagieren empfindlich auf zu viel Stickstoff — üppiges Laub, wen
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Paeonia lactiflora,"Chinesische Pfingstrose;Milchweiße Pfingstrose;Chinese Peony",Paeoniaceae,Paeonia,perennial,long_day,herb,tuberous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China, Sibirien, Korea",limited,50,40,120,100,90,no,limited,false,true,medium_feeder,false,hardy,"5;6;7"
+Paeonia lactiflora,"Chinesische Pfingstrose;Milchweiße Pfingstrose;Chinese Peony",Paeoniaceae,Paeonia,perennial,day_neutral,herb,tuberous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China, Sibirien, Korea",limited,50,40,120,100,90,no,limited,false,true,medium_feeder,false,hardy,"5;6;7"
 ```
 
 ---
@@ -292,3 +341,15 @@ Paeonia lactiflora,"Chinesische Pfingstrose;Milchweiße Pfingstrose;Chinese Peon
 2. [Lubera Pfingstrosen](https://www.lubera.com/de/gartenbuch/pfingstrosen-pflanzen-pflegen-und-vermehren-p5486) — Anbau, Pflege, Teilung
 3. [Staudengärtnerei Gaißmayer Pfingstrosen Pflege](https://www.gaissmayer.de/web/welt/pflanzenwissen/stauden/sortiment/pfingstrosen/pflanz-und-pflegetipps/) — Fachliche Tipps
 4. [Compo Pfingstrose](https://www.compo.de/ratgeber/pflanzen/gartenpflanzen/pfingstrose) — Düngung, Krankheiten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — Paeonia lactiflora (Chinese peony)](https://www.rhs.org.uk/plants/12123/paeonia-lactiflora/details) — Bodentyp, Boden-pH (acid/neutral/alkaline), Sonnenexposition (full sun/partial shade), Höhe/Breite
+6. [Zhao et al. (2002), Temperature requirements for floral development of herbaceous peony cv. 'Sarah Bernhardt', Scientia Horticulturae](https://www.sciencedirect.com/science/article/abs/pii/S030442380200153X) — Photoperiod-Unabhängigkeit (Blütenbildung autonom), Chilling-/Temperaturbedarf, Optimaltemperatur 22/10 °C
+7. [Springer — Chilling requirement for breaking dormancy and flowering in Paeonia lactiflora 'Taebaek' and 'Mulsurae'](https://link.springer.com/article/10.1007/s13580-012-0002-x) — Kältebedarf (Chilling-Stunden) für Dormanzbruch und Blüte
+8. [Mining and expression analysis of candidate genes … chilling requirement … Paeonia lactiflora 'Hang Baishao' (PMC5741883)](https://pmc.ncbi.nlm.nih.gov/articles/PMC5741883/) — Chilling-Requirement-Quantifizierung (~504–672 h)
+9. [PeerJ (2020) — Shade effects on growth, photosynthesis and chlorophyll fluorescence parameters of three Paeonia species (PMC7292015)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7292015/) — Lichtkompensationspunkt (LCP) sinkt im Schatten; Sonnen-/Schattenphysiologie (keine absoluten LCP-Werte publiziert)
+10. [Frontiers (2026) — Evaluation and physiological response of peony (Paeonia lactiflora Pall.) under salt stress](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2026.1739938/abstract) — qualitative Salzempfindlichkeit (Blattwelke/Randnekrosen in salzhaltigen Böden)
+11. [MU Extension — Peonies thrive on neglect, can live more than 100 years](https://extension.missouri.edu/news/peonies-thrive-on-neglect-can-live-more-than-100-years) — Lebensdauer, Standorttreue
+12. [Iowa State Extension — Using Growing Degree Days to Manage the Home Garden](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur 5 °C für kühl-temperierte Pflanzen
+13. [Koppert — Neoseiulus cucumeris (predatory mite for thrips control)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Nützling/Ausbringrate Thripse
+14. [Koppert — Aphidius colemani (parasitic wasp, aphid control)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling/Ausbringrate Blattläuse
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

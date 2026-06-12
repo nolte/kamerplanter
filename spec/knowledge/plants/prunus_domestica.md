@@ -20,7 +20,9 @@
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4b–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C; Blüten (März–April) sehr frostempfindlich (-1°C); Norddeutschland geeignet | `species.hardiness_detail` |
@@ -28,6 +30,27 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.5 | `species.base_temp` |
+| Bestäuber erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | <!-- DATEN FEHLEN: sortenabhängig, nicht art-einheitlich --> | `species.pollinator_group` |
+| Empfohlene Befruchtersorten (compatible pollinators) | <!-- DATEN FEHLEN: sortenabhängig --> | `species.compatible_pollinators` |
+
+**Hinweis Bestäubung:** Die Art umfasst sowohl selbstfruchtbare (z. B. 'Hauszwetschge', 'Victoria', 'Jojo') als auch selbststerile Sorten; viele Sorten setzen jedoch bei Anwesenheit einer kompatiblen Befruchtersorte derselben/angrenzenden Blühgruppe deutlich besser an. Insektenbestäubung (Honig-/Wildbienen, Hummeln) ist in allen Fällen ertragsfördernd. Kreuzbefruchtung nur innerhalb _Prunus domestica_ (inkl. Renekloden, Mirabellen, Damaszener); _P. salicina_ (Japanische Pflaume) ist NICHT kompatibel. Da Selbstfruchtbarkeit und Blühgruppe streng sortenabhängig sind, wird `pollinator_group`/`compatible_pollinators` auf Artebene leer gelassen und je Cultivar gepflegt.
+
+**Lebenszyklus-Konfiguration (`lifecycle_configs`):**
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lebensdauer (Jahre) | 20–30 (produktive Standzeit) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Endodormanz) | `lifecycle_configs.dormancy_required` |
+| Kältebedarf erforderlich (chilling; im Feld vernalization_required) | true (chilling-Endodormanz, kein echter Vernalisationsmechanismus) | `lifecycle_configs.vernalization_required` |
+| Kältebedarf Mindesttage (chilling, im Feld vernalization_min_days) | ~42–50 (≈ 800–1150 Kältestunden < 7 °C) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: day_neutral, kein Tageslängen-Trigger --> | `lifecycle_configs.critical_day_length_hours` |
+
+**Hinweis Photoperiode/Dormanz:** _Prunus domestica_ ist **tagneutral (day_neutral)**: Wachstumsstopp, Endodormanz und Blühinduktion werden bei Steinobst (Rosaceae) primär durch Temperatur/Kältesumme (chilling) gesteuert, nicht durch die Tageslänge. Das vormals eingetragene `long_day` war fachlich falsch und wurde an allen Stellen (Species-Feld, §2.2 Photoperiode-Hinweis, CSV-Zeile §8.1) korrigiert. Das KA-Feld `vernalization_required` wird hier als chilling/Endodormanz-Bruch interpretiert (Kältesumme 800–1150 h < 7 °C), nicht als echte Vernalisation. Die kritische Tageslänge bleibt leer (kein Tageslängen-Trigger).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -84,6 +107,29 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreicher, kalkfreundlicher, humoser Boden; pH 6,0–7,5; gute Drainage | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40–90 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 2.6 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 31 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweise §1.7:**
+- _Lichtkompensationspunkt:_ Spanne für besonnte (Sonnen-)Blätter holziger C3-Arten; reine Netto-Photosynthese = 0. Lichtsättigung liegt deutlich höher (≈ 800–1000 µmol/m²/s) — diese Zusatzkennzahl gehört NICHT in das Kompensationspunkt-Feld.
+- _Schatten-/Sonnentoleranz:_ Pflaume braucht volle Sonne (≥ 6 h direkt) für Blüte/Fruchtansatz; toleriert Halbschatten, blüht/fruchtet dort aber deutlich schlechter (Verlagerung Richtung vegetatives Wachstum).
+- _Wurzeltiefe:_ Aktive Feinwurzel-/Aufnahmezone konzentriert sich in 40–90 cm; einzelne Pfahl-/Sinkerwurzeln reichen tiefer (sortenabhängig, Unterlage). Bei flachgründigen Unterlagen (z. B. 'St. Julien A') flacher.
+- _Salztoleranz:_ Maas-Hoffman-Parameter (a = ECe-Schwelle, b = Slope) für Fruchtertrag; Bezug ist die ECe des Boden-Sättigungsextrakts (Substrat-ECe), NICHT die Gießwasser-EC. ECe 2.6 dS/m + Slope 31 %/dS/m sind konsistent mit Klasse moderately_sensitive.
+- _Boden-pH:_ 6.0–7.0 harmonisiert mit §1.6 (pH 6,0–7,5) und §2.3 (pH 6,0–7,0); pH-Optimum laut Quellen 6,0–6,8.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -107,12 +153,18 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 400–800 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 30–45 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14–16 (deskriptive Sommer-Tageslänge; KEIN Photoperiode-Trigger — Art ist day_neutral) | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 20–28 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 10000–25000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,6 +179,16 @@
 | Reife/Ernte | 1:1:2 | 0.8–1.2 | 6.0–7.0 | 120 | 60 | – | 2 |
 | Triebwachstum/Holzreife | 1:1:3 | 0.8–1.2 | 6.0–7.0 | 100 | 50 | – | 1 |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Spurenelemente) — Phase Fruchtentwicklung:**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Fruchtentwicklung | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+**Hinweis Mikronährstoffe:** Mn, Zn und Cu zählen bei Steinobst zu den wichtigeren Spurenelementen (Zn beugt Blattdeformation/Mottling vor, Cu unterstützt Enzymaktivität); belastbare, art-spezifische **Düngelösungs-Konzentrationen (ppm)** für _Prunus domestica_ ließen sich jedoch nicht aus zwei unabhängigen seriösen Quellen bestätigen (verfügbare Quellen geben Blattgewebe-Sufficiency-Ranges, keine Nährlösungs-ppm). Werte daher bewusst als `DATEN FEHLEN` markiert statt zu schätzen. Bedarf praktisch über Blattanalyse + ggf. Blattdüngung steuern.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -303,7 +365,7 @@ Pflaumen sind empfindlicher als andere Obstbäume gegenüber Nährstoffüberdosi
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Prunus domestica,"Pflaume;Zwetschge;Plum",Rosaceae,Prunus,perennial,long_day,tree,fibrous,"4b;5a;5b;6a;6b;7a;7b;8a;8b",0.0,"Vorderasien, Kultivierter Hybrid",limited,75,50,800,600,450,no,limited,false,false,medium_feeder,false,hardy,"3;4"
+Prunus domestica,"Pflaume;Zwetschge;Plum",Rosaceae,Prunus,perennial,day_neutral,tree,fibrous,"4b;5a;5b;6a;6b;7a;7b;8a;8b",0.0,"Vorderasien, Kultivierter Hybrid",limited,75,50,800,600,450,no,limited,false,false,medium_feeder,false,hardy,"3;4"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -324,3 +386,17 @@ Elena,Prunus domestica,,,"groß;frühreifend",,,vegetatively_propagated
 2. [Lubera Pflaumenbaum pflanzen](https://www.lubera.com/de/gartenbuch/pflaumenbaum-zwetschgenbaum-pflanzen-p2252) — Pflanzung, Kulturdaten
 3. [Gartenfreunde Pflaumen](https://www.gartenfreunde.de/gartenpraxis/pflanzenportraets/pflaumen-im-garten/) — Sorten, Krankheiten
 4. [Gartenratgeber.net Pflaumenbaum](https://www.gartenratgeber.net/pflanzen/pflaumenbaum.html) — Allgemeine Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [MDPI Agronomy — Chilling and Heat Requirements of Temperate Stone Fruit Trees (Prunus sp.)](https://www.mdpi.com/2073-4395/10/3/409) — GDH-Basistemperatur ~4,5 °C, Kältebedarf (chilling hours)
+6. [ScienceDirect — Assessing chilling and heat requirements of Prunus cultivars in warm climate regions](https://www.sciencedirect.com/science/article/abs/pii/S0304423823008518) — Heat-Akkumulation (GDH) Basis 4,5 °C, Chilling 800–1150 h < 7 °C
+7. [ScienceDirect — Interaction of photoperiod and temperature in the control of growth and dormancy of Prunus species](https://www.sciencedirect.com/science/article/abs/pii/S0304423807003421) — Temperatur-/chilling-gesteuerte Dormanz; Prunus weitgehend tagneutral
+8. [Frontiers in Plant Science — DAM-Gene in European Plum (Prunus domestica)](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.01288/full) — Endodormanz temperaturgesteuert, day_neutral, chilling 1000–2000 h
+9. [FAO — Crop salt tolerance data (Annex 1)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Plum ECe-Schwelle 2,6 dS/m, Slope 31 %, Rating MS (moderately sensitive)
+10. [USDA-ARS — Plant Salt Tolerance (Maas & Hoffman)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — Maas-Hoffman-Modell, Steinobst salzempfindlich
+11. [RHS — How to grow plums](https://www.rhs.org.uk/fruit/plums/grow-your-own) — Vollsonne, kein Staunässe, pH-Vorzug, Bestäubung
+12. [New Phytologist (Craine & Reich 2005) — Leaf-level light compensation points in shade-tolerant woody seedlings](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — Lichtkompensationspunkte holziger Arten
+13. [Ashridge Nurseries — Plum Tree Pollination Groups Chart](https://www.ashridgetrees.co.uk/blogs/fruit/plum-tree-pollination-groups-chart) — Blühgruppen, Selbstfruchtbarkeit, Kreuzbefruchtung innerhalb P. domestica
+14. [Real English Fruit — Plum tree pollination](https://realenglishfruit.co.uk/plum-tree-pollination/) — selbstfruchtbar/teilselbstfruchtbar, Befruchter
+15. [BBC Gardeners' World — Victoria Plum Tree (Prunus domestica)](https://www.gardenersworld.com/plants/victoria-plum-tree-prunus-domestica/) — produktive Lebensdauer ~20 Jahre
+16. [University of Maine Extension — Bulletin #2034 Plum Production](https://extension.umaine.edu/publications/2034e/) — Standzeit, Ertragseintritt, Pflege
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

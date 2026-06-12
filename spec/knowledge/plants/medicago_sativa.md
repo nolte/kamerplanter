@@ -21,6 +21,15 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–8 (in kalten Wintern länger; produktiver Bestand meist 3–5) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Herbst-/Winterruhe der mehrjährigen Pflanze, photoperiod-/temperaturinduziert) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Vernalisation beschleunigt Blüte um 2–16 Tage, ist aber nicht obligatorisch) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (quantitativer Langtagblüher ohne scharfen kritischen Schwellenwert; Blüte über Maximal-Optimal-Photoperiode gesteuert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; tief Pfahlwurzel bis 10 m; gut etablierte Pflanzen sehr winterhart | `species.hardiness_detail` |
@@ -82,6 +91,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | — (keine Topfkultur; Freilandeinsatz als Gründüngung) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein artspezifischer Messwert aus seriösen Quellen belegt) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (schattenintolerant; Schattenmeider, < 50 % Vollsonne führt zu Wuchsdepression) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 90–300 (effektiv; Maximum bis 700–900 in tiefgründigen Böden) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (verträgt keine Staunässe/Bodenverdichtung; Wurzelfäule-Risiko) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 2.0 (Maas-Hoffman a; Bezug: Substrat-ECe im Sättigungsextrakt, nicht Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 7.3 (Maas-Hoffman b; Ertragsrückgang je dS/m über Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.5–7.5 (unter 6.5 versagt Rhizobium-Symbiose; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +134,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (kritischer Punkt stomatären Kollaps; oberer Zielwert 1.6 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–28 (Wachstums-/Photosynthese-Optimum; Rückgang über 30 und unter 10) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | — (Niederschlag; sehr trockenheitsresistent durch Tiefwurzel) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | — | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -120,6 +151,16 @@
 | Keimung | 0:0:0 | 0.0 | 6.5–7.5 | – | – | – | – |
 | Jungpflanze | 0:1:1 (KEIN N; fixiert selbst) | 0.5–0.8 | 6.5–7.5 | 80 | 30 | – | 1 |
 | Produktion | 0:1:2 | 0.6–1.0 | 6.5–7.5 | 120 | 50 | – | 2 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Mikronährstoffe (Gewebe-Sufficiency-Ranges, Ganzpflanze zur Vollblüte; Bezug Produktionsphase):
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Produktion | 30–50 | 20–70 | 5–25 | 1–5 |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`. Werte = ausreichende Gewebekonzentration (kritische Untergrenzen: Mn > 15, Zn > 12, Cu > 5, Mo > 0.8). Luzerne hat zudem einen relativ hohen Bor-Bedarf (B-Sufficiency 20–100 ppm).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -216,6 +257,17 @@ Luzerne fixiert bis zu 600 kg N/ha/Jahr — mehr als alle anderen Leguminosen. p
 | Fruchtfolge (5–6 Jahre) | cultural | – | Keine Luzerne auf luzernemüdem Boden | 0 | Fusarium |
 | pH korrekt einstellen | cultural | – | Kalkung bei pH < 6,5 | 0 | allgemein |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit |
+|----------|--------------------|----------------|---------------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (z. B. Erbsenblattlaus Acyrthosiphon pisum) | 0,25–0,5 | wenige Tage bis Schlupf |
+| Räuberische Gallmücke | Aphidoletes aphidimyza | Blattläuse (über 60 Arten) | 0,5–1,0 | wenige Tage bis Schlupf |
+
+Hinweis: Vorbeugender Einsatz bei erstem Blattlaus-Befall; im Freiland-Gründüngungsbestand ist Nützlingseinsatz selten nötig, eher relevant unter Glas/Folie oder bei Samenvermehrung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -269,3 +321,18 @@ Medicago sativa,"Luzerne;Ewiger Klee;Alfalfa;Lucerne",Fabaceae,Medicago,perennia
 2. [Samen.de Luzerne Gründüngung](https://samen.de/blog/luzerne-der-bodenverbesserer-im-garten.html) — Gründüngungsleistung
 3. [Demonet-kleeluzplus Steckbrief Luzerne](https://www.demonet-kleeluzplus.de/mam/cms15/dateien/steckbrief_luzerne.pdf) — N-Fixierung, Anbaudaten
 4. [Transgen Luzerne Lexikon](https://www.transgen.de/lexikon-nutzpflanzen/1861.luzerne.html) — Allgemein
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO Land & Water — Alfalfa Crop Information](https://www.fao.org/land-water/databases-and-software/crop-information/alfalfa/en/) — GDD-Basistemperatur (~5 °C), Wachstums-Optimum ~25 °C, Wurzeltiefe, Wasseransprüche
+6. [University of Minnesota Extension — Using GDD to plan early-season alfalfa harvests](https://extension.umn.edu/forage-harvest-and-storage/using-growing-degree-days-plan-early-season-alfalfa-harvests) — GDD-Basistemperatur 5 °C (Wuchsphase)
+7. [Lorenzo et al. 2019, The Plant Journal — Shade delays flowering in Medicago sativa](https://onlinelibrary.wiley.com/doi/abs/10.1111/tpj.14333) — Langtag-Verhalten, Schattenintoleranz (< 50 % Vollsonne)
+8. [Maron et al. 2022, Front. Plant Sci. — Shade Delayed Flowering and Decreased Reproductive Growth of Medicago sativa](https://pmc.ncbi.nlm.nih.gov/articles/PMC9203126/) — Schattenmeider, Vollsonnenbedarf
+9. [Annals of Botany (Oxford) 2024 — Thriving in a salty future: salt stress adaptations in alfalfa](https://academic.oup.com/aob/article/134/7/1113/7746500) — Salztoleranz Maas-Hoffman: ECe-Schwelle 2,0 dS/m, Slope 7,3 %/dS/m, Klasse moderately sensitive
+10. [USDA-ARS — Plant Salt Tolerance (Chapter 13)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — Maas-Hoffman-Modell, Salztoleranz-Klassifikation Luzerne
+11. [Feedipedia — Alfalfa (Medicago sativa)](https://www.feedipedia.org/node/275) — Wurzeltiefe (4–9 m), Staunässe-Empfindlichkeit, Bodenansprüche
+12. [PMC — Photosynthesis & C3 classification / waterlogging stress in alfalfa](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6471898/) — C3-Photosynthese, Staunässe-Sensitivität
+13. [Utah State University Extension — Alfalfa Nutrient Management Guide](https://extension.usu.edu/crops/research/alfalfa-nutrient-management-guide) — Mikronährstoff-Gewebe-Sufficiency (Mn, Zn, Cu, Mo, B)
+14. [Montana State University — Nutrient Management Guide for Dryland and Irrigated Alfalfa](https://agresearch.montana.edu/wtarc/producerinfo/agronomy-nutrient-management/Alfalfa/NutrientManagementGuide.pdf) — Mikronährstoff-Sufficiency-Ranges (Mn 30–50, Zn 20–70, Cu 5–25, Mo 1–5 ppm)
+15. [Front. Plant Sci. 2022 — Dormancy under lower temperature in Medicago sativa](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.872839/full) — Herbst-/Winterdormanz photoperiod-/temperaturinduziert; Vernalisation nicht obligatorisch
+16. [US Forest Service FEIS — Medicago sativa](https://research.fs.usda.gov/feis/species-reviews/medsat) — Lebensdauer/Persistenz (3–8 Jahre, länger in kalten Wintern)
+17. [Koppert / re-natur — Nützlinge gegen Blattläuse (Aphidius colemani, Aphidoletes aphidimyza)](https://www.koppertbio.de/nachrichten/unser-a-team-gegen-blattlaeuse/) — Ausbringraten, Etablierungszeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

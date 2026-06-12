@@ -20,11 +20,18 @@
 | Ordnung | Geraniales | `botanical_families.order` |
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 3–10+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), kein Kurz-/Langtag-Schwellenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Als Zimmerpflanze ganzjährig, als Balkonpflanze Überwinterung bei 5–10°C notwendig. | `species.hardiness_detail` |
@@ -93,6 +100,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, gut drainierte Kübelpflanzenerde. pH 6.0–7.0. Spezielle Geranienerde (mit Langzeitdünger) oder Einheitserde + 20% Sand/Perlite. Kein Torf oder moorige Substrate. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein Pelargonium-spezifischer LCP-Wert aus 2 seriösen Quellen belegbar --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Schwellenwert (Substrat-ECe) für Pelargonium --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.8–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Vollsonniger Standort (full sun) mit mind. 6 h Direktsonne fördert die reichste Blüte; Halbschatten wird toleriert, reduziert aber die Blütenzahl. Flaches, faseriges Wurzelsystem (≈ 15–30 cm) → empfindlich gegen Staunässe (waterlogging), Pythium-Wurzelfäule ist die häufigste Verlustursache. Salztoleranz: in der Floristik-Produktion als mäßig salzempfindlich (moderately_sensitive) eingestuft — bereits ab Substrat-ECe ≈ 3 dS/m sinken Wuchs, Blüte und Chlorophyllgehalt deutlich; präzise Maas-Hoffman-Parameter (a/b) sind für die Zierpflanze nicht publiziert. Der pH-Vorzug 5.8–6.5 (Optimum der Nährstoffverfügbarkeit, insbes. Fe/Mn) ist enger als der in §1.6/§2.3 genannte tolerierbare Korridor 6.0–7.0; unter pH 5.5 droht Fe/Mn-Toxizität, deutlich über 6.6 Fe-Mangel-Chlorose.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -117,6 +141,12 @@
 | Temperatur Nacht (°C) | 15–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -126,15 +156,25 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 100–300 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 5–12 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 3–6 | `requirement_profiles.dli_target_mol` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 12–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Blüte/Wachstum | 1:1:2 | 1.0–2.0 | 6.0–7.0 | 80 | 30 |
-| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Blüte/Wachstum | 1:1:2 | 1.0–2.0 | 6.0–7.0 | 80 | 30 | 0.55 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.26 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.03 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen:** Werte = Standard-Nährlösungskonzentration für *Pelargonium × hortorum* nach Smith et al. (Mn 10 µM, Zn 4 µM, Cu 0.5 µM, Mo 0.5 µM; in ppm umgerechnet). Nur in der Blüte-/Wachstumsphase relevant — in der Winterruhe ohne Düngung. Wegen des pH-Vorzugs (§1.7) auf Substrat-pH ≥ 6.0 achten: unter pH 6.0 steigt die Mn-Löslichkeit, was bei Geranien zu Mn-Toxizität (braune Blattrandflecken) führen kann.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -183,7 +223,7 @@ Starkzehrer! Wöchentliche Düngung während der Blühperiode (April bis Oktober
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free <!-- Quelle: Steckbrief-Erweiterung 2026-06 — korrigiert von needs_protection: nicht frostharte Kübel-/Zimmerpflanze, die frostfrei (5–12 °C) drinnen überwintert = frost_free --> | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off | `overwintering_profiles.spring_action` |
@@ -225,6 +265,18 @@ Starkzehrer! Wöchentliche Düngung während der Blühperiode (April bis Oktober
 | Gelbklebfallen | mechanical | Aufstellen | 0 | Weiße Fliege (Monitoring) |
 | Fungizid Kupfer | chemical | Sprühen nach Packungsangabe | 3 | Geranienrost |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Ziel-Schädling | Ausbringrate (pro m²) | Etablierungszeit |
+|----------|----------------|-----------------------|------------------|
+| Encarsia formosa (Schlupfwespe) | Weiße Fliege (Trialeurodes vaporariorum) | 1–10 (wöchentl., 3×) | 2–3 Wochen |
+| Phytoseiulus persimilis (Raubmilbe) | Gemeine Spinnmilbe (Tetranychus urticae) | 10–32 | 1–2 Wochen |
+| Aphidius colemani (Schlupfwespe) | Blattläuse (Aphis spp.) | 0.25–4 (wöchentl., ≥2×) | ca. 2 Wochen |
+
+**Hinweis:** Nützlingseinsatz vor allem bei Indoor-/Gewächshauskultur sinnvoll; vorbeugend früh nach Befallsbeginn ausbringen. Optimaltemperatur Aphidius colemani 20–25 °C. Wiederholte Freilassungen, bis sich überlappende Generationen etabliert haben. Gelbtafeln (§5.3) dienen parallel dem Monitoring, nicht der Bekämpfung — bei Nützlingseinsatz nur als Köder-/Indikatorfallen sparsam einsetzen, da sie auch Nützlinge fangen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -261,3 +313,18 @@ Pelargonium zonale,"Zimmerpelargonie;Zonale Geranie;Stehende Geranie;Zonal Geran
 3. [Pflanzenfreunde.com — Pelargonium](https://www.pflanzenfreunde.com/pelargonium.htm) — Pflege, Überwinterung
 4. [Die Grüne Welt — Stehende Geranien](https://www.diegruenewelt.de/pflanze/stehende-geranien-pelargonium.html) — Schädlinge, Krankheiten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (giftig für Katzen/Hunde — ätherische Öle)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [MSU Floriculture — Estimated base temperature values (Blanchard & Runkle, basetemperature.pdf)](https://www.canr.msu.edu/uploads/resources/pdfs/basetemperature.pdf) — GDD-Basistemperatur Geranie (41 °F = 5 °C)
+7. [Blanchard & Runkle (2011), Scientia Horticulturae — Quantifying the thermal flowering rates of eighteen species of annual bedding plants](https://www.sciencedirect.com/science/article/abs/pii/S0304423810005467) — Basistemperatur-Bereich (−3.9…13.8 °C) & Pelargonium-Topt ≈ 28 °C
+8. [MSU Extension via greg.app — Geranium soil pH (6.0–6.5)](https://greg.app/geraniums-soil/) — Boden-pH-Vorzug, Fe/Mn-Toxizität < pH 6.0
+9. [NC State Extension / e-GRO Geranium Nutrition (e-gro.org 2018_704)](https://www.e-gro.org/pdf/2018_704.pdf) — pH-Bereich 5.8–6.5, Fe/Mn-Management
+10. [Smith et al. (1996), JASHS 121(1) — Micronutrient Toxicity in Seed Geranium](https://journals.ashs.org/jashs/view/journals/jashs/121/1/article-p77.xml) — Standard-Nährlösung Mn/Zn/Cu/Mo (10/4/0.5/0.5 µM)
+11. [ScienceInsights — Geranium temperature tolerance / Photosynthese-Optimum 21–29 °C](https://scienceinsights.org/what-temperatures-can-geraniums-tolerate/) — Photosynthese-T_opt
+12. [Annie's Annuals / Clemson HGIC — Geranium sun vs. shade](https://hgic.clemson.edu/factsheet/geranium/) — Schatten-/Sonnentoleranz (full_sun, 6+ h Direktsonne)
+13. [My-Geranium / GardenersPath — Waterlogging & Pythium root rot](https://my-geranium.com/blog/four-things-that-geraniums-do-not-like-at-all/) — Staunässe-Empfindlichkeit (sensitive)
+14. [GardenersPath / greg.app — Geranium root depth (6–12 inch)](https://gardenerspath.com/plants/flowers/grow-garden-geraniums/) — effektive Wurzeltiefe 15–30 cm
+15. [Glutathione to ameliorate growth of geranium irrigated with salt water (PMC10368903)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10368903/) — Salztoleranz: Wuchs-/Blütehemmung ab ECe ≈ 3 dS/m
+16. [Koppert — Encarsia formosa Ausbringrate (1–10/m²)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/encarsia-formosa/) — Nützling Weiße Fliege
+17. [Koppert — Aphidius colemani Ausbringrate (0.25–4/m²)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling Blattläuse
+18. [Phytoseiulus persimilis biological control on ivy geranium (ScienceDirect S104996440300183X) + Sound Horticulture (10–32/m²)](https://soundhorticulture.com/products/phytoseiulus-persimilis) — Nützling Spinnmilbe
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

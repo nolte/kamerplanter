@@ -21,6 +21,15 @@
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Mentha × piperita auffindbar; nur generischer 10 °C-Default, daher nicht eingetragen --> | `species.base_temp` |
+| Lebensdauer (Jahre) | unbegrenzt über Rhizome (Bestand 2–5 Jahre kräftig, danach Verjüngung durch Teilung; perennierend) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (winterliche Einziehung der oberirdischen Teile; Rhizome treiben im Frühjahr neu) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (kein Kältereiz zum Blühen nötig; staudige Mehrjährige) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt, da false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: Mentha × piperita ist photoperiodisch ein Langtagblüher (long_day), aber kein belegter numerischer Stunden-Schwellenwert auffindbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sehr winterhart bis -25°C; Rhizome überstehen auch harte Winter; oberirdische Teile sterben ab; Neuaustrieb im Frühjahr | `species.hardiness_detail` |
@@ -84,6 +93,21 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humose, feuchtigkeitshaltende Kräutererde; pH 6,0–7,0; Feuchtigkeit wichtig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein belegter art-spezifischer Kompensationspunkt für Mentha × piperita auffindbar --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade (gedeiht in Halbschatten ab ca. 3 h Sonne/Tag; volle Sonne fördert Aroma/ätherische Öle) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (flach wurzelnd, rhizombetont; Hauptfeinwurzeln in den oberen Bodenschichten) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate (feuchtigkeitsliebend dank Mentha-aquatica-Elternteil, verträgt zeitweise nasse Böden; stehendes Wasser führt jedoch zu Wurzelfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Wachstum, Frisch-/Trockenmasse und ätherisches-Öl-Ertrag sinken bereits bei mäßiger Salinität; Absterben bei 150 mmol/L NaCl) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Schwellenwert (a) für Mentha × piperita; Klasse "sensitive" entspricht der Richtgröße < 2 dS/m Substrat-ECe --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Slope (b) für Mentha × piperita --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 (neutral; harmonisiert mit §1.6 und §2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,18 +136,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer Punkt deutlich oberhalb des Zielkorridors; oberer Zielwert 1.0 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (feuchtigkeitsliebender C3-Blattkräuter, reagiert auf Trockenstress, jedoch kein extrem empfindlicher Typ) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offene Sonne/Halbschatten-Freiland; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 (liebt Feuchtigkeit) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Neuaustrieb | 2:1:1 | 0.6–0.8 | 6.0–7.0 | 80 | 30 | — | 2 |
-| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 40 | — | 2 |
-| Blüte | 1:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 | — | 1 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Neuaustrieb | 2:1:1 | 0.6–0.8 | 6.0–7.0 | 80 | 30 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 40 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 1:1:2 | 0.6–1.0 | 6.0–7.0 | 80 | 30 | — | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoffe Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`): kein art-spezifischer, durch ≥2 unabhängige seriöse Quellen belegter Nährlösungs-ppm-Wert für Mentha × piperita auffindbar (nur generische Blattkultur-Richtwerte). Daher DATEN FEHLEN statt Übernahme generischer Werte. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -213,6 +247,16 @@ Pfefferminze ist mittelstark zehrend und braucht etwas mehr Nährstoffe als medi
 | Neemöl | biological | Azadirachtin | 0,5% Lösung | 3 | Blattläuse, Spinnmilben |
 | Rasierklingen-Schnecken | cultural | — | Manuelle Entfernung | 0 | Schnecken meiden Minze |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling (beneficial) | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|-----------------------|---------------------|----------------|--------------|------------------|
+| Raubmilbe (predatory mite) | Neoseiulus (Amblyseius) fallacis | Spinnmilbe (Tetranychus urticae) | Feld/Freiland: 10.000 Tiere/acre ≈ 2,5/m² bei Neupflanzung bzw. ab 0,3 Milben/Blatt | etabliert sich i. d. R. nach einer Ausbringung dauerhaft (mehrjährig), sofern Beute/Pollen vorhanden |
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | ca. 5–6/m² (0,5/sq ft) bzw. 20 Tiere/befallenem Blatt, wöchentlich nach Bedarf | sichtbare Kontrolle in 2–3 Wochen; Erholung neuer Triebe weitere 2–6 Wochen |
+| Schlupfwespe (parasitic wasp) | Aphidius colemani | Blattläuse (Aphis spp.) | 0,25–4 Tiere/m² je Befall, mind. 3 Ausbringungen wöchentlich | Mumien nach 6–9 Tagen; Kontrolle nach ca. 14–21 Tagen prüfen |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -274,3 +318,15 @@ Mentha × piperita,"Pfefferminze;Minze;Peppermint",Lamiaceae,Mentha,perennial,lo
 2. [Bio-Gärtner Pfefferminze](https://www.bio-gaertner.de/pflanzen/Pfefferminze) — Ökologischer Anbau
 3. [Gartenblues Pfefferminze](https://gartenblues.de/pfefferminze-mentha-x-piperita-sorten-pflanzung-schnitt-und-krankheiten/) — Sorten, Pflanzung, Krankheiten
 4. [Gruenes-Archiv Minze](https://www.gruenes-archiv.de/minze-standort-anbau-und-pflege/) — Anbau, Verwendung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [NC State Extension — Mentha x piperita](https://plants.ces.ncsu.edu/plants/mentha-x-piperita/) — Lichtbedarf (full sun/partial shade), Boden-pH (6.0–7.0 optimal), Feuchte/Drainage ("Occasionally Wet"), Wurzeltyp, USDA-Zonen
+6. [RHS — Mentha × piperita](https://www.rhs.org.uk/plants/11050/mentha-piperita/details) — Standort (full sun/partial shade), "moist but well-drained", Winterhärte H7, Wuchshöhe, Bestandsdauer 2–5 Jahre
+7. [Springer — Effect of different photoperiodic regimes on growth, flowering and essential oil in Mentha species](https://link.springer.com/article/10.1023/A:1006248019007) — Langtag-Reaktion (long_day) von Mentha, Öl-/Wuchsförderung unter langen Tagen
+8. [ResearchGate — Effect of Salinity Stress on Growth Parameters and Essential oil percentage of Peppermint (Mentha piperita L.)](https://www.researchgate.net/publication/309176461) — Salzempfindlichkeit (sensitive): Wachstums-/Öl-Rückgang bei Salinität
+9. [ResearchGate — Investigation of Physiological and Biochemical Responses and Essential Oil Yield of Peppermint under Salt Stress](https://www.researchgate.net/publication/326358196) — Salzempfindlichkeit, Absterben bei 150 mmol/L NaCl
+10. [Garden For Indoor — How Deep Do Mint Roots Go?](https://gardenforindoor.com/how-deep-do-mint-roots-go/) — Wurzeltiefe Minze (ca. 30–45 cm), flaches rhizombetontes System
+11. [Gardener's Path — How to Grow and Care for Peppermint](https://gardenerspath.com/plants/herbs/grow-peppermint/) — Halbschatten-Toleranz (min. 3 h Sonne), Aroma unter voller Sonne
+12. [Buglogical — Neoseiulus fallacis (Spider Mite Control)](https://www.buglogical.com/spider-mite-predator/spider-mite-control-neoseiulus-fallacis/) — N. fallacis in Minze-Feldern, Ausbringrate 10.000/acre, Etablierung
+13. [Sound Horticulture — Phytoseiulus persimilis Tech Sheet](https://soundhorticulture.com/pages/phytoseiulus-persimilis-spider-mite-predator) — Ausbringrate 0,5/sq ft (≈5–6/m²), 20/befallenem Blatt
+14. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate 0,25–4/m², Mumien/Etablierungszeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

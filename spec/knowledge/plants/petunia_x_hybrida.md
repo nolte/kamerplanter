@@ -19,8 +19,21 @@
 | Ordnung | Solanales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual (in Mitteleuropa); perennial in USDA 9–11 | `lifecycle_configs.cycle_type` |
-| Photoperiode | day_neutral (die meisten Sorten; einige Sorten reagieren schwach langtagig) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | long_day (fakultative Langtagpflanze / facultative long-day plant — blüht unter allen Tageslängen, beschleunigt aber unter Langtag; bei kühler Kultur < ~17 °C tendenziell tagneutrales Verhalten) | `lifecycle_configs.photoperiod_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur Wuchs/Blüte (base temp, °C) | 3–6 (sortenabhängig; Blanchard & Runkle 2011: 'Dreams Neon Rose' 2.8, 'Wave Purple' 5.5 — Blüh-Entwicklungsbasis, NICHT Keim-Basistemperatur) | `species.base_temp` |
+| Lebensdauer (Jahre, nur perennial) | nicht relevant (in Mitteleuropa annuell kultiviert) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (kein Kältebedarf zur Blühinduktion) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | nicht relevant | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 13 | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b (als Staude); 2a–9b (als einjährige Kultur) | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Keine Frosttoleranz — Pflanze stirbt ab 0°C. Überwinterung nur frostfrei (mind. +5°C) als Stecklingspflanze oder in hellem Kalthaus möglich. In Mitteleuropa (USDA Zone 7–8) als einjährige Beetpflanze kultivieren. | `species.hardiness_detail` |
@@ -100,6 +113,27 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Hochwertige Balkon- und Kübelpflanzenerde mit guter Drainage; pH 5,5–6,2; Perlite-Zusatz 10–20% für verbesserte Drainage empfohlen; Langzeitdünger beim Einpflanzen untermischen | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 13–40 (kompakte Sorten ~13; Wave-/Spreading-Typen 30–45) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: keine validierten Maas-Hoffman-a-Koeffizienten für Petunia in FAO-Salztoleranzlisten. Orientierung (KEIN Maas-Hoffman-Wert): erste Wuchsdepression im Substrat-ECe-Bereich ~7 dS/m (HortTechnology 2011) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Koeffizient für Petunia --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.2 (eisenineffiziente Pflanze; bei pH > 6.2 Eisenchlorose — harmonisiert mit §1.6, §2.3, §3) | `species.soil_ph_preference` |
+
+**Hinweise zur Standort-Physiologie:**
+- **Lichtkompensationspunkt vs. Sättigung:** Der angegebene Bereich (15–40 µmol/m²/s) bezeichnet ausschließlich den Kompensationspunkt (Netto-Photosynthese = 0). Petunia ist eine Vollsonnenpflanze mit deutlich höherem Lichtsättigungspunkt; die Lichtsättigung der Photosynthese liegt produktionsphysiologisch erst im Bereich mehrerer hundert µmol/m²/s (siehe Phasen-PPFD in §2.2) und gehört nicht in das Kompensationspunkt-Feld.
+- **Salztoleranz:** Petunia zählt zu den salzverträglicheren Beet- und Balkonpflanzen, verträgt kurzfristig bis ~80 mM NaCl ohne Letalität (nur Wuchsreduktion, Blattrand-Chlorose). Die Bezugsgröße der Schwellen ist der Substrat-ECe (Sättigungsextrakt bzw. Pour-Through-EC), NICHT die Gießwasser-EC.
+- **Staunässe:** Wildtyp-Petunia ist staunässeempfindlich; nasse, schlecht drainierte Substrate begünstigen Pythium-/Phytophthora-Wurzelfäule (vgl. §5.2). Gute Drainage (Perlite-Zusatz) ist Pflicht.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -131,6 +165,12 @@
 | Luftfeuchtigkeit Tag (%) | 80–95 (Keimschale abgedeckt halten) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80–95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer Punkt; deutlich oberhalb des Zielkorridors — feuchteliebende Keimphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anker offenes Tageslicht/Vollspektrum-Anzuchtlicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (ambient) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Substrat gleichmäßig feucht — nicht nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 5–20 (Sprühflasche, keine Überschwemmung) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -147,6 +187,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (deutlich oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anker offenes Tageslicht/Vollspektrum-Anzuchtlicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -165,6 +211,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (deutlich oberhalb des Zielkorridors; stomatärer Kollaps-Risikopunkt) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anker offenes Tageslicht/Vollspektrum-Anzuchtlicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -181,6 +233,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–65 (Außenluft) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (deutlich oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anker direkte Vollsonne / offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (ambient outdoor) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Wind trocknet Substrate schneller aus) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -199,6 +257,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–65 (hohe Luftfeuchtigkeit > 80% Botrytis-Risiko) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 (bei VPD > 1.5 kPa und Temperaturen > 30 °C Bewässerungsintervall auf täglich verkürzen) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer Punkt des stomatären Kollaps; deutlich oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anker direkte Vollsonne / offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (ambient outdoor) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1 (Ampeln) bis 2 (Beete); bei Hitze täglich | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 (Ampeln deutlich mehr) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -221,13 +285,17 @@
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) | Hinweis |
-|-------|----------------|---------|-----|----------|----------|---------|---------|
-| Keimung | 0:0:0 | 0.0–0.3 | 5.5–5.8 | — | — | — | Nur klares Wasser, keine Düngung |
-| Sämling | 1:1:1 | 0.4–0.8 | 5.5–5.8 | 60–80 | 25–40 | 1–2 | Schwache Anfangsdüngung (50 ppm N) |
-| Vegetativ | 2:1:2 | 0.8–1.4 | 5.5–6.0 | 100–140 | 40–60 | 2–3 | Ausgewogene Vollversorgung, Kalzium-Betonung |
-| Blüte | 1:2:3 | 1.2–2.0 | 5.5–6.2 | 120–160 | 50–70 | 2–4 | Kaliumbetonung für Blütenansatz und Farbe; Eisenversorgung kritisch |
-| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | Keine Düngung |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | Hinweis |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|---------|
+| Keimung | 0:0:0 | 0.0–0.3 | 5.5–5.8 | — | — | — | — | — | — | — | Nur klares Wasser, keine Düngung |
+| Sämling | 1:1:1 | 0.4–0.8 | 5.5–5.8 | 60–80 | 25–40 | 1–2 | 0.25–0.5 | 0.1–0.25 | 0.02–0.05 | 0.01–0.05 | Schwache Anfangsdüngung (50 ppm N) |
+| Vegetativ | 2:1:2 | 0.8–1.4 | 5.5–6.0 | 100–140 | 40–60 | 2–3 | 0.5–0.8 | 0.25–0.4 | 0.05–0.1 | 0.02–0.05 | Ausgewogene Vollversorgung, Kalzium-Betonung |
+| Blüte | 1:2:3 | 1.2–2.0 | 5.5–6.2 | 120–160 | 50–70 | 2–4 | 0.5–0.8 | 0.25–0.4 | 0.05–0.1 | 0.02–0.05 | Kaliumbetonung für Blütenansatz und Farbe; Eisenversorgung kritisch |
+| Seneszenz | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | Keine Düngung |
+
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Die ppm-Werte sind die in der Nährlösung anzustrebenden Konzentrationen einer Vollnährlösung gemäß anerkannter Greenhouse-/Bedding-Plant-Empfehlungen (Mn ≈ 50 % der Fe-Konzentration; Zn, Cu und Mo deutlich darunter). Es handelt sich um etablierte Gewächshaus-Standardwerte für Beet- und Balkonpflanzen, nicht um petunienspezifisch validierte Einzelwerte. Boranteil (B) ist bei Petunia gesondert kritisch (Mangel = Triebspitzennekrose), wird hier aber gemäß Feldkatalog nicht als eigenes Feld geführt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Besonderer Hinweis Eisenbedarf:** Petunia × hybrida gehört zu den eisenbedürftigsten Balkonpflanzen. Bei pH > 6,5 wird Eisen in der Bodenmatrix unlöslich — Chlorose (Gelbfärbung jüngerer Blätter bei grünen Blattadern) als Folge. Substrat-pH unter 6,2 halten und bei erstem Chlorose-Symptom mit Eisenchelat-Dünger (Fe-EDTA oder Fe-HEEDTA) behandeln.
 
@@ -479,7 +547,7 @@
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,frost_sensitivity,hardiness_detail,allelopathy_score,native_habitat,nutrient_demand_level,green_manure_suitable,bloom_months,sowing_indoor_weeks_before_last_frost,pruning_type,pruning_months,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,propagation_methods,propagation_difficulty,toxicity_cats,toxicity_dogs,toxicity_children,toxicity_severity,traits
-Petunia × hybrida,"Garten-Petunie;Garden Petunia",Solanaceae,Petunia,annual,day_neutral,herb,fibrous,"10a;10b;11a;11b",tender,"Keine Frosttoleranz. Stirbt ab 0°C. Überwinterung nur frostfrei (+5°C) möglich. In Mitteleuropa (USDA 7–8) als einjährige Beetpflanze kultivieren.",0.0,"Südamerika (P. axillaris und P. integrifolia aus Argentinien/Uruguay)",heavy_feeder,false,"5;6;7;8;9;10",10,summer_pruning,"6;7;8",yes,"5–20",20,"20–40","30–90","25–40",limited,yes,false,false,"seed;cutting_stem",moderate,false,false,false,none,"ornamental;bee_friendly"
+Petunia × hybrida,"Garten-Petunie;Garden Petunia",Solanaceae,Petunia,annual,long_day,herb,fibrous,"10a;10b;11a;11b",tender,"Keine Frosttoleranz. Stirbt ab 0°C. Überwinterung nur frostfrei (+5°C) möglich. In Mitteleuropa (USDA 7–8) als einjährige Beetpflanze kultivieren.",0.0,"Südamerika (P. axillaris und P. integrifolia aus Argentinien/Uruguay)",heavy_feeder,false,"5;6;7;8;9;10",10,summer_pruning,"6;7;8",yes,"5–20",20,"20–40","30–90","25–40",limited,yes,false,false,"seed;cutting_stem",moderate,false,false,false,none,"ornamental;bee_friendly"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -515,3 +583,21 @@ SUCCESS! 360 Deep Rose,Petunia × hybrida,Benary,2018,"trailing;rain_tolerant;vi
 16. [Plantura — Petunien Pflanzenportrait](https://www.plantura.garden/blumen-stauden/petunien/petunien-pflanzenportrait) — Allgemeine Kulturinformation, Sorten
 17. [Gardeners Path — Petunia Cold Hardiness](https://gardenerspath.com/plants/flowers/petunia-cold-hardiness/) — Frosttoleranz, Überwinterungshinweise
 18. [Epic Gardening — Overwinter Potted Petunias](https://www.epicgardening.com/overwinter-potted-petunias/) — Überwinterungsmethoden
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+19. [Blanchard & Runkle (2011) — Quantifying the thermal flowering rates of eighteen species of annual bedding plants (ResearchGate)](https://www.researchgate.net/publication/229133690_Quantifying_the_thermal_flowering_rates_of_eighteen_species_of_annual_bedding_plants) — Basistemperatur (Tb) Blüh-Entwicklung Petunia: 'Dreams Neon Rose' 2.8 °C, 'Wave Purple' 5.5 °C
+20. [MSU Extension / GPN — Flowering of Petunia at Low Temperatures](https://gpnmag.com/article/flowering-petunia-low-temperatures/) — Temperatur-/Photoperioden-Reaktion, Entwicklungsraten, kühlbedingte Tagneutralität
+21. [UMass Amherst Extension — Photoperiod and Bedding Plants](https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/photoperiod-bedding-plants) — Petunia als fakultative Langtagpflanze, kritische Tageslänge ~13 h
+22. [M. Blanchard / Syngenta Flowers — Production: Light Management (PDF)](https://www.syngentaflowers.com/ams/sites/g/files/kgtney2381/files/file_field/import/field_media_link/sites/g/files/zhg721/f/139_0.pdf) — Photoperiodische Einordnung Petunia (facultative long-day), kritische Tageslänge
+23. [MDPI Horticulturae 10(10):1106 — Daily Light Integral and Far-Red Radiation Influence … Flowering and Development of Petunia](https://www.mdpi.com/2311-7524/10/10/1106) — Far-Red-/R:FR-Wirkung auf Petunia, Blühförderung durch FR
+24. [ScienceDirect (Sci. Hortic.) — Far-red radiation and PPFD … interactively regulate flowering (Petunia)](https://www.sciencedirect.com/science/article/abs/pii/S009884721830755X) — Petunia als Schattenflüchter, R:FR 0.66–2.38 fördert Blüte
+25. [Acta Physiologiae Plantarum — Petunia × hybrida during transition to flowering as affected by light intensity and quality](https://link.springer.com/article/10.1007/s11738-008-0185-z) — Photosynthese unter niedriger PPFD (40 µmol), Hinweise zum Kompensationsbereich
+26. [Greg.app — Easy Wave Petunias Roots](https://greg.app/easy-wave-petunias-roots/) — Effektive Wurzeltiefe (30–45 cm bei Wave-Typen, ~13 cm Standard)
+27. [LeafyJournal — How Deep to Plant Petunias](https://leafyjournal.com/how-deep-to-plant-petunias/) — Wurzeltiefe, Pflanztiefe Petunia
+28. [HortTechnology 21(5) 2011 — Assessing Tolerance to Sodium Chloride Salinity in Fourteen Floriculture Species](https://journals.ashs.org/horttech/view/journals/horttech/21/5/article-p539.xml) — Salztoleranz-Einordnung Petunia, Substrat-EC-Schwellen (Pour-Through)
+29. [NCBI PMC5575659 — Dissecting Tissue-Specific Transcriptomic Responses … under Salt Stress in Petunia hybrida](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5575659/) — Salzstresstoleranz Petunia (bis ~80 mM NaCl ohne Letalität)
+30. [NCBI PMC6804856 — PhERF2 … waterlogging tolerance of petunia](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6804856/) — Wildtyp-Petunia staunässeempfindlich; Toleranz nur durch genetische Manipulation
+31. [University of Tennessee Extension PB1616 — Plant Nutrition & Fertilizers for Greenhouse Production (PDF)](https://eastern.tennessee.edu/wp-content/uploads/sites/62/2020/02/UT-pb1616-plant-nutrition-and-fertilizers-for-greenhouse-production.pdf) — Mikronährstoff-Solution-/Medien-Richtwerte (Mn/Zn/Cu/B)
+32. [Greenhouse Grower — Understanding Plant Nutrition: Fertilizers and Micronutrients](https://www.greenhousegrower.com/production/fertilization/understanding-plant-nutrition-fertilizers-and-micronutrients/) — Mikronährstoff-Verhältnisse (Mn ≈ 50 % Fe; Cu/Zn/Mo-Anteile)
+33. [AHDB Horticulture — How to prevent or treat iron deficiency in petunia and primula](https://horticulture.ahdb.org.uk/knowledge-library/how-to-prevent-or-treat-for-iron-deficiency-in-petunia-and-primula) — Petunia eiseninnefizient, Boden-pH-Vorzug 5.5–6.2
+34. [Biology Insights — Petunia Temperature Tolerance: From Optimal to Extreme](https://biologyinsights.com/petunia-temperature-tolerance-from-optimal-to-extreme/) — Optimaltemperatur Photosynthese/Wachstum 21–27 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

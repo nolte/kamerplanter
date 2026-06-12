@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Langtagspflanze -- Bluetenbildung im 2. Jahr durch lange Tage ausgeloest; Vernalisation noetig) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (krautige Apiaceae; weder C4 noch CAM) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (Wuchs, degC) | 4 (Tbase fuer den vollen Kulturzyklus; Tupper 27 degC; kuehlliebende Kultur -- NICHT der Keim-Basiswert) | `species.base_temp` |
+| Dormanz erforderlich | false (Winterruhe ist umweltbedingt, nicht obligat; in Mitteleuropa oft einjaehrig als Blattkultur ohne echte Dormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (Kaeltereiz fuer Bluetenbildung im 2. Jahr) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 42--56 (6--8 Wochen < 10 degC) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 14 (Langtagblueher -- Bluetenauslösung nach Vernalisation bei Tageslaengen > ca. 14 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | moderate | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Zweijaerig. Uebersteht leichte Froeste bis -8 degC mit Winterschutz (Reisig, Vlies). Im ersten Jahr Blattrosette, im zweiten Jahr Bluetenstiel. In Mitteleuropa oft als einjaehrige Blattkultur angebaut. Glatte Petersilie ist etwas winterhaerter als krause. | `species.hardiness_detail` |
@@ -101,6 +109,22 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert buschiges Nachwac
 
 **Hinweis:** Petersilie vertraegt Halbschatten besser als die meisten Kraeuter. Ideal fuer halbschattige Balkone und unter Baeumen/Strauchern. Supermarkt-Petersilie im Topf haelt selten lange -- besser aus Samen ziehen. Glatte Petersilie hat ein intensiveres Aroma als krause; krause Petersilie ist dekorativer und robuster gegen Regen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 8 (C3-Schattenblatt, Netto-Photosynthese = 0) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 20 (C3-Sonnenblatt) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (Vollsonne bis lichter Halbschatten; vertraegt Halbschatten besser als die meisten Kraeuter) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--45 (flachwurzelnd trotz Pfahlwurzel; Hauptwurzelzone im oberen Profil) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive (Pfahlwurzel fault bei Naesse leicht; Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (Literatur: Wachstum/Chlorophyll bereits bei moderater Salinitaet reduziert; verwandte Apiaceae Moehre = sensitive) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN -- kein publizierter Maas-Hoffman-Schwellenwert fuer Petroselinum crispum; verwandte Moehre 1.0 dS/m (sensitive) als Orientierung --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN -- kein publizierter Maas-Hoffman-Slope fuer Petersilie --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.0 (harmonisiert mit Substrat-Empfehlung §1.6) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -131,6 +155,12 @@ Hinweis: Als zweijaerige Pflanze wird Petersilie meist nur im ersten Jahr als Bl
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (stomataerer Kollaps deutlich oberhalb des feuchtigkeitsliebenden Keim-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--20 (kuehlliebende C3-Kultur) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht-Spektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht, nie austrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -147,6 +177,12 @@ Hinweis: Als zweijaerige Pflanze wird Petersilie meist nur im ersten Jahr als Bl
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--40 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -163,6 +199,12 @@ Hinweis: Als zweijaerige Pflanze wird Petersilie meist nur im ersten Jahr als Bl
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ca. 0.4 kPa; stomataerer Kollaps/Welkegrenze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55 (haeufig im lichten Halbschatten/unter Nachbarbestand -- leicht erhoeht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -197,6 +239,12 @@ Hinweis: Petersilie vertraegt Halbschatten gut und ist toleranter gegenueber wen
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Bluetenstand im offenen Tageslicht, 2. Jahr) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -205,13 +253,17 @@ Hinweis: Wenn Saatgutgewinnung gewuenscht, Bluetenstaende ausreifen lassen. Same
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.2 | 60 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.2--1.8 | 5.8--6.2 | 100 | 50 | 30 | 3 |
-| Dormanz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- |
-| Bluete | 1-2-2 | 1.0--1.4 | 5.8--6.2 | 80 | 40 | 25 | 2 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.2 | 60 | 30 | 20 | 2 | 0.3 | 0.1 | 0.02 | 0.01 |
+| Vegetativ | 3-1-2 | 1.2--1.8 | 5.8--6.2 | 100 | 50 | 30 | 3 | 0.5--0.8 | 0.2 | 0.04 | 0.03 |
+| Dormanz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Bluete | 1-2-2 | 1.0--1.4 | 5.8--6.2 | 80 | 40 | 25 | 2 | 0.4 | 0.15 | 0.03 | 0.02 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis (Mikronaehrstoffe Mn/Zn/Cu/Mo): Die Spalten Mn `nutrient_profiles.manganese_ppm`, Zn `nutrient_profiles.zinc_ppm`, Cu `nutrient_profiles.copper_ppm`, Mo `nutrient_profiles.molybdenum_ppm` entsprechen den Standard-Zielkonzentrationen einer Blattgemuese-/Kraeuter-Naehrloesung (leichtzehrend, niedriger als Fruchtgemuese): Mn 0.5--1.0, Zn 0.05--0.5, Cu 0.02--0.05, Mo 0.01--0.05 ppm. Petersilie kann Mn bei niedrigem pH (< 5.8) ueberhoeht aufnehmen -- pH nicht unter 5.8 absenken. In Keim-/Dormanzphasen (nur Wasser) keine Mikronaehrstoff-Gabe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Petersilie ist ein Mittelzehrer mit hohem Stickstoffbedarf in der vegetativen Phase (Blattproduktion). EC im Hydro-/Cocoanbau: 1.2--1.8 mS. pH unter 5.8 vermeiden (Eisentoxizitaet). Kalium foerdert das Aroma der aetherischen Oele.
 
@@ -318,6 +370,17 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 ### 4.3 Ueberwinterung
 
 Petersilie ist zweijaerig und kann mit Winterschutz (Reisig, Vlies, Laub) im Freiland ueberwintern. Vertraegt Froeste bis -8 degC. Im Topf: Frostfrei stellen (5--10 degC, kuehler Flur, unbeheiztes Gewaechshaus). Im zweiten Fruehjahr treibt die Pflanze aus und schiesst dann relativ schnell in Bluete. Fuer durchgehende Blatternte: jaehrlich neu aussaeen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung | needs_protection (uebersteht Freiland-Winter nur mit Abdeckung; Topfkultur alternativ frostfrei einlagern) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme + Monat | mulch (Reisig/Laub/Vlies); Oktober--November | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Massnahme + Monat | uncover; Maerz | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (degC) | 5--10 (kuehler, frostfreier Raum bei Topfueberwinterung) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, kuehl (kein Dunkellager -- bleibt immergruen) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | sparsam, nur bei Trockenheit (Winter-Multiplikator 3.0) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -465,3 +528,14 @@ Festival 68,Petroselinum crispum,,,high_yield;disease_resistant,70,,open_pollina
 9. Produce Grower -- Hydroponic Herb Yields: https://www.producegrower.com/article/hydroponic-production-primer-improve-culinary-herb-yields/
 10. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
 11. hauenstein-rafz.ch -- Petersilie: https://www.hauenstein-rafz.ch/de/pflanzenwelt/pflanzenportrait/diverse/Petersilie-Petrosilenum.php
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. Paredes et al. (2025), ScienceDirect -- Base/upper temperature thresholds for GDD (FAO56rev): Petersilie Tbase 4 degC, Tupper 27 degC (voller Kulturzyklus): https://www.sciencedirect.com/science/article/pii/S037837742500469X
+13. Wikipedia -- Salt tolerance of crops (Maas-Hoffman-Klassifikation, Apiaceae-Verwandte): https://en.wikipedia.org/wiki/Salt_tolerance_of_crops
+14. FAO -- Annex 1 Crop salt tolerance data (Moehre sensitive 1.0 dS/m, Sellerie MS 1.8 dS/m als Apiaceae-Orientierung): https://www.fao.org/4/y4263e/y4263e0e.htm
+15. PMC -- Biochemical Changes in Two Parsley Varieties during Saline Stress (Petersilie salzsensitiv): https://pmc.ncbi.nlm.nih.gov/articles/PMC4499097/
+16. GrowVeg -- Vegetable Root Depths (Petersilie flachwurzelnd, 30--46 cm): https://www.growveg.com/guides/vegetable-root-depths-revealed-use-this-guide-to-make-smarter-planting-decisions/
+17. UMN Extension -- Growing parsley (pH 6.0--7.0, Vollsonne/Halbschatten): https://extension.umn.edu/vegetables/growing-parsley
+18. ScienceDirect Topics -- Light Compensation Point (C3 8--16 umol/m2/s, Schattenblatt niedriger): https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point
+19. Annals of Botany / Oxford Academic -- Far-red light effects: FR-Fraction Vollsonne ~0.46--0.5, Halbschatten hoeher: https://academic.oup.com/aob/article/135/3/589/7701832
+20. AlpHa Measure / Atlas Scientific -- Hydroponic micronutrient sufficiency ranges (Mn 0.5--1.0, Zn 0.05--0.5, Cu 0.02--0.05, Mo ~0.01--0.05 ppm): https://alpha-measure.com/hydroponic-nutrient-solution-monitoring-and-optimization/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

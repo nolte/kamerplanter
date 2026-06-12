@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert auffindbar; Art ist frostempfindlich-tropisch, Mindesttemperatur 7–10°C; nur Kardinaltemperaturen für Wuchs (~10°C) plausibel, aber nicht aus 2 unabhängigen Quellen als GDD-Basis belegt --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (Einzelpflanze; durch Stecklinge unbegrenzt verjüngbar) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | nicht relevant (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), keine echte Kurztag-/Langtag-Blühinduktion; Blüte sporadisch ganzjährig, betont in Frühling und Spätherbst --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Nicht frosthart; Mindesttemperatur 7°C; typische Zimmerpflanze; in Mitteleuropa nur indoor | `species.hardiness_detail` |
@@ -38,7 +47,7 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | 9, 10, 11 (kleine weiß-lila Blüten; Kurztagspflanze) | `species.bloom_months` |
+| Blütemonate | 9, 10, 11 (Schwerpunkt; kleine weiß-lila Blüten; tagneutral, blüht sporadisch ganzjährig mit Schwerpunkt Frühling und Spätherbst) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -87,6 +96,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Qualitäts-Zimmerpflanzenerde mit guter Drainage; pH 6.0–7.0; kein reines Torf | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert für diese Zierpflanze --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Als Schatten-/Unterwuchspflanze von Waldrändern und lichten Wäldern (Südafrika) ist *P. verticillatus* an niedrige Lichtniveaus angepasst; der Lichtkompensationspunkt liegt entsprechend niedrig (typischer Bereich für Schattenblätter). Verträgt nach SANBI sauren, neutralen und alkalischen Boden; der hier gewählte pH-Korridor 6.0–7.0 bleibt quellentreu zur Topfkultur-Empfehlung (§1.6) und den Nährstoffprofilen (§2.3). Sehr empfindlich gegen Staunässe (Wurzelfäule durch Pythium); daher `sensitive`. Für die Salztoleranz fehlen belegte Maas-Hoffman-Kennwerte; die Klasseneinstufung `moderately_sensitive` ist konservativ aus der Topfkultur-Praxis (Leitungswasser geeignet, aber empfindlich gegen Salzanreicherung/Überdüngung) abgeleitet.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -99,6 +126,10 @@
 | Vegetativ | 60–365 | 2 | false | false | high |
 | Blüte (Herbst) | 30–60 | 3 | false | false | high |
 | Winterruhe | 60–90 | 4 | false | false | high |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Photoperiode:** *Plectranthus verticillatus* ist **tagneutral** (`day_neutral`). Die Blüte ist nicht photoperiodisch erzwungen, sondern tritt sporadisch ganzjährig auf, betont in Frühling und Spätherbst. Die Phase "Blüte (Herbst)" ist daher ein typischer Saison-Schwerpunkt, **kein** Kurztag-induzierter Übergang; ein Phasenübergang wird nicht über eine kritische Tageslänge ausgelöst.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.2 Phasen-Anforderungsprofile
 
@@ -114,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt stomatären Kollaps; deutlich oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 (Waldrand-/Unterwuchs-Standort; FR-angereichert gegenüber Vollsonne ≈0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (feucht, nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +163,17 @@
 | Vegetativ | 3:1:2 | 0.8–1.2 | 6.0–7.0 | 80 | 40 |
 | Blüte | 1:2:2 | 0.6–1.0 | 6.0–7.0 | 60 | 30 |
 | Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Mikronährstoffe je Phase (ppm)
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Vegetativ | 0.5 | 0.05 | 0.05 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Blüte | 0.4 | 0.05 | 0.03 | 0.03 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+
+**Hinweis:** Die Mikronährstoff-Richtwerte entsprechen den allgemein etablierten Standard-Konzentrationen für ausgewogene Nährlösungen (Hoagland-naher Bereich) und sind nicht artspezifisch publiziert; sie gelten als gärtnerischer Erfahrungsrichtwert für mittelzehrende Grünpflanzen. Bewurzelung und Winterruhe ohne Düngung (0:0:0), daher keine Mikronährstoffgaben.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -179,6 +227,23 @@ Mittelzehrend, aber sehr anpassungsfähig. Im Sommer alle 14 Tage leicht düngen
 | Okt–Nov | Blüte | Wenig eingreifen; verblühte Triebe entfernen | niedrig |
 | Dez–Jan | Winterruhe | Gießen reduzieren; kein Dünger; heller, kühler Standort | niedrig |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | 10 (Okt; vor erstem Frost / wenn Nachttemperatur unter 10°C fällt) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | 5 (Mai; nach den Eisheiligen, kein Nachtfrost mehr) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 10–18 (Minimum 7–10°C; nicht unter 7°C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, kein direktes Sonnenlicht | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam; obere 2–3 cm antrocknen lassen; alle 10–14 Tage | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** *P. verticillatus* ist nicht frosthart und wird in Mitteleuropa (USDA 6–8) ausschließlich frostfrei als Zimmer-/Kübelpflanze überwintert (`frost_free`). Mehrere Quellen nennen als Mindesttemperatur ca. 10°C (50°F); kurzfristig werden 7°C toleriert (vgl. `species.hardiness_detail` in §1.1). Ein im Sommer nach draußen (Schatten/Halbschatten) gestellter Topf muss vor dem ersten Frost wieder hereingeholt werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -204,6 +269,19 @@ Mittelzehrend, aber sehr anpassungsfähig. Im Sommer alle 14 Tage leicht düngen
 |---------|-----|-----------|-----------|-------------------|-------|
 | Neemöl | biological | Azadirachtin | Sprühen 0.5% | 3 | Blattläuse, Wollläuse |
 | Isopropanol | biological | Isopropylalkohol | Wattestäbchen | 0 | Wollläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|-----------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 2–6 Stk./m² (kurativ bis 20) | 1–2 Wochen |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 2–10 Stk./m² | 2–4 Wochen |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Aphidoidea) | 0,5–3 Stk./m² | 1–2 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphidoidea) | 1–3 Stk./m² | 2–3 Wochen |
+
+**Hinweis:** Nützlinge bevorzugt bei höherer Luftfeuchte und Temperaturen über ~18°C ausbringen; bei wiederholtem Befall mehrfach im 1–2-Wochen-Takt freilassen. Nützlingseinsatz und chemische/ölbasierte Spritzungen (Neemöl) nicht gleichzeitig — Wartezeit einhalten, da Öle auch Nützlinge schädigen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -250,5 +328,16 @@ Plectranthus verticillatus,Schwedischer Efeu;Swedish Ivy;Creeping Charlie,Lamiac
 1. [Gardenia.net — Plectranthus verticillatus](https://www.gardenia.net/plant/plectranthus-verticillatus-swedish-ivy-grow-care-guide) — Allgemeine Kulturdaten
 2. [Epic Gardening — Swedish Ivy](https://www.epicgardening.com/swedish-ivy/) — Pflegehinweise, Schädlinge
 3. [UK Houseplants — Swedish Ivy](https://www.ukhouseplants.com/plants/swedish-ivy) — Temperatur, Gießen
-4. [Wikipedia — Plectranthus verticillatus](https://en.wikipedia.org/wiki/Plectranthus_verticillatus) — Taxonomie, Herkunft
+4. [Wikipedia — Plectranthus verticillatus](https://en.wikipedia.org/wiki/Plectranthus_verticillatus) — Taxonomie, Herkunft, Blüte ganzjährig (Schwerpunkt Frühling/Spätherbst)
 5. [Gardener's Supply — Swedish Ivy Care](https://www.gardeners.com/blogs/gardening-tips/swedish-ivy-care-9728) — Kulturhinweise
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [SANBI PlantZAfrica — Plectranthus verticillatus](https://pza.sanbi.org/plectranthus-verticillatus) — Naturstandort (Waldränder/lichter Wald, full sun to partial shade), Boden-pH-Toleranz (sauer/neutral/alkalisch), Frostempfindlichkeit, Wuchshöhe/-breite als Bodendecker
+7. [ScienceDirect — Ecophysiological investigations on Plectranthus (Lamiaceae): CAM, gas exchange](https://www.sciencedirect.com/science/article/abs/pii/S0367253017331171) — Photosynthese-Typen in der Gattung: CAM nur bei sukkulenten/ariden Arten (z.B. P. marrubioides), nicht-sukkulente mesische Arten sind C3
+8. [Springer Photosynthetica — Photosynthesis but not CAM in Plectranthus marrubioides](https://link.springer.com/article/10.1023/A:1006847330607) — Beleg C3/CAM-Diversität in Plectranthus, Succulence-CAM-Korrelation
+9. [UF/IFAS Gardening Solutions — Swedish Ivy](https://gardeningsolutions.ifas.ufl.edu/plants/houseplants/swedish-ivy/) — University Extension: Lichtbedarf (bright indirect light, keine Vollsonne), Schattentoleranz
+10. [Healthy Houseplants — Swedish Ivy Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/swedish-ivy-plectranthus-verticillatus-care-guide/) — Staunässe-Empfindlichkeit, Wurzelfäule, well-drained soil
+11. [PlantJoy/ForwardPlant — Overwinter Swedish Ivy](https://www.forwardplant.com/care/overwinter/plectranthus-verticillatus/) — Überwinterung, Mindesttemperatur ~10°C, Winterquartier-Gießen
+12. [GardenBeast — Swedish Ivy Guide](https://gardenbeast.com/swedish-ivy-guide/) — Lebensdauer 3–5 Jahre, Verjüngung über Stecklinge
+13. [Koppert — Phytoseiulus persimilis / Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/) — Nützling-Ausbringraten, Wirt-Zuordnung (Raubmilbe→Spinnmilben, Marienkäfer→Wollläuse)
+14. [ASHS — Far-red Fraction: An Improved Metric (FR/(R+FR))](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) — FR-Fraction-Metrik; Vollsonne ≈0.46–0.5, Unterwuchs/Schatten höher
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

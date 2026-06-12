@@ -19,11 +19,18 @@
 | Ordnung | Caryophyllales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 10–50+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (Winterdormanz für Blüteninduktion) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagneutral — kein photoperiodischer Blühtrigger; Blüteninduktion über kühle, trockene Winterruhe statt Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Artabhängig — viele Arten tolerieren kurze Fröste bis -5°C (trocken). Mindesttemperatur 5°C empfohlen. Winterdormanz bei 7–13°C fördert Blüte. | `species.hardiness_detail` |
@@ -90,6 +97,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kakteenerde mit 50–70% mineralischem Material (Perlite, grober Sand, Bimssplit). pH 6.0–7.0. Hervorragende Drainage zwingend. Flache Tontöpfe bevorzugt. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> (keine artspezifische Maas-Hoffman-Schwelle für Mammillaria belegt; Gattung gilt qualitativ als salzempfindlich) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Mammillaria betreibt obligaten Crassulaceen-Säurestoffwechsel (CAM, Crassulacean Acid Metabolism) — Stomata öffnen nachts, was den Lichtkompensationspunkt nicht im klassischen Tagesmittel-Sinn definiert; die angegebene Spanne (10–40 µmol/m²/s) entspricht dem für Wüsten-CAM-Sukkulenten typisch sehr niedrigen Kompensationsbereich. Lichtsättigung der nächtlichen CO₂-Fixierung wird erst bei hohen Tages-PAR-Summen (≈ 20–22 mol/m²/Tag) erreicht (Nobel; gehört NICHT in das Kompensationspunkt-Feld). Wurzelsystem flach und faserig (oberste ~5–15 cm) — passt zur Strategie, kurze Oberflächenfeuchte schnell aufzunehmen. Wegen Wasserspeichergewebe extrem staunässe- und (qualitativ) salzempfindlich. Boden-pH-Vorzug konsistent mit §1.6 und §2.3 (pH 6.0–7.0).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +139,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 10–30 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.5–3.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 3.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -122,6 +153,13 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 300–800 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 6–15 | `requirement_profiles.dli_target_mol` |
+| VPD-Schwelle (kPa) | 2.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 10–15 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 7–13 (kühle Winterruhe) | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 5–10 | `requirement_profiles.temperature_night_c` |
 | Gießintervall (Tage) | 42–90 (fast trocken) | `requirement_profiles.irrigation_frequency_days` |
@@ -129,10 +167,15 @@
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 1:2:2 | 0.3–0.6 | 6.0–7.0 | 30 | 10 |
-| Winterdormanz | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 1:2:2 | 0.3–0.6 | 6.0–7.0 | 30 | 10 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterdormanz | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Für Mammillaria sind keine artspezifischen Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo in ppm) aus mindestens zwei unabhängigen seriösen Quellen belegt. Als sehr leichter Zehrer (`light_feeder`) deckt ein vollständiger Kakteen-/Sukkulentendünger mit Spurenelementen den Bedarf in Halbdosis ab; quantitative Phasen-Sollwerte bleiben mangels Beleg als `<!-- DATEN FEHLEN -->` markiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -217,6 +260,17 @@ Sehr leichter Zehrer. Alle 4–6 Wochen April bis September, halbe Empfehlungsdo
 | Alkohol 70% | mechanical | Wattestäbchen (vorsichtig wegen Stacheln) | 0 Tage | Schmierlaus, Schildlaus |
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Schmierläuse |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 2–10 Käfer/m² (bei Befall 10–20/m²), 2–3 Freilassungen im Abstand von 1–2 Wochen | 2–4 Wochen; optimal bei 25–28 °C |
+| Raubmilbe | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 Milben/m² je nach Befallsdichte, 1–2 Freilassungen im Wochenabstand | 1–3 Wochen; wirksam 13–27 °C, rF > 70 % |
+
+**Hinweis:** Phytoseiulus persimilis benötigt eine relative Luftfeuchte über 70 % und ist daher unter den für Mammillaria typischen trockenen Bedingungen nur eingeschränkt brauchbar — bei niedriger rF auf Neoseiulus/Amblyseius-Arten oder mechanische Bekämpfung ausweichen. Cryptolaemus montrouzieri ist gegen Schmierläuse die robustere Wahl für Sammlungen. Beide Nützlinge eignen sich primär für Gewächshaus-/Innenraum-Bestände.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -253,3 +307,14 @@ Mammillaria spp.,"Kissenkaktus;Warzenkaktus;Nippelkaktus;Pincushion Cactus;Nippl
 3. [World of Succulents — Mammillaria](https://worldofsucculents.com/grow-care-mammillaria/) — Kulturdaten
 4. [Plant Care Today — Mammillaria](https://plantcaretoday.com/mammillaria-cactus.html) — Schädlinge, Pflege
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Foliage Factory — CAM Photosynthesis](https://www.foliage-factory.com/post/nighttime-photosynthesis-how-cam-plants-thrive-on-scarcity) — CAM-Stoffwechsel, nächtliche Stomata-Öffnung (Photosynthese-Typ)
+7. [Cervera et al. 2007, Biotropica — Photosynthesis and Optimal Light Microhabitats for Mammillaria gaumeri](https://onlinelibrary.wiley.com/doi/10.1111/j.1744-7429.2007.00311.x) — obligater CAM, optimale Lichtmikrohabitate (60–80 % bzw. 20 % Umgebungs-PPFD), Lichtbedarf
+8. [Garcia-Moya & Nobel u.a., PMC — PAR, nächtliche Säureakkumulation und CO₂-Aufnahme bei Opuntia ficus-indica (CAM)](https://pmc.ncbi.nlm.nih.gov/articles/PMC1065988/) — Lichtsättigung der CAM-CO₂-Fixierung bei ≈ 20–22 mol/m²/Tag PAR
+9. [Nobel — Shifts in the optimal temperature for nocturnal CO₂ uptake (Cacti/Agaves)](https://www.researchgate.net/publication/230020026_Shifts_in_the_optimal_temperature_for_nocturnal_CO2_uptake_caused_by_changes_in_growth_temperature_for_cacti_and_agaves) — T_opt nächtliche CO₂-Aufnahme 11–23 °C (wachstumstemperaturabhängig); Ferocactus ≈ 12,6 °C (Photosynthese-T_opt)
+10. [SuccipulentCareHub — How Deep Do Cactus Roots Go](https://succulentcarehub.com/how-deep-do-cactus-roots-go/) — flaches, faseriges Wurzelsystem (oberste ~5–10 cm); effektive Wurzeltiefe
+11. [PlanetDesert — Cactus Soil Guide](https://planetdesert.com/blogs/news/cactus-soil-guide-everything-you-need-to-know) — Boden-pH 5,5–7,0 (Zielwert ~6,0), schnelle Drainage, Staunässe-Empfindlichkeit
+12. [Schuch & Kelly — Salinity Tolerance of Cacti and Succulents](https://www.semanticscholar.org/paper/Salinity-Tolerance-of-Cacti-and-Succulents-Schuch-Kelly/ebde84504c21858024b88ba9006d7ec05ca6fa4f) — Wachstumsrückgang von Kakteen mit steigender Bewässerungs-EC (Salzempfindlichkeit, qualitativ)
+13. [Koppert — Cryptolaemus montrouzieri (Mealybug destroyer)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate gegen Schmierläuse, Etablierungsbedingungen
+14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate gegen Spinnmilben, Temperatur-/rF-Wirkbereich
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
