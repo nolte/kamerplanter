@@ -15,7 +15,7 @@ authlib==1.7.2
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via markdownify
 billiard==4.2.4
     # via celery
@@ -45,7 +45,7 @@ click-repl==0.3.0
     # via celery
 croniter==6.2.2
     # via kamerplanter-backend (pyproject.toml)
-cryptography==48.0.0
+cryptography==48.0.1
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
@@ -165,7 +165,7 @@ vine==5.1.0
     #   kombu
 watchfiles==1.2.0
     # via uvicorn
-wcwidth==0.8.0
+wcwidth==0.8.1
     # via prompt-toolkit
 weasyprint>=62.0
     # via kamerplanter-backend (pyproject.toml)
