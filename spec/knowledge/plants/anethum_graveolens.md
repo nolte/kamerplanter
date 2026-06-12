@@ -19,8 +19,19 @@
 | Ordnung | Apiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temperature, degC) | 5 (Kuehljahreszeit-Kultur; Standard-Cool-Season-Basis. Hauptwuchsphase. Die fuer die Keimung ermittelte Basistemperatur liegt mit ~2.3--2.9 degC sogar noch darunter) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Langtagspflanze -- laengere Tage foerdern Bluetenbildung/Schossen; kurze Tage verzoegern Bluete und verlaengern die vegetative Erntephase) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (typical lifespan, Jahre) | -- (einjaehrig/annual -- Feld nur fuer perennierende Arten relevant) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false (einjaehrig; ueberdauert nur als Samen, keine pflanzeneigene Ruhephase) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Bluete wird durch Langtag + Waerme + Pflanzenalter ausgeloest, kein Kaeltereiz noetig) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | -- (nicht zutreffend; keine Vernalisation erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN --> -- (Dill ist als Langtagpflanze photoperiodisch sensibel und schosst bei zunehmender Tageslaenge, ein belastbarer artspezifischer Schwellenwert in Stunden liess sich jedoch nicht aus zwei unabhaengigen Quellen bestaetigen) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 2a; 2b; 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Jungpflanzen vertragen leichte Froeste bis -3 degC. Saat ab April direkt ins Freiland moeglich. Bei starkem Frost (unter -5 degC) sterben die Pflanzen ab. Selbstaussaat moeglich -- ueberwintert als Samen im Boden. | `species.hardiness_detail` |
@@ -102,6 +113,23 @@ Hinweis: Regelmaessiges Ernten der Blattspitzen verzoegert das Schossen (Blueten
 
 **Hinweis:** Dill schosst (geht in Bluete) bei Hitze, Trockenheit und langen Tagen sehr schnell. Fuer Blatternten: Staffelsaat alle 3--4 Wochen und kuehlen, halbschattigen Standort waehlen. Fuer Samen/Doldenernten: Sonniger Standort, Schossen erwuenscht.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD umol/m2/s) | <!-- DATEN FEHLEN --> -- (kein artspezifischer LCP-Wert fuer Anethum graveolens aus zwei unabhaengigen Quellen belegbar; allgemeine C3-Spanne ~20 bei 15 degC bis >50 umol/m2/s bei 30 degC, leafy-greens-Richtwert ~17--30 -- nicht art-validiert, daher nicht ins KA-Feld uebernommen) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (6--8 h direkte Sonne taeglich optimal; toleriert partiellen Schatten, der das Schossen sogar verzoegert und die Blatterntezeit verlaengert -- Wuchs dann weniger buschig) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30--45 (Pfahlwurzel; kann tiefer reichen, lockerer Boden zwei Spatenstiche tief empfohlen) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Wurzelfaeule bei Staunaesse/schwerem Boden; benoetigt durchlaessiges Substrat) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (toleriert ~50 mM NaCl bzw. ~5 dS/m ohne nennenswerte Ertragseinbusse; Biomasse-/Ertragsrueckgang ab ~8 dS/m, deutliche Schaedigung ab ~12 dS/m -- robuster als die salzsensible Moehre derselben Familie) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe dS/m) | <!-- DATEN FEHLEN --> -- (kein publizierter Maas-Hoffman-Schwellenwert fuer Dill aus zwei uebereinstimmenden Quellen; Studienwerte beziehen sich auf NaCl-Loesungs-EC, nicht auf Substrat-ECe) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> -- (kein konsistenter Slope-Wert belegbar) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 5.5--6.7 (leicht sauer bis neutral; deckt sich mit dem in 1.6/2.3 genannten Bereich 5.5--6.5) | `species.soil_ph_preference` |
+
+Hinweis: Dill bildet eine empfindliche Pfahlwurzel (taproot) mit effektiver Durchwurzelung von ~30--45 cm. Staunaesse ist der haeufigste Kulturfehler und beguenstigt Wurzelfaeule -- durchlaessiges, leicht sandiges Substrat verwenden. Die Salztoleranz liegt zwischen der salzsensiblen Moehre und maessig toleranten Kulturen; ein praezise quantifizierter Maas-Hoffman-Schwellenwert (Substrat-ECe) fehlt fuer die Art. Halbschatten verlaengert die Blatterntephase, weil er das hitze-/lichtgetriebene Schossen verzoegert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +160,12 @@ Hinweis: Die vegetative Phase ist die produktivste fuer Blatternten (Dillkraut).
 | Luftfeuchtigkeit Tag (%) | 70--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (Obergrenze; in der feuchteliebenden Keimphase niedriger angesetzt) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter artspezifischer Zielwert; offenes Tageslicht ~0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +182,12 @@ Hinweis: Die vegetative Phase ist die produktivste fuer Blatternten (Dillkraut).
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (Obergrenze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +204,12 @@ Hinweis: Die vegetative Phase ist die produktivste fuer Blatternten (Dillkraut).
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (Obergrenze; darueber stomataerer Schluss/Transpirationsstress) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--25 (assimilatorisches Optimum bei ~25/15 degC Tag/Nacht belegt) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 (maessig feucht, keine Staunaesse) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +228,12 @@ Hinweis: Dill vertraegt Halbschatten -- halbschattige Standorte verzoegern sogar
 | Luftfeuchtigkeit Tag (%) | 45--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Obergrenze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (reduziert) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--60 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -208,13 +260,15 @@ Hinweis: Samen von trockenen Dolden sammeln, Pflanze danach entfernen. Dill saeh
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 5.5--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.3--0.6 | 5.8--6.5 | 50 | 25 | 15 | 2 |
-| Vegetativ | 2-1-2 | 0.6--1.0 | 5.8--6.5 | 80 | 35 | 25 | 2 |
-| Bluete | 1-1-2 | 0.6--0.8 | 5.8--6.5 | 60 | 30 | 20 | 2 |
-| Seneszenz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt; Vollnaehrloesungs-Standardwerte nach Hoagland/Hydroponik-Praxis, nicht art-spezifisch) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 5.5--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.3--0.6 | 5.8--6.5 | 50 | 25 | 15 | 2 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Vegetativ | 2-1-2 | 0.6--1.0 | 5.8--6.5 | 80 | 35 | 25 | 2 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Bluete | 1-1-2 | 0.6--0.8 | 5.8--6.5 | 60 | 30 | 20 | 2 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Seneszenz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Dill ist ein Schwachzehrer -- wenig Duenger genuegt. Ueberduengung (besonders Stickstoff) verursacht weiches, geschmacksloses Kraut mit reduziertem Aromaoel-Gehalt. EC ueber 1.2 mS vermeiden.
 
@@ -461,3 +515,21 @@ Bouquet,Anethum graveolens,,,compact;early_maturing,45,,open_pollinated
 8. Gardening Know How -- Dill Plant Diseases: https://www.gardeningknowhow.com/edible/herbs/dill/dill-plant-diseases.htm
 9. Green Garden Guide -- Top Companion Plants for Dill: https://greengardenguide.com/top-companion-plants-for-dill-boosting-growth-and-flavor/
 10. La Ferme de Sainte Marthe -- Growing Dill: https://www.fermedesaintemarthe.com/en/blogs/comment-reussir-la-culture-de/reussir-la-culture-de-laneth
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. Wikipedia -- Apiaceae (Familienuebersicht; umfasst Moehre/Sellerie/Dill -- C3-Doldenblutler): https://en.wikipedia.org/wiki/Apiaceae -- Familienzuordnung Anethum graveolens
+12. Plant Physiology / Oxford Academic -- Photosynthesis of Carrot (Daucus carota) Tissue Cultures: https://academic.oup.com/plphys/article/51/4/685/6072804 -- belegt C3-Photosynthese-Typ der Apiaceae am Beispiel Moehre (peer-reviewed)
+13. Springer / Photosynthetica -- Ecophysiological characteristics of carrot cultivars (Daucus carota, Apiaceae) in response to N: https://link.springer.com/article/10.1007/s11099-012-0034-6 -- C3-Gaswechsel/Netto-Photosynthese der Apiaceae
+14. ijfcs.ut.ac.ir -- Quantifying germination response in dill (Anethum graveolens) to temperature by hydrothermal time model: https://ijfcs.ut.ac.ir/article_71463.html?lang=en -- Basistemperatur der Keimung ~2.3--2.9 degC, Optimum ~26 degC
+15. Wikipedia -- Growing degree-day (Basistemperatur 5 degC fuer Kuehljahreszeit-Kulturen): https://en.wikipedia.org/wiki/Growing_degree-day -- GDD-Basis Cool-Season-Crop = 5 degC
+16. PLOS One / PMC -- Modeling growth and development of hydroponically grown dill, parsley, watercress vs. DLI and mean daily temperature: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7993832/ -- Wachstum/Photosynthese-Optimum (~25/15 degC), Temperaturspanne 10--27 degC, DLI
+17. UMN Extension -- Growing dill in home gardens: https://extension.umn.edu/vegetables/growing-dill -- Boden-pH 5.5--6.7, Vollsonne, Drainage
+18. UF/IFAS Extension Pasco County -- Beginners Guide to Growing Dill: https://blogs.ifas.ufl.edu/pascoco/2024/04/09/spice-up-your-life-a-beginners-guide-to-growing-dill/ -- pH-Vorzug, Standort
+19. Wisconsin Horticulture Extension -- Dill, Anethum graveolens: https://hort.extension.wisc.edu/articles/dill-anethum-graveolens/ -- Vollsonne/Halbschatten, Photoperiode/Schossen, Standort
+20. PictureThis -- Sunlight requirements Anethum graveolens: https://www.picturethisai.com/care/sunlight/Anethum_graveolens.html -- Sonnen-/Halbschattentoleranz (6--8 h direkte Sonne, toleriert Lichtschatten)
+21. ResearchGate -- Effect of water deficiency and salinity on growth and quality of fresh dill: https://www.researchgate.net/publication/313364470 -- Salztoleranz, Empfindlichkeit gegenueber Trockenheit
+22. ScienceDirect -- Seed pretreatment and salt tolerance of dill (osmolyte, antioxidant, essence): https://www.sciencedirect.com/science/article/abs/pii/S187881811730381X -- Salztoleranz ~50 mM NaCl, K+-Erhalt bis 8 dS/m, Rueckgang ab >8--12 dS/m
+23. Mediamatic -- Understanding salinity units and conversions (10 mM NaCl ~ 1 dS/m): https://www.mediamatic.net/en/page/390290/understanding-salinity-units-and-conversions -- Umrechnung NaCl-Molaritaet zu EC (50 mM ~ 5 dS/m)
+24. Mattmagnusson -- Growing dill: complete guide (Pfahlwurzel, Wurzeltiefe 30--46 cm): https://mattmagnusson.com/growing-dill/ -- effektive Wurzeltiefe, Direktsaat wegen Pfahlwurzel
+25. Healthy Houseplants -- Dill (Anethum graveolens) Growing Guide: https://www.healthyhouseplants.com/indoor-houseplants/dill-anethum-graveolens-growing-guide-care-tips-and-uses/ -- Keimtemperatur/-dauer, Standortbedingungen, Staunaesse-Empfindlichkeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

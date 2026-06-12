@@ -20,7 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Französischer Estragon: winterhart bis -11°C; in Norddeutschland Frostschutz nötig; Russischer Estragon (var. inodorus): robuster bis -25°C, aber schlechteres Aroma | `species.hardiness_detail` |
@@ -28,6 +30,15 @@
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: keine artspezifisch publizierte GDD-Basis aus zwei seriösen Quellen belegbar --> | `species.base_temp` |
+| Lebensdauer (Jahre, perennial) | 3–5 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (keine Blüh-Vernalisation belegt) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral; kein echter Kurz-/Langtagblüher) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **WICHTIG:** Es gibt zwei Varietäten mit SEHR unterschiedlicher Qualität:
 - **Artemisia dracunculus var. sativus** (Französischer Estragon): Intensiv aromatisch (Anis, Fenchel); STERIL (keine Samen); nur durch Stecklinge/Teilung vermehrbar
@@ -94,6 +105,24 @@ Beim Kauf unbedingt Sorte beachten — Stecklinge/Topfpflanzen sind meist Franz�
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige Kräutererde mit Sandanteil; pH 6,0–7,5; sehr gute Drainage; keine Nässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Kompensationspunkt aus zwei seriösen Quellen belegbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Kompensationspunkt aus zwei seriösen Quellen belegbar --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: Quellen nennen nur "flachwurzelnd/shallow", keine belegte cm-Spanne --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein Maas-Hoffman-a-Schwellenwert (Substrat-ECe) aus zwei seriösen Quellen belegbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-b-Wert aus zwei seriösen Quellen belegbar --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Estragon ist eine ausgesprochene Sonnenpflanze (full sun), verträgt in heißen Sommerlagen leichten Nachmittagsschatten. Flachwurzelnd (shallow-rooted) auf rhizombasierten, kriechenden Ausläufern; gegenüber Staunässe (waterlogging) ausgeprägt empfindlich (Wurzel-/Kronenfäule). NaCl-Salzstress reduziert Höhe, Trockenmasse, relativen Wassergehalt und Chlorophyll bereits bei moderaten Konzentrationen — Einstufung als mäßig salzempfindlich (moderately sensitive). Boden-pH-Vorzug neutral bis leicht alkalisch; harmoniert mit den pH-Angaben in §1.6/§2.3 (6,0–7,5), der hier ergänzte engere Vorzugskorridor 6,5–7,5 ist quellentreu (RHS/PFAF/Old Farmer's Almanac).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -122,17 +151,28 @@ Beim Kauf unbedingt Sorte beachten — Stecklinge/Topfpflanzen sind meist Franz�
 | Luftfeuchtigkeit Tag (%) | 40–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.20 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 1:0:1 | 0.4–0.8 | 6.0–7.5 | 60 | 30 | — | 2 |
-| Vegetativ / Ernte | 1:0:1 | 0.4–0.8 | 6.0–7.5 | 60 | 30 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Mikronährstoff-Spalten Mn/Zn/Cu/Mo ergänzt) -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | 1:0:1 | 0.4–0.8 | 6.0–7.5 | 60 | 30 | — | 2 | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN |
+| Vegetativ / Ernte | 1:0:1 | 0.4–0.8 | 6.0–7.5 | 60 | 30 | — | 2 | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+
+> **Mikronährstoff-Hinweis:** Für Estragon (Schwachzehrer, light feeder) sind keine artspezifischen Sollkonzentrationen für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) aus zwei unabhängigen seriösen Quellen belegbar; daher als `DATEN FEHLEN` markiert. KA-Felder: `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- DATEN FEHLEN -->
 
 ---
 
@@ -219,6 +259,16 @@ Estragon ist ein ausgeprägt schwacher Zehrer — zu viel Dünger führt zu krä
 | Gute Drainage | cultural | — | Substrat verbessern; kein Staunässe | 0 | Wurzelfäule |
 | Neemöl | biological | Azadirachtin | 0.5% sprühen; nicht auf Ernteblätter | 3 | Spinnmilben, Blattläuse |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 10–30 Stück/m² (Hotspot; bei Erstbefall, 1–2× wöchentlich wiederholen) | ca. 2–4 Wochen bis zur Bestandskontrolle |
+
+**Hinweis:** *Phytoseiulus persimilis* ist ein spezialisierter Räuber der Gemeinen Spinnmilbe (two-spotted spider mite) und für Estragon bei Hitze-/Trockenheitsbefall (vegetative Phase) geeignet. Früh beim ersten Befallszeichen ausbringen (vor >4 Milben/Blatt) und frühestens 4 Wochen nach einem Breitband-Insektizid einsetzen. Koppert nennt 2–50 Stück/m² je Befallsdichte; Cornell/ARBICO ~10–32 Stück/m² (1–3+/sq ft) — die hier gewählte Spanne 10–30/m² liegt im belegten Konsens. Da *P. persimilis* sich rasch vermehrt und die Beute aufzehrt, sind Wiederholungseinführungen üblich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -254,7 +304,7 @@ Estragon ist ein ausgeprägt schwacher Zehrer — zu viel Dünger führt zu krä
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,harvest_months
-Artemisia dracunculus,"Estragon;Bertram;Tarragon",Asteraceae,Artemisia,perennial,long_day,herb,rhizomatous,"5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Zentralasien, Sibirien",yes,8,20,100,50,45,limited,yes,false,false,light_feeder,false,half_hardy,"5;6;7;8;9"
+Artemisia dracunculus,"Estragon;Bertram;Tarragon",Asteraceae,Artemisia,perennial,day_neutral,herb,rhizomatous,"5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Zentralasien, Sibirien",yes,8,20,100,50,45,limited,yes,false,false,light_feeder,false,half_hardy,"5;6;7;8;9"
 ```
 
 ---
@@ -266,3 +316,15 @@ Artemisia dracunculus,"Estragon;Bertram;Tarragon",Asteraceae,Artemisia,perennial
 3. [Gartenrat — Estragon](https://gartenrat.de/estragon/) — Anbau, Ernte
 4. [Hausgarten — Estragon](https://www.hausgarten.net/kraeuter-und-gewuerze/kraeuter-gartenkraeuter/estragon-anbau-ernte-verwendung.html) — Kulturdaten
 5. [Kiepenkerl — Estragon Kulturanleitung](https://www.kiepenkerl.de/kulturanleitungen/estragon/) — Aussaatdaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Artemisia dracunculus (tarragon)](https://www.rhs.org.uk/plants/1632/artemisia-dracunculus/details) — Standort (full sun), gut durchlässiger Boden, pH-Vorzug
+7. [PFAF — Artemisia dracunculus](https://pfaf.org/user/Plant.aspx?LatinName=Artemisia+dracunculus) — pH 6,5–7,8, Lichtansprüche, Trockenheitstoleranz, Lebensdauer
+8. [USU Extension — French Tarragon in the Garden](https://extension.usu.edu/yardandgarden/research/french-tarragon-in-the-garden) — flachwurzelnd (shallow roots), Wurzel-/Kronenfäule bei Nässe
+9. [The Old Farmer's Almanac — Tarragon](https://www.almanac.com/plant/tarragon) — pH 6,5–7,5, Standort, Pflege
+10. [Fine Gardening — French Tarragon](https://www.finegardening.com/article/french-tarragon) — Kältebedarf/Dormanz (~2 Monate) zur Erhaltung der Produktivität
+11. [ForwardPlant — Overwinter Artemisia dracunculus](https://www.forwardplant.com/care/overwinter/artemisia-dracunculus/) — Winterdormanz, Rückzug ins Rhizom
+12. [ScienceDirect — Interaction of NaCl salinity and light intensity in Artemisia dracunculus L.](https://www.sciencedirect.com/science/article/abs/pii/S0305197823000443) — Salzempfindlichkeit (Höhe, Trockenmasse, Chlorophyll sinken unter NaCl)
+13. [Zhen & Bugbee, ASHS JASHS 146(1) — Far-red Fraction Metric](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) — FR700-750/R600-700 ≈ 0,2 für direktes Sonnenlicht (offenes Tageslicht ≈ 0,5)
+14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate 2–50/m², Spinnmilben-Spezialist
+15. [Cornell NYSIPM / ARBICO — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate ~10–32/m² (1–3+/sq ft), Anwendungsstrategie
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

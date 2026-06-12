@@ -18,6 +18,10 @@
 | Gattung | Chlorophytum | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | tuberous | `species.root_type` |
 | Wurzelanpassungen | tuberous | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -33,6 +37,10 @@
 | Naehrstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | ornamental | `species.traits` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Photosynthese & GDD):** Chlorophytum comosum ist eine C3-Pflanze (kein CAM/C4) -- als krautige Schattenpflanze des Guineo-Kongolesischen Regenwald-Unterwuchses betreibt sie regulaeren C3-Stoffwechsel. Die GDD-Basistemperatur (base temp) von ca. 10 C entspricht der Konvention fuer waermeliebende Arten und ist mit der dokumentierten Wachstumsschwelle konsistent: unterhalb von etwa 10 C tritt Wachstumsstillstand ein (siehe `species.hardiness_detail`), optimales Wachstum bei 18-32 C. Eine echte Keim-/GDD-Akkumulationsmodellierung ist fuer diese vegetativ (ueber Kindel) vermehrte Zierpflanze unueblich; der Wert dient der Phasenlogik. Bluehverhalten tagneutral (`day_neutral`) -- die Kurztagsreaktion betrifft nur die Stolonen-/Kindelbildung (siehe Abschnitt 1.3), nicht die Bluete, daher KEINE kritische Tageslaenge (`critical_day_length_hours`) gesetzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -106,6 +114,32 @@
 
 **Hinweis:** Die Gruenlilie ist eine der anspruchslosesten Zimmerpflanzen und ideal fuer Anfaenger. Sie bildet fleischige Speicherwurzeln (Rhizome), die Wasser einlagern -- daher kurze Trockenperioden kein Problem. Ampeltoepfe oder erhoehte Standorte nutzen, damit die dekorativen Auslaeufer frei haengen koennen. Vorsicht: Die kraeftigen Wurzeln koennen Plastiktoepfe sprengen -- rechtzeitig umtopfen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.8 Umgebungs-Physiologie & Standortqualitaet
+
+> Hinweis zur Nummerierung: Der Steckbrief verwendet "1.7" bereits fuer "Anbaubedingungen"; diese ergaenzte Physiologie-Sektion wird daher als 1.8 direkt vor Abschnitt 2 gefuehrt.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10-20 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min-max) | 6.0-7.0 | `species.soil_ph_preference` |
+
+**Hinweis (Standortqualitaet):**
+- **Lichtkompensationspunkt (light compensation point):** Als ausgepraegte Schattenpflanze (Unterwuchs des Guineo-Kongolesischen Regenwaldes) liegt der Kompensationspunkt (Netto-Photosynthese = 0) im fuer Schattenarten typischen niedrigen Bereich von ca. 10-25 PPFD. Dieser Wert beschreibt NUR den Kompensationspunkt -- NICHT die Lichtsaettigung. Die im Steckbrief genannten PPFD-Zielwerte (75-400 je Phase, Optimum heller indirekter Bereich 150-300) liegen deutlich darueber; Photoinhibition/Blattverbrennung durch direkte Mittagssonne (siehe Abschnitt 4.4).
+- **Schattentoleranz:** Vertraegt bis tiefen Schatten (NC State: "deep shade ... intolerant of direct sunlight"; Missouri Botanical Garden: "part shade to full shade"), bevorzugt aber mittleres bis helles indirektes Licht; in zu tiefem Schatten verblasst die Panaschierung und das Wachstum verlangsamt sich. Enum `shade` gewaehlt (nicht `full_sun`, nicht `deep_shade`-Praeferenz, da Optimum heller).
+- **Wurzeltiefe:** Fleischige, tuberoese Speicherwurzeln von je ca. 5-10 cm Laenge (Wikipedia/RHS); effektive Durchwurzelung im Topf typisch 10-20 cm. Flachwurzler -- bevorzugt eher breite als tiefe Gefaesse.
+- **Staunaesse (waterlogging):** Empfindlich (`sensitive`) -- benoetigt durchlaessiges Substrat; Staunaesse fuehrt zu Wurzelfaeule (Missouri Botanical Garden, Wisconsin Extension).
+- **Salztoleranz:** Empfindlich (`sensitive`) -- Salz- und Fluorid-/Chlorid-Akkumulation verursacht die charakteristischen braunen Blattspitzen (Wisconsin/Clemson Extension). Quantitative Maas-Hoffman-Schwellen (ECe-Schwelle, Slope) sind fuer diese Zierpflanze nicht publiziert und wurden daher als DATEN FEHLEN markiert (qualitativ klar in der Klasse `sensitive`).
+- **Boden-pH:** Konsens leicht sauer bis neutral 6.0-7.0 (Missouri Botanical Garden, breitere Toleranz NC State bis 8.0); harmonisiert mit dem im Steckbrief durchgaengig genutzten Fertigations-Optimum von pH 6.0-6.5 (Abschnitte 2.3 und 3), das die ideale Untermenge dieser Spanne darstellt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -138,6 +172,12 @@ Chlorophytum comosum ist eine perenniale Zimmerpflanze ohne Ernte-Ziel. Die Phas
 | Luftfeuchtigkeit Tag (%) | 50-70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50-70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6-0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | Substrat gleichmaessig feucht halten, nicht nass | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30-80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -155,6 +195,12 @@ Chlorophytum comosum ist eine perenniale Zimmerpflanze ohne Ernte-Ziel. Die Phas
 | Luftfeuchtigkeit Tag (%) | 40-60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40-60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50-150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -172,6 +218,12 @@ Chlorophytum comosum ist eine perenniale Zimmerpflanze ohne Ernte-Ziel. Die Phas
 | Luftfeuchtigkeit Tag (%) | 40-60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40-60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 24-27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 5-7 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100-300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -189,18 +241,32 @@ Chlorophytum comosum ist eine perenniale Zimmerpflanze ohne Ernte-Ziel. Die Phas
 | Luftfeuchtigkeit Tag (%) | 40-50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40-55 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 18-22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 10-14 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 80-200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (VPD-Schwelle, T_opt & Far-Red):** Die `vpd_threshold_kpa` markiert den kritischen Punkt des stomataeren Kollapses und liegt bewusst deutlich oberhalb der jeweiligen `vpd_target`-Oberkante (ca. +0.3 bis +0.5 kPa): feuchteliebende Fruehphasen (Bewurzelung 1.1) niedriger, etablierte Phasen hoeher (Aktives Wachstum 1.6). Die VPD-Sensitivitaet ist `medium` -- die Gruenlilie ist eine mesophytische C3-Schattenpflanze (KEIN CAM/Sukkulent, daher nicht `low`), puffert kurze Trockenstress-Phasen aber ueber ihre Speicherwurzeln. `photosynthesis_temp_opt_c` orientiert sich am dokumentierten Optimalbereich 18-32 C (Wikipedia) mit Tages-Sweetspot 24-27 C (Picture This/Care-Quellen), in der kuehleren Ruheperiode abgesenkt. `far_red_fraction` 0.5 entspricht offenem Tageslicht/hellem indirektem Licht (FR/(R+FR); NICHT mit dem R:FR-Verhaeltnis verwechseln).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|-----------------|---------|-----|----------|----------|---------|----------|
-| Bewurzelung | 0:0:0 | 0.0 | 6.0-6.5 | -- | -- | -- | -- |
-| Juvenil | 1:1:1 | 0.3-0.6 | 6.0-6.5 | 30 | 15 | -- | 1 |
-| Aktives Wachstum | 3:1:2 | 0.6-1.0 | 6.0-6.5 | 60 | 30 | -- | 1.5 |
-| Ruheperiode | 0:0:0 | 0.0 | 6.0-6.5 | -- | -- | -- | -- |
+| Phase | NPK-Verhaeltnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|-----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Bewurzelung | 0:0:0 | 0.0 | 6.0-6.5 | -- | -- | -- | -- | -- | -- | -- | -- |<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Juvenil | 1:1:1 | 0.3-0.6 | 6.0-6.5 | 30 | 15 | -- | 1 | 0.25 | 0.1 | 0.03 | 0.02 |
+| Aktives Wachstum | 3:1:2 | 0.6-1.0 | 6.0-6.5 | 60 | 30 | -- | 1.5 | 0.5 | 0.2 | 0.05 | 0.03 |<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Ruheperiode | 0:0:0 | 0.0 | 6.0-6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronaehrstoffe):** Da fuer Chlorophytum comosum als Schwachzehrer (`light_feeder`) keine artspezifischen Mikronaehrstoff-Zielwerte fuer Mn/Zn/Cu/Mo publiziert sind, wurden hier konservative, ausgewogene Richtwerte aus dem ueblichen Spektrum vollstaendiger Zimmerpflanzen-Komplettduenger (an Hoagland-Spurennaehrstoffniveaus angelehnt) angesetzt -- in der Halb-/Vierteldosis, die fuer diese Art generell gilt (siehe Abschnitt 3.4). Werte als Orientierung fuer die Naehrloesungsbilanzierung, nicht als gemessene Bedarfsschwellen zu verstehen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -292,7 +358,22 @@ Bei Zimmerpflanzen-Fluessigduengern ist die Mischungsreihenfolge weniger kritisc
 
 ### 4.3 Ueberwinterung
 
-Entfaellt -- reine Zimmerpflanze, ganzjaehrig Indoor bei Raumtemperatur. Im Winter lediglich Giessen reduzieren und Duengung einstellen. Pflanzen, die im Sommer auf Balkon oder Terrasse standen, vor dem ersten Frost (spaetestens bei 10 C Nachttemperatur) nach drinnen holen.
+Entfaellt als Freiland-Ueberwinterung -- reine Zimmerpflanze, ganzjaehrig Indoor bei Raumtemperatur. Im Winter lediglich Giessen reduzieren und Duengung einstellen. Pflanzen, die im Sommer auf Balkon oder Terrasse standen, vor dem ersten Frost (spaetestens bei 10 C Nachttemperatur) nach drinnen holen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 9-10 (vor erstem Frost, spaetestens bei 10 C Nachttemperatur) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 5-6 (nach den Eisheiligen, schrittweise abhaerten) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (C) | 10-18 (Minimum 7, optimal nicht unter 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; Nordfenster genuegt bei reduziertem Wachstum | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | reduziert, Giessintervall 10-14 Tage, Substrat zwischendurch antrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** `hardiness_rating: frost_free` -- die Gruenlilie ist nicht winterhart (USDA 9b-11), aber als Kuebel-/Zimmerpflanze problemlos frostfrei drinnen ueberwinterbar (kein Ausgraben/Einlagern noetig, daher nicht `dig_and_store`). Wikipedia nennt eine kurzfristige Toleranz bis 2 C, jedoch mit Schaeden -- als Mindesttemperatur fuer schadfreie Ueberwinterung gelten 7 C, optimal >10 C.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 4.4 Standort-Empfehlungen
 
@@ -388,8 +469,8 @@ Entfaellt (reine Zimmerpflanze). Fruchtfolge und Mischkultur sind Konzepte des F
 ### 8.1 Species CSV-Zeile
 
 ```csv
-scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score
-Chlorophytum comosum,Gruenlilie;Spider Plant;Airplane Plant;Ribbon Plant,Asparagaceae,Chlorophytum,perennial,day_neutral,herb,tuberous,9b;10a;10b;11a;11b,0.0,Tropisches und suedliches Afrika,sensitive,light_feeder,false,ornamental,0.8
+scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score,photosynthesis_type,base_temp,shade_tolerance,waterlogging_tolerance,salt_tolerance_class,soil_ph_preference,effective_root_depth_cm,light_compensation_point_ppfd_min,light_compensation_point_ppfd_max
+Chlorophytum comosum,Gruenlilie;Spider Plant;Airplane Plant;Ribbon Plant,Asparagaceae,Chlorophytum,perennial,day_neutral,herb,tuberous,9b;10a;10b;11a;11b,0.0,Tropisches und suedliches Afrika,sensitive,light_feeder,false,ornamental,0.8,c3,10,shade,sensitive,sensitive,6.0-7.0,10-20,10,25
 ```
 
 ### 8.2 BotanicalFamily CSV-Zeile (falls noch nicht vorhanden)
@@ -425,3 +506,11 @@ Hawaiian,Chlorophytum comosum,--,--,variegated;champagne_tint,clone
 8. Royal Horticultural Society -- Award of Garden Merit: https://www.rhs.org.uk/
 9. COMPO Gruenpflanzen- und Palmenduenger: https://www.compo.de/
 10. USDA Plants Database -- Chlorophytum comosum: https://plants.usda.gov/plant-profile/CHCO28
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. Wikipedia -- Chlorophytum comosum (Roots, native understory habitat, growth temperature 18-32 C, tolerance to 2 C): https://en.wikipedia.org/wiki/Chlorophytum_comosum
+12. Missouri Botanical Garden Plant Finder -- Chlorophytum comosum (Part shade to full shade, well-drained soil, waterlogging/root rot, medium water, fleshy tuberous roots): https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b547
+13. NC State Extension Gardener Plant Toolbox -- Chlorophytum comosum (Soil pH neutral 6.0-8.0, deep-shade tolerance, intolerant of direct sun): https://plants.ces.ncsu.edu/plants/chlorophytum-comosum/
+14. Wisconsin Horticulture Extension -- Spider plant (Soluble-salt/fluoride sensitivity, brown leaf tips, fleshy water-storing roots/rhizomes): https://hort.extension.wisc.edu/articles/spider-plant-chlorophytum-comosum/
+15. Clemson HGIC -- Spider Plant (Salt/fluoride sensitivity, brown leaf tips): https://hgic.clemson.edu/factsheet/spider-plant/
+16. PictureThis Plant Care -- Optimal Temperature for Chlorophytum comosum (Day 24-27 C, range 13-27 C): https://www.picturethisai.com/care/temperature/Chlorophytum_comosum.html
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

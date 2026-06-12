@@ -21,6 +21,15 @@
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (kardinale Wachstumstemperatur; Austrieb ab Bodentemperatur ~10 °C) | `species.base_temp` |
+| Lebensdauer (Jahre, typical lifespan) | 15–25 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterruhe nötig für Vitalität & Ertrag) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (chilling/endodormancy break) | true (Kältebruch der Endodormanz, KEINE florale Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (chilling, min days) | 30–45 (≈ 2 °C/30 d oder 5 °C/45 d) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral; keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Rhizome winterhart bis −25 °C; in Norddeutschland problemlos; junge Triebe frostempfindlich | `species.hardiness_detail` |
@@ -82,6 +91,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung | Sandiger, tiefgründiger, gut drainierter Boden; pH 6,5–7,5; tiefe Rigole | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 (C3-Sonnenpflanze; bei 15 °C) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 50 (steigt mit Temperatur, ~30 °C) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (6–8 h direkte Sonne erforderlich) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 120–180 (FAO-56 Zr; sehr tiefwurzelnd, Einzelwurzeln deutlich tiefer) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Fusarium-/Wurzelfäule-Risiko bei Nässe) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 4.1 (Maas-Hoffman a; bezogen auf Substrat-ECe, NICHT Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 2.0 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.5 | `species.soil_ph_preference` |
+
+> Hinweis: Der ECe-Schwellenwert ist die Substrat-Bodensättigungsextrakt-Leitfähigkeit (saturated paste extract), nicht die Gießwasser-EC. Asparagus zählt zu den salztolerantesten Gemüsekulturen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +136,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (stomatärer Kollaps; oberhalb Zielkorridor) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (C3-Kultur) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (Netto-Assimilation max. nahe 20 °C, sinkt ab ~30 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Freiland-Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -120,6 +153,18 @@
 | Dormanz | 0:0:0 | 0.0 | — | — | — | — | — |
 | Austrieb | 2:1:2 | 1.0–1.5 | 6.5–7.5 | 100 | 50 | — | 2 |
 | Farnwedel | 3:1:2 | 1.5–2.0 | 6.5–7.5 | 120 | 60 | — | 3 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo) je Phase:**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Austrieb | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Farnwedel | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+> Für *Asparagus officinalis* ließen sich keine kulturspezifischen Mn/Zn/Cu/Mo-Sollwerte (ppm) aus mind. 2 unabhängigen seriösen Quellen belegen. Felder bleiben offen, statt Allgemeinwerte zu übernehmen. KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -217,6 +262,18 @@ Spargel ist Starkzehrer mit langer Standzeit — Boden großzügig vorbereiten (
 | Drainage | cultural | — | Staunässe vermeiden | 0 | Fusarium |
 | Fruchtfolge | cultural | — | 10–15 Jahre kein Spargel nach Spargel! | 0 | Fusarium, Bodenmüdigkeit |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Spargelkäfer-Erzwespe (egg parasitoid) | Tetrastichus asparagi | Spargelkäfer (Crioceris asparagi), Ei-/Larvenstadium | Förderung durch Doldenblütler-Nektarquellen; kein Insektizid (natürlich vorkommend) | 2–3 Generationen/Saison |
+| Marienkäfer-Larven (lady beetle larvae) | Coccinellidae spp. | Spargelkäfer-Eier/-Larven | natürliche Ansiedlung; Blühstreifen fördern | saisonal |
+| Insektenpathogene Nematoden (entomopathogenic nematodes) | Steinernema carpocapsae | Spargelkäfer-Larven (Bodenstadium) | ~0,5 Mio./m² (Herstellerangabe) | 1–2 Wochen, Boden feucht & >12 °C |
+
+> Hinweis: *Tetrastichus asparagi* vernichtet in Feldstudien bis zu 75 % der Spargelkäfer-Eier. Insektizide reduzieren — Nektarpflanzen (Doldenblütler) in Beetnähe begünstigen die Erzwespe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -244,8 +301,8 @@ Spargel ist Starkzehrer mit langer Standzeit — Boden großzügig vorbereiten (
 ### 7.1 Species CSV-Zeile
 
 ```csv
-scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months
-Asparagus officinalis,"Spargel;Gemüsespargel;Asparagus;Garden Asparagus",Asparagaceae,Asparagus,perennial,day_neutral,herb,rhizomatous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Europa, Nordafrika, Westasien",no,60,150,80,35,no,no,false,false,heavy_feeder,hardy,"4;5;6"
+scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,photosynthesis_type,base_temp,shade_tolerance,waterlogging_tolerance,salt_tolerance_class,salt_tolerance_ece_threshold_ds_m,salt_tolerance_slope_pct,soil_ph_preference,effective_root_depth_cm,light_compensation_point_ppfd_min,light_compensation_point_ppfd_max
+Asparagus officinalis,"Spargel;Gemüsespargel;Asparagus;Garden Asparagus",Asparagaceae,Asparagus,perennial,day_neutral,herb,rhizomatous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Europa, Nordafrika, Westasien",no,60,150,80,35,no,no,false,false,heavy_feeder,hardy,"4;5;6",c3,10,full_sun,sensitive,tolerant,4.1,2.0,"6.5-7.5","120-180",20,50
 ```
 
 ---
@@ -256,3 +313,16 @@ Asparagus officinalis,"Spargel;Gemüsespargel;Asparagus;Garden Asparagus",Aspara
 2. [NaturaDB Asparagus officinalis](https://www.naturadb.de/pflanzen/asparagus-officinalis/) — Stammdaten
 3. [Pflanzen-für-dich.de Asparagus officinalis](https://pflanzen-fuer-dich.de/Asparagus-officinalis) — Pflegehinweise
 4. [Selbstversorger.de Spargel anbauen](https://www.selbstversorger.de/spargel-anbauen/) — Praxis-Tipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO — Annex 1: Crop salt tolerance data (Y4263E)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz ECe-Schwelle 4.1 dS/m, Slope 2.0 %/dS/m, Rating T (Francois 1987)
+6. [Salinity Effects on Asparagus Yield and Vegetative Growth (ResearchGate)](https://www.researchgate.net/publication/362496569_Salinity_Effects_on_Asparagus_Yield_and_Vegetative_Growth) — Ertragsreduktion 2 %/dS/m oberhalb 4,1 dS·m⁻¹ (Salztoleranz)
+7. [FAO Irrigation & Drainage Paper 56, Chapter 8, Table 22 (x0490e)](https://www.fao.org/4/x0490e/x0490e0e.htm) — Maximale effektive Wurzeltiefe Asparagus Zr 1,2–1,8 m
+8. [MSU Extension — Predicting asparagus emergence](https://www.canr.msu.edu/news/predicting-asparagus-emergence) — Temperaturgesteuerter Austrieb, kardinale Wachstumstemperatur, Bodentemperatur-Modell
+9. [ISHS — A model of asparagus growth physiology](https://ishs.org/ishs-article/589_40/) — C3-Photosynthese, kardinale Wachstumstemperatur 10 °C, T_opt ~20 °C
+10. [University of Connecticut Home Garden — Asparagus officinalis](https://homegarden.cahnr.uconn.edu/factsheets/asparagus/) — Boden-pH 6,5–7,5, Vollsonne, Drainage
+11. [Oregon State Univ. — Asparagus (Oregon Vegetables)](https://horticulture.oregonstate.edu/oregon-vegetables/asparagus-0) — pH-Vorzug, Standort, Salztoleranz
+12. [UMD Extension — Asparagus Beetles](https://extension.umd.edu/resource/asparagus-beetles) — Nützling Tetrastichus asparagi, Marienkäfer, Nematoden
+13. [Midwest Biological Control News (UW-Madison)](http://www.entomology.wisc.edu/mbcn/veg404.html) — Tetrastichus asparagi Parasitierungsrate, biologische Bekämpfung Spargelkäfer
+14. [ScienceDirect — Compensation Point (overview)](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — C3-Lichtkompensationspunkt 20–50 µmol/m²/s, Temperaturabhängigkeit
+15. [ResearchGate — Temperature effects on dormancy, bud break and spear growth in Asparagus](https://www.researchgate.net/publication/288593161_Temperature_effects_on_dormancy_bud_break_and_spear_growth_i_Asparagus_Asparagus_officinalis_L) — Chilling-Bedarf Endodormanz (2 °C/30 d, 5 °C/45 d), Dormanz erforderlich
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

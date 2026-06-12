@@ -22,6 +22,11 @@
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 50–350+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | <!-- DATEN FEHLEN --> (CAM-plausibel: caudiciformer Sukkulent, aber für Beaucarnea/Nolinoideae nicht aus 2 unabhängigen Quellen belegt; CAM ist in Asparagaceae bislang v.a. für Agavoideae und Sansevieria/Dracaena dokumentiert) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (wärmeliebende subtropische Art ohne publizierten GDD-Basiswert) | `species.base_temp` |
+| Kritische Tageslänge (h) | — (tagneutral, kein Kurztag-/Langtagverhalten) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
@@ -92,6 +97,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kakteenerde oder Einheitserde mit 50% Perlite/Grobsand. pH 6.5–7.5. Hervorragende Drainage zwingend erforderlich. Tongefäße bevorzugt (verhindert Überwässerung). Kleiner Topf (root-bound ist gut). | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein artspezifischer Messwert in seriösen Quellen) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–40 (flachwurzelnd; Wasserspeicher im verdickten Stammsockel/Caudex, nicht in tiefen Wurzeln) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Substrat-ECe-Wert belegt; UF/IFAS gibt nur „aerosol salt tolerance: moderate" = Sprühsalz, nicht Boden-ECe) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.5–7.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Wuchs in voller Sonne bis Halbschatten (partial shade); im Freiland (USDA 10–11) bevorzugt volle Sonne, im Zimmer hell-indirekt. Extrem nässeempfindlich — Wurzelfäule (root rot) auf schlecht drainierten/nassen Böden ist die häufigste Todesursache, daher `waterlogging_tolerance = sensitive`. Salzaufbau aus hartem Gießwasser oder Überdüngung verursacht Blattspitzennekrosen (`moderately_sensitive`); die von UF/IFAS genannte „moderate" Toleranz bezieht sich ausschließlich auf Aerosol-/Sprühsalz an Küstenstandorten, nicht auf Substrat-Salzgehalt. Der pH-Vorzug 6.5–7.5 ist konsistent mit der Substrat-Empfehlung in §1.6 und den Nährstoffprofilen in §2.3; UF/IFAS und NC Extension bestätigen Toleranz gegenüber leicht sauren bis alkalischen Böden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +138,12 @@
 | Temperatur Nacht (°C) | 12–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 20–40 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 3.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–29 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -126,6 +154,12 @@
 | Licht PPFD (µmol/m²/s) | 200–800 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 10–30 | `requirement_profiles.dli_target_mol` |
 | Temperatur Tag (°C) | 10–18 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 28–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -135,6 +169,10 @@
 |-------|----------------|---------|-----|----------|----------|
 | Aktives Wachstum | 1:2:2 | 0.3–0.6 | 6.5–7.5 | 40 | 15 |
 | Winterruhe | 0:0:0 | 0.0 | 6.5–7.5 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo):** Für Beaucarnea recurvata liegen keine artspezifischen Mikronährstoff-Zielwerte aus seriösen Quellen vor — <!-- DATEN FEHLEN --> für `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm` und `nutrient_profiles.molybdenum_ppm`. Als extremer Schwachzehrer (light_feeder) deckt ein vollständiger Kakteen-/Sukkulentendünger mit Spurenelementen (siehe §3.1) den Bedarf ab; eine gezielte Einzeldosierung ist nicht belegt und wird nicht erfunden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -178,6 +216,23 @@ Extremer Schwachzehrer. Nur 2–4 Düngergaben pro Wachstumssaison ausreichend. 
 | Schädlingskontroll-Intervall (Tage) | 21 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (September–Oktober, vor erstem Frost / unter 5–7 °C) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 13–18 (Minimum 5–10 °C; unter 5 °C drohen Schäden) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (heller Standort, hell-indirekt bis sonnig) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sehr sparsam (nahezu trocken; nur so viel, dass die Blätter nicht welken) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Frostempfindliche Kübel-/Zimmerpflanze (USDA 10–11); in Mitteleuropa (USDA 6–8) nicht winterhart und muss frostfrei drinnen überwintern (`frost_free`) — kein Ausgraben/Einlagern und kein Vlies-/Erdschutz im Freiland. Während der kühlen Winterruhe (November–Februar) trockener und kühler halten, was das natürliche Trockenklima nachahmt. Kurze Fröste bis etwa −5 °C werden ausnahmsweise toleriert, sind aber kein Dauerzustand und nicht als Überwinterungsstrategie geeignet.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -203,6 +258,17 @@ Extremer Schwachzehrer. Nur 2–4 Düngergaben pro Wachstumssaison ausreichend. 
 | Weniger gießen | cultural | Gießintervall erhöhen | 0 | Wurzelfäule (Prävention) |
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Schmierläuse |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug Destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 1–10 Käfer/m² bzw. 2–5 pro befallene Pflanze, ggf. mehrere Ausbringungen | 2–3 Wochen (aktiv über 2–3 Monate) |
+| Raubmilbe | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 Tiere/m² je nach Befall, wöchentlich wiederholen | 1–2 Wochen |
+
+**Hinweis:** *Cryptolaemus montrouzieri* ist auch im Innenraum/Interiorscape gegen Schmierläuse wirksam und arbeitet am besten bei warmen Bedingungen (April–Oktober). *Phytoseiulus persimilis* benötigt > 70 % Luftfeuchte und Temperaturen 13–27 °C — die für den Elefantenfuß typische trockene Raumluft (20–40 % rel. F., siehe §2.2) ist suboptimal; unter trockenen Bedingungen ist die trockentolerantere Raubmilbe *Amblyseius (Neoseiulus) californicus* die robustere Alternative. Spinnmilbenbefall ist bei dieser Art ohnehin selten (siehe §5.1).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -239,3 +305,13 @@ Beaucarnea recurvata,"Elefantenfuß;Pferdeschwanzpalme;Flaschenpalme;Ponytail Pa
 3. [Gardenia.net — Beaucarnea recurvata](https://www.gardenia.net/plant/beaucarnea-recurvata-pony-tail-palm) — Botanische Daten
 4. [PLNTS.com — Beaucarnea](https://plnts.com/en/care/houseplants-family/beaucarnea) — Ganzjahrespflege
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [UF/IFAS — Beaucarnea recurvata: Ponytail Palm (ENH252/ST093)](https://ask.ifas.ufl.edu/publication/ST093) — Licht (full sun to partial shade), pH-Toleranz (sauer/alkalisch), Aerosol-Salztoleranz (moderate), Trockenheitstoleranz (high), Wurzelfäule auf nassen Böden, USDA 10A–11
+7. [North Carolina Extension Gardener Plant Toolbox — Beaucarnea recurvata](https://plants.ces.ncsu.edu/plants/beaucarnea-recurvata/) — Licht (full sun), Drainage (Good Drainage / Occasionally Dry), Trockenheitsresistenz, USDA 10a–11b
+8. [Missouri Botanical Garden — Beaucarnea recurvata Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282253) — volle Sonne, Wasserbedarf trocken–mittel, sandige Böden mit scharfer Drainage, USDA 10–11
+9. [New York Botanical Garden — Houseplant Care: Ponytail Palm](https://libguides.nybg.org/ponytail) — Überwinterung, Winterruhe November–Februar, sparsames Wintergießen
+10. [University of Wisconsin Horticulture — Ponytail Palm, Beaucarnea recurvata](https://hort.extension.wisc.edu/articles/ponytail-palm-beaucarnea-recurvata/) — Winterquartier 13–18 °C, Mindesttemperatur, flaches Wurzelsystem, Pflege
+11. [Yang et al. (2016), Molecular Phylogenetics and Evolution — Evolution of CAM anatomy in the Agavoideae (Asparagaceae)](https://www.sciencedirect.com/science/article/abs/pii/S1055790316302111) — CAM in Asparagaceae auf Agavoideae bezogen; belegt, dass CAM für Beaucarnea/Nolinoideae NICHT pauschal angenommen werden kann
+12. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate, Innenraumeignung
+13. [Cornell NYSIPM Biocontrol Fact Sheet — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringrate, Temperatur-/Feuchteansprüche
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

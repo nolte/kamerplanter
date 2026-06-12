@@ -29,6 +29,22 @@
 | Naehrstoffbedarf-Stufe | medium (Mittelzehrer) | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (C3-Pflanze; kein C4/CAM) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 5 (Basistemperatur der Hauptwuchsphase; kuehlliebende Kultur) | `species.base_temp` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (Blueteninduktion erst nach Kaelteexposition unter 15 degC, optimal ca. 8 degC; erst danach Schossen unter Langtag) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 84 (ca. 12 Wochen Kaelte; wirksamer Bereich 6--20 Wochen je nach Genotyp) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 14 (Langtag-Schwelle fuer Schossen/Bluete im 2. Jahr nach Vernalisation; KEIN Bluehtrigger fuer das Erntegut im 1. Jahr) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Lebensdauer (typical_lifespan_years) nicht anwendbar: zweijaehrig (biennial), wird einjaehrig kultiviert; kein perennial-Wert. -->
+<!-- DATEN FEHLEN: kein perennial -> lifecycle_configs.typical_lifespan_years entfaellt -->
+
+Hinweis: Die GDD-Basistemperatur (base temp) von 5 degC bezieht sich auf die vegetative Hauptwuchsphase und ist nicht mit der minimalen Keimtemperatur (8 degC, siehe Sektion 1.3) zu verwechseln.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis zur Bestaeubung: Rote Bete ist KEIN Obst-Fremdbefruchter. Die Felder `species.requires_pollinator`, `species.pollinator_group` und `species.compatible_pollinators` (pomologische Kreuzbefruchtungsgruppen fuer Apfel/Birne/Suesskirsche) sind hier nicht anwendbar und bleiben leer. Das Erntegut (Ruebe) bildet sich im 1. Jahr ohne Bestaeubung; die Bluete/Samenbildung erfolgt erst im 2. Jahr (windbestaeubt, ueberwiegend Fremdbefruchtung durch Wind/Insekten). Insektenbestaeubung gehoert nicht in `compatible_pollinators` (dort nur Befruchter-Sorten).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -100,6 +116,27 @@ Hinweis: Die Blaetter sind essbar und naehrstoffreich (wie Mangold -- gleiche Ar
 
 **Hinweis:** Rote Bete ist eine dankbare Anfaengerkultur. Kurze Kulturzeit (50--70 Tage), anspruchslos, toleriert Halbschatten. Kleine Rueben (Babybeets) sind zarter und koennen schon nach 6--8 Wochen geerntet werden. Zu dichte Aussaat oder zu spaete Vereinzelung fuehrt zu kleinen, deformierten Rueben.
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 50 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (volle Sonne bevorzugt, vertraegt Halbschatten -- dann jedoch kleinere Rueben) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--60 (aktive Hauptwurzelzone fuer Wasser/Naehrstoffe; Feinwurzeln koennen deutlich tiefer reichen) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | moderate (braucht gut drainierten Boden; Staunaesse foerdert Faeulnis -- in nassen Lagen Daemme anlegen) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 4.0 (Maas-Hoffman a; Substrat-ECe-Saettigungsextrakt, NICHT Giesswasser-EC; FAO-Wert fuer Red Beet/Speisebete) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 9.0 (Maas-Hoffman b; Ertragsverlust je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.0--7.5 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweise:
+- **Lichtkompensationspunkt (light compensation point, LCP):** Bereich fuer C3-Pflanzen bei Umgebungs-CO2; temperaturabhaengig (ca. 20 umol/m2/s bei 15 degC bis ueber 50 umol/m2/s bei 30 degC). Lichtsaettigung und Optimumwerte liegen deutlich hoeher (siehe PPFD-Zielwerte in Sektion 2.2) und sind NICHT Teil des Kompensationspunkts.
+- **Salztoleranz:** Speisebete (Red Beet) ist nach FAO/Maas-Hoffman moderately_tolerant (Schwelle 4.0 dS/m, Slope 9.0 %/dS/m). Die nahe verwandte Zuckerruebe (sugar beet) ist toleranter (Schwelle 7.0 dS/m, Slope 5.9 %/dS/m); eine alternative Quelle (Shannon & Grieve, USDA) nennt fuer "Beet, garden" 5.3 dS/m / 7.3 %/dS/m. Fuer Speisebete wird hier der konservativere FAO-Red-Beet-Wert verwendet.
+- **Boden-pH:** harmonisiert mit Sektion 1.6 (6.0--7.5); saure Boeden unter pH 6.0 werden schlecht vertragen, leicht alkalische Boeden bis 7.5 toleriert.
+
 ---
 
 ## 2. Wachstumsphasen
@@ -145,6 +182,12 @@ Hinweis: Die Ruebe bildet sich waehrend der vegetativen Phase. Erntezeitpunkt is
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (kritischer Punkt stomataeren Kollaps; deutlich oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -163,6 +206,12 @@ Hinweis: Vereinzeln (Ausdunnung), wenn Saemlinge 5 cm hoch sind! Pro Knauel nur 
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt stomataeren Kollaps; oberer Zielwert + ca. 0.3 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--25 (max. CO2-Assimilation 10--25 degC; Ruebenertrags-Optimum 15--22 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 (gleichmaessig feucht, Trockenheit fuehrt zu holzigen Rueben und Rissen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -189,12 +238,12 @@ Hinweis: Rueben mit einer Grabegabel vorsichtig aus dem Boden heben (nicht ziehe
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.8 | 6.0--7.0 | 60 | 30 | 20 | 2 |
-| Vegetativ | 2-1-3 | 1.0--1.6 | 6.0--7.0 | 100 | 50 | 30 | 3 |
-| Ernte | 1-1-2 | 0.6--1.0 | 6.0--7.0 | 80 | 30 | 20 | 2 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |<!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo -->
+| Saemling | 1-1-1 | 0.4--0.8 | 6.0--7.0 | 60 | 30 | 20 | 2 | 0.25 | 0.03 | 0.01 | 0.005 |<!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo -->
+| Vegetativ | 2-1-3 | 1.0--1.6 | 6.0--7.0 | 100 | 50 | 30 | 3 | 0.5 | 0.05 | 0.02 | 0.01 |<!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo -->
+| Ernte | 1-1-2 | 0.6--1.0 | 6.0--7.0 | 80 | 30 | 20 | 2 | 0.5 | 0.05 | 0.02 | 0.01 |<!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo -->
 
 Hinweis: Rote Bete ist ein Mittelzehrer mit hohem Kaliumbedarf (K foerdert Ruebenwachstum und Zuckergehalt). Bor-Mangel ist ein haeufiges Problem (verursacht schwarze Stellen im Rueben-Inneren -- "Trockenfaeule"). Bei Bor-Verdacht: Borax-Loesung 1 g/10 L als Blattspruehung. Stickstoff nicht ueberdosieren (Nitratanreicherung!).
 
@@ -300,9 +349,22 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren.
 
 ### 4.3 Ueberwinterung
 
-Rote Bete kann mit Frostschutz (Stroh, Laub, Vlies) bis in den fruehen Winter im Boden bleiben. Bei laengerem Frost (unter -6 degC) Rueben ernten und in feuchtem Sand kuhl lagern (Keller, Erdmiete). Lagertemperatur: 2--5 degC, Luftfeuchtigkeit: 90--95%. Haltbarkeit: 3--5 Monate. Im Fruehjahr des 2. Jahres wuerden die Rueben schossen -- fuer Saatgutgewinnung eine Ruebe ueberwint
+Rote Bete kann mit Frostschutz (Stroh, Laub, Vlies) bis in den fruehen Winter im Boden bleiben. Bei laengerem Frost (unter -6 degC) Rueben ernten und in feuchtem Sand kuhl lagern (Keller, Erdmiete). Lagertemperatur: 2--5 degC, Luftfeuchtigkeit: 90--95%. Haltbarkeit: 3--5 Monate. Im Fruehjahr des 2. Jahres wuerden die Rueben schossen -- fuer Saatgutgewinnung eine Ruebe ueberwintern und im Fruehjahr wieder einpflanzen.
 
-ern und im Fruehjahr wieder einpflanzen.
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung | dig_and_store (Ernteruebe wird ausgegraben und frostfrei eingelagert; nur Saatgut-Tragepflanze ueberwintert) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | dig_store (Rueben ausgraben und einlagern); alternativ mulch (Stroh/Laub-Abdeckung bei mildem Klima fuer Verbleib im Boden) | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 10 (Oktober, vor erstem starken Frost) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | replant (nur Saatgut-Tragepflanze: Lagerruebe im Fruehjahr wieder auspflanzen zur Bluete/Samenbildung) | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 4 (April) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (degC) | 2--5 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | dark (dunkel; Erdmiete oder kuehler Keller) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | Rueben in feuchtem Sand einschlagen, Luftfeuchte 90--95%; kein aktives Giessen, Austrocknen vermeiden | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweis: Die Ernterueben werden ausgegraben und eingelagert (dig_and_store), nicht im Beet ueberwintert. Nur eine fuer die Saatgutgewinnung vorgesehene Ruebe wird ueberwintert und im Fruehjahr wieder eingepflanzt (replant), um im 2. Jahr nach Vernalisation zu schossen und Samen zu bilden.
 
 ---
 
@@ -457,3 +519,16 @@ Bull's Blood,Beta vulgaris subsp. vulgaris,,,ornamental;heirloom,60,,open_pollin
 10. eat.de -- Rote Beete gefaehrlich: https://eat.de/magazin/rote-beete-gefaehrlich/
 11. grove.eco -- Rote Bete: https://www.grove.eco/pflanzen/beta-vulgaris-vulgaris-conditiva/
 12. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. FAO -- Annex 1, Crop salt tolerance data (Maas-Hoffman ECe-Schwelle/Slope fuer Sugar Beet und Red Beet): https://www.fao.org/4/y4263e/y4263e0e.htm
+14. Shannon & Grieve (USDA-ARS) -- Tolerance of vegetable crops to salinity (alternative Beet-Salztoleranzwerte): https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf
+15. KZN DARD -- Beetroot production guideline (effektive Wurzeltiefe ~300 mm, Klima, pH): https://www.kzndard.gov.za/images/Documents/Horticulture/Veg_prod/beetroot.pdf
+16. Weaver, J.E. -- Root Development of Vegetable Crops, Kap. VIII (Wurzelarchitektur Gartenbete): https://soilandhealth.org/wp-content/uploads/01aglibrary/010137veg.roots/010137ch8.html
+17. PMC -- Evolutionary conservation of FLC-mediated vernalization response in sugar beet (Vernalisation < 15 degC, optimal ~8 degC): https://pmc.ncbi.nlm.nih.gov/articles/PMC1893026/
+18. MDPI Agronomy -- From Emergence to Flowering: Beet cultivars' phenological response (Vernalisation, Schossen unter Langtag > 14 h): https://www.mdpi.com/2073-4395/9/12/863
+19. Wikipedia -- Hoagland solution (Mikronaehrstoff-ppm Mn/Zn/Cu/Mo): https://en.wikipedia.org/wiki/Hoagland_solution
+20. ScienceDirect -- SUBEMOpo sugar beet growth model (CO2-Assimilation max. 10--25 degC): https://www.sciencedirect.com/science/article/abs/pii/S0308521X00000056
+21. RHS -- How to grow Beetroot (Standort, gut drainierter Boden, Staunaesse): https://www.rhs.org.uk/vegetables/beetroot/grow-your-own
+22. Texas A&M AgriLife Extension -- Growing Beets (Drainage/Daemme bei Staunaesse, Bodenanspruch): https://agrilifeextension.tamu.edu/library/gardening/beets/
+23. ScienceDirect Topics -- Light Compensation point (C3-Pflanzen LCP 20--50 umol/m2/s, temperaturabhaengig): https://www.sciencedirect.com/topics/engineering/light-compensation
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

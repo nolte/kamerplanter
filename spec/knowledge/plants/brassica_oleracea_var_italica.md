@@ -20,7 +20,12 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Korrektur: Brokkoli ist tagneutral; Kopfbildung/Entwicklung ist temperatur-, nicht photoperiodengesteuert (Wurthmann 2000; Lindemann-Zutz 2016). --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | 4.5 (cole crops 3–5; T_opt 20) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation erforderlich | false (Köpfung fakultativ kältesensitiv, aber nicht obligatorisch; Calabrese ohne Vernalisationspflicht) | `lifecycle_configs.vernalization_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | — (tagneutral; keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Verträgt leichte Fröste bis -5°C; Herbstbrokkoli winterhart bis -8°C; Jungpflanzen frostempfindlich | `species.hardiness_detail` |
@@ -82,6 +87,21 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche Gartenerde mit Kompost; pH 6,0–7,0; gut wasserspeichernd | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein art-spezifischer LCP-Wert für B. oleracea var. italica aus 2 unabhängigen Quellen belegbar --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | full_sun (6–8 h direkte Sonne; in Hitzeklimaten Nachmittagsschatten zur Schoss-Vermeidung) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 45–60 (medium-rooted) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (Staunässe fördert Wurzelfäule/Kohlhernie; nicht in schlecht drainierten Böden anbauen) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 2.8 (Substrat-ECe, Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 9.2 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +130,10 @@
 | Luftfeuchtigkeit Tag (%) | 70–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 0.9 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 16–18 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +150,10 @@
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 18–20 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -142,19 +170,25 @@
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.1 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 16–18 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Sämling | 2:1:1 | 0.6–0.8 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–6.5 | 150 | 60 | — | 3 |
-| Kopfbildung | 2:2:3 | 1.4–2.0 | 6.0–6.5 | 150 | 60 | — | 2 |
-| Reife | 1:2:3 | 1.0–1.5 | 6.0–6.5 | 100 | 40 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Sämling | 2:1:1 | 0.6–0.8 | 6.0–6.5 | 100 | 40 | — | 2 | 0.5 | 0.05 | 0.05 | 0.05 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–6.5 | 150 | 60 | — | 3 | 0.6 | 0.05 | 0.05 | 0.05 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kopfbildung | 2:2:3 | 1.4–2.0 | 6.0–6.5 | 150 | 60 | — | 2 | 0.6 | 0.05 | 0.05 | 0.05 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Reife | 1:2:3 | 1.0–1.5 | 6.0–6.5 | 100 | 40 | — | 1 | 0.5 | 0.05 | 0.05 | 0.05 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Mikronährstoffe (Mn/Zn/Cu/Mo) als Standard-Gemüse-Nährlösungswerte (UF/IFAS HS796; Mosaic Crop Nutrition); Mo bei Kohlgewächsen kritisch (Peitschenstiel/whiptail bei Mo-Mangel), B-Bedarf siehe §3.3 (Hohlstiel). --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -340,7 +374,7 @@ Brokkoli ist Starkzehrer mit hohem N-Bedarf. Bei Stickstoffmangel: gelbe Blätte
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,direct_sow_months,harvest_months
-Brassica oleracea var. italica,"Brokkoli;Broccoli;Calabrese",Brassicaceae,Brassica,annual,long_day,herb,taproot,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",0.0,"Mittelmeerraum, Kleinasien",limited,25,30,90,60,45,no,limited,false,false,heavy_feeder,half_hardy,"5;6","7;8;9;10;11"
+Brassica oleracea var. italica,"Brokkoli;Broccoli;Calabrese",Brassicaceae,Brassica,annual,day_neutral,herb,taproot,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",0.0,"Mittelmeerraum, Kleinasien",limited,25,30,90,60,45,no,limited,false,false,heavy_feeder,half_hardy,"5;6","7;8;9;10;11"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen
@@ -360,3 +394,13 @@ Cleopatra F1,Brassica oleracea var. italica,early;compact,60,,hybrid
 2. [Compo Brokkoli](https://www.compo.de/ratgeber/pflanzen/kraeuter-obst-gemuese/brokkoli) — Pflege, Düngung
 3. [Hortipendium Brokkoli Pflanzenschutz](https://www.hortipendium.de/Brokkoli_Pflanzenschutz) — IPM, Schädlinge, Krankheiten
 4. [Meine-Ernte Brokkoli](https://www.meine-ernte.de/pflanzen-a-z/gemuese/brokkoli/) — Aussaat, Pflanzzeiten, Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Wurthmann/Tan & Boote, "Predicting Broccoli Development I: Development Is Predominantly Determined By Temperature Rather Than Photoperiod" (Scientia Horticulturae)](https://www.sciencedirect.com/science/article/abs/pii/S0304423899001399) — Brokkoli tagneutral, temperaturgesteuerte Entwicklung, Tbase 0 °C / Topt 20 °C
+6. [Lindemann-Zutz et al., "Predicting dates of head initiation and yields of broccoli crops grown throughout Scotland"](https://www.sciencedirect.com/science/article/abs/pii/S1161030120300629) — Photoperioden-/PAR-Unabhängigkeit der Köpfung, thermische Zeit; Tbase 4,5 °C
+7. [FAO, Annex 1 — Crop salt tolerance data (Table A1.1)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Brokkoli Salztoleranz: ECe-Schwelle 2,8 dS/m, Slope 9,2 %/dS/m, moderately sensitive (Maas-Hoffman)
+8. [RHS — How to grow broccoli](https://www.rhs.org.uk/vegetables/broccoli/grow-your-own) — Boden-pH 6–7, Vollsonne, Standort
+9. [West Virginia University Extension — Growing Broccoli for Beginners](https://extension.wvu.edu/lawn-gardening-pests/gardening/gardening-101/growing-broccoli-for-beginners) — pH 6,0–6,5, Lichtbedarf, Staunässe-Empfindlichkeit
+10. [University of Florida IFAS HS796 — Nutrient Solution Formulation for Hydroponics](https://edis.ifas.ufl.edu/publication/CV216) — Standard-Mikronährstoffkonzentrationen (Mn, Zn, Cu, Mo) für Gemüse-Nährlösung
+11. [Mosaic Crop Nutrition — Micronutrients](https://www.cropnutrition.com/nutrient-management/micronutrients/) — Mikronährstoff-Funktion und Richtwerte (Mn/Zn/Cu/Mo), Mo-Bedarf Kohlgewächse
+12. [USU Extension — Broccoli in the Garden](https://extension.usu.edu/yardandgarden/research/broccoli-in-the-garden) — optimale Wuchstemperatur 18–24 °C, Köpfungstemperaturen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

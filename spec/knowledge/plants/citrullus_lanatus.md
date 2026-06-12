@@ -21,6 +21,16 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | -- (einjaehrig; nicht zutreffend) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | -- (nicht zutreffend) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (tagneutral / day_neutral; keine kritische Tageslaenge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Extrem kaltempfindlich. Stirbt bei unter 10 degC ab; Frost sofort toedlich. Benoetigt 120 frostfreie Tage (Wachstumssaison). In Mitteleuropa nur im Gewaechshaus oder sehr warmen, geschuetzten Lagen zuverlaessig. | `species.hardiness_detail` |
@@ -103,6 +113,27 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Rankhilfe/Stuetze noetig | true (bei senkrechter Erziehung; starke Netze fuer Fruechte noetig -- bis 10 kg!) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Sehr naehrstoffreiche, lockere, gut drainierte Erde. Sandanteile (25--30%) foerdern Drainage. pH 6.0--7.0. Grosse Mengen Kompost (30--40%). | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 30 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 50 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 100--150 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> -- (FAO/USDA fuehren Wassermelone nur qualitativ als "MS"; kein quantitativer Maas-Hoffman-Schwellenwert publiziert) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> -- (kein publizierter Maas-Hoffman-b-Wert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.8 | `species.soil_ph_preference` |
+
+**Hinweise:**
+- **Lichtkompensationspunkt (light compensation point, LCP):** Fuer Wassermelone liegen keine direkt gemessenen Werte vor. Die angegebene Spanne 30--50 umol/m2/s ist aus eng verwandten Cucurbitaceae/Fruchtgemuese abgeleitet (Gurke ~51, Tomate ~53, Paprika ~35 umol/m2/s). Der Lichtsaettigungspunkt liegt deutlich hoeher (Messungen an Wassermelonen-Saemlingen bei 800 umol/m2/s) -- diese Saettigungswerte gehoeren NICHT in das LCP-Feld.
+- **Salztoleranz:** Bezugsgroesse ist die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), nicht die Giesswasser-EC. Wassermelone ist nur qualitativ als "moderately sensitive" (MS) eingestuft; FAO Annex 1 markiert Schwelle und Slope mit "--".
+- **Boden-pH:** Harmonisiert mit der Topf-Substrat-Empfehlung in §1.6 (pH 6.0--7.0) und den Naehrstoffprofilen in §2.3 (pH 6.0--6.8). Optimum schmaler bei 6.0--6.8.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -134,6 +165,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 26--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (feucht; nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--20 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -150,6 +187,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.1 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 26--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -166,6 +209,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 27--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 (Pfahlwurzel holt sich Wasser; nicht uebergiessen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +231,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 27--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -200,6 +255,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 45--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2--2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (Wasser regelmaessig aber nicht zu viel -- foerdert Zuckergehalt) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 800--1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -216,6 +277,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 40--55 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45--60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.5--2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 27--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 7--14 (drastisch reduzieren! Letzte 10 Tage fast kein Wasser) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -229,14 +296,18 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.8--1.2 | 5.8--6.5 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.5 | 120 | 50 | 30 | 3 |
-| Bluete | 2-2-3 | 1.6--2.4 | 5.8--6.5 | 150 | 50 | 30 | 3 |
-| Fruchtentwicklung | 1-2-4 | 2.0--3.0 | 6.0--6.8 | 150 | 60 | 35 | 2 |
-| Reife | 0-1-3 | 1.0--2.0 | 6.0--6.8 | 80 | 40 | -- | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Mikronaehrstoff-Spalten Mn/Zn/Cu/Mo ergaenzt (KA-Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`). Die Spurenelement-Konzentrationen beziehen sich auf die Naehrloesung (mg/L = ppm) und liegen innerhalb der belegten Spannen: Mn 0.5--2, Zn 0.05--0.5, Cu 0.02--0.1, Mo 0.01--0.05 ppm. Referenzpunkte: klassische Hoagland-Loesung (Mn 0.5; Zn 0.05; Cu 0.02; Mo 0.01) und eine peer-reviewte Wassermelonen-Naehrloesung (modifizierte Steiner-Loesung: Mn ~0.62; Zn ~0.11; Cu ~0.02; Mo ~0.1). Phasenscaling analog zu Ca/Mg/S/Fe: in Keimung 0, Spitzenbedarf in Vegetativ--Fruchtentwicklung, in der Reife reduziert.
+
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.8--1.2 | 5.8--6.5 | 80 | 30 | 20 | 2 | 0.4 | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.5 | 120 | 50 | 30 | 3 | 0.5 | 0.08 | 0.03 | 0.02 |
+| Bluete | 2-2-3 | 1.6--2.4 | 5.8--6.5 | 150 | 50 | 30 | 3 | 0.5 | 0.08 | 0.03 | 0.02 |
+| Fruchtentwicklung | 1-2-4 | 2.0--3.0 | 6.0--6.8 | 150 | 60 | 35 | 2 | 0.6 | 0.10 | 0.03 | 0.02 |
+| Reife | 0-1-3 | 1.0--2.0 | 6.0--6.8 | 80 | 40 | -- | 1 | 0.3 | 0.05 | 0.02 | 0.01 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -459,3 +530,8 @@ Citrullus lanatus,Wassermelone;Watermelon,Cucurbitaceae,Citrullus,annual,day_neu
 5. [Grove.eco -- Citrullus lanatus Nachbarn](https://www.grove.eco/en/plants/citrullus-lanatus/) -- Companion Planting
 6. [PlantFrand -- Citrullus lanatus](https://www.plantfrand.com/pflanzen/cucurbitaceae/citrullus-lanatus/) -- Botanische Grunddaten
 7. [Gartenratgeber.net -- Wassermelonen](https://www.gartenratgeber.net/pflanzen/wassermelonen.html) -- Pflege und Anbau
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. [Optimization of ionic strength of nutrient solution for enhanced hydroponic watermelon yield and quality (PMC12271344)](https://pmc.ncbi.nlm.nih.gov/articles/PMC12271344/) -- peer-reviewte Wassermelonen-Naehrloesung; Mikronaehrstoff-Zusammensetzung (Mn/Zn/Cu/Mo/Fe/B) der Steiner-basierten Loesung
+9. [EnvirevoAgritech -- Optimizing Hydroponic Nutrient Requirements per Stage](https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/) -- allgemeine Spurenelement-Obergrenzen (Mn bis ~2 ppm, Mo 0.02--0.05 ppm). Hinweis: Die dort genannten oberen Zn-/Cu-Werte (Zn bis 2, Cu bis 0.5 ppm) liegen im near-toxischen Bereich und sind KEINE Empfehlung; verbindlich sind die Tabellenwerte (Zn 0.05--0.10, Cu 0.02--0.03 ppm) auf Hoagland-Baseline (Quelle #10), belegte Arbeitsspannen Zn 0.05--0.5, Cu 0.02--0.1 ppm
+10. [Hoagland-Loesung (Referenz-Naehrloesung)](https://en.wikipedia.org/wiki/Hoagland_solution) -- klassische Mikronaehrstoff-Baseline Mn 0.5; Zn 0.05; Cu 0.02; Mo 0.01 ppm
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

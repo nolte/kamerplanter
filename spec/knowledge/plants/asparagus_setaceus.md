@@ -28,8 +28,21 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 10–15 (bei optimaler Pflege bis zu mehreren Jahrzehnten) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (day_neutral, kein Photoperiodismus der Blüte) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Trotz des Namens "Farn" ist Asparagus setaceus kein echter Farn, sondern ein Verwandter des Speisespargels (Asparagus officinalis). Die federartigen Blätter sind reduzierte Phyllokladien (umgewandelte Stängel).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Physiologie):** Die Gattung *Asparagus* betreibt C3-Photosynthese — der CO₂-Kompensationspunkt der Phyllokladien-/Kladophyll-Mesophyllzellen reagiert klassisch C3-typisch auf O₂ und Temperatur (Photorespiration vorhanden), belegt für *A. officinalis* und *A. sprengeri* (kongenerisch zu *A. setaceus*); die CAM-Evolution innerhalb der Asparagaceae beschränkt sich auf die Unterfamilie Agavoideae, nicht auf *Asparagus*. Die GDD-Basistemperatur von ~10 °C spiegelt die wärmeliebende, subtropisch-tropische Herkunft (Optimum 15–24 °C, Wachstumsstopp unter ~10 °C) wider und ist bewusst höher als die ~4,5 °C des kühlliebenden Speisespargels. Die "Winterruhe" ist eine fakultative, durch sinkende Temperatur/Licht ausgelöste Quieszenz (dormancy_required=true), KEIN obligater Kältebedarf (daher vernalization_required=false; tropische Pflanze ohne Chilling-Anspruch).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -84,6 +97,24 @@
 | Rankhilfe/Stütze nötig | true | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, gut drainierte Zimmerpflanzenerde; leicht sauer (pH 6.0–6.5); hohe Luftfeuchtigkeit wichtig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein artspezifischer Messwert in 2 unabhängigen Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein artspezifischer Messwert in 2 unabhängigen Quellen --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | — <!-- DATEN FEHLEN: kein artspezifischer Wurzeltiefen-Messwert; fleischige Knollenwurzeln, Mindest-Topftiefe 15 cm --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Wert für A. setaceus (4,1 dS/m gilt für A. officinalis, nicht übertragbar) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-Wert für A. setaceus --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** *A. setaceus* gedeiht im natürlichen Verbreitungsgebiet in halbschattiger bis lichtschattiger Lage (dappled/partial shade) und ist gegenüber direkter Mittagssonne empfindlich (Verbrennungsgefahr der Phyllokladien). Die fleischigen Knollenwurzeln speichern Wasser, reagieren aber empfindlich auf Staunässe und Überwässerung (Wurzelfäule). Die Pflanze ist salzempfindlich: weiches, kalkarmes Gießwasser wird bevorzugt, und Düngesalz-Akkumulation im Substrat führt zu Nadelbräune — daher Klasse `sensitive`. Quantitative Maas-Hoffman-Salztoleranzwerte (ECe-Schwelle ~4,1 dS/m) existieren nur für den Speisespargel *A. officinalis* und sind auf die Zierart NICHT übertragbar. Der Boden-pH-Vorzug 6.0–6.5 ist mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährstoffprofile) harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +142,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.55 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–6 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,18 +164,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–16 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.55 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Etablierung | 1:1:1 | 0.5–0.8 | 6.0–6.5 | 80 | 40 | — | 1 |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 |
-| Blüte | 1:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 1 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Etablierung | 1:1:1 | 0.5–0.8 | 6.0–6.5 | 80 | 40 | — | 1 | 0.25 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.1 | 0.05 | 0.02 |
+| Blüte | 1:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 1 | 0.25 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Für *A. setaceus* existieren keine artspezifischen Mikronährstoff-Sollwerte. Die angegebenen Mangan- (Mn), Zink- (Zn), Kupfer- (Cu) und Molybdän-Werte (Mo) sind allgemeine Nährlösungs-Zielkonzentrationen für eine Pflanze mittleren Nährstoffbedarfs (medium_feeder), abgeleitet aus der Hoagland-Standardrezeptur (Mn 0,5 / Zn 0,05 / Cu 0,02 / Mo 0,01 ppm) und gängigen Mittelwerten kommerzieller Fertigation (Mn ~0,38 / Zn ~0,25 / Cu ~0,08 / Mo ~0,05 ppm). Für die Wachstumsphase (Vegetativ) gelten die höheren, für die reizärmeren Phasen (Etablierung, Blüte) die niedrigeren Werte; in der Winterruhe keine Düngung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -216,7 +263,7 @@ Hohe Luftfeuchtigkeit ist für Asparagus setaceus wichtiger als Düngung. Trocke
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free <!-- Quelle: Steckbrief-Erweiterung 2026-06: Korrektur von needs_protection → frost_free; frostempfindliche Kübel-/Zimmerpflanze, die frostfrei drinnen (8–15 °C) überwintert, vgl. winter_action=move_indoors --> | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off | `overwintering_profiles.spring_action` |
@@ -296,9 +343,10 @@ Hohe Luftfeuchtigkeit ist für Asparagus setaceus wichtiger als Düngung. Trocke
 ### 8.1 Species CSV-Zeile
 
 ```csv
-scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Asparagus setaceus,Federspargel;Plumosa-Farn;Asparagus Fern,Asparagaceae,Asparagus,perennial,day_neutral,vine,rhizomatous,9a;9b;10a;10b;11a;11b,0.0,Südafrika Ostkap,yes,7,15,60,60,—,yes,limited,false,true
+scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,photosynthesis_type,base_temp,shade_tolerance,waterlogging_tolerance,salt_tolerance_class,soil_ph_preference
+Asparagus setaceus,Federspargel;Plumosa-Farn;Asparagus Fern,Asparagaceae,Asparagus,perennial,day_neutral,vine,rhizomatous,9a;9b;10a;10b;11a;11b,0.0,Südafrika Ostkap,yes,7,15,60,60,—,yes,limited,false,true,c3,10,partial_shade,sensitive,sensitive,6.0-6.5
 ```
+<!-- Quelle: Steckbrief-Erweiterung 2026-06: CSV um photosynthesis_type, base_temp, shade_tolerance, waterlogging_tolerance, salt_tolerance_class, soil_ph_preference erweitert -->
 
 ---
 
@@ -309,3 +357,14 @@ Asparagus setaceus,Federspargel;Plumosa-Farn;Asparagus Fern,Asparagaceae,Asparag
 3. [Leafyplace – Plumosa Fern](https://leafyplace.com/asparagus-plumosa-fern/) — Detaillierter Care Guide
 4. [Plantura – Zierspargel](https://www.plantura.garden/zimmerpflanzen/zierspargel/zierspargel-pflanzenportait) — Deutschsprachige Pflege
 5. [Pflanzenfreunde – Asparagus](https://www.pflanzenfreunde.com/asparagus-zierspargel.htm) — Kulturtipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Plant Physiology / Oxford Academic – Effect of pH, O₂, and Temperature on the CO₂ Compensation Point of Isolated Asparagus Mesophyll Cells](https://academic.oup.com/plphys/article/83/1/113/6084028) — Beleg C3-Photosynthese der Gattung Asparagus (CO₂-Kompensationspunkt-Verhalten); auch [PMC1056307](https://pmc.ncbi.nlm.nih.gov/articles/PMC1056307/)
+7. [Planta / Springer – Photosynthetic characteristics of mesophyll cells isolated from cladophylls of Asparagus officinalis](https://link.springer.com/article/10.1007/BF01369773) — C3-typische Photosynthese-Charakteristik der Kladophylle
+8. [Annals of Botany / Oxford – The Agavoideae: an emergent model clade for CAM evolutionary biology](https://academic.oup.com/aob/article/132/4/727/7164427) — CAM-Evolution in Asparagaceae beschränkt auf Agavoideae (nicht Asparagus)
+9. [NC State Extension – Asparagus setaceus (Cultural Conditions)](https://plants.ces.ncsu.edu/plants/asparagus-setaceus/) — Schattentoleranz (dappled/partial shade), pH, Knollenwurzeln
+10. [Cafe Planta – The Lifespan of Asparagus Fern](https://cafeplanta.com/a/blog/the-lifespan-of-asparagus-fern-a-comprehensive-guide) — Lebensdauer 10–15 Jahre indoor
+11. [Greg.app – Good Temperature Range for Your Asparagus](https://greg.app/asparagus-temperature/) und [Cafe Planta – Asparagus Fern Cold Tolerance](https://cafeplanta.com/blogs/resources/asparagus-fern-cold-tolerance) — Wärmeoptimum 15–24 °C, Kälteempfindlichkeit unter 10 °C (Basis GDD ~10 °C)
+12. [Plantiary – Asparagus setaceus Care Guide](https://plantiary.com/plant/asparagus-setaceus_3275.html) und [Cafe Planta – Asparagus Fern Root Rot](https://cafeplanta.com/blogs/resources/asparagus-fern-root-rot) — Staunässe-Empfindlichkeit, Wurzelfäule bei Überwässerung
+13. [Wikipedia – Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) und [Dickson 2018, NEGC – Managing nutrient solutions for hydroponic crops](https://www.negreenhouse.org/uploads/9/4/8/2/94821076/dickson_2018_negc_nutrient_and_ph_for_hydroponics.pdf) — Mikronährstoff-Zielkonzentrationen Mn/Zn/Cu/Mo
+14. [New Phytologist (Zhen et al. 2022) – Photosynthesis in sun and shade: far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) und [Greenhouse Product News – The R:FR Ratio](https://gpnmag.com/article/r-fr-ratio/) — Tageslicht-FR-Fraktion ≈ 0,5; niedrigeres R:FR im Schatten/Unterwuchs
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 5 (kühlliebende Staude / cool-season; Wachstum/Blüte ab Bodentemperatur ~13–16 °C) | `species.base_temp` |
+| Lebensdauer (Jahre) | 10–15+ (langlebige Staude, alle 3–5 J. teilen) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (obligater Kältebedarf: min. ~10 Wochen < ~4 °C vor Blüteneinleitung) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 70 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (fakultativer Langtagblüher / facultative long-day — kein scharfer Schwellenwert belegbar; Kurztag ~9 h löst Dormanz aus) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -86,6 +95,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, feuchtigkeitsspeichernde Erde; pH 5,5–6,5; leicht sauer; gut wasserhaltig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (keine artspezifische Messung aus 2 seriösen Quellen; Astilbe ist schattentolerant, daher physiologisch niedrig, aber kein belegter Zahlenwert) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–30 (flach- bis mittelwurzelnde Staude; Krone 3–5 cm unter Bodenniveau, fibröses Rhizom) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | moderate (liebt gleichmäßig feuchte, auch schwere/sumpfige Böden, verträgt aber keine Dauer-Staunässe/stehendes Wasser) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (keine belegten Maas-Hoffman-Werte für Astilbe; Klasse "sensitive" impliziert ≈ <2, jedoch kein Zahlenwert aus 2 Quellen) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweis (Lichtphysiologie):** Astilbe chinensis ist ein schattentoleranter C3-Unterwuchs-Typ (partial_shade); RHS und Missouri Botanical Garden führen "partial shade" bzw. "part shade to full shade". In voller Sonne nur bei dauerhaft feuchtem Boden, sonst Blattrandverbrennung (leaf scorch). A. chinensis verträgt mehr Sonne und Trockenheit als die A.-×-arendsii-Hybriden, bleibt aber drought-intolerant.
+
+**Hinweis (Salz):** Quellenlage uneinheitlich — einzelne Gartenlisten führen Astilbe als salzverträglich, doch University-Extension-/RHS-nahe Quellen und das feuchte Halbschatten-Profil sprechen klar für eine salzempfindliche (sensitive) Einstufung; Astilbe wird nicht als Küsten-/Streusalzpflanze empfohlen. Bezugsgröße einer etwaigen Schwelle wäre Substrat-ECe, nicht Gießwasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +143,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer stomatärer Kollaps oberhalb des Zielkorridors; oberer Zielwert 1.0 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high (feuchteliebende Schattenstaude, schließt Stomata / verbrennt bei Trockenstress früh) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- DATEN FEHLEN --> (keine artspezifische Messung; kühlliebend, Hitzestress >25–28 °C, aber kein belegter T_opt-Wert aus 2 Quellen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> (kein belegter phasenspezifischer Messwert; offenes Tageslicht ≈ 0.5, unter Schattendach höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +161,10 @@
 | Vegetativ | 2:1:2 | 1.0–1.4 | 5.5–6.5 | 100 | 50 | – | 2 |
 | Blüte | 1:2:2 | 1.0–1.4 | 5.5–6.5 | 100 | 50 | – | 2 |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo):** <!-- DATEN FEHLEN --> — keine artspezifischen Sufficiency-Werte (ppm) für Astilbe aus mind. 2 seriösen Quellen (Extension/Tissue-Standards) belegbar. Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm` bleiben unbelegt. Praxis-Hinweis (nicht ins KA-Feld): leicht saurer Boden-pH (5,5–6,5) sichert die Mn-/Fe-Verfügbarkeit; bei pH >6,5 droht Mikronährstoff-Festlegung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -203,6 +242,16 @@ Astilbe chinensis ist sehr robust und fast schädlingsfrei.
 | Echter Mehltau | fungal | Weißer Belag | Trockenheit + Wärme | 7–10 | vegetative (Spätsommer) |
 | Rhizomfäule | fungal (Phytophthora) | Welken; braune Rhizome | Staunässe | 14–21 | alle |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit | Hinweis |
+|----------|--------------------|----------------|--------------|------------------|---------|
+| Insektenpathogene Nematoden (entomopathogenic nematodes) | Heterorhabditis bacteriophora | Dickmaulrüssler-Larven (Otiorhynchus sulcatus) | ~500.000 Nematoden/m² (500 Mio./1.000 m²) | Larvenabsterben innerhalb weniger Tage (~1 Woche) | Nur auf feuchtem Boden, min. Bodentemperatur 12 °C; Frühjahr/Spätsommer gegen Larvenstadium |
+
+**Hinweis:** Bei Topfkultur als Gießanwendung in feuchtes, gut drainierendes Substrat ausbringen. Heterorhabditis ist auf Bodentemperaturen >12 °C angewiesen — Anwendung daher nicht im Hochwinter. Gegen adulte Käfer (Buchtenfraß am Blattrand) wirken die Nematoden nicht; sie zielen auf das wurzelfressende Larvenstadium.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -235,3 +284,13 @@ Astilbe chinensis,"Chinesische Prachtspiere;Astilbe;Chinese Astilbe",Saxifragace
 2. [Lubera Prachtspiere](https://www.lubera.com/de/gartenbuch/prachtspiere-astilbe-schneiden-pflege-standort-p3179) — Schnitt, Pflege
 3. [Floragard Astilbe chinensis](https://www.floragard.de/de-de/pflanzeninfothek/pflanze/stauden/astilbe-chinensis) — Kulturdaten
 4. [Gartenjournal Prachtspiere](https://www.gartenjournal.net/prachtspiere) — Pflanzung, Standort
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — Astilbe chinensis (Chinese astilbe)](https://www.rhs.org.uk/plants/1825/astilbe-chinensis/details) — Standort (partial shade), Bodenfeuchte, pH-Adaptabilität, Höhe, Hardiness H7 (< -20 °C), drought-intolerant
+6. [Missouri Botanical Garden — Astilbe chinensis 'Visions'](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=h400) — Part shade to full shade, rhizomatöses Wurzelsystem, Teilung alle 3–4 J., bessere Sonnen-/Trockenheitstoleranz als arendsii
+7. [MSU Floriculture — Life after cold! (Vernalization part 4)](https://www.canr.msu.edu/resources/vernalization-part-4) — Astilbe chinensis 'Pumila': Dormanz bei 9-h-Kurztag, fakultativer Langtag, Kältebedarf zur Blüteneinleitung
+8. [Greenhouse Product News — Perennial Solutions: Astilbe](https://gpnmag.com/article/perennial-solutions-astilbe-younique-series/) — Obligater Kältebedarf min. 10 Wochen < 40 °F (~4 °C), Forcing 10–12 Wochen, long-day-beneficial
+9. [Almanac — Planting and Growing Astilbes](https://www.almanac.com/plant/astilbe) — feuchter, gut drainierender Boden (kein Staunässe-Dauerzustand), Pflanztiefe Krone, cool-season-Verhalten
+10. [Koppert — Correct application crucial for effective vine weevil control](https://www.koppert.com/news/correct-application-crucial-for-effective-vine-weevil-control/) — Heterorhabditis bacteriophora gegen Otiorhynchus sulcatus, min. Bodentemperatur 12 °C
+11. [Green Gardener — When to use nematodes for vine weevil](https://www.greengardener.co.uk/help-and-advice/when-to-use-nematodes-for-slugs-vine-weevil-leatherjackets-and-chafer-grubs/) — Heterorhabditis-Ausbringrate ~500.000/m², Anwendungsfenster
+12. [Pondering Petals — Astilbe Soil pH](https://ponderingpetals.com/astilbe/soil-ph-management/) & [GardenerBible — Do Astilbe Like Acidic Soil?](https://gardenerbible.com/do-astilbe-like-acidic-soil/) — leicht saurer pH-Vorzug (high 5s–low 6s), Mikronährstoff-Verfügbarkeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

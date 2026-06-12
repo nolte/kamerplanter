@@ -18,10 +18,17 @@
 | Gattung | Aspidistra | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 20–50+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> keine belegte artspezifische GDD-Basistemperatur in der Literatur | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a | `species.hardiness_zones` |
@@ -90,6 +97,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale Einheitserde mit 20% Perlite. pH 5.5–7.0. Gute Drainage. Substrat darf zwischen Güssen antrocknen. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> keine belegten artspezifischen Messwerte | `species.light_compensation_point_ppfd_min` / `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | deep_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN --> Rhizom oberflächennah (5–10 mm dick, subterran); keine belegte effektive Wurzeltiefe | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Schwellenwert | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Slope | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Aspidistra elatior ist ein C3-Schattenkraut der Wald-Unterschicht (forest understory) — wächst laut PFAF in „Vollschatten (deep woodland)" und laut NC State Extension in „deep shade (weniger als 2 Stunden direkte Sonne)". Die ledrigen Blätter sind keine Sukkulenz-Anpassung (kein CAM). Der Boden-pH-Vorzug 6.0–7.0 (leicht sauer bis neutral; MSU/ForwardPlant) liegt innerhalb der in §1.6/§2.3 genannten tolerierten Spanne 5.5–7.0 und steht damit nicht im Widerspruch. Salztoleranz wird in den Quellen uneinheitlich als „slightly" (PFAF/NC State) bis „moderate" (gardenia.net) beschrieben — konservativ als `moderately_sensitive` eingestuft. Staunässe ist die einzige ernsthafte Bedrohung (Wurzelfäule), daher `sensitive`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +138,12 @@
 | Temperatur Nacht (°C) | 8–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 30–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -123,6 +153,12 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 30–150 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 7–18 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–28 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -132,6 +168,17 @@
 |-------|----------------|---------|-----|----------|----------|
 | Aktives Wachstum | 3:1:2 | 0.5–0.9 | 5.5–7.0 | 60 | 25 |
 | Winterwachstum | 0:0:0 | 0.0–0.2 | 5.5–7.0 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (aktives Wachstum):** Für Aspidistra elatior existieren keine belegten artspezifischen Mikronährstoff-Zielwerte. Da das KA-Modell artspezifische, quellenbasierte Werte verlangt, bleiben die Felder unbelegt:
+
+| Mikronährstoff | Wert | KA-Feld |
+|----------------|------|---------|
+| Mangan (Mn, ppm) | <!-- DATEN FEHLEN --> kein artspezifischer Beleg | `nutrient_profiles.manganese_ppm` |
+| Zink (Zn, ppm) | <!-- DATEN FEHLEN --> kein artspezifischer Beleg | `nutrient_profiles.zinc_ppm` |
+| Kupfer (Cu, ppm) | <!-- DATEN FEHLEN --> kein artspezifischer Beleg | `nutrient_profiles.copper_ppm` |
+| Molybdän (Mo, ppm) | <!-- DATEN FEHLEN --> kein artspezifischer Beleg | `nutrient_profiles.molybdenum_ppm` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -175,6 +222,21 @@ Leichter Zehrer. Monatlich April bis September. Oktober bis März kein Dünger. 
 | Schädlingskontroll-Intervall (Tage) | 21 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) + Monat | move_indoors (Oktober) | `overwintering_profiles.winter_action` |
+| Frühjahrs-Aktion (spring action) + Monat | move_outdoors (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (°C) | 7–15 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | Hell bis halbschattig, kein direktes Sonnenlicht; toleriert auch dunklere Standorte | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | Stark reduziert (alle 14–28 Tage), nur antrocknen lassen; kein Dünger | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** In den USDA-Zonen 7–8 (Mitteleuropa) ist Aspidistra elatior als Kübel-/Zimmerpflanze zu führen. Zwar ist die Art im Boden bis ca. -15 °C wurzelhart (PFAF), die immergrünen, breiten Blätter werden jedoch bereits durch Frost und Schneelast geschädigt (gardenia.net, MSU Extension). Daher: frostfreie Überwinterung drinnen (`frost_free`), nicht `hardy`. Kein Ausgraben/Einlagern (kein `dig_and_store`), da immergrünes Rhizom-Stauden­gewächs ohne Einzugs-/Knollenruhe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -198,6 +260,17 @@ Leichter Zehrer. Monatlich April bis September. Oktober bis März kein Dünger. 
 |---------|-----|-----------|------------|-------|
 | Weniger gießen | cultural | Gießintervall stark reduzieren | 0 | Wurzelfäule (Prävention) |
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Schmierläuse, Spinnmilbe |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (mealybug destroyer) | Cryptolaemus montrouzieri | Schmierlaus (Pseudococcus spp.) | 2–10/m² je Ausbringung, nur in Befallsnestern, ggf. wiederholen | ca. 2–4 Wochen (Larven + Adulte fressen) |
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50/m² je Ausbringung, 1–2× wöchentlich wiederholen | ca. 1–2 Wochen (Entwicklung ~2× schneller als Beute) |
+
+**Hinweis:** Beide Nützlinge sind klassische Indoor-/Gewächshaus-Antagonisten und passen zu den für Aspidistra typischen Schädlingen (Schmierlaus, Spinnmilbe). Ausbringraten nach Koppert; im Zimmer eher am unteren Bereich der Spanne und punktuell an Befallsstellen. *Phytoseiulus persimilis* benötigt höhere Luftfeuchte und ist daher bei der für Spinnmilben typischen sehr trockenen Luft ggf. mit feuchtigkeitstoleranteren Arten (z. B. *Amblyseius*-Arten) zu kombinieren.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -233,3 +306,11 @@ Aspidistra elatior,"Schusterpalme;Gusseisenpflanze;Schildblatt;Cast Iron Plant;B
 2. [Epic Gardening — Cast Iron Plant](https://www.epicgardening.com/cast-iron-plant/) — Kulturdaten
 3. [Ohio Tropics — Aspidistra elatior](https://www.ohiotropics.com/2019/05/12/cast-iron-plant-care-how-to-care-for-aspidistra-elatior/) — Pflegehinweise
 4. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Mississippi State University Extension — Aspidistra (Aspidistra elatior) for the Farmer Florist](https://extension.msstate.edu/publications/aspidistra-aspidistra-elatior-for-the-farmer-florist) — Boden-pH (6.0–7.0), Schatten (70–80%), Temperatur/Hardiness, Frostschäden an Blättern
+6. [NC State Extension Gardener Plant Toolbox — Aspidistra elatior](https://plants.ces.ncsu.edu/plants/aspidistra-elatior/) — Schatten (deep shade), Salztoleranz (slightly), Boden-pH, USDA-Zonen 7a–11b
+7. [Plants For A Future (PFAF) — Aspidistra elatior](https://pfaf.org/User/Plant.aspx?LatinName=Aspidistra+elatior) — Vollschatten/deep woodland, Bodentypen, Winterhärte bis -15 °C, gute Drainage
+8. [ForwardPlant — Aspidistra elatior Care Guide](https://www.forwardplant.com/plant-info/aspidistra-elatior/) — Boden-pH (slightly acidic/neutral), Pflege, Rhizomstärke
+9. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate/Etablierung Spinnmilben-Raubmilbe
+10. [Koppert US — Cryptolaemus montrouzieri](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate/Etablierung Schmierlaus-Marienkäfer
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

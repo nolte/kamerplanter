@@ -20,6 +20,15 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | bulbous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4--7 (kuehlliebende Allium-Art; Onion-GDD-Basis 45 degF = 7.2 degC, Wachstum verlangsamt unter 40 degF = 4.4 degC) | `species.base_temp` |
+| Lebensdauer (Jahre) | 10--15 (langlebige Staude; alle 2--4 Jahre teilen verjuengt den Horst) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 42--56 (mind. 6--8 Wochen unter 5 degC fuer Bluehinduktion/kraeftigen Fruehjahrsaustrieb) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | <!-- DATEN FEHLEN --> (Langtagsbluueher, aber kein publizierter kritischer Photoperioden-Schwellwert fuer A. schoenoprasum) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | long_day (Langtagspflanze -- bluet bei laengeren Tagen ab Juni, vegetatives Wachstum im Fruehling durch zunehmende Taglaenge gefoerdert) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | very_hardy | `species.frost_sensitivity` |
@@ -102,6 +111,24 @@ Hinweis: Regelmaessiges Schneiden (3--5 cm ueber Bodenniveau) foerdert den Neuau
 
 **Hinweis:** Schnittlauch ist eines der anspruchslosesten Kuechenkraeuter. Vertraegt Sonne bis Halbschatten. Im Topf regelmaessig giessen, vertraegt kurze Trockenheit, bildet dann aber duenne Halme. Ideal als Beeteinfassung oder in Kraeuterspiralen. Im Erwerbsanbau werden Horste auch im Winter unter Glas getrieben (Treibkultur).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | <!-- DATEN FEHLEN --> (kein publizierter LCP fuer A. schoenoprasum) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | <!-- DATEN FEHLEN --> (kein publizierter LCP fuer A. schoenoprasum) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (bevorzugt volle Sonne, toleriert lichten Schatten; Bluete bei Beschattung reduziert) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 18--40 (flachwurzelnde Allium-Art, Hauptwasseraufnahme aus oberer Bodenschicht) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (flachwurzelnd, hohe Staunaesse-Empfindlichkeit wie alle Allium) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (FAO-Einstufung fuer Allium/Zwiebel als Referenz) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.2 (Substrat-ECe, nicht Giesswasser-EC; Maas-Hoffman a fuer Allium/Zwiebel) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 16 (Maas-Hoffman b fuer Allium/Zwiebel) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.0 (harmonisiert mit Substrat-Empfehlung und Naehrstoffprofilen) | `species.soil_ph_preference` |
+
+**Hinweis:** Salztoleranz- und Wurzeltiefe-Werte sind aus der eng verwandten Referenzart Zwiebel/Lauch (Allium cepa, FAO-29-Datenbank) abgeleitet, da fuer A. schoenoprasum keine eigenen Maas-Hoffman-Parameter publiziert sind. Die ECe-Schwelle bezieht sich auf die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), nicht auf die Giesswasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +159,12 @@ Hinweis: Schnittlauch ist mehrjaehrig und durchlaeuft jaehrlich den Zyklus Veget
 | Luftfeuchtigkeit Tag (%) | 75--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (stomataerer Kollaps deutlich oberhalb des Zielkorridors; feuchteliebende Keimphase, niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Kuehlart) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht-Spektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +181,12 @@ Hinweis: Schnittlauch ist mehrjaehrig und durchlaeuft jaehrlich den Zyklus Veget
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (Zieloberkante 0.8 + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Kuehlart) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht-Spektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +203,12 @@ Hinweis: Schnittlauch ist mehrjaehrig und durchlaeuft jaehrlich den Zyklus Veget
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Zieloberkante 1.2 + ca. 0.4 kPa; daruueber stomataerer Kollaps, Halme welken) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Kuehlart) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht-Spektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +227,12 @@ Hinweis: Schnittlauch bevorzugt kuehle Temperaturen. Bei Hitze ueber 28 degC ver
 | Luftfeuchtigkeit Tag (%) | 50--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Zieloberkante 1.2 + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Kuehlart) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht-Spektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -215,6 +266,20 @@ Hinweis: Oberirdische Teile sterben im Herbst ab. Zwiebeln im Boden belassen. To
 | Vegetativ | 3-1-2 | 0.8--1.4 | 6.0--6.5 | 100 | 40 | 50 | 3 |
 | Bluete | 2-2-2 | 0.8--1.2 | 6.0--6.5 | 80 | 35 | 40 | 2 |
 | Dormanz | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Mikronaehrstoffe je Phase (Naehrstoffloesung, Standard-Spurenelementbereich fuer Schwachzehrer):
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Keimung | -- | -- | -- | -- | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Saemling | 0.5 | 0.1 | 0.05 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Vegetativ | 0.5--1.0 | 0.1--0.3 | 0.05--0.1 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Bluete | 0.5 | 0.1 | 0.05 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Dormanz | -- | -- | -- | -- | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+
+Hinweis: Mikronaehrstoffwerte folgen dem Standard-Spurenelementbereich fuer Gemuese-/Kraeuter-Naehrstoffloesungen (Hoagland-orientiert), da fuer A. schoenoprasum keine artspezifischen Spurenelement-Sollwerte publiziert sind. Fuer den Schwachzehrer Schnittlauch am unteren Bereich orientieren.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Schnittlauch ist ein Schwachzehrer, benoetigt aber fuer die Aromaentwicklung gute Schwefelversorgung (S). Alle Allium-Arten nutzen Schwefel fuer die Synthese von Geschmacks- und Aromastoffen (Allicin und verwandte Thiosulfinate). EC ueber 2.0 mS vermeiden. pH-Optimum im leicht sauren bis neutralen Bereich (6.0--7.0).
 
@@ -323,6 +388,19 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 ### 4.3 Ueberwinterung
 
 Schnittlauch ist vollstaendig winterhart (bis ca. -30 degC) und benoetigt keine besondere Ueberwinterungspflege. Die oberirdischen Teile sterben im Herbst ab, die Zwiebelbulben ueberwintern im Boden. Eine leichte Kompost- oder Laubmulchschicht schuetzt vor extremen Kahlfroesten. Topfkultur: Topf draussen lassen (frosthart) oder frostfrei bei 0--5 degC lagern. Mindestens 6--8 Wochen Kaelteexposition unter 5 degC sind fuer kraeftigen Fruehjahraustrieb noetig (Vernalisation).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Einstufung (hardiness rating) | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) | mulch (leichte Kompost-/Laubmulchschicht bei Kahlfrostgefahr) + Monat: 11 (November) | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Massnahme (spring action) | uncover (Mulch abraeumen/auflockern, abgestorbene Halme entfernen) + Monat: 3 (Maerz) | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (degC) | Freiland: keine Begrenzung (frosthart bis -30); Topf optional frostfrei 0--5 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | natuerlich/keine Belichtung noetig (oberirdisch eingezogen, Dormanz) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | minimal; Topf nur bei Austrocknung leicht giessen, Staunaesse vermeiden | `overwintering_profiles.winter_quarter_watering` |
+
+Hinweis: hardiness_rating = hardy, da die Art im Freiland (USDA 3--9, Mitteleuropa) ohne Schutz ganzjaehrig ueberlebt. Die Mulchgabe ist optional und dient nur als Kahlfrostschutz, nicht als zwingende Frostvorsorge.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -467,3 +545,16 @@ Feinroehriger (Pötschke Historisch),Allium schoenoprasum,Pötschke,,fine_leaf;h
 9. schadbild.com -- Krankheiten und Schaedlinge an Schnittlauch: https://www.schadbild.com/gem%C3%BCse/schnittlauch/
 10. kiepenkerl.de -- Schnittlauch Kulturprobleme: https://www.kiepenkerl.de/kulturprobleme/beim-anbau-von-schnittlauch/
 11. samen.de -- Schnittlauch schuetzen: https://samen.de/blog/schnittlauch-schuetzen-krankheiten-und-schaedlinge-erkennen.html
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. University of Wisconsin-Madison Horticulture Extension -- Chives, Allium schoenoprasum (Standort, Sonne/Halbschatten, Winterhaerte Zone 3, Teilung): https://hort.extension.wisc.edu/articles/chives-allium-schoenoprasum/
+13. University of Minnesota Extension -- Growing chives (Standort, Boden-pH, Sonne/Halbschatten): https://extension.umn.edu/vegetables/growing-chives
+14. RHS -- Allium schoenoprasum / chives (Standort, Boden-pH 6.0--7.0, lichter Schatten): https://www.rhs.org.uk/plants/859/allium-schoenoprasum/details
+15. FAO Irrigation and Drainage Paper 29 / Annex 1, Crop salt tolerance data -- Onion (Allium): ECe-Schwelle 1.2 dS/m, Slope 16 %/dS/m, Einstufung "sensitive": https://www.fao.org/4/y4263e/y4263e0e.htm
+16. Frontiers in Plant Science -- Onion (Allium cepa) salt sensitivity beyond 1.2 dS/m (Maas & Hoffman): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2023.1154051/full
+17. Frontiers in Plant Science -- Screening of Onion (Allium cepa) Genotypes for Waterlogging Tolerance (Flachwurzler, hohe Staunaesse-Empfindlichkeit, Wurzelzone 18--40 cm): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.727262/full
+18. Dixondale Farms -- Heat Units in Onions (GDD-Basistemperatur 45 degF = 7.2 degC fuer Allium): https://www.onionpatch.dixondalefarms.com/heat-units-in-onions/
+19. gardenia.net -- Chives (Allium schoenoprasum): Lebensdauer/langlebige Staude, Teilung alle 2--3 Jahre: https://www.gardenia.net/plant/allium-schoenoprasum-chives
+20. NordGen -- Chives (Allium schoenoprasum), zirkumpolare Verbreitung, perenne Wildart: https://www.nordgen.org/projects/crop-wild-relatives/plant-portraits/chives-allium-schoenoprasum-l/
+21. Sustainable Market Farming -- Allium Growth Stages / Year-Round (Kuehlsaison-Crop, frosttolerant, Bolting 7.2--10 degC): https://www.sustainablemarketfarming.com/wp-content/uploads/2023/01/Alliums-Year-Round.pdf
+22. Hoagland solution / hydroponic micronutrient ranges (Mn/Zn/Cu/Mo Standardbereiche Gemuese): https://en.wikipedia.org/wiki/Hoagland_solution
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

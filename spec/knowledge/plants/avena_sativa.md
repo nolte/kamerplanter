@@ -21,6 +21,14 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (Sommerhafer ohne Kältebedarf; nur seltener Winterhafer vernalisationsabhängig) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (fakultativer Langtagblüher / facultative long-day, tagneutrale Schwelle nicht scharf definiert; keine kritische Tageslänge belegt) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frühjahrs-Hafer kälteverträglich bis ca. -6°C im Saatgutstadium; Sommergetreide — friert bei strengem Winterfrost ab; Winterhafer (selten) bis -10°C; Herbstaussaat nur für Gründüngung (friert kontrolliert ab) | `species.hardiness_detail` |
@@ -84,6 +92,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, nährstoffarme Erde; ph 6,0–7,0; durchlässig; keine schwere Gartenerde | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | — (kein verlässlicher artspezifischer Wert aus ≥2 Quellen belegt) `<!-- DATEN FEHLEN -->` | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 50–95 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — (FAO führt Hafer nur qualitativ als „Tolerant" ohne Maas-Hoffman-Schwellenwert) `<!-- DATEN FEHLEN -->` | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — (kein Maas-Hoffman-b-Wert publiziert) `<!-- DATEN FEHLEN -->` | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Salztoleranz:** Die FAO-Klassifikation bewertet die Kornerträge von Hafer für die reife Kultur als „Tolerant" (T), liefert jedoch keine quantitativen Maas-Hoffman-Werte (Schwelle/Slope). Im Keim- und Sämlingsstadium (germination/seedling stage) reagiert Hafer dagegen deutlich empfindlicher auf Salz — frühe Phasen sollten mit geringerer Gießwasser-EC geführt werden. Bezugsgröße der Klasse ist die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht die Gießwasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +137,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 2–3 (gleichmäßig feucht) | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Bestockung
 
@@ -125,6 +156,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Schossen / Schossung
 
@@ -138,6 +175,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–21 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Rispenschieben / Blüte
 
@@ -151,6 +194,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–21 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Abreife
 
@@ -164,16 +213,26 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 (trocken für Drusch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
 | Gießintervall (Tage) | 7–14 (Wasserreduktion für Abreife) | `requirement_profiles.irrigation_frequency_days` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 19–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–6.5 | — | — |
-| Bestockung | 3:1:2 | 0.8–1.2 | 6.0–6.8 | 80 | 30 |
-| Schossen | 3:1:2 | 1.2–1.8 | 6.0–6.8 | 100 | 40 |
-| Blüte | 1:2:2 | 1.0–1.6 | 6.0–6.8 | 80 | 40 |
-| Abreife | 0:1:2 | 0.6–1.0 | 6.0–6.8 | 60 | 30 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — |
+| Bestockung | 3:1:2 | 0.8–1.2 | 6.0–6.8 | 80 | 30 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->`<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Schossen | 3:1:2 | 1.2–1.8 | 6.0–6.8 | 100 | 40 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->`<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Blüte | 1:2:2 | 1.0–1.6 | 6.0–6.8 | 80 | 40 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->`<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Abreife | 0:1:2 | 0.6–1.0 | 6.0–6.8 | 60 | 30 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->` | — `<!-- DATEN FEHLEN -->`<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Es liegen keine hafer- und phasenspezifischen Sollkonzentrationen (target ppm) der Nährlösung aus ≥2 unabhängigen Quellen vor; daher sind die Felder als fehlend markiert. Als allgemeine Orientierung für Gräser/Getreide gilt die Hoagland-Standardlösung (Mn ≈ 0,5 ppm, Zn ≈ 0,05 ppm, Cu ≈ 0,02 ppm, Mo ≈ 0,01 ppm); diese Werte sind jedoch nicht artspezifisch validiert und gehören nicht ungeprüft in die KA-Felder.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -363,3 +422,14 @@ Zorro,Avena sativa,"early;crown_rust_tolerant",90,certified
 3. [DLG — Getreidekrankheiten und Schädlinge](https://www.dlg.org) — IPM, Resistenzen
 4. [University of Minnesota Extension — Small Grains](https://extension.umn.edu/crops/small-grains) — Nährstoffbedarf, Phasen
 5. [Saaten-Union Sortenbeschreibungen Hafer](https://www.saaten-union.de) — Sorteneigenschaften
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Frontiers in Plant Science — Advancing understanding of oat phenology for crop adaptation (2022)](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.955623/full) — Hafer als vernalisationsabhängiger Langtagblüher; Sommerhafer ohne Vernalisationsbedarf; Photoperiodik
+7. [King & Bacon (1992), Crop Science — Vernalization Requirement of Winter and Spring Oat Genotypes](https://acsess.onlinelibrary.wiley.com/doi/10.2135/cropsci1992.0011183X003200030019x) — Sommerhafer reagiert nicht auf Vernalisation
+8. [arXiv 2308.14520 — Crop progress monitoring (cumulated degree-days oat, base 5 °C)](https://arxiv.org/pdf/2308.14520) — GDD-Basistemperatur Hafer 5 °C
+9. [FAO Water Reports 61 — Annex 1: Crop salt tolerance data (Maas-Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Hafer-Kornertrag qualitativ „Tolerant" (T), kein Schwellen-/Slope-Wert
+10. [Pitann et al. (2025), J. Agronomy & Crop Science — Waterlogging impact on oat yield](https://onlinelibrary.wiley.com/doi/10.1111/jac.70031) — moderate Staunässe-Toleranz; gute Erholung von Vernässung
+11. [Springer, Plant and Soil — Waterlogging effects on root/shoot growth of winter oats](https://link.springer.com/article/10.1007/BF02220191) — Wurzeltiefe bis ~80–95 cm; O₂-Verfügbarkeit nach Tiefe
+12. [PFAF — Avena sativa (Oats, Common oat)](https://pfaf.org/user/Plant.aspx?LatinName=Avena+sativa) — Lichtbedarf (volle Sonne), Standortpräferenzen
+13. [RHS — Avena sativa (oat)](https://www.rhs.org.uk/plants/105559/avena-sativa/details) — Sonnenstellung, Boden-pH-Vorzug
+14. [Hoagland solution — Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — allgemeine Mikronährstoff-Referenz (Mn/Zn/Cu/Mo), nicht artspezifisch
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

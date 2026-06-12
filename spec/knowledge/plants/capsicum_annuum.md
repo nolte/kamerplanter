@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, Haifa Group, ICL, Gardenia.net, Plantura, fryd.app, Hortipendium, NCSU Extension, Old Farmer's Almanac, Mein schoener Garten, Gartenjournal
+> **Quellen:** ASPCA, Haifa Group, ICL, Gardenia.net, Plantura, fryd.app, Hortipendium, NCSU Extension, Old Farmer's Almanac, Mein schoener Garten, Gartenjournal, FAO 56/29, ScienceDirect, BMC Plant Biology, PMC, Clemson HGIC, PSU Extension, ASHS (Erweiterung 2026-06)
 
 ---
 
@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual (in Mitteleuropa; in Tropen kurzlebig perennial) | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral (fakultativ; Fruchtansatz nicht streng taglaengenabhaengig, aber kurze Tage koennen Bluete beschleunigen) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Calvin-Zyklus, kein C4-/CAM-Mechanismus; typisch fuer Solanaceae) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 10 (Hauptwuchsphase warmeliebende Art; unter 15 degC Wachstumsstopp, unter 10 degC keine Entwicklung) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (tropische Herkunft, kein Kaeltebedarf) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tagneutral, kein Kaeltereiz fuer Bluete noetig) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (critical day length, h) | -- (tagneutral / day_neutral; keine echte Kurz-/Langtagbluete) | `lifecycle_configs.critical_day_length_hours` |
+| Befruchter erforderlich (requires pollinator) | false (selbstfruchtbar / self-fertile; zwittrige Blueten, Selbstbestaeubung ist Hauptpaarungssystem) | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | -- (nicht relevant bei selbstfruchtbarer Art; kein pomologisches Befruchtungsschema) | `species.pollinator_group` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei Temperaturen unter 5 degC ab. In Mitteleuropa streng einjaehrig kultiviert (Freiland Juni--Oktober). Vorkultur ab Februar/Maerz zwingend noetig (lange Kulturzeit 120--180 Tage). | `species.hardiness_detail` |
@@ -29,6 +38,10 @@
 | Naehrstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible; heat_tolerant | `species.traits` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis Bestaeubung: Paprika ist selbstfruchtbar -- jede Bluete kann ohne Kreuzbestaeubung Frucht ansetzen. Bienen/Hummeln oder Luftbewegung verbessern aber den Fruchtansatz, da sie den Pollen in der Bluete von den Antheren auf die Narbe uebertragen ("buzz pollination"). Im windstillen Gewaechshaus daher ggf. Pflanzen leicht schuetteln oder Hummeln einsetzen. Diese Insekten-Hinweise gehoeren NICHT in `species.compatible_pollinators` (das Feld ist Cultivars vorbehalten und bleibt hier leer).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -98,6 +111,24 @@ Hinweis: Ausgeizen der untersten Triebe bis zur Verzweigungsgabel (Koenigsbluete
 | Rankhilfe/Stuetze noetig | true (ab Fruchtansatz Stuetzstab empfohlen, Fruchtgewicht knickt Triebe) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche, humose, durchlaessige Gemuese-/Tomatenerde. pH 6.0--6.8. Drainage am Topfboden (Blaehton). Staunaesse vermeiden. | -- |
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: kein Capsicum-spezifischer LCP aus 2 unabhaengigen seriösen Quellen belegbar; Solanaceen-Analogwert (Tomate) ~18--21 umol nur als Orientierung --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (6--8 h direkte Sonne noetig; vertraegt leichten Halbschatten, dann aber deutlich geringerer Ertrag und Fruchtqualitaet) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 50--100 (FAO Zr; Hauptwurzelmasse jedoch in oberen 20--30 cm konzentriert) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive (Ueberstauung fuehrt zu Wurzelschaeden und haeufig Pflanzentod; gute Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive (FAO 29, Maas-Hoffman) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.5 (Bezugsgroesse Substrat-ECe im Saettigungsextrakt, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 14 (Ertragsrueckgang je dS/m oberhalb der Schwelle; Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.8 (leicht sauer bis neutral; harmonisiert mit §1.6 und §2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweis: Der ECe-Schwellenwert (1.5 dS/m) bezieht sich auf den Saettigungsextrakt des Substrats nach Maas-Hoffman, nicht auf die EC der Naehrloesung in §2.3 (dort EC der zugefuehrten Loesung in mS). Lichtsaettigung liegt bei Paprika deutlich hoeher als der Kompensationspunkt (vgl. PPFD-Ziele 300--600 in §2.2); Werte oberhalb ~600--700 PPFD bringen ohne CO2-Anreicherung kaum Zusatznutzen.
+
 ---
 
 ## 2. Wachstumsphasen
@@ -128,6 +159,12 @@ Hinweis: Paprika hat eine der laengsten Kulturzeiten im Gemuesesortiment (120--1
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt stomataeren Kollaps; feuchteliebende Keimphase, deutlich oberhalb Ziel-Oberkante 0.8) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Keimlinge/Saemlinge reagieren empfindlich auf Austrocknung) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 (C3-Optimum; in Keimphase noch ohne Photosyntheseleistung relevant) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht; nicht mit R:FR verwechseln) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -144,6 +181,12 @@ Hinweis: Paprika hat eine der laengsten Kulturzeiten im Gemuesesortiment (120--1
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (oberer Zielwert 1.0 + ~0.3; ab hier stomataerer Stress) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (junge Pflanze mit kleinem Wurzelsystem, austrocknungsanfaellig) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 (C3-Optimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -160,6 +203,12 @@ Hinweis: Paprika hat eine der laengsten Kulturzeiten im Gemuesesortiment (120--1
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert 1.2 + ~0.4; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 (C3-Optimum; ueber 32 degC Photosynthese-Hemmung) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -178,6 +227,12 @@ Hinweis: Paprika waechst in der Jugendphase langsam. Temperaturen unter 15 degC 
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert 1.4 + ~0.4; hohes VPD verstaerkt Bluetenabwurf und BER) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 24--28 (Bluetephase; ueber 32 degC Bluetenabwurf, gedrosselte Photosynthese) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -196,6 +251,12 @@ Hinweis: Temperaturen ueber 32 degC und unter 15 degC fuehren zu Bluetenabwurf. 
 | Luftfeuchtigkeit Tag (%) | 50--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert 1.4 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 24--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 300--600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -204,13 +265,14 @@ Hinweis: Die Erntephase ist bei Paprika lang (6--12 Wochen). Regelmaessiges Ernt
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.6--1.0 | 5.8--6.2 | 80 | 30 | 25 | 2 |
-| Vegetativ | 3-1-2 | 1.4--1.8 | 5.8--6.2 | 120 | 50 | 40 | 3 |
-| Bluete | 2-2-3 | 1.8--2.2 | 5.8--6.2 | 150 | 50 | 40 | 3 |
-| Ernte | 1-2-3 | 1.8--2.5 | 5.8--6.2 | 180 | 60 | 45 | 3 |
+<!-- Spalten Mn/Zn/Cu/Mo: Quelle Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.6--1.0 | 5.8--6.2 | 80 | 30 | 25 | 2 | 0.4 | 0.05 | 0.02 | 0.02 |
+| Vegetativ | 3-1-2 | 1.4--1.8 | 5.8--6.2 | 120 | 50 | 40 | 3 | 0.5 | 0.06 | 0.03 | 0.03 |
+| Bluete | 2-2-3 | 1.8--2.2 | 5.8--6.2 | 150 | 50 | 40 | 3 | 0.6 | 0.08 | 0.04 | 0.04 |
+| Ernte | 1-2-3 | 1.8--2.5 | 5.8--6.2 | 180 | 60 | 45 | 3 | 0.6 | 0.08 | 0.05 | 0.05 |
 
 Hinweis: Paprika ist ein Starkzehrer und benoetigt deutlich mehr Naehrstoffe als Basilikum oder Salat. Calcium ist besonders kritisch -- Mangel fuehrt zu Bluetenendstueckfaeule (BER). Kalium wird ab Fruchtansatz erhoet benoetigt (Farbausreifung, Geschmack). pH unter 5.8 foerdert Mikro-Toxizitaet, ueber 6.5 blockiert Eisenaufnahme.
 
@@ -318,7 +380,22 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 
 ### 4.3 Ueberwinterung
 
-Nicht anwendbar -- Paprika wird in Mitteleuropa einjaehrig kultiviert und ueberlebt keine Temperaturen unter 5 degC. Theoretisch mehrjaehrig moeglich bei Ueberwinterung im Haus bei 10--15 degC (hell, wenig giessen, nicht duengen), Rueckschnitt auf 15--20 cm im Oktober. Ertrag im 2. Jahr oft geringer.
+In Mitteleuropa ueblicherweise einjaehrig kultiviert. Paprika ist jedoch nicht streng einjaehrig, sondern eine frostempfindliche, kurzlebig mehrjaehrige Art, die frostfrei im Haus ueberwintert werden kann (keine Freiland-Ueberwinterung moeglich -- stirbt unter 5 degC ab).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Einstufung | frost_free (frostempfindliche Kuebelpflanze, ueberwintert frostfrei drinnen; KEINE Freiland-Ueberwinterung) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 10 (vor erstem Frost, ca. Anfang--Mitte Oktober) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 5 (nach den Eisheiligen, ca. Mitte Mai; vorher abhaerten) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (degC) | 10--15 (hell, frostfrei) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (Suedfenster oder Pflanzenlampe; sonst Blattabwurf) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | sparsam (nur leicht feucht halten, keine Staunaesse, nicht duengen) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweis: Vor dem Einraeumen Rueckschnitt auf 15--20 cm (Oktober). Im Winterquartier wenig giessen, nicht duengen. Im Fruehjahr neu austreiben lassen, ab Mitte April langsam abhaerten, nach den Eisheiligen wieder nach draussen. Ertrag im 2. Jahr ist oft geringer; der Aufwand lohnt meist nur bei besonderen Sorten.
 
 ---
 
@@ -470,3 +547,17 @@ Snackpaprika (Mini),Capsicum annuum,,,compact;high_yield;early_maturing,60,,f1_h
 8. Mars Hydro -- PPFD for Indoor Plants: https://www.mars-hydro.com/info/post/how-much-ppfd-for-indoor-plants-in-each-growth-stage
 9. NCSU Extension -- Capsicum annuum: https://plants.ces.ncsu.edu/plants/capsicum-annuum/
 10. Old Farmer's Almanac -- Peppers: https://www.almanac.com/plant/peppers
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. FAO Irrigation & Drainage Paper 56 (Allen et al.) -- Tabelle 22 (Wurzeltiefe Zr, Depletion p) & Tabelle 23 (Salztoleranz): https://www.fao.org/4/x0490e/x0490e0e.htm (Capsicum: Zr 0.5--1.0 m, ECe-Schwelle 1.5 dS/m, Slope 14 %/dS/m, Klasse "Moderately Sensitive")
+12. FAO Irrigation & Drainage Paper 29 -- Crop salt tolerance data (Maas-Hoffman): https://www.fao.org/4/y4263e/y4263e0e.htm
+13. ScienceDirect -- CO2 and light curves / leaf gas exchange responses to shade levels in bell pepper (C3-Klassifizierung, Lichtkompensationspunkt-Kontext): https://www.sciencedirect.com/science/article/abs/pii/S0168945222003570
+14. BMC Plant Biology -- Waterlogging stress responses in hot pepper (Staunaesse-Empfindlichkeit): https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-022-03807-2
+15. PMC -- Promoting pepper photosynthesis (C3-Photosynthese, T-Optimum): https://pubmed.ncbi.nlm.nih.gov/32122461/
+16. Clemson HGIC -- Pepper (Temperatur-Optima, GDD-Basis ~10 degC Kontext): https://hgic.clemson.edu/factsheet/pepper/
+17. PSU Extension -- Hydroponics Systems: Nutrient Solution Programs and Recipes (Mikronaehrstoff-Richtwerte): https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes
+18. Hoagland-Loesung (Standard-Mikronaehrstoffprofil Mn/Zn/Cu/Mo): https://en.wikipedia.org/wiki/Hoagland_solution
+19. Organic Seed Alliance -- Sweet Pepper Breeding and Seed Saving Guide (Selbstfruchtbarkeit): https://seedalliance.org/publications/sweet-pepper-breeding-and-seed-saving-guide/
+20. Pepperscale / Blooming Expert -- Soil pH for Peppers (pH 6.0--6.8): https://pepperscale.com/soil-ph-for-peppers/
+21. Forwardplant / Pepper Geek -- Sunlight requirement peppers (full_sun, 6--8 h): https://peppergeek.com/how-much-sun-do-peppers-need/
+22. ASHS -- Far-red Fraction metric / daylight FR/(R+FR) ~0.5: https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

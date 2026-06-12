@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial (im Anbau meist als annual kultiviert -- Knollenbildung im 1. Jahr) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Schoessung im 2. Jahr durch lange Tage und Kaeltereiz ausgeloest) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Apiaceae; typisches C3-Temperaturverhalten der Netto-Assimilation) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4 (Kuehljahreszeitkultur/cool-season crop; Tbase aus Literatur/Expertenschaetzung 1--4 degC, cool-season-Konvention ~4--5 degC) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (als annual kultiviert; keine echte Endodormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (Kaeltereiz < 10 degC loest Schossung/Bluete aus) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 10 (Induktionsschwelle bei < 10 degC; volle Vernalisation 2--12 Wochen bei ~1.7--8.9 degC) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | <!-- DATEN FEHLEN --> (keine belastbare kritische Tageslaenge in Stunden; Schossung primaer kaelte-/vernalisationsgetrieben, Langtage foerdern nur die Schossstreckung nach Kaelte) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Jungpflanzen koennen durch Frost (< -5 degC) zur Schoessung angeregt werden (Vernalisation). Ausgewachsene Knollen halten leichte Froeste bis -5 degC kurzfristig aus. Schoesslingsgefahr bei zu frueh gesaeten und vernalisierten Pflanzen. | `species.hardiness_detail` |
@@ -103,6 +111,26 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Rankhilfe/Stuetze noetig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche, gut wasserhaltige (aber drainierte) Gemuese-/Kraeutererde. pH 6.5--7.0. Hohe Humusanteile. Gleichmaessige Feuchtigkeit wichtig -- Sellerie vertraegt weder Trockenheit noch Staunaesse. | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | <!-- DATEN FEHLEN --> (kein belastbarer art-spezifischer LCP aus 2 unabhaengigen Quellen; C3-Sonnenpflanze, Lichtsaettigung lt. ASHS 2026 ~1200 umol/m2/s) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (bevorzugt volle Sonne; vertraegt lichten Halbschatten, kein echter Schattentoleranzler) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--60 (Hauptwurzelzone ~30 cm; einzelne Wurzeln bis ~60 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (braucht gleichmaessige Feuchte, aber Wurzelfaeule schon nach ~72 h Staunaesse in warmer Witterung) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (FAO/USDA-Klassifikation MS) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.8 (Maas-Hoffman a; Bezug Substrat-/Boden-ECe, NICHT Giesswasser-EC; Francois & West 1982) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 6.2 (Maas-Hoffman b; Ertragsminderung je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.5 (Mineralboden-Empfehlung Extension; Substrat-/Naehrloesungs-pH in S.1.6/S.2.3 etwas hoeher 6.5--7.0) | `species.soil_ph_preference` |
+
+**Hinweise:**
+- **Salzbezug:** Schwellenwert und Slope beziehen sich auf die Saettigungsextrakt-Leitfaehigkeit des Bodens (ECe), nicht auf die EC der Naehrloesung. Salzstress beguenstigt zudem calciumbedingte Herzfaeule (black heart).
+- **Lichtsaettigung statt Kompensationspunkt:** Die art-spezifische Lichtsaettigung liegt lt. peer-reviewed Messung bei ~1200 umol/m2/s; ein belastbarer Lichtkompensationspunkt fuer *Apium graveolens* war nicht aus zwei unabhaengigen Quellen belegbar.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -134,6 +162,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Luftfeuchtigkeit Tag (%) | 75--85 (Aussaaterde gleichmaessig feucht halten) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer Punkt stomataeren Kollaps; deutlich oberhalb des Zielkorridors; in dieser feuchteliebenden Keimphase niedrig angesetzt) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 21--27 (art-spezifisches Assimilationsoptimum; keimungsrelevant nachrangig) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (sehr feine Samen; Bodenfeuchte nie abreissen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -150,6 +184,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberhalb des Zielkorridors; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 21--27 (art-spezifisches Assimilationsoptimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--30 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -166,6 +206,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (oberhalb des Zielkorridors; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 21--27 (art-spezifisches Assimilationsoptimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +228,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberhalb des Zielkorridors; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 21--27 (art-spezifisches Assimilationsoptimum; Hitze > 30 degC senkt Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (gleichmaessige Feuchte; Trockenheit foerdert hohle Stiele) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -198,20 +250,30 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberhalb des Zielkorridors; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 21--27 (art-spezifisches Assimilationsoptimum; kuehlere Herbsttemperaturen foerdern Knolle) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 4--7 (groesster Wasserbedarf Mitte August bis Anfang Oktober!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 800--1500 (Hauptwasserbedarfsphase: 15--20 L/m2) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.5--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.6--1.0 | 6.0--7.0 | 60 | 25 | -- | 2 |
-| Jungpflanze | 2-1-1 | 1.0--1.4 | 6.5--7.0 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 6.5--7.0 | 120 | 50 | 30 | 3 |
-| Knollenentw. | 1-2-3 | 1.8--2.4 | 6.5--7.0 | 150 | 60 | 35 | 2 |
-| Erntereife | 0-1-2 | 1.0--1.6 | 6.5--7.0 | 80 | 40 | -- | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.5--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.6--1.0 | 6.0--7.0 | 60 | 25 | -- | 2 | 0.5 | 0.25 | 0.05 | 0.03 |
+| Jungpflanze | 2-1-1 | 1.0--1.4 | 6.5--7.0 | 80 | 30 | 20 | 2 | 0.8 | 0.3 | 0.05 | 0.04 |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 6.5--7.0 | 120 | 50 | 30 | 3 | 1.0 | 0.5 | 0.1 | 0.05 |
+| Knollenentw. | 1-2-3 | 1.8--2.4 | 6.5--7.0 | 150 | 60 | 35 | 2 | 1.0 | 0.5 | 0.1 | 0.05 |
+| Erntereife | 0-1-2 | 1.0--1.6 | 6.5--7.0 | 80 | 40 | -- | 1 | 0.5 | 0.25 | 0.05 | 0.03 |
+
+Mikronaehrstoff-Zielwerte (Mn/Zn/Cu/Mo) als Naehrloesungs-Konzentrationen nach allgemeinen Hydroponik-Richtwerten fuer Blattgemuese (Mn 0.5--2, Zn 0.05--1, Cu 0.05--0.5, Mo 0.02--0.05 ppm), phasenabhaengig skaliert; art-spezifische Bedeutung von Cu/Zn/B fuer Sellerie peer-reviewed bestaetigt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -469,3 +531,15 @@ Apium graveolens,Sellerie;Knollensellerie;Stangensellerie;Celery;Celeriac,Apiace
 6. [BBZ Arenenberg -- Kulturblatt Sellerie](https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf) -- Professionelles Kulturblatt (Schweiz)
 7. [Pflanzio -- Schnittsellerie](https://pflanzio.de/apium-graveolens/) -- Schnittsellerie-Anbau
 8. [Bio-gaertner.de -- Sellerie](https://www.bio-gaertner.de/pflanzen/Sellerie) -- Biologischer Anbau; Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. [FAO -- Annex 1: Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) -- Salztoleranz ECe-Schwelle 1.8 dS/m, Slope 6.2 %/dS/m, Rating MS (Maas-Hoffman)
+10. [USDA-ARS Shannon & Grieve -- Tolerance of vegetable crops to salinity](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf) -- Salztoleranz-Klasse Sellerie (moderately sensitive); black-heart bei Salzstress
+11. [ASHS J. Amer. Soc. Hort. Sci. -- Optimum Temperature Range for Photosynthesis in Celery](https://journals.ashs.org/view/journals/jashs/151/2/article-p79.xml) -- Peak-Assimilation 21--27 degC; Lichtsaettigung ~1200 umol/m2/s; Abfall > 39 degC
+12. [NC State Extension -- Celery](https://content.ces.ncsu.edu/celery) -- Boden-pH-Optimum 6.0--6.5 (Mineralboden)
+13. [University of Maryland Extension -- Target Soil pH Values for Vegetable Crops](https://extension.umd.edu/sites/extension.umd.edu/files/2021-03/B-1.pdf) -- Ziel-pH Sellerie 6.0--6.5
+14. [UMass Amherst -- Celery and Celeriac (New England Vegetable Management Guide)](https://nevegetable.org/crops/celery-and-celeriac) -- Wurzeltiefe, gleichmaessige Feuchte, Drainage; Vernalisation/Schossung
+15. [ScienceDirect -- Base and upper temperature thresholds for GDD (FAO56rev review)](https://www.sciencedirect.com/science/article/pii/S037837742500469X) -- GDD-Basistemperatur Sellerie 1--4 degC
+16. [Oregon State University -- Celery (Oregon Vegetables)](https://horticulture.oregonstate.edu/oregon-vegetables/celery-2) -- Cool-season-Einordnung; Vernalisations-/Schossschwelle < 10 degC
+17. [PSU Extension / Atlas Scientific -- Hydroponic micronutrient solution guidelines](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) -- Mn/Zn/Cu/Mo Naehrloesungs-Richtwerte Blattgemuese
+18. [Taylor & Francis -- Cu-Zn-B foliar fertilizer on celery (Apium graveolens)](https://www.tandfonline.com/doi/full/10.1080/26395940.2019.1668859) -- Bedeutung von Cu/Zn/B als Mikronaehrstoffe fuer Sellerie
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual (Sommerkohl); biennial (Herbst-/Winterkohl) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 4–5 (kuehlliebende Brassica; Richtwert Cole-Crops 4.4°C) | `species.base_temp` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 10–15 (bei 2–10°C; vollstaendig ~3 Wochen) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | — <!-- DATEN FEHLEN: kein praeziser Schwellenwert belegt; Bluete/Schossen ist vernalisationsabhaengig (Kaelte) und wird danach durch Langtag gefoerdert. Kopfbildung selbst ist tagneutral. --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 1a; 2a; 2b; 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Sehr frosthart — ausgewachsene Koepfe vertragen bis -10°C kurzfristig; Winterkohl-Sorten bis -20°C; Jungpflanzen frost-empfindlicher (bis -3°C). Gehoert zu den winterhaertesten Gemuesen. | `species.hardiness_detail` |
@@ -95,6 +103,28 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Rankhilfe/Stuetze noetig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche Gartenerde mit Kompost; pH 6.5–7.5; gut wasserspeichernd; schwerere Boeden bevorzugt | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40–50 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.8 (Substrat-ECe; Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 9.7 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.5 | `species.soil_ph_preference` |
+
+**Hinweise:**
+- Lichtkompensationspunkt (light compensation point) als sonnenadaptierte C3-Spanne; der **Lichtsaettigungspunkt** (light saturation point) liegt deutlich hoeher (mehrere hundert µmol/m²/s) und gehoert nicht in dieses Feld.
+- full_sun bevorzugt (≥ 6 h direkte Sonne fuer feste Koepfe); **partieller Halbschatten** (partial shade) wird besonders in heissen Sommermonaten toleriert, fuehrt aber zu kleineren, lockereren Koepfen.
+- Salztoleranz-Bezugsgroesse ist die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), **nicht** die Giesswasser-EC. Klasse MS (moderately sensitive) und Schwelle 1.8 dS/m stammen aus FAO/USDA-Handbook-60-Daten (Maas-Hoffman).
+- pH-Vorzug 6.5–7.5 harmonisiert mit §1.6 (Substrat) und §2.3: das obere Ende (7.0–7.5) wird gezielt zur Kohlhernie-Unterdrueckung (*Plasmodiophora brassicae*) angestrebt; Optimum-Spanne fuer Naehrstoffverfuegbarkeit liegt bei 6.0–6.8.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -123,6 +153,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 70–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -139,6 +175,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 65–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -155,6 +197,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -171,6 +219,12 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.1 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (gleichmaessige Bodenfeuchtigkeit!) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 600–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -179,13 +233,17 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Saemling | 2:1:1 | 0.5–0.8 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Vegetativ | 3:1:2 | 1.0–1.6 | 6.5–7.0 | 150 | 50 | 20 | 3 |
-| Kopfbildung | 2:2:3 | 1.2–1.8 | 6.5–7.0 | 150 | 60 | 30 | 2 |
-| Reife | 1:1:3 | 0.8–1.2 | 6.5–7.0 | 100 | 40 | 20 | 1 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | Zn (ppm) | Cu (ppm) | Mo (ppm) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Saemling | 2:1:1 | 0.5–0.8 | 6.0–6.5 | 100 | 40 | — | 2 | 0.25 | 0.13 | 0.02 | 0.02 |
+| Vegetativ | 3:1:2 | 1.0–1.6 | 6.5–7.0 | 150 | 50 | 20 | 3 | 0.4–0.5 | 0.2–0.25 | 0.05–0.08 | 0.04–0.05 |
+| Kopfbildung | 2:2:3 | 1.2–1.8 | 6.5–7.0 | 150 | 60 | 30 | 2 | 0.4–0.5 | 0.2–0.25 | 0.05–0.08 | 0.04–0.05 |
+| Reife | 1:1:3 | 0.8–1.2 | 6.5–7.0 | 100 | 40 | 20 | 1 | 0.25 | 0.13 | 0.02 | 0.02 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoff-Hinweis:** Mn/Zn/Cu/Mo-Werte sind **Naehrloesungs-Konzentrationen** (analog zu Fe in dieser Tabelle), nicht Blatt-Gewebe-Gehalte. Bezugsrahmen: hydroponische Naehrloesungs-Rezepturen fuer Blattgemuese (PSU Modified Sonneveld; Mittel kommerzieller Rezepte). Im Freiland werden diese Mengen ueblicherweise durch Kompost/organische Duengung abgedeckt; gezielte Gaben nur bei nachgewiesenem Mangel. Molybdaen ist fuer Brassicaceae kritisch (Mo-Mangel = "Whiptail"/Peitschenschwanz, schmale verkruemmte Blaetter), besonders bei pH < 6.0.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Bor-Bedarf:** Weißkohl hat wie alle Brassicaceae einen erhoehten Borbedarf. Bormangel fuehrt zu Herz- und Trockenheit (Hohlstiel). 1–2 g Borax/m² als Blattduengung falls Symptome auftreten.
 
@@ -273,6 +331,28 @@ Weißkohl ist ein extremer Starkzehrer mit dem hoechsten Stickstoffbedarf aller 
 | Jul–Okt | Ernte Sommerkohl | Kopf fest; Schnittstelle beim Strunk | hoch |
 | Okt–Dez | Ernte Herbst-/Winterkohl | Spaete Sorten nach Frost noch fester; bis Januar lagern | hoch |
 | Okt–Nov | Beetvorbereitung | Gruenduengung oder Kompost einarbeiten; Kohlhernie-Prophylaxe | mittel |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Ueberwinterung
+
+Betrifft ausschliesslich **Winterkohl-Sorten** (Lagerkohl/Dauerkohl), die im Beet ueberwintern und gestaffelt bis in den Spaetwinter geerntet werden. Sommer- und Herbstsorten werden vor dem Winter abgeerntet.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | mulch | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 11 (Nov.) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | harvest | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 2 (Feb.; spaeteste Ernte) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | Freilandueberwinterung; ausgewachsene Koepfe bis ca. -10°C, Winterkohl bis -20°C | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | Freiland (natuerliches Tageslicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | nahezu eingestellt (Winter-Multiplikator 0.3; Staunaesse + Frost vermeiden) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweise:**
+- `hardiness_rating: hardy` — Winterkohl ueberwintert im Freiland und wird **nicht** ausgegraben/eingelagert (kein `dig_and_store`) und nicht ins Haus geholt (kein `frost_free`/`move_indoors`).
+- Bei strengem Kahlfrost ohne Schneedecke schuetzt eine Mulchschicht bzw. ein Vlies (fleece) die Koepfe; leichter Frost verbessert sogar den Geschmack (Staerke→Zucker).
+- Die "Fruehjahrs-Massnahme" ist hier die **Ernte** der letzten stehenden Koepfe, kein Neuaustrieb — Weisskohl ist als Kulturpflanze ein Ernte-Annual/Biennial, keine ueberdauernde Staude.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -414,3 +494,14 @@ Dithmarscher Fruehkohl,Brassica oleracea var. capitata f. alba,60–75,early;com
 5. Thüringer Landesanstalt für Landwirtschaft (TLL) — Anbautelegramm Kohlarten — https://www.tlllr.de/
 6. COMPO Expert — Kohlduengung Spezialempfehlungen — https://www.compo-expert.com/
 7. Hortipendium — Weißkohl Pflanzenschutz — https://www.hortipendium.de/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. FAO Land & Water — Cabbage (Crop Water Information): Wurzeltiefe 40–50 cm, Drainage-Anspruch — https://www.fao.org/land-water/databases-and-software/crop-information/cabbage/en/
+9. FAO Annex 1 — Crop salt tolerance data (Maas-Hoffman): Cabbage ECe-Schwelle 1.8 dS/m, Slope 9.7 %/dS/m, Klasse MS — https://www.fao.org/4/y4263e/y4263e0e.htm
+10. Shannon & Grieve (USDA-ARS) — Tolerance of vegetable crops to salinity (Handbook-60-Daten) — https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf
+11. Ohio State University Extension (Ohioline HYG-1611) — Growing Cabbage: Boden-pH 6.0–6.8, Kalkung gegen Kohlhernie — https://ohioline.osu.edu/factsheet/hyg-1611
+12. MSU Extension E486 — Secondary and Micronutrients for Vegetable and Field Crops (Gewebe-Suffizienz Mn/Zn/Cu/Mo) — https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
+13. Penn State Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes (Naehrloesungs-ppm Mn/Zn/Cu/Mo) — https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes
+14. Iowa State / Clemson HGIC — Cabbage growing temperature 15–20°C, Wachstumsstopp > 25°C — https://hgic.clemson.edu/factsheet/cabbage-chinese-cabbage/
+15. MSU Extension — Bolting in spring vegetables: Vernalisation + Langtag-Foerderung des Schossens — https://www.canr.msu.edu/news/bolting-in-spring-vegetables
+16. "Plants in Action" (Australian Society of Plant Scientists) — Lichtkompensationspunkt C3-Blaetter ~10–50 µmol/m²/s — https://www.rseco.org/content/114-light-and-co2-effects-leaf-photosynthesis.html
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

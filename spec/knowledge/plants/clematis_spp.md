@@ -20,7 +20,16 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 15–50 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (chilling/endodormancy) | true (chilling) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (min days) | 42 (ca. 6 Wochen Knospen-Chilling bei ≤ 7,5 °C) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–9b (sortenabhängig) | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -10°C (alle Arten); die meisten Sorten vertragen -20 bis -25°C; immergrüne Sorten (C. armandii) nur bis -10°C | `species.hardiness_detail` |
@@ -28,6 +37,14 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zur Photoperiode (Korrektur):** Die Blüte der Clematis ist nicht über eine kritische Tageslänge gesteuert, sondern über Holzalter/Schnittgruppe und Temperatur. Die drei Schnittgruppen blühen über extrem unterschiedliche Tageslängen hinweg (Gruppe 1 April–Mai, Gruppe 2 Mai–Juni, Gruppe 3 Juli–September). Die Art ist damit faktisch tagneutral (day_neutral); der bisherige Eintrag `long_day` war fachlich inkonsistent und wurde korrigiert (inkl. CSV-Zeile §8.1). Es wird keine kritische Tageslänge angegeben.
+
+**Hinweis zur Vernalisation/Chilling:** Als laubabwerfendes Gehölz der Zonen 4–9 benötigt Clematis eine Winterruhe (Dormanz) mit Kältephase zum Bruch der Endodormanz (Knospen-Chilling), korrekter "chilling" statt echter Vernalisation. Aus Samen verlangen die meisten Arten 4–8 Wochen Kaltstratifikation (0–5 °C); das ist jedoch eine Keim-Stratifikation und keine belastbare Angabe für die Knospen-Chilling-Dauer der etablierten Pflanze. Für die etablierte Pflanze nennen zwei unabhängige Quellen (Michigan State University Extension; Clearview Horticultural Products) übereinstimmend eine dormante Periode von ca. **sechs Wochen** (≈ 42 Tagen), induziert durch Nachttemperaturen von ≤ 7,5 °C (45 °F); Pflanzen blühen nach einem solchen Chilling deutlich besser. `vernalization_min_days` wird daher mit 42 belegt (untere, quellentreue Grenze; ergänzende Literatur nennt bis zu 6–8 Wochen). Der Wert ist konsistent mit der Phase "Winterruhe" (120–150 Tage, §2.1), von der das Chilling ein Teilabschnitt ist.
+
+**Hinweis zur GDD-Basistemperatur:** Für Clematis liegt keine über zwei unabhängige seriöse Quellen belegte GDD-Basistemperatur der Hauptwuchsphase vor; `base_temp` bleibt unbelegt (DATEN FEHLEN).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -97,6 +114,30 @@
 
 **Standort-Besonderheit:** "Kopf in der Sonne, Fuß im Schatten" — die unteren 30–50 cm sollten beschattet sein (Mulch, Steinplatten, Bodendecker, Nachbarpflanze).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 45–120 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweise zu §1.7:**
+- **Schatten-/Sonnentoleranz:** Clematis wächst in voller Sonne bis Halbschatten; viele Arten stammen aus dem Gehölzrand/Unterwuchs und vertragen lichten Schatten gut, blühen in tiefem Schatten aber schlecht (RHS). Einstufung `partial_shade`.
+- **Wurzeltiefe:** Clematis ist tiefwurzelnd; etablierte Pflanzen erreichen ~120 cm (bis ~4 ft), Pflanz-/Etablierungshorizont ~45 cm (18 in). Spanne 45–120 cm.
+- **Staunässe:** RHS empfiehlt tiefgründigen, feuchten, aber gut drainierten Boden und rät von Pflanzung in staunassen Böden ab → `sensitive`.
+- **Lichtkompensationspunkt:** Keine über zwei seriöse Quellen belegte artspezifische Messung gefunden → DATEN FEHLEN. (Die Sättigungs-/Optimumwerte stehen separat in §2.2, nicht im LCP-Feld.)
+- **Salztoleranz:** Keine belastbaren ECe-Schwellen-/Slope-Daten (Maas-Hoffman) noch Klasseneinstufung für Clematis gefunden → DATEN FEHLEN.
+- **Boden-pH:** Quellen reichen von 6.0–7.0 (leicht sauer bis neutral) bis 6.5–7.5 (neutral bis leicht alkalisch). Quellentreu und konsistent mit §1.6 und §2.3 (jeweils 6,0–7,0) wird die Spanne 6.0–7.0 übernommen und nicht eigenmächtig erweitert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -125,6 +166,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -141,6 +188,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 800–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -156,6 +209,19 @@
 | Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
 
 **Hinweis:** Kein Stickstoff nach Ende Juli — Triebe müssen ausreifen, sonst Frostschäden.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo) je Phase:**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Nachblüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+**Hinweis zu Mikronährstoffen:** Für Clematis liegen keine über zwei unabhängige seriöse Quellen belegten phasenspezifischen Mangan-/Zink-/Kupfer-/Molybdän-Sollwerte (ppm) vor; die Felder `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` bleiben unbelegt (DATEN FEHLEN). Eine Versorgung über Volldünger mit Spurenelementmix ist praxisüblich, liefert aber keine quantifizierbaren Sollwerte.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -330,7 +396,7 @@ Ab Ende Juli kein stickstoffreicher Dünger mehr — die Triebe müssen vor dem 
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,long_day,vine,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Asien, Nordamerika",yes,30,40,400,150,90,no,yes,false,true,medium_feeder,false,hardy,"5;6;7;8;9"
+Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,day_neutral,vine,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Asien, Nordamerika",yes,30,40,400,150,90,no,yes,false,true,medium_feeder,false,hardy,"5;6;7;8;9"
 ```
 
 ---
@@ -341,3 +407,7 @@ Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,long_day,vine
 2. [Intratuin — Clematis Pflanzenlexikon](https://www.intratuin.de/pflanzenlexikon/clematis-waldrebe-pflege) — Standort, Winterhärte
 3. [COMPO — Clematis](https://www.compo.de/ratgeber/pflanzen/gartenpflanzen/clematis) — Düngung
 4. [Pflanzen-Kölle — Clematis Pflegeratgeber](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meine-clematis-richtig/) — IPM, Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Michigan State University Extension — "An Introduction to Clematis"](https://www.canr.msu.edu/hrt/uploads/534/79846/06-Growing-Clematis-English.pdf) — Knospen-Chilling/Dormanz: ca. 6 Wochen dormante Periode, Induktion bei Nachttemperaturen ≤ 7,5 °C (45 °F)
+6. [Clearview Horticultural Products — Clematis Info](https://www.clearviewhort.com/about-clematis/) — bestätigt unabhängig: dormante Periode ca. 6 Wochen, ≤ 7,5 °C (45 °F) zur Dormanz-Induktion (Beleg für `vernalization_min_days`)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
