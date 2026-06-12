@@ -28,6 +28,14 @@
 | Allelopathie-Score | 0.3 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 (Zwiebelwachstum/Bulbing; konsistent mit kühl-Klasse) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | true (echte Knollendormanz: Rest → Endodormanz → Ökodormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (Blühinduktion im 2. Jahr durch Kälte; im Gemüseanbau einjährig kultiviert, Schossen unerwünscht) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 60–120 (≈ 4 °C, 2–4 Monate) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 13.75–14 (Langtag-Trigger der Zwiebelbildung/Bulbing) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +90,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, nährstoffreiche Erde, pH 6,0–7,0; gute Drainage | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (keine artspezifischen Allium-cepa-Werte aus 2 unabhängigen Quellen) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (mind. 6–8 h direkte Sonne; im Schatten Blattmasse statt Zwiebel) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–45 (flachwurzelnd; Hauptwurzelmasse in den oberen 18–20 cm, Maximum bis ~60–76 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (flachwurzelnd, sehr empfindlich gegen nasse Böden/Hypoxie) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | 1.2 (Bezugsgröße: Substrat-Sättigungsextrakt-ECe, nicht Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 16 (Ertragsrückgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +134,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 (kritischer Punkt des stomatären Kollaps, oberhalb des 0.8–1.3-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht; nicht mit R:FR-Verhältnis verwechseln) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,19 +156,27 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritischer Punkt des stomatären Kollaps, oberhalb des 1.0–1.5-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 (Reife: Wasser reduzieren für Lagerqualität) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Sämling | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 80 | 30 | — | 2 |
-| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–7.0 | 100 | 40 | 20 | 3 |
-| Zwiebelbildung | 1:2:3 | 1.5–2.0 | 6.0–7.0 | 100 | 50 | 25 | 2 |
-| Reife | 0:0:1 | 0.5–1.0 | 6.0–7.0 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Sämling | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 80 | 30 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–7.0 | 100 | 40 | 20 | 3 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Zwiebelbildung | 1:2:3 | 1.5–2.0 | 6.0–7.0 | 100 | 50 | 25 | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Reife | 0:0:1 | 0.5–1.0 | 6.0–7.0 | — | — | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> Mikronährstoffe (Mn/Zn/Cu/Mo): Keine belegten artspezifischen ppm-Sollwerte für Zwiebel-Nährlösungen aus 2 unabhängigen seriösen Quellen verfügbar; Felder bleiben als `DATEN FEHLEN` markiert statt geschätzt zu werden. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -204,6 +242,25 @@ Zwiebeln sind Mittelzehrer. Überdüngung (besonders Stickstoff) fördert Blattw
 | Jul | Frühzwiebeln ernten | Steckzwiebeln sind reif wenn Laub knickt | mittel |
 | Aug | Haupternte | Saatzwiebeln ernten; 1–2 Wochen nachtrocknen lassen | hoch |
 | Sep | Lagerung | Kühl, trocken, luftig einlagern (5–10 °C) | mittel |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Betrifft ausschließlich **Wintersteckzwiebeln** (Sorten wie 'Radar', 'Shakespeare'): Sie werden im Herbst gesteckt und überwintern im Freilandbeet, um eine frühe Ernte im Folgejahr zu liefern. Sommer-Steckzwiebeln und Saatzwiebeln werden dagegen im Sommer geerntet und trocken eingelagert (keine Überwinterung im Beet).
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | hardy (überwintert im Beet bis ≈ −10 °C; Schutz bei strengerem Frost) | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | mulch | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11 (5 cm Mulch/Laub/Reisig bzw. Schutzvlies bei drohendem Frost; Mulch nicht an den Zwiebelhals) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | uncover | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (Abdeckung entfernen, sobald kein Dauerfrost mehr droht) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | im Beet (keine Einlagerung; verträgt bis ≈ −10 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | Freiland-Tageslicht (kommt mit winterlich wenig Licht aus) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | keine Zusatzbewässerung; Staunässe unbedingt vermeiden | `overwintering_profiles.winter_quarter_watering` |
+
+**Steck-/Erntefenster:** Stecken Mitte September–Oktober; Ernte ab Ende Mai/Juni des Folgejahres.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -310,3 +367,16 @@ Sturon,Allium cepa,–,–,"long_storage;classic_round",120,,open_pollinated
 2. [Zwiebeln pflanzen — Utopia.de](https://utopia.de/ratgeber/zwiebeln-pflanzen-anbauzeit-pflege-und-ernte_76710/) — Anbauzeit, Pflege
 3. [Zwiebel-Mischkultur — Samen.de](https://samen.de/blog/mischkultur-mit-zwiebeln-optimale-partnerpflanzen.html) — Mischkultur-Partner
 4. [Floragard Allium cepa](https://www.floragard.de/de-de/pflanzeninfothek/pflanze/gemuese/allium-cepa) — Pflegehinweise
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO — Annex 1: Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz Zwiebel: ECe-Schwelle 1.2 dS/m, Slope 16 %/dS/m, Klasse "sensitive" (nach Maas & Hoffman 1977)
+6. [Shannon & Grieve — Tolerance of vegetable crops to salinity (USDA-ARS)](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf) — Bestätigung Salztoleranz-Parameter Allium cepa (Maas-Hoffman-Modell)
+7. [Bulbing in Onions: Photoperiod and Temperature Requirements (Annals of Botany)](https://academic.oup.com/aob/article-abstract/78/4/423/2587501) — kritische Tageslänge ~13.75 h, Bulbing-Schwellenwerte
+8. [Growth responses of tropical onion cultivars based on growing degree days (ResearchGate)](https://www.researchgate.net/publication/264893889) — GDD-Basistemperatur ≈ 5 °C für Zwiebelwachstum, C3-Photosynthese
+9. [Screening of Onion Genotypes for Waterlogging Tolerance (Frontiers in Plant Science, PMC8766973)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8766973/) — Staunässe-Empfindlichkeit (flachwurzelnd), optimale Wachstumstemperatur 20–25 °C
+10. [The root systems of onion and Allium fistulosum (WUR / edepot 121472)](https://edepot.wur.nl/121472) — Wurzeltiefe: Hauptmasse obere 18–20 cm, Maximum bis ~76 cm
+11. [Vernalization Responses in Onion — Pre-flowering and Reproductive Phases (ResearchGate)](https://www.researchgate.net/publication/327572392) — Vernalisation (4 °C, 3–4 Monate) als Blühinduktion
+12. [A Short Review on Onion Bulb Dormancy Metabolism (Juniper Publishers)](https://juniperpublishers.com/aibm/AIBM.MS.ID.555915.php) — Knollendormanz: Rest → Endodormanz → Ökodormanz
+13. [UMN Extension — Growing onions in home gardens](https://extension.umn.edu/vegetables/growing-onions) — Vollsonne-Bedarf, Boden-pH 6.0–7.0
+14. [Wintersteckzwiebeln: Anbau & Pflege (beetfreunde.de)](https://www.beetfreunde.de/magazin/wintersteckzwiebeln/) — Überwinterung im Beet bis −10 °C, Mulch/Vlies-Schutz, Steck-/Erntefenster
+15. [Wintersteckzwiebeln — ÖKO-TEST](https://www.oekotest.de/freizeit-technik/Wintersteckzwiebeln-Jetzt-pflanzen-im-Fruehjahr-ernten_15838_1.html) — Bestätigung Überwinterungspraxis und Frosttoleranz
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

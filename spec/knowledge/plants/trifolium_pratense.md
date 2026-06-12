@@ -21,6 +21,15 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 3 | `species.base_temp` |
+| Lebensdauer (Jahre) | 2–4 (kurzlebig-perennierend / short-lived perennial) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterdormanz in temperaten Lagen) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (geringe, fakultative Vernalisationsreaktion einzelner Herkünfte; kein striktes Kältebedürfnis) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — <!-- DATEN FEHLEN: kein belegter Mindest-Tage-Wert, da fakultativ --> | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 13 (Blühinduktion zwischen 12–14 h; Langtagpflanze) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C; Keimling frostempfindlich; etablierte Pflanzen absolut winterhart | `species.hardiness_detail` |
@@ -82,6 +91,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | — (Gründüngung auf Beeten; keine Topfkultur) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (verträgt höchstens leichten Halbschatten; in Vollschatten kein Bestand) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 60–100 (Pfahlwurzel bis ~1 m im ersten Jahr; Hauptmasse in oberen ~30 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (geringe Toleranz; Chlorophyll- und Ertragsverlust bei Vernässung) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (MS nach Maas-Hoffman/FAO) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.5 (Substrat-ECe, Sättigungsextrakt; Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 12 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 (toleriert breiter 5.0–8.0; Optimum ≥ 6.5 für Rhizobium-Symbiose) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,17 +134,27 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt stomatären Kollaps; oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | — (Niederschlag ausreichend) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | — | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | – | – | – | – |
-| Wachstum | 0:1:1 (KEIN N; fixiert selbst) | 0.6–1.0 | 6.0–7.0 | 80 | 30 | – | 1 |
-| Blüte/Samenreife | 0:1:2 | 0.5–0.8 | 6.0–7.0 | 60 | 30 | – | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | – | – | – | – | – | – | – | – |
+| Wachstum | 0:1:1 (KEIN N; fixiert selbst) | 0.6–1.0 | 6.0–7.0 | 80 | 30 | – | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte/Samenreife | 0:1:2 | 0.5–0.8 | 6.0–7.0 | 60 | 30 | – | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für Rotklee liegen belegte Pflanzengewebe-Konzentrationen vor (Cu ≈ 9,8 ppm, Zn ≈ 100–109 ppm, Mo ≈ 10,6 ppm DM in Spross), jedoch keine seriös belegten Nährlösungs-Zielwerte (`nutrient_profiles.*_ppm` bezieht sich auf die Düngelösung, nicht auf Gewebe). Da Rotklee als Freiland-Gründüngung ohne Nährlösungssteuerung kultiviert wird, bleiben die Lösungs-Zielwerte als DATEN FEHLEN markiert. Molybdän ist für die N₂-Fixierung essenziell (Nitrogenase-Cofaktor) — bei pH < 6,0 Mo-Mangel möglich, durch Kalkung statt Düngung beheben.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -215,6 +250,18 @@ Rotklee deckt seinen Stickstoffbedarf vollständig über die Symbiose mit Bodenb
 | Fruchtfolge einhalten | cultural | – | 3–4 Jahre Pause | 0 | Kleekrebs |
 | pH korrekt einstellen | cultural | – | Kalkung bei pH < 6,0 | 0 | allgemein |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit |
+|----------|---------------------|----------------|--------------------|------------------|
+| Schlupfwespe (parasitoid wasp) | Aphidius colemani | Blattläuse (Aphis craccivora), kleinere Blattlausarten | 0,25–4 /m² je Freilassung, 3× wiederholen | Mumien nach 2–3 Wochen |
+| Gallmücke (predatory gall midge) | Aphidoletes aphidimyza | Blattläuse (dichte Kolonien) | 1–10 /m² je Freilassung, wöchentlich | Larvenfraß ab 3–7 Tagen |
+| Florfliege (lacewing) | Chrysoperla carnea | Blattläuse (dichte Kolonien) | 10–20 Larven/m² | Fraßwirkung sofort, 1–2 Wochen Aufbau |
+
+> **Hinweis:** Nützlingseinsatz ist bei Freiland-Gründüngung selten nötig; Blattlausbefall reguliert sich meist über vorhandene Prädatoren (Marienkäfer, Schwebfliegen). Schlupfwespen/Gallmücken/Florfliegen wirken ausschließlich gegen Blattläuse — nicht gegen Apion (Kleespitzmaus) oder Cuscuta (Kleeseide), die kulturell (Fruchtfolge, sauberes Saatgut) bekämpft werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -273,3 +320,16 @@ Trifolium pratense,"Rotklee;Wiesenklee;Red Clover",Fabaceae,Trifolium,perennial,
 2. [Demonet-kleeluzplus Steckbrief Rotklee](https://www.demonet-kleeluzplus.de/mam/cms15/dateien/steckbrief_rotklee.pdf) — N-Fixierung, Anbaudaten
 3. [Samen.de Rotklee im Fruchtwechsel](https://samen.de/blog/rotklee-im-fruchtwechsel-optimale-anbaufolge.html) — Fruchtfolge
 4. [Plantura Gründüngung im Herbst](https://www.plantura.garden/gartenpraxis/gartenarbeiten/gruenduengung-im-herbst) — Anwendung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO Annex 1 — Crop salt tolerance data (Maas-Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz: ECe-Schwelle 1,5 dS/m, Slope 12 %/dS/m, Klasse MS für Trifolium pratense
+6. [USDA-ARS, Plant Salt Tolerance (Maas & Grattan)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — Salztoleranz-Klassifikation (S/MS/MT/T), Rotklee sensitiv–MS
+7. [PFAF — Trifolium pratense](https://pfaf.org/user/Plant.aspx?LatinName=Trifolium+pratense) — Sonnenbedarf (kein Schatten/full_sun), Pfahlwurzel-Tiefe, pH (mild sauer–mild alkalisch)
+8. [Penn State Extension — Red Clover](https://extension.psu.edu/red-clover) — Lebensdauer (kurzlebig-perennierend 2–3 J.), Wurzeltiefe 24–36 inch, pH-Optimum ≥ 6,5
+9. [Feedipedia — Red clover (Trifolium pratense)](https://www.feedipedia.org/node/246) — Lebensdauer 2–4 Jahre, Pfahlwurzel ~1 m, C3-Leguminose, Wachstumsoptimum 18–25 °C
+10. [Moot et al. — Predicting yield of irrigated red clover pastures in response to temperature (ResearchGate)](https://www.researchgate.net/publication/375589762_Predicitng_yield_of_irrigated_red_clover_Trifolium_pratense_L_pastures_in_response_to_temperature) — GDD-Basistemperatur Tb = 3 °C (Wuchs/Phänologie)
+11. [Photoperiodic response of red clover pre-flowering interval (ResearchGate)](https://www.researchgate.net/publication/230334927_Photoperiodic_response_and_heritability_of_the_pre-flowering_interval_of_two_red_clover_Trifolium_pratense_populations) — Kritische Tageslänge 12–14 h (Langtag), geringe/fakultative Vernalisationsreaktion
+12. [PFAF Salt tolerance in red clover seedlings (academicjournals.org)](https://academicjournals.org/article/article1380811115_Asci.pdf) — geringe Salztoleranz, Keimung bei NaCl-Stress reduziert
+13. [Pirhofer-Walzl et al. — Micronutrient concentrations in red clover (Academia)](https://www.academia.edu/18488315/Red_clover_increases_micronutrient_concentrations_in_forage_mixtures) — Gewebe-Konzentrationen Cu/Zn/Mo (Spross), nicht als Lösungs-Zielwerte
+14. [Koppert — Aphidius colemani / Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringraten und Etablierungszeit Blattlaus-Nützlinge
+15. [RHS — Aphid predators / biological control](https://www.rhs.org.uk/biodiversity/aphid-predators) — Florfliege/Marienkäfer/Schwebfliege als Blattlausprädatoren
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

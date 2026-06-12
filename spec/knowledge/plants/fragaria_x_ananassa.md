@@ -29,8 +29,30 @@
 | Naehrstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 3 (Phaenologie Bluete-Frucht; fuer Blattproduktion teils 7 degC verwendet) | `species.base_temp` |
+| Lebensdauer (Jahre) | 3--5 (wirtschaftlich 3--4; botanisch bis 5--6 lebensfaehig, danach Vigor-/Ertragsverlust) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (Winterruhe/Semi-Dormanz; Rosaceae-typisch keine echte Tiefdormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 8--45 (Kaeltebeduerfnis 200--1080 h bei 0--7 degC; sortenabhaengig, Naeherung in Tagen) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 12--14 (Kurztagblueher June-bearing; Blueteninduktion unterhalb ~14 h; day-neutral-Sorten tageslaengenunabhaengig) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Erdbeeren sind oktoploid (8N = 56 Chromosomen). Der Allelopathie-Score ist negativ, da Erdbeeren phenolische Saeuren (p-Hydroxybenzoeaesure, Ferulasaeure, Zimtsaeure, p-Cumarsaeure) ueber Wurzelausscheidungen abgeben, die bei Nachbau auf gleicher Flaeche (Replant-Problem/Bodenmuedigkeit) das eigene Wachstum hemmen (Autotoxizitaet).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Bestaeubung (Species-Ebene):**
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Bestaeuber erforderlich | false (selbstfruchtbar/self-fertile; Blueten zwittrig mit funktionalen Staub- und Fruchtblaettern) | `species.requires_pollinator` |
+| Bestaeuber-Gruppe | <!-- nicht zutreffend --> (pollinator_group ist eine pomologische Kreuzbefruchtungsgruppe nur für Obst-Fremdbefruchter wie Apfel/Birne; selbstfruchtbare Erdbeere benötigt keine) | `species.pollinator_group` |
+| Kompatible Befruchtersorten | <!-- nicht zutreffend (selbstfruchtbar) --> | `species.compatible_pollinators` |
+| Insektenbestäubung (Freitext) | Selbstbestäubung möglich; Bienen/Hummeln (Apis mellifera, Bombus terrestris, Wildbienen) erhöhen Fruchtmasse, Süße, Festigkeit und reduzieren Missbildungen deutlich — im Gewächshaus Hummelvölker einsetzen | — |
+
+Hinweis: Auf Species-Ebene ist F. x ananassa selbstfruchtbar; auf Cultivar-Ebene gibt es jedoch rein weibliche Sorten (female_only), z.B. 'Mieze Schindler', die zwingend eine zweigeschlechtliche Pollenspender-Sorte in der Naehe benoetigen (`cultivar.requires_pollinator = true`, `pollinator_group` setzen). Auch bei selbstfruchtbaren Sorten verbessert Insektenbestaeubung Fruchtform und -qualitaet erheblich; im Gewaechshaus daher Hummelvoelker einsetzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -98,6 +120,21 @@ Hinweis: Nach der letzten Ernte (Juli/August bei einmaltragenden Sorten) werden 
 
 **Hinweis:** Erdbeeren eignen sich ausgezeichnet fuer Topf- und Balkonkultur. Immertragende Sorten sind fuer Kuebel besonders empfehlenswert (laengere Ernteperiode). Hänge-Erdbeeren in Ampeln sind dekorativ und platzsparend. Im Topf ist gleichmaessige Wasserversorgung besonders wichtig -- Austrocknung fuehrt zu Missbildungen und kleinen Fruechten. Im Winter Toepfe frostgeschuetzt stellen oder mit Vlies umwickeln.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: kein quantifizierter LCP-Wertebereich aus 2 unabhaengigen Quellen belegbar; Lichtsaettigung liegt bei ~1016 umol/m2/s --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade (Vorzug full_sun mit 6--8 h direkter Sonne; toleriert Halbschatten, dann reduzierter Ertrag/Fruchtgroesse) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10--30 (Hauptwurzelmasse 10--20 cm flach; Sekundaerwurzeln bis 30 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive (sehr empfindlich; Staunaesse foerdert Rhizom-/Wurzelfaeule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (Maas-Hoffman 1977) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.0 (Maas-Hoffman a; Fruchtertrag) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 33 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 5.5--6.5 (optimal 5.8--6.2; bis 6.8 auf schweren Boeden toleriert) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -129,6 +166,12 @@ Hinweis: Anders als einjaehrige Kulturen durchlaufen Erdbeeren einen zyklischen 
 | Luftfeuchtigkeit Tag (%) | 70--80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75--85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.8 (oberer Grenzwert; darueber Trocknungsstress bei Keimlingen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein quantifizierter FR/(R+FR)-Zielwert belegbar; Literatur nutzt EOD-FR-Intensitaeten (8--15 umol/m2/s) statt Fraction --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht halten) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -147,6 +190,12 @@ Hinweis: Bei Samenkeimung ist eine Kaeltestratifikation (4 Wochen bei 2--5 degC 
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberer Grenzwert; darueber Ca-Transportstoerung, Blattrandnekrose) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein quantifizierter FR/(R+FR)-Zielwert belegbar --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -165,6 +214,12 @@ Hinweis: In der vegetativen Phase ist eine Tag-Nacht-Temperaturdifferenz (DIF) v
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (Bestaeubung/Fruchtansatz; niedriges VPD reduziert Botrytis-Sporulationsstress, foerdert Ca-Transport in Frucht) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein quantifizierter FR/(R+FR)-Zielwert belegbar; EOD-FR foerdert Blueteninduktion bei June-bearing --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 800--1200 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -183,6 +238,12 @@ Hinweis: Temperaturen ueber 30 degC Tag oder ueber 25 degC Nacht beeintraechtige
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (in Fruchtreife eher 0.5--1.0 anstreben fuer Brix/Ca; oberer Grenzwert 1.2) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein quantifizierter FR/(R+FR)-Zielwert belegbar --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -201,6 +262,12 @@ Hinweis: Niedrigere Luftfeuchtigkeit (<65%) in der Fruchtreife reduziert Botryti
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberer Grenzwert) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- <!-- DATEN FEHLEN: kein quantifizierter FR/(R+FR)-Zielwert belegbar --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -237,6 +304,19 @@ Hinweis: Erdbeeren benoetigen eine Kaelteperiode (Vernalisation) von mindestens 
 | Winterruhe | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
 
 Hinweis: Erdbeeren sind kaliumliebend -- K:N-Verhaeltnis ab Bluetenphase mindestens 1.5:1, in der Fruchtreife 2:1 bis 3:1 fuer optimalen Geschmack und Festigkeit. Optimales K:Ca-Verhaeltnis 1:1 bis 1.4:1, K:Mg-Verhaeltnis ca. 4:1. EC-Werte ueber 2.0 mS reduzieren die Fruchtgroesse, verbessern aber den Geschmack (Brix-Wert) -- Abwaegung je nach Ziel. Erdbeeren bevorzugen leicht sauren pH (5.5--6.5, optimal 5.8--6.0).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (Naehrloesung, alle Aktiv-Phasen Vegetativ--Fruchtreife):** Die Spurennaehrstoffe werden ueblicherweise als konstante Loesungswerte ueber alle Wachstumsphasen gefuehrt (nicht phasenscharf differenziert).
+
+| Mikronaehrstoff | Wert (ppm/mg/L) | KA-Feld |
+|-----------------|-----------------|---------|
+| Mangan (Mn) | 0.5--1.6 | `nutrient_profiles.manganese_ppm` |
+| Zink (Zn) | 0.02--0.3 | `nutrient_profiles.zinc_ppm` |
+| Kupfer (Cu) | 0.05--0.11 | `nutrient_profiles.copper_ppm` |
+| Molybdaen (Mo) | 0.001--0.05 | `nutrient_profiles.molybdenum_ppm` |
+
+Hinweis: Mn muss stets niedriger als Fe gehalten werden (Fe:Mn > 2:1), sonst droht Eisen-Lockup mit induziertem Fe-Mangel. Die hoeheren Spannenwerte entsprechen mineralischen Hydro-Standardloesungen, die niedrigeren konservativen Empfehlungen zur Vermeidung von Antagonismen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -546,3 +626,22 @@ Mara des Bois,Fragaria x ananassa,Andre Marionnet,1991,everbearing;day_neutral;w
 14. erdbeerprofi.de -- Krankheiten und Schaedlinge bei Erdbeeren: https://erdbeerprofi.de/tipps-gemuesegarten/krankheiten
 15. MDPI Plants -- Growth, Flowering, and Fruit Production of Strawberry 'Albion' in Response to Photoperiod and PPFD: https://www.mdpi.com/2223-7747/12/4/731
 16. PMC -- Effects of long-term continuous cropping on soil nematode community and replant problem in strawberry habitat: https://pmc.ncbi.nlm.nih.gov/articles/PMC4978966/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. FAO Irrigation and Drainage -- Annex 1: Crop salt tolerance data (Maas-Hoffman; Strawberry ECe 1.0 dS/m, Slope 33%, sensitive): https://www.fao.org/4/y4263e/y4263e0e.htm
+18. MDPI Agronomy -- Model Development of the Phenological Cycle from Flower to Fruit of Strawberries (GDD-Basistemperatur 3 degC): https://www.mdpi.com/2073-4395/13/10/2489
+19. MDPI Agriculture -- No Evidence of Excessive Leaf Production by Strawberries Grown in the Subtropics (Blattproduktion vs. GDD, Basis 7 degC): https://www.mdpi.com/2077-0472/9/9/197
+20. Springer Photosynthesis Research -- Seasonal patterns of photosynthetic response and acclimation to elevated CO2 in field-grown strawberry (C3-Stoffwechsel): https://link.springer.com/article/10.1023/A:1012928928355
+21. IntechOpen -- Response of Strawberry Flowering and Yield to Photoperiod (kritische Tageslaenge 12--14 h, Kurztagblueher): https://www.intechopen.com/chapters/84802
+22. GardeningKnowHow -- Strawberry Chill Hours / Chilling Requirements (0--7 degC Kaeltebeduerfnis): https://www.gardeningknowhow.com/edible/fruits/strawberry/strawberry-chilling-requirements.htm
+23. ResearchGate -- Effect of Chilling and Accumulative Photo-Thermal Units on Flowering of Strawberry (Chilling 360--1440 h bei 2 degC): https://www.researchgate.net/publication/334567349
+24. ASHS HortScience -- Strawberry Growth and Productivity as Affected by Temperature (Photosynthese-Optimum 20--30 degC): https://journals.ashs.org/view/journals/hortsci/41/6/article-p1423.xml
+25. Frontiers in Plant Science -- Correlation between Strawberry Productivity and Photosynthesis-Related Parameters (Lichtsaettigung ~1016 umol/m2/s): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2016.01607/full
+26. Agrownet -- Strawberry Climate Requirements (Bodentiefe > 25 cm, flaches Wurzelsystem): https://www.agrownet.com/contents/en-us/d340691_Strawberry_Climate_requirements.html
+27. Yara UK -- Strawberry soil and water management (pH 5.5--6.5, Staunaesse-Empfindlichkeit): https://www.yara.co.uk/crop-nutrition/strawberries/soil-and-water-management/
+28. EpicGardening -- How Much Sun Do Strawberries Need? (full_sun 6--8 h, Halbschatten-Toleranz): https://www.epicgardening.com/strawberry-sun/
+29. PLOS One -- Cross-pollination affects fruit colour, acidity, firmness and shelf life of self-compatible strawberry (Selbstfruchtbarkeit + Insektenbestaeubung): https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0256964
+30. BeeAware -- Strawberries Pollination (Bestaeubung durch Bienen/Hummeln verbessert Fruchtform): https://beeaware.org.au/pollination/pollinator-reliant-crops/strawberries/
+31. hexafarms -- Climate control strategies for maximizing strawberry yields in greenhouses (niedriges VPD 0.2--0.4 kPa, RH 65--75%): https://hexafarms.com/blog/climate-control-strategies-for-maximizing-strawberry-yields-in-greenhouses
+32. Springer BMC Plant Biology -- Physiological and morphological responses of strawberry seedlings to end-of-day far-red light (EOD-FR 8--15 umol/m2/s): https://link.springer.com/article/10.1186/s12870-025-08092-3
+33. fruitandgarden.com -- Are Strawberry Plants Perennials? Lifespan and Regrowth Facts (Lebensdauer 3--5, bis 5--6 Jahre): https://fruitandgarden.com/are-strawberry-plants-perennials/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: keine artspezifische, belegte GDD-Basistemperatur für Clivia miniata; Art wird nicht GDD-gesteuert kultiviert --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 10–20 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization, hier Kälte-Blühinduktion) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 42 (6–8 Wochen bei 10–13°C als Blühinduktion) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Übersteht kurzzeitig leichten Frost (bis -3°C); Wurzeln frostempfindlich | `species.hardiness_detail` |
@@ -82,6 +91,28 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Gut drainierte, nährstoffreiche Zimmerpflanzenerde; Clivien mögen enge Töpfe — erst umtopfen wenn Wurzeln aus dem Topf wachsen | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch gemessener LCP für Clivia miniata; als schattenverträglicher Waldbodenherb physiologisch niedrig (Größenordnung < 20 µmol/m²/s), aber kein belegter Messwert --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine belegten Maas-Hoffman-Parameter (ECe-Schwelle) für Clivia miniata --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: keine belegten Maas-Hoffman-Parameter (Slope) für Clivia miniata --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+> **Hinweise (Freitext, nicht in KA-Felder):**
+> - **Schattenverträglichkeit:** Clivia miniata stammt aus dem Waldboden-Unterwuchs (woodland understory) Südafrikas und toleriert tiefen Schatten (deep_shade) als Standort; für zuverlässige Blüte ist jedoch helles indirektes Licht / lichter Halbschatten besser — daher Klassen-Einordnung `shade` (toleriert tiefen Schatten, bevorzugt aber heller).
+> - **Photosynthese-Typ:** Als Waldboden-Geophyt der Amaryllidaceae betreibt die Art C3-Photosynthese (kein CAM/Sukkulenz — die fleischigen Wurzeln dienen der Wasserspeicherung im Unterwuchs, nicht einem CAM-Stoffwechsel).
+> - **Salztoleranz:** Salzempfindlich; Düngersalz-Anreicherung führt zu braunen Blattspitzen (leaf tip burn). Bezugsgröße der (fehlenden) Schwelle wäre Substrat-ECe, nicht Gießwasser-EC.
+> - **Boden-pH:** Der pH-Vorzug 5.5–6.5 deckt den in §2.3 / §3 verwendeten Korridor 6.0–6.5 ab und harmonisiert mit diesem.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +140,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- DATEN FEHLEN: kein belegter Photosynthese-Temperaturoptimum für die kühle Ruhephase; aktiver Optimumwert siehe Vegetativ-Phase --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,18 +162,25 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Blütenaustrieb | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Blüte | 0:1:2 | 0.5–0.8 | 6.0–6.5 | 80 | 40 | — | 1 |
-| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 |
+<!-- Mikronährstoff-Spalten Mn/Zn/Cu/Mo ergänzt — Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Blütenaustrieb | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Blüte | 0:1:2 | 0.5–0.8 | 6.0–6.5 | 80 | 40 | — | 1 | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> |
+| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> | <!--DATEN FEHLEN--> |
 
 ### 2.4 Phasenübergangsregeln
 
@@ -215,7 +259,9 @@ Clivia ist ein Schwachzehrer. Zu viel Dünger verhindert die Blütenbildung. Die
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 — Korrektur: hardiness_rating war "needs_protection" (gültiger Enum, aber unpassend); frostempfindliche Zimmer-/Kübelpflanze mit frostfreier Innen-Überwinterung (move_indoors, 8–13°C) = frost_free -->
+| Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
@@ -290,9 +336,10 @@ Clivia ist ein Schwachzehrer. Zu viel Dünger verhindert die Blütenbildung. Die
 ### 8.1 Species CSV-Zeile
 
 ```csv
-scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day_neutral,herb,rhizomatous,9b;10a;10b;11a;11b,0.0,Südafrika KwaZulu-Natal,yes,10,20,60,60,—,yes,limited,false,false
+scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,photosynthesis_type,shade_tolerance,effective_root_depth_cm,waterlogging_tolerance,salt_tolerance_class,soil_ph_preference
+Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day_neutral,herb,rhizomatous,9b;10a;10b;11a;11b,0.0,Südafrika KwaZulu-Natal,yes,10,20,60,60,—,yes,limited,false,false,c3,shade,15-30,sensitive,sensitive,5.5-6.5
 ```
+<!-- CSV-Zeile um photosynthesis_type, shade_tolerance, effective_root_depth_cm, waterlogging_tolerance, salt_tolerance_class, soil_ph_preference erweitert — Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -303,3 +350,12 @@ Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day
 3. [Wisconsin Horticulture – Clivia](https://hort.extension.wisc.edu/articles/clivia/) — University Extension Service
 4. [UK Houseplants – Clivia](https://www.ukhouseplants.com/plants/clivia-natal-or-bush-lily) — Detailed Care
 5. [Old Farmer's Almanac – Clivia](https://www.almanac.com/plant/clivia) — Growing Tips
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS – How to grow clivias](https://www.rhs.org.uk/plants/clivia/how-to-grow) — Tender-Einstufung, Licht (helles indirektes Licht), Winterruhe ~10°C für Blühinduktion, Substrat
+7. [Wikipedia – Clivia miniata](https://en.wikipedia.org/wiki/Clivia_miniata) — Waldhabitat (woodland understory), Rhizom + fleischige Wurzeln, Frostempfindlichkeit (USDA 9–11)
+8. [North Carolina Extension – Clivia miniata Plant Toolbox](https://plants.ces.ncsu.edu/plants/clivia-miniata/) — Lichtbedarf (dappled shade to deep shade), University-Extension-Quelle
+9. [New York Botanical Garden – Clivia Houseplant Guide](https://libguides.nybg.org/Clivia) — Schattenstandort (deep/partial shade), Pflege
+10. [Greg – Clivia Roots / Lifecycle](https://greg.app/clivia-roots/) — Wurzeltiefe (6–12 in ≈ 15–30 cm), Lebensdauer 10–20 Jahre
+11. [ISHS Acta Horticulturae – Scheduling flowering in Clivia miniata](https://www.ishs.org/ishs-article/1171_6) / [ScienceDirect – Crassulacean Acid Metabolism overview](https://www.sciencedirect.com/topics/biochemistry-genetics-and-molecular-biology/crassulacean-acid-metabolism) — Kälte-Blühinduktion (Vernalisation) bzw. CAM-Familien-Abgrenzung (Amaryllidaceae-Geophyten = C3, kein CAM)
+12. [Gardener's Path – Grow Clivia](https://gardenerspath.com/plants/flowers/grow-clivia/) — Salzempfindlichkeit (Düngersalz-Anreicherung, braune Blattspitzen), Staunässe-/Überwässerungsempfindlichkeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

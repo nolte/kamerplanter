@@ -20,7 +20,10 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–7b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C; Vernalisierung nötig (Kälteperiode für Blüteninduktion); in Norddeutschland absolut winterhart | `species.hardiness_detail` |
@@ -28,6 +31,14 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | 0 (Phänologie-/Wuchsbasis der etablierten Flieder-Springindex-Modelle, USA-NPN/Schwartz; bezieht sich auf Austrieb→Blüte, NICHT auf Keimung) | `species.base_temp` |
+| Lebensdauer (Jahre) | 50–100 (verholzter Strauch, sehr langlebig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (laubabwerfende Winterruhe/Endodormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true (annotiert als "chilling"/Endodormanz-Bruch — Kältebedürfnis für Blüteninduktion, keine echte Vernalisation eines Saatguts) | `lifecycle_configs.vernalization_required` |
+| Vernalisation/Chilling Mindest-Tage | 60–90 (langer Winterchill nötig; USDA-Zonen 3–7 = ausreichende Kälteperiode) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein Kurz-/Langtag-Blüher → kein numerischer Stunden-Schwellwert; Blühsteuerung erfolgt über Chilling, nicht über Photoperiode --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -84,6 +95,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, kalkhaltige Erde; pH 6,5–7,5; durchlässig; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch gemessener LCP-Wert für Syringa vulgaris aus 2 seriösen Quellen belegbar; als sonnenliebende, nur teilschattenverträgliche Art läge der LCP eher im oberen Bereich lichtbedürftiger Gehölze, aber ohne Beleg nicht eintragbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (optimal volle Sonne, 6–8 h direkt; toleriert Halbschatten, blüht dort aber schwächer; voller Schatten ungeeignet) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: kein belastbarer artspezifischer cm-Wert aus 2 Quellen --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (USDA: "does not tolerate poorly drained soils"; verträgt keine Staunässe, Phytophthora-Gefahr) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (Quellen uneinheitlich: gegenüber Salzsprühnebel intermediär bis empfindlich, gegenüber Bodensalz moderat) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Schwellwert (Substrat-ECe) für Syringa vulgaris --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.5 (neutral bis schwach alkalisch; USDA: neutral bis leicht sauer, RHS/NC-Extension: neutral bis alkalisch — Schnittmenge gewählt, harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
+
+> Hinweis: Flieder blüht am besten in voller Sonne (6–8 h Direktlicht). Salztoleranz ist standortabhängig — als Windbrecher kann Flieder salzsensiblere Pflanzen vor Sprühnebel schützen, leidet aber selbst bei direktem Streusalzkontakt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,18 +140,29 @@
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (deutlich oberhalb des Ziel-Korridors; oberer Zielwert 1.6 + ~0.4 = kritischer Punkt für stomatären Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (mesophytische, laubabwerfende C3-Art; kein CAM/Sukkulent) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 (temperate C3-Gehölz-Optimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne-Anker; offenes Tageslicht, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 3000–8000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Blüte | 0:2:1 | 0.8–1.2 | 6.5–7.5 | 100 | 50 | – | 1 |
-| Triebwachstum | 2:1:2 | 1.0–1.4 | 6.5–7.5 | 120 | 60 | – | 2 |
-| Knospenanlage | 0:2:3 | 0.8–1.2 | 6.5–7.5 | 100 | 50 | – | 1 |
-| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Blüte | 0:2:1 | 0.8–1.2 | 6.5–7.5 | 100 | 50 | – | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.05 | 0.03 | 0.02<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Triebwachstum | 2:1:2 | 1.0–1.4 | 6.5–7.5 | 120 | 60 | – | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.1 | 0.05 | 0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Knospenanlage | 0:2:3 | 0.8–1.2 | 6.5–7.5 | 100 | 50 | – | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.05 | 0.03 | 0.02<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->– | – | – | –<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> Mikronährstoffe (Mn/Zn/Cu/Mo) als allgemeine Nährlösungs-Standardwerte (Hoagland-Bereich) für einen medium_feeder; keine artspezifisch publizierten Syringa-vulgaris-Bedarfswerte verfügbar. `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -221,6 +261,18 @@ Flieder blüht sehr gerne auch ohne Düngung. Zu viel N fördert lange Triebe mi
 | Kupferfungizid | chemical | Kupferhydroxid | Frühjahr prophylaktisch | 7 | Bakterienbrand |
 | Gute Drainage | cultural | – | Standortwahl; Hochbeet | 0 | Phytophthora |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling (beneficial) | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (pro m²) | Etablierungszeit |
+|-----------------------|--------------------|----------------|------------------------|------------------|
+| Schlupfwespe (parasitoid wasp) | Aphidius colemani | Fliederblattläuse (Aphis syringae) | 0,5–1 Tier/m² (kurativ bis 4/m²) | 2–3 Wochen |
+| Gallmücke (predatory midge) | Aphidoletes aphidimyza | Fliederblattläuse (Aphis syringae) | 1–2 Larven/m² | 2–3 Wochen |
+| Florfliege (lacewing) | Chrysoperla carnea | Fliederblattläuse (Aphis syringae) | 10 Eier/Larven pro m² | 1–2 Wochen |
+
+> Nützling-Wirt-Zuordnung: Aphidius colemani, Aphidoletes aphidimyza und Chrysoperla carnea sind klassische Blattlaus-Antagonisten und passen damit zum Hauptschädling Fliederblattläuse (§5.1). Aphytis/Metaphycus (Schildlaus-Gegenspieler), Encarsia (Weiße Fliege) oder Phytoseiulus (Spinnmilben) sind für Flieder nicht primär relevant und daher hier bewusst nicht gelistet.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -258,7 +310,7 @@ Flieder blüht sehr gerne auch ohne Düngung. Zu viel N fördert lange Triebe mi
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Syringa vulgaris,"Gemeiner Flieder;Edelflieder;Common Lilac",Oleaceae,Syringa,perennial,long_day,shrub,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b",0.0,"Balkanhalbinsel, Südosteuropa",limited,65,50,500,400,250,no,no,false,false,medium_feeder,false,hardy,"4;5"
+Syringa vulgaris,"Gemeiner Flieder;Edelflieder;Common Lilac",Oleaceae,Syringa,perennial,day_neutral,shrub,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b",0.0,"Balkanhalbinsel, Südosteuropa",limited,65,50,500,400,250,no,no,false,false,medium_feeder,false,hardy,"4;5"
 ```
 
 ---
@@ -269,3 +321,11 @@ Syringa vulgaris,"Gemeiner Flieder;Edelflieder;Common Lilac",Oleaceae,Syringa,pe
 2. [Lubera Flieder](https://www.lubera.com/de/gartenbuch/flieder-pflanzen-schneiden-vermehren-krankheiten-p2528) — Schnitt, Krankheiten
 3. [Pflanzen-Kölle Flieder](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meinen-flieder-richtig/) — Pflege
 4. [Dekorationgarten Syringa vulgaris](https://www.dekorationgarten.com/gartenarbeit/syringa-vulgaris-anbau-pflege-schadlinge-und-krankheiten/) — Steckbrief, Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [USDA NRCS Plant Guide — Syringa vulgaris (Lilac)](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/cs_syvu.pdf) — Adaptation, Boden-pH (neutral bis leicht sauer), keine Staunässe-Toleranz, Standort (warm/sonnig), Winterchill für Blüte
+6. [NC State Extension Gardener Plant Toolbox — Syringa vulgaris](https://plants.ces.ncsu.edu/plants/syringa-vulgaris/) — Lichtbedarf (Vollsonne/Halbschatten), pH (neutral–alkalisch), Salzresistenz, Chilling- statt Photoperiode-Steuerung der Blüte
+7. [USA National Phenology Network — Cloned and Common Lilacs](https://www.usanpn.org/nn/campaigns/Lilacs) — Flieder als phänologischer Indikator, Springindex-/GDD-Modelle (Basis 0 °C / 32 °F), Chilling-Bedarf
+8. [Missouri Botanical Garden — Syringa vulgaris](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282932) — Standort, Boden, Vollsonne, Schnitt nach Blüte
+9. [PFAF — Syringa vulgaris](https://pfaf.org/user/Plant.aspx?LatinName=Syringa+vulgaris) — hermaphrodit, insektenbestäubt (Bienen/Falter), wenige fertile Samen, Bodenansprüche
+10. [RHS / Penn State & Purdue Extension — Salztoleranz Gehölze](https://extension.psu.edu/minimize-deicer-damage-with-salt-tolerant-plants) — Einordnung Flieder-Salztoleranz (Sprühnebel intermediär–empfindlich)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

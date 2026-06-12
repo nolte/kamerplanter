@@ -158,6 +158,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.2
+    salt_tolerance_slope_pct: 16
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: "Allium sativum"
     common_names: ["Knoblauch", "Garlic"]
@@ -197,6 +207,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.9
+    salt_tolerance_slope_pct: 14.3
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Anemone hupehensis"
     common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
@@ -234,6 +254,12 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Asparagus officinalis"
     common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
@@ -272,6 +298,16 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    salt_tolerance_ece_threshold_ds_m: 4.1
+    salt_tolerance_slope_pct: 2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Astilbe chinensis"
     common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
@@ -307,6 +343,12 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: moderate
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Brassica oleracea var. sabellica"
     common_names: ["Gruenkohl", "Kale", "Borecole"]
@@ -344,6 +386,14 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Buxus sempervirens"
     common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
@@ -380,6 +430,15 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 9
+    light_compensation_point_ppfd_max: 24
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Calendula officinalis"
     common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
@@ -418,6 +477,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Clematis spp."
     common_names: ["Waldrebe", "Clematis"]
@@ -455,6 +521,14 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Cornus mas"
     common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
@@ -491,6 +565,14 @@ new_species:
     allergen_info:
       contact_allergen: false
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 80
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Delphinium elatum"
     common_names: ["Rittersporn", "Delphinium", "Larkspur"]
@@ -528,6 +610,14 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   - scientific_name: "Echinacea purpurea"
     common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
@@ -563,6 +653,13 @@ new_species:
     allergen_info:
       contact_allergen: true
       pollen_allergen: true
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
 # ==============================================================================
 # S4  SPECIES ENRICHMENT (18 existing species)
@@ -990,6 +1087,8 @@ growth_phases:
       duration_days: 10
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 0
         dli_target_mol: 0
         photoperiod_hours: 0
@@ -1015,6 +1114,8 @@ growth_phases:
       duration_days: 28
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 200
         dli_target_mol: 11
         photoperiod_hours: 15
@@ -1044,6 +1145,8 @@ growth_phases:
       duration_days: 35
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         dli_target_mol: 20
         photoperiod_hours: 16
@@ -1073,6 +1176,8 @@ growth_phases:
       duration_days: 21
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 500
         dli_target_mol: 25
         photoperiod_hours: 15
@@ -1102,6 +1207,8 @@ growth_phases:
       duration_days: 42
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 500
         dli_target_mol: 25
         photoperiod_hours: 15
@@ -1132,6 +1239,8 @@ growth_phases:
       duration_days: 3
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 0
         dli_target_mol: 0
         photoperiod_hours: 0
@@ -1157,6 +1266,8 @@ growth_phases:
       duration_days: 14
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 200
         dli_target_mol: 12
         photoperiod_hours: 15
@@ -1186,6 +1297,8 @@ growth_phases:
       duration_days: 21
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 400
         dli_target_mol: 25
         photoperiod_hours: 16
@@ -1215,6 +1328,8 @@ growth_phases:
       duration_days: 7
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 400
         dli_target_mol: 25
         photoperiod_hours: 15
@@ -1244,6 +1359,8 @@ growth_phases:
       duration_days: 42
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 400
         dli_target_mol: 25
         photoperiod_hours: 15
@@ -1274,6 +1391,8 @@ growth_phases:
       duration_days: 5
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 30
         light_ppfd_target: 0
         dli_target_mol: 0
         photoperiod_hours: 0
@@ -1299,6 +1418,8 @@ growth_phases:
       duration_days: 14
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 30
         light_ppfd_target: 225
         dli_target_mol: 12
         photoperiod_hours: 15
@@ -1328,6 +1449,8 @@ growth_phases:
       duration_days: 21
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 30
         light_ppfd_target: 450
         dli_target_mol: 25
         photoperiod_hours: 16
@@ -1357,6 +1480,8 @@ growth_phases:
       duration_days: 60
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 30
         light_ppfd_target: 450
         dli_target_mol: 25
         photoperiod_hours: 16
@@ -1387,6 +1512,7 @@ growth_phases:
       duration_days: 10
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         temperature_day_c: 15.0
         temperature_night_c: 8.0
         humidity_day_percent: 78
@@ -1408,6 +1534,7 @@ growth_phases:
       duration_days: 14
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         temperature_day_c: 18.0
         temperature_night_c: 11.0
         humidity_day_percent: 68
@@ -1433,6 +1560,7 @@ growth_phases:
       duration_days: 50
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         temperature_day_c: 20.0
         temperature_night_c: 13.0
         humidity_day_percent: 62
@@ -1458,6 +1586,7 @@ growth_phases:
       duration_days: 14
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         temperature_day_c: 15.0
         temperature_night_c: 8.0
         co2_ppm: 400

@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für G. jasminoides auffindbar; Wachstum stoppt unterhalb ~15,5 °C (60 °F), aber dies ist kein validierter GDD-base --> | `species.base_temp` |
+| Lebensdauer (Jahre, perennial) | 30–50 (Topfkultur deutlich kürzer, mit guter Pflege >10) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (kein Kältebedarf; immergrüne Subtropenart. Kühle Nächte ~13–17 °C fördern den Blütenansatz als Temperaturreiz, sind aber KEINE Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (day_neutral; Blühinduktion über Nachttemperatur, nicht Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 8a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | In Mitteleuropa reine Kübelpflanze; frostfrei überwintern bei 8–15°C; verträgt kurzzeitig Temperaturen bis ca. -5°C (Zone 8a), aber Blütenknospen erfrieren bereits bei leichtem Frost. Kalte Nächte (10–15°C) im Herbst sind für die Knospenbildung förderlich. | `species.hardiness_detail` |
@@ -82,6 +91,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Saure, humusreiche Rhododendronerde oder Azaleen-Substrat; pH 5.0–6.0 zwingend; sehr gute Drainage | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Kompensationspunkt für G. jasminoides in zwei unabhängigen Quellen belegt; als schattentolerante C3-Art ist ein niedriger LCP plausibel, aber nicht quantifiziert --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (flaches, faseriges Wurzelsystem; Hauptmasse in den oberen ~30 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: keine belegte Maas-Hoffman-Schwelle; Quellen nennen nur qualitativ "poor salt tolerance" (sensitive), kein ECe-Wert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.0–6.0 | `species.soil_ph_preference` |
+
+> Hinweis: Lichtsättigung/Optimum liegt klar oberhalb des Kompensationspunkts; Gardenie braucht helles indirektes Licht bzw. lichten Halbschatten (Morgensonne + Nachmittagsschatten), verträgt aber weder pralle Mittagssonne noch tiefen Schatten. Staunässe wird nur kurzzeitig toleriert ("occasionally wet"), dauerhaft nasse Wurzeln führen zu Wurzelfäule — daher `moderate` statt `tolerant`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +136,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5, Halbschatten leicht höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–6 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,18 +158,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5, Halbschatten leicht höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | 5.0–6.0 | — | — | — | — |
-| Knospenbildung | 1:2:1 | 0.8–1.2 | 5.0–6.0 | 80 | 40 | — | 3 |
-| Blüte | 1:2:2 | 1.0–1.5 | 5.0–6.0 | 80 | 40 | — | 3 |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 5.0–6.0 | 100 | 50 | — | 3 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | 5.0–6.0 | — | — | — | — | — | — | — | — |
+| Knospenbildung | 1:2:1 | 0.8–1.2 | 5.0–6.0 | 80 | 40 | — | 3 | 0.5 | 0.05 | 0.02 | 0.05 |
+| Blüte | 1:2:2 | 1.0–1.5 | 5.0–6.0 | 80 | 40 | — | 3 | 0.5 | 0.05 | 0.02 | 0.05 |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 5.0–6.0 | 100 | 50 | — | 3 | 0.5 | 0.05 | 0.02 | 0.05 |
+
+> Mikronährstoff-Zielwerte (Mn/Zn/Cu/Mo) folgen den etablierten Hoagland-Nährlösungsstandards (Mn 0,5 · Zn 0,05 · Cu 0,02 · Mo 0,01–0,05 ppm) und sind auf die Fe-Zugabe (3 ppm, chelatiert) im sauren pH-Fenster 5,0–6,0 abgestimmt. Gardenie ist für Mn-Mangel (Blattvergilbung zwischen den Adern) bei zu hohem pH dokumentiert anfällig (UF/IFAS NutDef). `species.manganese/zinc/copper/molybdenum_ppm` → `nutrient_profiles.*`
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -215,7 +258,7 @@ Gardenien sind **pH-Spezialisten** — der pH muss zwingend bei 5.0–6.0 liegen
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` | <!-- Quelle: Steckbrief-Erweiterung 2026-06: korrigiert von needs_protection → frost_free; frostempfindliche Kübelpflanze, die in Mitteleuropa frostfrei drinnen überwintert wird (winter_action=move_indoors), entspricht laut KA-Enum frost_free, nicht needs_protection. -->
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off | `overwintering_profiles.spring_action` |
@@ -255,6 +298,11 @@ Gardenien sind **pH-Spezialisten** — der pH muss zwingend bei 5.0–6.0 liegen
 |----------|---------------|---------------------|------------------------|
 | Encarsia formosa | Weiße Fliege | 3–5 | 21–28 |
 | Phytoseiulus persimilis | Spinnmilben | 20–50 | 14 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Aphidius colemani | Blattläuse (Aphis spp.) | 0.5–1 | 14–21 |
+| Cryptolaemus montrouzieri | Wollläuse (Pseudococcus spp.) | 2–5 | 21–28 |
+| Metaphycus helvolus | Weichschildläuse (Coccus hesperidum) | 3–5 | 21–28 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -306,3 +354,14 @@ Gardenia jasminoides,Gardenie;Cape Jasmine,Rubiaceae,Gardenia,perennial,day_neut
 3. [Clemson HGIC – Gardenia](https://hgic.clemson.edu/factsheet/gardenia/) — University Extension Service
 4. [Lubera – Gardenie Pflege](https://www.lubera.com/de/gartenbuch/gardenie-gardenia-jasminoides-pflege-ueberwintern-p3134) — DE Kulturtipps
 5. [Pflanzenfreunde – Gardenien](https://www.pflanzenfreunde.com/gardenien.htm) — Schädlinge, Krankheiten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NC State Extension – Gardenia jasminoides Plant Toolbox](https://plants.ces.ncsu.edu/plants/gardenia-jasminoides/) — Standort (Licht: Dappled/Partial/Full Sun), Boden-pH (Acid <6.0), Drainage/Feuchte-Toleranz, flaches faseriges Wurzelsystem, immergrün
+7. [University of Florida IFAS – Gardenia jasminoides Fact Sheet (ENH)](https://hort.ifas.ufl.edu/database/documents/pdf/shrub_fact_sheets/garjasa.pdf) — geringe Salztoleranz (sensitive), Standort, Wuchs
+8. [RHS – How to grow gardenias](https://www.rhs.org.uk/plants/gardenia/how-to-grow) — Halbschatten, kein tiefer Schatten/keine pralle Sonne, keine Staunässe
+9. [New York Botanical Garden – Houseplant Care: Gardenia](https://libguides.nybg.org/Gardenia) — Optimaltemperaturen Tag/Nacht, Nachttemperatur für Knospenansatz, Luftfeuchte >60 %, helles indirektes Licht
+10. [UF/IFAS NutDef – Manganese Deficiency in Gardenia jasminoides](https://hort.ifas.ufl.edu/database/nutdef/pic27.shtml) — dokumentierte Mn-Mangel-Anfälligkeit
+11. [Hoagland-Nährlösung – Mikronährstoff-Referenzkonzentrationen (Wikipedia / Grokipedia)](https://en.wikipedia.org/wiki/Hoagland_solution) — Standardwerte Mn 0,5 · Zn 0,05 · Cu 0,02 · Mo 0,01–0,05 ppm
+12. [Renaissance Garden Guy – How Cold Hardy Are Gardenias](https://renaissancegardenguy.com/how-cold-hardy-are-gardenias-really/) — USDA 8–11, Kälteschäden < ~−7 °C (20 °F), Wachstumsoptimum 18–27 °C
+13. [Gardenfine – Average Lifespan of Gardenia](https://www.gardenfine.com/are-gardenia-perennial/) — Lebensdauer mehrere Jahrzehnte (30–50 Jahre)
+14. [ISHS Acta Hortic. 515.11 – Flower Initiation in Gardenia as Affected by Photoperiod and Night Temperature](https://ishs.org/ishs-article/515_11/) — Blühinduktion über Nachttemperatur (tagneutral), nicht Photoperiode
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

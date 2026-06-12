@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN: keine belegte Wuchs-GDD-Basistemperatur für S. morganianum auffindbar; Keim-/Kardinaltemperaturwerte dürfen nicht als Wuchs-GDD-Basis umetikettiert werden --> | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN: keine belegte typische Lebensdauer; gilt als langlebig-mehrjährig, aber kein 2-Quellen-Zahlenwert --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 0 | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), kein Kurztag-/Langtag-Schwellenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich; Mindesttemperatur 7°C; in Zone 9b kurze Kälteperioden möglich | `species.hardiness_detail` |
@@ -89,6 +98,26 @@
 
 **Gefäß-Empfehlung:** Hängeampeln oder hohe Töpfe ideal, damit die langen Triebe herabhängen können. Terrakotta-Töpfe fördern schnellere Substrataustrocknung (positiv für Sedum).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein art-spezifischer Kompensationspunkt für S. morganianum belegt; CAM/schattentolerante Sukkulenten liegen generisch niedrig (~10–50), aber keine 2-Quellen-Bestätigung für diese Art --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: keine quantitativen Maas-Hoffman-Daten (a-Schwelle) für S. morganianum; Gattung Sedum gilt qualitativ als salztolerant (Gründach-Literatur), aber kein belegter ECe-Schwellenwert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Sonnentoleranz:** Bevorzugt hell-indirektes Licht bzw. Halbsonne (5–6 h helles Licht/Tag); in praller, heißer Mittagssonne droht Blattverbrennung — daher `partial_shade` statt `full_sun`. Im Freiland (USDA 9b–12b) verträgt die Art volle Sonne nur bei langsamer Gewöhnung und milderem Standort.
+
+**Hinweis Salztoleranz:** Die Einstufung `moderately_tolerant` stützt sich auf die qualitative Gattungs-Evidenz (Sedum als salzverträgliche Gründach-/Küstenpflanze), nicht auf art-spezifische Maas-Hoffman-Messungen; ECe-Schwelle und Slope bleiben daher unbelegt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–55 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 (Substrat vollständig austrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 (durchdringend gießen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -132,18 +167,28 @@
 | Luftfeuchtigkeit Tag (%) | 25–45 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 25–45 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2–2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 21–30 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Bewurzelung | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
-| Vegetativ | 1:2:2 | 0.4–0.8 | 6.0–7.0 | 50 | 30 |
-| Blüte | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Bewurzelung | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+| Vegetativ | 1:2:2 | 0.4–0.8 | 6.0–7.0 | 50 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für die Light-Feeder-Sukkulente *S. morganianum* sind keine art-spezifischen Mikronährstoff-Zielwerte aus zwei unabhängigen seriösen Quellen belegt. Generische Vollnährlösungs-Werte (z. B. Hoagland-abgeleitet) wären keine quellengestützte Angabe für diese Art und werden daher als `DATEN FEHLEN` markiert statt erfunden. In der Praxis decken handelsübliche Kakteen-/Sukkulentendünger (siehe §3.1) den Mikronährstoffbedarf in geringer Dosis ab.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -246,6 +291,18 @@
 | Neemöl | biological | Azadirachtin | Gießen in Substrat 0.3% | 3 | Wurzelmilben |
 | Schnittling-Rettung | cultural | — | Triebspitzen abschneiden, neu bewurzeln bei Fäule | 0 | Wurzelfäule |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (pro m²) | Etablierungszeit |
+|----------|-------------------|----------------|-----------------------|------------------|
+| Australischer Marienkäfer / Mehlkäfer-Räuber | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 2–10 (leicht) bis 5–40 (stark); 3× im Abstand von 1–2 Wochen wiederholen | 2–4 Wochen |
+| Gallmücke (Blattlaus-Räuber) | Aphidoletes aphidimyza | Blattläuse (Aphidoidea) | 1–10; 2–3× im Abstand von 7–10 Tagen | 2–3 Wochen |
+| Raubmilbe (Bodenraubmilbe) | Stratiolaelaps scimitus (syn. Hypoaspis miles) | Wurzelmilben (Rhizoglyphus echinopus), Trauermückenlarven | 100–250 | 2–3 Wochen |
+
+**Hinweis:** Nützlingseinsatz bevorzugt im Gewächshaus/Wintergarten oder bei mehreren betroffenen Pflanzen. Auf reine Zimmerhaltung mit Einzelpflanzen ist die mechanische Bekämpfung (§5.3) meist praktikabler. *Cryptolaemus* früh bei erstem Wolllaus-Befall einsetzen; eine Larve frisst > 250 Wolllaus-Larven. *Stratiolaelaps* bekämpft zusätzlich Trauermückenlarven im feuchten Substrat — die Etablierungszeit ist herstellerseitig nicht exakt belegt und hier konservativ mit der für Bodenraubmilben üblichen Spanne (2–3 Wochen) angegeben.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -295,3 +352,18 @@ Sedum morganianum,Eselsschwanz;Donkey's Tail;Burro's Tail,Crassulaceae,Sedum,per
 3. [World of Succulents — Sedum morganianum](https://worldofsucculents.com/sedum-morganianum-donkeys-tail/) — Allgemeine Kulturdaten
 4. [Gardenia.net — Sedum morganianum](https://www.gardenia.net/plant/sedum-morganianum) — USDA Zone, Temperatur
 5. [Planet Desert — Donkey's Tail Care](https://planetdesert.com/blogs/news/donkeys-tail-plant-sedum-morganianum-care) — Vermehrung, Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Crassulacean acid metabolism — Wikipedia](https://en.wikipedia.org/wiki/Crassulacean_acid_metabolism) — CAM-Zugehörigkeit von Sedum/Crassulaceae (Photosynthese-Typ)
+7. [Variation in crassulacean acid metabolism within the genus Sedum (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S0176161711801434) — mexikanische Sedum-Arten zeigen konstitutives CAM (Photosynthese-Typ)
+8. [Wisconsin Horticulture Extension — Burro's Tail, Sedum morganianum](https://hort.extension.wisc.edu/articles/burros-tail-sedum-morganianum/) — Lichtbedarf, pH, Standort
+9. [Healthy Houseplants — Donkey's Tail Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/donkeys-tail-sedum-morganianum-care-guide-growing-tips/) — Boden-pH 6.0–7.0, Halbsonne, Staunässe-Empfindlichkeit
+10. [AskGardening — Which Succulents Have Shallow and Deep Roots](https://askgardening.com/do-succulents-have-shallow-roots/) — flache fibröse Wurzeltiefe von Sedum/Crassulaceae (5–15 cm)
+11. [Greg — Sedum Roots 101](https://greg.app/sedum-roots/) — flache Sedum-Wurzeltiefe (Bestätigung effektive Wurzeltiefe)
+12. [AskGardening — How Much Light Succulents Need (PPFD)](https://askgardening.com/succulent-light-needs/) — Lichtkompensationspunkt/PPFD-Bereiche schattentoleranter Sukkulenten (qualitativer Kontext)
+13. [Wallbarn — Types of Sedum for Green Roofs](https://www.wallbarn.com/exploring-the-different-types-of-sedum-and-its-benefits-for-green-roofs/) — qualitative Salztoleranz der Gattung Sedum (Gründach/Küste)
+14. [Sempergreen — Everything about Sedum](https://www.sempergreen.com/us/solutions/green-roofs/everything-about-sedum) — Salz-/Stresstoleranz von Sedum (Salztoleranz-Klasse, qualitativ)
+15. [Effects of High Night Temperature on CAM Photosynthesis of Kalanchoë & Ananas (ResearchGate)](https://www.researchgate.net/publication/240773846_Effects_of_High_Night_Temperature_on_Crassulacean_Acid_Metabolism_CAM_Photosynthesis_of_Kalanchoe_pinnata_and_Ananas_comosus) — CAM-Temperaturoptima (nächtliche CO₂-Fixierung), Kontext T_opt
+16. [PhysicsWallah — CAM Cycle (Crassulacean Acid Metabolism)](https://www.pw.live/school-prep/exams/chapter-photosynthesis-in-higher-plants-class-11-cam-cycle-crassulacean-acid-metabolism) — allgemeines Photosynthese-Optimum 25–30 °C
+17. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Wolllaus-Nützling, Ausbringrate
+18. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Blattlaus-Nützling, Ausbringrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

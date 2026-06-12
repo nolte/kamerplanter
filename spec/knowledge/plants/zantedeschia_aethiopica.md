@@ -20,11 +20,14 @@
 | Ordnung | Alismatales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | 7 (Kühlzehrer; Wachstum kommt < 7–10 °C praktisch zum Erliegen, optimaler Wuchs bei 13–18 °C) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Blüher --> | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation erforderlich | false (tropisch-subtropische Herkunft, kein Kältebedarf für Blüte) | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 8a, 8b, 9a, 9b, 10a, 10b, 11a | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Halbfrosthart — im Kübel bei Frost reinbringen. Im Freiland in Zone 8+ mit Mulchschutz möglich. Rhizom verträgt kurze Fröste bis –5°C, aber keine Dauerfröste. | `species.hardiness_detail` |
@@ -91,6 +94,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Feuchtigkeitshaltende, humusreiche Erde. pH 6.0–6.5. Einheitserde + 20% Kokosfaser. Niemals austrocknen lassen — Calla liebt konstant feuchtes Substrat. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Messwert; als schattenverträgliche Araceae-Understory-Art niedriger LCP zu erwarten --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Messwert --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (Vollsonne bei kühlen Sommern bis Halbschatten; tiefer Schatten = kaum Blüte) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–40 (flach wurzelndes Rhizom; Topftiefe ab 20 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | tolerant (Sumpf-/Uferpflanze; wächst in stehendem Wasser bis ~30 cm Tiefe) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant (verträgt salzhaltige Küstenluft; Blattspitzen-Nekrosen bei Substrat-Versalzung) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (Substrat-ECe) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 (schwach sauer bis neutral) | `species.soil_ph_preference` |
+
+**Hinweis (Standortqualität):** Z. aethiopica ist eine ausgesprochene Feucht-/Nasszeiger-Art und gehört zu den wenigen Zierpflanzen, die echte Staunässe und sogar dauerhaft stehendes Wasser am Teichrand vertragen (Korb bis max. 30 cm Wassertiefe). Die Salztoleranz bezieht sich auf die salzhaltige Küstenluft im natürlichen Habitat; ein quantitativer Substrat-ECe-Schwellenwert nach Maas-Hoffman ist für die Art nicht publiziert. Der pH-Vorzug (6.0–7.0) harmonisiert mit der Substrat-Empfehlung in §1.6 (6.0–6.5) und den Phasen-pH-Werten in §2.3 (6.0–6.5), die im unteren Teil dieser Spanne liegen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +135,11 @@
 | Temperatur Tag (°C) | 5–15 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 4–12 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
+| DLI (mol/m²/Tag) | 2–6 | `requirement_profiles.dli_target_mol` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 10–15 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.55 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 21–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -128,17 +154,25 @@
 | Temperatur Nacht (°C) | 10–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–1.2 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 16–22 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.55 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–6.5 | — | — |
-| Austrieb/Vorblüte | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 30 |
-| Hauptblüte | 1:2:2 | 1.0–1.8 | 6.0–6.5 | 100 | 40 |
-| Nach der Blüte | 1:1:2 | 0.6–1.0 | 6.0–6.5 | 60 | 20 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0–0.2 | 6.0–6.5 | — | — | — | — | — | — |
+| Austrieb/Vorblüte | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 30 | 0.5–1.0 | 0.05–0.10 | 0.02–0.05 | 0.01–0.05 |
+| Hauptblüte | 1:2:2 | 1.0–1.8 | 6.0–6.5 | 100 | 40 | 0.5–1.0 | 0.05–0.10 | 0.02–0.05 | 0.01–0.05 |
+| Nach der Blüte | 1:1:2 | 0.6–1.0 | 6.0–6.5 | 60 | 20 | 0.5–1.0 | 0.05–0.10 | 0.02–0.05 | 0.01–0.05 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoff-Hinweis:** Mn/Zn/Cu/Mo (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) folgen den allgemeinen Standard-Nährlösungsbereichen (Hoagland-/Steiner-Niveau); für Z. aethiopica sind keine artspezifischen Mikronährstoff-Zielwerte publiziert. In der Winterruhe (NPK 0:0:0) entfällt die Mikronährstoffgabe.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -226,6 +260,19 @@ Mittelzehrer. Düngung von März bis August, alle 2 Wochen. In der Blütephase p
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Blattläuse, Thrips |
 | Backpulverlösung | biological | Sprühen 0.5% | 0 | Grauschimmel |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Aphis spp.) | 1–3 Tiere/m² je Freilassung, 2–3× im Wochenabstand | ~2 Wochen (Mumienbildung), 2 überlappende Generationen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 1–5 Larven/m² | 1–2 Wochen |
+| Raubmilbe (Thrips) | Neoseiulus (Amblyseius) cucumeris | Thrips (Frankliniella occidentalis), Larvenstadien | 100–200 Tiere/m² (präventiv), bis 400/m² (kurativ) | 3–4 Wochen |
+| Raubmilbe (Spinnmilbe) | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 5–20 Tiere/m² je nach Befall | ~2 Wochen (bei < 30 °C, > 60 % rF) |
+
+**Hinweis (Nützlingseinsatz):** Bei Z. aethiopica sind die drei relevanten Schädlinge (Blattläuse, Westlicher Blütenthrips, Gemeine Spinnmilbe) mit etablierten Nützlingen biologisch bekämpfbar — am wirksamsten unter Glas/im Wintergarten. Phytoseiulus persimilis braucht für die Etablierung ausreichende Luftfeuchte (> 60 %), die für die feuchteliebende Calla ohnehin günstig ist. Thrips-Raubmilben wirken nur gegen die Larvenstadien; gegen adulte Thrips ergänzend Blaufallen oder Orius-Raubwanzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -262,3 +309,12 @@ Zantedeschia aethiopica,"Calla;Weiße Calla;Zimmercalla;Sumpfcalla;Calla Lily;Ar
 3. [RHS — Zantedeschia aethiopica](https://www.rhs.org.uk/plants/zantedeschia/aethiopica/details) — Winterhärte, Pflege
 4. [NC State Extension — Zantedeschia aethiopica](https://plants.ces.ncsu.edu/plants/zantedeschia-aethiopica/) — Kulturdaten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (stark giftig — Calcium-Oxalate)
+6. [PFAF — Plants For A Future: Zantedeschia aethiopica](https://pfaf.org/user/Plant.aspx?LatinName=Zantedeschia+aethiopica) — Boden-pH (schwach sauer/neutral/basisch), Schattentoleranz (Halbschatten bis Vollsonne), Feuchte-/Wassertoleranz (Wasser bis 30 cm Tiefe) <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+7. [PlantZAfrica / SANBI — Zantedeschia aethiopica](https://pza.sanbi.org/zantedeschia-aethiopica) — Habitat (Sumpf/Uferpflanze), Guttation/Staunässe, salzhaltige Küstenluft, Höhenverbreitung <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. [Gardenia.net — Zantedeschia aethiopica (White Calla Lily)](https://www.gardenia.net/plant/zantedeschia-aethiopica) — Lichtbedarf (Vollsonne/Halbschatten je nach Sommerklima), Frosthärte (–5 bis –10 °C), Mindesttemperatur Kübel 7–10 °C <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. [University of Florida IFAS — Warm Climate Production Guidelines for Zantedeschia (ENHFL04-001)](https://hort.ifas.ufl.edu/floriculture/pdfs/crop_production/Callas_ENHFL04-001.pdf) — Temperaturpräferenz (kühl, helle Bedingungen, kühle Nächte) <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+10. [Wikipedia — Zantedeschia (Frosthärte/Temperaturschwellen)](https://en.wikipedia.org/wiki/Zantedeschia) — Wachstums-/Frostschwelle, Wuchsschwelle ~10 °C, Kältehärte-Cultivare <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Nützling Spinnmilbe, Ausbringrate/Etablierung <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate/Etablierungszeit Spinnmilben-Raubmilbe <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Thrips-Raubmilbe, Ausbringrate/Etablierung <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+14. [Hoagland solution / Standard-Nährlösung (Wikipedia)](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffbereiche Mn/Zn/Cu/Mo (ppm) <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->

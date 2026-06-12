@@ -21,6 +21,15 @@
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Schatten-/Unterwuchsstaude, kein CAM/C4) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Hosta auffindbar; Keimwerte nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 20–30+ (langlebige Staude, oft Jahrzehnte am Standort) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterruhe; oberirdische Teile sterben ab) | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (vernalization/chilling) | true (Chilling/Endodormanz-Bruch, KEINE echte Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation/Chilling Mindest-Tage | 70–84 (≈ 600–700 h unter 4 °C, ≈ 10–12 Wochen; Minimum ~30 Tage < 4 °C) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: Art ist tagneutral (day_neutral), kein Kurztag-/Langtag-Blühreiz; numerisches Stunden-Feld bleibt leer --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C; oberirdische Teile sterben ab; Rhizom überwintert sicher; in Norddeutschland absolut problemlos | `species.hardiness_detail` |
@@ -84,6 +93,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, gut wasserhaltende Erde; pH 6,0–7,0; gute Drainage; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 8 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 16 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–30 (flacheres System als typische Stauden; max. ~30 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (gleichmäßig feucht, aber drainiert; Staunässe tötet das Rhizom) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (verträgt geringe Streusalzbelastung; bei Anhäufung Stress) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für Hosta auffindbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) für Hosta auffindbar --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 (leicht sauer; harmonisiert mit §1.6 / §2.3) | `species.soil_ph_preference` |
+
+**Hinweis (Freitext):** Lichtsättigung tritt bei Hosta erst sehr hoch ein — Studien zeigen keine Sättigung der Netto-Photosynthese im Bereich 100–1200 µmol/m²/s bei akklimatisierten Pflanzen; der oben angegebene Wert ist ausschließlich der Kompensationspunkt (Netto-Photosynthese = 0), nicht der Sättigungspunkt. Streusalz: Bei vorhandenem Streusalz-Eintrag salzärmere Auftaumittel (Calcium-/Magnesiumchlorid, CMA) statt NaCl bevorzugen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +139,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (kritischer Punkt stomatären Kollaps; oberer Zielwert 1.0 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high (mesophytische Schattenstaude; reagiert empfindlich auf trockene Luft) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (kühl-feuchte Optimaltemperatur) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 (Unterwuchs/Schatten; R:FR erniedrigt) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -120,13 +153,17 @@
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | – | 2 |
-| Vegetatives Wachstum | 2:1:2 | 1.0–1.4 | 6.0–6.5 | 100 | 50 | – | 2 |
-| Blüte | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | – | 1 |
-| Herbstrückzug | 0:1:2 | 0.4–0.6 | – | – | – | – | – |
-| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | – | 2 | 0.5 | 0.05 | 0.05 | 0.05 |
+| Vegetatives Wachstum | 2:1:2 | 1.0–1.4 | 6.0–6.5 | 100 | 50 | – | 2 | 0.5 | 0.1 | 0.05 | 0.05 |
+| Blüte | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | – | 1 | 0.3 | 0.05 | 0.03 | 0.03 |
+| Herbstrückzug | 0:1:2 | 0.4–0.6 | – | – | – | – | – | – | – | – | – |
+| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – | – | – | – | – |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+**Hinweis zu Mikronährstoffen (Mn/Zn/Cu/Mo):** Die angegebenen ppm-Werte entsprechen üblichen Standard-Mikronährstoff-Zielkonzentrationen einer ausgewogenen Nährlösung (Hoagland-typisch) und sind nicht Hosta-spezifisch belegt; sie dienen als Richtwerte für `medium_feeder`-Stauden. In humusreicher Freilanderde werden Mikronährstoffe i.d.R. ausreichend nachgeliefert.
 
 ---
 
@@ -223,6 +260,19 @@ Hosta ist ein moderat zehrender Standlauber. Kompostgaben im Frühjahr und Herbs
 | Werkzeug desinfizieren | cultural | Ethanol | Vor jeder Teilung | 0 | HVX |
 | Infizierte Pflanzen entfernen | cultural | – | Sofort; vernichten | 0 | HVX |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling (Wiss. Name) | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|-----------------------|----------------|--------------|-------------------|
+| Phasmarhabditis hermaphrodita (parasitischer Nematode, "Nemaslug") | Schnecken (Arion/Limax spp.) | ~300.000 Infektionsjuvenile/m² (Feldspanne 50.000–600.000/m²) | Schnecken sterben in 4–21 Tagen; ~6 Wochen Schutzwirkung |
+| Steinernema kraussei / Heterorhabditis megidis (entomopathogene Nematoden) | Dickmaulrüssler-Larven (Otiorhynchus sulcatus) | ~23.000–50.000 Infektionsjuvenile/m² (Boden) | Larven sterben in wenigen Tagen; Boden > 5–9 °C (S. kraussei kälteaktiv) nötig |
+| Aphidius colemani (Schlupfwespe) | Blattläuse (Aphis spp.) | 0,25–4 Tiere/m² je Freilassung, ≥ 2–3 Freilassungen im Wochenabstand | Mumienbildung nach ~10–14 Tagen; mehrere Generationen zur Etablierung |
+| Aphidoletes aphidimyza (Gallmücke, räuberische Larve) | Blattläuse (Aphis spp.) | ~0,5–1 Tier/m² (Hotspots höher), wöchentlich bis etabliert | Larven aktiv nach ~3–7 Tagen; Etablierung über mehrere Wochen |
+
+**Hinweis:** Schnecken-Nematoden und Dickmaulrüssler-Nematoden mit Wasser ins feuchte Substrat einschlämmen; Bodentemperatur und Feuchte beachten. Aphidius/Aphidoletes wirken primär in geschütztem Anbau / Topfkultur an befallenen Trieben.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -272,3 +322,18 @@ Hosta spp.,"Funkie;Herzlilie;Hosta;Plantain Lily",Asparagaceae,Hosta,perennial,d
 2. [Pflanzen-Kölle Funkien](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meine-funkien-richtig/) — Pflege, Schnecken
 3. [Gartenrat.de Funkien](https://gartenrat.de/funkien/) — Pflege-Anleitung
 4. [Baldur-Garten Funkien](https://www.baldur-garten.de/onion/content/pflege-tipps/blumenzwiebeln/funkien) — Teilung, Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [SDSU Extension — Hosta: A Shade-loving Perennial](https://extension.sdstate.edu/hosta-shade-loving-perennial) — Schattentoleranz, Standort, Photosynthese-Typ (C3 Schattenstaude)
+6. [Garden Design — Hostas: How to Grow & Care](https://www.gardendesign.com/plants/hosta.html) — Wurzeltiefe (~30 cm), Schatten, langlebige Staude
+7. [BBC Gardeners' World — How to grow hostas](https://www.gardenersworld.com/how-to/grow-plants/how-to-grow-hostas/) — Standort, gleichmäßig feucht/drainiert (Staunässe-Empfindlichkeit)
+8. [Home for the Harvest — Do hostas like acid soil?](https://homefortheharvest.com/do-hostas-like-acid-soil/) — Boden-pH ~6,0 (leicht sauer)
+9. [ScienceDirect — Light Compensation (Übersicht)](https://www.sciencedirect.com/topics/engineering/light-compensation) — Lichtkompensationspunkt C3-/Schattenpflanzen (8–16 µmol/m²/s)
+10. [Springer / In Vitro Cell. Dev. Biol. — Hosta 'Blue Vision' Net-Photosynthese](https://link.springer.com/article/10.1079/IVP2003414) — keine Lichtsättigung 100–1200 µmol/m²/s (Schattenakklimatisierung)
+11. [Rewela Hostas — Hosta Dormancy & Autumn Colour](https://www.rewelahostas.com/post/hosta-dormancy-autumn-colour) — Winterruhe/Chilling-Bedarf
+12. [Plant Addicts — Hosta Winter Care](https://plantaddicts.com/hosta-winter-care/) — Chilling ~600–700 h < 4 °C, Mindest-Dormanz ~30 Tage
+13. [Greg.app — Hosta lancifolia Temperature](https://greg.app/hosta-lancifolia-temperature/) — Optimaltemperatur 18–24 °C
+14. [Bugs for Growers — Biological control of black vine weevil](https://bugsforgrowers.com/collections/biological-control-of-black-vine-weevil) — Steinernema/Heterorhabditis gegen Otiorhynchus-Larven, Ausbringrate
+15. [Nematodes Direct — Nemaslug (Phasmarhabditis hermaphrodita)](https://www.nematodesdirect.co.uk/nemaslug/8-nemaslug) — Schnecken-Nematode ~300.000/m², ~6 Wochen Wirkung
+16. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate/Etablierung
+17. [Sound Horticulture — Aphid Tech Sheet (Aphidius/Aphidoletes)](https://soundhorticulture.com/pages/aphids) — Freilassungsraten Aphidius/Aphidoletes
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day: Blüte ist temperatur-/wärmegesteuert, nicht photoperiodisch induziert; Blüten öffnen tagsüber, aber die Blühinduktion folgt der Wassertemperatur) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 4a–10b (winterharte Arten); 9a–12b (tropische Arten) | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy (Nymphaea alba); tender (tropische Sorten) | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25 °C (Zone 4); Rhizom bleibt frostfrei im Teichschlamm ab 60 cm Wassertiefe. Tropische Sorten frostfrei bei min. 10 °C überwintern. | `species.hardiness_detail` |
@@ -28,6 +28,15 @@
 | Allelopathie-Score | -0.2 (leicht hemmend durch abgestorbene Biomasse, Algenkonkurrenz durch Beschattung positiv) | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (phänologische Austriebsschwelle: Austrieb startet bei dauerhaft >8–10 °C Wassertemperatur; kein validierter Wuchs-GDD-Basiswert aus thermischen Studien verfügbar — als phänologische Basis zu verstehen) | `species.base_temp` |
+| Lebensdauer (Jahre) | >10 (langlebige Staude, in stabilen Gewässern Jahrzehnte; in Kultur Rhizomteilung alle 3–5 Jahre zur Verjüngung; exakte Obergrenze nicht belegt) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (obligate Winterruhe; Rhizom zieht Blätter ein und ruht am frostfreien Teichboden) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Blühinduktion ist wärmegesteuert, kein Kältereiz erforderlich) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | <!-- DATEN FEHLEN --> (nicht anwendbar, da vernalization_required=false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagneutral — kein Kurztag-/Langtag-Blühreiz; siehe photoperiod_type=day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 > **Aquatischer Hinweis:** Nymphaea ist vollständig aquatisch — sämtliche Wuchsparameter beziehen sich auf die submerse/emerse Wuchsform im Teich oder Pflanzkorb. Die Pflanze wächst vom Substrat am Teichboden aus, Blätter und Blüten schwimmen an der Wasseroberfläche. Klassische Kübel-/Topfkultur-Parameter (Substrat, Topfvolumen) entsprechen hier dem Pflanzkorb im Teich.
 
@@ -105,6 +114,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Pflanzkorb) | Schwere, lehmige Gartenerde mit 50–80 % Tonanteil; KEIN Torf, KEIN Kompost (würde im Wasser vergären). Alternativ: spezielles Seerosensubstrat (handelsüblich). Obere Schicht: 3–5 cm feiner Kies als Abdeckung gegen Aufwirbelung. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.8 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein artspezifischer Netto-Null-Kompensationspunkt beziffert verfügbar; Nymphaea ist physiologisch eine Sonnenpflanze — Optimum-Irradianz Eopt ≈ 1000 µmol/m²/s, vgl. Freitext) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (Wildform N. alba; benötigt min. 5–6 h direkte Sonne; einzelne Hybriden wie 'James Brydon' tolerieren partial_shade) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 (Rhizom flach im Schlamm/Pflanzkorb verankert; empfohlene Substratschicht im Pflanzkorb ≥20 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | tolerant (obligat aquatisch — wächst dauerhaft submers verwurzelt) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Salzstress-Symptome bereits ab 50 mM NaCl; Keimung/Etablierung stark reduziert ab ≥100 mM NaCl) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe Maas-Hoffman a) | <!-- DATEN FEHLEN --> (keine Maas-Hoffman-Bodenkurve für diese aquatische Art belegt; passt qualitativ zur Klasse `sensitive`) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-/Wasser-pH-Vorzug (min–max) | 6.0–8.5 (belegte Vorkommen pH 6.7–8.3; toleriert sauer bis alkalisch; harmonisiert mit §2.3 Teich-pH 6.5–8.5) | `species.soil_ph_preference` |
+
+> **Freitext-Hinweis Licht:** Nymphaea ist physiologisch eine Sonnenpflanze (sun plant) mit hoher Optimum-Irradianz (Eopt ≈ 1000 µmol/m²/s PPFD oder höher; PAM-Fluorometrie an N. caerulea). Diese Sättigungs-/Optimumangabe gehört NICHT in das Kompensationspunkt-Feld und ist hier nur als Standort-Orientierung dokumentiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -149,6 +176,12 @@
 | Wassertemperatur Nacht (°C) | 6–12 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit (%) | 100 (aquatisch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | nicht anwendbar | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | nicht anwendbar (aquatisch — Blattfläche schwimmt auf Wasser, Grenzschicht dauergesättigt; kein stomatärer Trockenstress-Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (aquatisch, faktisch unempfindlich gegenüber atmosphärischem VPD) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (frühe, kühlere Wuchsphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wassertiefe Pflanzkorb (cm) | 10–20 (flach stellen, fördert Erwärmung und frühen Austrieb) | — |
 | Düngung | erste Depot-Tablette eindrücken wenn erste Blätter erscheinen | — |
 
@@ -158,11 +191,17 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 600–1200 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 20–35 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 (Langtag) | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14–16 (natürliche Sommer-Tageslänge; reine Lichtmenge, KEIN Langtag-Blühreiz — Art ist tagneutral) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
 | Wassertemperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
 | Wassertemperatur Nacht (°C) | 12–16 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit (%) | 100 (aquatisch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | nicht anwendbar | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | nicht anwendbar (aquatisch — kein stomatärer Trockenstress-Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (aquatisch) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wassertiefe Pflanzkorb (cm) | 20–40 (je nach Sorte langsam tiefer stellen) | — |
 | Düngung | 1× monatlich Depot-Tablette | — |
 
@@ -177,6 +216,12 @@
 | Wassertemperatur Nacht (°C) | 14–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit (%) | 100 (aquatisch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | nicht anwendbar | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | nicht anwendbar (aquatisch — kein stomatärer Trockenstress-Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (aquatisch) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wassertiefe Pflanzkorb (cm) | 30–80 (sortenabhängig, Endposition) | — |
 | Düngung | alle 4–6 Wochen Depot-Tablette, letzter Dünger spätestens Aug | — |
 
@@ -189,6 +234,12 @@
 | Photoperiode (Stunden) | 10–13 (abnehmend) | `requirement_profiles.photoperiod_hours` |
 | Wassertemperatur Tag (°C) | 10–18 | `requirement_profiles.temperature_day_c` |
 | Wassertemperatur Nacht (°C) | 6–12 | `requirement_profiles.temperature_night_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | nicht anwendbar (aquatisch — kein stomatärer Trockenstress-Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (aquatisch) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–22 (sinkende Herbst-Wassertemperatur, abnehmende Aktivität) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wassertiefe Pflanzkorb (cm) | 60–100 (tiefer stellen vor dem Winter) | — |
 | Düngung | keine | — |
 
@@ -202,6 +253,18 @@
 | Blüte | 10:10:10 bis 5:10:5 (Blütenförderung) | 6.5–7.5 | 60–80 | 20–30 | 2 | alle 4–6 Wochen |
 | Seneszenz | 0:0:0 | 6.5–8.5 | — | — | — | keine Düngung ab Sep |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn / Zn / Cu / Mo, ppm):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Austrieb | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Vegetativ | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Blüte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+
+> **Hinweis Mikronährstoffe:** Keine seerosenspezifischen Mn/Zn/Cu/Mo-Zielwerte (ppm) aus seriösen Quellen belegt. Handelsübliche Seerosen-Depotdünger (z.B. Oase, NPK + Mikro) decken den Mikronährstoffbedarf über Spurenelement-Anteile ab; eine separate Mikronährstoffgabe ins Teichwasser ist verboten (Algenrisiko, siehe §3.1).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 > **Hinweis Wasserchemie:** Nymphaea toleriert ein breites pH-Spektrum (6.0–8.5). Entscheidend ist, dass Nährstoffe ausschließlich über Depot-Tabletten direkt ins Substrat des Pflanzkorbs gelangen — niemals flüssige Dünger ins Teichwasser geben, da dies Algenwachstum massiv fördert.
 
 ### 2.4 Phasenübergangsregeln
@@ -211,7 +274,7 @@
 | Winterruhe → Austrieb | conditional | März–April | Wassertemperatur dauerhaft über 8–10 °C |
 | Austrieb → Vegetativ | time_based | 3–6 Wochen nach ersten Blättern | Erste schwimmende Blätter an Oberfläche |
 | Vegetativ → Blüte | event_based | Mai–Juni | Erste Blattstiele nehmen Schirm-Form an, Wassertemperatur über 16 °C |
-| Blüte → Seneszenz | event_based | September–Oktober | Tageslänge unter 12 h, Wassertemperatur unter 14 °C |
+| Blüte → Seneszenz | event_based | September–Oktober | Primär Wassertemperatur unter 14 °C (begleitet von abnehmender Tageslänge als saisonalem Korrelat — kein Photoperioden-Blühreiz, Art ist tagneutral) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
 | Seneszenz → Winterruhe | time_based | Oktober–November | Blätter vollständig eingezogen, Wassertemperatur unter 8 °C |
 
 ---
@@ -500,7 +563,7 @@ In Mitteleuropa oft wirtschaftlichste Methode: Tropische Seerosen als Saisonneuh
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,frost_sensitivity,hardiness_detail,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,pruning_type,bloom_months,harvest_months
-"Nymphaea alba","Weiße Seerose;White Water Lily;European White Waterlily","Nymphaeaceae","Nymphaea","perennial","long_day","herb","rhizomatous","4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b","hardy","Winterhart bis -25°C; Rhizom muss unter frostfreier Wasserschicht (min. 60 cm) überwintern",-0.2,"Europa; Nordafrika; gemäßigtes Asien","yes",20,60,30,200,100,"limited","yes","false","false","heavy_feeder","false","after_harvest","6;7;8;9","8;9;10"
+"Nymphaea alba","Weiße Seerose;White Water Lily;European White Waterlily","Nymphaeaceae","Nymphaea","perennial","day_neutral","herb","rhizomatous","4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b","hardy","Winterhart bis -25°C; Rhizom muss unter frostfreier Wasserschicht (min. 60 cm) überwintern",-0.2,"Europa; Nordafrika; gemäßigtes Asien","yes",20,60,30,200,100,"limited","yes","false","false","heavy_feeder","false","after_harvest","6;7;8;9","8;9;10"
 ```
 
 ### 10.2 Cultivar CSV-Zeilen (empfohlene Sorten)
@@ -545,3 +608,13 @@ name,common_name_de,common_name_en,order,typical_nutrient_demand,nitrogen_fixing
 16. [Blauteich.de — Gartenteichkalender](https://www.blauteich.de/gartenteichkalender-teichpflege-das-ganze-jahr-ueber) — Jahrespflegekalender
 17. [Gartenteich-Ratgeber.com — Seerosenteich anlegen](https://www.gartenteich-ratgeber.com/sonderformen/seerosenteich/) — Teichgemeinschaft, Begleitpflanzen
 18. [H2O-Pflanze.de — Seerosensubstrat und Pflanzenkörbe](https://h2o-pflanze.de/seerosen/) — Substrat, Pflanzkorb, Produktempfehlungen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+19. [Auxin controls circadian flower opening and closure in the waterlily (PMC6042438)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6042438/) — Blütenöffnung tagblühend, zirkadian/temperaturgesteuert (Beleg day_neutral statt long_day)
+20. [Photosynthesis in the Blue Water Lily (Nymphaea caerulea) using PAM fluorometry — Int. J. Plant Sci. 173(2)](https://www.journals.uchicago.edu/doi/abs/10.1086/663168) — Nymphaea als Sonnenpflanze, Optimum-Irradianz Eopt ≈ 1000 µmol/m²/s (Lichtphysiologie, shade_tolerance)
+21. [Increased salinity reduces seed germination and seedling development in Nymphaea (Aquatic Botany 2020)](https://www.sciencedirect.com/science/article/abs/pii/S0304377020300450) — Salzsensitivität, Etablierung reduziert ab ≥100 mM NaCl (salt_tolerance_class)
+22. [Insights into Adaptive Regulation of the Leaf-Petiole System: Water Lily under Salt Stress (Int. J. Mol. Sci. 24(6):5605, MDPI)](https://www.mdpi.com/1422-0067/24/6/5605) — Salzstress-Symptome ab 50 mM NaCl (salt_tolerance_class sensitive)
+23. [Plant traits and environment: floating leaf production and turnover of waterlilies (PMC5410161)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5410161/) — Vorkommen über pH 6.7–8.3, eutroph bis sauer (soil_ph_preference)
+24. [Rhizome architecture, development and vascularization in Nymphaea alba (Annals of Botany 131(5):851)](https://academic.oup.com/aob/article/131/5/851/7091572) — Rhizom-/Wurzelarchitektur, Verankerung im Schlamm (effective_root_depth)
+25. [jardineriaon.com — Nymphaea alba care guide](https://en.jardineriaon.com/nymphaea-alba.html) — Substratschicht ≥20 cm, min. 6 h Sonne (effective_root_depth, shade_tolerance)
+26. [NC State Extension — Nymphaea Hardy Water Lilies / Gardenia.net — Nymphaea genus](https://plants.ces.ncsu.edu/plants/nymphaea-hardy-water-lilies/) — optimaler Wuchsbereich 21–29 °C, Vollsonne (photosynthesis_temp_opt, shade_tolerance)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

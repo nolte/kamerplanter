@@ -21,6 +21,15 @@
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für diese epiphytische Zierbromelie auffindbar --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (monokarp — Mutterrosette stirbt nach einmaliger Blüte) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral; Blühinduktion über Reife/Ethylen, nicht über Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Ausschließlich Zimmerpflanze; keine Temperaturen unter 10°C | `species.hardiness_detail` |
@@ -84,6 +93,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Luftiges Bromelien- oder Orchideensubstrat; locker und durchlässig; Epiphyt — braucht kaum Substrat | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert für diese Zierbromelie --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Als deutlich schattentolerante (shade-tolerant) Tank-Epiphyt liegt der Lichtkompensationspunkt im unteren Bereich schattentoleranter Arten (10–50 µmol/m²/s); hier konservativ 10–30 angesetzt. Lichtsättigung und mögliche Photoinhibition liegen weit darüber (vgl. PPFD-Zielkorridor §2.2) und gehören NICHT in das LCP-Feld. Die flachen, primär der Verankerung dienenden Wurzeln müssen relativ trocken bleiben → Staunässe-empfindlich. Die feinen Blatt-Trichome (trichomes) sind salz- und mineralempfindlich → kalkarmes Regen-/Destillatwasser; ECe-/Slope-Kennwerte (Maas-Hoffman) sind für diese epiphytische Zierpflanze nicht publiziert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +138,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 (in Trichter) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,6 +160,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 (in Trichter) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -138,6 +177,16 @@
 | Jugendphase | 1:1:1 | 0.2–0.5 | 5.5–6.5 | 40 | 20 | — | 1 |
 | Blütenaustrieb | 0:1:1 | 0.2–0.4 | 5.5–6.5 | 30 | 20 | — | 1 |
 | Blüte | 0:0:0 | 0.0 | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase** (Werte als Richtwerte für stark verdünnte Trichter-Lösung; light_feeder-Epiphyt — niedrige Dosierung):
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Jugendphase | 0.5 | 0.1 | 0.05 | 0.02 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Blütenaustrieb | 0.5 | 0.1 | 0.05 | 0.02 | |
+| Blüte | — | — | — | — | |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -201,6 +250,23 @@
 | Okt | Kindel beobachten | Nach Blüte erscheinen Kindel — abtrennen wenn 10 cm | mittel |
 | Nov–Dez | Ruhe | Kühlerer Standort, weniger Wasser | niedrig |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | Okt (vor erstem Frost / sobald < 12–15 °C nachts) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | Mai (nach Eisheiligen, Nächte stabil > 12 °C) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–20 (nie unter 10 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; im Winter etwas direkte Sonne verträglich | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert; Trichter nur halbvoll, kalkarmes Wasser; alle 2–3 Wochen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Reine Zimmer-/Kübelpflanze ohne jegliche Frosttoleranz. Überwintert frostfrei (frost_free) im Innenraum — kein Ausgraben/Einlagern (kein dig_and_store), kein Vlies/Mulch im Freiland. Mitteleuropa (USDA 6–8): ganzjährig Indoor, im Sommer optional an geschützten, halbschattigen Außenstandort, Rückführung ins Haus vor dem ersten Kälteeinbruch.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -225,6 +291,10 @@
 | Nützling | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit (Tage) |
 |----------|---------------|---------------------|------------------------|
 | Phytoseiulus persimilis | Spinnmilben | 20–50 | 14 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Metaphycus helvolus | Weichschildläuse (Coccus hesperidum) | 5–10 | 21–28 |
+| Cryptolaemus montrouzieri | Wollläuse (Pseudococcus spp.) | 2–5 | 21–28 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -284,3 +354,15 @@ Vriesea splendens,Flammendes Schwert;Vriesea;Flaming Sword,Bromeliaceae,Vriesea,
 3. [Bromeliads.info – Vriesea](https://www.bromeliads.info/bromeliad-vriesea/) — Bromeliad-Expertise
 4. [Gartenheinz – Flammendes Schwert](https://www.gartenheinz.de/pflanzen/zimmerpflanzen-pflege/bromelien-pflege/flammendes-schwert/) — DE Pflegeanleitung
 5. [Pflanzenfreunde – Vriesea](https://www.pflanzenfreunde.com/lexika/bromelien/vriesea.htm) — Kulturtipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Crassulacean acid metabolism in Bromeliaceae: an evolutionary key innovation (Biological Journal of the Linnean Society, Oxford Academic)](https://academic.oup.com/biolinnean/article/104/2/480/2452420) — CAM-Beleg für Bromeliaceae/Tillandsioideae (Photosynthese-Typ)
+7. [Multiple origins of CAM and the epiphytic habit in Bromeliaceae (PNAS)](https://www.pnas.org/doi/10.1073/pnas.0400366101) — CAM-Entwicklung in Tillandsioideae (Vriesea-Linie)
+8. [New insights into the role of the root system of epiphytic bromeliads (Annals of Botany, Oxford Academic)](https://academic.oup.com/aob/article/134/5/711/7716158) — Flache, primär verankernde Wurzeln epiphytischer Bromelien (Wurzeltiefe, Staunässe)
+9. [Stomata of the CAM plant Tillandsia recurvata respond directly to humidity (Oecologia, Springer)](https://link.springer.com/article/10.1007/BF00345331) — VPD-/Feuchte-Reaktion von CAM-Epiphyten (VPD-Sensitivität)
+10. [Leaf-level light compensation points in shade-tolerant woody species (New Phytologist)](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — LCP-Spanne schattentoleranter Arten
+11. [Photosynthesis in sun and shade: importance of far-red photons (New Phytologist)](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Anteil im Unterwuchs/Schatten (Far-Red-Fraction)
+12. [The Best and Worst Water for Bromeliads (Bromeliads.info)](https://www.bromeliads.info/best-water-for-plants/) — Salz-/Mineralempfindlichkeit von Vriesea/Guzmania (Salztoleranz-Klasse)
+13. [Gardener's Path – Grow Flaming Sword Bromeliads (Vriesea)](https://gardenerspath.com/plants/houseplants/grow-vriesea/) — Boden-pH 5.5–6.5, Pflege
+14. [Smart Garden Guide – Vriesea Plant Care (Flaming Sword)](https://smartgardenguide.com/vriesea-plant-care-flaming-sword/) — Mindesttemperatur ~10 °C, frostfreie Überwinterung, Schattentoleranz
+15. [Floral Induction of Bromeliads by Ethylene (Springer)](https://link.springer.com/chapter/10.1007/978-94-009-1271-7_35) — Blühinduktion über Reife/Ethylen (bestätigt day_neutral, nicht photoperiodisch)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

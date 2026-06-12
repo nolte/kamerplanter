@@ -21,7 +21,14 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 KORREKTUR: war long_day; Usambaraveilchen ist tagneutral (day-neutral plant regarding flower development), nicht photoperiodisch --> | `lifecycle_configs.photoperiod_type` |
+| Photosynthese-Typ | c3 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | DATEN FEHLEN <!-- Quelle: Steckbrief-Erweiterung 2026-06 — kein belegter Wuchs-/Phänologie-GDD-Basiswert für Saintpaulia auffindbar; Keim-/Kardinalwerte nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 5–10 (Zimmerkultur, bei guter Pflege deutlich länger) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false (tropische Cloud-Forest-Art ohne echte Winterruhe; ganzjährig wachsend) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (kein Kältebedarf; tagneutral, blüht ganzjährig) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | DATEN FEHLEN <!-- Quelle: Steckbrief-Erweiterung 2026-06 — tagneutral, kein Kurztag-/Langtag-Schwellenwert relevant (siehe photoperiod_type=day_neutral) --> | `lifecycle_configs.critical_day_length_hours` |
 | USDA Zonen | 11a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Nicht frosthart; Mindesttemperatur 13°C; ausschließlich Zimmerpflanze | `species.hardiness_detail` |
@@ -89,6 +96,24 @@
 
 **Topfgröße-Regel:** Topfbreite = 1/3 der Blattspreizung der Pflanze. Zu große Töpfe führen zu Wurzelfäule und reduzierter Blütenbildung.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein publizierter LCP-Wert für Saintpaulia; Studien nennen nur Netto-Photosynthese-Optimum (~70 µmol) und Anzuchtbereich 70–100 µmol, keinen Kompensationspunkt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–10 (flaches, faseriges Wurzelsystem; Kultur in flachen Azalea-Töpfen) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Schwellenwert für Saintpaulia publiziert; Literatur belegt nur qualitativ hohe Salzempfindlichkeit --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope publiziert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Standort-Hinweis:** Understory-/Cloud-Forest-Art aus Ostafrika — gedeiht bei gefiltertem Licht (Nord-/Ostfenster), direkte Sonne wird gemieden. Netto-Photosynthese-Optimum bei ca. 70 µmol/m²/s PPFD (nicht mit dem Kompensationspunkt zu verwechseln). Sehr empfindlich gegen Salzanreicherung im kleinen Topfvolumen (Blattrandverbrennung); regelmäßiges Durchspülen des Substrats empfohlen. Der pH-Vorzug 6.0–6.5 ist mit §1.6 (Substrat) und §2.3 (Nährstoffprofile) harmonisiert; einzelne Quellen nennen 5.8–6.5.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -117,6 +142,10 @@
 | Luftfeuchtigkeit Tag (%) | 70–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.7 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.0 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–23 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6 (feuchteliebende Anzucht unter Pflanzendach/Schatten → leicht erhöht) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (Substrat nie austrocknen, nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -133,6 +162,10 @@
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.2 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–24 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–6 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 30–80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -149,6 +182,10 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.4 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–24 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -165,6 +202,10 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.4 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–24 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–8 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -181,19 +222,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.1 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 19–22 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 30–70 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Bewurzelung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Jungpflanze | 2:1:1 | 0.5–0.8 | 6.0–6.5 | 60 | 30 | — | 2 |
-| Vegetativ | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 |
-| Blüte | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 |
-| Ruhephase | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Bewurzelung | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Jungpflanze | 2:1:1 | 0.5–0.8 | 6.0–6.5 | 60 | 30 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Blüte | 1:2:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Ruhephase | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Mikronährstoff-Hinweis (Mn/Zn/Cu/Mo):** Für Saintpaulia sind keine artspezifischen Mikronährstoff-Konzentrationen publiziert. Die angegebenen Werte (Mn ≈ 0.5, Zn ≈ 0.05, Cu ≈ 0.02, Mo ≈ 0.01 ppm) sind generische Richtwerte einer ausgewogenen Vollnährlösung für Zimmerpflanzen (Hoagland-/Vollfeed-Niveau) und KEINE belegten Artwerte. Bei reiner Verwendung eines komplett formulierten African-Violet-/Universaldüngers werden diese Mengen automatisch abgedeckt — keine separate Mikronährstoffgabe nötig.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- nutrient_profiles.manganese_ppm / zinc_ppm / copper_ppm / molybdenum_ppm -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -201,7 +251,7 @@
 |------------|---------|-----------------|
 | Bewurzelung → Jungpflanze | time_based | 42–56 Tage; Jungpflanzen an Stielbase sichtbar |
 | Jungpflanze → Vegetativ | manual | Umtopfen in eigenen 5–6 cm Topf |
-| Vegetativ → Blüte | conditional | Photoperiode >14h; Temperatur stabil 20–24°C |
+| Vegetativ → Blüte | conditional | Tagneutral — KEINE Photoperioden-Schwelle; ausreichende kumulierte Lichtmenge (DLI ≥ 12 mol, ca. 12–14 h Beleuchtung) bei stabilen 20–24°C <!-- Quelle: Steckbrief-Erweiterung 2026-06 KORREKTUR: "Photoperiode >14h" entfernt, da day-neutral --> |
 | Blüte → Ruhephase | event_based | Blüten verblüht, Rücklicht Herbst |
 | Ruhephase → Vegetativ | time_based | 3–6 Wochen; im Frühjahr wieder Düngen beginnen |
 
@@ -392,7 +442,7 @@
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Streptocarpus ionanthus,"Usambaraveilchen;Afrikanisches Veilchen;African Violet",Gesneriaceae,Streptocarpus,perennial,long_day,herb,fibrous,11a;11b;12a;12b,0.0,"Tansania, Kenia",yes,1,8,20,40,15,yes,no,false,false
+Streptocarpus ionanthus,"Usambaraveilchen;Afrikanisches Veilchen;African Violet",Gesneriaceae,Streptocarpus,perennial,day_neutral,herb,fibrous,11a;11b;12a;12b,0.0,"Tansania, Kenia",yes,1,8,20,40,15,yes,no,false,false
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -414,3 +464,11 @@ Ness Golden Chalice,Streptocarpus ionanthus,standard;frilled;yellow_toned_white,
 4. [Cornell Greenhouse Horticulture](https://greenhouse.cornell.edu/pests-diseases/diseases-of-specific-crops/african-violet-saintpaulia-ionantha/) — Krankheitsbilder
 5. [African Violet Society of America — Violets 101](https://africanvioletsocietyofamerica.org/learn/violets-101/) — Allgemeine Kulturhinweise
 6. [UMN Extension — African Violets](https://extension.umn.edu/houseplants/african-violets) — Kulturhinweise für Haushalt
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+7. [Missouri Botanical Garden — Saintpaulia ionantha (Plant Finder)](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b567) — Lichtanspruch "Part shade to full shade", Substrat/Feuchte, Blühverhalten (Standort, shade_tolerance)
+8. [Wikipedia — Streptocarpus sect. Saintpaulia](https://en.wikipedia.org/wiki/Streptocarpus_sect._Saintpaulia) — Taxonomie, Cloud-Forest-Habitat, Tagneutralität ("day-neutral plant regarding flower development"), Rosetten-Wuchs/Maße (photoperiod_type-Korrektur)
+9. [UGA Extension (CAES) C660 — Growing African Violets](https://fieldreport.caes.uga.edu/publications/C660/growing-african-violets/) — Salzempfindlichkeit ("very sensitive to a build-up of soluble salt"), Lichtintensität, Temperatur (salt_tolerance_class, waterlogging)
+10. [SDSU Extension — African Violet: Houseplant How-To](https://extension.sdstate.edu/african-violet-houseplant-how) — Lichtbedarf, mind. 8h Dunkelheit, indirektes Licht (Standort/Photoperiode)
+11. [Taylor & Francis — Photosynthetic and biochemical characterization of in vitro-derived African violet (Saintpaulia ionantha)](https://www.tandfonline.com/doi/full/10.1080/17429145.2015.1018967) — Netto-Photosynthese-Optimum ~70 µmol/m²/s PPFD, Anzucht 70–100 µmol (Lichtphysiologie, T_opt-Plausibilisierung)
+12. [African Violet Society of America — Mixing it Up (Substrat & pH)](https://africanvioletsocietyofamerica.org/learn/violets-101/mixing-it-up-2/) — Substrat-pH leicht sauer 5.8–6.5, Dolomitkalk/Torf (soil_ph_preference)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig; nicht zutreffend) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (tropisch-warmblütige Art ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 12 | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a–11b (als Einjährige in 2a–11b kultivierbar) | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich; stirbt bei Frost; in Mitteleuropa als robuste einjährige Sommerblume nach letztem Frost (Mitte Mai) bis Oktober; selbstaussaat in milden Wintern möglich | `species.hardiness_detail` |
@@ -32,6 +41,12 @@
 **IPM-Schlüsselpflanze:** Tagetes erecta ist eine der wichtigsten Begleitpflanzen im Gemüsegarten. Alpha-Terthienyl in den Wurzeln hemmt Wurzel-Nematoden (Meloidogyne spp.) wirksam — nachgewiesen in Feldversuchen. Blüten-Duftstoffe (Terpengemisch) wirken auf viele Schädlinge abstoßend oder verwirrend. Blüten locken Schwebefliegen, Marienkäfer und andere Nützlinge an.
 
 **Allelopathie:** Positiver Allelopathie-Score — Tagetes fördert viele Nachbarn durch Schädlingsabwehr, hemmt aber einige empfindliche Arten (Hülsenfrüchte, Kohl in sehr dichter Nachbarschaft).
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Photoperiode & Photosynthese:** Tagetes erecta ist ein fakultativer Kurztagblüher (facultative short-day) mit einer kritischen Tageslänge (critical daylength) von etwa 12 h; unter Langtag verzögert sich die Blüte, geht aber nicht völlig aus (deshalb `photoperiod_type=short_day`, nicht `day_neutral`). Als Korbblütler (Asteraceae) betreibt die Art C3-Photosynthese (C3 ist innerhalb der Asteraceae der Regelfall; C4 ist auf wenige Gattungen wie *Flaveria* beschränkt, CAM kommt nicht vor).
+
+**GDD-Basistemperatur (base temperature):** Für die GDD-Berechnung der warmen Hauptwuchsphase wird die für wärmeliebende, frostempfindliche Arten übliche Basis von ~10 °C angesetzt; unterhalb von ~10 °C stockt das Wachstum. Hinweis zur Abgrenzung: Floristikmodelle für die *Blührate* von Tagetes nennen ein deutlich tieferes statistisches Tmin von ~1–2 °C (z. B. *T. patula* Tmin ≈ 1,1 °C) — das ist die untere Asymptote des Blühratenmodells, NICHT die Wuchs-GDD-Basis und darf nicht als solche verwendet werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -86,6 +101,29 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige, leicht sandige Erde; pH 6,0–7,5; verträgt schwere Böden schlecht; Perlite-Anteil 15–20% | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweise zu §1.7:**
+- *Sonnentoleranz (shade tolerance):* Vollsonnenart — PFAF: „cannot grow in the shade", NC State Extension: „dislikes full shade". Mind. 6 h direkte Sonne nötig; in Mitteleuropa (USDA 6–8) leichte Mittagsbeschattung im Hochsommer toleriert, aber kein Schattenstandort.
+- *Lichtsättigung:* Die maximale Lutein-Bildung der Blüte liegt bei ≈500 µmol/m²/s (Lichtsättigungs-/Optimumwert) — NICHT der Kompensationspunkt; daher nicht ins LCP-Feld eingetragen. Ein artspezifischer Kompensationspunkt (Netto-Photosynthese = 0) ist in den Quellen nicht belegt → DATEN FEHLEN.
+- *Staunässe (waterlogging):* Hohe Empfindlichkeit; Wurzelfäule (Pythium) bei Nässe, durchlässiger Boden zwingend (PFAF, NC State Extension, Gartenia).
+- *Salztoleranz (salt tolerance):* Als „moderately tolerant" eingestuft, da Wachstum erst bei Gießwasser-EC (ECw) > ~8 dS/m signifikant zurückgeht (USDA-ARS Niu et al. 2018; USDA Salt Tolerance Chapter). Diese Schwelle bezieht sich auf die Gießwasser-Leitfähigkeit (ECw), NICHT auf die Maas-Hoffman-Bezugsgröße Substrat-ECe (Sättigungsextrakt). Ein belegter Maas-Hoffman-ECe-Schwellenwert (a) bzw. Slope (b) für *T. erecta* liegt nicht vor → beide DATEN FEHLEN.
+- *Boden-pH:* Mild sauer bis mild alkalisch toleriert; Vorzug 6,0–7,5 (harmonisiert mit §1.6 Substrat-Empfehlung und §2.3 Nährstoffprofilen). Unterhalb pH ~5,5 droht Mangan-Toxizität (Mn-empfindliche Art), daher untere Grenze nicht weiter absenken.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,6 +149,12 @@
 | Temperatur Nacht (°C) | 16–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 65–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Vegetativ
@@ -124,6 +168,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–4 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -138,6 +188,12 @@
 | Temperatur Nacht (°C) | 14–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.9–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -151,6 +207,10 @@
 | Blüte | 1:2:2 | 0.8–1.4 | 6.0–7.5 | 70 | 30 |
 
 **Hinweis:** Tagetes ist ein Leichtezer — zu viel Dünger (v.a. N) erzeugt viel Blattwerk auf Kosten der Blüten. Lieber wenig düngen; Blütenqualität wichtiger als Wachstum.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo):** Artspezifische Phasen-Sollwerte (ppm) für Mangan (`nutrient_profiles.manganese_ppm`), Zink (`nutrient_profiles.zinc_ppm`), Kupfer (`nutrient_profiles.copper_ppm`) und Molybdän (`nutrient_profiles.molybdenum_ppm`) sind für *T. erecta* nicht aus zwei unabhängigen seriösen Quellen belegt → DATEN FEHLEN. Fachlich gesichert ist lediglich die Mangan-Empfindlichkeit der Art: Bei Substrat-pH < 5,5 wird Mn übermäßig löslich und kann Mn-Toxizität auslösen (Korbblütler/Marigold gelten als Mn-empfindlich). Praxisempfehlung: pH ≥ 6,0 halten (siehe §1.7 und §2.3-pH-Spalte), dann tritt weder Mn-Toxizität noch Fe/Mn-Mangel auf. <!-- DATEN FEHLEN: Mn/Zn/Cu/Mo ppm je Phase -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -244,6 +304,18 @@ Weniger ist mehr bei Tagetes. Gut angereicherte Gartenerde oder Kompost-basierte
 | Befallene Teile entfernen | cultural | — | Sofort | 0 | Grauschimmel |
 | Drainage verbessern | cultural | — | Substrat anpassen | 0 | Wurzelfäule |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–10 Tiere/m² (Wiederholung wöchentlich bei Bedarf) | Kontrolle in ~14 Tagen bei < 30 °C und > 60 % rF |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Macrosiphum euphorbiae) | 0,1–3 Tiere/m², 2 Freilassungen im Wochenabstand | Erste Mumien nach 10–14 Tagen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (ergänzend zu A. colemani) | 1–3 Larven/m² | Larvenfraß ab ~3–5 Tagen <!-- DATEN FEHLEN: exakte Etablierungszeit --> |
+
+**Hinweis zu §5.4:** Tagetes erecta ist von Natur aus robust und kaum schädlingsanfällig (siehe §5.1); Nützlingseinsatz ist nur unter Glas/Folie bei stärkerem Spinnmilben- oder Blattlausbefall relevant. Im Freiland fördert Tagetes selbst Nützlinge (Schwebefliegen, Marienkäfer) und braucht in der Regel keine gezielte Ausbringung. Die Nützling-Wirt-Zuordnung folgt der etablierten Praxis (Phytoseiulus → Spinnmilben; Aphidius/Aphidoletes → Blattläuse).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -329,3 +401,16 @@ American Giant Mix,Tagetes erecta,"very_tall;mixed_colors;cut_flower",65,open_po
 3. [University of Florida IFAS — Marigold Production](https://edis.ifas.ufl.edu) — Gewächshauskultur
 4. [Ploeg & Maris (1999) — Nematology 1(5)](https://brill.com/view/journals/nemy) — Wissenschaftliche Nematoden-Wirkung
 5. [Colorado State University Extension — Companion Plants](https://extension.colostate.edu) — Mischkultur-Empfehlungen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Plants For A Future (PFAF) — Tagetes erecta](https://pfaf.org/user/Plant.aspx?LatinName=Tagetes+erecta) — Boden-pH, Bodenart, Sonnen-/Schattentoleranz („cannot grow in the shade"), Feuchteansprüche
+7. [NC State Extension — Tagetes erecta Plant Toolbox](https://plants.ces.ncsu.edu/plants/tagetes-erecta/) — Lichtbedarf (volle Sonne, „dislikes full shade"), Drainage, pH-Toleranz
+8. [Niu et al. (2018) — Responses of Marigold Cultivars to Saline Water Irrigation, HortTechnology 28(2), USDA-ARS](https://www.ars.usda.gov/ARSUserFiles/50820500/GPRG/2018PublicationsandSummaries/2018_Responses%20of%20Marigold%20Cultivars%20to%20Saline%20Water%20Irrigation.pdf) — Salztoleranz „moderately tolerant", ECw-Schwelle ~8 dS/m
+9. [USDA-ARS — Plant Salt Tolerance (Chapter 13)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — Maas-Hoffman-Bezugsgröße ECe vs. ECw, Salztoleranzklassen
+10. [Blanchard & Runkle / MSU Floriculture — Growing Crops Above Their Base Temperature](https://www.canr.msu.edu/uploads/resources/pdfs/grow-crops-above-base-temp.pdf) — Basistemperatur-Konzept; statistisches Tmin der Marigold-Blührate (~1 °C) vs. Wuchs-GDD-Basis
+11. [Blanchard, Runkle & Frantz (2007) — Modeling Temperature & DLI Effects on Tagetes patula, JASHS 132(3)](https://journals.ashs.org/jashs/view/journals/jashs/132/3/article-p283.xml) — Blührate, Tmin ≈ 1,1 °C (Blühratenmodell), DLI-Wirkung
+12. [Turkish J. Agriculture (2018) — Effects of Photoperiodism on Tagetes erecta](https://agrifoodscience.com/index.php/TURJAF/article/view/1341) — fakultativer Kurztag, kritische Tageslänge ~12 h
+13. [Yamori et al. (2013) — Temperature response of photosynthesis in C3, C4, CAM (Review)](https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf) — C3-Temperaturoptimum, Abgrenzung C3/C4/CAM
+14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/spidex/) & [Cornell NYSIPM Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Spinnmilben-Raubmilbe, Ausbringrate/Etablierung
+15. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate/Etablierung
+16. [PT Horticulture — Role of Manganese in Plant Culture](https://www.pthorticulture.com/en-us/training-center/role-of-manganese-in-plant-culture) — Mn-Empfindlichkeit Marigold, Mn-Toxizität bei pH < 5,5
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

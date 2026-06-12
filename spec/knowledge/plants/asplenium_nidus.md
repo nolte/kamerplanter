@@ -19,11 +19,15 @@
 | Ordnung | Polypodiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+| Photosynthese-Typ (photosynthesis pathway) | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein publizierter GDD-Basiswert für *Asplenium nidus*; als wärmeliebende Tropenpflanze (Wachstumsstopp < 13–15°C) läge die Basis deutlich oberhalb der ~10°C wärmeliebender Freilandkulturen, jedoch ohne belastbare Quelle nicht belegbar | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 11a, 11b, 12a | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 15°C, optimal 18–27°C. Reagiert empfindlich auf Kälte unter 13°C und Zugluft. | `species.hardiness_detail` |
@@ -91,6 +95,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, feuchtigkeitshaltende aber gut durchlässige Farnerde: Einheitserde mit 20% Perlite + 20% Torf oder Kokoserde. pH 5.5–7.0. Epiphytensubstrat mit Pinienrinde ist ebenfalls geeignet. Kein schweres, kompaktes Substrat. | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 1.5 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN --> kein artspezifischer Maas-Hoffman-Slope publiziert | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt für diese schattenadaptierte epiphytische C3-Pflanze am unteren Rand der C3-Spanne (8–16 µmol/m²/s; Schattenblätter darunter). Der hier eingetragene Wert ist NUR der Kompensationspunkt. Lichtsättigung und Optimum liegen deutlich höher (bevorzugtes Kulturlicht hell-indirekt, ~50–250 µmol/m²/s, siehe §2.2); direkte Sonne verbrennt die Wedel (Photoinhibition). — Salztoleranz: *Asplenium*-Farne reagieren ausgesprochen salzempfindlich (Klasse `sensitive`); die ECe-Schwelle bezieht sich auf die Substrat-Sättigungsextrakt-Leitfähigkeit (saturated paste ECe), NICHT auf die Gießwasser-EC. Der Wert 1.5 dS/m liegt im Bereich der Maas-Hoffman-Klasse "sensitive" (< ~2 dS/m). Daher halbe Düngerdosis und weiches, salzarmes Gießwasser (vgl. §3.2). — Wurzelsystem flach und feinfaserig (epiphytisch); Rhizom an der Substratoberfläche halten (Fäulnisgefahr).
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +140,10 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.2–0.6 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (stomatärer Kollaps, kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.55 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -126,15 +154,22 @@
 | Licht PPFD (µmol/m²/s) | 50–200 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
+| VPD-Schwelle (stomatärer Kollaps, kPa) | 0.9 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 5.5–7.0 | 70 | 25 |
-| Winterruhe | 0:0:0 | 0.0 | 5.5–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 5.5–7.0 | 70 | 25 | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.02 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0 | 5.5–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Mn/Zn/Cu/Mo-Werte folgen der Standard-Hoagland-Mikronährstoffreferenz (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.05 ppm bei Vollnährlösung). Da der Nestfarn ein Schwachzehrer (`light_feeder`) und salzempfindlich ist, werden diese Werte in der Praxis mit halber Dünger-Dosierung (vgl. §3.2) entsprechend verdünnt ausgebracht.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -178,6 +213,25 @@ Alle 4–6 Wochen April bis August — halbe Dosierung! Farne sind sehr salzempf
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | true | `care_profiles.humidity_check_enabled` |
 
+### 4.3 Überwinterung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | 9 (September, vor Nachttemperaturen < 13°C) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | 6 (Juni, nach den Eisheiligen, stabile Nächte > 15°C) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (Minimum 13°C, kurzfristig 10°C toleriert) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (keine direkte Wintersonne); ggf. Pflanzenlicht | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert; erst gießen, wenn obere Substratschicht abgetrocknet ist (Staunässe = Wurzel-/Herzfäule) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Der Nestfarn ist nicht frosthart und überwintert als frostfreie Zimmer-/Kübelpflanze drinnen (`frost_free`). In Mitteleuropa (USDA 6–8) kann er im Sommer geschützt halbschattig draußen stehen, muss aber rechtzeitig vor Nachttemperaturen unter ~13°C wieder hereingeholt werden. Zugluft, Heizungsnähe und trockene Heizungsluft im Winter meiden; Luftfeuchte > 55% halten.
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -205,6 +259,20 @@ Alle 4–6 Wochen April bis August — halbe Dosierung! Farne sind sehr salzempf
 | Nie in Mitte gießen | cultural | Gießtechnik ändern | 0 | Herzfäule (Prävention) |
 | Neemöl | biological | Sprühen 0.3% | 0 Tage | Spinnmilbe, Schildlaus |
 | Gelbtafeln | mechanical | Aufhängen | 0 | Trauermücke |
+
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|-------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 10–30 / m² (1–3 / sq ft), bei Befall wiederholen | 2–3 Wochen |
+| Steinernema-Nematoden | Steinernema feltiae | Trauermückenlarven (Bradysia spp.) | ~250 000 / m² Substratoberfläche, als Gießgabe | 1–2 Wochen |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Woll-/Schmierläuse, weiche Schildläuse | 5–40 / m² je Ausbringung, 3× im Abstand 1–2 Wochen | 4–8 Wochen |
+
+**Hinweis:** Nützlingseinsatz eignet sich besonders für die geschlossene Innenraum-/Gewächshauskultur. *Phytoseiulus persimilis* benötigt Luftfeuchte > 60% — beim Nestfarn ohnehin gegeben. Da Farne salz- und chemieempfindlich sind, ist die biologische Bekämpfung der chemischen vorzuziehen.
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -250,3 +318,27 @@ Osaka,Asplenium nidus,"ornamental;narrow_fronds;upright",clone
 3. [Planet Natural — Bird's Nest Fern](https://www.planetnatural.com/birds-nest-fern/) — Pflegehinweise
 4. [NC State Extension — Asplenium nidus](https://plants.ces.ncsu.edu/plants/asplenium-nidus/) — Botanische Daten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Wikipedia — C3 carbon fixation](https://en.wikipedia.org/wiki/C3_carbon_fixation) — Photosynthese-Typ; C3 als Standardweg bei Farnen
+7. [Wiley/IJG — Transcriptomic Evidence of Adaptive Evolution of the Epiphytic Fern *Asplenium nidus*](https://onlinelibrary.wiley.com/doi/10.1155/2019/1429316) — Photosynthese-Gene, Epiphytismus, Lichtanpassung
+8. [Light Compensation — ScienceDirect Topics](https://www.sciencedirect.com/topics/engineering/light-compensation) — Definition Lichtkompensationspunkt, niedrigere LCP bei Schattenpflanzen
+9. [GPN — Maximizing Supplemental Lighting (Runkle/MSU)](https://www.canr.msu.edu/uploads/resources/pdfs/maximizingsupplementallighting.pdf) — LCP C3-Pflanzen 8–16 µmol/m²/s, Schattenblätter am unteren Rand
+10. [FAO — Annex 1. Crop salt tolerance data (Maas-Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz-Klassen, ECe-Schwellen, sensitive < ~2 dS/m
+11. [USDA-ARS — Plant Salt Tolerance, Handbook 60 (Maas-Hoffman-Modell)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — ECe-Schwellenwert (saturated paste), Slope-Konzept
+12. [ScienceDirect — Germination/reproductive biology in salty conditions of *Asplenium marinum*](https://www.sciencedirect.com/science/article/abs/pii/S0367253009000280) — Salzempfindlichkeit der Gattung *Asplenium*
+13. [Missouri Botanical Garden — *Asplenium nidus* Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=285707) — Wurzelsystem (flach, faserig), Halbschatten, Topfkultur
+14. [Gardeners HQ — *Asplenium nidus* Growing & Care Guide](https://www.gardenershq.com/Asplenium-nidus.php) — flaches Rhizom an Substratoberfläche, Schattentoleranz
+15. [PLOS One — Leaf Photosynthetic Rate of Tropical Ferns Linked to Water Transport](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0084682) — Messung tropischer Farne bei Blatttemp. 25–27°C; epiphytische vs. terrestrische Photosynthesekapazität
+16. [Springer — Temperature response of photosynthesis in C3, C4 and CAM plants](https://link.springer.com/article/10.1007/s11120-013-9874-6) — höheres T_opt bei tropisch adaptierten Pflanzen
+17. [Foliage Factory — Plant Stomata Explained](https://foliage-factory.com/blogs/plant-care/stomata-plant-function-explained) — Farne 60–80% RH, VPD-Sensitivität tropischer Blattpflanzen
+18. [Oxford/Plant Physiology — Stomatal VPD Response: More to the Story Than ABA](https://academic.oup.com/plphys/article/176/1/851/6117386) — VPD-Schwelle & stomatäre Schließung, passive Farn-Reaktion auf Turgorverlust
+19. [Clemson HGIC — Bird's Nest Fern Care](https://hgic.clemson.edu/how-to-grow-and-care-for-birds-nest-fern-asplenium-nidus/) — Überwinterung, Mindesttemperatur, Winterpflege
+20. [The Sill — How to Care for a Bird's Nest Fern](https://www.thesill.com/blogs/plants-101/how-to-care-for-birds-nest-fern-asplenium-nidus) — Min. 10°C kurzfristig / 15–27°C ideal, Winterquartier
+21. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenz Mn/Zn/Cu/Mo (ppm)
+22. [Grokipedia — Hoagland solution](https://grokipedia.com/page/Hoagland_solution) — Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.05 ppm bei Vollnährlösung
+23. [Cornell NYSIPM — *Phytoseiulus persimilis* Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate & Etablierung Spinnmilben-Raubmilbe
+24. [Bugs for Growers — Beneficial Nematodes for Fungus Gnats (*Steinernema feltiae*)](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Ausbringrate Trauermückenlarven
+25. [Koppert — Cryptobug-L (*Cryptolaemus montrouzieri*)](https://www.koppert.com/cryptobug-l/) — Ausbringrate & Etablierungszeit gegen Woll-/Schmierläuse
+26. [Understory R:FR / far-red ratio — bioRxiv: Understory light quality](https://www.biorxiv.org/content/10.1101/829036v1.full) — R:FR im Unterwuchs, FR/(R+FR) ≈ 0.5 bei offenem Tageslicht
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

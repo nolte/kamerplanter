@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert; vorhandene Literatur betrifft nur Keimungs-/Kardinaltemperaturen und darf nicht als Wuchsbasis umetikettiert werden --> | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN: Quellen belegen nur qualitativ "langlebig / viele Jahre", kein numerischer Wert aus 2 unabhängigen Quellen --> (Freitext: langlebige Kübelpflanze, bei guter Pflege viele Jahre/Jahrzehnte) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | — (tagneutral; kein Kurztag-/Langtag-Trigger) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Nicht frosthart; Mindesttemperatur 10°C; einziger Kaktus mit natürlichem Verbreitungsgebiet außerhalb Amerikas (Afrika, Sri Lanka) | `species.hardiness_detail` |
@@ -87,6 +96,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Orchideen-Substrat mit Perlit (1:1) oder Kakteenerde + Torfmoos + Perlit; pH 6.0–7.0; hervorragende Drainage; leicht feucht-luftig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Netto-Nullpunkt aus 2 unabhängigen Quellen; Rhipsalis keimt/wächst bei sehr niedrigem PPFD (schattentolerant), exakter Kompensationspunkt nicht publiziert --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 10–20 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Schwellenwert für Rhipsalis/epiphytische Kakteen publiziert; qualitativ salzempfindlich (Salzanreicherung durch Hartwasser/Überdüngung schädigt Wurzeln) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Standortqualität:** Schattentoleranter Epiphyt mit flachem, sauerstoffbedürftigem Wurzelsystem (adventive/Luftwurzeln mit Velamen). Effektive Wurzeltiefe ergibt sich aus der flachen Bewurzelung und der empfohlenen Topftiefe (≥ 12 cm), nicht aus tiefer Bodendurchwurzelung. Salzempfindlichkeit und Staunässe-Empfindlichkeit hängen zusammen: weiches, kalkarmes Gießwasser und exzellente Drainage verhindern sowohl Salzanreicherung als auch Wurzelfäule. Der pH-Vorzug 6.0–7.0 ist konsistent mit §1.6 (Substrat) und §2.3 (Nährlösung).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,6 +140,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 (Substrat oben leicht abtrocknen lassen, aber nie komplett) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -123,6 +156,12 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 50–150 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 5–10 | `requirement_profiles.dli_target_mol` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 13–18 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 10–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
@@ -131,10 +170,15 @@
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Vegetativ | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 30 |
-| Blüte | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Vegetativ | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 30 | 0.25 | 0.025 | 0.01 | 0.005 |
+| Blüte | 0:1:1 | 0.3–0.6 | 6.0–7.0 | 40 | 20 | 0.15 | 0.015 | 0.005 | 0.003 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoff-Hinweis (Mn/Zn/Cu/Mo):** Es liegen keine artspezifischen Mikronährstoff-Sollwerte für Rhipsalis baccifera vor. Die Werte sind aus der Standard-Hoagland-Vollnährlösung (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm) abgeleitet und auf das niedrige EC-Niveau (0.3–0.8 mS) dieses Schwachzehrers (`light_feeder`) herunterskaliert (≈ ½ Hoagland vegetativ, weniger in der Blüte). Als Richtwerte für eine sehr verdünnte Düngung zu verstehen, nicht als gemessene Bedarfsschwellen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -187,6 +231,11 @@ Rhipsalis als Epiphyt mit sehr geringem Nährstoffbedarf. Nur April bis Septembe
 |------|------|---------|
 | Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | none | `overwintering_profiles.winter_action` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winter-Maßnahme Monat | 10 (Oktober: ins frostfreie, kühle Winterquartier 12–15°C zur Blühinduktion) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (nach den Eisheiligen; nur halbschattig akklimatisieren, keine direkte Sonne) | `overwintering_profiles.spring_action_month` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winterquartier Temp min (°C) | 10 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 18 | `overwintering_profiles.winter_quarter_temp_max` |
 | Winterquartier Licht | semi_bright | `overwintering_profiles.winter_quarter_light` |
@@ -218,6 +267,20 @@ Rhipsalis als Epiphyt mit sehr geringem Nährstoffbedarf. Nur April bis Septembe
 | Neemöl | biological | Azadirachtin | Sprühen 0.5% | 3 | Wollläuse, Milben |
 | Trockenperlite-Schicht | cultural | — | 1 cm auf Substrat | 0 | Trauermücken |
 | Stecklinge retten | cultural | — | Gesunde Triebe abschneiden, neu bewurzeln | 0 | Fäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 2–5 Käfer/m² (Befall), Wiederholung nach 2–3 Wochen | 2–4 Wochen |
+| Schlupfwespe | Leptomastix dactylopii | Wollläuse (Planococcus citri) | 2–5 Wespen/m² | 2–3 Wochen |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 6–10 Milben/m² | 2–3 Wochen |
+| Bodenraubmilbe | Stratiolaelaps scimitus (syn. Hypoaspis miles) | Trauermücken-Larven (Bradysia spp.) | 100–250 Milben/m² (≈ 1–2/cm² Substratoberfläche) | 2–4 Wochen |
+| Nematoden | Steinernema feltiae | Trauermücken-Larven (Bradysia spp.) | 0.5 Mio./m² als Gießanwendung | 1–2 Wochen |
+
+**Hinweis:** Nützlingseinsatz nur im warmen Innenraum/Wintergarten sinnvoll (≥ 18°C, ausreichende Luftfeuchte). Cryptolaemus montrouzieri und Leptomastix dactylopii ergänzen sich gegen Citrus-Wollläuse. Phytoseiulus persimilis benötigt > 60 % rel. Luftfeuchte — passt zum feuchteliebenden Standort des Epiphyten. Gegen Trauermücken wirken Bodenraubmilbe und Steinernema-Nematoden komplementär (Dauerbesatz vs. Akutbehandlung).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -267,3 +330,15 @@ Rhipsalis baccifera,Mistelkaktus;Spaghetti-Kaktus;Mistletoe Cactus,Cactaceae,Rhi
 3. [NC State Extension — Rhipsalis baccifera](https://plants.ces.ncsu.edu/plants/rhipsalis-baccifera/) — Botanische Einordnung
 4. [Smart Garden Guide — Rhipsalis Care](https://smartgardenguide.com/rhipsalis-care-mistletoe-cactus/) — Substrat, Schädlinge
 5. [Healthy Houseplants — Mistletoe Cactus](https://www.healthyhouseplants.com/indoor-houseplants/how-to-grow-and-care-for-the-mistletoe-cactus-rhipsalis-baccifera/) — Temperatur, Feuchtigkeit
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Complete Chloroplast Genome of Rhipsalis baccifera (NCBI/PMC)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7464518/) — CAM-Photosynthese, epiphytischer Kaktus, Altweltverbreitung
+7. [Germination Response of the Epiphytic Cactus Rhipsalis baccifera to Different Light Conditions (ResearchGate)](https://www.researchgate.net/publication/249158680_Germination_Response_of_the_Epiphytic_Cactus_Rhipsalis_baccifera_J_S_Miller_Stearn_to_Different_Light_Conditions_and_Water_Availability) — Lichtansprüche/Schattentoleranz (Keimung als Hinweis, NICHT als Wuchs-GDD-Basis verwendet)
+8. [ForwardPlant — Optimal Soil for Mistletoe Cactus](https://www.forwardplant.com/care/soil/rhipsalis-baccifera/) — Boden-pH, Drainage
+9. [Greg — Rhipsalis Root Rot](https://greg.app/rhipsalis-root-rot/) — Staunässe-/Wurzelfäule-Empfindlichkeit
+10. [Rhipsalis baccifera: A Graceful Epiphytic Cactus that Has Jumped to the Old World (ResearchGate)](https://www.researchgate.net/publication/387138307_Rhipsalis_baccifera_A_Graceful_Epiphytic_Cactus_that_Has_Jumped_to_the_Old_World) — flaches Wurzelsystem, adventive Luftwurzeln mit Velamen
+11. [Disentangling PAR and R:FR under canopy shading (Annals of Botany / PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7489061/) — Far-Red-Fraction unter Blätterdach (Schatten ≈ höher), Anker Sonnenlicht ≈ 0.33–0.5
+12. [Hoagland solution — Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo) als Ableitungsbasis
+13. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Wollläuse, Ausbringrate
+14. [Sound Horticulture — Stratiolaelaps scimitus](https://soundhorticulture.com/pages/stratiolaelaps-scimitus-fungus-gnat-control) — Bodenraubmilbe gegen Trauermücken, Rate/Etablierung
+15. [Bugs for Growers — Nematodes & Hypoaspis for Fungus Gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae gegen Trauermücken-Larven
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -19,11 +19,18 @@
 | Ordnung | Rosales | `botanical_families.order` |
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 20+ (Indoor: 10–15) | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | Entfällt (tagneutral / day_neutral — keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation erforderlich | false (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 13°C, optimal 18–24°C. Sehr empfindlich gegenüber Zugluft, Kälte und Standortwechsel — führt zu massivem Blattfall. | `species.hardiness_detail` |
@@ -95,6 +102,27 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Hochwertige Zimmerpflanzenerde mit guter Drainage, pH 6.0–6.5. 20–30% Perlite beimischen. Schwere Tonerde vermeiden. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) min | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt (PPFD µmol/m²/s) max | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 25–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-a-Schwellwert (ECe) für diese Zierart auffindbar | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-b-Slope auffindbar | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweise:**
+- **Lichtkompensationspunkt (LCP):** Als schattentolerante Unterwuchs-/Interiorscape-Art liegt der Netto-Nullpunkt der Photosynthese sehr niedrig (typisch <20 µmol/m²/s bei Schattenakklimatisation). Der **Lichtsättigungspunkt** liegt deutlich höher (≈200 µmol/m²/s bei 75% Schatten bis ≈350 µmol/m²/s bei Sonnenkultur) und gehört NICHT ins LCP-Feld.
+- **Salztoleranz:** *F. benjamina* ist gegenüber erhöhter Wurzelraum-Salinität empfindlich; in Versuchen überlebte die Art bei 90 und 120 mM NaCl nicht und zeigte oberhalb von ca. 0.75–3.0 dS/m Qualitätsverluste. Akkumulierte Salze regelmäßig durchspülen (Maas-Hoffman-Parameter beziehen sich auf Substrat-ECe, nicht auf die Gießwasser-EC).
+- **Boden-pH:** Quellen geben 6.0–7.0 als tolerierte Spanne an; der Vorzugswert 6.0–6.5 ist mit §1.6 und §2.3 dieser Datei harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -120,6 +148,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–29 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -136,16 +170,26 @@
 | Luftfeuchtigkeit Tag (%) | 45–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–6.5 | 100 | 40 | 2 |
-| Winterruhe | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–6.5 | 100 | 40 | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.3–0.5 | 0.05–0.1 | 0.02–0.05 | 0.01–0.05 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0–0.4 | 6.0–6.5 | — | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> — | — | — | — <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Mn/Zn/Cu/Mo-Werte für die aktive Wachstumsphase entsprechen einer Standard-Nährlösung in Hoagland-Stärke (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 mg/L) und sind mit den bereits gelisteten Fe/Ca/Mg-Werten konsistent. In der Winterruhe wird nicht gedüngt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -203,6 +247,23 @@ Ficus benjamina reagiert empfindlich auf Überdüngung mit Blattflecken und Blat
 | Okt | Einräumen | Vor Frost hereinholen, Standort NICHT mehr wechseln | hoch |
 | Okt–Feb | Sparsameres Gießen | Substrat zwischen Güssen stärker antrocknen lassen | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier-Temperatur (°C) | 16–21 (Minimum 13, nie unter 12) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier-Licht | hell; möglichst lichtreicher Standort, ggf. Pflanzenlicht bei kurzen Tagen | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier-Gießen | sparsam; Substrat zwischen den Güssen stärker antrocknen lassen, Staunässe vermeiden | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** *F. benjamina* ist nicht frosthart und überwintert als immergrüne Kübel-/Zimmerpflanze frostfrei im Haus (`frost_free`), keine Einlagerung von Knollen. Kritischer Punkt: Beim Ein- und Ausräumen den Standort nicht zusätzlich wechseln und Zugluft/Kälteschock vermeiden — sonst massiver Blattfall. Mindesttemperatur dauerhaft 13°C; kurzfristig nie unter 12°C.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -233,6 +294,19 @@ Ficus benjamina reagiert empfindlich auf Überdüngung mit Blattflecken und Blat
 | Insektizidseife | biological | Kaliseife | Sprühen, alle 5–7 Tage | 0 | Spinnmilbe, Blattläuse |
 | Paraffinöl | chemical | Paraffinöl | Einmalig im Winter | 0 | Schildläuse (überwinternde) |
 | Systeminsektizid | chemical | Imidacloprid | Stäbchen ins Substrat | 14 | Schildläuse, Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50 /m² je Ausbringung, ggf. wöchentlich wiederholen | 1–3 Wochen |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 2–5 Käfer je befallene Pflanze | 2–4 Wochen |
+| Schlupfwespe | Metaphycus helvolus | Weichschildlaus (Coccus hesperidum, Coccidae) | ca. 5 /m², 3 Freilassungen im 14-Tage-Abstand | 0.5–2 Monate |
+| Raubmilbe | Neoseiulus (Amblyseius) cucumeris | Thrips/Tripse (Frankliniella occidentalis) | 50–100 /m² je Ausbringung bzw. Tütchen alle 4 Wochen | 2–4 Wochen |
+
+**Hinweis:** Nützlingseinsatz bei Indoor-Kultur v.a. in Wintergärten/Gewächshäusern praktikabel; im Wohnraum sind Tütchen-/Sachet-Systeme (Slow-Release) am verlässlichsten. *Metaphycus helvolus* wirkt gegen **Weich**schildläuse (Coccidae, hier *Coccus hesperidum*) — nicht gegen Panzer-/Deckelschildläuse.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -279,3 +353,17 @@ Twilight,Ficus benjamina,"ornamental;variegated;small_leaves",clone
 3. [ASPCA Animal Poison Control](https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants) — Toxizität
 4. [Mikrobs — Pests & Diseases Ficus benjamina](https://mikrobs.com/blogs/news/taking-care-of-ficus-benjamina) — Schädlings-/Krankheitsdaten
 5. [Gardenia.net — Ficus benjamina](https://www.gardenia.net/plant/ficus-benjamina) — Standortdaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NC State Extension Plant Toolbox — Ficus benjamina](https://plants.ces.ncsu.edu/plants/ficus-benjamina/) — Boden-pH-Spanne, Licht-/Schattentoleranz, Drainage, USDA-Zonen, Wurzelsystem
+7. [Plasticity in Leaf and Photosynthetic Characteristics of Ficus benjamina Grown under Different Light Regimes (ResearchGate)](https://www.researchgate.net/publication/330790743_Plasticity_in_Leaf_and_Photosynthetic_Characteristics_of_Ficus_benjamina_Ggrown_under_Different_Lght_Regimes) — Lichtkompensations-/Sättigungspunkt, Netto-Photosyntheseraten, Schattenakklimatisation (C3-Lichtkurve)
+8. [University of Florida IFAS / MREC — Acclimatization of Ficus benjamina: A Review](https://mrec.ifas.ufl.edu/foliage/resrpts/rh_91_5.htm) — Lichtsättigung, Innenraum-Akklimatisation, Temperatur
+9. [scialert / Int. J. Botany — Effect of Salinity and Fertilizer Applications on Ficus benjamina](https://scialert.net/fulltext/?doi=ijb.2006.107.112) — Salzempfindlichkeit, NaCl-Überlebensgrenzen, ECe-Bereich
+10. [Gardening Know How / Hunker — Ficus temperature requirements](https://www.hunker.com/12384059/the-temperature-requirements-of-a-ficus-tree/) — Wachstumsstillstand/Chilling unter ~10°C (GDD-Basis), Optimumtemperatur
+11. [ASHS — Far-red Fraction: An Improved Metric for Characterizing Phytochrome Effects](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) (Zhen & Bugbee) — Definition Far-Red-Fraction FR/(R+FR), Anker Tageslicht ≈0.5
+12. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen Mn/Zn/Cu/Mo
+13. [Greenhouse Grower — Understanding Plant Nutrition: Fertilizers and Micronutrients](https://www.greenhousegrower.com/production/fertilization/understanding-plant-nutrition-fertilizers-and-micronutrients/) — Mikronährstoff-Formen/-Bereiche in Zierpflanzen-Nährlösungen
+14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Spinnmilben, Ausbringrate
+15. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Raubmilbe gegen Thrips, Ausbringrate
+16. [Wikipedia — Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Schlupfwespe gegen Weichschildläuse (Coccus hesperidum), Wirtsspezifität
+17. [Nature's Control — Cryptolaemus montrouzieri (Mealybug Destroyer)](https://naturescontrol.com/opencart/mealybugs-pirate-bugs-lacewings-ladybugs-Mealybug-Destroyers-Cryptolaemus-montrouzieri-Orius-insidiosis) — Marienkäfer gegen Schmierläuse, Ausbringrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

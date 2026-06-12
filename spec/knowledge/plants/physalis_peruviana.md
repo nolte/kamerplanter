@@ -20,7 +20,16 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial (in Heimat); annual (in Mitteleuropa) | `lifecycle_configs.cycle_type` |
-| Photoperiode | day_neutral (Fruchtansatz taglaengenunabhaengig; optimale Fruchtbildung bei 12–16h) | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | short_day (fakultativer/quantitativer Kurztagspflanze (facultative short-day plant); Bluetinduktion bei Tageslaengen < 12 h gefoerdert, 8-h-Photoperiode verkuerzt Juvenilphase ggue. 16 h) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | 6.3 (Wuchs-/Phaenologie-Basis fuer Knoten-/Sprossentwicklung; NICHT die Keim-Basistemperatur) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 2–3 (in Heimat halb-ausdauernd/semi-perennial; kommerzielle Fruchtproduktion ueber ~18 Monate; in Mitteleuropa einjaehrig) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> false (keine echte Dormanz; tropisch-andine Art ohne Ruhephase) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> false (kein Kaeltebedarf zur Bluetinduktion; Bluete kurztag- und thermalzeitgesteuert) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> — (entfaellt, vernalization_required=false) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (critical day length, h) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 12 (Kurztagschwelle; Bluetinitiation bei Tageslaengen < 12 h) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.critical_day_length_hours` |
 | USDA Zonen | 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. In Mitteleuropa als Einjährige kultiviert oder im Frühling als Kübelpflanze hereingeholt. Abstirben bei 0°C. In Heimat (Andenhochland) mehrjährig und buschfoermig bis 1.5m Hoehe. | `species.hardiness_detail` |
@@ -98,6 +107,28 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Rankhilfe/Stuetze noetig | true (Busch kann windanfaellig sein; Spiralstab oder Tomaten-Kaefig) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Gut durchlaessige, naehrstoffreiche Pflanzerde (Tomatenpflanzerde); pH 5.5–7.0; leicht saurer Boden foerderlich; gute Drainage essentiell (Staunaesse = Wurzelfaeule) | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | 12 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–60 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–6.8 | `species.soil_ph_preference` |
+
+**Hinweise zu §1.7:**
+- **Lichtkompensationspunkt:** Belegter Messwert Ic = 13.645 µmol Photonen/m²/s (Feldbedingungen Bogota); hier als Spanne 12–15 angegeben. Zur Orientierung (NICHT in das LCP-Feld gehoerend): Lichtsaettigung bei ca. 208 µmol/m²/s, Photosyntheserate A ≈ 10.5 µmol CO2/m²/s — die Art gilt als lichtbeduerftig (light-demanding) und braucht 1.500–2.000 h direkte Sonne/Jahr.
+- **Wurzeltiefe:** Quellen beschreiben einerseits ein flach-fibroeses, oberflaechennahes Wurzelsystem (daher Mulchbedarf), andererseits eine effektive Durchwurzelungstiefe von ~60 cm im Feldanbau; Spanne 30–60 cm deckt beide Angaben ab.
+- **Salztoleranz:** Als "moderately tolerant to salinity" eingestuft; 30 mM NaCl (Naehrloesungs-EC ~3 dS/m) foerdert das Wachstum, bis ~60 mM (~6 dS/m) wird toleriert. Eine formale Maas-Hoffman-Analyse (ECe-Schwelle a / Slope b, Bezugsgroesse Substrat-ECe) liegt nicht vor — diese Felder daher als DATEN FEHLEN markiert; die belegte Toleranz stuetzt jedoch die Klasse moderately_tolerant.
+- **Boden-pH:** Quellen nennen 5.5–7.0 bzw. 5.5–6.8; uebernommener Vorzugsbereich 5.5–6.8 harmonisiert mit §1.6 (5.5–7.0) und den Naehrstoffprofilen §2.3 (Wurzelzone 5.8–6.5).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -127,6 +158,10 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 70–85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.9 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> medium <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 15–18 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.45–0.55 (Tageslicht/Vollsonne-Anker) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -143,6 +178,10 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 1.2 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> medium <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 15–18 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.45–0.55 (Tageslicht/Vollsonne-Anker) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -159,6 +198,10 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.2 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 1.6 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> medium <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 15–18 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.45–0.55 (Tageslicht/Vollsonne-Anker) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -175,11 +218,15 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 1.8 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> medium <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 15–18 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.45–0.55 (Tageslicht/Vollsonne-Anker) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
-**Kurtag-Hinweis:** Physalis peruviana ist eine Kurztagpflanze. Fruchtansatz erst wenn Tage kuerzer als ~13 Stunden werden (ab August in Mitteleuropa). Deshalb ist fruehes Auspflanzen (Mai) wichtig — die Pflanze baut vegetative Masse auf bis die Taglaenge abnimmt. Dann foelgt Bluete und Fruchtbildung.
+**Kurtag-Hinweis:** Physalis peruviana ist eine (fakultative/quantitative) Kurztagpflanze. Fruchtansatz erst wenn Tage kuerzer als ~12 Stunden werden (ab Ende August/September in Mitteleuropa). <!-- Quelle: Steckbrief-Erweiterung 2026-06: Kurztagschwelle auf belegte 12 h harmonisiert --> Deshalb ist fruehes Auspflanzen (Mai) wichtig — die Pflanze baut vegetative Masse auf bis die Taglaenge abnimmt. Dann foelgt Bluete und Fruchtbildung.
 
 #### Phase: Fruchtbildung
 
@@ -193,20 +240,28 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 1.8 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> medium <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 15–18 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> 0.45–0.55 (Tageslicht/Vollsonne-Anker) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.far_red_fraction` |
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–6 (nicht zu feucht; Wurzelfaeulegefahr) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0 | — | — | — | — |
-| Saemling | 2:1:1 | 0.5–0.8 | 5.8–6.5 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3:1:2 | 1.0–1.6 | 5.8–6.5 | 120 | 50 | 25 | 2 |
-| Bluete | 1:2:3 | 1.2–1.8 | 5.8–6.5 | 100 | 50 | 25 | 2 |
-| Fruchtbildung | 1:2:3 | 1.2–1.8 | 5.8–6.5 | 100 | 50 | 20 | 1 |
-| Spaetreife | 0:1:2 | 0.8–1.2 | 5.8–6.5 | 60 | 30 | 15 | 1 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0 | — | — | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->—<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | — | — | — |
+| Saemling | 2:1:1 | 0.5–0.8 | 5.8–6.5 | 80 | 30 | 20 | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 3:1:2 | 1.0–1.6 | 5.8–6.5 | 120 | 50 | 25 | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Bluete | 1:2:3 | 1.2–1.8 | 5.8–6.5 | 100 | 50 | 25 | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Fruchtbildung | 1:2:3 | 1.2–1.8 | 5.8–6.5 | 100 | 50 | 20 | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+| Spaetreife | 0:1:2 | 0.8–1.2 | 5.8–6.5 | 60 | 30 | 15 | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.3<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoff-Hinweis:** Die Werte fuer Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdaen (Mo) entsprechen dem etablierten Vollkonzentrations-Niveau einer Hoagland-Standardnaehrloesung (Mn 0.5; Zn 0.05; Cu 0.02; Mo 0.011 ppm), das fuer Solanaceae-Fruchtgemuese (z.B. Tomate) als Richtwert dient. Mikronaehrstoffe werden nicht phasenspezifisch variiert; in der Spaetreife/Flush-Phase wird Mn leicht reduziert. `nutrient_profiles.manganese_ppm` / `.zinc_ppm` / `.copper_ppm` / `.molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenubergangsregeln
 
@@ -214,7 +269,7 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 |------------|---------|------|-------------|
 | Keimung -> Saemling | time_based | 14–20 Tage | Keimblätter entfaltet |
 | Saemling -> Vegetativ | time_based | 28–42 Tage | 4–6 echte Blaetter; Auspflanzen nach Eisheiligen |
-| Vegetativ -> Bluete | event_based | — | Taglaenge < 13 Stunden (ab Mitte August in DE); erste Knospen |
+| Vegetativ -> Bluete | event_based | — | Taglaenge < 12 Stunden (Kurztagschwelle; ab Ende August/September in DE); erste Knospen <!-- Quelle: Steckbrief-Erweiterung 2026-06: Kurztagschwelle auf belegte 12 h harmonisiert --> |
 | Bluete -> Fruchtbildung | event_based | — | Bestaeubing erfolgt; Fruchtansatz sichtbar unter Kelch |
 | Fruchtbildung -> Spaetreife | event_based | — | Kelch trocknet; Frucht faellt ab oder leicht loesbar |
 
@@ -298,7 +353,8 @@ Andenbeere ist kein so intensiver Starkzehrer wie Tomate oder Aubergine. Zu viel
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhaerte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhaerte-Rating | frost_free | `overwintering_profiles.hardiness_rating` | <!-- Quelle: Steckbrief-Erweiterung 2026-06: korrigiert von needs_protection auf frost_free — frostempfindliche Kuebelpflanze, die frostfrei drinnen ueberwintert wird (winter_action=move_indoors), entspricht laut KA-Enum frost_free, nicht needs_protection (= Schutz im Freiland) -->
+
 | Winter-Massnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Massnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Massnahme | move_outdoors | `overwintering_profiles.spring_action` |
@@ -445,3 +501,13 @@ Aunt Molly's Ground Cherry,Physalis pruinosa (nahverw.),90–110,small_fruit;ver
 5. California Rare Fruit Growers (CRFG) — Cape Gooseberry — https://crfg.org/homepage/library/fruitfacts/cape-gooseberry/
 6. GardenAndAllotment — Ultimate Guide to Cape Gooseberry — https://gardenandallotment.com/the-ultimate-guide-to-cape-gooseberry-benefits-nutrition-cultivation-and-uses/
 7. Growables.org — Cape Gooseberry (Physalis peruviana) — https://www.growables.org/informationVeg/CapeGooseberry.htm
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. Fischer, G. & Melgarejo, L.M. (2020) — The ecophysiology of cape gooseberry (Physalis peruviana L.) — an Andean fruit crop. A review. Rev. Colomb. Cienc. Hortic. 14(1):76-89 — peer-reviewed; Basistemperatur (6.3°C Spross, 1.9°C Frucht), fakultative Kurztagspflanze (<12 h), Lichtkompensationspunkt 13.645 µmol/m²/s, Lichtsaettigung ~208 µmol/m²/s, Staunaesse-Intoleranz >4 d, moderate Salztoleranz, lichtbeduerftig — https://revistas.uptc.edu.co/index.php/ciencias_horticolas/article/view/10893
+9. Salazar, M.R. et al. (2006/2008) — Base temperature and simulation model for nodes appearance in cape gooseberry (Physalis peruviana L.) — Tb 6.29°C fuer Knotenerscheinung (Wuchs-GDD-Basis) — https://www.researchgate.net/publication/256475132
+10. Aguilar-Carpio, C. et al. (2018) — Analysis of growth and yield of cape gooseberry grown hydroponically under greenhouse conditions. Rev. Chapingo Ser. Hortic. 24(3):191-202 — Basistemperatur 6.3°C fuer Spross-Waermesummenberechnung — https://doi.org/10.5154/r.rchsh.2017.07.024
+11. Heinze, W. & Midasch, M. (1991) — Photoperiodische Reaktion von Physalis peruviana L. Gartenbauwiss. 56(6):262-264 — Kurztagsverhalten; 8-h-Photoperiode beschleunigt Bluetinduktion ggue. 16 h — https://www.semanticscholar.org/paper/8b056ac9812a5dc65ff77404b9af92644c692e57
+12. Aldana, F., Garcia, P.N. & Fischer, G. (2014) — Effect of waterlogging stress on the growth, development and symptomatology of cape gooseberry (Physalis peruviana L.) plants — Staunaesse-Intoleranz >4 d — https://doi.org/10.18257/raccefyn.114
+13. Miranda, D. et al. (2010) / Salt-stress-Studien (z.B. Effect of Salt Stress on Growth and Metabolite Profiles, PMC8125371) — moderate Salztoleranz; 30 mM NaCl (~3 dS/m) wachstumsfoerdernd, Toleranz bis ~60 mM (~6 dS/m) — https://pmc.ncbi.nlm.nih.gov/articles/PMC8125371/
+14. Hoagland-Standardnaehrloesung (Mikronaehrstoff-Endkonzentrationen Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.011 ppm) — Richtwert fuer Solanaceae-Fruchtgemuese — https://en.wikipedia.org/wiki/Hoagland_solution
+15. en.jardineriaon.com — Cape gooseberry cultivation guide — effektive Durchwurzelungstiefe >60 cm, Boden-pH 5.5–6.8, Vollsonne — https://en.jardineriaon.com/physalis-peruviana.html
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

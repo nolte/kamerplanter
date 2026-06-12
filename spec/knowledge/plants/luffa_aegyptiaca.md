@@ -21,6 +21,14 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day (Bluetenbildung wird durch kuerzerenr Tage ausgeloest; tropischer Ursprung) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (Cucurbitaceae/Gurkengewaechse sind C3-Pflanzen) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 10 (Wuchs-GDD-Basis der Hauptwuchsphase, analog Cucurbitaceae/Gurke; unterhalb ~10 degC praktisch keine Entwicklung) | `species.base_temp` |
+| Dormanz erforderlich | false (einjaehrige tropische Art ohne Ruhephase) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (tropischer Ursprung; Bluete kurztag-gesteuert, kein Kaeltebedarf) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (h) | 12 (echter Kurztagblueher; weibliche Blueten werden unterhalb ~12 h gefoerdert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Sehr frostempfindlich. Braucht 150--200 frostfreie Tage fuer Schwammreife. In Mitteleuropa (Zone 7--8) nur im Gewaechshaus oder bei sehr fruehzeitiger Vorkultur (Feb/Maerz) erfolgreich kultivierbar. | `species.hardiness_detail` |
@@ -105,6 +113,28 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Rankhilfe/Stuetze noetig | true (Luffa ist aggressiver Kletterer; braucht Drahtgeruest oder Ranknetz 3--5 m hoch) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche, lockere, sehr gut drainierte Erde mit hohem Kompostanteil (30%). Sandige Anteile foerdern Drainage. pH 6.5--7.5. | -- |
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 30 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 60 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (mind. 6 h, optimal 8--10 h direkte Sonne) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 45--90 (Hauptwurzeln flach, aber bei tiefem Giessen tiefreichend; Boden 30--45 cm lockern) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | moderate (bildet bei Flutung Aerenchym/Adventivwurzeln, mag aber keine Dauer-Staunaesse; Faeulnisgefahr) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant (als Veredelungsunterlage salztolerant; reduziert Na-Transport in den Spross) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN -- keine belegten Maas-Hoffman-Schwellenwerte (a) fuer Luffa aegyptiaca verfuegbar --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN -- keine belegten Maas-Hoffman-Slope-Werte (b) fuer Luffa aegyptiaca verfuegbar --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.5 | `species.soil_ph_preference` |
+
+**Hinweis (Lichtkompensationspunkt):** Wert als Spanne aus Cucurbitaceae-Analogie (Gurken-Bestand: gemessener Kompensationspunkt ~32--86 umol/m2/s); fuer die einzelne, sonnenadaptierte Luffa-Pflanze konservativ 30--60 umol/m2/s angesetzt (reiner Kompensationspunkt = Netto-Photosynthese 0, KEINE Saettigungswerte). Lichtsaettigung liegt deutlich hoeher (vgl. §2.2 PPFD-Ziele).
+
+**Hinweis (Salztoleranz):** Klasse aus Veredelungsstudien (Luffa als salztolerante Unterlage) abgeleitet; quantitative ECe-Schwelle/Slope fehlen in der Literatur und sind daher als DATEN FEHLEN markiert. Bezugsgroesse waere Substrat-ECe (Saettigungsextrakt), nicht die Giesswasser-EC.
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -136,6 +166,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (feuchteliebende Keimphase; Schwelle deutlich ueber dem Zielkorridor) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 26--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht/Vollsonne; kein Schattenwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (feucht; keine Staunaesse) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--20 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -152,6 +188,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 27--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -168,6 +210,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (oberer Zielwert + ca. 0.4 kPa; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 (Netto-Photosynthese maximal; Abfall ab ~36 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne/Gewaechshaus) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1200 (Gewaechshaus-CO2-Anreicherung sinnvoll) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -184,6 +232,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne/Gewaechshaus) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -202,6 +256,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne/Gewaechshaus) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 600--1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -218,6 +278,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Luftfeuchtigkeit Tag (%) | 40--55 (trocken fuer Schwammtrocknung!) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45--60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.5--2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.9 (oberer Zielwert + ca. 0.4 kPa; trockene Reifephase, hohe Toleranz) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 26--30 (kuehlere Herbstphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne/Gewaechshaus) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 7--14 (wenig giessen; Fruechte sollen abtrocknen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -233,14 +299,16 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.5--7.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.8--1.2 | 6.5--7.0 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.2 | 6.5--7.0 | 120 | 50 | 30 | 3 |
-| Bluete | 2-2-3 | 1.8--2.6 | 6.5--7.0 | 150 | 60 | 30 | 3 |
-| Fruchtentwicklung | 1-2-4 | 2.0--3.0 | 6.5--7.0 | 150 | 60 | 35 | 2 |
-| Schwamm-Reife | 0-1-2 | 0.8--1.5 | 6.5--7.0 | 80 | 40 | -- | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt; Standard-Cucurbitaceae-Mikronaehrstoffbereiche) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.5--7.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.8--1.2 | 6.5--7.0 | 80 | 30 | 20 | 2 | 0.5 | 0.2 | 0.05 | 0.05 |
+| Vegetativ | 3-1-2 | 1.4--2.2 | 6.5--7.0 | 120 | 50 | 30 | 3 | 0.8 | 0.3 | 0.08 | 0.05 |
+| Bluete | 2-2-3 | 1.8--2.6 | 6.5--7.0 | 150 | 60 | 30 | 3 | 0.8 | 0.3 | 0.08 | 0.05 |
+| Fruchtentwicklung | 1-2-4 | 2.0--3.0 | 6.5--7.0 | 150 | 60 | 35 | 2 | 1.0 | 0.4 | 0.1 | 0.05 |
+| Schwamm-Reife | 0-1-2 | 0.8--1.5 | 6.5--7.0 | 80 | 40 | -- | 1 | 0.5 | 0.2 | 0.05 | 0.05 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenuebergangsregeln
 
@@ -471,3 +539,17 @@ Luffa aegyptiaca,Schwammgurke;Luffagurke;Luffa;Loofah;Sponge Gourd,Cucurbitaceae
 7. [NC State Extension -- Luffa aegyptiaca](https://plants.ces.ncsu.edu/plants/luffa-aegyptiaca/) -- Botanische Grunddaten; Taxonomie
 8. [Missouri Botanical Garden -- Luffa aegyptiaca](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=364305) -- Botanische Klassifikation
 9. [ForwardPlant -- Luffa aegyptiaca Care Guide](https://www.forwardplant.com/plant-info/luffa-aegyptiaca/) -- Schädlinge; Krankheiten; Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+10. [J. Japan. Soc. Hort. Sci. -- Photoperiodic Responses Controlling Sex Expression of Flowers in Luffa and Lagenaria](https://www.jstage.jst.go.jp/article/jjshs1925/55/3/55_3_303/_article/-char/en) -- Kurztag-Reaktion; kritische Tageslaenge ~12 h fuer weibliche Blueten
+11. [Oregon State CROPTIME / Pest Prophet -- Cucumber Growing Degree Day Model](https://blog.pestprophet.com/how-to-use-the-cucumber-growing-degree-day-model/) -- GDD-Basistemperatur 50 degF / 10 degC fuer Gurkengewaechse
+12. [Penn State Extension / GreenUpside -- Lowest Temperature Cucumber Plants Can Tolerate](https://greenupside.com/what-is-the-lowest-temperature-cucumber-plants-can-tolerate/) -- Wachstumsverlangsamung unterhalb 10 degC (Basistemperatur-Bestaetigung)
+13. [PMC -- Photosynthetic contribution and characteristics of cucumber stems and petioles](https://pmc.ncbi.nlm.nih.gov/articles/PMC8493697/) -- Cucurbitaceae als C3-Pflanzen
+14. [PMC -- The complex character of photosynthesis in cucumber fruit](https://pmc.ncbi.nlm.nih.gov/articles/PMC5441898/) -- C3-Photosyntheseweg bei Gurke (Familien-Beleg)
+15. [Annals of Botany -- Photosynthesis of Stands of Tomato, Cucumber and Sweet Pepper](https://academic.oup.com/aob/article-abstract/73/4/353/2587261) -- Lichtkompensationspunkt Gurken-Bestand ~32--86 umol/m2/s
+16. [Frontiers in Plant Science -- Limiting Sites of Photosynthesis under Heat Stress in Cucumber and Luffa Rootstock](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2016.00746/full) -- Photosynthese-Optimum ~28--32 degC; Abfall ab 36 degC
+17. [ScienceDirect -- Luffa rootstock enhances salt tolerance by reducing sodium transport](https://www.sciencedirect.com/science/article/abs/pii/S0269749122017353) -- Salztoleranz-Klasse (moderately_tolerant); Na-Transport-Reduktion
+18. [PubMed -- Cortical Aerenchyma formation in Luffa cylindrica subjected to soil flooding](https://pubmed.ncbi.nlm.nih.gov/17921518/) -- Staunaesse-Adaption (Aerenchym/Adventivwurzeln) = moderate Toleranz
+19. [Epic Gardening -- How to Plant, Grow, and Care for Luffa](https://www.epicgardening.com/growing-luffa/) -- Vollsonne; Boden 30--45 cm lockern (Wurzeltiefe)
+20. [Osceola CSA -- Growing and Caring for Luffa Gourds](https://www.osceolacsa.farm/post/climbing-to-new-heights-how-to-grow-and-care-for-luffa-gourds) -- Boden-pH 6.0--7.5; Vollsonne 6--10 h
+21. [Haifa Group -- Crop Guide: Nutrients for Cucumber](https://www.haifa-group.com/cucumber-0/crop-guide-nutrients-cucumber) -- Cucurbitaceae-Mikronaehrstoffbereiche Mn/Zn/Cu/Mo (ppm)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,6 +20,11 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | epiphytic | `species.root_adaptations` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (constitutiv; nur fakultativ/schwach CAM unter Trockenstress -- anders als die meisten Bromelien, die konstitutiv CAM sind. Guzmania lingulata assimiliert CO2 als Adult und Juvenil primaer ueber C3, kann unter Wasserdefizit jedoch CAM-Zuege ausbilden.) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phaenologie-GDD-Basiswert fuer diese tropische Zierbromelie auffindbar; nur Optimal-/Minimaltemperaturen dokumentiert (Min. 13-15 C, optimal 18-27 C). Keimungs-Kardinaltemperaturen wurden bewusst NICHT als Wuchsbasis umetikettiert. --> | `species.base_temp` |
+| Kritische Tageslaenge (h) | -- (day_neutral / tagneutral -- kein Kurztag-/Langtag-Bluehverhalten; Bluete wird ueber Reife + Ethylen ausgeloest, nicht ueber Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial (Hinweis: Mutterpflanze ist monokarp -- stirbt nach einmaliger Bluete; das Pflanzensystem ist durch Kindel-Bildung perennial; cycle_type=perennial gilt fuer das Gesamtsystem) | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 2-3 (Mutterpflanze; Kindel ueberdauern) | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
@@ -106,6 +111,26 @@
 
 **Hinweis:** Guzmania lingulata ist ein Epiphyt, der in der Natur auf Aesten waechst. Das Wurzelsystem dient primaer der Verankerung, nicht der Naehrstoffaufnahme (Naehrstoffe werden ueber den Blatttrichter aufgenommen). Daher genuegt ein sehr kleiner, flacher Topf. Alternativ kann die Pflanze auf Rinde, Ast oder Moosstab montiert werden -- eine dekorative und artgerechte Kulturmethode. Staunaesse ist toedlich fuer Bromelien.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.8 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5--10 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN: keine Maas-Hoffman-Daten (Substrat-ECe) fuer diese epiphytische Zierbromelie publiziert; qualitativ als "highly salt sensitive" belegt, aber kein numerischer ECe-Schwellenwert auffindbar. --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope publiziert. --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 5.5--6.0 | `species.soil_ph_preference` |
+
+**Hinweis (Lichtkompensationspunkt):** Der angegebene Bereich 10--20 umol/m2/s ist ein funktions-/standorttypischer Wert fuer stark schattentolerante tropische Verstandsarten (shade-tolerant understory), kein artspezifischer Einzelmesswert fuer Guzmania lingulata (publizierte Gattungs-Photosynthesemessungen liegen fuer G. monostachia vor, nicht als LCP fuer G. lingulata). Schattentolerante Verstandsarten zeigen LCP von 10--50 umol/m2/s; fuer die stark schattenangepasste Epiphyt-Rosette wurde die Untergrenze als Spanne verwendet. Saettigung und Photoinhibition (direkte Sonne >250 umol/m2/s verbrennt die Blaetter) sind separat in den Phasenprofilen (2.2) abgebildet und gehoeren NICHT in das Kompensationspunkt-Feld.
+
+**Hinweis (Salz- & Staunaesse-Toleranz):** Guzmania zaehlt zu den salzempfindlichsten Bromelien (Trichome werden durch Salz-/Kalkablagerungen verstopft; Chlorid/Fluorid verursachen Blattspitzennekrosen). Bezugsgroesse der Salzempfindlichkeit ist die Substrat-/Trichterloesung, nicht eine pauschale Giesswasser-EC -- siehe auch Wasserqualitaet in 4.1. Als flachwurzelnder Epiphyt mit verankerndem (nicht saugendem) Wurzelsystem ist die Art extrem staunaesseempfindlich; Wurzel- und Trichterfaeule sind die haeufigsten Todesursachen (siehe 5.2). Der pH-Vorzug 5.5--6.0 ist quellentreu uebernommen und liegt innerhalb des in 2.3/3.2 genannten Substrat-pH-Korridors 5.0--6.0 (kein Widerspruch).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -139,6 +164,12 @@ Guzmania lingulata hat als monokarpe Bromelie einen einzigartigen Lebenszyklus: 
 | Luftfeuchtigkeit Tag (%) | 60-80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60-75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5-0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: kein artspezifischer FR/(R+FR)-Messwert fuer Guzmania lingulata publiziert. Naturhabitat ist Kronendach-/Verstandsschatten mit erhoehtem Far-Red-Anteil (FR/(R+FR) tendenziell >0.5), Kultur erfolgt jedoch unter indirektem Tageslicht/Kunstlicht (~0.5); kein belegter Einzelwert. --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | Trichter 1/4 voll halten, Substrat leicht feucht | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30-50 (Trichter) + 50-100 (Substrat) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -156,6 +187,12 @@ Guzmania lingulata hat als monokarpe Bromelie einen einzigartigen Lebenszyklus: 
 | Luftfeuchtigkeit Tag (%) | 50-70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50-70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: kein artspezifischer Messwert (siehe Hinweis Kindel-Etablierung). --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 7-10 (Trichter alle 1-2 Wochen erneuern) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50-80 (Trichter) + 100-200 (Substrat) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -173,6 +210,12 @@ Guzmania lingulata hat als monokarpe Bromelie einen einzigartigen Lebenszyklus: 
 | Luftfeuchtigkeit Tag (%) | 50-65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50-65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: kein artspezifischer Messwert (siehe Hinweis Kindel-Etablierung). --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 7-10 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50-80 (Trichter) + 100-200 (Substrat) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -190,18 +233,32 @@ Guzmania lingulata hat als monokarpe Bromelie einen einzigartigen Lebenszyklus: 
 | Luftfeuchtigkeit Tag (%) | 50-65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50-65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8-1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (C) | 22-26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: kein artspezifischer Messwert (siehe Hinweis Kindel-Etablierung). --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 10-14 (reduziert) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50-100 (Substrat, Trichter trocknet aus) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (VPD-Sensitivitaet & -Schwelle):** Die VPD-Sensitivitaet wurde mit `medium` gesetzt -- bewusst NICHT mit der CAM-Faustregel `low`. Guzmania lingulata ist eine konstitutive **C3**-Bromelie (kein konstitutiver CAM-Typ); tank-epiphytische C3-Bromelien zeigen laut Males et al. 2017 (Plant, Cell & Environment) eine ausgepraegt schnelle, hohe stomataere Empfindlichkeit gegenueber dem Saettigungsdefizit (feedforward-Antwort der Transpiration auf VPD). Praxisnah im stabilen Innenraumklima wird `medium` angesetzt. Die VPD-Schwelle (`vpd_threshold_kpa`) liegt jeweils deutlich oberhalb des `vpd_target`-Korridors (kritischer Punkt des stomataeren Kollaps): in der feuchteliebenden Kindel-Etablierung niedriger (1.1 kPa), in den robusteren Folgephasen hoeher (1.5 kPa).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|-----------------|---------|-----|----------|----------|---------|----------|
-| Kindel-Etablierung | 0:0:0 | 0.0 | 5.0-6.0 | -- | -- | -- | -- |
-| Vegetatives Wachstum | 1:1:1 | 0.2-0.5 | 5.0-6.0 | 20 | 10 | -- | 1 |
-| Bluete | 1:2:1 | 0.2-0.5 | 5.0-6.0 | 20 | 15 | -- | 1 |
-| Kindel-Bildung/Seneszenz | 0:0:0 | 0.0 | 5.0-6.0 | -- | -- | -- | -- |
+| Phase | NPK-Verhaeltnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|-----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Kindel-Etablierung | 0:0:0 | 0.0 | 5.0-6.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Vegetatives Wachstum | 1:1:1 | 0.2-0.5 | 5.0-6.0 | 20 | 10 | -- | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Bluete | 1:2:1 | 0.2-0.5 | 5.0-6.0 | 20 | 15 | -- | 1 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Kindel-Bildung/Seneszenz | 0:0:0 | 0.0 | 5.0-6.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronaehrstoffe Mn/Zn/Cu/Mo):** Fuer Guzmania lingulata sind keine artspezifischen Mangan-, Zink-, Kupfer- oder Molybdaen-Sollwerte (ppm) in serioeser Literatur publiziert; sie sind daher als DATEN FEHLEN markiert. Als extremer epiphytischer Schwachzehrer wird die Pflanze ohnehin nur mit stark verduenntem Voll-/Orchideenduenger (1/4-Dosis) versorgt, der Mikronaehrstoffe bereits ausgewogen enthaelt -- eine separate Mikronaehrstoff-Dosierung ist weder noetig noch belegt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Bromelien sind extreme Schwachzehrer (epiphytisch -- natuerlich auf Naehrstoffarmut eingestellt). Duenger IMMER auf 1/4 der Herstellerangabe verduennen. Ueberdüngung fuehrt zu Wurzelfaeule und Verbrennungen. Duenger kann ins Giesswasser des Trichters oder als Blattduengung gegeben werden. Keine Duengung in den Trichter bei kuehlen Temperaturen (unter 18 C).
 
@@ -310,7 +367,20 @@ Bei Bromelien-Duengung unkompliziert:
 
 ### 4.3 Ueberwinterung
 
-Entfaellt -- reine Zimmerpflanze, ganzjaehrig Indoor. Im Winter Giessen stark reduzieren und Trichter-Wasser auf Minimum halten. Keine Duengung. Mindesttemperatur 15 C.
+Entfaellt als Freilandueberwinterung -- reine Zimmerpflanze, ganzjaehrig Indoor. Im Winter Giessen stark reduzieren und Trichter-Wasser auf Minimum halten. Keine Duengung. Mindesttemperatur 15 C.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Einstufung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme + Monat | move_indoors -- spaetestens September/Oktober (wenn Naechte unter 13-15 C); ganzjaehrig drinnen bei reiner Zimmerkultur | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Massnahme + Monat | move_outdoors -- ab Mitte/Ende Mai (nach den Eisheiligen, nur halbschattig, regen-/windgeschuetzt) bei optionaler Sommerkultur auf Balkon/Terrasse | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (C) | min. 15 (nie unter 13); optimal 18-22 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (Ost-/Westfenster); kein direktes Wintersonnenlicht noetig | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | stark reduziert; Trichter nur minimal/leer halten (Faeulnisschutz bei kuehleren Temperaturen), Substrat nur leicht feucht | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Die Einstufung `frost_free` (nicht `dig_and_store`, `needs_protection` oder `hardy`) gilt, weil Guzmania lingulata eine frostempfindliche tropische Kuebel-/Zimmerpflanze ist, die frostfrei im warmen Innenraum ueberwintert und keine Knollen zum Ausgraben/Einlagern bildet. Eine Sommerkultur im Freien ist nur als Option (limited, vgl. 1.7) vorgesehen; in Mitteleuropa (USDA 6-8) ist ganzjaehrige Zimmerkultur der Normalfall, dann entfaellt der Quartierwechsel.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 4.4 Standort-Empfehlungen
 
@@ -436,3 +506,14 @@ Rana,Guzmania lingulata,--,--,orange_bract;compact,clone
 6. JoyUsGarden -- Guzmania Bromeliad Plant Care: https://www.joyusgarden.com/guzmania-bromeliad-plant-care-tips/
 7. Clemson University Extension -- Bromeliads: https://hgic.clemson.edu/factsheet/bromeliads/
 8. Cummings & Waring (2020) -- Potted plants do not improve indoor air quality (Journal of Exposure Science & Environmental Epidemiology)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. Maxwell, Griffiths et al. / Photosynthetica (2013) 51(1):55-62 -- "Juvenile tank-bromeliads lacking tanks: do they engage in CAM photosynthesis?" (G. lingulata, G. monostachia konstitutiv C3; fakultativ CAM unter Trockenstress): https://ps.ueb.cas.cz/pdfs/phs/2013/01/07.pdf
+10. Crayn, Winter & Smith / Botanical Journal of the Linnean Society (2015) 178:169-221 -- "Photosynthetic pathways in Bromeliaceae ... CAM and C3 based on carbon isotope ratios for 1893 species" (in Tillandsioideae ist C3 vorherrschend, CAM auf Tillandsia beschraenkt): https://academic.oup.com/botlinnean/article-abstract/178/2/169/2416361
+11. Pereira, Mercier et al. / Frontiers in Plant Science (2021) 12:715289 -- "Transcriptomic and Biochemical Analysis ... Guzmania monostachia (Bromeliaceae) Under Drought" (C3-zu-CAM-Umschaltung unter Trockenheit): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.715289/full
+12. Males & Griffiths / Plant, Cell & Environment (2017) 40:1428-1442 -- "Specialized stomatal humidity responses underpin ecological diversity in C3 bromeliads" (tank-epiphytische C3-Bromelien: hohe, schnelle stomataere VPD-Empfindlichkeit): https://pubmed.ncbi.nlm.nih.gov/28722113/
+13. Missouri Botanical Garden -- Plant Finder, Guzmania lingulata (Exposition "Part shade to full shade", Wasserbedarf "Dry to medium", exzellente Drainage, USDA 10-12): https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=278139
+14. North Carolina Extension Gardener Plant Toolbox -- Guzmania lingulata (Standort, Pflege, USDA-Zonen): https://plants.ces.ncsu.edu/plants/guzmania-lingulata/
+15. Sterck et al. / Journal of Ecology (2013) 101:971-980 -- "Plasticity influencing the light compensation point ... in a tropical forest understorey" (schattentolerante Verstandsarten: LCP 10-50 umol/m2/s, Untergrenze fuer stark schattentolerante Arten): https://besjournals.onlinelibrary.wiley.com/doi/10.1111/1365-2745.12076
+16. bromeliads.info -- Bromeliad Potting Soil / Guzmania-Growing-Specifications (Bromelien bevorzugen leicht sauren Boden pH 5-6; Guzmania 5.5-6.0; hohe Salz-/Kalkempfindlichkeit): https://www.bromeliads.info/bromeliad-potting-soil/ ; https://www.bromeliads.info/bromeliad-plant-growing-specifications-guzmania-lingulata-and-hybrids/
+17. flowersgeek.com -- "How to Water Bromeliads" (Guzmania hochgradig salzempfindlich; Chlorid/Fluorid -> Trichom-Schaeden, Spitzennekrosen): https://flowersgeek.com/how-to-water-bromeliads-for-bold-color-and-long-lasting-blooms/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

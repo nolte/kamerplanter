@@ -28,6 +28,19 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 15 | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (monokarpisch; Mutterpflanze stirbt nach Blüte) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | nicht relevant | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | nicht relevant (tagneutral; Blüte ethyleninduziert) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Photosynthese (CAM):** Aechmea fasciata betreibt Crassulaceen-Säurestoffwechsel (Crassulacean Acid Metabolism, CAM) — wie für die Gattung Aechmea und viele Bromelien belegt: nächtliche CO₂-Fixierung mit diurnaler Apfelsäure-Akkumulation, Stomata nachts geöffnet (~45–50 % gegen 4 Uhr), tagsüber weitgehend geschlossen (5–10 %). Diese Wasserspar-Strategie begründet die geringe VPD-Sensitivität und Trockenstress-Toleranz. Die GDD-Basistemperatur von 15 °C orientiert sich am unteren Ende des aktiven Wachstumsbereichs (Wachstumsstillstand unterhalb ~15 °C); unterhalb dieser Schwelle akkumuliert die Pflanze keine relevante Wärmesumme.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Biologische Besonderheit — Monokarpie:** Aechmea fasciata ist monokarpisch. Die Mutterpflanze stirbt nach der Blüte ab, produziert vorher jedoch mehrere Kindel (Pups) an der Basis. Diese Kindel wachsen zu neuen blühfähigen Pflanzen heran (Lebenserwartung Kindel bis zur Blüte: 2–4 Jahre).
 
@@ -89,6 +102,30 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockeres Bromelien-/Orchideensubstrat; Rindenmulch-/Perlit-Mischung; pH 5.5–6.5; sehr durchlässig — Staunässe ist tödlich | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 5–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweise zu §1.7:**
+- *Lichtkompensationspunkt (light compensation point):* Als ausgeprägt schattentolerante CAM-Bromelie liegt der Kompensationspunkt (Netto-Photosynthese = 0) sehr niedrig (Größenordnung 10–25 µmol/m²/s, typisch für schattenadaptierte CAM-/Schwachlichtpflanzen). Davon zu trennen sind der Sättigungs-/Optimumbereich (vgl. §2.2 PPFD-Ziel 100–300) und die Photoinhibition bei voller Sonne — diese Werte gehören NICHT in das Kompensationspunkt-Feld.
+- *Schattentoleranz (shade tolerance):* `partial_shade` — gedeiht bei hellem indirektem Licht bis Halbschatten; tiefer Schatten (deep_shade) verhindert Blüteninduktion, volle Sonne (full_sun) führt zu Blattbrand.
+- *Effektive Wurzeltiefe (effective root depth):* Epiphytisches, flaches Haftwurzelsystem (Wasser-/Nährstoffaufnahme primär über die Blatt-Trichome, nicht über Wurzeln); ein 10-cm-Topf genügt.
+- *Staunässe-Toleranz (waterlogging tolerance):* `sensitive` — Überwässerung/Staunässe im Substrat führt zu Wurzel- und Herzfäule (konsistent mit §1.6 „Staunässe ist tödlich“).
+- *Salztoleranz (salt tolerance):* `sensitive` — Salze/Minerale aus hartem Leitungswasser verbrennen das empfindliche Trichom-/Trichtergewebe und lagern sich ab; Regen-, destilliertes oder gefiltertes Wasser empfohlen (konsistent mit Wasserqualität-Hinweis §4.1). Quantitative Maas-Hoffman-Parameter (ECe-Schwelle, Slope) liegen für diese Zier-Epiphyte nicht aus belastbaren Quellen vor — daher offen gelassen.
+- *Boden-pH-Vorzug (soil pH preference):* 5.5–6.5 (sauer bis schwach sauer), harmonisiert mit Substrat-Empfehlung §1.6 und Nährstoffprofilen §2.3.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -117,6 +154,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (Trichter gefüllt halten, Substrat trocken/feucht wechselnd) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 (im Trichter) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -133,18 +176,28 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–150 (im Trichter) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Kindel/Etablierung | 0:0:0 | 0.0 | 5.5–6.5 | — | — |
-| Vegetativ | 1:1:1 | 0.4–0.8 | 5.5–6.5 | 60 | 30 |
-| Blüteinduktion | 0:1:1 | 0.3–0.6 | 5.5–6.5 | 40 | 20 |
-| Blüte | 0:0:0 | 0.0 | 5.5–6.5 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Kindel/Etablierung | 0:0:0 | 0.0 | 5.5–6.5 | — | — | — | — | — | — |
+| Vegetativ | 1:1:1 | 0.4–0.8 | 5.5–6.5 | 60 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüteinduktion | 0:1:1 | 0.3–0.6 | 5.5–6.5 | 40 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:0:0 | 0.0 | 5.5–6.5 | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (§2.3):** Aechmea fasciata wird ausschließlich stark verdünnt über den Blatttrichter ernährt (1/4-Dosis, EC < 0.8 mS). Phasenspezifische Mikronährstoff-Sollwerte (Mangan/Mn, Zink/Zn, Kupfer/Cu, Molybdän/Mo in ppm) sind für diese Zier-Epiphyte nicht aus belastbaren Quellen (Extension/peer-reviewed) belegbar; ein hochwertiger Bromelien-/Orchideen-Flüssigdünger deckt den Spurenelementbedarf in der angegebenen Verdünnung ab. Werte daher offen gelassen statt zu schätzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 2.4 Phasenübergangsregeln
 
@@ -210,6 +263,26 @@
 | Okt–Nov | Kindel abtrennen | Nach Absterben der Mutter Kindel mit scharfem Messer trennen | hoch |
 | Dez | Ruhephase | Wenig Wasser, kein Dünger | niedrig |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Monat Winter-Maßnahme | 9–10 (vor erstem Frost / unter 10 °C) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Monat Frühjahrs-Maßnahme | 5–6 (nach den Eisheiligen, frostfrei) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–20 (Minimum 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell; bright indirect light, Süd-/Ostfenster | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert: Trichter alle 2–3 Wochen erneuern, Substrat fast trocken halten, kein Dünger | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweise zu §4.3:**
+- Als nicht frostharte (frost-tender) tropische Kübel-/Zimmerpflanze überwintert *Aechmea fasciata* frostfrei im Haus (`frost_free`) — kein Ausgraben/Einlagern (kein `dig_and_store`), keine Vlies-/Mulch-Maßnahme im Freien.
+- Mindesttemperatur 10 °C; darunter drohen Kälteschäden (braune Blattspitzen) und erhöhtes Herzfäule-Risiko bei stehendem Trichterwasser. Konsistent mit Winterhärte-Detail §1.1 und Frostempfindlichkeit `tender`.
+- Ein Sommer-Aufenthalt im Freien (Halbschatten) ist nur in frostfreier Periode (Mitteleuropa ~Mitte Mai bis September) ratsam.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -236,6 +309,21 @@
 | Isopropanol 70% | biological | Isopropylalkohol | Wattestäbchen | 0 | Wollläuse, Schildläuse |
 | Neemöl | biological | Azadirachtin | Sprühen 0.5% | 3 | Thripse, Blattläuse |
 | Trichter täglich spülen | cultural | — | Trichter leeren bei Herzfäule-Risiko | 0 | Herzfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|-----------------|------------------|
+| Australischer Marienkäfer (Mealybug Destroyer) | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 2–5 Käfer/m² (bei Befall); 2–3 Teilfreilassungen | 3–6 Wochen |
+| Florfliege (Lacewing) | Chrysoperla carnea | Wollläuse, Schild­läuse, Blattläuse, Thripse | 10–20 Larven/m² | 2–3 Wochen |
+| Thrips-Raubmilbe | Amblyseius (Neoseiulus) cucumeris | Thripse (Thysanoptera) | 50–100 Milben/m² (vorbeugend); bis 500/m² bei Befall | 2–4 Wochen |
+
+**Hinweise zu §5.3:**
+- *Cryptolaemus montrouzieri:* Optimal bei 25–29 °C und 70–80 % rel. Luftfeuchte — passt gut zum Tropen-Mikroklima der Urnenpflanze. In Mitteleuropa nur April–Oktober wirksam aktiv. Mehrere kleine Freilassungen statt einer großen erhöhen die Etablierung.
+- *Amblyseius cucumeris:* Vorbeugend in Tütchen (Sachets) ausbringen; benötigt > 65 % rel. Luftfeuchte zur Vermehrung — durch die hohe Luftfeuchte am Trichter begünstigt.
+- Nützlingseinsatz ist v.a. bei Sammlungen / Gewächshauskultur sinnvoll; bei Einzelpflanzen genügt meist mechanische Bekämpfung (§5.3 oben, Isopropanol/Neem).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -287,3 +375,14 @@ Aechmea fasciata,Urnenpflanze;Lanzenrosette;Silver Vase Plant;Urn Plant,Bromelia
 3. [Bromeliads.info — Aechmea fasciata Growing Specifications](https://www.bromeliads.info/bromeliad-plant-growing-specifications-aechmea-fasciata/) — Wissenschaftliche Anzuchtdaten
 4. [JoyUsGarden — Aechmea Plant Care Tips](https://www.joyusgarden.com/aechmea-plant-care-tips/) — Vermehrung und Blüteinduktion
 5. [Root & Reach Botanicals — Aechmea fasciata](https://rootandreachbotanicals.com/products/aechmea-fasciata-bromeliad-silver-vase-pet-safe) — Toxizitätsinformation
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PNAS — Crayn, Winter & Smith: Multiple origins of CAM and the epiphytic habit in Bromeliaceae](https://www.pnas.org/doi/10.1073/pnas.0400366101) — CAM-Photosynthese-Typ der Bromeliaceae (peer-reviewed)
+7. [ScienceDirect — Organic acid analysis and plant water status of two Aechmea cultivars (incl. A. fasciata)](https://www.sciencedirect.com/science/article/abs/pii/S0304423805000580) — CAM-Nachweis bei Aechmea (diurnale Apfelsäure, Stomata-Rhythmik), peer-reviewed
+8. [IntechOpen — CAM Photosynthesis in Bromeliads and Agaves](https://www.intechopen.com/chapters/45242) — CAM in Bromelien, geringe VPD-Sensitivität, Schwachlicht-Plastizität
+9. [OurHouseplants — Urn Plant (Temperatur, Wasserqualität)](https://www.ourhouseplants.com/plants/urn-plant) — Mindesttemperatur 15 °C, Hartwasser-/Salzempfindlichkeit, Überwinterung
+10. [Bromeliads.info — Aechmea: The Beginner's Bromeliad](https://www.bromeliads.info/aechmea-starter-bromeliad/) — flaches epiphytisches Wurzelsystem, 10-cm-Topf, Aufnahme über Blätter
+11. [Bromeliads.info — Common Bromeliad Care Mistakes](https://www.bromeliads.info/common-bromeliad-care-mistakes/) — Salz-/Mineralempfindlichkeit, Trichter-Spülung, Regen-/destilliertes Wasser
+12. [greg.app — Aechmea fasciata Light Requirements](https://greg.app/aechmea-fasciata-light-requirements/) — Halbschatten/partial_shade, kein Tiefschatten, kein Vollsonnen-Standort
+13. [Koppert — Cryptolaemus montrouzieri (Mealybug Destroyer)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Wollläuse, Ausbringrate, Etablierung
+14. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Freilassungsraten/m², Klimaoptimum, Teilfreilassungen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

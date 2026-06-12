@@ -20,7 +20,16 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 10 (Wuchs-/Phaenologie-Basis fuer Blattentwicklung; bestaetigt durch USDA-ARS und Annals of Botany) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral (Fruchtansatz taglaengenunabhaengig; kurze Tage foerdern weibliche Bluetenbildung) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslaenge (h) | -- (tagneutral / day_neutral -- keine kritische Tageslaenge; <!-- DATEN FEHLEN --> nicht zutreffend) | `lifecycle_configs.critical_day_length_hours` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (waermeliebende Tropen-/Subtropenkultur ohne Kaeltebedarf) | `lifecycle_configs.vernalization_required` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei Temperaturen unter 10 degC in der Wachstumsphase ab. Kulturzeit 80--100 Tage. Vorkultur ab April zwingend fuer Mitteleuropa; Freilandanbau erst nach Eisheiligen (Mitte Mai). | `species.hardiness_detail` |
@@ -103,6 +112,24 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Rankhilfe/Stuetze noetig | true (bei senkrechter Erziehung; Fruechte mit Netzen stuetzen) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Naehrstoffreiche, humose, hervorragend drainierte Gemuese-/Kraeutererde. pH 6.0--6.8. Grosse Kompost-Anteile (30%). Keine Staunaesse -- Melonen reagieren empfindlich auf nasse Boeden. | -- |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 20 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40--100 (Hauptwurzelmasse in den oberen ~40 cm; Wurzeln reichen unter guten Bedingungen tiefer) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.0--2.2 (Bezugsgroesse: Substrat-ECe / saturated soil extract, NICHT Giesswasser-EC; Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 7.4--8.4 (Maas-Hoffman b; Ertragsrueckgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.8 | `species.soil_ph_preference` |
+
+**Hinweis Licht:** Der angegebene Wert ist ausschliesslich der Lichtkompensationspunkt (Netto-Photosynthese = 0) auf Blattebene fuer Kuerbisgewaechse. Lichtsaettigung liegt deutlich hoeher (Cucurbitaceae je nach Akklimatisierung ca. 600--1000 umol/m2/s) und ist NICHT Teil dieses Feldes.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +159,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer stomataerer Kollaps; deutlich oberhalb des feuchteliebenden Keimkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | -- (Keimung; keine relevante Blatt-Photosynthese) <!-- DATEN FEHLEN --> | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- (Keimung im Dunkeln; nicht zutreffend) <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (feucht halten, keine Staunaesse) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--20 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +181,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Freiland-/Vollsonnen-Niveau; Anker offenes Tageslicht/Vollsonne ~0.5, R:FR~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +203,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 30--34 (Optimum der Blattbildungsrate ~34 degC laut Annals of Botany) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Freiland-/Vollsonnen-Niveau; Anker offenes Tageslicht/Vollsonne ~0.5, R:FR~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 300--600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -180,6 +225,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 50--65 (zu hoch: Bestaeubungsprobleme und Botrytis) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Freiland-/Vollsonnen-Niveau; Anker offenes Tageslicht/Vollsonne ~0.5, R:FR~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 400--700 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -198,6 +249,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 30--34 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Freiland-/Vollsonnen-Niveau; Anker offenes Tageslicht/Vollsonne ~0.5, R:FR~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -214,6 +271,12 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Luftfeuchtigkeit Tag (%) | 40--55 (trocken halten; Feuchtigkeit foerdert Faeulnis und reduziert Zucker) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45--60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2--2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 (oberer Zielwert + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 28--32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.50 (Freiland-/Vollsonnen-Niveau; Anker offenes Tageslicht/Vollsonne ~0.5, R:FR~1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 4--7 (Wasser deutlich reduzieren in den letzten 2 Wochen vor Ernte -- foerdert Zucker!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -227,14 +290,20 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.8--1.2 | 5.8--6.2 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.2 | 120 | 50 | 30 | 3 |
-| Bluete/Fruchtansatz | 2-2-3 | 1.6--2.2 | 5.8--6.2 | 150 | 50 | 30 | 3 |
-| Fruchtentwicklung | 1-2-3 | 2.0--2.8 | 6.0--6.5 | 150 | 60 | 35 | 2 |
-| Reife | 0-1-3 | 1.4--2.0 | 6.0--6.5 | 100 | 40 | -- | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.8--1.2 | 5.8--6.2 | 80 | 30 | 20 | 2 | 0.5 | 0.1 | 0.05 | 0.02 |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.2 | 120 | 50 | 30 | 3 | 0.8 | 0.3 | 0.07 | 0.04 |
+| Bluete/Fruchtansatz | 2-2-3 | 1.6--2.2 | 5.8--6.2 | 150 | 50 | 30 | 3 | 0.8 | 0.3 | 0.07 | 0.05 |
+| Fruchtentwicklung | 1-2-3 | 2.0--2.8 | 6.0--6.5 | 150 | 60 | 35 | 2 | 1.0 | 0.4 | 0.10 | 0.05 |
+| Reife | 0-1-3 | 1.4--2.0 | 6.0--6.5 | 100 | 40 | -- | 1 | 0.5 | 0.2 | 0.05 | 0.03 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoff-Hinweis:** Mn/Zn/Cu/Mo-Werte (manganese/zinc/copper/molybdenum) entsprechen etablierten Hydroponik-Richtwerten fuer Kuerbisgewaechse (Cucurbitaceae); leichte Anhebung in der Wuchs- und Fruchtphase, Reduktion in Saemlings- und Reifephase.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** EC ueber 3.5 mS/cm reduziert die Fruchtgroesse signifikant (ResearchGate Hydroponik-Studie). EC-Management in der Reife wichtig fuer Brix (Zuckergehalt).
 
@@ -470,3 +539,15 @@ Cucumis melo,Melone;Zuckermelone;Honigmelone;Melon;Cantaloupe,Cucurbitaceae,Cucu
 6. [Grove.eco -- Cucumis melo Nachbarn](https://www.grove.eco/en/plants/cucumis-melo/) -- Companion Planting; Fruchtfolge
 7. [ResearchGate -- Melon production using hydroponic systems](https://www.researchgate.net/publication/283034211_Melon_production_using_four_hydroponic_systems) -- EC-Studie; Hydroponik-Daten
 8. [Agric4Profits -- Melon Farming Guide](https://agric4profits.com/melon-farming-cucumis-melo-growing-guide/) -- Anbauguide; Sorten; Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. [USDA-ARS -- Temperature Effects on Phenological Development and Yield of Muskmelon](https://www.ars.usda.gov/ARSUserFiles/80420520/FullTextPublicationspdf/Publications/reddy/muskmelontemp.pdf) -- Kardinaltemperaturen; GDD-Basistemperatur 10 degC; Optimum ~34 degC
+10. [Annals of Botany (Oxford Academic) -- Temperature Effects on Phenological Development and Yield of Muskmelon](https://academic.oup.com/aob/article/87/5/605/2588439) -- Basistemperatur (Tb=10 degC); Optimum (34 degC); Obergrenze (45 degC) der Blattbildungsrate
+11. [Wikipedia -- Salt tolerance of crops](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) -- Maas-Hoffman-Modell; Melone moderately sensitive
+12. [ResearchGate -- Salt tolerance of five muskmelon cultivars (J. Agric. Sci.)](https://www.researchgate.net/publication/231761130_Salt_tolerance_of_five_muskmelon_cutivars) -- ECe-Schwelle und Slope; Salztoleranz-Klasse
+13. [Springer / Irrigation Science -- Root distribution patterns of reticulatus and inodorus melon](https://link.springer.com/article/10.1007/s00271-018-0587-7) -- Wurzelverteilung; effektive Wurzeltiefe Melone
+14. [BMC Plant Biology / PMC -- Growth response of greenhouse muskmelon to soil aeration; root-zone hypoxia](https://pmc.ncbi.nlm.nih.gov/articles/PMC7137469/) -- Staunaesse-/Sauerstoffmangel-Empfindlichkeit
+15. [NC State Extension -- Muskmelons (Cantaloupes)](https://content.ces.ncsu.edu/muskmelons-cantaloupes) -- Boden-pH-Vorzug; Vollsonnen-Standort
+16. [Portland Nursery -- Melon Site Requirements](https://portlandnursery.com/docs/veggies/melon.pdf) -- Vollsonnen-Bedarf (full_sun); keine Schattentoleranz
+17. [New Phytologist (Zhen & Bugbee 2022) -- Photosynthesis in sun and shade: importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) -- Far-Red-Fraction unter offenem Tageslicht/Vollsonne (~0.5 FR/(R+FR))
+18. [PMC -- Estimating Light Acclimation Parameters of Cucumber Leaves](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8860900/) -- Lichtkompensations-/akklimatisierungsparameter Kuerbisgewaechse
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

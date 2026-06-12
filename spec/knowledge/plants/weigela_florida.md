@@ -21,6 +21,16 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | 20–40 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true | `lifecycle_configs.vernalization_required` |
+| Chilling Mindest-Tage (min days) | <!-- DATEN FEHLEN: kein belegter numerischer Chilling-Stunden-/Tageswert für W. florida auffindbar --> | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- nicht zutreffend: photoperiod_type = day_neutral, kein Stunden-Wert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C; in Norddeutschland problemlos; in ersten Jahren Frostschutz im Wurzelbereich empfehlenswert | `species.hardiness_detail` |
@@ -86,6 +96,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale Gartenerde; pH 5,5–7,0; gut durchlässig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s, min–max) | 10–30 | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm, Spanne) | 40–60 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine quantifizierte Maas-Hoffman-a-Schwelle für W. florida belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-b-Wert belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Lichtkompensationspunkt als typische Spanne für laubabwerfende C3-Gehölze unter Halbschatten-Toleranz; der Lichtsättigungspunkt liegt deutlich höher (mehrere hundert µmol/m²/s), gehört aber nicht in das Kompensationspunkt-Feld. Schatten-/Sonnentoleranz `partial_shade`: gedeiht in voller Sonne bis lichtem Halbschatten, blüht in Vollschatten jedoch nicht (RHS, Missouri Botanical Garden). Staunässe `sensitive`: braucht durchlässigen Boden, reagiert empfindlich mit Wurzelfäule (RHS „won't flower well … in soils that are waterlogged"). Salztoleranz „lightly salt tolerant" (NC State, Missouri BG) → Klasse `moderately_sensitive`. pH-Spanne quellentreu auf 5.5–7.0 begrenzt und mit §1.6/§2.3 harmonisiert (RHS toleriert sauer/neutral/alkalisch, kann aber bei pH > 7,5 Eisen-/Mangan-Chlorose zeigen).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,17 +140,23 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 2000–5000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 5.5–7.0 | 100 | 50 | — | 2 |
-| Blüte/Vegetativ | 1:1:2 | 0.8–1.2 | 5.5–7.0 | 80 | 40 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 5.5–7.0 | 100 | 50 | — | 2 | 0.5 | 0.1 | 0.05 | 0.02 | <!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo allgemeine Mikronährstoff-Richtwerte für Gehölze (medium_feeder); art-spezifische Werte für W. florida nicht belegt -->
+| Blüte/Vegetativ | 1:1:2 | 0.8–1.2 | 5.5–7.0 | 80 | 40 | — | 2 | 0.5 | 0.1 | 0.05 | 0.02 | <!-- Quelle: Steckbrief-Erweiterung 2026-06: Mn/Zn/Cu/Mo allgemeine Mikronährstoff-Richtwerte für Gehölze (medium_feeder); art-spezifische Werte für W. florida nicht belegt -->
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
 
 ---
 
@@ -206,6 +239,18 @@ Einmalige organische Düngung im Frühjahr reicht. Keine Düngung nach August (T
 | Neemöl | biological | Azadirachtin | 0.5% sprühen | 3 | Blattläuse, Spinnmilben |
 | Ausreichend gießen | cultural | — | Trockenheit vermeiden | 0 | Blattläuse vorbeugend |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|--------------------|----------------|-------------------|
+| Schlupfwespe (parasitic wasp) | Aphidius colemani | Blattläuse (Aphis spp.) | 0,25–4 Tiere/m², 3× wöchentlich wiederholen | 2–3 Wochen bis Mumienbildung |
+| Gallmücke (predatory gall midge) | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 2–5 Puppen/m², nach 2–4 Wochen wiederholen | 2–4 Wochen |
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 2–50 Tiere/m² je nach Befall, ggf. 1–2× wöchentlich wiederholen | 2–3 Wochen (optimal 20–27 °C, RH > 60 %) |
+
+**Hinweis:** Aphidius colemani und Aphidoletes aphidimyza ergänzen sich bei Blattlausbefall (Schlupfwespe für niedrige, Gallmücke für hohe Befallsdichte). Phytoseiulus persimilis benötigt zur Etablierung relative Luftfeuchte über 60 %; im Freiland an Weigelie daher v. a. in feuchteren Phasen wirksam.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -246,3 +291,11 @@ Weigela florida,"Liebliche Weigelie;Weigelie;Weigela",Caprifoliaceae,Weigela,per
 3. [Gartenratgeber — Weigelie](https://www.gartenratgeber.net/pflanzen/weigelie.html) — Düngen, Schnitt
 4. [Gartenrat — Weigelie](https://gartenrat.de/weigelie/) — Pflege
 5. [Naturadb — Weigela florida](https://www.naturadb.de/pflanzen/weigela-florida/) — Steckbrief
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Weigela florida](https://www.rhs.org.uk/plants/101006/weigela-florida/details) — Standort (Sonne/Halbschatten), Boden-pH (sauer/neutral/alkalisch), Feuchte (durchlässig), Staunässe-Empfindlichkeit
+7. [Missouri Botanical Garden — Weigela florida](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c367) — Sonnenbedarf, mittlere Bodenfeuchte, USDA-Zonen, laubabwerfend, Salztoleranz
+8. [NC State Extension — Weigela florida](https://plants.ces.ncsu.edu/plants/weigela-florida/) — Boden-pH, Licht, „lightly salt tolerant", USDA-Zonen
+9. [Clemson HGIC — Old-Fashioned Weigela](https://hgic.clemson.edu/how-to-grow-and-care-for-old-fashioned-weigela-weigela-florida/) — Sonne, durchlässiger Boden, Bodentypen, USDA-Zonen
+10. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling gegen Blattläuse, Ausbringrate
+11. [Cornell NYSIPM — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringrate, Etablierungsbedingungen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -35°C; in ganz Norddeutschland problemlos ohne jede Schutzmaßnahme | `species.hardiness_detail` |
@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> (keine art-spezifische Wuchs-GDD-Basis publiziert; generische Garten-Konvention 10 °C ist nicht art-spezifisch belegt) | `species.base_temp` |
+| Lebensdauer (Jahre) | 5–10+ (Horst am Standort 10–15 J., alle 4–5 J. teilen) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (dormante Gartensorten ziehen über Winter ein; Winterruhe in USDA 6–8) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Blüte entwicklungs-/temperaturgesteuert, kein obligater Kältereiz zur Blühinduktion belegt) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (n/a, da false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral [day_neutral], keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -90,6 +99,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, gut durchlässige Gartenerde; pH 6,0–7,0; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Messwert publiziert) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Messwert publiziert) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (volle Sonne bevorzugt, mind. 6 h Direktsonne; toleriert Halbschatten, blüht dort schwächer) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (fleischige Speicherwurzeln; 12–18 inch) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate (übersteht kurze Überflutung dank Speicherwurzeln, verträgt aber keine dauerhafte Staunässe → Kronenfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | tolerant (>93 % Überleben bei Bewässerung bis ECiw 7,8 dS/m; küstentauglich) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN --> (kein publizierter Maas-Hoffman-Schwellenwert; vorhandene Studie belegt nur Überlebensraten, keinen Ertrags-Schwellenwert) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN --> (kein publizierter Maas-Hoffman-Slope) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 (neutral bis leicht sauer; mit §1.6/§2.3 harmonisiert) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,26 +137,36 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 300–700 (sonnig bis halbschattig) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 15–35 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14–16 (beobachtete sommerliche Tageslänge zur Blütezeit; KEINE kritische Schwelle — Art ist tagneutral [day_neutral], siehe §1.1) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 18–28 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (deutlich oberhalb des Zielkorridors; kritischer Punkt stomatären Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (mesophytische C3-Staude, keine Sukkulenz) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Freiland-Vollsonne ≈ 0.5; FR700-750/(R600-700+FR700-750)) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 2 |
-| Vegetativ | 1:1:1 | 1.0–1.4 | 6.0–7.0 | 100 | 50 | — | 2 |
-| Blüte | 1:2:2 | 1.0–1.4 | 6.0–7.0 | 80 | 50 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 1:1:1 | 1.0–1.4 | 6.0–7.0 | 100 | 50 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 1:2:2 | 1.0–1.4 | 6.0–7.0 | 80 | 50 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
 
 **Hinweis:** Optimales NPK-Verhältnis für Blütenentwicklung ist phosphor- und kaliumbetont (1:2:2) für Blütenbildung und Wurzelstärke.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) liegen keine art-spezifischen Hemerocallis-Sollwerte aus seriösen Quellen vor (`<!-- DATEN FEHLEN -->`). Hemerocallis ist als bodenbürtige, anspruchslose Gartenstaude i. d. R. ausreichend über das Substrat versorgt; eine Spurenelement-Düngung ist nur bei nachgewiesenem Mangel (Blattanalyse) erforderlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -285,7 +320,7 @@ Taglilien sind pflegeleicht und brauchen keine intensive Düngung. Zweimalige D�
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Hemerocallis spp.,"Taglilie;Daylily",Asphodelaceae,Hemerocallis,perennial,long_day,herb,tuberous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"China, Korea, Japan",yes,20,25,100,70,50,no,yes,false,false,medium_feeder,false,hardy,"6;7;8"
+Hemerocallis spp.,"Taglilie;Daylily",Asphodelaceae,Hemerocallis,perennial,day_neutral,herb,tuberous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"China, Korea, Japan",yes,20,25,100,70,50,no,yes,false,false,medium_feeder,false,hardy,"6;7;8"
 ```
 
 ---
@@ -297,3 +332,13 @@ Hemerocallis spp.,"Taglilie;Daylily",Asphodelaceae,Hemerocallis,perennial,long_d
 3. [Taglilien-Hemerocallis.de — Pflanzung und Pflege](https://www.taglilien-hemerocallis.de/taglilien-pflanzen.html) — Gallmücke, Schädlinge
 4. [COMPO — Taglilien](https://www.compo.de/ratgeber/pflanzen/gartenpflanzen/taglilien) — Düngung
 5. [Gartenjournal — Taglilien düngen](https://www.gartenjournal.net/taglilien-duengen) — NPK-Verhältnis
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — How to grow Hemerocallis](https://www.rhs.org.uk/plants/hemerocallis/growing-guide) — Standort (Vollsonne/Halbschatten), Staunässe-Empfindlichkeit, volle Winterhärte
+7. [NC State Extension — Hemerocallis Plant Toolbox](https://plants.ces.ncsu.edu/plants/hemerocallis/) — Lichtbedarf, Drainage, hohe Salztoleranz
+8. [UMN Extension — Daylilies](https://extension.umn.edu/flowers/daylilies) — Winterhärte USDA 3–10, Dormanz, Boden-pH
+9. [Liu et al. (2016), Agricultural Water Management — Response of Daylily 'Stella de oro' to saline water irrigation](https://www.sciencedirect.com/science/article/abs/pii/S030442381630190X) — Salztoleranz, Überlebensraten bei ECiw bis 7,8 dS/m, Boden-ECe
+10. [Greg.app — Ultimate Guide to Daylily Roots](https://greg.app/daylily-roots/) — Wurzeltiefe 12–18 inch, fleischige Speicherwurzeln, kurze Überflutungstoleranz
+11. [Schreiner's Gardens — Dormant, Evergreen & Semi-evergreen Daylilies](https://www.schreinersgardens.com/pages/whats-the-difference-between-dormant-evergreen-and) — Laub-/Dormanztypen, Winterruhe dormanter Sorten
+12. [Frontiers in Plant Science (2024) — Optimizing Hemerocallis citrina cultivation; PMC12197142 Pollen viability](https://pmc.ncbi.nlm.nih.gov/articles/PMC11443226/) — Temperaturoptima (Pollenkeimung 24–26 °C) als Anker für Photosynthese-T_opt
+13. [Hou et al. (2025), PMC — HfCOL2 / CONSTANS-like in Hemerocallis flowering](https://pmc.ncbi.nlm.nih.gov/articles/PMC12252332/) — Blühregulation entwicklungs-/zirkadian gesteuert, keine eindeutige Lang-/Kurztag-Klassifikation → tagneutral
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

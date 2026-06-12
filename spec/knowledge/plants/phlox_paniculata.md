@@ -21,6 +21,16 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (nicht erforderlich; Kältereiz fördernd ≥ 6 Wochen / ~42 Tage bei 2–7 °C) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 14 | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C; keine Schutzmaßnahmen in Norddeutschland nötig | `species.hardiness_detail` |
@@ -90,6 +100,29 @@
 
 **Standort-KRITISCH:** Eher lichten Halbschatten bevorzugen — pralle Mittagssonne fördert Mehltau. Vollsonnig nur mit ausreichend Wasserversorgung.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 35 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis (Lichtkompensationspunkt):** Generischer LCP-Bereich für temperate C3-Halbschatten-/Sonnenstauden (15–35 µmol/m²/s); art-spezifische Messwerte für *Phlox paniculata* liegen nicht vor. Dies ist NUR der Kompensationspunkt (Netto-Photosynthese = 0); Lichtsättigung liegt deutlich höher und gehört nicht in dieses Feld.
+
+**Hinweis (Salztoleranz):** Jersey-Friendly-Yards-Datenbank stuft *Phlox paniculata* als "medium" salztolerant ein → `moderately_sensitive`. Maas-Hoffman-Parameter (ECe-Schwelle, Slope) sind für die Art nicht publiziert. Bezugsgröße der Klasse ist die Substrat-Salinität (ECe), nicht die Gießwasser-EC.
+
+**Hinweis (pH):** Quellentreuer Vorzugsbereich pH 6,0–7,0 (slightly acidic to neutral), konsistent mit §1.6 und §2.3. Einzelne Quellen nennen eine Toleranz bis pH 8,0 — der bevorzugte Korridor bleibt 6,0–7,0.
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,20 +151,32 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 100 | 50 | — | 2 |
-| Vegetativ | 2:1:2 | 1.0–1.4 | 6.0–7.0 | 120 | 60 | — | 3 |
-| Blüte | 1:2:2 | 1.0–1.4 | 6.0–7.0 | 100 | 50 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Frühjahrsaustrieb | 2:1:1 | 0.8–1.2 | 6.0–7.0 | 100 | 50 | — | 2 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Vegetativ | 2:1:2 | 1.0–1.4 | 6.0–7.0 | 120 | 60 | — | 3 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Blüte | 1:2:2 | 1.0–1.4 | 6.0–7.0 | 100 | 50 | — | 2 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **WICHTIG:** Kein Überschuss-Stickstoff! Zu viel N erhöht die Mehltauanfälligkeit erheblich.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe Mn/Zn/Cu/Mo):** Es liegen keine art-spezifisch publizierten Mikronährstoff-Zielwerte für *Phlox paniculata* vor. Die angegebenen Mn-/Zn-/Cu-/Mo-Konzentrationen sind allgemeine Richtwerte aus Hoagland-typischen Nährlösungsrezepturen für Zierstauden und gelten über die aktiven Wuchsphasen hinweg konstant; in der Winterruhe entfällt jede Düngung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -307,3 +352,11 @@ Phlox paniculata,"Flammenblume;Hoher Stauden-Phlox;Garden Phlox",Polemoniaceae,P
 2. [Plantura — Phlox paniculata](https://www.plantura.garden/blumen-stauden/phlox/phlox-paniculata) — Steckbrief, Sorten
 3. [Plantura — Phlox pflegen](https://www.plantura.garden/blumen-stauden/phlox/phlox-pflegen) — Gießen, Düngen, Schneiden
 4. [COMPO — Phlox](https://www.compo.de/ratgeber/pflanzen/gartenpflanzen/phlox) — Düngung, IPM
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Runkle, Heins, Cameron & Carlson — Flowering of Phlox paniculata Is Influenced by Photoperiod and Cold Treatment, HortScience 33(7):1172–1174 (1998)](https://www.researchgate.net/publication/277865552_Flowering_of_Phlox_paniculata_Is_Influenced_by_Photoperiod_and_Cold_Treatment) — quantitativer Langtag, kritische Tageslänge ~13–14 h, Kältereiz fördernd (≥ 6 Wochen, 2–7 °C), nicht erforderlich
+6. [NC State Extension Gardener Plant Toolbox — Phlox paniculata](https://plants.ces.ncsu.edu/plants/phlox-paniculata/) — Lichtbedarf (full sun bis partial shade), Boden-pH, Drainage
+7. [ForwardPlant — Optimal Soil for Garden Phlox](https://www.forwardplant.com/care/soil/phlox-paniculata/) — Boden-pH 6,0–7,0, Wurzeltiefe 30–45 cm, Staunässe-Empfindlichkeit
+8. [Biology Insights — Phlox Roots: Depth, Planting, and Common Problems](https://biologyinsights.com/phlox-roots-depth-planting-and-common-problems/) — Wurzelsystem-Tiefe (≈30–38 cm)
+9. [Jersey-Friendly Yards — Phlox paniculata](https://www.jerseyyards.org/plant/phlox-paniculata/) — Salztoleranz "medium" (→ moderately_sensitive), Licht, Bodenfeuchte
+10. [Yard & Garden, Iowa State Extension — Using Growing Degree Days](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur 5 °C für kühl-temperate Arten
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

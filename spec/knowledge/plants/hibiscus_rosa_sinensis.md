@@ -17,6 +17,9 @@
 | Familie | Malvaceae | `species.family` → `botanical_families.name` |
 | Gattung | Hibiscus | `species.genus` |
 | Ordnung | Malvales | `botanical_families.order` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -28,6 +31,16 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 10–40 (ältere Sorten/Kübelkultur deutlich länger, neuere Hybriden 5–10) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, kein photoperiodischer Blühtrigger) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+> **Hinweis (Steckbrief-Erweiterung 2026-06):** GDD-Basistemperatur 10 °C entspricht der unteren Schwelle aktiven Wachstums dieser wärmeliebenden tropischen Art — unter 10 °C stoppt das Wachstum, Knospen werden abgeworfen; das Wuchsoptimum liegt bei 18–29 °C. Die Pflanze ist immergrün und durchläuft keine obligate Dormanz und keine Vernalisation; die in §2.1 geführte „Winterruhe" ist eine kulturell erzwungene Wachstumsruhe (Kühlhaltung bei 10–15 °C), keine physiologische Endodormanz.
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +95,28 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, gut drainierte Kübelpflanzenerde; pH 6.0–7.0; jährliches Umtopfen im Frühjahr | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 18 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-a-Wert für die Art --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-b-Wert für die Art --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+> **Hinweise (Steckbrief-Erweiterung 2026-06):**
+> - **Lichtkompensationspunkt (light compensation point, LCP):** Messwert für *H. rosa-sinensis* 15 µmol/m²/s (peer-reviewed); konsistent mit dem typischen LCP-Bereich von C3-Sonnenpflanzen (heliophyte) von 8–16 µmol/m²/s. Angesetzte Spanne 10–18 µmol/m²/s. Der **Lichtsättigungspunkt (light saturation point)** liegt deutlich höher (≈ 322 µmol/m²/s gemessen, hohe Lichtansprüche bis ≥ 800–1200 µmol/m²/s für reiche Blüte) — dieser Sättigungswert gehört NICHT in das LCP-Feld.
+> - **Sonnentoleranz:** Vollsonne bevorzugt (6–8 h direkte Sonne); lichter Halbschatten wird toleriert, reduziert aber Blütenzahl und -größe. Bei > 35 °C profitiert die Pflanze von Nachmittagsschatten.
+> - **Staunässe:** keine Toleranz für stehendes Wasser; flaches, feinwurzeliges (fibrous) Wurzelsystem reagiert empfindlich auf anaerobe Nässe (Wurzelfäule-Gefahr) — gleichmäßig feucht, aber nie nass.
+> - **Salztoleranz:** als moderately_tolerant eingestuft; Wachstum und Vitalität werden ab ≈ 7 dS/m Gießwasser-EC deutlich limitiert, niedrige Hintergrundsalinität (~0,5 dS/m) ist unkritisch. Sortenabhängige Unterschiede (salztolerante vs. -sensitive Cultivars) sind belegt. Klassisch quantifizierte Maas-Hoffman-Schwellenwerte (ECe-Schwelle/Slope, bezogen auf Substrat-ECe) liegen für die Art nicht publiziert vor.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +144,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,18 +166,28 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — |
-| Austrieb | 3:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Blüte | 1:2:3 | 1.5–2.5 | 6.0–6.5 | 150 | 60 | B: 0.5 | 3 |
-| Abreife | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergänzt) -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — | — | — |
+| Austrieb | 3:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 | 0.5 | 0.1 | 0.05 | 0.03 |
+| Blüte | 1:2:3 | 1.5–2.5 | 6.0–6.5 | 150 | 60 | B: 0.5 | 3 | 0.8 | 0.15 | 0.05 | 0.05 |
+| Abreife | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 40 | — | 1 | 0.3 | 0.05 | 0.03 | 0.02 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+> **Hinweis (Steckbrief-Erweiterung 2026-06):** Die Mikronährstoff-Zielkonzentrationen (Mn/Zn/Cu/Mo) folgen Standard-Richtwerten für Zierpflanzen-Nährlösungen (Mn 0,5–2; Zn 0,05–1; Cu 0,05–0,5; Mo 0,02–0,05 ppm) und sind hier phasenabhängig (höher in der wuchs-/blühstarken Phase) abgestuft. Artspezifisch ist für *H. rosa-sinensis* belegt, dass hohe Kalium-Gaben Gewebe-Mn/Zn anheben und Zink-Düngung den Fe-/Mn-Gehalt im Blatt senkt — Mikronährstoffe daher ausgewogen dosieren. Bei zu hohem pH droht Eisen-/Mangan-Chlorose (siehe §3.4).
 
 ### 2.4 Phasenübergangsregeln
 
@@ -315,3 +366,14 @@ Hibiscus rosa-sinensis,Zimmerhibiskus;Chinesischer Roseneibisch;Tropical Hibiscu
 3. [Gartendialog – Zimmerhibiskus Pflege](https://www.gartendialog.de/zimmerhibiskus-pflege/) — Vollständige Anleitung
 4. [Lubera – Hibiscus rosa-sinensis](https://www.lubera.com/de/gartenbuch/hibiscus-rosa-sinensis-p1519) — Botanik, Kulturtipps
 5. [Zimmerpflanzen-FAQ – Hibiscus rosa-sinensis](https://zimmerpflanzen-faq.de/hibiscus-rosa-sinensis/) — Steckbrief
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS – Hibiscus rosa-sinensis](https://www.rhs.org.uk/plants/8738/hibiscus-rosa-sinensis/details) — Standort (Vollsonne), Boden-pH (neutral bis leicht sauer)
+7. [NC State Extension – Hibiscus rosa-sinensis](https://plants.ces.ncsu.edu/plants/hibiscus-rosa-sinensis/) — Wuchsform, immergrün, Sonnenansprüche, ganzjährige Blüte in frostfreiem Klima
+8. [Smithsonian Gardens – Care of Hibiscus rosa-sinensis](https://gardens.si.edu/learn/educational-resources/plant-care-sheets/care-of-hibiscus-rosa-sinensis/) — Temperaturansprüche, fehlende obligate Dormanz, Pflege
+9. [PMC11478917 – Comparative Photosynthetic, Biochemical and Ultrastructural Mechanisms in Hibiscus and Pelargonium (peer-reviewed)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11478917/) — Lichtkompensationspunkt (15 µmol/m²/s), Lichtsättigungspunkt, A_max für *H. rosa-sinensis*
+10. [ScienceDirect Topics – Light Compensation](https://www.sciencedirect.com/topics/engineering/light-compensation) — typischer LCP-Bereich von C3-Sonnenpflanzen (8–16 µmol/m²/s)
+11. [HortScience 60(6) – Morphological and Physiological Responses of Three Ornamental Species to Saline Water Irrigation (ASHS, peer-reviewed)](https://journals.ashs.org/view/journals/hortsci/60/6/article-p940.xml) — Salztoleranz, Wachstumslimitierung ab ≈ 7 dS/m
+12. [Molecular Horticulture – Salt stress in salinity-sensitive and tolerant Hibiscus rosa-sinensis cultivars (peer-reviewed)](https://link.springer.com/article/10.1186/s43897-023-00075-y) — sortenabhängige Salztoleranz, physiologische Stressantwort
+13. [University of Florida IFAS – Hibiscus rosa-sinensis Fact Sheet](https://hort.ifas.ufl.edu/database/documents/pdf/shrub_fact_sheets/hibrosa.pdf) — flaches fibroses Wurzelsystem, Standort, Drainagebedarf
+14. [LifeTips/Alibaba Plant Care – Tropical Hibiscus Temperature & Root System](https://lifetips.alibaba.com/plant-care/hibiscus-plant-root-system) — Wurzeltiefe (Großteil in oberen ~30 cm), Wachstumsstopp unter 10 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

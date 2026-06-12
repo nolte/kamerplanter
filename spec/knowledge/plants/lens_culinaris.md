@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.5–5 | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: quantitativer (nicht qualitativer) Langtag-Responder ohne scharfen Stunden-Schwellenwert; kritische Tageslänge ist genotyp-/temperaturabhängig und sinkt mit steigender Temperatur --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Kälteverlträglich bis ca. -5°C im Keimlingsstadium; frühzeitige Aussaat möglich (März); Spätfröste nach Bestockung können Ertragseinbußen verursachen | `species.hardiness_detail` |
@@ -28,8 +36,21 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | nitrogen_fixer | `species.nutrient_demand_level` |
 | Gründüngung geeignet | true | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestäuber erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | — | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten (compatible pollinators) | — | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **N-Fixierung:** Lens culinaris fixiert in Symbiose mit *Rhizobium leguminosarum* bv. viciae 50–100 kg N/ha. Impfung mit geeignetem Rhizobium-Impfstoff bei Erstanbau empfohlen. Die Pflanze produziert trotzdem essbare Körner — doppelter Nutzen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Photoperiode-Hinweis:** Linse ist ein *quantitativer* Langtag-Responder — lange Tage und Wärme beschleunigen die Blüte, sind aber nicht obligat. Es gibt keinen scharfen kritischen Stunden-Schwellenwert; die Reaktion folgt einem linearen Modell `1/f = a + bT + cP` (T = Temperatur, P = Photoperiode). `photoperiod_type=long_day` bleibt die korrekte Einstufung; ein obligates Kältebedürfnis (Vernalisation) besteht NICHT.
+
+**GDD-Basistemperatur:** Die Wuchs-/Phänologie-Basis liegt bei ca. 4,5–5 °C (kühlsaisonale Leguminose). Kardinaltemperatur für Keimung/Emergenz: Basis 4,5 °C, Optimum ~22,9 °C, Maximum 40 °C. Nicht mit höheren Keim-Optima verwechseln.
+
+**Bestäubung:** Linse ist strikt selbstbestäubend (cleistogam — Bestäubung erfolgt vor dem Öffnen der Blüte; < 1 % Fremdbefruchtung) und selbstfertil. Daher `requires_pollinator=false`; keine Kreuzbefruchtungsgruppe und keine Befruchter-Sorten erforderlich (Felder bleiben leer). Eine Bestäubung durch Insekten ist nicht nötig.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Historische Bedeutung:** Linse ist eine der ältesten Kulturpflanzen der Menschheit und stand an der Wiege der Landwirtschaft im Nahen Osten.
 
@@ -86,6 +107,29 @@
 | Rankhilfe/Stütze nötig | limited (niedrige Sorten stehen; höhere können lagern) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, durchlässige Erde; pH 6,0–8,0; kalkverträglich; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein belastbarer artspezifischer Lens-culinaris-Messwert aus ≥2 unabhängigen Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein belastbarer artspezifischer Lens-culinaris-Messwert aus ≥2 unabhängigen Quellen --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 40–60 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 1.5–2 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: keine konsolidierte Maas-Hoffman-Slope (b) für Lens culinaris belegt; Linse fehlt in den FAO-Salztoleranztabellen --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–8.0 | `species.soil_ph_preference` |
+
+**Hinweise zur Standortqualität:**
+- **Licht:** Linse ist eine ausgesprochene Volllicht-Kultur (full sun, ≥ 6–8 h direkte Sonne); nicht schattenverträglich (stark/leggy/blühschwach im Schatten). Sättigungs-, Photoinhibitions- und Optimum-PPFD-Werte gehören NICHT ins LCP-Feld.
+- **Wurzeltiefe:** Relativ flaches Pfahlwurzelsystem (~0,6 m); ~59 % des Wurzelvolumens in 0–20 cm, ~21 % in 20–40 cm, ~16 % in 40–60 cm. Daher die Spanne 40–60 cm als effektive Wurzelzone.
+- **Staunässe:** Sehr empfindlich — Staunässe führt rasch zu Wurzelfäulen; daher durchlässige, gut drainierte Böden zwingend.
+- **Salz:** Salzempfindlich (sensitive) — nur auf nicht-salinen Böden anbaubar. Bei ECe ≈ 2 dS/m (Substrat-ECe, nicht Gießwasser-EC) bereits ~20 % Ertragsminderung, bei 3 dS/m 90–100 %. Konsistent mit Klasse `sensitive` (Schwelle < 2 dS/m).
+- **pH:** Vorzug pH 6,0–8,0 (kalkverträglich, leicht alkalisch ideal), harmonisiert mit §1.6 und den Nährstoffprofilen §2.3.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +156,12 @@
 | Temperatur Nacht (°C) | 8–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–4 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Vegetativ
@@ -125,6 +175,12 @@
 | Temperatur Nacht (°C) | 10–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.7–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–10 (trockenheitstolerante Pflanze) | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Blüte
@@ -137,6 +193,12 @@
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–8 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Reife
@@ -148,17 +210,27 @@
 | Temperatur Nacht (°C) | 14–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–55 (trocken für Ernte) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.2–2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–21 (Wasserreduktion) | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–8.0 | — | — |
-| Sämling | 0:1:1 | 0.4–0.8 | 6.0–8.0 | 60 | 20 |
-| Vegetativ | 0:1:2 | 0.6–1.2 | 6.0–8.0 | 80 | 30 |
-| Blüte | 0:2:2 | 0.8–1.4 | 6.0–8.0 | 80 | 40 |
-| Reife | 0:1:1 | 0.4–0.8 | 6.0–8.0 | 60 | 20 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | Zn (ppm) | Cu (ppm) | Mo (ppm) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–8.0 | — | — | — | — | — | — |
+| Sämling | 0:1:1 | 0.4–0.8 | 6.0–8.0 | 60 | 20 | 0.5 | 0.05 | 0.05 | 0.05 |
+| Vegetativ | 0:1:2 | 0.6–1.2 | 6.0–8.0 | 80 | 30 | 0.5 | 0.1 | 0.05 | 0.05 |
+| Blüte | 0:2:2 | 0.8–1.4 | 6.0–8.0 | 80 | 40 | 0.5 | 0.1 | 0.05 | 0.05 |
+| Reife | 0:1:1 | 0.4–0.8 | 6.0–8.0 | 60 | 20 | 0.5 | 0.05 | 0.05 | 0.05 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoff-Hinweis:** Mn/Zn/Cu/Mo sind Fertigations-Zielkonzentrationen (Lösung), keine Gewebe-/Korngehalte. Werte folgen etablierten Hydroponik-Standardbereichen (Mn 0,5; Zn 0,05–0,1; Cu 0,05; Mo 0,05 ppm). **Molybdän (Mo)** ist für die N-Fixierung der *Rhizobium*-Knöllchen essentiell (Nitrogenase-Cofaktor) und daher bei Linse besonders zu beachten (vgl. §3.2).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -241,6 +313,17 @@ KEINE Stickstoffdüngung bei funktionierender Rhizobium-Symbiose. Kalziumversorg
 | Trichoderma-Beizmittel | biological | Trichoderma harzianum | Saatgutbeize | 0 | Saatgutfäulen |
 | Weite Fruchtfolge | cultural | — | 3–4 Jahre Pause | 0 | Sklerotinia, Aszochyta |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius ervi | Erbsenblattlaus (Acyrthosiphon pisum) — große Blattlausart | ~0,25–0,5 Tiere/m²; mind. 2 Freilassungen im Abstand von 1 Woche | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (u. a. Aphis fabae, A. pisum) | ~1–2 Larven/m²; 1–3 Wiederholungen im 1–2-Wochen-Takt | 2–3 Wochen |
+
+**Hinweis:** *Aphidius ervi* parasitiert gezielt größere Blattläuse wie die Erbsenblattlaus; *Aphidoletes aphidimyza* deckt ein breites Blattlaus-Spektrum ab und ergänzt die Schlupfwespe bei hohem Befallsdruck. Früher Einsatz (vor Populationsexplosion) zu Saisonbeginn entscheidend. Beide gegen die in §5.1 gelisteten Blattläuse.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -310,3 +393,20 @@ Anicia,Lens culinaris,"beluga_type;black;gourmet",110,open_pollinated
 3. [Bayerische LfL — Körnerleguminosen](https://www.lfl.bayern.de/ipz/leguminosen) — Mitteleuropa
 4. [FAO Lentil Crop Profile](https://www.fao.org) — Globale Anbausysteme, Nährstoffe
 5. [Royal Horticultural Society — Lentils](https://www.rhs.org.uk) — Gartenbau-Empfehlungen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Summerfield et al. — Effects of Temperature and Photoperiod on Flowering in Lentils, Annals of Botany 56(5):659](https://academic.oup.com/aob/article/56/5/659/191276) — Photoperiode (quantitativer Langtag-Responder), Temperatur-Photoperiode-Blühmodell
+7. [Characterization of responses to temperature and photoperiod for time to flowering in a world lentil collection, Theor. Appl. Genet.](https://link.springer.com/article/10.1007/BF00224386) — quantitative Photoperiodik, kritische Tageslänge temperaturabhängig
+8. [Cardinal temperatures and thermal time required for emergence of lentil, Legume Research LR-266](https://arccjournals.com/journal/legume-research-an-international-journal/LR-266) — GDD-Kardinaltemperaturen (Basis 4,5 °C, Optimum 22,9 °C, Maximum 40 °C)
+9. [Photothermal Quotient — Thermal Index for Lentil Phenology, Legume Research LR-4949](https://arccjournals.com/journal/legume-research-an-international-journal/LR-4949) — Phänologie-GDD mit Basistemperatur 5 °C
+10. [Frontiers in Plant Science — Root Traits, Nodulation and Root Distribution in Lens culinaris](https://www.frontiersin.org/articles/10.3389/fpls.2017.01632/full) — Wurzelverteilung 0–60 cm, effektive Wurzeltiefe
+11. [Government of Saskatchewan — Red Lentils / Pulse Crops](https://www.saskatchewan.ca/business/agriculture-natural-resources-and-industry/agribusiness-farmers-and-ranchers/crops-and-irrigation/field-crops/pulse-crop-bean-chickpea-faba-bean-lentils/red-lentils) — flaches Wurzelsystem ~0,6 m, Standortqualität
+12. [Salt stress in pulses: global research review (IJGPB)](https://www.isgpb.org/journal/index.php/IJGPB/article/download/431/32) — Salzempfindlichkeit, ECe-Schwelle ~2 dS/m, Maas-Hoffman-Einordnung
+13. [Feedipedia — Lentil (Lens culinaris)](https://www.feedipedia.org/node/284) — Staunässe-/Salzempfindlichkeit, pH-Spektrum, Wuchsform
+14. [Wikifarmer — Lentil Soil Requirements / Growing Lentils](https://wikifarmer.com/library/en/article/lentil-soil-requirements-soil-preparation-and-planting) — Boden-pH 6,0–8,0, Volllichtbedarf, Staunässe-Empfindlichkeit
+15. [Canadian Food Inspection Agency — The Biology of Lens culinaris (Lentil)](https://inspection.canada.ca/en/plant-varieties/plants-novel-traits/applicants/directive-94-08/biology-documents/lens-culinaris-medikus-lentil) — strikte Selbstbestäubung (Cleistogamie), < 1 % Fremdbefruchtung
+16. [Plants For A Future — Lens culinaris](https://pfaf.org/user/plant.aspx?LatinName=Lens+culinaris) — selbstfertil, cleistogame Bestäubung
+17. [Evergreen Growers Supply — Aphidius ervi (Parasitoid für große Blattläuse)](https://www.evergreengrowers.com/aphidius-ervi.html) — Nützling gegen Erbsenblattlaus
+18. [Sound Horticulture — Aphidoletes aphidimyza](https://soundhorticulture.com/products/aphidoletes-aphidimyza) — Gallmücke gegen Blattläuse, Ausbringraten
+19. [PMC — Pea Aphid Population Dynamics and Yield Loss on Lentil](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8707183/) — Acyrthosiphon pisum Hauptschädling der Linse
+20. [PSU / Greenhouse Grower — Hydroponic micronutrient solution ranges](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Fertigations-Standardbereiche Mn/Zn/Cu/Mo
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

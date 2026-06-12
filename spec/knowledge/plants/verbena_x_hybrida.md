@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | 5 (MSU-Blüh-/Entwicklungsmodell: 41–44 °F ≈ 5–7 °C für zwei V.-×-hybrida-Sorten; unterer Wert als kältetolerante Einordnung) | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig kultiviert; kein perennial-Wert) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false (keine echte Winterruhe; frostbedingtes Absterben, kein Kältebedarf) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tagneutral; Blüte temperatur-/lichtgesteuert, kein Kältereiz nötig) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Schwellenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 8a–11b (als Einjährige in 4a–11b) | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostempfindlich; stirbt bei Frost; in Mitteleuropa als einjährige Sommerblume; Überwinterung im frostfreien Quartier (5–10°C) möglich; Stecklinge überwintern besser als ganze Pflanzen | `species.hardiness_detail` |
@@ -88,6 +97,23 @@
 | Rankhilfe/Stütze nötig | false (hängende/kriechende Wuchsform; selbstdeckend) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige Balkonblumenerde; pH 5,8–6,5; leicht sauer; Perlite-Anteil 20% für bessere Drainage | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 20 (typischer Bereich sonnenadaptierter C3-Krautpflanzen; netto-Photosynthese = 0) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (Sonnenliebhaber; 6–10 h direkte Sonne; toleriert keinen Schatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe min (cm) | 15 (flaches faseriges System; Min.-Topftiefe der Art = 15 cm) | `species.effective_root_depth_cm` |
+| Effektive Wurzeltiefe max (cm) | 30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (braucht dränierenden Boden; Wurzelfäule bei nassem Substrat) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (Gattung gilt als gering bis mäßig salzverträglich; kein art-spezifischer Maas-Hoffman-Datensatz) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein belegter Maas-Hoffman a-Wert für V. × hybrida --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein belegter Maas-Hoffman b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.8–6.5 (leicht sauer; quellentreu, harmonisiert mit §1.6/§2.3; Gesamttoleranz der Art reicht bis ~7.0) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,11 +135,17 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 0–50 (Dunkelkeimer; Licht hemmt Keimung!) | `requirement_profiles.light_ppfd_target` |
-| DLI (mol/m²/Tag) | — | `requirement_profiles.dli_target_mol` |
+| DLI (mol/m²/Tag) | 0–3 (Keimung lichtunabhängig/dunkel; minimaler DLI) <!-- Quelle: Steckbrief-Erweiterung 2026-06 / DLI-Keimung --><!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.dli_target_mol` |
 | Temperatur Tag (°C) | 20–25 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 18–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 75–90 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.2–0.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.8 (kritischer Punkt oberhalb des feuchteliebenden Keim-Korridors; Oberkante 0.5 + ~0.3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (C3-Krautpflanze) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Anzuchtdunkel/diffus; Tageslicht-Anker, R:FR≈1.1–1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2 (gleichmäßig feucht; nicht nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | — (Substrat feucht halten) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -128,6 +160,12 @@
 | Temperatur Nacht (°C) | 15–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (oberhalb des Zielkorridors; Oberkante 0.9 + ~0.3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne/offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -144,6 +182,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (stomatärer Kollaps deutlich oberhalb des Korridors; Oberkante 1.4 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 (wärmetolerant; gute Leistung bis ~35 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Vollsonne; R:FR≈1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Balkon: täglich im Sommer; Trockenheit schadet Blüte) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -157,6 +201,10 @@
 | Vegetativ | 2:1:2 | 0.8–1.4 | 5.8–6.5 | 80 | 30 |
 | Hauptblüte | 1:2:2 | 1.0–1.8 | 5.8–6.5 | 80 | 35 |
 | Herbstblüte | 1:2:2 | 0.8–1.4 | 5.8–6.5 | 60 | 25 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo, ppm):** <!-- DATEN FEHLEN --> Keine art-spezifisch belegten Mn-/Zn-/Cu-/Mo-Sollwerte für *Verbena × hybrida* in der Nährlösung auffindbar; allgemeine Floriculture-Standardbereiche existieren, sind aber nicht artspezifisch validiert. Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm` bleiben bis zur Belegung leer (Standard-Mikronährstoff-Mix des Volldüngers verwenden).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -347,3 +395,11 @@ Superbena Coral Red,Verbena × hybrida,"trailing;large_flower;vegetative;heat_to
 3. [Ball Horticulture Verbena Growing Guide](https://www.ballhort.com) — Produktionsanleitung
 4. [USDA PLANTS — Verbena](https://plants.usda.gov) — Taxonomie
 5. [Bayerische Gartenakademie — Balkonpflanzen](https://www.lwg.bayern.de/gartenakademie) — Balkon-Praxis
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [MSU Extension / Greenhouse Grower — Energy-Efficient Annuals: Pentas & Verbena (Blanchard, Vaid, Runkle)](https://www.canr.msu.edu/uploads/resources/pdfs/energy-efficient-annuals-pentas-and-verbena.pdf) — Basistemperatur Verbena × hybrida 41–44 °F (≈5–7 °C), Temperatur-/DLI-Blühmodell
+7. [MSU Floriculture — Light and Temperature Responses of Bedding Plants (Runkle, Blanchard)](https://www.canr.msu.edu/floriculture/uploads/files/Light%20and%20temp%20on%20bedding.pdf) — Basistemperatur-Einordnung (kältetolerant/-sensitiv), Verbena im kältetoleranten Bereich
+8. [RHS — How to grow verbena (Growing Guide)](https://www.rhs.org.uk/plants/verbena/growing-guide) — Vollsonne-Bedarf, dränierender Boden, Staunässe-Empfindlichkeit
+9. [Clemson HGIC — Verbena](https://hgic.clemson.edu/factsheet/verbena/) — Standort (full sun, keine Schattentoleranz), Drainageansprüche
+10. [Gardenia.net — Verbena Growing Guide](https://www.gardenia.net/guide/verbena-plant-care-and-growing-guide) — Boden-pH-Vorzug, well-drained Substrat
+11. [Oxford JXB / PMC — Canopy light, red:far-red ratio](https://pmc.ncbi.nlm.nih.gov/articles/PMC11805590/) — Tageslicht-Anker R:FR ≈ 1.1–1.3 → FR/(R+FR) ≈ 0.5; Anstieg unter Laubdach
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

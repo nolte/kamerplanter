@@ -25,6 +25,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: keine artspezifische GDD-Basis aus 2 unabhängigen seriösen Quellen belegbar --> | `species.base_temp` |
+| Lebensdauer (Jahre, Kultur) | 70–150 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (kein Kältebedarf für Wachstum/Blüte) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis ca. -23°C (Zone 6a); frischer Austrieb im Frühjahr frostempfindlich (-3°C); Wintersonne und Windschutz bei Jungpflanzen empfehlenswert | `species.hardiness_detail` |
@@ -92,6 +101,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, durchlässige Erde; pH 6,5–7,5; keine Staunässe; Balkonkastenerde mit Perlite | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: keine artspezifischen LCP-Messwerte aus 2 frei zugänglichen seriösen Quellen belegbar (Primärstudien paywall) --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: keine artspezifischen LCP-Messwerte aus 2 frei zugänglichen seriösen Quellen belegbar --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | deep_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine publizierte Maas-Hoffman-Schwelle für die Art (ornamental, nicht in Salztoleranz-Datensätzen quantifiziert) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-Slope für die Art --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.5 | `species.soil_ph_preference` |
+
+**Hinweis (Lichtphysiologie):** Buxus sempervirens ist eine ausgesprochen schattentolerante (deep_shade) immergrüne Art und toleriert sogar tiefen Schatten unter Baumkronen; in voller Sonne nur bei zuverlässig feuchtem Boden, sonst Blattverbrennungen (leaf scorch). Die Art zeigt ein "Stress-Resistance-Syndrome" mit nur geringer Änderung der Netto-Photosynthese über einen weiten Lichtgradienten.
+
+**Hinweis (Salz):** Über alle Salzquellen hinweg (Sprühsalz, Bodensalz, Auftausalz) als salzempfindlich (sensitive) eingestuft — ungeeignet für Küstenlagen und straßennahe Pflanzungen mit Auftausalzeintrag. Bezugsgröße der (hier nicht quantifizierbaren) Schwelle wäre Substrat-ECe, nicht die Gießwasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -119,6 +148,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht / Halbschatten) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -135,6 +170,12 @@
 | Luftfeuchtigkeit Tag (%) | 45–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +189,10 @@
 | Formschnitt-Phase | 2:1:2 | 1.0–1.4 | 6.5–7.0 | 100 | 50 | – | 2 |
 | Herbstvorbereitung | 1:1:3 | 0.8–1.2 | 6.5–7.0 | 80 | 50 | – | 1 |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe Mn/Zn/Cu/Mo (ppm) je Phase:** <!-- DATEN FEHLEN: keine artspezifischen Ziel-ppm für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) aus 2 unabhängigen seriösen Quellen für Buxus sempervirens belegbar. KA-Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm` bleiben daher unbelegt. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -346,3 +391,14 @@ Buxus sempervirens,"Buchsbaum;Gemeiner Buchsbaum;Common Box",Buxaceae,Buxus,pere
 3. [Buchsbaumzuensler.net — Buchsbaum im Garten](https://www.buchsbaumzuensler.net/buchsbaeume-im-garten/) — Zünsler-Bekämpfung
 4. [Buchsbaumersatz-Alternativen](https://www.buchsbaumzuensler.net/buchsbaum-alternativen/) — Alternativpflanzen
 5. [Pflanzen-Kölle Buchsbaum-Pflege](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meinen-buchs-richtig/) — Allgemeine Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Buxus sempervirens (common box)](https://www.rhs.org.uk/plants/2579/buxus-sempervirens/details) — Lichtansprüche/Schattentoleranz (deep_shade), Standort
+7. [RHS — How to grow box (Growing Guide)](https://www.rhs.org.uk/plants/box/growing-guide) — Drainage/Staunässe-Empfindlichkeit, Sonnenbrand bei Trockenheit
+8. [Purdue Extension — Salt Damage in Landscape Plants (ID-412-W)](https://www.extension.purdue.edu/extmedia/id/id-412-w.pdf) — Salzempfindlichkeit (sensitive) Buxus sempervirens
+9. [Virginia Cooperative Extension — Trees and Shrubs that Tolerate Saline Soils and Salt Spray Drift](https://www.pubs.ext.vt.edu/430/430-031/430-031.html) — Salztoleranz-Einordnung Gehölze
+10. [North Carolina Extension Gardener Plant Toolbox — Buxus sempervirens](https://plants.ces.ncsu.edu/plants/buxus-sempervirens/) — Wuchsform, immergrünes Breitblattgehölz (C3-Einordnung), Standort
+11. [PFAF — Buxus sempervirens](https://pfaf.org/user/Plant.aspx?LatinName=Buxus+sempervirens) — pH-Spanne, alkalische Standorte, Standortansprüche
+12. [Springer/Trees — Long-term acclimation of Buxus sempervirens to understory and canopy gap light](https://link.springer.com/article/10.1007/s00468-011-0609-z) — Schattentoleranz, Photosynthese-Licht-Reaktion (Stress-Resistance-Syndrome)
+13. [Woodland Trust — Common Box (Buxus sempervirens)](https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/box/) — Langlebigkeit/Lebensdauer
+14. [PictureThis — Optimal Temperature for Common boxwood](https://www.picturethisai.com/care/temperature/Buxus_sempervirens.html) — Optimal-Temperaturband 15–24 °C (Grundlage Photosynthese-T_opt)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

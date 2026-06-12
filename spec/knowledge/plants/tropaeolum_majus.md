@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: nur Keim-/Kardinaltemperaturen (~7 °C unterer Keimschwellwert) belegt, keine validierte Wuchs-GDD-Basis --> | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (einjährig, tropische Anden-Herkunft ohne Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | — (tagneutral; photoperiod_type=day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 9a–11b (als einjährige in Zone 4–8) | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Keine Frosttoleranz; stirbt bei erster Frostnacht; nach Eisheiligen (15. Mai) auspflanzen | `species.hardiness_detail` |
@@ -80,7 +89,25 @@
 | Balkon-/Terrassenanbau | yes | `species.balcony_suitable` |
 | Gewächshaus empfohlen | false | `species.greenhouse_recommended` |
 | Rankhilfe/Stütze nötig | true (rankende Sorten) | `species.support_required` |
-| Substrat-Empfehlung (Topf) | Magere bis normale Gartenerde; pH 5,5–7,0; KEIN frischer Mist/Kompost (fördert Blatt, hemmt Blüte) | — |
+| Substrat-Empfehlung (Topf) | Magere bis normale Gartenerde; pH 6,1–7,8 (Optimum 6,5–7,5); KEIN frischer Mist/Kompost (fördert Blatt, hemmt Blüte) <!-- Quelle: Steckbrief-Erweiterung 2026-06: pH-Spanne quellentreu auf 6,1–7,8 harmonisiert (PFAF/NCSU/RHS), vormals unterbelegte 5,5 entfernt --> | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein art-spezifisch gemessener LCP für Tropaeolum majus belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein art-spezifisch gemessener LCP für Tropaeolum majus belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: keine Maas-Hoffman-Schwellwerte (a) für T. majus publiziert; Klasse sensitive ≈ <2 dS/m --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope (b) für T. majus publiziert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6,1–7,8 | `species.soil_ph_preference` |
+
+> **Hinweise:** Schatten-/Sonnentoleranz = wächst in voller Sonne bis Halbschatten; in Halbschatten deutlich reduzierter Blütenansatz (Blüte verlangt volle Sonne). Salztoleranz: *T. majus* gilt in peer-reviewed Studien als salzempfindlich (salt-sensitive); ECe-Bezug = Substrat-Sättigungsextrakt, nicht Gießwasser-EC. Staunässe-Toleranz sensitive: gute Drainage ist zwingend, Nässe fördert Wurzelfäule, dennoch keine Trockenheit (dislikes drought).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -109,6 +136,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, R:FR≈1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -175,6 +208,17 @@ Kapuzinerkresse auf mageren Böden halten! Auf nährstoffreichen Böden oder nac
 
 **Empfehlung:** Kapuzinerkresse bewusst als Ablenkkultur in der Nähe von Bohnen, Tomaten und Kohl pflanzen. Bei Blattlausbefall an Kapuzinerkresse → Befallene Triebe abschneiden und entsorgen ODER Blattläuse stehen lassen und Marienkäfer anlocken (natürliche Regulation).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe (parasitic wasp) | Aphidius colemani | Schwarze Bohnenlaus (Aphis fabae) u. a. Blattläuse | 0,25–4 Tiere/m² je Freilassung, mind. 3× im Wochenabstand | erste Mumien (mummies) nach 10–14 Tagen |
+| Gallmücke (predatory gall midge) | Aphidoletes aphidimyza | Blattläuse (Aphis fabae, Brevicoryne brassicae) | 1–10 Tiere/m² je Freilassung, wöchentlich bis Kontrolle | Larvenfraß ab wenigen Tagen, Etablierung 1–2 Wochen |
+
+> **Hinweise:** *Aphidius colemani* und *Aphidoletes aphidimyza* sind beide gegen Blattläuse wirksam und kombinierbar. *Aphidoletes* NICHT zusammen mit Florfliegen (*Chrysoperla carnea*) ausbringen — Florfliegenlarven fressen die Gallmückenlarven. Bei dichten Blattlauskolonien wirkt die Gallmücke schneller als die Schlupfwespe. Ratenangaben gelten für Gewächshaus-/geschützten Anbau (Koppert); im Freiland fördern Trap-Crop-Effekt und natürliche Marienkäfer-Zuwanderung die Regulation zusätzlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -236,3 +280,14 @@ Tropaeolum majus,"Große Kapuzinerkresse;Kapuzinerkresse;Garden Nasturtium;India
 2. [Naturadb Tropaeolum majus](https://www.naturadb.de/pflanzen/tropaeolum-majus/) — Steckbrief, Eigenschaften
 3. [Samen.de Kapuzinerkresse Bioindikator](https://samen.de/blog/kapuzinerkresse-natuerlicher-bioindikator-im-garten.html) — IPM-Funktion
 4. [Gartenratgeber Kapuzinerkresse](https://www.gartenratgeber.net/pflanzen/kapuzinerkresse.html) — Pflege, Anbau
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — Tropaeolum majus garden nasturtium](https://www.rhs.org.uk/plants/85362/tropaeolum-majus/details) — Standort (volle Sonne/leichter Schatten), magere Böden, Blütephysiologie
+6. [NC State Extension — Tropaeolum majus](https://plants.ces.ncsu.edu/plants/tropaeolum-majus/) — Lichtbedarf, Boden-pH (sauer–alkalisch), Drainage, Drought/Neglect-Toleranz
+7. [PFAF — Tropaeolum majus](https://pfaf.org/user/Plant.aspx?LatinName=Tropaeolum+majus) — Boden-pH, Lichtbedarf, Feuchte (dislikes drought), gut drainierter Boden
+8. [Gardenia.net — Tropaeolum majus (Nasturtium)](https://www.gardenia.net/plant/tropaeolum-majus-nasturtium) — Boden-pH-Optimum 6,5–7,5, volle Sonne/Halbschatten
+9. [MDPI Plants 2025 — Growth, Gas Exchange and Phytochemical Quality of Nasturtium under Salinity](https://www.mdpi.com/2223-7747/14/3/301) — peer-reviewed: T. majus salzempfindlich (salt-sensitive)
+10. [PMC — Salicylic Acid, Nicotinamide and Proline mitigate salt stress in Tropaeolum majus](https://pmc.ncbi.nlm.nih.gov/articles/PMC12030097/) — peer-reviewed: Salzempfindlichkeit, Salzstress-Schäden
+11. [Greg.app — Garden Nasturtium Roots](https://greg.app/garden-nasturtium-roots/) — fibröses, flaches Wurzelsystem, Wurzeltiefe 15–30 cm
+12. [Koppert — Aphidius colemani (parasitic wasp)](https://www.koppertus.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate 0,25–4/m², Mumien nach 10–14 Tagen
+13. [Koppert — Aphidoletes aphidimyza (predatory gall midge)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Ausbringrate 1–10/m², Inkompatibilität mit Chrysoperla
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,7 +20,11 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; sehr robust; in Norddeutschland problemlos; halbimmergrün (Laub bleibt bei mildem Winter) | `species.hardiness_detail` |
@@ -28,6 +32,12 @@
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | 10–15 (langlebige Staude; Teilung alle 3–5 Jahre zur Verjüngung) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (Hemikryptophyt; oberirdisch einziehende Winterruhe) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (keine Kältebedürftigkeit für Blühinduktion; treibt jährlich aus Rhizom) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral; blüht über Tageslängenänderung Mai–Oktober) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -84,6 +94,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässige, mäßig nährstoffreiche Erde; pH 6,0–7,5; auch kalkhaltig; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein art-spezifischer Messwert in seriösen Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein art-spezifischer Messwert in seriösen Quellen --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (volle Sonne bis Halbschatten; in heißen Lagen Halbschatten bevorzugt) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 (flach-rhizomatöses, oberflächennahes Wurzelsystem; Teilungstiefe ca. 20–25 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (Staunässe führt zu Wurzelasphyxie; gute Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | — <!-- DATEN FEHLEN: Quellen widersprüchlich (Dünenstandort vs. explizit "no salt tolerance") --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: keine Maas-Hoffman-Daten belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: keine Maas-Hoffman-Daten belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 (kalktolerant; harmonisiert mit §1.6 und §2.3) | `species.soil_ph_preference` |
+
+**Hinweis:** Als Halbschatten-toleranter C3-Krautige passt sich *Geranium sanguineum* durch niedrigeren Lichtkompensationspunkt an Teilbeschattung an; präzise µmol-Werte liegen nicht art-spezifisch belegt vor. Natürliche Vorkommen auf Küstendünen deuten auf eine gewisse Sand- und Trockenstresstoleranz hin, eine belastbare Salztoleranz-Einstufung ist jedoch aus den verfügbaren Quellen nicht ableitbar.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -107,23 +135,31 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 300–700 (Sonne bis Halbschatten) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 15–35 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode (Stunden) | natürlich (tagneutral; keine künstliche Photoperiodensteuerung nötig) | `requirement_profiles.photoperiod_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 15–25 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 8–16 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberhalb des Zielkorridors; Punkt drohenden stomatären Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (C3-Optimum kühl-gemäßigter Stauden) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 (Freilandstandort Sonne bis Halbschatten; offenes Tageslicht/Vollsonne ≈ 0.5 nach Zhen & Bugbee, Halbschatten/Unterwuchs höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 1:1:1 | 0.5–0.8 | 6.0–7.5 | 60 | 30 | – | 1 |
-| Blüte | 1:1:2 | 0.6–1.0 | 6.0–7.5 | 60 | 30 | – | 1 |
-| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | 1:1:1 | 0.5–0.8 | 6.0–7.5 | 60 | 30 | – | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.05 | 0.03 | 0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Blüte | 1:1:2 | 0.6–1.0 | 6.0–7.5 | 60 | 30 | – | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.05 | 0.03 | 0.05<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->– | – | – | –<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
 
 ---
 
@@ -207,6 +243,17 @@ Kaum Krankheitsprobleme. Bei schlechten Standortbedingungen gelegentlich:
 | Gute Drainage | cultural | – | Standortwahl | 0 | Grauschimmel |
 | Rückschnitt (Luftzirkulation) | cultural | – | Juli | 0 | Mehltau |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|--------------------|----------------|------------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Aphis spp.) | 0,25–4 Tiere/m² je Ausbringung (3× wiederholen) | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 1–10 Larven/m² je Ausbringung (wöchentlich bis Kontrolle) | 2–3 Wochen |
+
+**Hinweis:** *Geranium sanguineum* ist sehr robust; Nützlinge nur bei tatsächlichem Befallsdruck (v. a. unter Glas/auf Balkon) ausbringen. Die Schlupfwespe *Aphidius colemani* parasitiert Blattläuse, die räuberische Gallmücke *Aphidoletes aphidimyza* frisst Blattlauskolonien — beide lassen sich kombinieren. Gegen gelegentlichen Raupenfraß (Lepidoptera) eignet sich *Bacillus thuringiensis* (biologisches Spritzmittel, kein Nützling im engeren Sinne).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -239,7 +286,7 @@ Kaum Krankheitsprobleme. Bei schlechten Standortbedingungen gelegentlich:
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Geranium sanguineum,"Blut-Storchschnabel;Blutroter Storchschnabel;Bloody Cranesbill",Geraniaceae,Geranium,perennial,long_day,herb,rhizomatous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Europa, Westasien",yes,8,20,40,60,35,no,yes,false,false,light_feeder,false,hardy,"5;6;7;8;9"
+Geranium sanguineum,"Blut-Storchschnabel;Blutroter Storchschnabel;Bloody Cranesbill",Geraniaceae,Geranium,perennial,day_neutral,herb,rhizomatous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Europa, Westasien",yes,8,20,40,60,35,no,yes,false,false,light_feeder,false,hardy,"5;6;7;8;9"
 ```
 
 ---
@@ -250,3 +297,15 @@ Geranium sanguineum,"Blut-Storchschnabel;Blutroter Storchschnabel;Bloody Cranesb
 2. [Pflanzen-Kölle Storchschnabel](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meinen-storchschnabel-richtig/) — Pflege
 3. [Baldur-Garten Storchschnabel](https://www.baldur-garten.de/onion/content/pflege-tipps/gartenstauden/storchschnabel) — Rückschnitt
 4. [Native Plants Geranium sanguineum](https://www.native-plants.de/797/blut-storchschnabel) — Wildpflanzen-Steckbrief
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [NC State Extension — Geranium sanguineum](https://plants.ces.ncsu.edu/plants/geranium-sanguineum/) — Boden-pH (neutral 6.0–8.0), Licht (Sonne/Halbschatten), Drainage, USDA-Zonen
+6. [Gardenia.net — Geranium sanguineum (Bloody Cranesbill)](https://www.gardenia.net/plant/geranium-sanguineum-bloody-cranesbill) — Standort, Kalk-/Sand-/Trockenheitstoleranz, Winterhärte
+7. [Wikipedia — Geranium sanguineum](https://en.wikipedia.org/wiki/Geranium_sanguineum) — Hemikryptophyt/Dormanz, Dünen-/Kalkhabitat, Insektenbestäubung, Blütezeit Mai–Oktober, Wuchsmaße
+8. [RHS — Geranium sanguineum](https://www.rhs.org.uk/plants/7926/geranium-sanguineum/details) — Standort, Winterhärte, Habitat (Küstendünen)
+9. [Gardener's Path — Cranesbill Geranium Care](https://gardenerspath.com/plants/flowers/cranesbill-geranium/) — Lebensdauer langlebig, Teilung alle 3–5 Jahre, pH 6.0–6.5
+10. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur 5 °C für kühl-gemäßigte Pflanzen
+11. [Iowa State Extension — Using Growing Degree Days](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — Basistemperatur-Konzept kühl-/warmsaisonale Arten
+12. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate Blattlaus-Schlupfwespe
+13. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Ausbringrate räuberische Gallmücke
+14. [Zhen & Bugbee 2020, Front. Plant Sci.](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.581156/full) — Far-Red-Anteil, Definition FR/(R+FR)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

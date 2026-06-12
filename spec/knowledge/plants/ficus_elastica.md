@@ -19,6 +19,11 @@
 | Ordnung | Rosales | `botanical_families.order` |
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> keine publizierte Wuchs-GDD-Basis für F. elastica; Mindesttemperatur 10 °C ist kein GDD-Basiswert | `species.base_temp` |
+| Kritische Tageslänge (h) | Entfällt (tagneutral / day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 25–100+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
@@ -92,6 +97,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, gut durchlässige Qualitätserde mit 20% Perlite. pH 6.0–7.0. Gute Drainage wichtig. Schwere Erde vermeiden. | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–60 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> keine Maas-Hoffman-Schwelle für F. elastica publiziert | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Slope publiziert | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Als Regenwald-Understory-Art (Unterwuchs) ist *Ficus elastica* schattenverträglich (shade-tolerant), gedeiht aber auch in hellem indirektem Licht bis lichtem Halbschatten — daher Einstufung `partial_shade` (PFAF: „semi-shade to no shade"). Der Lichtkompensationspunkt liegt im für schattentolerante Gehölze typischen Bereich von 10–50 µmol/m²/s (Craine & Reich 2005; Sterck et al. 2013); für *F. elastica* konservativ mit 10–25 µmol/m²/s angesetzt. Der Lichtsättigungspunkt (deutlich höher, mit Photoinhibition ab ≥ 400 µmol/m²/s laut MDPI-Lichtstress-Studie) gehört NICHT in das Kompensationspunkt-Feld. Staunässe-Empfindlichkeit ist hoch (Wurzelfäule-Risiko); die Salztoleranz ist allenfalls mäßig — Blattrand-Nekrosen durch Salzakkumulation aus Leitungswasser/Dünger sind dokumentiert, das Substrat sollte periodisch durchgespült werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +139,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -124,17 +153,29 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 150–400 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 6–12 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 15–22 | `requirement_profiles.temperature_day_c` |
 | Luftfeuchtigkeit Tag (%) | 35–55 | `requirement_profiles.humidity_day_percent` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.6 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–7.0 | 100 | 40 |
-| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–7.0 | 100 | 40 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo) folgen der Hoagland-Standardrezeptur für Topf-/Zimmerpflanzen-Nährlösungen; keine F.-elastica-spezifischen Messwerte publiziert. Eisenmangel (interveinale Chlorose) tritt bei pH > 7.0 auf — daher pH-Korridor 6.0–7.0 einhalten. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -179,6 +220,25 @@ Monatlich März bis Oktober düngen. November bis Februar: kein Dünger. Blätte
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+### 4.3 Überwinterung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+*Ficus elastica* ist frostempfindlich (tender) und überwintert in Mitteleuropa (USDA 6–8) frostfrei im Innenraum. Im Sommer als Kübelpflanze ins Freie (Balkon/Terrasse, Halbschatten) zulässig, muss aber rechtzeitig vor dem ersten Frost wieder hereingeholt werden.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5–6 (nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (min. 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; ggf. Pflanzenlampe | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert (Substrat antrocknen lassen) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Beim Hereinholen vor dem Frost an Halbschatten gewöhnen; abrupter Standortwechsel kann Blattfall auslösen. Im Winterquartier nicht düngen (vgl. §3.2). Beim Ausräumen im Frühjahr schrittweise an direkteres Licht abhärten (harden off), sonst Sonnenbrand auf den Blättern.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -206,6 +266,19 @@ Monatlich März bis Oktober düngen. November bis Februar: kein Dünger. Blätte
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schildlaus |
 | Insektizidseife | biological | Sprühen | 3 Tage | Weiße Fliege, Blattläuse |
+
+### 5.4 Nützlinge (Biologische Bekämpfung)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 10–30 /m² | 2–3 Wochen |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 5–10 /m² | 3–4 Wochen |
+| Schlupfwespe | Metaphycus helvolus | Weichschildlaus (Coccus hesperidum) | 5 /m², 3× im 14-Tage-Takt | 3–4 Wochen |
+| Schlupfwespe | Encarsia formosa | Weiße Fliege (Trialeurodes vaporariorum) | 1–3 /m² (wöchentl. wdh.) | 2–4 Wochen |
+
+**Hinweis:** Nützlingseinsatz ist v. a. im Gewächshaus/Wintergarten bei stabiler Luftfeuchte (> 60 %) erfolgreich; im trockenen Wohnraum etablieren sich die meisten Antagonisten schlecht. *Metaphycus helvolus* zielt auf Weichschildläuse (Coccidae, z. B. *Coccus hesperidum* aus §5.1) — NICHT auf Panzer-/Deckelschildläuse (dafür wären *Aphytis*-Arten zuständig). Vor Nützlingsausbringung keine Breitband-Insektizide einsetzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -254,3 +327,19 @@ Doescheri,Ficus elastica,"ornamental;variegated;gray_cream",clone
 3. [Healthy Houseplants — Ficus elastica](https://www.healthyhouseplants.com/indoor-houseplants/rubber-plant-ficus-elastica-care-guide/) — Schädlinge, Krankheiten
 4. [Old Farmer's Almanac — Rubber Tree Plant](https://www.almanac.com/plant/rubber-tree-plant-ficus-elastica-care-guide) — Pflegehinweise
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PFAF — Ficus elastica Plant Database](https://pfaf.org/user/Plant.aspx?LatinName=ficus+elastica) — Boden-pH (5.5–7.5), Bodentypen, Schatten-/Sonnentoleranz (semi-shade to no shade)
+7. [UF/IFAS Fact Sheet ST-252 — Ficus elastica](https://hort.ifas.ufl.edu/database/documents/pdf/tree_fact_sheets/ficelaa.pdf) — Standort-/Licht-/Salztoleranz-Angaben, Wurzelsystem
+8. [Healthy Houseplants — Ficus elastica Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/rubber-plant-ficus-elastica-care-guide/) — Boden-pH 6.0–6.5, Salzakkumulation/Spülen, Staunässe-Empfindlichkeit
+9. [Greg — Best Soil for Rubber Plant](https://greg.app/rubber-plant-soil/) — pH-Vorzug 6.0–6.5, interveinale Chlorose (Eisenmangel) bei pH > 7.0
+10. [MDPI AgriEngineering 6(3):188 — Light Stress Detection in Ficus elastica](https://www.mdpi.com/2624-7402/6/3/188) — schattentolerant, Lichtstress/Photoinhibition ab ≥ 400 µmol/m²/s
+11. [Craine & Reich (2005), New Phytologist — Leaf-level light compensation points in shade-tolerant woody seedlings](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — LCP-Bereich schattentoleranter Gehölze (10–50 µmol/m²/s)
+12. [Sterck et al. (2013), Journal of Ecology — Plasticity influencing the light compensation point in a tropical forest understorey](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/1365-2745.12076) — LCP tropischer Understory-Arten
+13. [Zhen & Bugbee (2022), New Phytologist — Photosynthesis in sun and shade: the importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Anteil: Vegetationsschatten > 50 % der Photonen, Bezugsgröße FR/(R+FR)
+14. [Crous et al. (2022), New Phytologist — Temperature responses of photosynthesis in evergreen trees](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.17951) — T_opt tropischer C3-Bäume (16–32 °C, typ. 25–30 °C)
+15. [Koppert — Cryptolaemus montrouzieri (Schmierlaus-Räuber)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate Schmierläuse
+16. [Koppert — Phytoseiulus persimilis (Spinnmilben-Räuber)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Spinnmilben-Bekämpfung
+17. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate 10–30 /m²
+18. [University of Hertfordshire AERU — Metaphycus helvolus](https://sitem.herts.ac.uk/aeru/bpdb/Reports/2258.htm) — Weichschildlaus-Wirt (Coccus hesperidum), Rate 5 /m², 3 Freilassungen
+19. [Applied Bio-nomics — Encarsia formosa](https://appliedbio-nomics.com/product/encarsia-formosa/) — Weiße-Fliege-Parasitoid, Ausbringrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

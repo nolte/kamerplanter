@@ -19,6 +19,10 @@
 | Ordnung | Arecales | `botanical_families.order` |
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 20–30+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
@@ -94,6 +98,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Hochwertige Palmenerde oder Einheitserde mit 20% Perlite + 10% Sand. pH 6.0–7.0. Gute Drainage unerlässlich. Nie umtopfen wenn nicht notwendig (Palmen sind störungssensitiv). | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | deep_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Echte Schatten-/Unterwuchs-Pflanze (deep_shade) — als C3-Pflanze mit niedrigem Lichtkompensationspunkt (light compensation point, LCP) typisch für tiefschattenadaptierte tropische Understory-Arten (Spanne schattentoleranter Arten 10–50 µmol/m²/s; hier unteres Band). Der LCP (Netto-Photosynthese = 0) ist NICHT mit Sättigungs-/Optimumwerten zu verwechseln; bestes Wachstum bei hellem indirektem Licht (PPFD-Ziel siehe §2.2). Flaches Wurzelsystem (shallow roots), daher staunässeempfindlich (Wurzelfäule-Risiko). Salzempfindlich: gedeiht nicht in salzigen Böden, hohe Dünger-/Salzfrachten schädigen die Wurzeln; eine quantitative ECe-Schwelle (Maas-Hoffman a) ist für diese Art nicht belastbar belegt. pH-Vorzug quellentreu auf 6.0–7.0 begrenzt (harmonisiert mit §1.6 und §2.3); breitere Toleranz (leicht sauer bis neutral, ~pH 5.1–8.0) wird in Quellen genannt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +140,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -126,16 +154,27 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 80–300 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 4–10 | `requirement_profiles.dli_target_mol` |
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 15–22 | `requirement_profiles.temperature_day_c` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:3 (K-betont, typisch für Palmen) | 0.6–1.0 | 6.0–7.0 | 80 | 30 |
-| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:3 (K-betont, typisch für Palmen) | 0.6–1.0 | 6.0–7.0 | 80 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu Mikronährstoffen:** Artspezifische ppm-Zielwerte für Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) sind für Chamaedorea elegans nicht aus mindestens zwei unabhängigen seriösen Quellen belegt und daher als fehlend markiert. Praktisch werden sie über handelsübliche Palmen-/Zimmerpflanzen-Volldünger mit Spurenelement-Chelaten abgedeckt; Mn-Mangel (Frizzletop) und K-/Mg-Mangel sind bei Palmen die häufigsten Mikro-/Makronährstoff-Defizite. `nutrient_profiles.manganese_ppm` / `_zinc_ppm` / `_copper_ppm` / `_molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -179,6 +218,23 @@ Monatlich März bis September. Oktober bis Februar: kein Dünger. Palmen brauche
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | true | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (min. 10) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell bis halbschattig (kein direktes Wintersonnenlicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert: Substrat nur leicht feucht halten, Staunässe vermeiden | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Frostempfindliche Kübel-/Zimmerpalme (USDA 10–11). In Mitteleuropa (USDA 6–8) ganzjährig frostfrei kultivieren: außerhalb der frostfreien Monate zwingend ins Haus holen (frost_free, nicht hardy). Kein echter Kältereiz/keine Dormanz nötig (vgl. §1.1 `dormancy_required = false`) — die „Winterruhe" ist nur eine lichtbedingte Wachstumsverlangsamung. Im Winterquartier bei Zimmertemperatur halten; Heizungsnähe (trockene Luft, Spinnmilbengefahr) meiden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -204,6 +260,17 @@ Monatlich März bis September. Oktober bis Februar: kein Dünger. Palmen brauche
 |---------|-----|-----------|------------|-------|
 | Hohe Luftfeuchtigkeit | cultural | Regelmäßig sprühen | 0 | Spinnmilbe (Prävention) |
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | ~5–20/m² (bei Befall), ggf. alle 3–5 Wochen wiederholen | 2–3 Wochen |
+| Australischer Marienkäfer / Schmierlaus-Jäger (mealybug destroyer) | Cryptolaemus montrouzieri | Schmierlaus (Pseudococcus spp.) | ~2–5/m² (mehrere Teilfreilassungen) | 4–8 Wochen |
+
+**Hinweis:** Phytoseiulus persimilis benötigt > 60 % relative Luftfeuchte und 17–28 °C (optimal) — passt gut zum tropischen Care-Profil der Stubenpalme. Cryptolaemus montrouzieri arbeitet am besten bei 25–28 °C und moderater bis hoher Luftfeuchte; 2–3 kleinere Freilassungen sind einer großen vorzuziehen. Ausbringraten herstellerseitig meist in „Stück pro Pflanze/ft²" angegeben (≈ 0.5–4/ft²); hier auf m² umgerechnet und nach Befallsstärke zu skalieren.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -240,3 +307,9 @@ Chamaedorea elegans,"Stubenpalme;Bergpalme;Parlor Palm;Neanthe Bella Palm",Areca
 3. [Greenery Unlimited — Neanthe Bella Palm](https://greeneryunlimited.co/blogs/plant-care/neanthe-bella-palm-care) — Pflegehinweise
 4. [Joy Us Garden — Neanthe Bella Palm](https://www.joyusgarden.com/neanthe-bella-palm-care-tips-for-this-table-top-palm/) — Praxiswissen
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NC State Extension — Chamaedorea elegans Plant Toolbox](https://plants.ces.ncsu.edu/plants/chamaedorea-elegans/) — Boden-pH (acid–neutral, 6.0–8.0), Lichtbedarf (deep shade / dappled sunlight), Drainage/Feuchte-Toleranz, Wuchsmaße (University Extension)
+7. [Sterck et al. 2013, Journal of Ecology — Light compensation point in tropical forest understorey species](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/1365-2745.12076) — Lichtkompensationspunkt schattentoleranter Understory-Arten (10–50 µmol/m²/s), C3-Physiologie (peer-reviewed)
+8. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Spinnmilben-Raubmilbe: Ausbringung, Etablierungszeit, Klimaansprüche (University IPM)
+9. [UC IPM — Mealybug Destroyer (Cryptolaemus montrouzieri)](https://ipm.ucanr.edu/natural-enemies/mealybug-destroyer/) — Schmierlaus-Nützling: Freilassungsrate, Etablierungszeit, optimale Bedingungen (University IPM)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

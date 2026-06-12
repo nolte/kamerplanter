@@ -21,6 +21,13 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 0–4 (kühlliebende Brassicaceae; Herbst-Entwicklung ~0 °C, Frühjahr ~4 °C — Wuchs-/Biomasse-GDD, NICHT Keim-Tb von 5 °C) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjährig, keine Knospen-/Samenruhe im Kulturzyklus) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (fakultativer Langtag-Annueller; blüht ohne Kältereiz, Vernalisation steigert nur die Photoperiode-Sensitivität via FLC-Repression) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (critical day length, h) | 10 (klassischer Langtagblüher; bei < 10 h keine Blüteninduktion, maximale Induktion ab ~18 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 2a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Kälteverträglich bis ca. -5°C; stirbt bei Frost ab (Gründüngungseffekt: Biomasse gefriert zu Mulch); Herbstaussaat bis September möglich | `species.hardiness_detail` |
@@ -83,6 +90,21 @@
 | Gewächshaus empfohlen | false | `species.greenhouse_recommended` |
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | — (ausschließlich Freilandkultur) | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) | 20–40 (typische C3-Spanne sonniger Kräuter/Gemüse; kein artspezifischer Messwert für Sinapis alba belegt) <!-- DATEN FEHLEN: artspezifischer LCP-Messwert --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (bevorzugt volle Sonne; toleriert lichten Halbschatten, aber Blüte/Samenansatz nur in voller Sonne optimal) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–90 (tiefe Pfahlwurzel/taproot, bodenlockernd; Hauptdurchwurzelung 30–60 cm, Pfahlwurzel bis ~90 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (verträgt keine nassen/staunassen Böden; Wurzelfäule- und Krankheitsrisiko bei schlechter Drainage) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant (toleriert leicht saline und alkalische Böden; in der Literatur als „ähnlich Gerste/barley" eingestuft) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein artspezifischer Maas-Hoffman-ECe-Schwellenwert für Sinapis alba belegt; Vergleich „ähnlich Gerste" ist qualitativ, kein gemessener Schwellenwert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | — <!-- DATEN FEHLEN: kein artspezifischer Slope-Wert belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–7.5 (Optimumbereich; weite Toleranz 4.5–8.2, pH-unempfindlich) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -197,3 +219,13 @@ Sinapis alba,"Gelbsenf;Weißer Senf;White Mustard;Yellow Mustard",Brassicaceae,S
 2. [Samen.de Gelbsenf Gründüngung](https://samen.de/blog/gruenduengung-mit-senf.html) — Gründüngungspraxis
 3. [Naturadb Sinapis alba](https://www.naturadb.de/pflanzen/sinapis-alba/) — Steckbrief
 4. [Gartensaatgut.de Gelbsenf](https://www.gartensaatgut.de/anbau-von-krautern/aussaat-und-anbau-gelbsenf/) — Anbauanleitung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Sinapis alba (White Mustard)](https://pfaf.org/user/plant.aspx?LatinName=Sinapis+alba) — Standortansprüche, pH-Toleranz 4.5–8.2, Salztoleranz „ähnlich Gerste", Volllichtbedarf
+6. [Useful Temperate Plants — Sinapis alba](https://temperate.theferns.info/plant/Sinapis+alba) — Klima-/Bodenansprüche, pH-Bereich, Salztoleranz, Staunässe-Empfindlichkeit
+7. [Kinet/Bernier — *Sinapis alba, a Plant requiring a Single Long Day or a Single Short Day for Flowering*, Nature 236:406 (1972)](https://www.nature.com/articles/236406a0) — Langtag-Charakter, kritische Photoperiode > 10 h, maximale Induktion ab 18 h
+8. [D'Aloia et al. — *Gene activation cascade triggered by a single photoperiodic cycle inducing flowering in Sinapis alba*, Plant Journal (2009)](https://onlinelibrary.wiley.com/doi/10.1111/j.1365-313X.2009.03927.x) — Langtag-Blühphysiologie (SaCO/SaFT), kritische Tageslänge ~10 h
+9. [Brennan & Smith — *Mustard Cover Crops for Biomass Production and Weed Suppression in the Great Lakes Region*, Agronomy Journal (2015), MSU-Fassung](https://www.canr.msu.edu/foodsystems/uploads/files/mustard-cover.pdf) — GDD-Basis 0 °C (Herbst) / 4 °C (Frühjahr) für Biomasse-Entwicklung von Sinapis alba
+10. [Pest Prophet — Mustard Growing Degree Day Model](https://blog.pestprophet.com/how-to-use-the-mustard-growing-degree-day-model/) — Senf-GDD-Modell mit unterer Schwelle 0 °C ab Aussaat
+11. [eOrganic — Brassicas and Mustards for Cover Cropping in Organic Farming](https://eorganic.org/node/2554) — Wurzelsystem (tiefe Pfahlwurzel), Standort- und Drainageansprüche
+12. [FAO — Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Maas-Hoffman-Methodik (ECe-Schwelle/Slope), Gerste als toleranter Referenzwert (ECe ≈ 8 dS/m)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

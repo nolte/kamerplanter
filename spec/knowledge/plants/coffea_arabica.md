@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 30–50 (kultiviert; wirtschaftlich ertragreich 7–20 Jahre) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (tropische Art ohne Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral, day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -45,6 +54,16 @@
 |------|------|---------|
 | Vermehrungsmethoden | seed, cutting_stem | `species.propagation_methods` |
 | Schwierigkeit | moderate | `species.propagation_difficulty` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestäuber erforderlich | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe | — (selbstfruchtbar, kein Obst-Fremdbefruchter) | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten | — (selbstfruchtbar, keine Pollenspender-Sorte nötig) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Freitext-Hinweis Bestäubung:** Coffea arabica ist autogam und in hohem Maße selbstfruchtbar (Selbstbefruchtungsrate ca. 91–96%); die zwittrigen (hermaphroditen) Blüten setzen ohne Fremdbestäuber Frucht an. Insektenbesuch (Honig-/Wildbienen) ist nicht erforderlich, steigert aber nachweislich den Fruchtansatz und Ertrag — dies ist ein Freitext-Hinweis und KEIN Eintrag im Feld `compatible_pollinators`, das ausschließlich Befruchter-Sorten (Cultivars) aufnimmt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ### 1.4 Toxizität & Allergene
 
@@ -82,6 +101,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Saure, humusreiche Erde; pH 6.0–6.5; gute Drainage; z.B. Rhododendronerde + 20% Perlite | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein quellentreuer Coffea-spezifischer Zahlenwert über 2 unabhängige Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein quellentreuer Coffea-spezifischer Zahlenwert über 2 unabhängige Quellen --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–60 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: Coffea nicht in FAO/Maas-Hoffman-Tabelle gelistet --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein Maas-Hoffman-b-Wert für Coffea belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+> **Freitext-Hinweis (gehört nicht ins LCP-Feld):** Coffea arabica ist eine ausgesprochene Schattenpflanze (Unterholzart) mit ausgeprägter Schattenanpassung — der Lichtkompensationspunkt ist niedrig und steigt mit zunehmender Anzucht-Lichtintensität. Die Lichtsättigung (light saturation point) liegt je nach Lichtklimatisierung bei ca. 300 µmol/m²/s (schattengezogen) bis 600 µmol/m²/s (sonnengezogen); darüber droht Photoinhibition. Diese Sättigungs- und Optimumwerte sind bewusst NICHT in das Kompensationspunkt-Feld übernommen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +146,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,6 +168,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.1 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -137,6 +186,18 @@
 | Jugendphase | 3:1:2 | 0.8–1.2 | 6.0–6.5 | 100 | 50 | — | 3 |
 | Vegetativ | 3:1:2 | 1.2–1.8 | 6.0–6.5 | 150 | 60 | — | 3 |
 | Blüte & Frucht | 2:2:3 | 1.2–1.8 | 6.0–6.5 | 120 | 60 | — | 2 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Mikronährstoffe je Phase (Blattgewebe-Suffizienzbereich)
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Jugendphase | 50–200 | 18–25 | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Cu-Suffizienzwert --> | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Mo-Suffizienzwert --> |
+| Vegetativ | 50–200 | 18–25 | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Cu-Suffizienzwert --> | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Mo-Suffizienzwert --> |
+| Blüte & Frucht | 50–200 | 18–25 | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Cu-Suffizienzwert --> | — <!-- DATEN FEHLEN: kein 2-fach belegter Coffea-Mo-Suffizienzwert --> |
+
+> **Hinweis:** Blattgewebe-Suffizienzbereiche (leaf tissue sufficiency range) nach CTAHR/Hawaii-Kaffeerichtwerten — Mn ist bei niedrigem Substrat-pH toxisch, daher pH 6.0–6.5 einhalten. Bor (B) liegt im Suffizienzbereich 31–50 ppm (kein eigenes KA-Mikronährstofffeld).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -316,3 +377,19 @@ Coffea arabica,Kaffeepflanze;Arabica-Kaffee;Coffee Plant,Rubiaceae,Coffea,perenn
 3. [Bloomscape – Coffee Plant 101](https://bloomscape.com/plant-care-guide/coffee-plant/) — Grundpflege
 4. [UK Houseplants – Coffea arabica](https://www.ukhouseplants.com/plants/coffee-plants-coffea-arabica) — Detailed Care Guide
 5. [Healthy Houseplants – Coffea arabica](https://www.healthyhouseplants.com/indoor-houseplants/coffee-plant-care-guide-growing-coffea-arabica-indoors-and-out/) — Indoor & Outdoor
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Springer – Shade adaptation of photosynthesis in Coffea arabica (Kumar & Tieszen)](https://link.springer.com/article/10.1007/BF00034977) — C3-Photosynthese, niedriger Lichtkompensationspunkt, Schattenanpassung, Lichtsättigung 300–600 µmol
+7. [PMC – Flowering and Fruiting of Coffea arabica: Phenology Perspective](https://pmc.ncbi.nlm.nih.gov/articles/PMC12608170/) — GDD-Basistemperaturen (Tb ~10–12.9 °C), Phänologie
+8. [ScienceDirect – Base and upper temperature thresholds for GDD (FAO56rev review)](https://www.sciencedirect.com/science/article/pii/S037837742500469X) — Kaffee Tb 10 °C / TB 32 °C
+9. [Epic Gardening – Arabica Coffee Plants](https://www.epicgardening.com/arabica-coffee/) — Lebensdauer (3–100 J., produktiv 7–20 J.), flaches Wurzelsystem, pH 6.0–6.5
+10. [MDPI Agronomy – Soil Waterlogging Conditions Affect Coffea arabica](https://www.mdpi.com/2073-4395/12/6/1270) — hohe Staunässe-Empfindlichkeit
+11. [ScienceDirect – Drought-tolerant coffee and waterlogging tolerance](https://www.sciencedirect.com/science/article/abs/pii/S0098847220303373) — Coffea sehr staunässeempfindlich
+12. [ResearchGate – Root biomass of a coffee agroforestry system (Costa Rica)](https://www.researchgate.net/publication/306435164) — 75 % Feinwurzelmasse in oberen 60–70 cm, Konzentration in oberen 30 cm
+13. [Cambridge – Photosynthesis in Coffea arabica I: Light and Temperature](https://www.cambridge.org/core/journals/experimental-agriculture/article/abs/photosynthesis-in-coffea-arabica-i-effects-of-light-and-temperature/A818E778814C05FE50543910CCA6BA49) — Netto-Photosynthese-Optimum ~24–25 °C
+14. [BioOne – Stomatal/photochemical limitations under elevated temperatures (Coffea spp.)](https://bioone.org/journals/crop-and-pasture-science/volume-69/issue-3/CP17044/) — Photosynthese sinkt >25 °C, Stomatakontrolle (VPD-Sensitivität)
+15. [PFAF – Coffea arabica Plant Database](https://pfaf.org/user/Plant.aspx?LatinName=Coffea+arabica) — Halbschatten (partial_shade), pH-Vorzug, Feuchtebedarf
+16. [Siatec – Arabica Coffee: hermaphrodite flowers and self-fertility](https://www.siatecbrasil.com.br/en/arabica-coffee-hermaphrodite-flowers-and-self-fertility/) — Selbstfruchtbarkeit (91–96 % Autogamie)
+17. [American Journal of Botany – Bee pollination and fruit set of Coffea arabica](https://bsapubs.onlinelibrary.wiley.com/doi/10.3732/ajb.90.1.153) — Insektenbesuch steigert Fruchtansatz, dennoch selbstfruchtbar
+18. [CTAHR Hawaii – Growing Coffee in Hawaii (Plant Tissue Sufficiency)](https://www.ctahr.hawaii.edu/oc/freepubs/pdf/coffee08.pdf) — Blattgewebe-Suffizienz: Mn ~50–200, Zn 18–25, B 31–50 ppm
+19. [FAO – Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Coffea NICHT in Maas-Hoffman-Tabelle gelistet (ECe/Slope daher unbelegt)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

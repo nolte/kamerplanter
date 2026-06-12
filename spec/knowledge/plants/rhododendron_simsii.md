@@ -20,11 +20,18 @@
 | Ordnung | Ericales | `botanical_families.order` |
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | true | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | 5 | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 7b, 8a, 8b, 9a, 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Im Topf frostempfindlich — überwintert kühl (5–10°C) aber frostfrei. Als Kübelpflanze. Die Kühle triggert die Knospenbildung. | `species.hardiness_detail` |
@@ -33,6 +40,10 @@
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | ornamental | `species.traits` |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Erweiterung):** Photosynthese-Typ ist `c3` (verholzender Strauch, keine CAM-/C4-Merkmale). Die GDD-Basistemperatur (base temp) von 5 °C ist der für verholzende, kühl-wachsende Gehölze gebräuchliche klimatologische Phänologie-Basiswert (Frühjahrsentwicklung/Knospenaustrieb), KEIN Keim-Basiswert. Die als "Vernalisation" geführte Kälteanforderung ist botanisch korrekt ein Chilling-/Endodormanz-Bruch (Kältereiz triggert Blüh- bzw. Knospeninduktion), nicht eine echte Vernalisation der Sprossspitze. Rhododendron simsii ist ein Kurztagblüher (`photoperiod_type = short_day`); die Blütenknospen-Induktion erfolgt unter kurzen Tagen im Sommer/Frühherbst — ein numerischer kritischer Tageslängen-Schwellwert ist jedoch nicht belegt (Feld bleibt leer).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Die im Handel als "Zimmerazalee" verkaufte Pflanze ist in der Regel ein Simsii-Hybrid. Sie benötigt kühle Temperaturen (12–15°C) während und nach der Blüte, um die Knospen zu erhalten. Zu warme Zimmertemperaturen (über 18°C) verkürzen die Blütezeit drastisch. Nach der Blüte kann sie als Freiluftpflanze kultiviert werden. Azaleen brauchen UNBEDINGT saures Substrat (pH 4.0–5.5) und kalkfreies Wasser — kalkreiches Leitungswasser führt innerhalb weniger Wochen zu Chlorose und Absterbeereignissen.
 
@@ -93,6 +104,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Azaleen-/Rhododendronerde (pH 4.0–5.5). Nur Rhododendronerde oder Moorbeeterde verwenden — normale Gartenerde ist ungeeignet. Gute Drainage wichtig. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | 5–20 | `species.light_compensation_point_ppfd_min` / `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 4.5–5.5 | `species.soil_ph_preference` |
+
+**Hinweis (1.7):** Rhododendron simsii ist eine schattentolerante (shade-tolerant) Waldbodenpflanze mit sehr niedrigem Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0); der angegebene Bereich 5–20 µmol/m²/s ist der für schattentolerante Gehölz-Jungpflanzen typische Blatt-Kompensationsbereich (artspezifischer Messwert nicht publiziert). Sättigungs- und Optimumwerte gehören NICHT in dieses Feld. Standort: helle, lichte Schatten ("dappled shade"), keine pralle Mittagssonne. Das Wurzelsystem ist flach und faserig (fibrous), Feinwurzeln konzentrieren sich in den oberen ~15–30 cm — daher staunässe-empfindlich (Phytophthora-Risiko). Salzempfindlich (Streusalz-/Salzsprüh-Schäden); eine Maas-Hoffman-ECe-Schwelle (Substrat-ECe, nicht Gießwasser-EC) ist für die Art nicht quantifiziert (DATEN FEHLEN). Der Boden-pH-Vorzug 4.5–5.5 ist mit §1.6 (Substrat pH 4.0–5.5) und §2.3 (pH 4.5–5.5) harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +146,13 @@
 | Temperatur Nacht (°C) | 8–12 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+| DLI-Ziel (mol/m²/Tag) | 3.3 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -127,6 +162,13 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 200–500 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 18–25 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55 | `requirement_profiles.far_red_fraction` |
+| DLI-Ziel (mol/m²/Tag) | 4–6 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -136,16 +178,31 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 50–150 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 5–12 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 10–14 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+| DLI-Ziel (mol/m²/Tag) | 1.7–3.3 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (2.2):** Die VPD-Schwelle (`vpd_threshold_kpa`) liegt jeweils deutlich oberhalb des `vpd_target`-Korridors und markiert den kritischen Punkt beginnenden stomatären Stresses (nicht die Korridor-Oberkante); die feuchteliebende Blüh- und die kühle Ruhephase erhalten niedrigere Schwellen als die wärmere Sommerphase. `vpd_sensitivity = medium` (kein CAM-/Sukkulenten-Typ). Die Far-Red-Fraction FR/(R+FR) ≈ 0.5 entspricht offenem Tageslicht/heller Fensterposition; im halbschattigen Sommer-Standort (dappled shade) leicht erhöht (~0.55). `photosynthesis_temp_opt_c` ist als plastische Spanne aus den belegten optimalen Kultur-/Treibtemperaturen (kühle Knospenentwicklung 7–16 °C, Treiberei ~21 °C, sommerliches Wachstum 18–25 °C) abgeleitet — Topt folgt der Anzuchttemperatur — und nicht aus einer artspezifischen A/T-Kurve. DLI-Werte aus peer-reviewed Treib-Studie: minimaler photosynthetischer DLI 1.7–2.1 mol/m²/Tag (Lichtkompensation auf Ganzpflanzenebene), kritischer DLI für gute Blühqualität 3.3 mol/m²/Tag; im Sommer-Freilandstandort höhere DLI (4–6) plausibel.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Blüte | 1:2:2 | 0.6–1.0 | 4.5–5.5 | 40 | 20 |
-| Austrieb/Sommerwachstum | 2:1:2 | 0.8–1.4 | 4.5–5.5 | 50 | 25 |
-| Knospenruhe | 0:0:0 | 0.0–0.2 | 4.5–5.5 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Blüte | 1:2:2 | 0.6–1.0 | 4.5–5.5 | 40 | 20 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Austrieb/Sommerwachstum | 2:1:2 | 0.8–1.4 | 4.5–5.5 | 50 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Knospenruhe | 0:0:0 | 0.0–0.2 | 4.5–5.5 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (2.3):** Mikronährstoff-Sollkonzentrationen in der Nährlösung (Mn/Zn/Cu/Mo, `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) sind für Rhododendron simsii nicht aus zwei unabhängigen seriösen Quellen mit artspezifischen Lösungs-ppm-Werten belegt (publizierte ppm-Angaben beziehen sich auf Blattgewebe-Gehalte, nicht auf Fütterungs-/Lösungskonzentrationen) — daher als DATEN FEHLEN markiert. Fachlich relevant ist die hohe Anfälligkeit der Ericaceae für Eisen- und Mangan-Mangel bei pH > 6 (interveinale Chlorose); der saure pH 4.5–5.5 sichert die Mikronährstoff-Verfügbarkeit. In der Knospenruhe wird nicht gedüngt (—).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -235,6 +292,18 @@ Mittelzehrer. AUSSCHLIESSLICH Azaleen-/Rhododendron-Spezialdünger verwenden —
 | Insektizidseife | biological | Sprühen 1% | 0 | Wollschildläuse |
 | Systemisches Insektizid | chemical | Stäbchen nach Packungsangabe | 14 | Mottenschildlaus, Wanzen |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|----------------|--------------|------------------|
+| Phytoseiulus persimilis (Raubmilbe) | Spinnmilbe (Tetranychus urticae) | 10–30 Tiere/m² (bei Erstbefall) | 2–3 Wochen |
+| Encarsia formosa (Schlupfwespe) | Weiße Fliege / Azaleen-Mottenschildlaus (Dialeurodes chittendeni) | 1–10 Tiere/m² je Freilassung, 3–5 Wiederholungen im Wochenabstand | ca. 4 Wochen (Generationszyklus) |
+| Aphidius colemani (Schlupfwespe) | Blattläuse (Aphis spp.) | 0,1–3 Tiere/m² wöchentlich bis Kontrolle sichtbar (≥ 2–3 Freilassungen) | 2–3 Wochen |
+
+**Hinweis (5.4):** Nützlinge eignen sich für die warme Sommer-/Innenraumkultur (Raubmilbe optimal bei ~17–28 °C und 60–90 % rF). Nützling-Wirt-Zuordnung: Phytoseiulus persimilis → Spinnmilben; Encarsia formosa → Weiße Fliege (inkl. Azaleen-Mottenschildlaus); Aphidius colemani → Blattläuse. Bei laufender chemischer Behandlung (systemische Insektizide) ist ein Nützlingseinsatz wirkungslos — zeitlich trennen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -271,3 +340,20 @@ Rhododendron simsii,"Zimmerazalee;Indische Azalee;Topf-Azalee;Sims Azalea;Indian
 3. [Baldur-Garten — Azalee](https://www.baldur-garten.de/onion/content/pflege-tipps/zimmerpflanzen/azalee) — Pflegetipps
 4. [Gardenia.net — Rhododendron simsii](https://www.gardenia.net/plant/rhododendron-simsii) — Botanische Daten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (stark giftig — Grayanotoxine)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Indoor azaleas](https://www.rhs.org.uk/plants/rhododendron/indoor-azaleas) — Standort (lichte/dappelte Schatten, keine pralle Mittagssonne), kühle Kulturtemperaturen 7–16 °C
+7. [Carvalho et al. (2014), Scientia Horticulturae — Determining the minimum daily light integral for forcing of azalea (Rhododendron simsii)](https://www.sciencedirect.com/science/article/abs/pii/S0304423814004129) — peer-reviewed: min. photosynthetischer DLI 1.7–2.1 mol/m²/Tag, kritischer Qualitäts-DLI 3.3 mol/m²/Tag, Treibtemperatur ~21 °C
+8. [Epic Gardening — Rhododendron: Full Sun, Partial Shade, or Full Shade?](https://www.epicgardening.com/rhododendron-sun-or-shade/) — Halbschatten/Waldpflanze, partial_shade
+9. [Henning's Rhododendron Pages — Rhododendron for Shade](http://rhodyman.net/rhodysh.html) — Schattentoleranz, sehr niedriger Lichtkompensationspunkt
+10. [Craine & Reich (2005), New Phytologist — Leaf-level light compensation points in shade-tolerant woody seedlings](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — peer-reviewed: Blatt-LCP schattentoleranter Gehölz-Jungpflanzen (niedriger Bereich)
+11. [Biology Insights — Azalea Root Depth](https://biologyinsights.com/azalea-root-depth-what-gardeners-need-to-know/) — flaches, faseriges Wurzelsystem, Feinwurzeln 15–30 cm
+12. [Greg.app — Azaleas Roots](https://greg.app/azaleas-roots/) — flache, faserige Oberflächenwurzeln (Bestätigung Wurzeltiefe)
+13. [Rutgers Plant & Pest Advisory — Impact of Road Salt on Adjacent Vegetation](https://plant-pest-advisory.rutgers.edu/impact-of-road-salt-on-adjacent-vegetation/) — Rhododendron/Azalee salzempfindlich (sensitive)
+14. [MSU Extension — Salt damage on landscape plants](https://www.canr.msu.edu/news/salt_damage_on_landscape_plants) — Rhododendron als salzempfindliche Art (Bestätigung salt_tolerance_class)
+15. [My Garden NZ — Optimal Soil Conditions & pH for Rhododendrons](https://www.mygarden.co.nz/optimal-soil-conditions-ph-for-planting-rhododendrons/) — saurer pH-Vorzug, Staunässe-Empfindlichkeit
+16. [Purdue Yard & Garden — Interveinal Chlorosis on Azaleas and Rhododendron](https://www.purdue.edu/hla/sites/yardandgarden/interveinal-chlorosis-on-azaleas-and-rhododendron/) — Ericaceae-Anfälligkeit für Fe-/Mn-Mangel bei pH > 6
+17. [Functional Ecology (2026) — GDD models for spring phenology / Temperature-sum models (PMC11480661)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11480661/) — klimatologische Phänologie-Basistemperatur +5 °C für verholzende Frühjahrsentwicklung
+18. [Koppert — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Spinnmilben, Ausbringrate/Etablierung
+19. [Koppert — Encarsia formosa](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/encarsia-formosa/) — Schlupfwespe gegen Weiße Fliege, Ausbringrate
+20. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Schlupfwespe gegen Blattläuse, Ausbringrate/Etablierung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

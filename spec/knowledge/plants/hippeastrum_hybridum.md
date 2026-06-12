@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-GDD-Basiswert für Hippeastrum auffindbar; Keim-/Schadtemperaturen nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 25–50 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (keine obligate Vernalisation; Kühllagerung dient der Blühterminsteuerung, nicht der Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis:** Im Handel wird die Pflanze oft als "Amaryllis" verkauft, ist aber botanisch korrekt Hippeastrum. Die echte Amaryllis (Amaryllis belladonna) ist eine südafrikanische Art und in Mitteleuropa kaum im Handel.
 
@@ -84,6 +93,23 @@
 | Rankhilfe/Stütze nötig | true | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, gut drainierte Zimmerpflanzenerde; enge Topfwahl (Zwiebel passt gut rein); oberes Zwiebeldrittel soll aus der Erde schauen | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point) min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP-Messwert für Hippeastrum in 2 unabhängigen seriösen Quellen belegt --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-a-Wert (Substrat-ECe) für Hippeastrum belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-b-Wert für Hippeastrum belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweis zur Standort-Physiologie:** Hippeastrum ist eine C3-Pflanze (kein CAM/Sukkulent — Spaltöffnungen öffnen tagsüber, schließen nachts; belegt durch Gaswechselmessungen, NYBG/PMC9232429). Die effektive Wurzeltiefe von 20–30 cm leitet sich aus der empfohlenen Mindest-Topftiefe (≥ 30 cm für gutes Wurzelwachstum, RHS/Sarah Raven) und der fleischigen Zwiebelwurzelbasis ab. Die UF/IFAS-EDIS-Publikation FP255 stuft die Boden-Salztoleranz ausdrücklich als „poor" ein (→ `sensitive`); ein abweichender „high"-Eintrag einer Demo-Garten-Sortenliste wurde zugunsten der primären EDIS-Quelle verworfen. Der Boden-pH-Vorzug (6.0–6.5) ist mit den pH-Angaben in §2.3 und §3.2 harmonisiert; Quellen nennen Spannen bis 6.0–7.0 (RHS/Gardener's Path), der engere Korridor bleibt quellentreu zum bestehenden Dokument.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +138,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -128,6 +160,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (heller bis halbschattiger Standort; offenes Tageslicht ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -150,12 +188,13 @@
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Einpflanzen/Austrieb | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Blüte | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
-| Blattphase | 2:1:3 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 |
-| Ruhephase | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Einpflanzen/Austrieb | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Blüte | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
+| Blattphase | 2:1:3 | 1.0–1.5 | 6.0–6.5 | 100 | 50 | — | 2 | <!-- DATEN FEHLEN: kein artspezifischer Mn-Wert für Hippeastrum belegt --> | <!-- DATEN FEHLEN: kein artspezifischer Zn-Wert für Hippeastrum belegt --> | <!-- DATEN FEHLEN: kein artspezifischer Cu-Wert für Hippeastrum belegt --> | <!-- DATEN FEHLEN: kein artspezifischer Mo-Wert für Hippeastrum belegt --> |
+| Ruhephase | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 — Mikronährstoff-Spalten Mn/Zn/Cu/Mo ergänzt; keine Hippeastrum-spezifischen ppm-Werte in 2 unabhängigen seriösen Quellen belegbar -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -329,3 +368,14 @@ Hippeastrum hybridum,Amaryllis;Ritterstern;Knight's Star Lily,Amaryllidaceae,Hip
 3. [Intratuin – Amaryllis Pflege](https://www.intratuin.de/pflanzenlexikon/amaryllis-hippeastrum-pflege) — Jahreszyklus
 4. [Lubera – Hippeastrum](https://www.lubera.com/de/gartenbuch/amaryllis-p3258) — Kulturtipps
 5. [Pflanzenfreunde – Hippeastrum](https://www.pflanzenfreunde.com/lexika/knollenpflanzen/hippeastrum.htm) — Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [UF/IFAS EDIS FP255 – Hippeastrum x hybridum Amaryllis](https://ask.ifas.ufl.edu/fp255) — Standortrating: Licht (part shade/part sun), Bodensalztoleranz „poor" → sensitive, Trockentoleranz moderat, Wuchsrate langsam
+7. [NC State Extension Gardener Plant Toolbox – Hippeastrum](https://plants.ces.ncsu.edu/plants/hippeastrum/) — Lichtexposition (Vollsonne bis Halbschatten), Drainage (gut drainiert nötig), USDA-Zonen, Wuchshöhe
+8. [NYBG Research Guides – Houseplant Care: Amaryllis (Hippeastrum)](https://libguides.nybg.org/hippeastrum) — Lichtbedarf, Substrat, Pflanzdtiefe, Photosynthese-Rolle der Blätter
+9. [PMC9232429 – Non-invasive assessment of leaf aerenchyma in Hippeastrum and its relation to plant water status](https://pmc.ncbi.nlm.nih.gov/articles/PMC9232429/) — Gaswechsel/Spaltöffnungsverhalten (tagsüber offen, nachts geschlossen) → C3-Physiologie, kein CAM
+10. [University of Illinois Extension – How to take care of amaryllis and get them to rebloom](https://extension.illinois.edu/blogs/good-growing/2021-12-03-how-take-care-amaryllis-and-get-them-rebloom) — Dormanz optional (nicht obligat), Ruheperiode 8–12 Wochen, Blühterminsteuerung
+11. [University of Wisconsin Horticulture – Amaryllis, Hippeastrum](https://hort.extension.wisc.edu/articles/amaryllis-hippeastrum/) — Temperaturen (Lagerung 10–12 °C, Optimum), Dormanz nicht erforderlich, Pflegezyklus
+12. [Amarylia – How Many Years Can an Amaryllis Actually Bloom?](https://amarylia.com/blogs/news/how-many-years-can-an-amaryllis-actually-bloom) — Lebensdauer der Zwiebel (25 Jahre, Erbstücke 50+ Jahre)
+13. [RHS – Hippeastrum Growing Guide](https://www.rhs.org.uk/plants/hippeastrum/growing-guide) — Topftiefe ≥ 30 cm, Wurzelraum, Pflege
+14. [Gardener's Path – What Type of Soil Does Amaryllis Need?](https://gardenerspath.com/plants/flowers/amaryllis-soil/) — Boden-pH 6.0–7.0, Drainage, Substratmischung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

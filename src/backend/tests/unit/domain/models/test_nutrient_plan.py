@@ -89,6 +89,63 @@ class TestNutrientPlanPhaseEntry:
         )
         assert entry.key == "e1"
 
+    def test_micronutrients_default_none(self):
+        entry = NutrientPlanPhaseEntry(
+            plan_key="p1",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=1,
+            week_end=2,
+        )
+        assert entry.manganese_ppm is None
+        assert entry.zinc_ppm is None
+        assert entry.copper_ppm is None
+        assert entry.molybdenum_ppm is None
+
+    def test_micronutrients_valid(self):
+        entry = NutrientPlanPhaseEntry(
+            plan_key="p1",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=1,
+            week_end=2,
+            manganese_ppm=0.5,
+            zinc_ppm=0.05,
+            copper_ppm=0.02,
+            molybdenum_ppm=0.01,
+        )
+        assert entry.manganese_ppm == 0.5
+        assert entry.zinc_ppm == 0.05
+        assert entry.copper_ppm == 0.02
+        assert entry.molybdenum_ppm == 0.01
+
+    def test_micronutrient_negative_raises(self):
+        with pytest.raises(ValidationError):
+            NutrientPlanPhaseEntry(
+                plan_key="p1",
+                phase_name=PhaseName.VEGETATIVE,
+                sequence_order=1,
+                week_start=1,
+                week_end=2,
+                manganese_ppm=-1.0,
+            )
+
+    def test_model_validate_from_seed_dict(self):
+        raw = {
+            "plan_key": "p1",
+            "phase_name": "vegetative",
+            "sequence_order": 1,
+            "week_start": 1,
+            "week_end": 4,
+            "manganese_ppm": 0.5,
+            "zinc_ppm": 0.05,
+            "copper_ppm": 0.02,
+            "molybdenum_ppm": 0.01,
+        }
+        entry = NutrientPlanPhaseEntry.model_validate(raw)
+        assert entry.manganese_ppm == 0.5
+        assert entry.molybdenum_ppm == 0.01
+
 
 class TestNutrientPlan:
     def test_valid_plan(self):

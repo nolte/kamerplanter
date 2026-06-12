@@ -19,9 +19,16 @@
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 5–25+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | Nicht zutreffend (tagneutral / day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
@@ -93,6 +100,21 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kaktus- und Sukkulentenerde oder Einheitserde mit 50% Perlite/Grobsand. Sehr durchlässig — kein Staunasser Topf. Terrakotta-Töpfe ideal für bessere Austrocknung. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Wert in seriöser Literatur belegbar; CAM-Pflanze mit atypischer Tag/Nacht-Gaswechsel-Dynamik) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | <!-- DATEN FEHLEN --> (toleriert bis ~4 dS/m Bewässerungssalinität in Feldstudien, aber kein publizierter Maas-Hoffman-Schwellenwert) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–8.5 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +140,12 @@
 | Luftfeuchtigkeit Tag (%) | 25–40 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 25–40 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | <!-- DATEN FEHLEN --> (kein publizierter art-spezifischer Schwellwert; CAM-Sukkulente mit nächtlicher Stomataöffnung, daher untypische VPD-Kopplung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -134,6 +162,12 @@
 | Luftfeuchtigkeit Tag (%) | 20–35 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 20–35 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.2–3.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | <!-- DATEN FEHLEN --> (kein publizierter art-spezifischer Schwellwert) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 28–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -144,6 +178,17 @@
 |-------|----------------|---------|-----|----------|----------|
 | Aktives Wachstum | 1:2:2 (P/K-betont für Sukkulenten) | 0.4–0.8 | 6.0–7.0 | 40 | 15 |
 | Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Mikronährstoffe je Phase
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Aktives Wachstum | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | — | — | — | — |
+
+> Hinweis: Keine art-spezifischen Mikronährstoff-Zielwerte (Mn/Zn/Cu/Mo) für Aloe vera in seriöser Fachliteratur belegbar. Als extremer Schwachzehrer deckt Aloe vera ihren Mikronährstoffbedarf in der Regel über handelsüblichen Kakteen-/Sukkulentendünger (siehe 3.1), der diese Elemente in Spuren enthält. Werte daher als `DATEN FEHLEN` markiert statt geraten.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -198,6 +243,23 @@ Aloe vera ist ein extremer Schwachzehrer. Nur 2–3 Düngergaben pro Wachstumssa
 | Sep | Einräumen | Vor ersten Nachtfrösten hereinholen | hoch |
 | Okt–Mär | Winterruhe | Sehr wenig gießen, kein Dünger | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free (frostempfindliche Sukkulente — muss frostfrei drinnen überwintern; UI-Winterhärte-Ampel = rot) | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion | Einräumen ins Haus (frostfreier, heller Standort) | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | 9 (September, vor erstem Nachtfrost; spätestens Oktober) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion | Schrittweise nach draußen abhärten, Gießen reaktivieren | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 10–18 (Minimum 5 °C, ideal 13–20 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (Süd-/Ostfenster); je heller, desto besser | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | stark reduziert, ca. alle 4–6 Wochen (Gießintervall verdoppeln ggü. Sommer) | `overwintering_profiles.winter_quarter_watering` |
+
+> Hinweis (Mitteleuropa, USDA 6–8): Aloe vera ist nicht frosthart und muss in Mitteleuropa ganzjährig als Kübel-/Zimmerpflanze gehalten und vor dem ersten Nachtfrost (meist September/Oktober) eingeräumt werden. Im Winterquartier kein Dünger; Staunässe unbedingt vermeiden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -226,6 +288,18 @@ Aloe vera ist ein extremer Schwachzehrer. Nur 2–3 Düngergaben pro Wachstumssa
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schmierläuse |
 | Umtopfen + Austrocknen | cultural | Faule Wurzeln entfernen, 3–5 Tage trocknen vor Rückpflanzen | 0 | Wurzelfäule |
 | Staunässe beseitigen | cultural | Topf mit Abzugslöchern; Untersetzer leeren | 0 | Prävention Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|--------------------|--------------------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 2–10 Tiere/m² je Ausbringung, 2–3 Wiederholungen im Abstand von 1–2 Wochen | ca. 2–4 Wochen |
+| Raubmilbe (predatory mite) | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 Tiere/m² je nach Befallsdichte, wöchentliche Wiederholung | ca. 2–4 Wochen |
+| Raubmilbe (predatory mite, präventiv) | Neoseiulus californicus | Spinnmilben (präventiv, niedrige Dichte) | herstellerabhängig (typ. wenige Tiere/m² präventiv) | ca. 3–4 Wochen |
+
+> Hinweis: Nützlingseinsatz ist v. a. im Gewächshaus/Wintergarten praktikabel; in der reinen Zimmerkultur etablieren sich Räuber oft schlecht. Raten und Etablierungszeiten stammen aus dem geschützten Anbau (Koppert, Cornell NYS IPM) und sind nicht aloe-spezifisch, sondern schädlingsspezifisch.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -271,3 +345,16 @@ Aloe vera,"Echte Aloe;Aloe vera;True Aloe;Barbados Aloe",Asphodelaceae,Aloe,pere
 3. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
 4. [Bloomscape — Aloe Care Guide](https://bloomscape.com/plant-care-guide/aloe/) — Pflegehinweise
 5. [Healthy Houseplants](https://www.healthyhouseplants.com/indoor-houseplants/aloe-vera-care-guide-growing-and-maintaining-this-healing-succulent/) — Ganzjahrespflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Springer/Planta — CAM in leaves of Aloe arborescens](https://link.springer.com/article/10.1007/BF00388361) — Beleg CAM-Photosynthese in der Gattung Aloe
+7. [PubMed — Changes in CAM expression in Aloe vera during drought and salt stress](https://pubmed.ncbi.nlm.nih.gov/34780703/) — Beleg konstitutive CAM-Photosynthese bei Aloe vera, Salztoleranz
+8. [Wikifarmer — Aloe Soil Requirements, Soil Preparation and Planting](https://wikifarmer.com/library/en/article/aloe-soil-requirements-soil-preparation-and-planting) — Wurzeltiefe (20–30 cm), Boden-pH (7.0–8.5), Staunässe, Drainage
+9. [LeafyJournal — Aloe Vera Root System](https://leafyjournal.com/aloe-vera-root-system/) — Bestätigung flach-extensives Wurzelsystem 20–30 cm
+10. [MedCrave — Aloe vera screens at suitable salinity and sodicity level](https://medcraveonline.com/HIJ/aloe-vera-aloe-barbadeenis-mll-screens-at-suitable-salinity-and-sodicity-level.html) — Salztoleranz bis ~4 dS/m (Biosaline)
+11. [Taylor & Francis — Aloe vera long-term saline irrigation](https://www.tandfonline.com/doi/abs/10.1080/09064710.2015.1049653) — moderate Salztoleranz, physiologische Reaktion auf Salzstress
+12. [PictureThis — Optimal Temperature for Aloe vera](https://www.picturethisai.com/care/temperature/Aloe_vera.html) — Optimaltemperatur/Photosynthese-T_opt 21–27 °C, Minimum 4 °C
+13. [Horticulture.co.uk — Overwintering Aloe vera](https://horticulture.co.uk/aloe-vera/overwintering/) — Überwinterung, Mindesttemperatur (5 °C), Winterquartier
+14. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate
+15. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Nützling gegen Spinnmilben, Ausbringrate
+16. [Cornell NYS IPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Etablierung/Einsatz Raubmilbe gegen Spinnmilben
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

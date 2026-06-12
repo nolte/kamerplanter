@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, NCSU Extension, Purdue University, Gardenia.net, Plantura, fryd.app, Gardener's Path, Gardening Know How, PlantVillage, Seed Savers Exchange, Old Farmer's Almanac
+> **Quellen:** ASPCA, NCSU Extension, Purdue University, Gardenia.net, Plantura, fryd.app, Gardener's Path, Gardening Know How, PlantVillage, Seed Savers Exchange, Old Farmer's Almanac, FAO (Land & Water, I&D Paper 56/29), University of Tennessee, SciELO, Frontiers in Plant Science <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -21,6 +21,13 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral (die meisten modernen Sorten; einige tropische Landsorten sind kurztagsempfindlich) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (waermeliebende C3-Dikotyle; in der Literatur durchgaengig als C3-Art gefuehrt) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 10 (etablierte Wuchs-/Phaenologie-Basis fuer snap bean; NICHT die Keim-Basis. Sortenabhaengige Studienwerte 0--6.7 degC existieren, aber Extension-Standard fuer Reifevorhersage = 10 degC) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjaehrige Art ohne Ruhephase) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropische, tagneutrale Art ohne Kaeltebeduerfnis) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN: tagneutral, kein numerischer Kurz-/Langtag-Schwellenwert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei Temperaturen unter 2 degC ab. Keimt erst ab 10 degC Bodentemperatur (optimal 18--22 degC). In Mitteleuropa Freiland-Kultur Mitte Mai bis September/Oktober. | `species.hardiness_detail` |
@@ -103,6 +110,22 @@ Hinweis: Kein Rueckschnitt noetig. Bei Stangenbohnen: Triebspitze kappen, wenn d
 
 **Hinweis:** Bohnen sind ideal fuer Anfaenger -- schnelle Keimung, unkomplizierte Kultur, zuverlaessige Ernte. Buschbohnen sind kompakter und ernten frueher (50--60 Tage), Stangenbohnen tragen laenger und ertragreicher (60--90 Tage). "Drei Schwestern" (Mais + Bohne + Kuerbis) ist die klassische indigene Mischkultur.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD umol/m2/s) | 20 (Sonnenpflanzen-typischer C3-Bereich; Netto-Photosynthese = 0) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 30 (Obergrenze der Sonnenpflanzen-Spanne; Saettigungs-/Optimumwerte NICHT hier eingetragen) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (mind. 6--8 h direkte Sonne; Ertrag faellt unter Beschattung deutlich) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 50--70 (aktive Wasseraufnahmezone; Pfahlwurzel kann 100--150 cm erreichen, Hauptwurzelmasse jedoch in den oberen 50--70 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Staunaesse reduziert Frisch-/Trockenmasse staerker als Trockenstress; foerdert Wurzelfaeule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Bohne gilt als eine der salzempfindlichsten Gemuesekulturen) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (salt tolerance ECe threshold, dS/m) | 1.0 (Substrat-ECe, Saettigungsextrakt; Maas-Hoffman a -- erster Ertragsrueckgang; NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (salt tolerance slope, %/dS/m) | 19 (Maas-Hoffman b; ~19 % Ertragsverlust je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0--6.8 (leicht sauer bis neutral; konsistent mit pH 6.0--6.8 in 1.6 und 6.0--6.5 in 2.3; FAO nennt fuer Trockenbohne enger 5.5--6.0) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -133,6 +156,12 @@ Hinweis: Bohnen wachsen schnell -- Buschbohnen koennen schon 50--60 Tage nach Au
 | Luftfeuchtigkeit Tag (%) | 65--80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70--85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer Punkt fuer die feuchteliebende Keimphase; Schwelle liegt deutlich ueber dem niedrigen Feuchte-Zielkorridor) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | -- (Keimung, kaum assimilierendes Gewebe; Bohnen-Photosynthese-Optimum 25--28 degC erst ab Saemling relevant) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne; bei Dunkelkeimung im Boden ohne Lichtwirkung) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 (maessig feucht, NICHT nass!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 10--20 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -151,6 +180,12 @@ Hinweis: Bohnen faulen leicht in nasser, kalter Erde. NICHT vorquellen. Boden mu
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomataerer Schliessung; oberhalb des moderaten Saemling-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne, R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -167,6 +202,12 @@ Hinweis: Bohnen faulen leicht in nasser, kalter Erde. NICHT vorquellen. Boden mu
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt stomataeren Kollaps; deutlich oberhalb des vegetativen Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne, R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (maessig, Bohnen sind relativ trockentolerant) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -185,6 +226,12 @@ Hinweis: Bohnen sind in der vegetativen Phase genuegsam. Stickstoff-Duengung ist
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (Bluete ist hitze-/trockenheitsempfindlich; Schwelle unterhalb der vegetativen Phase, da hoher Wasserbedarf und Bluetenabwurf-Risiko) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Bluetenabwurf bei Trockenstress und Hitze >30 degC) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne, R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 (in der Bluete erhoehter Wasserbedarf!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -203,6 +250,12 @@ Hinweis: Die Bluetephase ist die kritischste! Hitze ueber 30 degC, Trockenheit u
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (kritischer Punkt; fortlaufender Huelsenansatz braucht gleichmaessige Wasserversorgung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne, R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 80--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -211,13 +264,19 @@ Hinweis: REGELMAESSIG ERNTEN! Alle 2--3 Tage kontrollieren und pfluckreife Huels
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.8 | -- | -- | -- | -- |
-| Saemling | 0-1-1 | 0.3--0.5 | 6.0--6.5 | 50 | 25 | 20 | 2 |
-| Vegetativ | 0-1-2 | 0.4--0.8 | 6.0--6.5 | 80 | 35 | 25 | 2 |
-| Bluete | 0-2-3 | 0.6--1.0 | 6.0--6.5 | 100 | 40 | 30 | 3 |
-| Ernte | 0-1-2 | 0.4--0.8 | 6.0--6.5 | 80 | 35 | 25 | 2 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06: Spalten Mn/Zn/Cu/Mo ergaenzt -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.8 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 0-1-1 | 0.3--0.5 | 6.0--6.5 | 50 | 25 | 20 | 2 | 0.5 | 0.1 | 0.03 | 0.05 |
+| Vegetativ | 0-1-2 | 0.4--0.8 | 6.0--6.5 | 80 | 35 | 25 | 2 | 0.6 | 0.2 | 0.05 | 0.08 |
+| Bluete | 0-2-3 | 0.6--1.0 | 6.0--6.5 | 100 | 40 | 30 | 3 | 0.8 | 0.3 | 0.07 | 0.10 |
+| Ernte | 0-1-2 | 0.4--0.8 | 6.0--6.5 | 80 | 35 | 25 | 2 | 0.6 | 0.2 | 0.05 | 0.08 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+Hinweis zu Mikronaehrstoffen: Molybdaen (Mo) ist fuer Bohnen als Leguminose besonders wichtig -- es ist Cofaktor der Nitrogenase in den Rhizobium-Knoellchen und damit Voraussetzung fuer die symbiotische N-Fixierung. Manganueberschuss in sauren Boeden (pH < 5.5) kann toxisch wirken; pH 6.0--6.5 haelt die Mikronaehrstoff-Verfuegbarkeit im optimalen Bereich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Bohnen als Stickstoff-Fixierer (Knollchenbakterien/Rhizobien an den Wurzeln) brauchen KEINEN Stickstoff-Duenger. N-Duengung ist sogar schaedlich -- die Pflanze stellt die N-Fixierung ein und produziert ueppiges Laub statt Huelsen. Phosphor und Kalium foerdern Blute + Huelsenbildung.
 
@@ -465,3 +524,17 @@ Kentucky Blue Pole,Phaseolus vulgaris,,1991,disease_resistant;high_yield,65,bean
 9. Seed Savers Exchange -- Growing Beans: https://shop.seedsavers.org/site/pdf/grow-save-beans.pdf
 10. Old Farmer's Almanac -- Beans: https://www.almanac.com/plant/green-beans
 11. Gardening Know How -- Common Bean Problems: https://www.gardeningknowhow.com/edible/vegetables/beans/information-on-common-bean-problems-tips-on-growing-beans.htm
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. FAO Land & Water -- Crop Information: Bean (Wurzeltiefe 1.0--1.5 m, Hauptaufnahme 0.5--0.7 m; Salztoleranz ECe 0 % bei 1.0, 50 % bei 3.6 mmhos/cm; pH 5.5--6.0; staunaesseempfindlich): https://www.fao.org/land-water/databases-and-software/crop-information/bean/en/
+13. FAO Irrigation & Drainage Paper 56 -- Crop Evapotranspiration (Zr, ECe-Schwellen Maas-Hoffman): http://www.climasouth.eu/sites/default/files/FAO%2056.pdf
+14. FAO Irrigation & Drainage Paper 29 -- Water Quality for Agriculture, Annex (Bohne salzempfindlich, ECe-Schwelle ~1.0 dS/m): https://www.fao.org/4/x5871e/x5871e04.htm
+15. University of Tennessee TRACE -- A phenological study of snap bean (Phaseolus vulgaris L.) for predicting harvest (GDD-Basis 10 degC / 50 degF fuer 'Provider'/'Eagle'): https://trace.tennessee.edu/entities/publication/de9b1c53-c8ed-4d62-9e03-ac4a63160d95
+16. SciELO Colombia -- Phenology, mass accumulation patterns and growing degree days in common bean (GDD-Akkumulation V0--R8 ~800--810 GDD): http://www.scielo.org.co/scielo.php?script=sci_arttext&pid=S0120-01352024000300004
+17. Frontiers in Plant Science -- Cell size differences affect photosynthetic capacity in Phaseolus vulgaris (C3-Charakterisierung, Lichtkurven): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2024.1422814/full
+18. ScienceDirect Topics -- Compensation Point / Light Compensation (C3-Sonnenpflanzen LCP 20--30 umol/m2/s): https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point
+19. ResearchGate -- Response of Common Bean (Phaseolus vulgaris L.) to Different Levels of Shade (Vollsonne-Bedarf, Ertragsrueckgang unter Beschattung): https://www.researchgate.net/publication/26558671_Response_of_Common_Bean_Phaseolus_vulgaris_L_to_Different_Levels_of_Shade
+20. PMC -- Phenotypic and yield responses of common bean to soil moisture levels (Staunaesse reduziert Biomasse staerker als Trockenstress): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10993436/
+21. Gardenia.net -- Phaseolus vulgaris Green Beans (Vollsonne, pH 6.0--7.0): https://www.gardenia.net/plant/phaesolus-vulgaris-green-beans
+22. All Things Lighting / Oxford JXB Canopy Light -- R:FR-Verhaeltnis Tageslicht ~1.1--1.3 (FR-Fraction ~0.45--0.5 in Vollsonne, hoeher unter Blattdach): https://academic.oup.com/jxb/article/76/3/712/7727419
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

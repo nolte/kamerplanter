@@ -19,8 +19,15 @@
 | Ordnung | Lamiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temperature, degC) | 10--12 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Photoperiode | short_day (Kurztagspflanze -- Bluetenbildung durch Kurztag ausgeloest; lange Sommertage verzoegern Bluete und verlaengern die vegetative Erntephase) | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral (Sweet Basil ist überwiegend tagneutral — Blüte primär reife-/temperaturgesteuert, nicht echte Kurztaginduktion. Hohe Temperaturen und Pflanzenalter lösen die Blüte aus; Rückschnitt/Entspitzen verlängert die vegetative Erntephase) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN --> -- (Ocimum basilicum gilt als fakultativer/tagneutraler Bluetentyp; eine belastbare artspezifische kritische Tageslaenge liess sich nicht aus zwei unabhaengigen Quellen bestaetigen) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei Temperaturen unter 5 degC ab. In Mitteleuropa einjaehrig kultiviert (Freiland Mai--September) oder ganzjaehrig auf der Fensterbank/im Gewaechshaus. | `species.hardiness_detail` |
@@ -101,6 +108,23 @@ Hinweis: Regelmaessiges Ernten/Entspitzen ueber den Blattknoten foerdert buschig
 
 **Hinweis:** Basilikum ist eine der beliebtesten Topfkraeuter und ideal fuer Fensterbank, Balkon und Kuechennaehe. Supermarkt-Basilikum ist fuer sofortigen Verbrauch gezuechtet (zu dicht gesaet) -- fuer laengere Kultur die Pflanzen teilen oder aus Samen/Stecklingen ziehen. Mindestens 6 Stunden direkte Sonne taeglich. Im Topf regelmaessig giessen, aber Staunaesse vermeiden.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD umol/m2/s) | <!-- DATEN FEHLEN --> -- (kein artspezifischer LCP-Wert aus zwei unabhaengigen Quellen belegbar; belegt sind nur Lichtsaettigungspunkt ~420--545 und Ertrags-Optimum ~250--500 PPFD) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (6--8 h direkte Sonne taeglich; toleriert Halbschatten unter Aroma- und Ertragseinbussen) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20--30 | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Wurzelfaeule/Umfallkrankheit bei Staunaesse; benoetigt durchlaessiges Substrat) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, dS/m) | <!-- DATEN FEHLEN --> -- (Literaturangaben widerspruechlich: ~1.7--2.25 dS/m vs. Stressgrenze ~5 dS/m; kein konsistenter Maas-Hoffman-Schwellenwert aus zwei uebereinstimmenden Quellen) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> -- (kein konsistenter Slope-Wert belegbar) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0--7.0 | `species.soil_ph_preference` |
+
+Hinweis: Basilikum ist eine Sonnenpflanze mit flachem, faserigem Wurzelsystem (Hauptaktivitaet in den oberen ~15--20 cm). Staunaesse ist der haeufigste Kulturfehler und beguenstigt Pythium/Fusarium. Die Salztoleranz wird in der Literatur als salz-sensibel bis maessig sensibel eingestuft; ein praezise quantifizierter Maas-Hoffman-Schwellenwert fehlt fuer die Art.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -131,6 +155,12 @@ Hinweis: Die vegetative Phase ist die produktivste Erntephase. Durch konsequente
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Obergrenze; darueber Transpirationsstress/Tipburn) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert; Far-Red foerdert Streckung, reduziert aber Aroma/Pigmente) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht, nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -147,6 +177,12 @@ Hinweis: Die vegetative Phase ist die produktivste Erntephase. Durch konsequente
 | Luftfeuchtigkeit Tag (%) | 65--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Obergrenze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -163,6 +199,12 @@ Hinweis: Die vegetative Phase ist die produktivste Erntephase. Durch konsequente
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Obergrenze; darueber Welke/Tipburn) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -181,6 +223,12 @@ Hinweis: Basilikum reagiert empfindlich auf Staunaesse (Fusarium, Pythium). Subs
 | Luftfeuchtigkeit Tag (%) | 50--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0--1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Obergrenze) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN --> -- (kein belegter Zielwert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -207,13 +255,15 @@ Hinweis: Blatternten in der Seneszenz lohnen nicht -- Aromagehalt ist stark redu
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.2 | 60 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.0--1.4 | 5.8--6.2 | 100 | 40 | 30 | 3 |
-| Bluete | 2-2-2 | 1.0--1.4 | 5.8--6.2 | 80 | 40 | 30 | 2 |
-| Seneszenz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt; Vollnaehrloesungs-Standardwerte nach Hoagland/Hydroponik-Praxis) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.2 | 60 | 30 | 20 | 2 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Vegetativ | 3-1-2 | 1.0--1.4 | 5.8--6.2 | 100 | 40 | 30 | 3 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Bluete | 2-2-2 | 1.0--1.4 | 5.8--6.2 | 80 | 40 | 30 | 2 | 0.5--1.0 | 0.05--0.5 | 0.02--0.1 | 0.01--0.05 |
+| Seneszenz | 0-0-0 | 0.0 | 6.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Basilikum ist ein Schwachzehrer -- uebermaessige Stickstoffduengung fuehrt zu schnellem Wachstum mit duennen Blaettern und reduziertem Aromaoelgehalt (bis zu 28% weniger aetherische Oele bei Ueberduengung). EC ueber 1.6 mS vermeiden. pH unter 5.8 verursacht Eisen/Mangan-Toxizitaet (braune bis schwarze Flecken an den Blattrandern).
 
@@ -444,7 +494,7 @@ Basilikum (Ocimum basilicum) als Art hat kaum natuerliche Resistenzen. Die groes
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat
-Ocimum basilicum,Basilikum;Basil;Koenigskraut;Sweet Basil,Lamiaceae,Ocimum,annual,short_day,herb,fibrous,10a;10b;11a;11b,0.1,"Tropisches Asien (Indien, Suedostasien)"
+Ocimum basilicum,Basilikum;Basil;Koenigskraut;Sweet Basil,Lamiaceae,Ocimum,annual,day_neutral,herb,fibrous,10a;10b;11a;11b,0.1,"Tropisches Asien (Indien, Suedostasien)"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -476,3 +526,18 @@ Cinnamon Basil,Ocimum basilicum 'Cinnamon',,,purple_stems;cinnamon_aroma,60,,ope
 10. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
 11. ScienceDirect -- Optimization of basil in LED environments: https://www.sciencedirect.com/science/article/pii/S0304423821005938
 12. Old Farmer's Almanac -- Basil: https://www.almanac.com/plant/basil
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. Frontiers in Plant Science (2025) -- Plant photosynthesis in basil (C3) and maize (C4): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1590884/full -- belegt C3-Photosynthese-Typ von Ocimum basilicum (peer-reviewed)
+14. ScienceDirect -- Determination of germination cardinal temperatures in two basil cultivars: https://www.sciencedirect.com/science/article/abs/pii/S2214786115300176 -- Basis-/Kardinaltemperaturen der Keimung (Basistemperatur ~10--13 degC je Cultivar)
+15. HortScience 54(11) 2019 -- Growth and Development of Basil Species in Response to Temperature: https://journals.ashs.org/hortsci/view/journals/hortsci/54/11/article-p1915.xml -- Temperatur-Wachstumsverhalten, GDD-Basis
+16. MDPI Plants 10(6):1072 (2021) -- Yield, Physiological Performance, and Phytochemistry of Basil under Temperature Stress: https://www.mdpi.com/2223-7747/10/6/1072 -- Optimaltemperatur 25--30 degC, Hitze-/Kaeltestress, Photosynthese (peer-reviewed)
+17. UMN Extension -- Growing basil in home gardens: https://extension.umn.edu/vegetables/growing-basil -- Standortansprueche (volle Sonne 6--8 h), Boden-pH
+18. Epic Gardening -- Can Basil Grow in Shade?: https://www.epicgardening.com/basil-shade/ -- Sonnenbedarf und Halbschatten-Toleranz
+19. Farmer & the Fish NYC -- How Deep Do Basil Roots Grow: https://farmerandthefishnyc.com/how-deep-do-basil-roots-grow/ -- effektive Wurzeltiefe 20--30 cm, flaches Faserwurzelsystem
+20. Greg.app -- Ultimate Guide to Root Rot in Basil / Basil Roots: https://greg.app/basil-root-rot/ -- Staunaesse-Empfindlichkeit, Wurzelfaeule, Wurzeltiefe
+21. PMC -- Salinity tolerance / salt stress in Ocimum basilicum: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10255373/ -- Einstufung salz-sensibel bis maessig sensibel
+22. Frontiers in Plant Science (2022) -- Increasing light intensities for basil growth and quality: https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.1055352/full -- Lichtsaettigungs-/Ertragspunkte (kein LCP-Wert vorhanden)
+23. Wikipedia / Researve -- Hoagland solution composition: https://en.wikipedia.org/wiki/Hoagland_solution -- Vollnaehrloesungs-Mikronaehrstoff-Standardwerte (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 mg/L)
+24. AlpHa Measure / Atlas Scientific -- Hydroponic nutrient solution micronutrients: https://alpha-measure.com/hydroponic-nutrient-solution-monitoring-and-optimization/ -- Mikronaehrstoff-Spannen fuer Blattgemuese/Kraeuter in Hydrokultur
+25. Current Gardening -- VPD Calculator for Hydroponics: https://currentgardening.com/gardening-tools/vpd-calculator/ -- VPD-Stressgrenzen (>1.6 kPa Tipburn/Welke)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

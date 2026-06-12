@@ -21,6 +21,16 @@
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 7 | `species.base_temp` |
+| Lebensdauer (Jahre) | — (einjährig kultiviert) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Knollendormanz vor Austrieb) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 12 (Knollenansatz wird durch Kurztag gefördert; moderne Sorten weitgehend tagneutral, Tuberisation aber durch Tageslängen < ca. 12 h beschleunigt) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| USDA Zonen | 3a–10b | `species.hardiness_zones` |
 | USDA Zonen | 3a–10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Knollen nicht frosthart; Kraut stirbt bei −1 °C; Pflanzknollen im Freiland ab Bodentemperatur 8 °C | `species.hardiness_detail` |
@@ -110,6 +120,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | — (trocken lagern) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +142,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -142,18 +164,27 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 16–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 (gleichmäßige Feuchte wichtig — Stippigkeit vermeiden) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Vorkeimen | 0:0:0 | 0.0 | — | — | — | — | — |
-| Vegetativ | 3:1:2 | 1.5–2.0 | 5.5–6.5 | 100 | 50 | 30 | 3 |
-| Knollenansatz | 1:2:3 | 1.5–2.5 | 5.5–6.5 | 100 | 60 | 30 | 2 |
-| Reife | 0:1:2 | 1.0–1.5 | 5.5–6.5 | 80 | 40 | — | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Vorkeimen | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Vegetativ | 3:1:2 | 1.5–2.0 | 5.5–6.5 | 100 | 50 | 30 | 3 | 0.62 | 0.11 | 0.02 | 0.05 |
+| Knollenansatz | 1:2:3 | 1.5–2.5 | 5.5–6.5 | 100 | 60 | 30 | 2 | 0.62 | 0.11 | 0.02 | 0.05 |
+| Reife | 0:1:2 | 1.0–1.5 | 5.5–6.5 | 80 | 40 | — | 1 | 0.5 | 0.1 | 0.02 | 0.05 |
+<!-- KA-Felder: nutrient_profiles.manganese/zinc/copper/molybdenum_ppm — Nährlösungs-Zielwerte nach Steiner-Universallösung (100 %) -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -163,6 +194,22 @@
 | Auflaufen → Vegetativ | time_based | 14–21 Tage | Triebe 10–15 cm, Zeit zum Anhäufeln |
 | Vegetativ → Knollenansatz | event_based | Blüte sichtbar | Erster Blütenknopf sichtbar |
 | Knollenansatz → Reife | time_based | 28–56 Tage | Kraut beginnt einzuziehen |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN — kein artspezifischer Beleg aus 2 Quellen --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN — kein artspezifischer Beleg aus 2 Quellen --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (mind. 6–8 h Direktsonne; im Schatten kaum Knollenbildung) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40–60 (FAO: 100 % Wasseraufnahme aus oberen 0,4–0,6 m, 70 % aus oberen 0,3 m) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Staunässe fördert Knollenfäule/Wurzelfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.7 (Substrat-ECe, Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 12 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.0–6.5 (FAO-Optimum 5,0–6,0; obere Grenze zur Schorf-Vermeidung möglichst unter 6,0 halten — konsistent mit §1.6/§3.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -355,3 +402,15 @@ Annabelle,Solanum tuberosum,Agrico,2003,"very_early;festkochend",75,,open_pollin
 2. [Frühkartoffeln: Sorten, Anbau & Ernte — Plantura](https://www.plantura.garden/gemuese/kartoffeln/fruehkartoffeln) — Anbaupraxis
 3. [Kartoffeln — Der Bio-Gärtner](https://www.bio-gaertner.de/Pflanzen/Kartoffeln) — Bio-Anbau, Fruchtfolge
 4. [LfL Bayern — Krautfäule](https://www.lfl.bayern.de/) — Phytophthora, IPM
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [FAO Land & Water — Potato Crop Information](https://www.fao.org/land-water/databases-and-software/crop-information/potato/en/) — Effektive Wurzeltiefe (0,4–0,6 m), Boden-pH (5–6), optimale Temperaturen
+6. [Shannon & Grieve — Tolerance of vegetable crops to salinity (USDA-ARS)](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf) — Salztoleranz, Maas-Hoffman-Parameter
+7. [Salt tolerance of crops — Wikipedia](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) — Bestätigung Kartoffel ECe-Schwelle 1,7 dS/m, Slope 12 %/dS/m (moderately sensitive)
+8. [Effects of Light, CO₂ and Temperature on Photosynthesis in Solanum tuberosum — Plant Physiol. (PubMed 16659958)](https://pubmed.ncbi.nlm.nih.gov/16659958/) — C3-Stoffwechsel, Photosynthese-Temperaturoptimum 16–25 °C
+9. [Crop physiology of potato: responses to photoperiod and temperature — Springer](https://link.springer.com/chapter/10.1007/978-94-011-0051-9_2) — Kurztag-Förderung der Tuberisation, Entwicklungs-Basistemperatur
+10. [The Five Key Stages of Potato Growth — ScienceInsights](https://scienceinsights.org/the-five-key-stages-of-potato-growth/) — Basistemperatur/Schwelle ~7 °C (45 °F) für Wachstum
+11. [Calculating Growing Degree Days — Potato Grower Magazine](https://www.potatogrower.com/2022/06/calculating-growing-degree-days) — GDD-Berechnung Kartoffel
+12. [Steiner, A.A. (1961) A Universal Method for Preparing Nutrient Solutions — Plant and Soil 15:134-154](https://www.scirp.org/reference/referencespapers?referenceid=1818327) — Mikronährstoff-Zielwerte Nährlösung (Mn 0,62; Zn 0,11; Cu 0,02; Mo 0,05 ppm)
+13. [Secondary and Micro-nutrients for Vegetable and Field Crops — MSU Extension E486](https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486) — Mikronährstoff-Suffizienzbereiche (Blattgewebe) zur Plausibilisierung
+14. [The R to FR Ratio — Greenhouse Product News](https://gpnmag.com/article/r-fr-ratio/) — R:FR ≈ 1,1–1,4 bzw. FR-Fraction ≈ 0,5 in offenem Tageslicht/Vollsonne
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

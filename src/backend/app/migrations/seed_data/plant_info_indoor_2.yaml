@@ -386,6 +386,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.3
 
   - scientific_name: "Echeveria elegans"
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
@@ -414,6 +421,14 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   # Epipremnum aureum removed — already defined in species.yaml.
   # Enrichment fields moved to species_enrichment section below.
@@ -445,6 +460,13 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Fatsia japonica"
     common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
@@ -473,6 +495,12 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: deep_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Ficus benjamina"
     common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
@@ -501,6 +529,15 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Ficus elastica"
     common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
@@ -529,6 +566,13 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Ficus lyrata"
     common_names: [Geigenfeige, Fiddle Leaf Fig]
@@ -557,6 +601,14 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 90
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Fittonia albivenis"
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
@@ -585,6 +637,14 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Gardenia jasminoides"
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
@@ -613,6 +673,14 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 6.5
 
   - scientific_name: "Goeppertia lancifolia"
     common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
@@ -641,6 +709,16 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 50
+    light_compensation_point_ppfd_max: 100
+    shade_tolerance: shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Goeppertia makoyana"
     common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
@@ -669,6 +747,15 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 50
+    light_compensation_point_ppfd_max: 50
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Goeppertia orbifolia"
     common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
@@ -725,6 +812,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Haworthiopsis fasciata"
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
@@ -753,6 +847,13 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Hedera helix"
     common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
@@ -781,6 +882,16 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 40
+    shade_tolerance: shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Hibiscus rosa-sinensis"
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
@@ -809,6 +920,13 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Hippeastrum hybridum"
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
@@ -837,6 +955,14 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: true
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Howea forsteriana"
     common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
@@ -865,6 +991,15 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 8
+    light_compensation_point_ppfd_max: 20
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 7.5
 
   - scientific_name: "Hoya carnosa"
     common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
@@ -893,6 +1028,14 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: true
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Impatiens walleriana"
     common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
@@ -921,6 +1064,13 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.6
 
   - scientific_name: "Jasminum polyanthum"
     common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
@@ -949,6 +1099,13 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: true
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Kalanchoe blossfeldiana"
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
@@ -977,6 +1134,14 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 20
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Kalanchoe daigremontiana"
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
@@ -1005,6 +1170,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: true
+    photosynthesis_type: cam
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Lithops spp."
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
@@ -1033,6 +1205,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Livistona chinensis"
     common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
@@ -1061,6 +1240,13 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Mammillaria spp."
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
@@ -1089,6 +1275,14 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: cam
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 25
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
 # Guzmania lingulata already fully enriched in plant_info.yaml — skipped here.
 
@@ -1119,6 +1313,16 @@ new_species:
     balcony_suitable: "no"
     greenhouse_recommended: false
     support_required: false
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 25
+    light_compensation_point_ppfd_max: 75
+    shade_tolerance: shade
+    effective_root_depth_cm: 15
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (watering guides for all 29 new species)
@@ -1854,6 +2058,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 350
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -1879,6 +2085,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 175
         photoperiod_hours: 10.0
         temperature_day_c: 18.5
@@ -1905,6 +2113,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -1930,6 +2139,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
         light_ppfd_target: 275
         photoperiod_hours: 12.0
         temperature_day_c: 18.5
@@ -1956,6 +2166,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 700
         photoperiod_hours: 15.0
         temperature_day_c: 22.5
@@ -1981,6 +2193,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 550
         photoperiod_hours: 12.0
         temperature_day_c: 14.0
@@ -2007,6 +2221,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 100
         photoperiod_hours: 13.0
         temperature_day_c: 22.5
@@ -2032,6 +2247,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 250
         photoperiod_hours: 14.0
         temperature_day_c: 24.5
@@ -2057,6 +2273,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 150
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -2084,6 +2301,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 500
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -2109,6 +2328,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 300
         photoperiod_hours: 10.0
         temperature_day_c: 20.0
@@ -2134,6 +2355,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 300
         photoperiod_hours: 10.0
         temperature_day_c: 20.0
@@ -2159,6 +2382,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 350
         photoperiod_hours: 10.0
         temperature_day_c: 20.0
@@ -2236,6 +2461,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 28
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 21.0
@@ -2261,6 +2488,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 28
         light_ppfd_target: 275
         photoperiod_hours: 10.0
         temperature_day_c: 18.5
@@ -2338,6 +2567,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 28
         light_ppfd_target: 550
         photoperiod_hours: 14.0
         temperature_day_c: 21.0
@@ -2363,6 +2593,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 28
         light_ppfd_target: 400
         photoperiod_hours: 10.0
         temperature_day_c: 18.5
@@ -2389,6 +2620,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 125
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -2414,6 +2647,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 100
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -2541,6 +2776,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 190
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -2566,6 +2803,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 130
         photoperiod_hours: 12.0
         temperature_day_c: 19.0
@@ -2592,6 +2831,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 125
         photoperiod_hours: 13.0
         temperature_day_c: 21.0
@@ -2617,6 +2858,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 100
         photoperiod_hours: 12.0
         temperature_day_c: 19.5
@@ -2643,6 +2886,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 165
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -2668,6 +2913,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 130
         photoperiod_hours: 12.0
         temperature_day_c: 19.0
@@ -2694,6 +2941,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 200
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -2719,6 +2968,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -2744,6 +2995,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -2769,6 +3022,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 200
         photoperiod_hours: 10.0
         temperature_day_c: 12.0
@@ -2795,6 +3050,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 21.0
@@ -2820,6 +3077,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 275
         photoperiod_hours: 12.0
         temperature_day_c: 15.0
@@ -2846,6 +3105,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 300
         photoperiod_hours: 14.0
         temperature_day_c: 21.0
@@ -2871,6 +3131,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 215
         photoperiod_hours: 10.0
         temperature_day_c: 12.0
@@ -2897,6 +3158,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -2922,6 +3184,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 700
         photoperiod_hours: 14.0
         temperature_day_c: 24.0
@@ -2947,6 +3210,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 27
         light_ppfd_target: 400
         photoperiod_hours: 10.0
         temperature_day_c: 16.0
@@ -2973,6 +3237,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 200
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -2998,6 +3263,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 350
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -3023,6 +3289,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 500
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3048,6 +3315,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 0
         photoperiod_hours: 0.0
         temperature_day_c: 15.0
@@ -3073,6 +3341,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 0
         photoperiod_hours: 0.0
         temperature_day_c: 12.0
@@ -3099,6 +3368,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 250
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -3124,6 +3395,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 24
         light_ppfd_target: 190
         photoperiod_hours: 12.0
         temperature_day_c: 16.0
@@ -3150,6 +3423,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
         light_ppfd_target: 400
         photoperiod_hours: 14.0
         temperature_day_c: 23.0
@@ -3175,6 +3449,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
         light_ppfd_target: 275
         photoperiod_hours: 12.0
         temperature_day_c: 16.0
@@ -3201,6 +3476,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 100
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3226,6 +3502,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 200
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3252,6 +3529,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 300
         photoperiod_hours: 10.0
         temperature_day_c: 10.0
@@ -3277,6 +3555,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 500
         photoperiod_hours: 12.0
         temperature_day_c: 18.0
@@ -3302,6 +3581,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3327,6 +3607,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 400
         photoperiod_hours: 11.0
         temperature_day_c: 16.0
@@ -3353,6 +3634,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 500
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3378,6 +3661,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 400
         photoperiod_hours: 10.0
         temperature_day_c: 18.0
@@ -3403,6 +3688,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 400
         photoperiod_hours: 12.0
         temperature_day_c: 20.0
@@ -3428,6 +3715,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 20
         light_ppfd_target: 350
         photoperiod_hours: 12.0
         temperature_day_c: 18.0
@@ -3454,6 +3743,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 15
         light_ppfd_target: 300
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3479,6 +3770,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 15
         light_ppfd_target: 600
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3504,6 +3797,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 15
         light_ppfd_target: 500
         photoperiod_hours: 10.0
         temperature_day_c: 18.0
@@ -3530,6 +3825,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 1000
         photoperiod_hours: 14.0
         temperature_day_c: 22.0
@@ -3555,6 +3852,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 800
         photoperiod_hours: 14.0
         temperature_day_c: 28.0
@@ -3580,6 +3879,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 1000
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
@@ -3605,6 +3906,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 22
         light_ppfd_target: 600
         photoperiod_hours: 10.0
         temperature_day_c: 15.0
@@ -3707,6 +4010,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 21
         light_ppfd_target: 1250
         photoperiod_hours: 15.0
         temperature_day_c: 24.0
@@ -3732,6 +4037,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
+        vpd_sensitivity: low
+        photosynthesis_temp_opt_c: 21
         light_ppfd_target: 550
         photoperiod_hours: 10.0
         temperature_day_c: 10.0
@@ -3758,6 +4065,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 150
         photoperiod_hours: 14.0
         temperature_day_c: 22.5
@@ -3783,6 +4092,8 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
+        vpd_sensitivity: medium
+        photosynthesis_temp_opt_c: 25
         light_ppfd_target: 125
         photoperiod_hours: 12.0
         temperature_day_c: 19.0

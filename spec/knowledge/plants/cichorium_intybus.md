@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** naturadb.de, kiepenkerl.de, sperli.de, samen.de, lubera.com, kraeuter-buch.de, plantura.garden, Wikipedia, Yara UK, CropNerd, ISHS, avogel.ch
+> **Quellen:** naturadb.de, kiepenkerl.de, sperli.de, samen.de, lubera.com, kraeuter-buch.de, plantura.garden, Wikipedia, Yara UK, CropNerd, ISHS, avogel.ch, Springer (Acta Physiologiae Plantarum, Plant Growth Regulation), ScienceDirect
 
 ---
 
@@ -19,8 +19,21 @@
 | Ordnung | Asterales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Asteraceae-Blattkultur ohne C4-/CAM-Anatomie; eng verwandt mit Salat, der gesichert C3 ist) | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial (Wildform mehrjaehrig; Kulturformen wie Chicoree/Radicchio oft als biennial oder annual kultiviert) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre, perennial) | 3--7 (Wildform am Standort haeufig laenger; Kultur-/Futterzichorie produktiv 3--7 Jahre) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (oberirdische Teile sterben im Herbst ab, Wurzel ueberwintert, Neuaustrieb im Fruehjahr) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (obligater Kaeltereiz fuer Bluetenbildung) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 42 (ca. 6 Wochen bei 4--5 degC wirksam; sortenabhaengig 3--16 Wochen bei 0--12 degC) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | 14--16 (Langtag-Schwellbereich: bei 12 h nur vegetatives Wachstum, ab 16 h obligate Bluetenstandbildung nach Vernalisation; kritischer Uebergang liegt zwischen 12 und 16 h, 16 h voll induktiv -- in-vitro-Photoperiodestudie an Wurzelexplantaten) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | long_day (Langtagspflanze -- Bluetenbildung durch Langtag ab dem zweiten Jahr nach Vernalisation ausgeloest) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, degC) | 3.5 (Keim-Basistemperatur nach Acta Physiol. Plant. 2019; eine separate Wuchs-/GDD-Basistemperatur ist fuer Cichorium intybus nicht eigenstaendig publiziert. Der Wert liegt im fuer kuehlliebende Arten plausiblen Bereich (~4--5 degC) und wird hilfsweise als Wuchsbasis verwendet) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Gut winterhart bis ca. -20 degC. Die tiefe Pfahlwurzel uebersteht strenge Winter problemlos. Oberirdische Teile sterben im Herbst ab und treiben im Fruehjahr aus der Wurzel neu aus. Kulturformen (Chicoree, Radicchio) sind weniger frosthart als die Wildform. | `species.hardiness_detail` |
@@ -102,6 +115,24 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert Nachwuchs. Fuer B
 
 **Hinweis:** Die Wegwarte ist eine aeusserst genuegsame Wildpflanze und gedeiht sogar auf Schotterwegen und Wegrandern. Im Garten bevorzugt sie sonnige Standorte mit tiefgruendigem Boden fuer die Pfahlwurzelentwicklung. Als Kulturzichorie (Radicchio, Zuckerhut, Chicoree) gelten hoehere Ansprueche an Boden und Wasser.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 35 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (vertraegt keinen Schatten; PFAF "no shade") | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 60--120 (aktive Hauptwasser-/Naehrstoffzone; einzelne Pfahlwurzeln erreichen >2 m) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (trockenheitsadaptierte Pfahlwurzel, fault bei Staunaesse) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (analog Salat/Blattgemuese) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.3 (Substrat-ECe, Maas-Hoffman a; Salat-Referenzwert fuer Blattgemuese, keine chicory-spezifische Messung) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 13 (Maas-Hoffman b; Salat-Referenzwert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 5.5--7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt fuer diese sonnenliebende C3-Blattkultur im typischen Bereich von Sonnenpflanzen-Blaettern (ca. 15--35 umol/m2/s). Lichtsaettigung tritt erst deutlich hoeher ein (mehrere hundert umol/m2/s) -- diese Saettigungswerte gehoeren nicht in das Kompensationspunkt-Feld. Die Salztoleranz ist quellentreu von der eng verwandten Blattkultur Salat (Lactuca sativa) abgeleitet, da fuer Cichorium intybus keine eigenstaendigen Maas-Hoffman-Parameter publiziert sind; Bezugsgroesse ist die elektrische Leitfaehigkeit des Saettigungsextrakts des Substrats (ECe), NICHT die Giesswasser-EC. Der pH-Vorzug 5.5--7.0 ist mit den Angaben in Sektion 1.6 und 2.3 dieser Datei harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -133,6 +164,12 @@ Hinweis: Als Kulturzichorie (einjaerig/zweijaehrig) entfaellt je nach Kulturart 
 | Luftfeuchtigkeit Tag (%) | 75--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt stomataeren Kollaps, deutlich ueber dem feuchteliebenden Keim-Korridor) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (mesophytische C3-Blattkultur) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollspektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -149,6 +186,12 @@ Hinweis: Als Kulturzichorie (einjaerig/zweijaehrig) entfaellt je nach Kulturart 
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (deutlich oberhalb des Saemlings-Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--40 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -165,6 +208,12 @@ Hinweis: Als Kulturzichorie (einjaerig/zweijaehrig) entfaellt je nach Kulturart 
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (maessig giessen, Trockenheit wird gut toleriert) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -183,6 +232,12 @@ Hinweis: Zichorie ist sehr trockenheitsresistent dank der tiefen Pfahlwurzel. Ue
 | Luftfeuchtigkeit Tag (%) | 50--60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 20--25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -209,13 +264,17 @@ Hinweis: Die Vernalisation (Kaeltereiz ueber mindestens 4--6 Wochen bei unter 5 
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.8 | 6.0--6.5 | 60 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 6.0--7.0 | 120 | 40 | 30 | 3 |
-| Bluete | 2-2-3 | 1.2--1.6 | 6.0--7.0 | 100 | 40 | 30 | 2 |
-| Dormanz | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergaenzt) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.4--0.8 | 6.0--6.5 | 60 | 30 | 20 | 2 | 0.25 | 0.1 | 0.03 | 0.02 |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 6.0--7.0 | 120 | 40 | 30 | 3 | 0.5 | 0.13 | 0.05 | 0.03 |
+| Bluete | 2-2-3 | 1.2--1.6 | 6.0--7.0 | 100 | 40 | 30 | 2 | 0.4 | 0.1 | 0.05 | 0.03 |
+| Dormanz | 0-0-0 | 0.0 | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Mikronaehrstoff-Zielwerte (Mn/Zn/Cu/Mo) orientieren sich an etablierten Hydro-Naehrloesungsrezepturen fuer Blattgemuese (modifizierte Sonneveld-Loesung; typische Spannen Mn 0.25--0.5; Zn 0.05--0.13; Cu 0.02--0.1; Mo 0.02--0.05 ppm). Mn/Zn/Fe als Chelat zufuehren, da bei pH-Schwankungen schnell fixiert. <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Zichorie ist ein Mittelzehrer. Uebermaessige Stickstoffduengung foerdert Blattwachstum auf Kosten der Wurzelentwicklung und erhoet den Nitratgehalt in den Blaettern. Kalium foerdert die Wurzelentwicklung (wichtig fuer Chicoree-Treiberei und Kaffee-Ersatz-Produktion).
 
@@ -323,6 +382,19 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 ### 4.3 Ueberwinterung
 
 Die Gemeine Wegwarte ist winterhart bis ca. -20 degC und benoetigt keine besondere Ueberwinterungspflege im Freiland. Die oberirdischen Teile sterben im Herbst ab; die Pfahlwurzel uebersteht den Winter im Boden. Leichte Laubmulchschicht schuetzt vor extremen Kahlfroesten. Topfkultur: Topf an geschuetzten Ort stellen, Topf mit Vlies einwickeln oder eingraben.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung (hardiness rating) | hardy (winterhart bis ca. -20 degC, ueberwintert im Freiland) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) + Monat | mulch (leichte Laubmulchschicht gegen Kahlfrost); November | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Massnahme (spring action) + Monat | uncover (Mulch abraeumen, damit Neuaustrieb durchkommt); Maerz | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (degC) | -- (Freiland-Ueberwinterung; vertraegt Bodenfrost) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | -- (Freiland; im Winter oberirdisch eingezogen) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | none (natuerlicher Niederschlag genuegt; Staunaesse vermeiden) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Frostempfindlichere Kulturformen (Chicoree, Radicchio) werden in rauen Lagen mit Vlies (fleece) zusaetzlich geschuetzt; zur Chicoree-Treiberei werden die Wurzeln ohnehin im Herbst gerodet und frostfrei eingelagert (siehe Sektion 4.2, November). Fuer die Wildform ist `hardy` mit `mulch`/`uncover` die korrekte Einordnung.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -465,3 +537,9 @@ Wegwarte (Pötschke Historisch),Cichorium intybus,Pötschke,,heirloom;wild_type;
 10. Yara UK -- Chicory Nutrient Requirements: https://www.yara.co.uk/crop-nutrition/novel-crops/chicory/
 11. CropNerd -- Chicory Growing Guide: https://cropnerd.com/plants/vegetables/chicory
 12. ISHS -- Cultivation of Chicory in Hydroponics: https://www.ishs.org/ishs-article/361_21
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. Acta Physiologiae Plantarum (Springer, 2019) -- Environmental factors' effect on seed germination and seedling growth of chicory (Cichorium intybus L.): Basistemperatur der Keimung 3.5 degC, Optimum 28.9 degC: https://link.springer.com/article/10.1007/s11738-019-2820-2
+14. Plant Growth Regulation (Springer) -- Stem elongation and floral initiation on in vitro chicory root explants: influence of photoperiod: kritische Tageslaenge -- 12 h nur vegetativ, ab 16 h Bluetenstandbildung: https://link.springer.com/article/10.1007/BF00024778
+15. ScienceDirect -- Impact of vernalization and heat on flowering induction, development and fertility in root chicory (Cichorium intybus L. var. sativum): obligate Vernalisation + Langtag-Requirement, ~6 Wochen bei 4 degC wirksam: https://www.sciencedirect.com/science/article/abs/pii/S0176161720301620
+16. FAO -- Agricultural Drainage Water Management in Arid and Semi-Arid Areas (Maas-Hoffman Salztoleranz-Parameter, Salat/Blattgemuese ECe 1.3 dS/m): https://www.fao.org/4/y4263e/y4263e0e.htm
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

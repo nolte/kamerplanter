@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day: Kopfbildung ist temperatur-/vernalisationsgesteuert, nicht tageslängenabhängig) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 2a–11b (jährlich angebaut) | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Jungpflanzen frostempfindlich; reife Köpfe vertragen -3°C; Herbsternte bis November in Norddeutschland | `species.hardiness_detail` |
@@ -28,6 +28,14 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | heavy_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 (Kühlsaison-Kultur; Literatur 3–5°C) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 21 (effektivster Reiz bei ~10°C; ältere Köpfe induzierbar) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | — (tagneutral; keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -89,6 +97,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, wasserhaltende Komposterde; pH 6,0–7,5; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Wert aus ≥2 Quellen belegt) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Wert aus ≥2 Quellen belegt) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (mind. 6–8 h direkte Sonne; bei Lichtmangel dünne, schwache Köpfe) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–45 (flachwurzelnd; Hauptwasseraufnahme; Einzelwurzeln tiefer) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (gut drainierter Boden nötig; Staunässe fördert Kohlhernie) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 2.8 (Maas-Hoffman a; Broccoli-Proxy/FAO, da für Blumenkohl ungenügende Daten) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 9.2 (Maas-Hoffman b; Broccoli-Proxy/FAO) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 (höherer Bereich gegen Kohlhernie empfohlen) | `species.soil_ph_preference` |
+
+**Hinweis:** Die ECe-Schwelle bezieht sich auf den Sättigungsextrakt des Substrats (ECe), NICHT auf den Gießwasser-EC. Für Blumenkohl liegen laut FAO keine eigenständigen Maas-Hoffman-Parameter vor (qualitative Einstufung "moderately sensitive"); die Zahlenwerte sind vom nahe verwandten Broccoli übernommen. Eine ältere Einzelstudie (Giuffrida et al. 2005) nennt für Blumenkohl/Broccoli abweichend 1.28 dS/m bei 15.8 %/dS/m.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +144,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (stomatärer Stress oberhalb Zielkorridor) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (Kühlsaison-Brassica) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Anteil FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -134,19 +166,28 @@
 | Luftfeuchtigkeit Tag (%) | 65–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (feuchteliebende Kopfphase, niedrigere Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 (kühl; > 25°C verschlechtert Kopfqualität) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Anteil FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–4 (gleichmäßig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1500–3000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | – | – | – | – |
-| Sämling | 1:1:1 | 0.6–0.8 | 6.0–6.5 | 80 | 40 | – | 2 |
-| Vegetativ | 3:1:2 | 1.4–2.0 | 6.0–7.0 | 160 | 80 | – | 3 |
-| Kopfbildung | 2:2:2 | 1.6–2.2 | 6.0–7.0 | 180 | 100 | 50 | 3 |
-| Reife | 1:1:2 | 1.2–1.8 | 6.0–7.0 | 140 | 80 | – | 2 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | Zn (ppm) | Cu (ppm) | Mo (ppm) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | – | – | – | – | – | – | – | – |
+| Sämling | 1:1:1 | 0.6–0.8 | 6.0–6.5 | 80 | 40 | – | 2 | 0.3 | 0.15 | 0.05 | 0.03 |
+| Vegetativ | 3:1:2 | 1.4–2.0 | 6.0–7.0 | 160 | 80 | – | 3 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Kopfbildung | 2:2:2 | 1.6–2.2 | 6.0–7.0 | 180 | 100 | 50 | 3 | 0.5 | 0.25 | 0.05 | 0.08 |
+| Reife | 1:1:2 | 1.2–1.8 | 6.0–7.0 | 140 | 80 | – | 2 | 0.5 | 0.2 | 0.05 | 0.05 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoffwerte (Mn/Zn/Cu/Mo) als Hoagland-orientierte Nährlösungs-Baseline; Mo in der Kopfbildung leicht erhöht, da Blumenkohl bei Mo-Mangel "Peitschenstiel" entwickelt. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Wichtig:** Bormangel führt zu Braunverfärbungen im Kopf ("Braunfärbigkeit"). Bei B-Mangel: 0,5–1 g Borax/m² zur Erde. Molybdänmangel → "Peitschenstiel" (Geiztriebe). Schwefel wichtig für Glucosinolat-Bildung.
 
@@ -294,7 +335,7 @@ Blumenkohl ist der anspruchsvollste der Kohlarten — sehr empfindlich auf Nähr
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Brassica oleracea var. botrytis,"Blumenkohl;Karfiol;Cauliflower",Brassicaceae,Brassica,annual,long_day,herb,taproot,"2a;3a;4a;5a;6a;7a;8a;9a;10a;11a",0.0,"Kultiviert, Mediterran",limited,25,30,80,80,55,no,limited,true,false,heavy_feeder,false,half_hardy,""
+Brassica oleracea var. botrytis,"Blumenkohl;Karfiol;Cauliflower",Brassicaceae,Brassica,annual,day_neutral,herb,taproot,"2a;3a;4a;5a;6a;7a;8a;9a;10a;11a",0.0,"Kultiviert, Mediterran",limited,25,30,80,80,55,no,limited,true,false,heavy_feeder,false,half_hardy,""
 ```
 
 ---
@@ -305,3 +346,14 @@ Brassica oleracea var. botrytis,"Blumenkohl;Karfiol;Cauliflower",Brassicaceae,Br
 2. [Hortipendium Blumenkohl Erwerbsanbau](https://hortipendium.de/Blumenkohl) — Fachliche Daten, NPK
 3. [Naturadb Brassica oleracea var. botrytis](https://www.naturadb.de/pflanzen/brassica-oleracea-var-botrytis/) — Stammdaten
 4. [Mein-Gartenexperte Blumenkohl](https://www.mein-gartenexperte.de/pflanzen/blumenkohl) — Pflege, Schädlinge
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Frontiers in Plant Science — Genetic variation of temperature-regulated curd induction in cauliflower (2015)](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2015.00720/full) — Vernalisation, Tagneutralität, Kopfinduktion bei ~10°C
+6. [Genome-Based Prediction of Time to Curd Induction in Cauliflower, PMC5807883](https://pmc.ncbi.nlm.nih.gov/articles/PMC5807883/) — Temperatur-/Vernalisationssteuerung der Kopfbildung
+7. [ScienceDirect — Base and upper temperature thresholds for GDD (Review, 2025)](https://www.sciencedirect.com/science/article/pii/S037837742500469X) — GDD-Basistemperatur Blumenkohl 3–5°C
+8. [FAO Annex 1 — Crop salt tolerance data (Y4263)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz moderately sensitive; Broccoli ECe 2.8 dS/m, Slope 9.2 %/dS/m
+9. [Shannon & Grieve — Tolerance of vegetable crops to salinity (USDA-ARS)](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf) — Brassica-Salztoleranzklassen
+10. [Weaver & Bruner — Root Development of Vegetable Crops, Kap. XII](https://soilandhealth.org/wp-content/uploads/01aglibrary/010137veg.roots/010137ch12.html) — Wurzelsystem/effektive Wurzeltiefe Blumenkohl
+11. [University of Maryland Extension — Growing Cauliflower in a Home Garden](https://extension.umd.edu/resource/growing-cauliflower-home-garden) — Vollsonne 6–8 h, Standortansprüche
+12. [Penn State Extension — Hydroponics Nutrient Solution Recipe](https://extension.psu.edu/hydroponics-systems-using-the-two-basic-equations-to-calculate-a-nutrient-solution-recipe) — Mikronährstoff-Baseline Mn/Zn/Cu/Mo
+13. [MDPI Agronomy 9(11):677 — Zinc and Iron Biofortification of Brassicaceae Microgreens](https://www.mdpi.com/2073-4395/9/11/677) — Hoagland-Mikronährstoffkonzentrationen für Brassicaceae
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

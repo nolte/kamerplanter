@@ -21,6 +21,17 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 0 (konventionelle thermische Zeit-Basis der Wuchs-/Blühphänologie; 830–1000 °C·d über 0 °C bis Blühbeginn. Einige Quellen nutzen 5 °C; 0 °C ist der etablierte Phänologie-Standard) | `species.base_temp` |
+| Kritische Tageslänge (critical day length, h) | 12 (quantitativer Langtag — kritische Tageslänge 9,5–12 h; oberer, konservativer Wert) | `lifecycle_configs.critical_day_length_hours` |
+| Dormanz erforderlich (dormancy required) | false (einjährige Kulturpflanze ohne Dormanzphase) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (quantitativ/fakultativ — Kälte beschleunigt die Blüte, erzwingt sie aber nicht; Frühjahrstypen blühen ohne Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 14–20 (nur für Wintertypen; Kältereiz bei 0–4 °C beschleunigt/synchronisiert die Blüte) | `lifecycle_configs.vernalization_min_days` |
+| Bestäuber erforderlich (requires pollinator) | false (selbstfruchtbar; teilweise allogam, kein Kreuzbestäuber-Cultivar nötig) | `species.requires_pollinator` |
+| Befruchtungsgruppe (pollinator group) | — (leer; nur bei Obst-Fremdbefruchtern relevant) | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten (compatible pollinators) | — (leer; keine obligaten Befruchter-Cultivars) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sehr kältetolerant; Winterformen (Winterackerbohne) überstehen -12°C bis -15°C; Frühjahrs-Direktsaat ab Februar/März möglich; übersteht Spätfröste bis -8°C nach Keimung | `species.hardiness_detail` |
@@ -86,6 +97,22 @@
 | Rankhilfe/Stütze nötig | true (hohe Sorten lagern bei Wind) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lehmige, nährstoffreiche Erde; pH 6,0–7,5; gut drainiert; tiefe Töpfe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein art-spezifischer, doppelt belegter Wert auffindbar; für C3-Kulturpflanzen typisch ~8–16 µmol/m²/s (kein Vicia-faba-Messwert) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> siehe oben | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (bevorzugt volle Sonne, toleriert Halbschatten/lichten Schatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 50–100 (Pfahlwurzel; durchwurzelt selten tiefer als 1 m) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | tolerant (relativ tolerant — die staunässetoleranteste der kühljahreszeitlichen Körnerleguminosen; Staunässe in der Blüte mindert dennoch den Ertrag) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (salt tolerance threshold, dS/m) | 1,5–1,7 (Maas-Hoffman a; Bezug: Substrat-ECe des Sättigungsextrakts, NICHT Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (salt tolerance slope, %/dS/m) | 9,6 (Maas-Hoffman b; Ertragsrückgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6,0–7,5 (harmonisiert mit §1.6 und §2.3; mäßig sauer bis neutral/leicht basisch; bei pH < 6,0 kalken) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -112,6 +139,12 @@
 | Temperatur Nacht (°C) | 4–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 65–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.3–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt stomatären Kollaps; deutlich oberhalb des Zielkorridors; feuchteliebende Keimphase → niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht / Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Vegetativ
@@ -125,6 +158,12 @@
 | Temperatur Nacht (°C) | 6–14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (kritischer Punkt stomatären Kollaps; ca. oberer Zielwert + 0.3 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht / Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Blüte
@@ -137,6 +176,12 @@
 | Temperatur Nacht (°C) | 8–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritischer Punkt stomatären Kollaps; ca. oberer Zielwert + 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 (Blühoptimum 22–23 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht / Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 4–7 (gleichmäßige Feuchte kritisch für Hülsenansatz) | `requirement_profiles.irrigation_frequency_days` |
 
 **Hinweis Bestäubung:** Ackerbohnen werden hauptsächlich von Hummeln bestäubt (Hummelgang — kurze Zunge Hummelarten nach Nektar). Blütenduft attraktiv für Wildinsekten.
@@ -150,17 +195,26 @@
 | Temperatur Nacht (°C) | 12–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 (kritischer Punkt stomatären Kollaps; ca. oberer Zielwert + 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht / Vollsonne; R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–7.5 | — | — |
-| Sämling | 0:1:1 | 0.4–0.8 | 6.0–7.5 | 60 | 25 |
-| Vegetativ | 0:1:2 | 0.6–1.2 | 6.0–7.5 | 100 | 40 |
-| Blüte | 0:2:2 | 0.8–1.4 | 6.0–7.5 | 100 | 50 |
-| Reife | 0:1:1 | 0.4–0.8 | 6.0–7.5 | 60 | 25 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–7.5 | — | — | — | — | — | — |
+| Sämling | 0:1:1 | 0.4–0.8 | 6.0–7.5 | 60 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 0:1:2 | 0.6–1.2 | 6.0–7.5 | 100 | 40 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:2:2 | 0.8–1.4 | 6.0–7.5 | 100 | 50 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Reife | 0:1:1 | 0.4–0.8 | 6.0–7.5 | 60 | 25 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`):** Keine phasen­spezifischen, doppelt belegten Nährlösungs-Konzentrationen (ppm) für *Vicia faba* auffindbar — daher als DATEN FEHLEN markiert. Fachlich relevant ist v. a. **Molybdän (Mo)**: essenziell für die symbiotische N₂-Fixierung (Nitrogenase) in den *Rhizobium*-Knöllchen; ein Mo-Mangel beeinträchtigt die N-Fixierung. **Mangan (Mn)** reichert die Pflanze stark im Blatt an (Blatt-Mn ≈ 5× Samen-Mn). Bei belegten Werten hier eintragen. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -238,11 +292,11 @@ KEINE Stickstoffdüngung — hemmt Knöllchenbildung. Kalzium-Versorgung wichtig
 
 ### 5.3 Nützlinge
 
-| Nützling | Ziel-Schädling | Ausbringrate (/m²) |
-|----------|---------------|-------------------|
-| Marienkäfer (Coccinella septempunctata) | Schwarze Bohnenblattlaus | 1–3 |
-| Florfliegenlarven (Chrysoperla carnea) | Blattläuse | 5–10 |
-| Schlupfwespe (Aphidius matricariae) | Blattläuse | 3–5 |
+| Nützling | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit |
+|----------|---------------|-------------------|------------------|
+| Marienkäfer (Coccinella septempunctata) | Schwarze Bohnenblattlaus (Aphis fabae) | 1–3 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->2–3 Wochen<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Florfliegenlarven (Chrysoperla carnea) | Blattläuse (Aphis fabae) | 5–10 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->1–2 Wochen<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Schlupfwespe (Aphidius matricariae) | Blattläuse (Aphis fabae) | 3–5 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->2–3 Wochen (Mumienbildung)<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
 
 ### 5.4 Behandlungsmethoden
 
@@ -340,3 +394,15 @@ Aquadulce Claudia,Vicia faba,"winter_type;overwintering;early_harvest",90,open_p
 3. [Bayerische LfL — Körnerleguminosen](https://www.lfl.bayern.de/ipz/leguminosen) — Anbaupraxis Mitteleuropa
 4. [FAO Faba Bean Crop Profile](https://www.fao.org) — Globale Anbausysteme
 5. [Anbauleitfaden Körnerleguminosen KTBL](https://www.ktbl.de) — Agrarpraxis Deutschland
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Evans, L.T. (1959/Annals of Botany) — Effects of Temperature, Photoperiod and Seed Vernalization on Flowering in Faba Bean](https://academic.oup.com/aob/article-abstract/61/1/17/201494) — quantitativer Langtag, kritische Tageslänge 9,5–12 h, Vernalisation
+7. [Temperature and Photoperiod Effects on Vicia faba Phenology Simulated by CROPGRO-Fababean (ResearchGate)](https://www.researchgate.net/publication/269583418_Temperature_and_Photoperiod_Effects_on_Vicia_faba_Phenology_Simulated_by_CROPGRO-Fababean) — thermische Zeit, GDD-Basis 0 °C, Blühoptimum 22–23 °C
+8. [Single-Molecule Real-Time RNA Sequencing — Vernalization-Responsive Genes in Faba Bean (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8287337/) — quantitative Vernalisation, Kältereiz 0–4 °C / 14–20 Tage
+9. [PFAF Plant Database — Vicia faba (Horsebean)](https://pfaf.org/user/plant.aspx?LatinName=Vicia+faba) — Schatten-/Sonnentoleranz, Boden-pH, Selbstfruchtbarkeit, Bienenbestäubung
+10. [Salt tolerance analysis of chickpea, faba bean and durum wheat varieties (ScienceDirect/ResearchGate)](https://www.researchgate.net/publication/223278629_Salt_tolerance_analysis_of_chickpea_faba_bean_and_durum_wheat_varieties_I_Chickpea_and_faba_bean) — Maas-Hoffman: ECe-Schwelle ~1,5–1,7 dS/m, Slope, Klasse moderately sensitive
+11. [GRDC GrowNote Faba Bean — Nutrition (PDF)](https://grdc.com.au/__data/assets/pdf_file/0026/369143/GrowNote-Faba-Bean-West-5-Nutrition.pdf) — Mikronährstoffbedarf, Mo für N-Fixierung, Mn-Blattanreicherung
+12. [Faba bean — ScienceDirect (Crop Physiology chapter)](https://www.sciencedirect.com/science/article/abs/pii/B9780128191941000153) — C3-Art, Photosynthese-Optimum 25 °C, Wuchs-Temperaturbereich
+13. [Root growth of chickpea, faba bean, lentil and pea; water/salt stress (Springer)](https://link.springer.com/chapter/10.1007/978-94-009-2764-3_68) — effektive Wurzeltiefe (selten > 1 m)
+14. [Autofertility and rate of cross-fertilization in faba beans (TAG/PubMed)](https://pubmed.ncbi.nlm.nih.gov/24226589/) — Selbstfruchtbarkeit/teilweise Allogamie, Autofertilität
+15. [Yield benefits of additional pollination to faba bean (Scientific Reports)](https://www.nature.com/articles/s41598-020-58518-1) — Bienen-/Hummelbestäubung erhöht Ertrag (Freitext-Hinweis)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

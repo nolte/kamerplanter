@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.2 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Thymus vulgaris auffindbar; Keim-Basiswerte nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (danach verholzend, Verjüngung/Neuanlage empfohlen) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (winterliche Wachstumsruhe in Mitteleuropa) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Blüte GDD-/tageslängengesteuert, kein Kältebedarf zur Blühinduktion) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), kein Kurztag-/Langtag-Schwellenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +91,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Magere, durchlässige Erde (Kräutererde + 30% Quarzsand/Kies); pH 6,0–8,0 | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP für Thymus vulgaris publiziert. Hinweis (Freitext): sonnen-adaptierte Arten liegen typischerweise bei ~20–100+ µmol/m²/s --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–40 (Pfahlwurzel mit feinem Faserwerk; meist flach) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für Thymus vulgaris --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–8.0 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,16 +135,24 @@
 | Luftfeuchtigkeit Nacht (%) | 40–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 (kritischer stomatärer Kollaps; oberhalb des 2.0-Ziels) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low (trockenheitstolerante Mittelmeerart) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Einwurzeln | 1:2:1 | 0.5–0.7 | 6.0–7.5 | 50 | 25 | — | 1 |
-| Aktives Wachstum | 1:1:1 | 0.7–1.0 | 6.0–8.0 | 70 | 35 | — | 1 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Einwurzeln | 1:2:1 | 0.5–0.7 | 6.0–7.5 | 50 | 25 | — | 1 | 0.5 | 0.3 | 0.1 | 0.05 |
+| Aktives Wachstum | 1:1:1 | 0.7–1.0 | 6.0–8.0 | 70 | 35 | — | 1 | 0.8 | 0.3 | 0.1 | 0.05 |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -176,7 +209,9 @@ Thymian NICHT düngen — magrerem Boden entspricht höherem Thymolgehalt und in
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | hardy (Zone 7b) / needs_protection (Zone 7a) | `overwintering_profiles.hardiness_rating` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winterhärte-Rating | hardy | `overwintering_profiles.hardiness_rating` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winter-Maßnahme | mulch (Laub oder Reisig) | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 11 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | uncover, prune | `overwintering_profiles.spring_action` |
@@ -201,6 +236,16 @@ Thymian NICHT düngen — magrerem Boden entspricht höherem Thymolgehalt und in
 |-----------|-----------|----------|----------|-------------------|-------------------|
 | Wurzelfäule | fungal (Phytophthora) | Welke trotz feuchtem Substrat | Staunässe | 5–14 | all |
 | Echter Mehltau | fungal | Weißlicher Belag | Feuchtigkeit + Wärme | 5–10 | vegetative |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.3 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit |
+|----------|---------------------|----------------|--------------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Gemeine Spinnmilbe (Tetranychus urticae) | 2–50 (kurativ; bei 20–25 °C und >60–70 % rF) | ~7–14 Tage (Generationszyklus 4–7 Tage bei 20–25 °C) |
+
+Hinweis: Wirksam zwischen 13–27 °C, nicht über 30 °C; empfindlich gegen rF < 70 %. Für die Thymian-Gallmücke (Jaapiella thymicola) ist kein etablierter kommerzieller Nützling belegt — hier greifen kulturelle Maßnahmen (befallene Triebe entfernen).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -257,3 +302,13 @@ Thymus vulgaris,"Thymian;Echter Thymian;Gartenthymian;Thyme",Lamiaceae,Thymus,pe
 1. [Winterharte Kräuter — Plantura](https://www.plantura.garden/kraeuter/kraeuter-anbauen/winterharte-kraeuter) — Winterhärte
 2. [Mehrjährige Kräuter — Hortica.de](https://hortica.de/mehrjaehrige-kraeuter-liste/) — Übersicht
 3. [Pflanzentanzen.de Winterharte Küchenkräuter](https://pflanzentanzen.de/pflanzentipps/nutzpflanzen/kraeuter/winterharte-kraeuter/) — Praxis-Tipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+4. [NC State Extension — Thymus vulgaris Plant Toolbox](https://plants.ces.ncsu.edu/plants/thymus-vulgaris/) — Lichtbedarf (full sun), Boden-pH, Staunässe-Empfindlichkeit, Salztoleranz, Lebensform (woody perennial)
+5. [PFAF — Thymus vulgaris Plant Database](https://pfaf.org/user/plant.aspx?LatinName=Thymus+vulgaris) — Schattenintoleranz (cannot grow in shade), pH (neutral/alkalisch), Staunässe-Empfindlichkeit, Pfahlwurzel, Winterhärte (−15 °C)
+6. [Scientific Reports (Nature) — Salinity stress responses of Thymus vulgaris in hydroponics](https://www.nature.com/articles/s41598-025-00768-y) — Salztoleranz-Einstufung (moderately tolerant to severe salt stress)
+7. [Gardenia.net — Thymus vulgaris](https://www.gardenia.net/plant/thymus-vulgaris) — produktive Lebensdauer (3–5 Jahre, Verjüngung)
+8. [Cornell NYSIPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilbe, Generationszyklus/Etablierungszeit
+9. [Koppert — Spidex (Phytoseiulus persimilis)](https://www.koppert.com/spidex/) — Ausbringrate, Temperatur-/Feuchte-Fenster
+10. [Cornell Greenhouse — Hydroponic Recipes (Resh/Cornell)](http://hort.cornell.edu/greenhouse/crops/factsheets/hydroponic-recipes.pdf) — Mikronährstoff-Richtwerte Mn/Zn/Cu/Mo
+11. [Penn State Extension — Hydroponics Plant Nutrition (Mikronährstoffe)](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Richtwerte Mn/Zn/Cu/Mo
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

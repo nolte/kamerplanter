@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, Hortipendium, Bio-Gaertner, Seedforward, LfL Bayern, fryd.app, naturadb.de, pflanzen-lexikon.com, gartenjournal.net, grove.eco, Koraylights, MechaTronix
+> **Quellen:** ASPCA, Hortipendium, Bio-Gaertner, Seedforward, LfL Bayern, fryd.app, naturadb.de, pflanzen-lexikon.com, gartenjournal.net, grove.eco, Koraylights, MechaTronix, FAO, USDA-ARS, PMC/NCBI, Frontiers, New Phytologist, UMN/Clemson/PSU Extension, MSU Extension, Montana State Univ. (Erweiterung 2026-06)
 
 ---
 
@@ -20,7 +20,15 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day (Langtagspflanze -- Bluete wird durch laenger werdende Tage im Fruehjahr ausgeloest) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral (tagneutral -- moderne Garten-/Fruehsorten wie 'Kelvedon Wonder', 'Norli', 'Alaska' tragen das rezessive sn-Allel und sind photoperioden-insensitiv; die Blueteninduktion ist temperatur-, nicht tageslaengengesteuert. Die Wildform Pisum sativum ssp. elatius/humile ist obligater Langtag, doch dieser Bezug wurde bei den hier gefuehrten Kultursorten herausgezuechtet.) | `lifecycle_configs.photoperiod_type` |
+| Photosynthese-Typ (photosynthesis type) | c3 (C3-Leguminose) | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, degC) | 5 (Wuchs-/Phaenologie-Basis von Auflauf bis Reife; NICHT die Keim-Minimaltemperatur von ca. 4 degC aus 1.3) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjaehrig, keine Endo-/Samendormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Garten-/Fruehsorten bluehen ohne Kaeltebedarf; nur spaete Feldtypen sind fakultativ vernalisierbar) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (h) | -- (entfaellt bei Tagneutralitaet) <!-- DATEN FEHLEN: nicht anwendbar, day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | moderate | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Keimlinge vertragen leichte Froeste bis -4 degC. Ausgewachsene Pflanzen sind frostempfindlich. In Mitteleuropa einjaehrig kultiviert (Freiland Maerz--Juli). Kuehle Temperaturen (12--18 degC) sind ideal; Hitze ueber 25 degC fuehrt zu Ertragsdepression und vorzeitigem Absterben. | `species.hardiness_detail` |
@@ -29,6 +37,11 @@
 | Naehrstoffbedarf-Stufe | light (Schwachzehrer -- Stickstofffixierung durch Rhizobium-Symbiose) | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | true (Leguminose, hervorragende Gruenduengung und Vorfrucht) | `species.green_manure_suitable` |
 | Traits | edible; nitrogen_fixing | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Befruchter erforderlich (requires pollinator) | false (Erbsen sind selbstfruchtbar/cleistogam -- Selbstbestaeubung erfolgt vor Bluetenoeffnung; keine Fremdbefruchter-Sorte noetig) | `species.requires_pollinator` |
+| Befruchtergruppe (pollinator group) | -- (entfaellt bei Selbstfruchtbarkeit) | `species.pollinator_group` |
+| Kompatible Befruchter (compatible pollinators) | -- (entfaellt; bestaeubende Insekten sind nicht erforderlich) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -101,6 +114,24 @@ Hinweis: Erbsen werden nicht zurueckgeschnitten. Regelmaessiges Ernten der Huels
 
 **Hinweis:** Erbsen sind klassische Freilandgemuese. Fruehe Aussaat ab Maerz moeglich, da Keimlinge leichten Frost vertragen. Waerme ueber 25 degC fuehrt zu Blueten- und Huelsenabwurf. In heissen Sommern ist der Anbau ab Juli nicht mehr sinnvoll. Optimale Kulturtemperatur: 12--18 degC.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 8 (C3-Richtwert; keine Pisum-spezifische Messung belegt) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 16 (C3-Richtwert) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (6--8 h direkte Sonne; Halbschatten senkt Ertrag deutlich) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 60--90 (trockentolerante Linien bis ca. 130 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging) | sensitive (Wurzeln tolerieren Submersion nur ca. 48--72 h; Drainage essenziell) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive (Maas-Hoffman-Rating MS) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 3.4 (Substrat-ECe, Maas-Hoffman a; nicht Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 10.6 (Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.0--7.5 (kalkliebend; bei pH < 6.0 kalken -- Rhizobium-Aktivitaet sinkt; harmonisiert mit 1.3, 1.6 und 2.3) | `species.soil_ph_preference` |
+
+Hinweis: Der LCP-Wert ist ein allgemeiner C3-Richtwert (8--16 umol/m2/s netto-Nullpunkt) -- eine Pisum-spezifische Messung war nicht belegbar. Lichtsaettigung liegt deutlich hoeher (mehrere hundert umol/m2/s) und ist hier bewusst NICHT in das Kompensationspunkt-Feld gemischt. Die ECe-Schwelle bezieht sich auf die Bodensaettigungs-Extrakt-Leitfaehigkeit (ECe), nicht auf die Giesswasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -147,6 +178,12 @@ Hinweis: Erbsen sind Kuehlewetter-Kulturen. Die Gesamtkulturdauer betraegt 60--1
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomataeren Kollaps -- deutlich oberhalb des Ziel-Korridors; feuchteliebende Fruehphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 (Kuehlewetter-Kultur) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -157,12 +194,18 @@ Hinweis: Erbsen sind Kuehlewetter-Kulturen. Die Gesamtkulturdauer betraegt 60--1
 |-----------|------|---------|
 | Licht PPFD (umol/m2/s) | 200--400 (volle Sonne) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m2/Tag) | 10--18 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 14--16 (Langtag foerdert Wachstum und Blueteninduktion) | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 14--16 (natuerliche Fruehjahrs-Tageslaenge; Garten-/Fruehsorten sind tagneutral -- die Blueteninduktion ist temperatur-, nicht tageslaengengesteuert) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (degC) | 14--20 (optimal 15--18) | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (degC) | 8--14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (kritischer Punkt stomataeren Kollaps -- oberer Zielwert + ca. 0.3 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -181,6 +224,12 @@ Hinweis: Erbsen klettern ueber Ranken (Blattranken). Rankhilfe ab ca. 15 cm Hoeh
 | Luftfeuchtigkeit Tag (%) | 50--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (kritischer Punkt stomataeren Kollaps -- oberer Zielwert + ca. 0.3 kPa; Trockenstress in dieser Phase verursacht Bluetenabwurf) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Vollsonne) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (erhoehter Wasserbedarf waehrend Bluete und Huelsenbildung) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 150--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -207,13 +256,19 @@ Hinweis: Regelmaessiges Ernten (alle 2--3 Tage) foerdert den Neuansatz. Zuckerer
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 0-1-1 | 0.4--0.8 | 6.0--7.0 | 40 | 20 | 15 | 2 |
-| Vegetativ | 0-1-2 | 0.6--1.0 | 6.0--7.0 | 60 | 30 | 20 | 2 |
-| Bluete | 0-2-3 | 0.8--1.2 | 6.0--7.0 | 80 | 40 | 25 | 3 |
-| Ernte | 0-1-2 | 0.6--1.0 | 6.0--7.0 | 60 | 30 | 20 | 2 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 0-1-1 | 0.4--0.8 | 6.0--7.0 | 40 | 20 | 15 | 2 | 0.5 | 0.3 | 0.1 | 0.05 |
+| Vegetativ | 0-1-2 | 0.6--1.0 | 6.0--7.0 | 60 | 30 | 20 | 2 | 0.5 | 0.3 | 0.1 | 0.05 |
+| Bluete | 0-2-3 | 0.8--1.2 | 6.0--7.0 | 80 | 40 | 25 | 3 | 0.5 | 0.4 | 0.1 | 0.05 |
+| Ernte | 0-1-2 | 0.6--1.0 | 6.0--7.0 | 60 | 30 | 20 | 2 | 0.5 | 0.3 | 0.1 | 0.05 |
+
+Hinweis (Mikronaehrstoffe): Die Mn/Zn/Cu/Mo-Werte sind Naehrloesungs-Richtkonzentrationen (ppm), wie sie auch fuer andere Gemuese-Leguminosen in diesem Stammdatensatz verwendet werden -- keine erbsenspezifischen Loesungsanalysen belegt. Molybdaen (Mo) ist fuer die Rhizobium-Stickstofffixierung (Nitrogenase) und Nitratreduktion essenziell; bei pH < 6.0 wird Mo schlechter verfuegbar, was die Knollchenfunktion zusaetzlich zur direkten pH-Hemmung beeintraechtigt. Mangan (Mn) ist bei Erbsen ertragsrelevant (hohe Mn-Ansprache). Bei normaler Kompostduengung auf neutralem Boden ist keine gezielte Mikronaehrstoffgabe noetig.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweis (Tissue-Sufficiency, Blattanalyse): Zur Orientierung liegen die Blattgewebe-Suffizienzbereiche fuer Leguminosen bei Mn ca. 30--100 ppm, Zn ca. 20--60 ppm, Cu ca. 5--15 ppm und Mo ca. 0.5--2 ppm Trockenmasse (NICHT mit den Naehrloesungs-Richtwerten oben verwechseln).
 
 Hinweis: Erbsen fixieren ihren eigenen Stickstoff ueber die Rhizobium-Symbiose. Stickstoffduengung (N) ist NICHT erforderlich und sogar kontraproduktiv, da sie die Knollchenbakterien-Bildung hemmt. Kalium und Phosphor foerdern Bluete und Huelsenbildung. pH muss im neutralen bis leicht sauren Bereich liegen (6.0--7.5), da die Rhizobium-Aktivitaet bei niedrigem pH stark eingeschraenkt ist.
 
@@ -223,7 +278,7 @@ Hinweis: Erbsen fixieren ihren eigenen Stickstoff ueber die Rhizobium-Symbiose. 
 |------------|---------|----------|-------------|
 | Keimung -> Saemling | time_based | 7--14 Tage | Keimblaetter und erstes echtes Blattpaar entfaltet |
 | Saemling -> Vegetativ | manual / conditional | 14--21 Tage | 3--4 Blattpaare, erste Ranken sichtbar, Pflanze greift nach Stuetze |
-| Vegetativ -> Bluete | time_based / event_based | 21--35 Tage (Langtagreaktion) | Erste Bluetenknospen in den Blattachseln sichtbar |
+| Vegetativ -> Bluete | time_based / event_based | 21--35 Tage (knoten-/temperaturgesteuert, tagneutral) <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | Erste Bluetenknospen in den Blattachseln sichtbar |
 | Bluete -> Ernte | time_based | 7--14 Tage nach Bluetebeginn | Erste Huelsen gebildet, Erntereife je nach Sorte (Zucker-/Markerbse) |
 
 ---
@@ -438,7 +493,7 @@ Nicht anwendbar -- Erbsen sind einjaehrige Kulturpflanzen. Die Pflanzen sterben 
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat
-Pisum sativum,Erbse;Gartenerbse;Garden Pea;Green Pea,Fabaceae,Pisum,annual,long_day,vine,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a;11b,-0.3,"Vorderasien (Fruchtbarer Halbmond), Mittelmeerraum"
+Pisum sativum,Erbse;Gartenerbse;Garden Pea;Green Pea,Fabaceae,Pisum,annual,day_neutral,vine,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a;11b,-0.3,"Vorderasien (Fruchtbarer Halbmond), Mittelmeerraum"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -469,3 +524,16 @@ Zuckererbse 'Ambrosia',Pisum sativum,,,early_maturing;high_yield,60,,open_pollin
 9. MechaTronix -- PPFD/DLI per Crop: https://www.horti-growlight.com/en/typical-ppfd-and-dli-values-per-crop
 10. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
 11. hoklartherm.de -- Mischkultur Tabelle: https://www.hoklartherm.de/ratgeber/mischkultur-im-gemuesegarten-was-vertraegt-sich/
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. Williams et al. (2022), "The genetic architecture of flowering time changes in pea from wild to crop", PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC9238443/ -- belegt Photoperiode day_neutral fuer domestizierte Garten-/Fruehsorten (sn-Allel), Wildform obligater Langtag
+13. Weller et al., "The Pea Photoperiod Response Gene STERILE NODES (SN)", Plant Physiology, PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC4044833/ -- sn-Allel definiert die Day-Neutral-Klasse; fruehe Sorten (z.B. 'Alaska') photoperioden-insensitiv
+14. FAO Annex 1 -- Crop Salt Tolerance Data (Maas & Hoffman): https://www.fao.org/4/y4263e/y4263e0e.htm -- Erbse ECe-Schwelle 3.4 dS/m, Slope 10.6 %/dS/m, Rating MS (moderately sensitive)
+15. USDA-ARS, "Plant Salt Tolerance" (Chapter 13, Maas 1994): https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf -- Erbse als moderately salt-sensitive eingestuft
+16. Cannell et al. (1979), "Effects of short-term waterlogging on the growth and yield of peas", Annals of Applied Biology + PMC4455828 (Tolerance of three grain legumes to transient waterlogging): https://pmc.ncbi.nlm.nih.gov/articles/PMC4455828/ -- Staunaesse-Empfindlichkeit, Wurzeln tolerieren Submersion nur ca. 48--72 h
+17. Frontiers (2025), "Integrated agronomy of pea (Pisum sativum L.)": https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1670445/full -- Wurzeltiefe, Standortansprueche; Frontiers (2022) Heat stress tolerance in peas: optimale Mitteltemperatur 10--18 degC, Photosynthese-Rueckgang ueber ~30 degC
+18. Zhen & Bugbee (2022), "Photosynthesis in sun and shade: the surprising importance of far-red photons", New Phytologist: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375 -- Far-Red-Fraction Vollsonne ~0.5, Vegetationsschatten > 0.5
+19. UMN / Clemson / PSU Extension -- Garden Peas (Boden-pH 6.0--7.5, Vollsonne 6--8 h): https://extension.umn.edu/vegetables/growing-peas , https://hgic.clemson.edu/factsheet/garden-peas/ , https://extension.psu.edu/a-gardeners-guide-to-peas
+20. Montana State Univ. Fertilizer Facts FF77 + MSU Extension E486 -- Mikronaehrstoffe Leguminosen, Mn-Ansprache und Mo-Funktion in der N-Fixierung: https://landresources.montana.edu/fertilizerfacts/html/FF77.html , https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
+21. Thermal Requirements / GDD pea cultivars (CWE Journal) + Frontiers heat-stress phenology (PMC8040956): http://cwejournal.org/vol14no3/thermal-requirements-and-heat-use-efficiency-of-pea-cultivars-under-varying-environments , https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8040956/ -- GDD-Basistemperatur ca. 5 degC (Auflauf--Reife)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

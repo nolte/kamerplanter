@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 8a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
@@ -28,6 +31,14 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN: keine belegte Wuchs-/Phänologie-GDD-Basis für CAM-Epiphyt; nur CO2-Gaswechsel-Physiologie publiziert --> | `species.base_temp` |
+| Lebensdauer (Jahre, perennial) | <!-- DATEN FEHLEN: nur "langlebig perennierend" belegt, keine quantifizierte Spanne --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (tropischer Epiphyt, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral, siehe `photoperiod_type` = day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Biologische Besonderheit:** Epiphytische Bromeliade ohne funktionale Wurzeln — nimmt Wasser und Nährstoffe ausschließlich über spezialisierte Trichome (Schuppenhaare) auf. Kein Substrat erforderlich. Parasitiert keine Wirtsbäume — nur mechanische Befestigung.
 
@@ -86,6 +97,24 @@
 | Rankhilfe/Stütze nötig | true | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kein Substrat! Aufhängen an Ästen, Drahtrahmen oder dekorativen Trägern; gute Luftzirkulation unbedingt erforderlich | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein expliziter Kompensationspunkt für T. usneoides publiziert. Hinweis (nicht ins Feld): CAM-Säureakkumulation sättigt bei ~200 µmol/m²/s, O₂-Entwicklung bei ~500 µmol/m²/s --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | — (wurzelloser Epiphyt; Wurzeln nur mechanische Befestigung, keine Wasseraufnahme, kein durchwurzeltes Substrat) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN: als Küstenpflanze salzsprüh-exponiert, aber keine quantitative Maas-Hoffman-Einstufung für Substrat-ECe publiziert --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | — (substratloser Epiphyt; kein Boden-pH anwendbar. Maßgeblich ist der Gießwasser-pH 5.5–6.0, siehe §4.1 Wasserqualität) | `species.soil_ph_preference` |
+
+**Hinweis zur Standort-Physiologie:** *T. usneoides* ist ein obligater CAM-Epiphyt (crassulacean acid metabolism) ohne funktionale Wurzeln und ohne durchwurzeltes Substrat — bodenbezogene Felder (Wurzeltiefe, Boden-pH, Substrat-ECe) sind physiologisch nicht anwendbar. Lichtphysiologisch ist die Art lichthungrig (eine der lichtbedürftigsten Tillandsien), verträgt aber keine tiefe Beschattung; natürlicher Standort ist halbschattig-gefiltertes Licht (dappled shade) bis lichte Sonne. Die Pflanze muss nach Befeuchtung vollständig abtrocknen — anhaltende Nässe führt zu Fäule (daher Staunässe-Toleranz `sensitive`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -113,17 +142,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (Tauchbad 20–30 Min. 1×/Woche oder Sprühen 2–3×/Woche) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 (Tauchen, dann vollständig trocknen!) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Vegetativ | 1:1:1 | 0.1–0.3 | 5.5–7.0 | 20 | 10 | — | 0.5 |
-| Blüte | 0:1:1 | 0.1–0.2 | 5.5–7.0 | 15 | 10 | — | 0.3 |
-| Ruhephase | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vegetativ | 1:1:1 | 0.1–0.3 | 5.5–7.0 | 20 | 10 | — | 0.5 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüte | 0:1:1 | 0.1–0.2 | 5.5–7.0 | 15 | 10 | — | 0.3 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Ruhephase | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoff-Hinweis (Mn/Zn/Cu/Mo):** Für *T. usneoides* sind keine artspezifischen Mikronährstoff-Sollwerte (Mn, Zn, Cu, Mo) aus seriösen Quellen belegt. Als ausgesprochener Schwachzehrer (`light_feeder`) wird der Spurenelementbedarf über die stark verdünnte (¼-Dosis) Bromelien-/Orchideen-Düngerlösung beim Tauchbad mitgedeckt; eine gesonderte Mikronährstoff-Dosierung ist nicht erforderlich. Werte daher als `<!-- DATEN FEHLEN -->` markiert statt geschätzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -191,7 +232,9 @@ Tillandsia usneoides nimmt alle Nährstoffe über spezialisierte Trichome (Schup
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
@@ -281,3 +324,11 @@ Tillandsia usneoides,Spanisches Moos;Louisianamoos;Spanish Moss,Bromeliaceae,Til
 3. [USDA Plant Guide – Tillandsia usneoides](https://plants.usda.gov/DocumentLibrary/plantguide/pdf/pg_tius.pdf) — Wissenschaftlich fundiert
 4. [Air Plant City – Care Guide](https://www.airplantcity.com/pages/air-plant-care) — Tillandsia Care
 5. [Houseplant Central – Tillandsia usneoides](https://houseplantcentral.com/tillandsia-usneoides-care-info/) — Indoor Care
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Martin & Siedow (1981) / Adams & Martin – CAM in Tillandsia usneoides, PubMed 24468815](https://pubmed.ncbi.nlm.nih.gov/24468815/) — Obligater CAM, Abhängigkeit des CO₂-Gaswechsels von Licht, Temperatur und Wassergehalt; Temperaturoptimum CO₂-Aufnahme 15–20 °C
+7. [Responses of photosynthetic O₂ evolution to PPFD in the CAM epiphyte Tillandsia usneoides, PubMed 24424609](https://pubmed.ncbi.nlm.nih.gov/24424609/) — O₂-Sättigung ~500 µmol/m²/s, keine PPFD-Akklimatisierung
+8. [Effects of Irradiance on CAM in the Epiphyte Tillandsia usneoides, Plant Physiology 80(1):23 (Oxford Academic)](https://academic.oup.com/plphys/article/80/1/23/6081610) — CAM-Säureakkumulation sättigt bei ~200 µmol/m²/s
+9. [North Carolina Extension Gardener Plant Toolbox – Tillandsia usneoides](https://plants.ces.ncsu.edu/plants/tillandsia-usneoides/) — Lichttoleranz (Full Sun / Partial Shade), Küstenpflanze, USDA-Zonen
+10. [RHS – Tillandsia usneoides](https://www.rhs.org.uk/plants/18258/tillandsia-usneoides/details) — perennierender immergrüner Epiphyt, Pflege
+11. [Foliage Factory – Tillandsia usneoides](https://www.foliage-factory.com/tillandsia-usneoides) — Temperatur-/Frosttoleranz (kurze Fröste bis ca. -5/-6 °C, frostfrei überwintern), Lichtbedarf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

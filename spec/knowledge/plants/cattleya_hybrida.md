@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam (Crassulaceen-Säurestoffwechsel / crassulacean acid metabolism; nächtliche CO₂-Fixierung über PEPC, tagsüber Refixierung durch Rubisco — typische Wasserspar-Anpassung dickblättriger epiphytischer Orchideen, in *Cattleya walkeriana* als konstitutiver CAM belegt) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (GDD-Konzept für tropische CAM-Epiphyten nicht etabliert; Wachstum kommt unterhalb ca. 13–15 °C zum Stillstand, jedoch keine belegte GDD-Basistemperatur aus seriösen Quellen) | `species.base_temp` |
+| Typische Lebensdauer (Jahre) | 20–50+ (perennierende sympodiale Orchidee; gut gepflegte Teilstücke leben Jahrzehnte) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false (keine echte Dormanz; nach der Blüte nur eine wachstumsärmere Ruheperiode mit reduzierter Bewässerung) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (kein Vernalisationsreiz im botanischen Sinne; Blüteninduktion bei vielen Hybriden über thermoperiodischen Kühlreiz — abgesenkte Nachttemperatur 10–13 °C — sowie sortenabhängig Tageslängensignal, nicht über Kältestratifikation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | <!-- DATEN FEHLEN --> (entfällt, da keine Vernalisation; Kühlreiz-Dauer sortenabhängig, kein peer-reviewed Mindestwert) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagesneutral als Standardannahme; einzelne Cattleya-Arten/-Hybriden reagieren kurztägig — z. B. *C. trianae* ~ 11 h —, ein allgemeingültiger Schwellenwert für die Sammelart *Cattleya hybrida* ist jedoch nicht belegt) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis zu Hybriden:** Cattleya hybrida umfasst Tausende eingetragener Hybriden, entstanden durch Kreuzungen innerhalb der Cattleya-Alliance (Cattleya, Laelia, Sophronitis, Rhynchlaelia u.a.). Blütezeit, Farbe und Größe variieren stark nach Sorte. Die hier beschriebenen Pflegewerte gelten für Standard-Zimmerkulturhybriden.
 
@@ -91,6 +100,21 @@
 
 **Topfmaterial:** Terrakotta oder speziell gelochte Orchideentöpfe bevorzugt — fördert schnellere Austrocknung und optimale Wurzelbelüftung (Luftwurzeln benötigen Sauerstoff).
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | 10–25 (niedrig; als dickblättrige CAM-Pflanze positive Netto-CO₂-Bilanz schon bei sehr geringem Licht. Hinweis: getrennt davon liegt der für vitales Wachstum nötige Bereich deutlich höher — Sättigung ~ 300–600, Photoinhibition erst > 1650 µmol/m²/s; diese Sättigungswerte gehören NICHT in das Kompensationspunkt-Feld) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | partial_shade (Hochlicht-Orchidee; verträgt deutlich mehr Licht als Phalaenopsis — in Florida/Hawaii nahezu Vollsonne, in Mitteleuropa 40–50 % Sonnenlicht/helles diffuses Licht. In der Natur unter dem oberen Kronendach an Innenästen, vor direkter Mittagssonne geschützt) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 10–20 (epiphytisch/lithophytisch; velamenbedeckte Luft- und Rindenwurzeln, keine echte Bodenwurzelung — auf das Topfvolumen begrenzt) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (Wurzeln müssen zwischen den Wassergaben praktisch abtrocknen; vollgesogenes Velamen unterbindet den Gasaustausch und führt rasch zu Wurzelfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (salzempfindlich; Richtwert Gießwasser < 500 ppm bzw. ≤ 0,5 dS/m, andernfalls Wurzelspitzen-Verbrennung und Mineralkruste; regelmäßiges Spülen des Substrats nötig) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Substrat-ECe-Schwellenwert für epiphytische Orchideen etabliert; lediglich Praxis-Richtwert Gießwasser-EC ≤ 0,5 dS/m, kein peer-reviewed ECe-Threshold) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Slope für Cattleya publiziert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 (Substrat-pH der Orchideenrinde; leicht sauer — konsistent mit §1.6 und §2.3 derselben Datei) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +142,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (kritische Obergrenze für stomatären Kollaps/Wasserstress; deutlich oberhalb des 1.5-Zielkorridors. Cattleya als dickblättrige CAM-Pflanze etwas robuster als dünnblättrige Orchideen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (CAM-/sukkulenzähnliche dickblättrige Epiphyte mit hoher Wasserspeicherung in Pseudobulben und Blättern) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–29 (warmes vegetatives Tagesoptimum für CAM-Nettofixierung; deckt sich mit der empfohlenen Tagestemperatur 21–29 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht; kein artspezifisch belegter abweichender Zielwert für die vegetative Phase) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–1200 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 (nach Trocknungszyklus: gründlich gießen, dann vollständig abtrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -134,6 +164,12 @@
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritische Obergrenze; in der kühleren Induktionsphase niedriger angesetzt als vegetativ, da reduzierte Transpiration und Wassergabe) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (dickblättrige CAM-Pflanze; Pseudobulben puffern Trockenstress) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (während der herbstlichen Kühlinduktion am Tag abgesenkt; CAM bleibt aktiv) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht; kein belegter abweichender Zielwert für die Induktionsphase) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -150,20 +186,30 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (kritische Obergrenze; offene Blüten zusätzlich austrocknungs- und Botrytis-gefährdet, daher unterhalb der vegetativen Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (Laubblätter/Pseudobulben CAM-robust; einzelne offene Blüten empfindlicher, dies bleibt aber Freitext-Hinweis) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (kühlere Blütephase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Referenz offenes Tageslicht; kein belegter abweichender Zielwert für die Vollblüte) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–350 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Etablierung | 1:1:1 | 0.4–0.6 | 5.5–6.5 | 60 | 30 |
-| Vegetativ | 3:1:2 | 0.6–1.2 | 5.5–6.5 | 100 | 50 |
-| Winterruhe | 0:0:0 | 0.0 | 5.5–6.5 | — | — |
-| Blüte | 1:2:2 | 0.4–0.8 | 5.5–6.5 | 80 | 40 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Etablierung | 1:1:1 | 0.4–0.6 | 5.5–6.5 | 60 | 30 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Vegetativ | 3:1:2 | 0.6–1.2 | 5.5–6.5 | 100 | 50 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 5.5–6.5 | — | — | — | — | — | — |
+| Blüte | 1:2:2 | 0.4–0.8 | 5.5–6.5 | 80 | 40 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
 
 **"Schwach aber oft" Prinzip (weakly weekly):** Cattleyen bekommen am besten wöchentlich eine sehr schwache Düngelösung (1/4 der empfohlenen Dosis) anstatt monatlich eine starke Gabe.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe (Mn/Zn/Cu/Mo):** Für *Cattleya* liegen keine belastbaren, phasenspezifischen Mikronährstoff-Sollwerte (ppm) aus mindestens zwei unabhängigen seriösen Quellen vor → als `<!-- DATEN FEHLEN -->` markiert. In der Praxis werden Mn, Zn, Cu, Mo (sowie Fe und B) über komplette Orchideen-Volldünger in chelatierter Form (EDTA für Mn/Zn/Cu) in sehr geringer Konzentration im Rahmen der „weakly weekly“-Verdünnung zugeführt; die Spanne zwischen Mangel und Toxizität ist eng, daher keine Schätzwerte.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -233,7 +279,12 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
-| Winter-Maßnahme | none (kühler, heller Winterstandort) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme | move_indoors (frostempfindliche Kübel-/Zimmerpflanze; falls im Sommer draußen, rechtzeitig vor Frost ins frostfreie, helle Quartier) | `overwintering_profiles.winter_action` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winter-Maßnahme Monat | 10 (Oktober; vor erstem Frost und passend zur Kühlinduktion) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors (nach den Eisheiligen ggf. wieder an geschützten, hellen Außenstandort; an direkte Sonne langsam gewöhnen) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach den Eisheiligen) | `overwintering_profiles.spring_action_month` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winterquartier Temp min (°C) | 10 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 18 | `overwintering_profiles.winter_quarter_temp_max` |
 | Winterquartier Licht | bright | `overwintering_profiles.winter_quarter_light` |
@@ -330,3 +381,12 @@ Blc. Pamela Hetherington 'Coronation' FCC/AOS,Cattleya hybrida,award_winning;fra
 3. [Smithsonian Gardens — Cattleya Care](https://gardens.si.edu/collections/plants/orchids/orchid-care-sheets/cattleya/) — Pflegehinweise
 4. [Orchid Bliss — Cattleya Guide](https://orchidbliss.com/cattleya/) — Blüteinduktion, Temperatur
 5. [OrchidWeb — Cattleya Alliance Care](https://www.orchidweb.com/orchid-care/cattleya-alliance-orchid-care) — Schädlinge, Krankheiten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Silvera et al. — Crassulacean Acid Metabolism and Epiphytism Linked to Adaptive Radiations in the Orchidaceae (PMC2663729)](https://pmc.ncbi.nlm.nih.gov/articles/PMC2663729/) — CAM-Photosynthese-Typ in Orchidaceae, *Cattleya walkeriana* als konstitutiver CAM
+7. [Annals of Botany 112(1) 2013 — Spatial patterns of photosynthesis in thin- and thick-leaved epiphytic orchids: C3–CAM plasticity (PMC3690981)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3690981/) — CAM in dickblättrigen Orchideen, niedriger Lichtkompensationspunkt
+8. [American Orchid Society — Cattleya Culture Part 1 (Licht/Temperatur)](https://www.aos.org/all-abour-orchids/cattleya-culture-part-1) — Hochlicht-Toleranz (40–50 % bis nahezu Vollsonne), Tag-/Nacht-Temperaturdifferenz, T_opt
+9. [Slippertalk Orchid Forum — Cattleya/Catasetum PPFD & DLI Experiment](https://www.slippertalk.com/threads/experiment-on-light-levels-on-cattleya-and-catasetum-species-ppfd-and-dli.59750/) — PPFD/DLI-Bereiche, Photoinhibition > 1650 µmol/m²/s
+10. [St. Augustine Orchid Society — Water Quality and Salt Stress](https://staugorchidsociety.org/PDF/200711Tips-WaterQuality.pdf) — Salzempfindlichkeit, Gießwasser < 500 ppm / ≤ 0,5 dS/m
+11. [Besgrow Orchiata — Cattleya Growing Guide (PDF)](https://besgrow.com/wp-content/uploads/2018/06/Besgrow-Orchiata-Cattleya-growing-guide.pdf) — Staunässe-Empfindlichkeit, Velamen-Gasaustausch, Wurzelbelüftung
+12. [UF/IFAS Extension Charlotte County — Cattleya Care](https://blogs.ifas.ufl.edu/charlotteco/2026/03/05/cattleya-hard-to-go-wrong-with-this-orchid/) — Salz-/Wasserqualität, leichte Düngung (~50 ppm N), Substrat
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

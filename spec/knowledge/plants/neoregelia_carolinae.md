@@ -21,6 +21,15 @@
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-GDD-Basiswert für Neoregelia auffindbar --> | `species.base_temp` |
+| Lebensdauer (Jahre) (lifespan) | 3–7 (monokarp: stirbt nach einmaliger Blüte ab, Fortbestand über Kindel) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) (critical day length) | — (tagneutral, entfällt) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Ausschließlich Zimmerpflanze; keine Temperaturen unter 10°C | `species.hardiness_detail` |
@@ -84,6 +93,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Orchideen- oder Bromeliensubstrat; luftig und durchlässig; pH 5.5–6.5; minimales Substrat (Epiphyt) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein quantitativer Kompensationspunkt für Neoregelia in zwei seriösen Quellen belegt; Literatur nennt nur qualitativ "low light-compensation point" für Schatten-CAM-Bromelien --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) (effective root depth) | 5–10 (flaches Ankerwurzelsystem; Epiphyt, Wurzeln dienen nur der Verankerung) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (Substrat: scharf drainiert halten, sonst Wurzel-/Trichterfäule; Trichter selbst hält dauerhaft Wasser) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN: keine belegte Maas-Hoffman-Schwelle für Neoregelia; Quellen belegen nur qualitativ Salzempfindlichkeit --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) (soil pH preference) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweise:** Neoregelia ist ein epiphytischer CAM-Schattenspezialist des atlantischen Regenwald-Unterwuchses: helles indirektes Licht bis Halbschatten optimal, überlebt auch nahezu Vollschatten, verträgt jedoch keine direkte Mittagssonne. Salzempfindlichkeit zeigt sich als Blattspitzen-Nekrose (tip burn) bei salzhaltigem oder enthärtetem Wasser; Regen-/Destillatwasser bevorzugt (Wasser-pH 4.0–7.0). Die Staunässe-Empfindlichkeit bezieht sich auf das Substrat (Wurzelfäule), nicht auf den wassergefüllten Blatttrichter (Phytotelma), der dauerhaft gefüllt bleiben soll.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,17 +138,26 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) (vpd threshold) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) (photosynthesis temp opt) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.6–0.7 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 (Trichter befüllen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Jugendphase | 1:1:1 | 0.2–0.4 | 5.5–6.5 | 30 | 15 | — | 0.5 |
-| Blüteinduktion | 0:0:0 | 0.0 | — | — | — | — | — |
-| Blüte | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Jugendphase | 1:1:1 | 0.2–0.4 | 5.5–6.5 | 30 | 15 | — | 0.5 | <!-- DATEN FEHLEN: keine artspezifischen Mn-ppm für Neoregelia belegt --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüteinduktion | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Blüte | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoff-Werte (Mn/Zn/Cu/Mo) nur als artspezifische ppm einzutragen, sobald durch ≥2 seriöse Quellen belegt. Literatur belegt für Bromelien nur relative Verhältnisse zu Fe in Mehrnährstoffdüngern, keine absoluten Neoregelia-Sollwerte. -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -178,6 +214,23 @@ Neoregelia ist wie alle Tank-Bromeliaden ein Epiphyt — Düngung ausschließlic
 | Okt | Trichter kontrollieren | Auf Trichterfäule prüfen | mittel |
 | Nov–Dez | Ruhephase | Trichter halbvoll, minimal gießen | niedrig |
 | Laufend | Kindel beobachten | Nach Rötung des Herzens Kindel erwarten | mittel |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | Sep–Okt (bevor Nachttemperaturen unter 12 °C fallen) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | Mai–Jun (nach Eisheiligen, stabil > 15 °C) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 12–18 (nie unter 10 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell; helles indirektes Licht, kein direktes Mittagslicht | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert; Trichter halbvoll, Substrat fast trocken halten | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Neoregelia carolinae ist in Mitteleuropa (USDA 6–8) nicht winterhart und wird als frostfreie Zimmer-/Kübelpflanze ganzjährig drinnen oder nur im Hochsommer geschützt draußen gehalten. Entscheidend ist eine Mindesttemperatur von 10 °C; Kälte unter 10 °C verursacht Blattschäden. Kein Kältebedarf zur Blühinduktion (keine Vernalisation/Dormanz).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -261,3 +314,12 @@ Neoregelia carolinae,Errötendes Bromeliad;Blushing Bromeliad,Bromeliaceae,Neore
 3. [Joyus Garden – Neoregelia Care](https://www.joyusgarden.com/neoregelia-plant-care-tips/) — Pflegetipps
 4. [NC State Extension – Neoregelia](https://plants.ces.ncsu.edu/plants/neoregelia/) — Wissenschaftliche Grundlage
 5. [House Plants Expert – Blushing Bromeliad](https://houseplantsexpert.com/blushing-bromeliad.html) — Indoor Care Guide
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [IntechOpen – CAM Photosynthesis in Bromeliads and Agaves](https://www.intechopen.com/chapters/45242) — Beleg CAM-Stoffwechsel bei Neoregelia (N. eltoniana, N. pineliana, N. spectabilis als Typ-III-Tankbromelien); qualitativ "low light-compensation point" für Schatten-CAM-Bromelien
+7. [ScienceDirect – Does seasonal drought affect C3 and CAM tank-bromeliads from Campo Rupestre differently?](https://www.sciencedirect.com/science/article/abs/pii/S0367253021001250) — Beleg CAM bei Tank-Bromelien (u. a. Neoregelia)
+8. [Missouri Botanical Garden – Neoregelia carolinae f. tricolor](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=291611) — Standort (part shade/bright indirect, überlebt nahezu Vollschatten), scharfe Drainage (Staunässe-Empfindlichkeit), USDA 10–11, Überwinterung im Container
+9. [Gardenia.net – Neoregelia (Blushing Bromeliad)](https://www.gardenia.net/genus/neoregelia-blushing-bromeliad-grow-care-guide) — Licht/Halbschatten, Salzempfindlichkeit, Wasser-pH 4.0–7.0
+10. [Bromeliad Paradise – Bromeliad Care Spotlight: Neoregelia](https://bromeliadparadise.com/blogs/care/bromeliad-care-spotlight-neoregelia) — Salzempfindlichkeit (kein enthärtetes/salzhaltiges Wasser), Blattspitzen-Nekrose
+11. [Plant Care Today – Neoregelia Care](https://plantcaretoday.com/neoregelia-bromeliad.html) — flaches Ankerwurzelsystem, kleine Töpfe, Idealtemperaturen 21 °C Tag / 12–15 °C Nacht
+12. [Plant Ecology (Springer) – Light microhabitats, growth and photosynthesis of an epiphytic bromeliad in a tropical dry forest](https://link.springer.com/article/10.1007/s11258-004-5802-3) — Lichtmikrohabitate des Unterwuchses (30–59 % des Umgebungs-PFD optimal) als Beleg für Halbschatten-Einstufung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

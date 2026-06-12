@@ -18,6 +18,10 @@
 | Gattung | Zamioculcas | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam (fakultatives, schwaches CAM — bei Trockenstress hochreguliert) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (wärmeliebende tropische Art; Wachstumsstillstand und Kälteschäden unterhalb ~10 °C / 50 °F) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Wurzelanpassungen | tuberous (sukkulente Rhizome/Knollen als Wasserspeicher) | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -25,6 +29,9 @@
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | — (tagneutral, kein Kurz-/Langtagblüher → kein Stundenwert) <!-- DATEN FEHLEN: nicht zutreffend, photoperiod_type=day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 8°C, optimal 18–26°C. Toleriert kurzzeitig 8°C ohne dauerhafte Schäden. | `species.hardiness_detail` |
@@ -94,6 +101,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kaktus-/Sukkulentenerde oder stark durchlässige Einheitserde (50% Erde + 50% Perlite/Grobsand). Guter Wasserabzug essentiell. Rhizome nicht vollständig mit Erde bedecken. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN: kein peer-reviewter PPFD-LCP-Messwert für Z. zamiifolia auffindbar; als ausgesprochene Schwachlichtpflanze sehr niedrig --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | — <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (natürlich unter Kronendach/Buschsavanne, dappled indirect light; verträgt Halbschatten) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | — <!-- DATEN FEHLEN: keine belegte Messung; flach wurzelndes Rhizomsystem, Wurzeltiefe topfabhängig --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive (Rhizome faulen rasch bei Sauerstoffmangel; sehr durchlässiges Substrat zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (geringe Salztoleranz; Salzanreicherung aus Dünger/Hartwasser führt zu Blattrandnekrosen) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-a-Wert; qualitativ <2 dS/m passend zur Klasse sensitive --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -119,6 +142,12 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–55 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (CAM-Sukkulente; toleriert hohe Sättigungsdefizite via Wasserspeicher-Rhizome) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 (natürlicher Unterwuchs/Halbschatten, R:FR abgesenkt; FR(700–750nm)/(R(600–700nm)+FR)) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -135,16 +164,24 @@
 | Luftfeuchtigkeit Tag (%) | 25–45 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 25–45 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–2.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low (CAM-Sukkulente; in Ruhephase besonders trockenheitstolerant) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 (Unterwuchs/Halbschatten) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 28–42 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 20 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Aktives Wachstum | 1:1:1 | 0.4–0.8 | 6.0–7.0 | 60 | 20 | <!-- DATEN FEHLEN: kein artspezifischer Messwert --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -199,6 +236,21 @@ Zamioculcas ist ein extremer Schwachzehrer. Überdüngung schadet mehr als Unter
 | Sep | Düngung beenden | Letzte Düngergabe des Jahres | niedrig |
 | Okt–Feb | Sehr sparsammes Gießen | Rhizome speichern Wasser — 1x gießen pro Monat reicht | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free (nicht frosthart; muss frostfrei im Haus überwintern) | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | Okt (vor erstem Frost / unter 12–15 °C hereinholen) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | Mai/Jun (nach den Eisheiligen, ab stabil >15 °C; langsam an Sonne gewöhnen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (Minimum 8 °C, optimal 18 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell bis halbschattig; auch bei wenig Licht überwinterbar | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sehr sparsam, ca. 1× pro Monat; Substrat fast abtrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -224,6 +276,15 @@ Zamioculcas ist ein extremer Schwachzehrer. Überdüngung schadet mehr als Unter
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
 | Systeminsektizid | chemical | Stäbchen ins Substrat | 14 Tage | Schmierläuse |
 | Umtopfen | cultural | Befallene Knollen auf Fäule prüfen, abfaulige Teile entfernen | 0 | Rhizomfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50 Tiere/m², 1–2× wöchentlich wiederholen | 1–3 Wochen (wirksam 13–27 °C) |
+| Australischer Marienkäfer (Mealybug Destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | ca. 5–10 Tiere/m² (0,5–1/sq.ft), 2–3 Teilfreilassungen | 4–8 Wochen |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -275,3 +336,17 @@ Zenzi,Zamioculcas zamiifolia,"ornamental;compact;curled_leaflets",clone
 3. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
 4. [Garden Design — ZZ Plant](https://www.gardendesign.com/houseplants/zz-plant.html) — Kulturdaten
 5. [Patch Plants](https://www.patchplants.com/pages/plant-care/complete-guide-to-zamioculcas-zamiifolia-plant-care/) — Erfahrungswerte Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Holtum & Winter (2007): Crassulacean acid metabolism in the ZZ plant, Zamioculcas zamiifolia (Araceae), American Journal of Botany 94(10):1670–1676](https://bsapubs.onlinelibrary.wiley.com/doi/pdf/10.3732/ajb.94.10.1670) — peer-reviewter Nachweis des CAM-Photosynthese-Typs (Photosynthese-Typ)
+7. [Winter et al. (2014): Facultative crassulacean acid metabolism (CAM) plants, Journal of Experimental Botany 65(13):3425](https://academic.oup.com/jxb/article/65/13/3425/2877513) — fakultatives CAM bei Wasserstress (Bestätigung Photosynthese-Typ, VPD-Sensitivität)
+8. [UF/IFAS Extension EP480: Florida Foliage House Plant Care: ZZ Plant](https://ask.ifas.ufl.edu/publication/EP480) — Temperatur-/Standortdaten (base_temp, Überwinterung)
+9. [NC State Extension Gardener Plant Toolbox — Zamioculcas zamiifolia](https://plants.ces.ncsu.edu/plants/zamioculcas-zamiifolia/) — Standort, pH, Schatten-/Wärmetoleranz (shade_tolerance, soil_ph_preference)
+10. [Iowa State University Extension — Using Growing Degree Days](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur warm-season 10 °C (base_temp)
+11. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur-Konventionen (base_temp)
+12. [Healthy Houseplants — ZZ Plant Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/zz-plant-care-guide-growing-tips-for-the-zamioculcas-zamiifolia/) — geringe Salztoleranz, Salzanreicherung (salt_tolerance_class)
+13. [Joy Us Garden — ZZ Plant Care](https://www.joyusgarden.com/zz-plant-care-tips/) — Salzanreicherung/Spülen, Staunässe (salt_tolerance_class, waterlogging_tolerance)
+14. [Koppert — Phytoseiulus persimilis (Spidex)](https://www.koppert.com/spidex/) — Ausbringrate Raubmilbe (Nützlinge)
+15. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate/Wirkbereich Raubmilbe (Nützlinge)
+16. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringrate/Etablierungszeit Mealybug Destroyer (Nützlinge)
+17. [Evergreen Growers — Mealybug Destroyer Cryptolaemus montrouzieri](https://www.evergreengrowers.com/mealybug-destroyer-cryptolaemus-montrouzieri-group-cryp.html) — Ausbringrate Mealybug Destroyer (Nützlinge)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | 100–200 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true | `lifecycle_configs.vernalization_required` |
+| Chilling Mindest-Tage (chilling min days) | <!-- DATEN FEHLEN --> | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | — (tagneutral / day_neutral) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; absolut zuverlässig in ganz Norddeutschland; einer der frühblühendsten Sträucher | `species.hardiness_detail` |
@@ -28,6 +37,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Bestäuber erforderlich (requires pollinator) | false | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | — (keine pomologische Gruppe für Wildobst) | `species.pollinator_group` |
+| Empf. Befruchter-Sorten (compatible pollinators) | — | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Bestäubungshinweis:** Cornus mas ist nur teilweise selbstfruchtbar (partially self-fertile). Eine einzelne Pflanze setzt Früchte an, der Fruchtbehang steigt jedoch deutlich, wenn eine zweite, andere Cornus-mas-Sorte (Cultivar) als Pollenspender in der Nähe steht — daher für Ertragsanbau zwei verschiedene Sorten pflanzen. Insektenbestäubung: die frühen Blüten (Februar/März) sind eine der ersten Bienen- und Wildbienenweiden des Jahres; Honig- und Wildbienen übernehmen den Pollentransfer. Es existiert keine numerierte pomologische Kreuzbefruchtungsgruppe wie bei Apfel/Birne, daher bleibt `pollinator_group` leer.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -88,6 +106,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Normale, leicht kalkhaltige Gartenerde; pH 6,5–8,0; gut durchlässig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | <!-- DATEN FEHLEN --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.5–8.0 | `species.soil_ph_preference` |
+
+**Standort-Hinweise:** Cornus mas wächst von voller Sonne bis Halbschatten (full sun to partial shade); im lichten Gehölzschatten (light woodland) noch vital, jedoch nicht im Vollschatten — daher `partial_shade`. Die Art verlangt durchlässige, frische Böden und verträgt Staunässe schlecht (Quellen betonen durchgängig "well-drained"), daher Staunässe-Toleranz `sensitive`. Salzempfindlich: keine Eignung für Küstenexposition (maritime exposure) und kein Auftausalz (deicing salt) — Klasse `sensitive`. Boden-pH 6,5–8,0 (mäßig sauer bis alkalisch; toleriert sehr kalkhaltige Böden) — harmonisiert mit §1.6 (Substrat) und §2.3 (Nährstoffprofile). Für LCP, Wurzeltiefe in cm und Maas-Hoffman-Salzparameter (ECe-Schwelle, Slope) liegen keine zwei unabhängigen, art-spezifisch belegten Quellwerte vor; Wurzelsystem ist morphologisch ein Herzwurzler (heart root, mittlere Tiefe).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -115,6 +151,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 (Sonne bis lichter Gehölzschatten; offenes Tageslicht ≈ 0.5, Halbschatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 3000–8000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -126,6 +168,16 @@
 | Vegetativ | 2:1:1 | 0.6–1.0 | 6.5–8.0 | 100 | 50 | — | 2 |
 | Fruchtreife | 1:1:2 | 0.6–1.0 | 6.5–8.0 | 80 | 40 | — | 2 |
 | Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo)** — Richtwerte einer ausgewogenen Mikronährstoff-Versorgung in der Nährlösung; für den anspruchslosen Schwachzehrer Cornus mas im Freiland selten dosierungsrelevant:
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Vegetativ | 0.5 | 0.25 | 0.05 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Fruchtreife | 0.5 | 0.25 | 0.05 | 0.05 | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+| Winterruhe | — | — | — | — | `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -178,6 +230,18 @@ Kornelkirsche ist sehr anspruchslos — auf normalen Böden kaum Düngung nötig
 | Winterhärte-Rating | hardy | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | none | `overwintering_profiles.winter_action` |
 | Winter-Gießen | none | `overwintering_profiles.winter_watering` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Winter-Maßnahme-Monat | — (keine Maßnahme nötig) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | uncover | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme-Monat | 3 (März) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (winterhart im Freiland; kein Quartier nötig) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | — (Freiland; Niederschlag genügt) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Überwinterungshinweis:** Cornus mas ist mit Winterhärte bis ca. −25 °C (USDA 4–8) voll frosthart und überwintert ohne Schutz dauerhaft am Standort (`hardiness_rating: hardy`, `winter_action: none`). Nur junge Topf-/Kübelexemplare profitieren in sehr kalten Lagen von einem Vlies (fleece) um den Topf gegen Durchfrieren des Wurzelballens; `spring_action: uncover` bezieht sich dann auf das Entfernen eines solchen optionalen Frostschutzes im März. Ein frostfreies Winterquartier ist nicht erforderlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -203,6 +267,17 @@ Kornelkirsche ist sehr anspruchslos — auf normalen Böden kaum Düngung nötig
 |---------|-----|-----------|-----------|-------------------|-------|
 | Neemöl | biological | Azadirachtin | 0.5% sprühen | 3 | Blattläuse |
 | Standortverbesserung | cultural | — | Luftzirkulation verbessern | 0 | Pilze |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe (parasitic wasp) | Aphidius colemani | Blattläuse (Aphis spp.) | 0,25–4 Tiere/m², 3× im Wochenabstand | Mumien nach ~2–3 Wochen |
+| Gallmücke (gall midge) | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 1–10 Tiere/m² bzw. 2–5 Puppen/m², Wdh. nach 2–4 Wochen | ~1–2 Wochen |
+
+**Hinweis:** Da der gelistete Schädling Blattläuse (Aphidoidea) sind, kommen blattlaus-spezifische Nützlinge zum Einsatz — die Schlupfwespe *Aphidius colemani* (parasitiert Blattläuse zu "Mumien") und die räuberische Gallmücke *Aphidoletes aphidimyza*. Wegen der außergewöhnlichen Robustheit von Cornus mas ist ein Nützlingseinsatz im Freiland praktisch nie nötig; relevant höchstens bei Jungpflanzen unter Glas. Ausbringraten/m² stammen aus dem Gewächshaus-Einsatz und sind im Freiland nur als Orientierung zu verstehen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -243,3 +318,15 @@ Cornus mas,"Kornelkirsche;Herlitze;Cornelian Cherry",Cornaceae,Cornus,perennial,
 2. [Gartenrat — Kornelkirsche](https://gartenrat.de/kornelkirsche/) — Kulturdaten
 3. [Gartenratgeber — Kornelkirsche](https://www.gartenratgeber.net/pflanzen/kornelkirsche-herlitze.html) — Düngen, Schnitt
 4. [Naturadb — Cornus mas](https://www.native-plants.de/946/kornelkirsche) — Steckbrief
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Plants For A Future — Cornus mas](https://pfaf.org/user/plant.aspx?latinname=Cornus+mas) — pH-Spanne (mäßig sauer bis sehr alkalisch), Schattentoleranz (Halbschatten, kein Vollschatten), Herzwurzler, keine maritime Exposition
+6. [The Morton Arboretum — Cornelian-cherry Dogwood](https://mortonarb.org/plant-and-protect/trees-and-plants/cornelian-cherry-dogwood/) — Licht (full sun/partial shade), alkalitolerant, urbantolerant außer Auftausalz, GDD-Phänologie-Tracking
+7. [NC State Extension — Cornus mas](https://plants.ces.ncsu.edu/plants/cornus-mas/) — pH-Bereich, Lichtexposition, Drainage/Bodenarten
+8. [Missouri Botanical Garden — Cornus mas](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c290) — Standort, full sun to part shade, alkalitolerant
+9. [Penn State Extension — When Corneliancherry Dogwood Blooms](https://extension.psu.edu/when-corneliancherry-dogwood-blooms-spring-is-not-far-behind) — Frühblüher-Phänologie, Auftausalz-Empfindlichkeit
+10. [Plantura UK — Cornelian cherry overview](https://plantura.garden/uk/fruits/cornelian-cherry/cornelian-cherry-overview) — Lebensdauer (>100 Jahre), Wuchsrate
+11. [Uncommon Fruit (UW-Madison CIAS) — Cornelian Cherry](https://uncommonfruit.cias.wisc.edu/cornelian-cherry/) — Teil-Selbstfruchtbarkeit, Kreuzbestäubung zweier Sorten empfohlen, Bienenweide
+12. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling gegen Blattläuse, Ausbringrate, Etablierung (Mumien)
+13. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Räuber-Gallmücke gegen Blattläuse, Ausbringrate
+14. [Wikipedia / GDD5-Phänologie temperate Gehölze](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur 5 °C als Standard-Wuchs-/Phänologie-Basis temperater Laubgehölze
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

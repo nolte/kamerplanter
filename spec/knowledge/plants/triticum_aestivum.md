@@ -19,8 +19,14 @@
 | Ordnung | Poales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| GDD-Basistemperatur (base temp, °C) | 0 | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation erforderlich (vernalization required) | true (nur Winterweizen; Sommerweizen false) | `lifecycle_configs.vernalization_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindest-Tage (vernalization min days) | 50 (40–70 je nach Temp 0–8 °C; Winterweizen) | `lifecycle_configs.vernalization_min_days` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: quantitativer Langtag-Schwellwert; Weizen ist quantitativer Langtagblüher ohne scharfe kritische Tageslänge --> | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sommerweizen: Frühjahrssaat; Winterweizen winterhart bis -20°C (unter Schneedecke), ohne Schnee bis -12°C; Vernalisation erforderlich für Wintertypen; Spätfrost-Schäden bei BBCH 49–55 | `species.hardiness_detail` |
@@ -47,6 +53,11 @@
 |------|------|---------|
 | Vermehrungsmethoden | seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
+| Bestäuber erforderlich (requires pollinator) | false | `species.requires_pollinator` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Bestäubung:** Weizen ist ein überwiegend selbstbefruchtender (autogamer) Kleistogamist; die Bestäubung erfolgt meist vor dem Öffnen der Blüten. `pollinator_group` und `compatible_pollinators` bleiben daher leer (keine pomologische Kreuzbefruchtungsgruppe, kein Befruchter-Sortenbedarf). Fremdbefruchtung (Windbestäubung) tritt nur in geringem Umfang auf.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.4 Toxizität & Allergene
 
@@ -84,6 +95,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lehmige, nährstoffreiche Erde; pH 6,0–7,5; kalkverträglich | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein quantitativer Weizen-LCP aus zwei unabhängigen Quellen belegt; qualitativ höher als Gerste (Sonnenpflanze) --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 60–120 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 6.0 (Maas-Hoffman a; bezieht sich auf Substrat-ECe, nicht Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 7.1 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Lichtsättigung (light saturation) der Photosynthese wird bei ~1000–1200 µmol/m²/s erreicht (90 % der Sättigung bei ~1000 µmol/m²/s); maximale Netto-Assimilation (Amax) 15–25 µmol CO₂/m²/s bei 20–25 °C. Diese Sättigungs-/Maximalwerte gehören NICHT in das Kompensationspunkt-Feld. Weizen ist schattenintolerant (im Vergleich zu Gerste höherer Lichtkompensationspunkt). Semi-Dwarf-Sorten sind salztoleranter (ECe-Schwelle ~8.6 dS/m, Slope ~3.0 %/dS/m); die Tabellenwerte gelten für Standard-Brotweizen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,6 +139,10 @@
 | Temperatur Nacht (°C) | 4–14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 65–85 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.3–0.7 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Bestockung
@@ -123,6 +156,10 @@
 | Temperatur Nacht (°C) | 2–10 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–1.0 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Schossen
@@ -136,6 +173,10 @@
 | Temperatur Nacht (°C) | 8–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–8 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Ährenschieben / Blüte
@@ -149,6 +190,10 @@
 | Temperatur Nacht (°C) | 10–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | high (hitzeempfindlich zur Blüte; Pollensterilität) | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–8 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Vollreife / Ernte
@@ -160,17 +205,25 @@
 | Temperatur Nacht (°C) | 14–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 35–55 (trocken für Drusch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.5–2.5 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 2.9 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität (vpd sensitivity) | low (Abreife; trockene Drusch-Bedingungen erwünscht) | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 (keine Bewässerung; Abreife trocken) | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|
-| Keimung | 0:0:0 | 0.0 | 6.0–7.5 | — | — | — |
-| Bestockung | 3:1:2 | 0.8–1.4 | 6.0–7.5 | 80 | 30 | 20 |
-| Schossen | 3:1:2 | 1.4–2.0 | 6.0–7.5 | 120 | 45 | 30 |
-| Blüte | 1:2:2 | 1.2–1.8 | 6.0–7.5 | 100 | 50 | 25 |
-| Reife | 0:1:2 | 0.6–1.0 | 6.0–7.5 | 60 | 30 | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–7.5 | — | — | — | — | — | — | — |
+| Bestockung | 3:1:2 | 0.8–1.4 | 6.0–7.5 | 80 | 30 | 20 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Schossen | 3:1:2 | 1.4–2.0 | 6.0–7.5 | 120 | 45 | 30 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Blüte | 1:2:2 | 1.2–1.8 | 6.0–7.5 | 100 | 50 | 25 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Reife | 0:1:2 | 0.6–1.0 | 6.0–7.5 | 60 | 30 | — | 0.3 | 0.05 | 0.02 | 0.01 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Mn/Zn/Cu/Mo-Werte (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) orientieren sich an der Standard-Hoagland-Nährlösung (Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm) als phasenübergreifende Referenz. Bei Boden-pH > 7.5 ist mit Mn-/Zn-/Cu-/Fe-Mangel zu rechnen; Mn ist im alkalischen Bereich kritisch (Blattaufhellung). Cu-Mangel betrifft besonders Sandböden und verursacht Ährenverkrüppelung ("Weißährigkeit"). Mo ist im sauren Bereich (pH < 5.5) kritisch.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -236,6 +289,23 @@ Weizen ist Starkzehrer mit dem höchsten N-Bedarf unter den Getreidearten (ca. 1
 | Jun | Fungizidkontrolle | Ährengesundheit sichern (BBCH 51–65) | mittel |
 | Jul–Aug | Ernte | Körnerfeuchte 13–14%; Sofortdrusch bei Wetter | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung (nur Winterweizen)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | none (im Feld; Schneedecke als natürlicher Schutz) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11 (November; vor Wintereinbruch) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | none (Vegetationsstart bei Erwärmung; keine Abdeckung zu entfernen) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (März; Vegetationsbeginn, 1. N-Gabe) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | -20 bis +5 (Feld; winterhart bis -20 °C unter Schneedecke, ohne Schnee bis -12 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | natürliche Tageslänge (Freiland; keine Zusatzbeleuchtung) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | keine (natürlicher Niederschlag; Bestockung bei BBCH 13–25 vor Winter erwünscht) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Winterweizen überwintert als bestockte Jungpflanze direkt im Feld und benötigt die Kälteperiode zur Vernalisation (siehe §1.1). Es handelt sich NICHT um eine frostfreie Innenüberwinterung (`frost_free`) oder Knollen-Einlagerung (`dig_and_store`), sondern um winterharte Feldüberdauerung (`hardy`). Bei Topfkultur (Weizengras) entfällt die Überwinterung, da nur die annuelle Sommerweizen-/Microgreen-Nutzung relevant ist. Auswinterungsrisiko bei Kahlfrost ohne Schneedecke und bei Spätsaat (zu schwach entwickelte Bestände).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -262,13 +332,16 @@ Weizen ist Starkzehrer mit dem höchsten N-Bedarf unter den Getreidearten (ca. 1
 
 **KRITISCH — Ährenfusarium:** Mykotoxine (Deoxynivalenol DON, Zearalenon ZEA) gefährden Lebensmittel- und Futterqualität. Monitoring und resistente Sorten zwingend. Befallenes Erntegut nicht für Nahrungsmittel verwenden.
 
-### 5.3 Nützlinge
+### 5.3 Nützlinge (Biologische Bekämpfung)
 
-| Nützling | Ziel-Schädling |
-|----------|---------------|
-| Brackwespe (Aphidius ervi) | Getreideblattlaus |
-| Marienkäfer (Coccinella spp.) | Blattläuse |
-| Ohrwurm (Forficula auricularia) | Blattläuse, Eier |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Nützling | Ziel-Schädling | Ausbringrate/m² | Etablierungszeit |
+|----------|---------------|-----------------|------------------|
+| Brackwespe (Aphidius ervi) | Getreideblattlaus (Sitobion avenae) | 0.25–2 Tiere/m²/Freilassung (wöchentlich wiederholen) | ca. 14 Tage (erste Mumien sichtbar; T_opt 20–25 °C) |
+| Marienkäfer (Coccinella septempunctata, Adalia bipunctata) | Blattläuse | 2–10 Larven/m² je nach Befall | wenige Tage (Larven fressen sofort) |
+| Florfliege (Chrysoperla carnea) | Blattläuse | 5–10 Larven/m² | wenige Tage (Larven fressen sofort) |
+| Ohrwurm (Forficula auricularia) | Blattläuse, Insekteneier | nicht kommerziell ausgebracht; Förderung durch Habitatangebot | saisonal (Naturpopulation) |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -351,3 +424,16 @@ Alixan,Triticum aestivum,"summer_wheat;baking_quality;medium_early",110,fusarium
 3. [BBCH-Skala Getreide (Meier 2001)](https://www.bba.de) — Entwicklungsstadien
 4. [DLG Merkblatt Ährenfusarium](https://www.dlg.org) — Mykotoxin-Risiko, Bekämpfung
 5. [Saaten-Union Weizensortenkatalog](https://www.saaten-union.de) — Sortenbeschreibungen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [FAO — Wheat growth and physiology (Acevedo, Silva & Silva)](https://www.fao.org/4/y4011e/y4011e06.htm) — Photosynthese-Optimum 20–25 °C, Amax 15–25 µmol CO₂/m²/s, Lichtsättigung ~1000 µmol/m²/s
+7. [FAO — Annex 1: Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Maas-Hoffman ECe-Schwelle 6.0 dS/m, Slope 7.1 %, Rating MT (moderately tolerant)
+8. [USDA-ARS / Wikipedia — Salt tolerance of crops (Maas & Hoffman 1977)](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) — Bestätigung Salztoleranzklasse Weizen
+9. [Frontiers / PMC — Shade tolerance in wheat (photosynthetic limitation & acclimation)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11655228/) — Weizen schattenintolerant (full_sun), höherer Lichtkompensationspunkt als Gerste
+10. [Herzog et al. 2016, Plant Cell & Environment — Mechanisms of waterlogging tolerance in wheat](https://onlinelibrary.wiley.com/doi/10.1111/pce.12676) — Staunässe-Empfindlichkeit (sensitive)
+11. [Frontiers / DOAJ — Can Growing Degree Days and Photoperiod Predict Spring Wheat Phenology?](https://www.frontiersin.org/journals/environmental-science/articles/10.3389/fenvs.2017.00057/full) — GDD-Basistemperatur 0 °C, Langtag-Photoperiode
+12. [OSU Agronomic Crops Network — Vernalization Requirements for Winter Wheat](https://agcrops.osu.edu/newsletter/corn-newsletter/2020-04/vernalization-requirements-winter-wheat) — Vernalisation 40–70 Tage (~50 Tage Standard)
+13. [PMC — Effect of photoperiod on wheat vernalization genes VRN1/VRN2](https://pmc.ncbi.nlm.nih.gov/articles/PMC4739792/) — Langtag-Einstufung, Vernalisationsbedarf Wintertypen
+14. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenz Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.01–0.048 ppm
+15. [Koppert — Aphidius ervi (parasitic wasp)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-ervi/) — Ausbringrate 0.25–2/m²/Freilassung
+16. [Plant Protection Science — Effect of temperature on development & parasitism of Aphidius ervi](https://www.agriculturejournals.cz/publicFiles/01157.pdf) — Etablierung ~14 Tage (erste Mumien), T_opt 20–25 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

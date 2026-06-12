@@ -18,6 +18,9 @@
 | Gattung | Philodendron | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
 | Wuchsform | vine | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | aerial | `species.root_type` |
 | Wurzelanpassungen | aerial, epiphytic | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -25,6 +28,10 @@
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagneutral, kein photoperiodischer Blühreiz) | `lifecycle_configs.critical_day_length_hours` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (kein artspezifischer Wuchs-/Phänologie-GDD-Wert belegt; reine Zimmerkultur. Bekannt: Wachstum stoppt unter ca. 10 °C, Schäden ab < 13 °C — dies sind Mindesttemperaturen, NICHT die GDD-Basis) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10°C, optimal 18–26°C. Sehr empfindlich gegenüber Kälte und Zugluft. | `species.hardiness_detail` |
@@ -91,6 +98,24 @@
 | Rankhilfe/Stütze nötig | false (optional — Moosstab fördert größere Blätter) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, durchlässige Einheitserde mit 20–30% Perlite. pH 6.0–7.0. Guter Wasserabzug wichtig. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein belegter numerischer Kompensationspunkt; als ausgeprägte Schattenpflanze liegt er erfahrungsgemäß sehr niedrig) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (keine Maas-Hoffman-Schwelle für Zierpflanze belegt; qualitativ salzempfindlich) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** *Lichtkompensationspunkt (light compensation point):* Als isomorpher Unterwuchs-Aroid mit hoher Schattentoleranz fängt *P. hederaceum* Schwachlicht effizient ab; der echte Kompensationspunkt (Netto-Photosynthese = 0) ist nicht numerisch publiziert. Praktisch beginnt sichtbares Wachstum erst oberhalb ca. 50 PPFD — das ist eine Wachstums-Untergrenze, NICHT der Kompensationspunkt und gehört daher nicht ins LCP-Feld. *Wurzeltiefe:* flaches, fibröses (faseriges) Wurzelsystem, in Topfkultur effektiv flach (15–30 cm); trocknet schneller ab als aufrechte Arten. *Staunässe (waterlogging):* sehr empfindlich, Staunässe führt rasch zu Wurzelfäule — durchlässiges Substrat und Topf-Drainage zwingend. *Salztoleranz:* salzempfindlich; Akkumulation aus Leitungswasser/Dünger verursacht braune Blattspitzen, Substrat sollte monatlich durchgespült werden. *Boden-pH:* Quellen nennen leicht sauer bis neutral (überlappend ca. 5.5–7.0); der eingetragene Bereich 6.0–7.0 harmonisiert mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährstoffprofile derselben Datei).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +141,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.60–0.75 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -128,15 +159,24 @@
 | Temperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 14–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–55 | `requirement_profiles.humidity_day_percent` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.60–0.75 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.6–1.2 | 6.0–7.0 | 100 | 40 |
-| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.6–1.2 | 6.0–7.0 | 100 | 40 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronährstoffe Mn/Zn/Cu/Mo: keine artspezifischen ppm-Sollwerte aus zwei seriösen Quellen für P. hederaceum belegt; werden über handelsübliche Grünpflanzen-Volldünger (Spurenelemente enthalten) abgedeckt. Daher als DATEN FEHLEN markiert statt erfundener Werte. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -180,6 +220,23 @@ Schwachzehrer — alle 4 Wochen in der Wachstumsphase reicht. Überdüngung füh
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (vor Nachttemperaturen < 13 °C ins Haus) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5–6 (nach Eisheiligen, nur frostfrei) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 16–22 (nie unter 13 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; ggf. Pflanzenlicht bei < 8 h Tageslicht | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam, Substrat zwischen den Gaben antrocknen lassen (Intervall 14–21 Tage) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** *P. hederaceum* ist nicht frosthart (USDA 10–11). In Mitteleuropa (USDA 6–8) ausschließlich als Zimmer-/Kübelpflanze; ein Sommeraufenthalt auf Balkon/Terrasse ist nur in den frostfreien Monaten möglich. Die Pflanze wird NICHT ausgegraben/eingelagert (kein `dig_and_store`), sondern als immergrüne Pflanze frostfrei im Haus überwintert (`frost_free`). Keine echte Dormanz — nur wachstumsverlangsamte Winterruhe (vgl. §2.1).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -206,6 +263,18 @@ Schwachzehrer — alle 4 Wochen in der Wachstumsphase reicht. Überdüngung füh
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
 | Nematoden | biological | Gießen (Steinernema feltiae) | 0 Tage | Trauermücke |
 | Systeminsektizid | chemical | Stäbchen | 14 Tage | Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Schmierlaus (Pseudococcus spp.) | 2–5 Käfer/Pflanze (mehrere kleine Freisetzungen besser als eine große) | mehrere Wochen bis Monate (langsam bei langsam wachsenden Zierpflanzen) |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | ca. 5–20/m² bei leichtem Befall (0.5–2/sq ft) | 1–2 Wochen, Wiederholung alle 1–2 Wochen |
+| Insektenpathogene Nematoden | Steinernema feltiae | Trauermücke (Bradysia spp., Larven im Substrat) | ca. 0.5 Mio./m² (Gießanwendung) | 1–2 Wochen, feuchtes Substrat erforderlich |
+
+**Hinweis:** Reihenfolge der Ausbringung: zuerst Boden-Nützlinge (*Steinernema*) ausbringen, danach Blatt-Räuber (*Phytoseiulus*, *Cryptolaemus*). Nützlinge nicht mit chemischen Breitband-Insektiziden (§5.3 Systeminsektizid) kombinieren — mindestens 4 Wochen Abstand nach chemischer Anwendung. Encarsia formosa (gegen Weiße Fliege) ist hier nicht gelistet, da Weiße Fliege bei *P. hederaceum* kein typischer Schädling ist (vgl. §5.1).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -253,3 +322,16 @@ Lemon Lime,Philodendron hederaceum,"ornamental;chartreuse_leaves",clone
 3. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
 4. [Soltech — Heartleaf Philodendron](https://soltech.com/products/heartleaf-philodendron-care) — Lichtanforderungen
 5. [Healthy Houseplants](https://www.healthyhouseplants.com/indoor-houseplants/heartleaf-philodendron-plant-care-guide/) — Ganzjahrespflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Mioranza et al. (2018), Theoretical and Experimental Plant Physiology 30:89–101 — *Philodendron hederaceum*, isomorpher Aroid, Boden-Kronen-Transition](https://link.springer.com/article/10.1007/s40626-018-0105-6) — Blattphysiologie/Schattenanpassung (Stomatadichte, Chlorophyll, Elektronentransportrate)
+7. [Holtum et al. (2011), PubMed — CAM im ZZ-Pflanze *Zamioculcas zamiifolia* (Araceae)](https://pubmed.ncbi.nlm.nih.gov/21636363/) — Beleg: CAM in Araceae extrem selten, Philodendron = C3
+8. [Wikipedia — Crassulacean acid metabolism](https://en.wikipedia.org/wiki/Crassulacean_acid_metabolism) — CAM-Verbreitung, C3 als Standard außerhalb der bekannten CAM-Linien
+9. [Foliage Factory — Beneficial Insects for Indoor Plants](https://www.foliage-factory.com/post/beneficial-insects-biological-pest-control) — Nützlinge für Zimmerpflanzen (Cryptolaemus, Phytoseiulus, Steinernema)
+10. [NaturesGoodGuys — Phytoseiulus persimilis Introduction Rates](https://www.naturesgoodguys.com/pages/phytoseiulus-persimilis-introduction-rates) — Ausbringraten Raubmilbe
+11. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringstrategie Mealybug destroyer
+12. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Etablierung/Anwendung Raubmilbe
+13. [UConn Home & Garden Education — Houseplant Temperature Tolerance](https://homegarden.cahnr.uconn.edu/2025/08/02/houseplant-temps/) — Mindesttemperaturen, Kälteempfindlichkeit
+14. [Gardener's Path — Philodendron Brown Leaves (soluble salts)](https://gardenerspath.com/plants/houseplants/philodendron-brown-leaves/) — Salzempfindlichkeit, Substrat-Spülung
+15. [Greg — Heartleaf Philodendron Roots](https://greg.app/heartleaf-philodendron-roots/) — flaches/fibröses Wurzelsystem, Staunässe-Empfindlichkeit
+16. [Greg — Best Soil for Philodendron hederaceum (pH)](https://greg.app/philodendron-hederaceum-var-hederaceum-soil/) — Boden-pH-Vorzug (leicht sauer bis neutral)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

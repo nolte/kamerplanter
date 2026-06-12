@@ -374,6 +374,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [4, 5]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Geranium sanguineum"
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
@@ -404,6 +412,12 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 8
 
   - scientific_name: "Helleborus niger"
     common_names: [Christrose, Schneerose, Christmas Rose]
@@ -431,6 +445,12 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [3]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Hemerocallis spp."
     common_names: [Taglilie, Daylily]
@@ -458,6 +478,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [10, 11]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.8
 
   - scientific_name: "Hosta spp."
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
@@ -485,6 +512,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [10, 11, 3]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Hydrangea macrophylla"
     common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
@@ -512,6 +549,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Ligustrum vulgare"
     common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
@@ -539,6 +584,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: summer_pruning
     pruning_months: [6, 7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Paeonia lactiflora"
     common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
@@ -566,6 +618,15 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [10, 11]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 10
+    light_compensation_point_ppfd_max: 70
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Phlox paniculata"
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
@@ -593,6 +654,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [10, 11]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 35
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Rhododendron spp."
     common_names: [Rhododendron, Alpenrose]
@@ -620,6 +688,17 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [5, 6]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 5
+    light_compensation_point_ppfd_max: 11
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 5.5
 
   - scientific_name: "Rosa spp."
     common_names: [Gartenrose, Rose, Garden Rose]
@@ -647,6 +726,17 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 30
+    light_compensation_point_ppfd_max: 70
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 3.0
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.5
 
   - scientific_name: "Syringa vulgaris"
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
@@ -674,6 +764,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [5, 6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   - scientific_name: "Viburnum opulus"
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
@@ -701,6 +798,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 8.0
 
   - scientific_name: "Weigela florida"
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
@@ -728,6 +832,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
 
   # ---------- Fruit trees ----------
 
@@ -758,6 +870,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [1, 2, 3]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 20
+    light_compensation_point_ppfd_max: 30
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 50
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   - scientific_name: "Prunus avium"
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
@@ -786,6 +908,15 @@ new_species:
     green_manure_suitable: false
     pruning_type: summer_pruning
     pruning_months: [7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 2
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Prunus domestica"
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
@@ -814,6 +945,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [8, 9]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 100
+    waterlogging_tolerance: tolerant
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 18
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
   - scientific_name: "Pyrus communis"
     common_names: [Kulturbirne, Gemeine Birne, Pear]
@@ -842,6 +983,15 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 80
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.5
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   # ---------- Berry shrubs ----------
 
@@ -872,6 +1022,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [7, 8, 2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7
 
   - scientific_name: "Ribes uva-crispa"
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
@@ -900,6 +1058,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [2, 3, 6]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 40
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 6.5
 
   - scientific_name: "Rubus fruticosus agg."
     common_names: [Brombeere, Blackberry, Bramble]
@@ -928,6 +1094,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [8, 9, 10]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 22
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
 
   - scientific_name: "Rubus idaeus"
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
@@ -956,6 +1132,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [7, 8, 2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.8
 
   - scientific_name: "Sambucus nigra"
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
@@ -984,6 +1168,15 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [2, 3]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 13
+    light_compensation_point_ppfd_max: 18
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: moderate
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
 
   - scientific_name: "Vaccinium corymbosum"
     common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
@@ -1012,6 +1205,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 5.5
 
   - scientific_name: "Vitis vinifera"
     common_names: [Weinrebe, Weintraube, Grape Vine]
@@ -1040,6 +1241,16 @@ new_species:
     green_manure_suitable: false
     pruning_type: winter_pruning
     pruning_months: [1, 2, 3]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.5
+    salt_tolerance_slope_pct: 9.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 6.5
 
   # ---------- Herbs ----------
 
@@ -1073,6 +1284,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [7, 10]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 90
+    waterlogging_tolerance: moderate
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7.5
 
   - scientific_name: "Melissa officinalis"
     common_names: [Zitronenmelisse, Melisse, Lemon Balm]
@@ -1104,6 +1322,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6, 7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    salt_tolerance_ece_threshold_ds_m: 1.6
+    soil_ph_preference:
+      min_ph: 5.6
+      max_ph: 9
 
   - scientific_name: "Origanum vulgare"
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
@@ -1135,6 +1361,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_tolerant
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   - scientific_name: "Satureja hortensis"
     common_names: [Sommer-Bohnenkraut, Summer Savory]
@@ -1166,6 +1400,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 8
 
   # ---------- Vegetables ----------
 
@@ -1198,6 +1439,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6
+      max_ph: 7
 
   - scientific_name: "Rheum rhabarbarum"
     common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
@@ -1226,6 +1475,13 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [5, 6, 11]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 45
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 5
+      max_ph: 6.8
 
   - scientific_name: "Spinacia oleracea"
     common_names: [Spinat, Echter Spinat, Spinach]
@@ -1256,6 +1512,18 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [4, 5, 9, 10]
+    photosynthesis_type: c3
+    light_compensation_point_ppfd_min: 8
+    light_compensation_point_ppfd_max: 16
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 46
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2.0
+    salt_tolerance_slope_pct: 7.6
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
 
   # ---------- Green manure / cover crops ----------
 
@@ -1288,6 +1556,13 @@ new_species:
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [7, 10]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 60
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 7
 
   - scientific_name: "Medicago sativa"
     common_names: [Luzerne, Alfalfa, Ewiger Klee]
@@ -1315,6 +1590,16 @@ new_species:
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [6, 7, 8]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 150
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    salt_tolerance_ece_threshold_ds_m: 2
+    salt_tolerance_slope_pct: 7.3
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
 
   - scientific_name: "Phacelia tanacetifolia"
     common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
@@ -1342,6 +1627,12 @@ new_species:
     green_manure_suitable: true
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 6.4
+      max_ph: 8.5
 
   - scientific_name: "Sinapis alba"
     common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
@@ -1369,6 +1660,12 @@ new_species:
     green_manure_suitable: true
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    waterlogging_tolerance: sensitive
+    soil_ph_preference:
+      min_ph: 4.5
+      max_ph: 8.2
 
   # ---------- Annual ornamentals ----------
 
@@ -1401,6 +1698,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: after_harvest
     pruning_months: [6, 7, 8, 9]
+    photosynthesis_type: c3
+    shade_tolerance: full_sun
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: moderately_sensitive
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
 
   - scientific_name: "Tropaeolum majus"
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
@@ -1432,6 +1737,14 @@ new_species:
     green_manure_suitable: false
     pruning_type: none
     pruning_months: []
+    photosynthesis_type: c3
+    shade_tolerance: partial_shade
+    effective_root_depth_cm: 30
+    waterlogging_tolerance: sensitive
+    salt_tolerance_class: sensitive
+    soil_ph_preference:
+      min_ph: 6.1
+      max_ph: 7.8
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (14 existing species)

@@ -21,6 +21,11 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day (Photoperiod-Typen); day_neutral (Autoflower-Typen) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (über C3-Photosynthese-Modell in Feldstudien belegt) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (thermophile Hauptwuchsphase; konsistent mit REQ-007 gdd_to_harvest/flowering_start. Hinweis: der niedrigere Wert ~1 °C aus Faserhanf-Feldmodellen gilt nur für die Pre-Emergenz/Keimung, nicht für die GDD-Akkumulation der Wuchs-/Blütephase) | `species.base_temp` |
+| Kritische Tageslaenge (critical day length, h) | 13.75–15 (sortenabhaengig; praktische Indoor-Umschaltgrenze 12 h Licht / 12 h Dunkel) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Outdoor-Anbau in Mitteleuropa nur April–Oktober moeglich. Frostschaden bereits ab 0°C, Erntenotwendigkeit vor erstem Frost. | `species.hardiness_detail` |
@@ -97,6 +102,21 @@ Angaben fuer Mitteleuropa (Zone 7–8) Outdoor sowie ganzjaehrig Indoor.
 | Gewaechshaus empfohlen | true (optimale Kombination aus Schutz und natuerlichem Licht) | `species.greenhouse_recommended` |
 | Rankhilfe/Stuetze noetig | true (bei Sativa-dominierten Sorten und bei SCROG) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | **Coco/Perlite (60/40)** fuer Hydroponik mit haeufigerem Giessen; **Cannabis-Erde** (z.B. Biobizz Light Mix, Plagron Lightmix) fuer Boden-Anbau; **Steinwolle/Rockwool** fuer Advanced Hydro. pH-Puffer beachten. | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> nicht belegt (keine zwei unabhaengigen serioesen Quellen mit konkretem LCP-Wert fuer Cannabis sativa) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (min. 6–8 h direkte Sonne; hohe Lichttoleranz bis ~2000 µmol/m²/s) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–60 (im Topf/Beet aktive Hauptwurzelzone; ~50% der Wurzelbiomasse in oberen 20–50 cm, Pfahlwurzel im Freiland bis >130 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Wurzeln benoetigen Sauerstoff; Staunaesse fuehrt zu Wurzelfaeule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive (signifikante Biomassereduktion ab ECe ~4 dS/m) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | ~2 (Biomasse bis ~2 dS/m kaum reduziert; ab 4 dS/m deutliche Einbussen — kein offizieller Maas-Hoffman-Wert) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> nicht belegt (kein offizieller Maas-Hoffman-Slope fuer Cannabis sativa publiziert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 (Erde); Coco/Hydro 5.5–6.1 | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -228,6 +248,25 @@ Angaben fuer Mitteleuropa (Zone 7–8) Outdoor sowie ganzjaehrig Indoor.
 | Gießintervall (Tage) | 2–3 (weniger giessen; Flush-Phase) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Ergaenzende Klimaphysiologie je Phase (VPD, T_opt, Far-Red)
+
+VPD-Schwelle (`vpd_threshold_kpa`) = oberer kritischer VPD-Wert je Phase; daraus abgeleitet aus den oben gelisteten VPD-Zielen. Photosynthese-Temperatur-Optimum (`photosynthesis_temp_opt_c`) ist artweit (nicht phasenspezifisch unterschiedlich belegbar).
+
+| Phase | VPD-Schwelle (kPa) | VPD-Sensitivitaet | Photosynthese-T_opt (°C) | Far-Red-Fraction FR/(R+FR) |
+|-------|--------------------|-------------------|--------------------------|----------------------------|
+| Keimung / Saemling | 0.8 | high | 25–35 | <!-- DATEN FEHLEN --> |
+| Vegetativ | 1.2 | medium | 25–35 | <!-- DATEN FEHLEN --> |
+| Vorblüte / Streckphase | 1.4 | medium | 25–35 | <!-- DATEN FEHLEN --> |
+| Hauptbluete | 1.6 | high | 25–35 | <!-- DATEN FEHLEN --> |
+| Spaetbluete / Reifung | 1.6 (nicht > 1.8) | high | 25–35 | <!-- DATEN FEHLEN --> |
+
+- `requirement_profiles.vpd_threshold_kpa` — oberer VPD-Grenzwert je Phase
+- `requirement_profiles.vpd_sensitivity` — high in Bluete (Botrytis-/Bud-Rot-Risiko bei hoher Feuchte), high in Keimung (Austrocknungsgefahr), sonst medium
+- `requirement_profiles.photosynthesis_temp_opt_c` — 25–35 °C breites Plateau; Drug-Typen optimal 30–35 °C, Faser-Typen ~30 °C (artweit, peer-reviewed)
+- `requirement_profiles.far_red_fraction` — <!-- DATEN FEHLEN --> kein artspezifischer physiologischer Sollwert pro Phase belegbar; Far-Red wirkt sortenabhaengig (Shade-Avoidance/Emerson-Effekt), publizierte Spektren sind Beleuchtungsempfehlungen, kein Pflanzenbedarf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 2.3 Naehrstoffprofile je Phase
 
 | Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
@@ -239,6 +278,22 @@ Angaben fuer Mitteleuropa (Zone 7–8) Outdoor sowie ganzjaehrig Indoor.
 | Hauptbluete | 1:3:4 | 1.6–2.2 | 6.0–6.5 | 120 | 60 | 40 | 2 |
 | Spaetbluete | 0:2:3 | 1.0–1.6 | 6.0–6.5 | 80 | 40 | 30 | 1 |
 | Flush (2 Wo. vor Ernte) | 0:0:0 | 0.0–0.4 | 6.0 | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronaehrstoffe (Spurenelemente) je Phase — elementare Konzentration in der Naehrloesung (ppm):**
+
+Spannen decken Cannabis-spezifische Empfehlungen (NCSU, Bluetephase) und allgemeine Hydroponik-Sufficiency-Bereiche ab. Werte gelten fuer veg./Bluete; in Keimung/Flush entfaellt die Spurenduengung (—).
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Saemling | 0.3–0.6 | 0.1–0.3 | 0.05–0.1 | 0.03–0.07 |
+| Vegetativ | 0.5–1.0 | 0.2–0.5 | 0.1–0.2 | 0.05–0.1 |
+| Vorblüte | 0.5–1.0 | 0.2–0.5 | 0.1–0.2 | 0.05–0.1 |
+| Hauptbluete | 0.5–0.9 | 0.1–0.3 | 0.1–0.18 | 0.075–0.1 |
+| Spaetbluete | 0.3–0.6 | 0.1–0.2 | 0.05–0.15 | 0.05–0.08 |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis pH:** Coco/Hydro: 5.5–6.1; Erde: 6.0–7.0.
 
@@ -601,3 +656,16 @@ CBD Charlotte's Angel,Cannabis sativa,annual,short_day,60–70,cbd_dominant;medi
 8. WeedSeeds.com — Training Guide LST SCROG Topping — https://www.weedseeds.com/learn/growing/training/
 9. MarijuanaSeedsForSale — Harvest Timing Trichomes Curing — https://marijuanaseedsforsale.com/growing-cultivation/harvesting-cannabis/
 10. 2Fast4Buds — Autoflower Feeding Schedule — https://2fast4buds.com/news/best-feeding-schedule-for-autoflowering-plants
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. Tang et al. 2017, GCB Bioenergy (Wiley) — Hemp (Cannabis sativa L.) leaf photosynthesis in relation to nitrogen content and temperature — C3-Photosynthese-Modell, T_opt-Plateau 25–35 °C — https://onlinelibrary.wiley.com/doi/full/10.1111/gcbb.12451
+12. ResearchGate / Annals of Applied Biology (van der Werf 1995 u.a.) — Development of a hemp simulation model & effect of temperature on leaf appearance — GDD-Basistemperatur ~1 °C (Feld) — https://www.researchgate.net/publication/248891523_Development_of_a_hemp_Cannabis_sativa_L_simulation_model_1General_introduction_and_the_effect_of_temperature_on_the_pre-emergent_development_of_hemp
+13. Frontiers in Plant Science (PMC8367441) — Photoperiodic Flowering Response of Hemp Cultivars — kritische Tageslaenge ~13:45–15 h, sortenabhaengig — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8367441/
+14. PMC (PMC3550580) — Temperature response of photosynthesis in drug and fiber varieties of Cannabis sativa L. — Photosynthese-T_opt 30–35 °C (Drug), ~30 °C (Faser) — https://pmc.ncbi.nlm.nih.gov/articles/PMC3550580/
+15. Amaducci et al. — Characterisation of hemp (Cannabis sativa L.) roots under different growing conditions — Wurzeltiefe, 50% Biomasse in oberen 20–50 cm — https://www.votehemp.com/wp-content/uploads/2018/09/Characterisation_of_hemp_Cannabis_sativa_roots_under_different_growing_conditions.pdf
+16. ScienceDirect — Effect of saline irrigation on fiber hemp growth (PMC10978745) — Biomassereduktion ab ECe 4 dS/m — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10978745/
+17. USDA-ARS — Plant Salt Tolerance (Maas & Grattan), Salt tolerance of crops — Klassifikationsrahmen ECe/Slope — https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf
+18. Royal Queen Seeds (USA) — The Perfect pH Value for a Cannabis Plant — Boden-pH 6.0–7.0, Hydro 5.5–6.1 — https://www.royalqueenseeds.com/us/blog-the-perfect-ph-value-for-a-cannabis-plant-n87
+19. FloraFlex / Dutch Passion — Sunlight requirements for outdoor cannabis — full_sun, min. 6–8 h direkte Sonne — https://floraflex.com/default/blog/post/understanding-sunlight-requirements-for-outdoor-cannabis-plants
+20. Cannabis Business Times (NCSU-Daten, Whipker et al.) — When Micronutrients Become Macro Problems — Mn/Zn/Cu/Mo ppm-Bereiche Bluete — https://www.cannabisbusinesstimes.com/columns/cultivation-matters/article/15693675/when-micronutrients-become-macro-problems
+21. Penn State Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes — allgemeine Mikronaehrstoff-Sufficiency-Bereiche — https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

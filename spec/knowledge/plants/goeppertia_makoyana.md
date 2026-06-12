@@ -19,11 +19,18 @@
 | Ordnung | Zingiberales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN — keine belegte Wuchs-/Phänologie-GDD-Basis für diese tropische Zierpflanze auffindbar; Keim-/Kardinalwerte nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 10+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral; kein Kurztag-/Langtag-Blüher → keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 15°C, optimal 18–24°C. Zugluft und Temperaturschwankungen > 5°C schädlich. | `species.hardiness_detail` |
@@ -92,6 +99,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, torffreie Einheitserde mit guter Wasserspeicherkapazität aber gleichzeitig guter Drainage. Mischung aus Kokosfaser + Perlite + Redekorholz-Mulch. pH 6.0–7.0. Kein schweres Substrat. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 50 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15–25 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN — kein Maas-Hoffman-Schwellenwert für diese Zierart belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN — kein Maas-Hoffman-Slope für diese Zierart belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Physiologie:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) wurde für *C. makoyana* mit ca. 50 µmol/m²/s gemessen (Tang et al. 2018, PMC5877565); der untere Spannenwert (~5) reflektiert die für schattentolerante Regenwald-Unterholz-Herben (understory) typische Untergrenze. Der **Lichtsättigungspunkt** (light saturation point) liegt bei ca. 400 µmol/m²/s — dieser Wert gehört NICHT ins Kompensationspunkt-Feld und ist hier nur als Freitext-Orientierung genannt. Salztoleranz: UF/IFAS stuft die Salztoleranz als "poor" ein (= sensitive); regelmäßiges Durchspülen des Substrats und Verwendung von Regen-/destilliertem Wasser sind zur Vermeidung von Salzakkumulation und Blattrandnekrosen erforderlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -117,6 +142,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.7 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–350 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -132,15 +163,25 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 6.0–7.0 | 60 | 30 |
-| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 2:1:2 | 0.4–0.8 | 6.0–7.0 | 60 | 30 | 0.5–1.0 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.3–0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05–0.1 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.02–0.05 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Mn/Zn/Cu/Mo (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) als verdünnte Schwachzehrer-Spanne für Blattzierpflanzen; nur in der aktiven Wachstumsphase relevant, in der Winterruhe wird nicht gedüngt. Werte am unteren Rand üblicher Nährlösungsspannen, da *G. makoyana* salzempfindlicher Schwachzehrer ist (Überdüngung → Blattrandnekrosen).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -196,6 +237,23 @@ Schwachzehrer. Überdüngung führt zu Blattrandnekrosen und Salzakkumulation. N
 | Okt–Feb | Reduziert gießen | Substrat leicht antrocknen lassen zwischen Güssen | mittel |
 | Ganzjährig | Luftfeuchtigkeit | Heizungsluft (rel. Feuchte oft <30%) ergänzen! | hoch |
 | Ganzjährig | Blätter reinigen | Staub mit feuchtem Tuch abwischen | niedrig |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Okt; bzw. ganzjährig drinnen) | `overwintering_profiles.winter_action_month` |
+| Frühlings-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühlings-Maßnahme Monat | — (nicht für Außenstellung empfohlen; ganzjährig Zimmerkultur) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–22 (nie unter 15 °C; optimal 18–24 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; kein Direktsonnenlicht; ggf. Pflanzenlicht bei kurzen Tagen | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert (Intervall 10–14 Tage); Substrat leicht antrocknen lassen, nie austrocknen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis Überwinterung:** *G. makoyana* ist nicht frosthart (frost-tender) und wird ganzjährig frostfrei (frost_free) als Zimmerpflanze kultiviert — keine Freiland-/Kübel-Auslagerung im Sommer empfohlen, da Zugluft, direkte Sonne und Temperaturschwankungen schädlich sind. Mindesttemperatur 15 °C; unter ~16 °C drohen Blattschäden/Blattverlust. Im Winter weiterhin hohe Luftfeuchte (≥ 60 %) sicherstellen, besonders bei trockener Heizungsluft.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -282,3 +340,12 @@ Goeppertia makoyana,"Pfauenpflanze;Korbmarante;Peacock Plant;Cathedral Windows",
 3. [Gardenia.net](https://www.gardenia.net/plant/calathea-makoyana-peacock-plant) — Wachstumsparameter
 4. [Planet Natural — Calathea makoyana](https://www.planetnatural.com/calathea-makoyana/) — Schädlinge, Krankheiten
 5. [Patch Plants — Complete Calathea Guide](https://www.patchplants.com/pages/plant-care/complete-guide-to-calathea-care/) — Praxiswissen, Wasserqualität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Tang et al. (2018), "Biochemical and Physiological Characteristics of Photosynthesis in Plants of Two Calathea Species", Int. J. Mol. Sci. (PMC5877565)](https://pmc.ncbi.nlm.nih.gov/articles/PMC5877565/) — Peer-reviewed: Lichtkompensationspunkt (~50 µmol/m²/s) und Lichtsättigungspunkt (~400 µmol/m²/s) für *C. makoyana*, Schattenpflanzen-Einstufung
+7. [UF/IFAS Gardening Solutions — FPS86/FP086: Calathea makoyana Peacock Plant](https://ask.ifas.ufl.edu/publication/FP086) — Salztoleranz ("poor" = sensitive), Schatten-Standort, USDA-Zonen 10–11
+8. [Plantura — Calathea makoyana: flowers, care & propagation](https://plantura.garden/uk/houseplants/calathea/calathea-makoyana) — Boden-pH (leicht sauer), Staunässe-Empfindlichkeit, Salzdurchspülung
+9. [Plantura — Calathea: how to care for, repot & propagate](https://plantura.garden/uk/houseplants/calathea/calathea-overview) — Flachwurzler/Rhizom, Staunässe-Empfindlichkeit, Salzakkumulation
+10. [Almanac — Calathea Care Guide](https://www.almanac.com/plant/calathea-care-guide-how-keep-your-tropical-houseplant-thriving) — Mindesttemperatur (nie < 16 °C), Luftfeuchte, ganzjährige Zimmerkultur/Überwinterung
+11. [PSU Extension — Hydroponics Systems and Principles Of Plant Nutrition](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Referenzspannen (Mn/Zn/Cu/Mo) für Nährlösungen
+12. [Oxford Academic, Ann. Bot. (2020) — PAR und R:FR unter Bestandes-Beschattung](https://academic.oup.com/aob/article/126/4/635/5650896) — Far-Red-Anreicherung / niedriges R:FR im Unterholz (Far-Red-Fraction-Begründung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

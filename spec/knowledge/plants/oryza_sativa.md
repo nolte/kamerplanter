@@ -21,6 +21,14 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjährig; keine Endodormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tropisch/subtropisch; kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (critical day length, h) | 13.5 (fakultativer Kurztagblüher; Blüte beschleunigt unterhalb ~13,5 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 9a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frost-empfindlich; minimale Wachstumstemperatur 10°C; optimale Keimtemperatur 25–35°C; in Mitteleuropa nur im Gewächshaus oder wärmstem Sommer möglich (vereinzelte Freilandversuche in Südtirol und Baden bei Nassreis) | `species.hardiness_detail` |
@@ -84,6 +92,30 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Schwere lehmige Erde; wasserhaltendes Substrat; pH 5,5–6,5; KEINE durchlässige Erde | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 35 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20–50 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | tolerant | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 3.0 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 12 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 5.5–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Lichtkompensationspunkt:** Gemessene Blatt-Werte liegen bei ~17–22 µmol/m²/s (paddy rice, Feldbedingungen); die Spanne 15–35 deckt schatten- bis sonnenakklimatisierte Blätter ab. Reis ist lichtbedürftig (Lichtsättigung erst bei ~1.500–1.800 µmol/m²/s); Beschattung senkt den Ertrag um 15–20 %. Der LCP-Wert beschreibt ausschließlich den Kompensationspunkt (Netto-Photosynthese = 0), nicht die Sättigung.
+
+**Hinweis Wurzeltiefe:** FAO gibt die effektive Wurzeltiefe für Nassreis bei Ernte mit 50–75 cm an; der überwiegende Teil der aktiven Wurzelmasse konzentriert sich jedoch in den oberen 20–25 cm. Die angegebene Spanne 20–50 cm bildet die praktisch wirksame Hauptdurchwurzelung ab.
+
+**Hinweis Salztoleranz:** Klassifikation nach Maas & Hoffman (FAO): Schwellen-ECe 3,0 dS/m (Bezug = Bodensättigungsextrakt ECe, NICHT Gießwasser-EC), Ertragsabnahme 12 % je dS/m oberhalb der Schwelle, Einstufung "sensitive". Reis ist besonders salzempfindlich im Sämlings- und Rispenanlagestadium; unter Flutung bezieht sich der ECe auf das Bodenwasser bei überstauten Pflanzen.
+
+**Hinweis pH-Vorzug:** Die hier eingetragene Quellen-Vorzugsspanne 5,5–7,0 (PFAF / FAO-Ecocrop) ist weiter als die in §1.6/§2.3 für die Topf-/Nährlösungssteuerung verwendete engere Spanne 5,5–6,5; beide sind konsistent (das Topf-Optimum liegt innerhalb des breiteren Standort-Vorzugs).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +141,12 @@
 | Temperatur Nacht (°C) | 20–28 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 70–90 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–32 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 1 (dauerfeucht; Nassreis in stehendem Wasser) | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Sämling / Anzucht
@@ -122,6 +160,12 @@
 | Temperatur Nacht (°C) | 22–26 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 70–85 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–33 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 1 (Staunässe für Nassreis) | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Vegetativ / Bestockung
@@ -135,6 +179,12 @@
 | Temperatur Nacht (°C) | 20–28 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 65–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 30–35 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 1–2 (Nassreis: Wasserstand 5–15 cm halten) | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Rispenschieben / Blüte
@@ -148,6 +198,12 @@
 | Temperatur Nacht (°C) | 22–26 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–33 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 1 (Wasserstand 5–10 cm) | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Abreife
@@ -159,17 +215,29 @@
 | Temperatur Nacht (°C) | 16–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–65 (trocken für Drusch) | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 3–5 (Wasserabzug 2–3 Wochen vor Ernte) | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Si (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|
-| Keimung | 0:0:0 | 0.0 | 5.5–6.5 | — | — | — |
-| Sämling | 1:1:1 | 0.4–0.8 | 5.5–6.5 | 60 | 25 | — |
-| Vegetativ | 3:1:2 | 1.0–1.8 | 5.5–6.5 | 120 | 50 | 50 |
-| Blüte | 1:2:2 | 1.2–2.0 | 5.5–6.5 | 100 | 50 | 50 |
-| Abreife | 0:1:2 | 0.6–1.2 | 5.5–6.5 | 60 | 30 | 30 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergänzt) -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Si (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 5.5–6.5 | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.4–0.8 | 5.5–6.5 | 60 | 25 | — | 0.3 | 0.05 | 0.02 | 0.01 |
+| Vegetativ | 3:1:2 | 1.0–1.8 | 5.5–6.5 | 120 | 50 | 50 | 0.5 | 0.10 | 0.03 | 0.02 |
+| Blüte | 1:2:2 | 1.2–2.0 | 5.5–6.5 | 100 | 50 | 50 | 0.5 | 0.10 | 0.03 | 0.02 |
+| Abreife | 0:1:2 | 0.6–1.2 | 5.5–6.5 | 60 | 30 | 30 | 0.3 | 0.05 | 0.02 | 0.01 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Mn/Zn/Cu/Mo-Werte sind Nährlösungs-Zielkonzentrationen (Feed, ppm) im Bereich gängiger C3-Kultur-Rezepturen. Zinkmangel ist die weltweit häufigste Mikronährstoffstörung im Nassreis (Maßnahme: Zn-Aufdüngung bei alkalischen/überfluteten Böden).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Hinweis Silizium:** Reis hat einen sehr hohen Si-Bedarf (höchster Si-Bedarf unter allen Kulturpflanzen). Silizium erhöht Standfestigkeit, Krankheitsresistenz und Hitzestresstoleranz.
 
@@ -259,6 +327,17 @@ Nassreis wächst in anaeroben (sauerstoffarmen) Bedingungen — Stickstoff NICHT
 | Resistente Sorten | cultural | — | Sortenwahl | 0 | Reisbrand |
 | Wasserstandsmanagement | cultural | — | Intermittierendes Fluten | 0 | Scheidenfäule |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Schlupfwespe (Eiparasitoid) | Trichogramma japonicum | Reishalm-Bohrwurm (Chilo suppressalis) und weitere Halmbohrer (Scirpophaga incertulas) | 5–20 Tiere/m² (50.000–200.000/ha) je Freisetzung, 4 Freilassungen im Wochenabstand | 1–2 Wochen (mehrere Generationen pro Saison) |
+| Grüne Reiswanze (Eiräuber) | Cyrtorhinus lividipennis | Zikaden/Planthopper-Eier und -Junglarven (z.B. Nilaparvata lugens, Sogatella furcifera, Nephotettix virescens) | Förderung durch Blühpflanzen/Refugien (augmentative Freisetzung möglich) | 2–3 Wochen (etabliert sich entlang der Wasserlinie) |
+
+**Hinweis:** Reishalm-Bohrwurm und Zikaden treten unter mitteleuropäischen Gewächshausbedingungen selten auf; der Nützlingseinsatz ist primär für tropisch-subtropische Nassreis-Systeme relevant und hier als Referenz dokumentiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -319,3 +398,15 @@ Arborio,Oryza sativa,"japonica_type;risotto;high_starch",135,open_pollinated
 3. [USDA PLANTS Database — Oryza sativa](https://plants.usda.gov/plant-profile/ORSA) — Taxonomie
 4. [University of Arkansas — Rice Production](https://www.uaex.uada.edu) — Düngung, IPM
 5. [Bayerische LfL — Exotische Sonderkulturen](https://www.lfl.bayern.de) — Mitteleuropa-Anbau
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [MDPI Agriculture — Rice Growth Modeling Based on Growth Degree Day (GDD)](https://www.mdpi.com/2077-0472/12/1/59) — GDD-Basistemperatur 10 °C für Reisentwicklung
+7. [FAO — Crop Salt Tolerance Data (Maas & Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz: ECe-Schwelle 3,0 dS/m, Slope 12 %/dS/m, Einstufung "sensitive"
+8. [PMC — Evaluating Photosynthetic Light Response Models for Leaf Photosynthetic Traits in Paddy Rice](https://pmc.ncbi.nlm.nih.gov/articles/PMC11723129/) — Lichtkompensationspunkt rice ~17–22 µmol/m²/s
+9. [PFAF — Oryza sativa Plant Database](https://pfaf.org/user/Plant.aspx?LatinName=Oryza+sativa) — Boden-pH-Vorzug 5,5–7,0; C3-Krautpflanze
+10. [FAO — Irrigation Schedule for Paddy Rice (Effective Rooting Depth)](https://www.fao.org/4/t7202e/t7202e07.htm) — effektive Wurzeltiefe Nassreis 0,5–0,75 m bei Ernte
+11. [Frontiers in Plant Science — Bifunctional regulators of photoperiodic flowering in short day plant rice](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.1044790/full) — fakultativer Kurztagblüher, kritische Tageslänge ~13,5 h
+12. [Springer/Rice — Mechanisms for Coping with Submergence and Waterlogging in Rice](https://link.springer.com/article/10.1186/1939-8433-5-2) — hohe Staunässe-/Überflutungstoleranz (Aerenchym, ROL-Barriere)
+13. [PMC — Assessment of Trichogramma japonicum and T. chilonis as Biological Control Agents of Stem Borer in Rice](https://pmc.ncbi.nlm.nih.gov/articles/PMC5371947/) — Eiparasitoid gegen Halmbohrer, Ausbringraten 50.000–200.000/ha
+14. [IRRI Rice Knowledge Bank — Biological Control of Rice Insect Pests](http://www.knowledgebank.irri.org/bioControl/module_3/06.htm) — Cyrtorhinus lividipennis als Eiräuber von Zikaden/Planthoppern
+15. [MDPI Agronomy — Physiological Factors Limiting Leaf Net Photosynthetic Rate in C3 Crops like Rice](https://www.mdpi.com/2073-4395/12/8/1830) — Reis als C3-Kultur; Lichtsättigung ~1.500–1.800 µmol/m²/s; T_opt Photosynthese 30–35 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

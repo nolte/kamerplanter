@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- KORREKTUR: war short_day; Japanese Anemone ist nach gartenbaulicher Produktionsliteratur ein obligater Langtag-Blüher (long_day, Blühinduktion bei Tageslänge > ~14 h), kein Kurztag-Blüher. Die Herbstblüte resultiert aus langer Zeitspanne nach Langtag-Beginn, nicht aus Kurztag-Induktion. --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | In den ersten 2–3 Jahren Frostschutz nötig; danach winterhart bis -20°C; in etabliertem Zustand problemlos in Norddeutschland | `species.hardiness_detail` |
@@ -28,6 +28,15 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein artspezifischer Wert publiziert (kühltolerante Staude, plausibel ~5 °C analog Kohl/Salat, aber nicht aus 2 Quellen belegt) | `species.base_temp` |
+| Lebensdauer (Jahre) | 10–20 (langlebige Staude; Standort 10+ Jahre, Teilung alle 3–5 Jahre) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (krautige Winterruhe, Laub stirbt ab) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (Kälte fördernd, aber nicht erforderlich) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 14 (Langtag-Blüher; Blühinduktion bei Tageslänge ≥ 14 h) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -92,6 +101,26 @@
 
 **Standort:** Halbschatten bis Schatten; bevorzugt unter Gehölzen; verträgt auch sonnige Standorte mit ausreichend Feuchte.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–40 (flach, Wurzeln in den oberen Bodenschichten) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (verträgt keinen kalten, nassen Winterboden; Rhizomfäule-Risiko) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant (für Küstengärten geeignet, salzsprühtolerant) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Wert publiziert (Quellen belegen nur qualitative Salzsprüh-/Küstentoleranz, keine ECe-Schwelle) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Wert publiziert | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis (Licht):** Der angegebene Bereich ist NUR der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0), typisch für schattentolerante krautige Stauden. Der Lichtsättigungspunkt und das PPFD-Optimum liegen deutlich höher (siehe `requirement_profiles.light_ppfd_target` in §2.2: 100–400 µmol/m²/s).
+
+**Hinweis (pH):** Die Art ist sehr pH-tolerant — die Quellen (RHS, NC State Extension) nennen sauer, neutral und alkalisch als geeignet (effektive Spanne ~5,5–8,0). Der hier gesetzte Vorzugsbereich 6.0–7.0 ist quellentreu zum Substrat-Vorzug aus §1.6 und den Nährstoffprofilen in §2.3 harmonisiert; höhere pH-Werte werden toleriert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,7 +143,7 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 100–400 (Halbschatten bis Sonne) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 8–20 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 10–12 (Kurztagspflanze für Blühinduktion) | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | ≥ 14 (Langtagspflanze; Blühinduktion bei Tageslänge ≥ 14 h) | `requirement_profiles.photoperiod_hours` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- KORREKTUR: war "10–12 (Kurztagspflanze)" — widersprach der korrigierten long_day-Einordnung; gartenbauliche Produktionsliteratur belegt Blühinduktion bei Langtag ≥ 14 h. --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 15–22 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 8–14 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
@@ -123,17 +152,24 @@
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 4–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomatären Kollaps; oberhalb des Ziel-Korridors 0,4–0,9) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (gartenbauliche Forcier-Temperatur ~20 °C / 68 °F) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht; unter Gehölzschirm höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Frühjahrsaustrieb | 2:1:1 | 0.6–1.0 | 6.0–7.0 | 80 | 40 | — | 2 |
-| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 50 | — | 2 |
-| Blüte | 1:2:2 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
-
----
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Frühjahrsaustrieb | 2:1:1 | 0.6–1.0 | 6.0–7.0 | 80 | 40 | — | 2 | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— |
+| Vegetativ | 2:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 50 | — | 2 | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— |
+| Blüte | 1:2:2 | 0.8–1.2 | 6.0–7.0 | 80 | 40 | — | 2 | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— | <!-- DATEN FEHLEN -->— |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) sind für *Anemone hupehensis* nicht artspezifisch publiziert und daher als DATEN FEHLEN markiert. Bei Bedarf greifen die allgemeinen Mikronährstoff-Defaults der Düngerezeptur; eine art­spezifische Empfehlung wäre Spekulation.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ## 3. Düngung & Nährstoffversorgung
 
@@ -279,7 +315,7 @@ Einmalige organische Düngung im Frühjahr (April) reicht für die gesamte Saiso
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ranunculaceae,Anemone,perennial,short_day,herb,rhizomatous,"5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China (Hubei)",yes,15,25,100,70,50,no,limited,false,false,medium_feeder,false,half_hardy,"8;9;10"
+Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ranunculaceae,Anemone,perennial,long_day,herb,rhizomatous,"5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China (Hubei)",yes,15,25,100,70,50,no,limited,false,false,medium_feeder,false,half_hardy,"8;9;10"
 ```
 
 ---
@@ -291,3 +327,13 @@ Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ra
 3. [Naturadb — Anemone hupehensis](https://www.naturadb.de/pflanzen/anemone-hupehensis/) — Steckbrief
 4. [Plantura — Herbstanemonen](https://www.plantura.garden/blumen-stauden/anemonen/herbstanemonen) — Sorten, Pflege
 5. [Gartenjournal — Herbstanemone](https://www.gartenjournal.net/herbstanemone) — Pflegetipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Anemone hupehensis (Chinese anemone)](https://www.rhs.org.uk/plants/1231/anemone-hupehensis/details) — Boden-pH (sauer/neutral/alkalisch), Halbschatten/Sonne, Hardiness H7 (< −20 °C), Höhe/Breite, Winternässe meiden
+7. [Missouri Botanical Garden — Anemone hupehensis Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=h310) — Standort (part shade bevorzugt), pH neutral–leicht alkalisch, mittlerer Wasserbedarf, Winternässe-Empfindlichkeit, Blütezeit
+8. [NC State Extension — Eriocapitella hupehensis](https://plants.ces.ncsu.edu/plants/eriocapitella-hupehensis/) — Lichtbedarf (Vollsonne/Halbschatten), pH-Spanne, USDA-Zonen 4a–8b, Protoanemonin-Toxizität
+9. [Greenhouse Product News — Perennial Solutions: Anemone hupehensis Pretty Lady Series](https://gpnmag.com/article/perennial-solutions-anemone-hupehensis-pretty-lady-series/) — Langtag-Blühinduktion (long_day), Vernalisation nicht erforderlich, Forcier-Temperatur ~20 °C, Produktionsschema
+10. [Greenhouse Product News — Perennial Solutions: Anemone × hybrida 'Honorine Jobert'](https://gpnmag.com/article/perennial-solutions-anemone-x-hybrida-honorine-jobert/) — obligater Langtag, kritische Photoperiode 14 h, Tag-/Nacht-Unterbrechungsbelichtung, Vernalisation fördernd aber nicht erforderlich
+11. [Eriocapitella hupehensis — Wikipedia](https://en.wikipedia.org/wiki/Eriocapitella_hupehensis) — Synonymie, Heimat, Wuchshöhe 30–120 cm, rhizomartige Wurzel, Blüte Juli–Oktober
+12. [Gardenia.net — Fall Blooming (Japanese) Anemones](https://www.gardenia.net/genus/japanese-anemones) — Salztoleranz/Küstengarten-Eignung, Standort dappled shade/Sonne
+13. [Frontiers in Plant Science (2023) — Ornamental species for shading intensity / Light compensation points](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2023.1271341/full) — Lichtkompensationspunkt-Bereiche schattentoleranter Zierpflanzen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

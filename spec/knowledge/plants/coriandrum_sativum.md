@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.4 (Kühljahreszeit-Apiaceae; Wert entspricht der kardinalen Minimaltemperatur der Keimung ≈ 4,37 °C nach Quelle #6 — eine separate Wuchs-GDD-Basis ist nicht eigenständig publiziert; ~4–5 °C ist als Wuchsbasis korpuskonsistent) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (keine Vernalisation; fakultativer Langtagblüher) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 12 (fakultativer Langtag; oberhalb ~12–14 h beschleunigtes Schossen) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | — (einjährig) | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Verträgt Leichtfrost bis ca. -5 °C; Aussaat ab April möglich; Herbstaussaat (September) für Überwinterung in milden Regionen; neigt bei langen Tagen und Wärme schnell zum Schossen | `species.hardiness_detail` |
@@ -94,6 +102,23 @@
 
 **Für Blatternte:** Halbschattiger Standort bevorzugen (verzögert Schossen). **Für Samenernte:** Vollsonniger Standort.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (light compensation point, PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein artspezifischer Messwert aus ≥2 seriösen Quellen | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (Vollsonne bis Halbschatten; in heißen Lagen Halbschatten zur Schoss-Verzögerung) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 20–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (hohe Wurzelfäule-Gefahr bei „nassen Füßen“) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> nicht in FAO/Maas-Hoffman-Tabelle; vorhandene Studien beziehen sich auf Gießwasser-EC, nicht Substrat-ECe | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Slope | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.2–6.8 | `species.soil_ph_preference` |
+
+**Hinweis:** Klassifizierung *moderately_sensitive* gestützt auf Studien, in denen Koriander Gießwasser-EC bis ~2 dS/m ohne signifikanten Ertragsrückgang toleriert, darüber zunehmender Salzstress. Der pH-Vorzug 6,2–6,8 ist das Optimum innerhalb der in §1.6/§2.3 genannten verträglichen Spanne pH 6,0–7,0 (kein Widerspruch — Vorzug ⊂ Toleranzbereich).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -122,6 +147,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (VPD threshold, kPa) | 1.3 (kritischer Punkt stomatären Kollaps; oberer Zielwert 1,0 + ~0,3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (VPD sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (photosynthesis temp optimum, °C) | 22–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -135,6 +166,16 @@
 | Blüte / Samen | 0:1:1 | 0.4–0.8 | 6.0–7.0 | 40 | 20 | — | 1 |
 
 **Hinweis:** Zu viel Dünger verringert das Aroma! Koriander braucht mageren Boden für bestes Aroma. Kompost vor der Aussaat reicht völlig.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (ppm):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) | KA-Feld |
+|-------|----------|----------|----------|----------|---------|
+| Vegetativ / Ernte | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm` |
+
+Keine artspezifischen Mikronährstoff-Zielwerte (Mn/Zn/Cu/Mo) aus ≥2 seriösen Quellen für Koriander belegt; Werte daher offen gelassen statt zu schätzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -210,6 +251,18 @@ Koriander im Beet braucht keinen extra Dünger — Kompost vor der Aussaat reich
 | Neemöl | biological | Azadirachtin | 0.5%; abends; Wartezeit bis Ernte! | 3 | Blattläuse |
 | Insektenseife | biological | Kaliumsalze | Sprühen | 0 | Blattläuse |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling (beneficial) | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|-----------------------|---------------------|----------------|--------------|------------------|
+| Marienkäfer (ladybird) | Adalia/Harmonia spp. | Blattläuse (Aphis fabae) | ~10 Adulte/m² (Gewächshaus) | ~1 Woche |
+| Florfliege (green lacewing) | Chrysoperla carnea/rufilabris | Blattläuse | ~1 Larve/m² wöchentlich bis etabliert | 1–2 Wochen |
+| Schlupfwespe (parasitic wasp) | Aphidius spp. | Blattläuse | ~1 Adult/15 m² | 2–3 Wochen (Mumienbildung) |
+
+**Hinweis:** Werte für geschützten Anbau (Gewächshaus/Indoor). Im Freiland fördern Mischkultur und blühende Begleitpflanzen die natürliche Ansiedlung. Nützlingseinsatz mit Neemöl/Insektenseife abstimmen (Wartezeit beachten).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -267,3 +320,15 @@ Coriandrum sativum,"Koriander;Korianderkraut;Coriander;Cilantro",Apiaceae,Corian
 3. [Gartenratgeber — Koriander](https://www.gartenratgeber.net/pflanzen/koriander.html) — Anbau, Pflege
 4. [Kiepenkerl — Koriander Kulturanleitung](https://www.kiepenkerl.de/kulturanleitungen/koriander/) — Aussaatdaten
 5. [Fryd — Koriander pflanzen](https://fryd.app/magazin/koriander-pflanzen) — Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [ResearchGate — Assessing Cardinal Temperature for Germination in Coriander (Coriandrum sativum)](https://www.researchgate.net/publication/273061347_Assessing_Cardinal_Temperature_for_Germination_in_Coriander_Coriandrum_sativum_Sainfoin_Onobrychis_vicifolia_and_Bitter_Vetch_Vicia_ervilia) — Kardinaltemperaturen (Basis ≈ 4,37 °C, Optimum ≈ 24,8 °C, Maximum ≈ 33,8 °C)
+7. [USU Extension — Cilantro/Coriander in the Garden](https://extension.usu.edu/yardandgarden/research/cilantro-coriander-in-the-garden) — Standort (Vollsonne), Kühljahreszeit-Kultur, Schoss-Verhalten
+8. [VeggieHarvest — Cilantro Growing and Harvest Information](https://veggieharvest.com/herbs/cilantro-growing-and-harvest-information/) — Wurzeltiefe (20–45 cm), Sonne/Halbschatten
+9. [Springer — Growth and mineral content of coriander under mild salinity](https://link.springer.com/article/10.1007/s11738-018-2773-x) — Salztoleranz (Gießwasser-EC bis ~2 dS/m ohne signifikanten Rückgang)
+10. [DPIRD NSW — Salinity tolerance in irrigated crops](https://www.dpird.nsw.gov.au/__data/assets/pdf_file/0005/523643/Salinity-tolerance-in-irrigated-crops.pdf) — Salztoleranz-Klassifizierung (moderately sensitive)
+11. [Wisconsin Horticulture — Cilantro/Coriander](https://hort.extension.wisc.edu/articles/cilantro-coriander-coriandrum-sativum/) — fakultativer Langtagblüher, Schossen ab ~12–14 h Tageslänge + Wärme
+12. [MDPI Horticulturae — Effects of Light Intensity and Photoperiod on Coriander](https://www.mdpi.com/2311-7524/10/3/215) — Photoperiode/Photosynthese, Schoss-Auslösung durch lange Tage
+13. [Healthy Houseplants — Coriander (Cilantro) Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/coriander-cilantro-complete-care-guide-for-coriandrum-sativum/) — Staunässe-Empfindlichkeit, Drainage, pH 6,2–6,8
+14. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Nützlings-Ausbringraten/Etablierung
+15. [MDPI Insects — Conditions for Successful Aphid Control by Ladybirds in Greenhouses](https://www.mdpi.com/2075-4450/8/2/38) — Marienkäfer ~10 Adulte/m², Etablierungszeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -19,8 +19,19 @@
 | Ordnung | Apiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous (Hypokotylknolle) | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Apiaceae; krautiges Blattgemuese, keine C4-/CAM-Merkmale) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4 (Hauptwuchsphase; kuehlliebende Art -- gaengiger Wert 4 degC, Spanne 1--4 degC in der Literatur) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | biennial (in Kultur als annual genutzt -- Ernte im 1. Jahr vor Bluete) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Langtagspflanze -- Bluetenbildung nach Vernalisation und Langtag im 2. Jahr; Vorzeitiges Schossen bei zu fruehen Kaltphasen in der Jungpflanzenphase) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre) | 2 (biennial -- zweijaehrig; in Kultur einjaehrig genutzt, daher kein langlebiges perennial) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (Kaeltebeduerftige Bluehinduktion; Pflanzen ab 5--20 Blaettern vernalisieren bei ca. 2--9 degC ueber 2--12 Wochen. Im Anbau UNERWUENSCHT, da sie zum Schossen fuehrt) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 10 (kritischer Schwellwert: >=10 Tage bei 5--10 degC in der Jungpflanzenphase loesen Schossen aus; vollstaendige Vernalisation ab ca. 14 Tagen) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (tageslaengen-modulierte Langtagreaktion erst NACH Vernalisation; keine scharfe kritische Tageslaenge wie bei Kurztagbluehern -- nicht belegbar) <!-- DATEN FEHLEN --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | moderate | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Vertraegt leichte Froeste bis ca. -5 degC (ausgewachsene Pflanzen mit Knolle). Jungpflanzen sind frostempfindlich und duerfen erst nach den Eisheiligen ins Freiland. Laengere Kaltphasen unter 10 degC in der Jungpflanzenphase loesen unerwuenschtes Schossen (Vernalisation) aus. | `species.hardiness_detail` |
@@ -102,6 +113,24 @@ Hinweis: Ab Mitte Juli die aeusseren, aelteren Blaetter abbrechen (nicht schneid
 
 **Hinweis:** Knollensellerie ist ein anspruchsvolles Gemuese mit langer Kulturzeit (180--200 Tage). Der Boden muss mindestens 30 cm tief gelockert sein. Gleichmaessige Wasserversorgung ist entscheidend -- Trockenheit fuehrt zu holzigen, rissigen Knollen. Flacher Anbau: Die Knolle waechst zur Haelfte ueber der Erde, NICHT mit Erde anhaeufeln (im Gegensatz zu Kartoffel).
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | -- (kein belastbarer artspezifischer Messwert aus zwei unabhaengigen Quellen) <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | -- (kein belastbarer artspezifischer Messwert aus zwei unabhaengigen Quellen) <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (am besten in voller Sonne; vertraegt aber Halbschatten mit 2--6 h Sonne/Tag) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30--60 (effektive Wurzelzone ca. 30 cm; maximale Durchwurzelung bis ca. 60 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | tolerant (Wildform ist Sumpf-/Uferpflanze; vertraegt feuchte, zeitweise staunasse Boeden besser als die meisten Gemuesearten) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.8 (Maas-Hoffman a; Bezugsgroesse Substrat-ECe des Saettigungsextrakts, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 6.2 (Maas-Hoffman b; Ertragsrueckgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--6.8 | `species.soil_ph_preference` |
+
+**Hinweis:** Das verwendete Untersuchungslicht in der Praxis liegt deutlich ueber dem (nicht belegten) Kompensationspunkt -- Wachstumsoptima fuer Sellerie wurden bei ca. 200 umol/m2/s PPFD beschrieben; Saettigungs-/Optimumwerte gehoeren NICHT in das Kompensationspunkt-Feld. Die Salztoleranzwerte (ECe 1.8 dS/m, Slope 6.2 %/dS/m) stammen aus dem Maas-Hoffman-Modell (Shannon & Grieve / FAO) und beziehen sich auf den Saettigungsextrakt des Bodens; sie passen zur Klasse `moderately_sensitive` (Schwelle <2 dS/m).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +161,12 @@ Hinweis: Die Phaseneinteilung bei Knollensellerie ist vereinfacht. Die Knollenbi
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.9 (kritischer Stomata-Kollaps-Punkt; deutlich oberhalb des feuchteliebenden Keim-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Lichtkeimer/Saemling sehr austrocknungsempfindlich) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (C3, kuehlliebend) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (entspricht offenem Tageslicht/Vollspektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht, nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--10 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +183,12 @@ Hinweis: Die Phaseneinteilung bei Knollensellerie ist vereinfacht. Die Knollenbi
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (oberer Zielwert + ca. 0.3 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | high (Jungpflanze, kritische Phase) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (C3, kuehlliebend) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollspektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 20--50 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -166,6 +207,12 @@ ACHTUNG: Die Jungpflanzenphase ist die kritischste Phase. Temperaturen unter 10 
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberer Zielwert + ca. 0.3 kPa; oberhalb droht Stomata-Schluss und holzige Knollen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (hoher Wasserbedarf, gleichmaessige Feuchte noetig) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (C3, kuehlliebend) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollspektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (gleichmaessig feucht! Trockenheit fuehrt zu holzigen Knollen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -184,6 +231,12 @@ Hinweis: Knollensellerie hat einen sehr hohen Wasserbedarf. Gleichmaessige Boden
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 (oberer Zielwert + ca. 0.3 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 16--20 (Knollenphase praeferiert kuehlere Temperaturen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollspektrum) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (weiterhin gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 300--600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -192,13 +245,16 @@ Hinweis: Ab Mitte Juli aeussere Blaetter entfernen und Seitenwurzeln an der Knol
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.5 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.5 | 150 | 50 | 40 | 4 |
-| Knollenbildung | 2-1-4 | 1.8--2.4 | 5.8--6.5 | 180 | 60 | 50 | 4 |
-| Ernte | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.4--0.8 | 5.8--6.5 | 80 | 30 | 20 | 2 | 25--100 | 25--60 | 5--12 | -- |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 5.8--6.5 | 150 | 50 | 40 | 4 | 30--150 | 30--80 | 5--15 | -- |
+| Knollenbildung | 2-1-4 | 1.8--2.4 | 5.8--6.5 | 180 | 60 | 50 | 4 | 30--200 | 30--100 | 8--20 | -- |
+| Ernte | 0-0-0 | 0.0 | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mn/Zn/Cu als Gewebe-Suffizienzbereiche (ppm): kritischer Mindestwert fuer Sellerie Mn 25, Zn 25, Cu 5 ppm (Arizona Desert Ag), Normalbereiche Gemuese Mn 30--200, Zn 30--100, Cu 8--20 ppm (MSU Extension). KA-Felder: `nutrient_profiles.manganese_ppm` / `.zinc_ppm` / `.copper_ppm` / `.molybdenum_ppm`. Mo: fuer Sellerie liegen keine belastbaren artspezifischen Schwellwerte vor (Arizona Desert Ag), daher leer. --> <!-- DATEN FEHLEN: molybdenum_ppm -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Knollensellerie ist ein Starkzehrer mit besonders hohem Kalium- und Calciumbedarf waehrend der Knollenbildung. Bor-Mangel fuehrt zu Herzfaeule (braune, hohle Stellen im Knolleninneren) -- bei Verdacht Bor-Blattduengung durchfuehren (Borax 0.1% Loesung). Stickstoff ab August reduzieren, um die Knollenreife und Lagerfaehigkeit zu foerdern.
 
@@ -306,6 +362,19 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 ### 4.3 Ueberwinterung
 
 Knollensellerie wird vor dem Winter geerntet und eingelagert. Ausgewachsene Pflanzen vertragen leichte Froeste bis ca. -5 degC, sollten aber vor staerkerem Frost geerntet werden. Lagerung: Blaetter bis auf 5 cm kuerzen, Knollen in feuchtem Sand in einem kuehlen (0--2 degC), dunklen Raum (Erdkeller) lagern. Haltbarkeit: 4--6 Monate.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung (hardiness rating) | dig_and_store (Knolle wird ausgegraben und frostfrei eingelagert; keine Freiland-Ueberwinterung der lebenden Pflanze) | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) | dig_store -- Monat: 10--11 (Oktober/November, vor staerkerem Frost) | `overwintering_profiles.winter_action` |
+| Fruehjahrs-Aktion (spring action) | replant -- Monat: 2--3 (Neu-Aussaat im Februar/Maerz; gelagerte Knolle wird verzehrt, nicht wieder ausgepflanzt) | `overwintering_profiles.spring_action` |
+| Winterquartier Temperatur (degC) | 0--2 (kuehl, frostfrei) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | dunkel (Erdkeller/dunkler Lagerraum) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | nicht giessen; Knollen in feuchtem Sand lagern, Sand bei Bedarf leicht nachfeuchten | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Knollensellerie ist nicht winterhart im Sinne einer mehrjaehrigen Freilandkultur. Die geerntete Knolle ist das Lagerorgan; eine Wiederauspflanzung erfolgt nur zur Saatgutgewinnung (2. Jahr) und ist im Gemueseanbau unerwuenscht, weil sie zum Schossen fuehrt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -449,3 +518,15 @@ Knollensellerie (Pötschke Historisch),Apium graveolens var. rapaceum,Pötschke,
 10. bioaktuell.ch -- Blattfleckenkrankheit bei Sellerie: https://www.bioaktuell.ch/pflanzenbau/gemuesebau/blattfleckenkrankheit-bei-sellerie
 11. ponicslife.com -- Hydroponic Celery: https://ponicslife.com/hydroponic-celery-a-quick-and-easy-grow-guide/
 12. hydrobuilder.com -- Hydroponic Celery: https://hydrobuilder.com/learn/hydroponic-celery/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. FAO -- Annex 1: Crop salt tolerance data (Maas-Hoffman: Sellerie ECe-Schwelle 1.8 dS/m, Slope 6.2 %/dS/m, moderately sensitive): https://www.fao.org/4/y4263e/y4263e0e.htm
+14. Shannon & Grieve (USDA-ARS) -- Tolerance of vegetable crops to salinity (Sellerie-Salztoleranz Maas-Hoffman-Parameter): https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf
+15. New England Vegetable Management Guide (UMass Amherst) -- Celery and Celeriac (effektive Wurzelzone ca. 30 cm, Durchwurzelung bis ca. 60 cm, Kulturhinweise): https://nevegetable.org/crops/celery-and-celeriac
+16. MSU Extension -- Bolting in spring vegetables (Vernalisation Sellerie: Schoss-Induktion bei 5--10 degC ueber >=10 Tage ab 5 echten Blaettern): https://www.canr.msu.edu/news/bolting-in-spring-vegetables
+17. Oregon State University -- Celery (Oregon Vegetables; GDD-Basis 10 degF/-Hinweis, Bluehphysiologie, Kulturbedingungen): https://horticulture.oregonstate.edu/oregon-vegetables/celery-2
+18. Journal of Experimental Botany -- Effect of Day Length on the Response of Celery to Vernalization (Langtag foerdert Schossen NACH Vernalisation): https://academic.oup.com/jxb/article-abstract/31/5/1291/454125
+19. Frontiers in Plant Science (2023) -- Effect of light intensity on celery growth and flavonoid synthesis (PPFD-Reaktion Sellerie, Optimum ca. 200 umol/m2/s): https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2023.1326218/full
+20. Arizona Desert Ag Solutions -- Tissue Test Critical Levels (Sellerie Mn 25, Zn 25, Cu 5 ppm; Mo nicht etabliert): https://www.desertagsolutions.org/research-areas-and-initiatives/improve-plant-nutrition/fertilizer-guidelines-vegetable-crops-arizona/special-sections-4/tissue-test-critical-levels-4-3
+21. MSU Extension -- Secondary and Micro-nutrients for Vegetable and Field Crops (Gemuese-Suffizienzbereiche Mn 30--200, Zn 30--100, Cu 8--20, Mo 0.8--5 ppm): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
+22. ScienceDirect (2025) -- Base and upper temperature thresholds for GDD / FAO56rev (Sellerie Tbase 1--4 degC, gaengig 4 degC): https://www.sciencedirect.com/science/article/pii/S037837742500469X
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

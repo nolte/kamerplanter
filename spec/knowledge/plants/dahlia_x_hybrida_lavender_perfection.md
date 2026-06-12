@@ -29,6 +29,14 @@
 | Nährstoffbedarf-Stufe | `heavy_feeder` (Starkzehrer — grosse Blüten und aktives Knollenwachstum erfordern kontinuierliche Nährstoffversorgung; insbesondere P und K) | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | `['ornamental', 'bee_friendly', 'fragrant']` (Hauptsaechlich Zierpflanze; Bienenmagnete wenn Blüten zugänglich; leichter Duft bei einigen Exemplaren) | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | `c3` (krautige Asteraceae-Staude; kein CAM/C4-Stoffwechsel — Standard-C3-Photosynthese wie nahezu alle Korbblütler-Zierstauden) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> kein belegter Wuchs-GDD-Basiswert (base temp) aus 2 unabhängigen seriösen Quellen auffindbar; vorhandene Phyllochron-/Thermalzeit-Studien an Schnittdahlien publizieren keine validierte Wuchs-Basistemperatur. Nicht mit Keim-/Mindesttemperatur (~5 °C Überlebensgrenze) verwechseln. | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (Einzel-Mutterknolle (mother tuber) trägt typisch 1–3 Saisons; durch jährliche Neubildung von 5–20 Tochterknollen bleibt der Klon (clone) praktisch unbegrenzt erhalten) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (obligatorische Knollen-Dormanz (dormancy) im Winterlager; ohne Ruhephase kein geordneter Neuaustrieb — vgl. §2.1 Phase 6) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false (kein Kältebedarf zur Blühinduktion; subtropisch-tropische Hochland-Herkunft, blüht im ersten Jahr aus der Knolle ohne Vernalisation (vernalization)) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> (tagneutrales Blühverhalten — keine echte kritische Tageslänge für die Blüteninduktion belegbar; die Tagneutralität ist in `lifecycle_configs.photoperiod_type` abgebildet. Die **Tuberisierung** ist hingegen fakultativ kurztaggesteuert und setzt etwa unterhalb ~12 h Tageslänge ein — dieser Knollenbildungs-Schwellenwert ist jedoch keine Blüte-kritische Tageslänge und gehört nicht in dieses Feld; siehe Photoperiode-Zeile und Freitext unten) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Sortenbeschreibung 'Lavender Perfection':**
 Grosse Dinner-Plate-Dahlie (Dekorative Grossblumendahlie, Formal Decorative Type) mit vollgefüllten Blüten von 20–25 cm Durchmesser in lavendel-pink bis mauve-lila Farbtönen. Die breiten, flachen, leicht gewellten Blütenblätter (Ray Florets) sind an den Spitzen abgerundet. Exzellente Schnittblumen-Eigenschaft; hitzetolerant; stark verzweigend bei korrektem Pinching. Reife 80–100 Tage nach Auspflanzen.
@@ -118,6 +126,21 @@ Für maximale Blütengrösse bei Dinner-Plate-Typ:
 | Rankhilfe/Stütze nötig | true (Pflicht! Bei 'Lavender Perfection' bis 150 cm: Holzpfahl oder Metallstab mind. 150 cm, direkt beim Pflanzen einschlagen; Stängel locker anbinden) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Hochwertige, gut drainierte Kübelpflanzenerde; 20–30 % Perlite oder Bims beimengen gegen Verdichtung und Staunässe. pH 6.0–7.0. Kein Torfsubstrat pur (verdichtet). Für Freiland: Humose, gut durchlässige Gartenerde, pH 6.0–7.0 (Optimum 6.2–6.8; bei pH > 7.0 treten Fe/Mn-Mangel und Chlorose auf). | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt (PPFD µmol/m²/s) | 20–40 (Lichtkompensationspunkt (light compensation point) typischer C3-Sonnenblätter; Dahlie als Vollsonnenpflanze hat sonnenblatt-typisch eher höhere Kompensationswerte. Hinweis: Lichtsättigung und Vollsonnenbedarf liegen weit darüber — ab ~6 h direkter Sonne, vgl. §2.2 PPFD-Ziele; diese gehören NICHT in dieses Feld) | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | `full_sun` (RHS: braucht warmen, sonnigen Standort; mind. 6 h direkte Sonne für Blütenfülle; in Hitzeklimaten (> ~38 °C) Halbschatten nachmittags toleriert, aber Grundbedarf Vollsonne) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 25–40 (Knolle wird 10–15 cm tief gelegt; effektiver Durchwurzelungs- und Bewässerungshorizont reicht ~20–40 cm — Wasser sollte mind. 20 cm tief eindringen) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | `sensitive` (RHS/Old Farmer's Almanac: Knollen faulen in staunässigem Boden; durchlässiges, feucht-aber-abtrocknendes Substrat zwingend — vgl. Pythium/Sclerotinia §5.2) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | `sensitive` (qualitativ belegt: Salzanreicherung im Topf häufiges Problem, wöchentliches Auswaschen (leaching) empfohlen; keine quantitative Schwelle publiziert) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Schwellenwert (a) für Dahlie aus seriösen Quellen; Salztoleranz von Zierblumen ist kaum erforscht (USDA/USU: „very little research"). Bezugsgröße wäre Substrat-ECe, nicht Gießwasser-EC. | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Slope (b) auffindbar. | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.0 (Oregon State Extension, Swan Island Dahlias, Old Farmer's Almanac: pH 6.5–7.0 maximiert Nährstoffverfügbarkeit. Harmonisiert mit §1.6/§2.3, die 6.0–6.5 als Topf-Untergrenze nennen — gemeinsamer Optimalbereich ~6.5; bei pH > 7.0 Fe/Mn-Chlorose, vgl. §1.6) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -151,6 +174,12 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (kritischer Punkt für beginnenden stomatären Stress bei jungen, etiolierungsanfälligen Austriebstrieben; liegt deutlich über der Ziel-Oberkante 0.9) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (mesophytische C3-Staude; weiche Jungtriebe reagieren empfindlich auf Trockenstress, aber kein sukkulent-niedriges low-Profil) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühle Vorkultur; optimaler Netto-Photosynthesebereich bei moderaten Temperaturen, Vergeilung über 22 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.3–0.5 (indoor Vorkultur unter LED/diffusem Tageslicht; offenes Tageslicht-Anker ≈ 0.5; etwas niedriger zur Kompaktheitsförderung gegen Etiolierung) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Umgebungsluft, kein CO₂-Zusatz notwendig) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (Knollen nicht zu feucht — Fäulnisrisiko hoch bei kaltem Substrat) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 (je nach Topfgrösse; Substrat leicht feucht, nicht nass) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -169,6 +198,12 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (Schwelle des stomatären Kollaps unter Hochsommer-Trockenstress; oberer Zielwert 1.4 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Mesophyt; hoher Wasserumsatz, reagiert mit Welke auf hohe VPD an heißen Tagen) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–24 (maximale Wuchs-/Photosyntheseleistung; Forschung nutzt 25/20 °C Tag/Nacht als Standard; über ~30 °C Hitzestress mit Pn-Rückgang) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Freiland-Vollsonne; Anker nach Zhen & Bugbee ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 (bei heissem Wetter täglich; Dahlien sind Starkwasserverbraucher) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–3000 (ausgewachsene Pflanze; Freiland tief giessen, nicht oberflächlich) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -187,6 +222,12 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Luftfeuchtigkeit Tag (%) | 45–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 (oberer Zielwert 1.5 + ~0.4; Trockenstress über dieser Schwelle gefährdet Knospenansatz und Blütengröße) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Mesophyt) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–24 (kühlere Nächte fördern Knospenbildung; Tagesoptimum für Pn weiter ~22–24 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Freiland-Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -205,6 +246,12 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 (Botrytis-Risiko bei hoher Luftfeuchte und kühlen Nächten beachten) | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert 1.2 + ~0.4; darüber Welke der großen Dinner-Plate-Blüten und „blown center"-Risiko) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Mesophyt; große Blütenstände transpirieren stark) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (Blüte hält bei kühlen Herbsttagen an; Pn-Optimum ~22 °C, Farb- und Blütenqualität bei kühleren 18–22 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Freiland-Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–4 (je nach Witterung; Herbst: Freiland benötigt weniger Wasser) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 800–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -253,6 +300,10 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Blüte | 0:2:3 | 1.0–1.6 | 6.0–6.5 | 100 | 50 | — | 2 |
 | Seneszenz | 0:0:0 | — | — | — | — | — | — |
 | Dormanz | 0:0:0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe Mn/Zn/Cu/Mo je Phase:** <!-- DATEN FEHLEN --> Für `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm` und `nutrient_profiles.molybdenum_ppm` sind keine dahlienspezifischen, phasenbezogenen ppm-Sollwerte aus mind. zwei unabhängigen seriösen Quellen (Extension/peer-reviewed) auffindbar — Mikronährstoff-Gewebenormen für Dahlien sind nicht publiziert. Praxis-Hinweis (nicht als KA-Feldwert geführt): Über-Phosphor blockiert die Zink- und Eisenaufnahme (vgl. §3.4); ein vollwertiger Spurenelement-Mix im Flüssigdünger deckt den Bedarf in der Regel ab.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Wichtigste Nährstoffregel:** Dahlien benötigen NIEDRIG Stickstoff (N), HOCH Phosphor (P) und Kalium (K). Zuviel N = grosses Laub, wenig Blüten, weiche Stängel, schwache Knollen. Empfohlene NPK-Produkt-Verhältnisse: 5-10-10, 2-4-4, 4-18-38, 6-30-30. N sollte maximal halb so hoch sein wie P und K.
 
@@ -562,3 +613,15 @@ Lavender Perfection,Dahlia pinnata,unbekannt,unbekannt,'ornamental;dinnerplate;f
 13. [Brecks — Lifting & Storing Dahlias Winter](https://www.brecks.com/blogs/blog-post/lifting-storing-dahlias-winter) — Zonen 3–7 Winterschutz, Lagertemperaturen
 14. [Gardening Know How — How to Fertilize Dahlias](https://www.gardeningknowhow.com/ornamental/bulbs/dahlia/how-to-fertilize-dahlias.htm) — NPK-Ratios, Düngeintervalle
 15. [Missouri Botanical Garden — Dahlia Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=a445) — Taxonomie, USDA-Zonen, Kulturbeschreibung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Vollsonne/`full_sun`, Staunässe-Empfindlichkeit (feucht-aber-durchlässig), Überwinterung schwerer Böden
+17. [Oregon State University Extension — Dahlias in Oregon (FS 95)](https://extension.oregonstate.edu/catalog/fs-95-dahlias-oregon) — Boden-pH 6.5–7.0, Standortvorbereitung
+18. [MSU Extension — Reducing time to flower in dahlias](https://www.canr.msu.edu/news/reducing-time-to-flower-in-dahlias) — Photoperiode: tagneutral/fakultativ kurztagblühend, Kurztag-Effekt auf Blüte und Tuberisierung
+19. [Dahlia Doctor — How Temperature & Day Length Impact Dahlia Growth & Tubers](https://www.dahliadoctor.com/blogs/second-blog/timing-is-everything-how-temperature-and-day-length-affect-dahlia-growth-and-tuber-formation) — Tuberisierung kurztaggesteuert (~10–12 h), Langtag fördert vegetatives Wachstum, Tuber-Optimaltemperatur 15–20 °C
+20. [Longfield Gardens — How Many Years Do Dahlia Tubers Last](https://www.longfield-gardens.com/blogs/dahlia-care/how-many-years-do-dahlia-tubers-last) — Mutterknolle 1–3 Saisons, jährliche Tochterknollen-Erneuerung 5–20, Klon praktisch unbegrenzt
+21. [Longfield Gardens — What Temperature Do Dahlias Need to Grow](https://www.longfield-gardens.com/blogs/dahlia-care/what-temperature-do-dahlias-need-to-grow) — Wuchs-/Blüh-Optimaltemperatur 21–27 °C Tag, 15–21 °C Nacht; schnellste Blüte 22–24 °C
+22. [MDPI Horticulturae 2023 — Response of Dahlia Photosynthesis and Transpiration to High-Temperature Stress](https://doi.org/10.3390/horticulturae9091047) — Netto-Photosynthese-Optimum, Standard 25/20 °C Tag/Nacht, Pn-Rückgang bei Hitzestress
+23. [The Old Farmer's Almanac — Dahlias: How to Plant, Grow and Care](https://www.almanac.com/plant/dahlias) — Boden-pH 6.5–7.0, durchlässiger Boden, Vollsonne
+24. [Love Dahlias — Dahlia Problems and Troubleshooting](https://lovedahlias.com/blogs/blog/dahlia-problems-and-troubleshooting-the-real-reasons-and-fixes) — Salzanreicherung im Topf, wöchentliches Auswaschen (Salzempfindlichkeit)
+25. [USU Extension — Salinity and Plant Tolerance](https://extension.usu.edu/irrigation/research/salinity-and-plant-tolerance) — Maas-Hoffman-Konzept (Schwelle/Slope), geringe Datenlage zur Salztoleranz von Zierblumen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

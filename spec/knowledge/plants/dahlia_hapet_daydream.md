@@ -29,6 +29,15 @@
 | Nährstoffbedarf-Stufe | `heavy_feeder` (Starkzehrer — hoher Bedarf, besonders in der Blütephase; Kalium und Phosphor besonders wichtig) | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | `['ornamental', 'bee_friendly', 'fragrant']` (dekorativer Schnittblumen-Dauerblüher, Bienenweide, leicht duftend) | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | `c3` (krautige Asteraceae-Staude; kein C4-/CAM-Stoffwechsel) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 (wärmeliebende Art; Pflanzung/aktives Wachstum erst bei Boden-/Lufttemperatur konstant ≥ 10 °C — typische Warm-Season-GDD-Basis. Hinweis: dies ist die Wuchs-GDD-Basis der Hauptwuchsphase, nicht eine Keim-Kardinaltemperatur) | `species.base_temp` |
+| Lebensdauer (Jahre) | <!-- DATEN FEHLEN --> (botanisch ausdauernd; einzelne Mutterknolle überdauert ~1 Dormanzsaison, der Klon lebt über jährliche Tochterknollen/Teilung praktisch unbegrenzt fort — keine belegte feste Jahreszahl für die Sortenlebensdauer auffindbar) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Knollen durchlaufen obligatorische Winterruhe von ~6–8 Monaten; ohne Ruhephase kein zuverlässiger Neuaustrieb) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (keine Kältevernalisation für die Blühinduktion nötig — Blüte erfolgt im selben Jahr aus der eingelagerten Knolle; die winterliche Knollenruhe ist Dormanz, keine Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 0 (nicht zutreffend) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 13 (fakultativer Kurztagblüher: Blütenförderung bei Tageslänge < 13 h; Tuberisierung eindeutig kurztaggesteuert bei ≤ 10–12 h. Blüte erfolgt auch unter Langtag — daher fakultativ, nicht obligat) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Sortenspezifika 'Hapet Daydream':**
 - Blütentyp: Dekorative Dahlie (Decorative type), mit Tendenz zum Pompon/Ball-Typ (Blütendurchmesser 8–9 cm)
@@ -111,6 +120,22 @@ Quellen: ASPCA Toxic Plant Database, RHS, Wagwalking.com Dahlia Poisoning
 | Rankhilfe/Stütze nötig | true (bei 100–120 cm Wuchshöhe obligatorisch; Bambusstab oder Dahlienkäfig, mind. 120 cm) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, nährstoffreiche Kübelpflanzenerde mit 20–30 % Perlite oder Blähton für gute Drainage; pH 6,0–7,0. Keine reine Torferde (Verdichtung, pH-Probleme). | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 15 (Sonnenpflanze, Sonnenblatt-Werte am oberen Ende des C3-Bereichs von 8–16 µmol; Netto-Photosynthese = 0) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 30 (oberer Ansatz für ausgeprägte Sonnenblätter; reine Kompensationsschwelle — Sättigung/Optimum liegen weit höher und sind hier NICHT erfasst) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | `full_sun` (benötigt 6–8 h direkte Sonne täglich für gute Blüte; verträgt allenfalls leichten Halbschatten unter Blütenverlust) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–45 (Knollenballen und Faserwurzeln; Knolle wird 10–15 cm tief gepflanzt, Wurzelsystem reicht deutlich tiefer und breiter) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | `sensitive` (Knollen faulen in staunassem Boden sehr leicht — „wet feet" sind der Hauptfeind; durchlässiger Boden zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | `sensitive` (als salzempfindlich eingestuft; unter Salzstress verkürzte, kürzere Stiele, aber noch akzeptable Pflanzen) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | < 3 (Substrat-ECe nach U.S.-Salinity-Laboratory-Schema: sensitive = 0–3 dS/m ECe; Schädigung bereits ab ECe ~2–3 dS/m. Bezugsgröße: Sättigungsextrakt des Substrats, NICHT Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein publizierter Maas-Hoffman-b-Wert für Dahlie auffindbar) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.5–7.0 (leicht sauer bis neutral; in diesem Bereich optimale Nährstoffverfügbarkeit. Harmonisiert mit §1.6/§2.3, die mit 6.0–7.0 leicht weiter gefasst sind) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -149,6 +174,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 60–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt; liegt deutlich oberhalb des Zielkorridors. Frühe feuchteliebende Austriebsphase → niedrigste Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; mäßig empfindlich gegen Trockenstress, in dieser Phase noch zarte Triebe) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühlere Optimaltemperatur in der Frühphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 (gedämpftes/diffuses Frühjahrslicht; direktes Sonnenlicht am Mittag ≈ 0.46 nach Zhen & Bugbee, leichter Streulichtanteil hebt den Wert) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Freiland-Standard) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (sparsam gießen bis Augen sichtbar — Staunässe fördert Knollenfäule!) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -165,6 +196,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert 1.2 + ~0.4; oberhalb droht stomatärer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude, mäßig empfindlich) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–27 (volle vegetative Leistung; über 30–32 °C Wachstumshemmung) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45 (volle Sonne, direktes Tageslicht ≈ 0.46) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 (regelmäßig; Substrat zwischen den Gaben leicht antrocknen lassen, aber nie komplett austrocknen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1.000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -181,6 +218,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert 1.2 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; während Abhärtung bewusst leichter Trockenstress, dennoch kein Kollaps zulassen) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 (Abhärtung bei kühleren Außenbedingungen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45–0.50 (Freilandlicht, anfangs unter Schattierung mit leicht erhöhtem FR-Anteil) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -197,6 +240,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert 1.4 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–27 (über 30–32 °C Blüten-/Wachstumsstörung) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45 (volles Sommer-Sonnenlicht ≈ 0.46) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (Wasserverbrauch steigt mit zunehmender Pflanzengröße erheblich) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 800–1.500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -213,6 +262,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 45–60 (unter 80 % RH halten — Botrytis-Risiko bei feuchten Blüten!) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (oberer Zielwert 1.6 + ~0.4; höchste Toleranzschwelle der robusten Blühphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `medium` (C3-Staude; in Vollblüte aber empfindlich gegen Trockenstress → kleinere Blüten) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 21–27 (kühlere Nächte verbessern Blütenqualität; über 32 °C Blühstopp) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.45 (volles Sonnenlicht ≈ 0.46) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1–2 (täglich an Hitzetagen; Knollen reagieren empfindlich auf Trockenstress in der Blüte — kleinere Blüten, schnelleres Verblühen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1.000–2.000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -229,6 +284,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (niedrige Herbstschwelle; abreifendes Laub, kühl-feuchte Bedingungen) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `low` (Stoffwechsel heruntergefahren, Pflanze in Abreife — geringe Trockenstress-Relevanz) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 (kühle Herbstbedingungen, reduzierte Photosyntheseleistung) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (tiefstehende Herbstsonne, diffuses Licht und Bestandesschatten erhöhen den FR-Anteil) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 (Gießen reduzieren, Knolle ausreifen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -245,6 +306,12 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Luftfeuchtigkeit Tag (%) | 60–75 (zu trocken = Austrocknung der Knolle; zu feucht = Fäulnis) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | null (nicht anwendbar — Knollen ohne aktiven Gaswechsel; kein Steuerungsparameter) | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | null (nicht anwendbar — keine transpirierende Pflanze während Knollenlagerung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | `low` (ruhende Knolle, kein stomatärer Gaswechsel) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | null (nicht anwendbar — keine Photosynthese im Dunkellager) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | null (nicht anwendbar — Dunkellagerung ohne Licht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 (Keller-Standard) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 30 (monatliche Sichtkontrolle; bei Schrumpfen leicht anfeuchten, nie nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0–50 (nur bei sichtbarer Austrocknung leicht besprühen) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -261,6 +328,23 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Dormanz | 0:0:0 | 0.0 | — | — | — | — | — |
 
 **Wichtig:** Dahlien reagieren empfindlich auf Stickstoffüberschuss — üppiges Blattwerk auf Kosten der Blüte ist das typische Symptom. Ab Vorblüte Stickstoff deutlich reduzieren, Kalium und Phosphor betonen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn / Zn / Cu / Mo):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Austrieb | 0.25–0.5 | 0.05–0.13 | 0.02–0.025 | 0.01–0.025 |
+| Vegetativ | 0.25–0.5 | 0.05–0.13 | 0.02–0.025 | 0.01–0.025 |
+| Vorblüte | 0.25–0.5 | 0.05–0.13 | 0.02–0.025 | 0.01–0.025 |
+| Vollblüte | 0.25–0.5 | 0.05–0.13 | 0.02–0.025 | 0.01–0.025 |
+| Seneszenz | 0.1–0.25 | 0.05 | 0.02 | 0.01 |
+| Dormanz | — | — | — | — |
+
+KA-Felder: `nutrient_profiles.manganese_ppm` / `nutrient_profiles.zinc_ppm` / `nutrient_profiles.copper_ppm` / `nutrient_profiles.molybdenum_ppm`.
+
+Hinweis: Es liegen keine dahlienspezifischen Mikronährstoff-Sollwerte vor. Die Bereiche entsprechen etablierten Standard-Nährlösungsrichtwerten (Hoagland-Lösung sowie Modified-Sonneveld-Rezeptur, Penn State Extension); Mikronährstoff-Optima sind weitgehend pflanzenübergreifend und haben enge Toleranzfenster. In Seneszenz/Dormanz reduzierte bzw. keine Versorgung analog zur Makronährstoff-Tabelle.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -582,3 +666,20 @@ Asteraceae,Korbblütler,Daisy family,Asterales,Größte Pflanzenfamilie mit char
 16. [Greenhouse Grower — Focus On Dahlia Fertilizer](https://www.greenhousegrower.com/crops/focus-on-dahlia-fertilizer/) — Professionalfertiger-Daten, Hydro-EC/pH
 17. [DahliaAddict — Hapet Daydream Suppliers](https://dahliaaddict.com/hapet-daydream/dahlia/3465) — Sorteninfos, Herkunft Niederlande 2020
 18. [Promesse de Fleurs — Dahlia Hapet Daydream](https://www.promessedefleurs.ie/summer-flowering-bulbs/dahlias/pom-pom-dahlias/dahlia-hapet-daydream.html) — Höhe, Blütezeit, Sortenklassifikation
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+19. [MSU Extension — Reducing time to flower in dahlias](https://www.canr.msu.edu/news/reducing-time-to-flower-in-dahlias) — Photoperiode: day-neutral/fakultativ-Kurztag, kritische Tageslänge < 13 h für Blüte, ≥ 15 Kurztage fördern Tuberisierung
+20. [Longfield Gardens — What Temperature Do Dahlias Need to Grow](https://www.longfield-gardens.com/blogs/dahlia-care/what-temperature-do-dahlias-need-to-grow) — Wuchs-/Pflanztemperatur ≥ 10 °C (GDD-Basis), Optimaltemperaturen je Phase
+21. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperaturen: 5 °C kühle / 10 °C warme Saison-Pflanzen
+22. [Longfield Gardens — How Long Will Dahlia Tubers Last in Storage and Beyond](https://www.longfield-gardens.com/blogs/dahlia-care/how-long-will-dahlia-tubers-last-in-storage-and-beyond) — Dormanzdauer ~6–8 Monate, tender perennial, vegetative Fortdauer
+23. [Longfield Gardens — Are Dahlia Plants Annuals or Perennials](https://www.longfield-gardens.com/blogs/dahlia-care/are-dahlia-plants-annuals-or-perennials) — Dormanz erforderlich, Winterruhe ohne Licht/Dünger, keine Vernalisation
+24. [ScienceDirect Topics — Compensation Point](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — Lichtkompensationspunkt C3 8–16 µmol, Sonnenpflanzen höher als Schattenpflanzen
+25. [Wikipedia — Compensation point](https://en.wikipedia.org/wiki/Compensation_point) — Definition Lichtkompensationspunkt, C3-Bereiche
+26. [Longfield Gardens — How Deep to Plant Dahlia Tubers](https://www.longfield-gardens.com/blogs/dahlia-care/how-deep-to-plant-dahlia-tubers-for-best-results) — Pflanztiefe 10–15 cm, breites Wurzelsystem (effektive Wurzeltiefe)
+27. [Longfield Gardens — What Type of Soil Do Dahlias Grow Best In](https://www.longfield-gardens.com/blogs/dahlia-care/what-type-of-soil-do-dahlias-grow-best-in) — Boden-pH 6.5–7.0, Staunässe-Empfindlichkeit
+28. [Epic Gardening — Do Dahlias Like Full Sun, Partial Shade, or Fully Shaded Areas](https://www.epicgardening.com/dahlias-sun-or-shade/) — Sonnenbedarf 6–8 h, eingeschränkte Halbschattentoleranz
+29. [USDA-ARS — Plant Salt Tolerance (Chapter 13)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — U.S.-Salinity-Lab-Klassen, ECe-Schwellen, Dahlie als salzempfindlich (low rating)
+30. [Frontiers in Plant Science — Dose-response of tomato fruit yield to far-red fraction](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1618171/full) — FR/(R+FR) ≈ 0.46 unter direktem Sonnenlicht (Zhen & Bugbee-Bezug)
+31. [Biology Insights — Dahlia Temperature Tolerance: Cold and Heat Limits](https://biologyinsights.com/dahlia-temperature-tolerance-cold-and-heat-limits/) — Photosynthese-Optimum, Hitzehemmung > 30–32 °C
+32. [Penn State Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) — Mikronährstoffe Modified Sonneveld: Mn 0.25, Zn 0.13, Cu 0.023, Mo 0.024 ppm
+33. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffe: Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

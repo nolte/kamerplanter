@@ -19,11 +19,18 @@
 | Ordnung | Saxifragales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 2–5 | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für K. blossfeldiana auffindbar; vorhandene Literatur betrifft Keim-/Blühinduktion, nicht die GDD-Wuchsbasis --> | `species.base_temp` |
+| Kritische Tageslänge (critical day length, h) | 12 | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10°C, optimal 18–27°C. Winterblüher der kühle Nächte für Blütenbildung braucht. | `species.hardiness_detail` |
@@ -92,6 +99,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kaktus- oder Sukkulentenerde mit zusätzlichem Perlite-Anteil (1:1). pH 6.0–7.0. Sehr gute Drainage. Kleiner Topf bevorzugt. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Messwert für K. blossfeldiana belegt; generische CAM-/Sukkulenten-Werte nicht übertragbar --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer Messwert für K. blossfeldiana belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | <!-- DATEN FEHLEN: flaches Wurzelsystem belegt, aber kein quantitativer cm-Bereich aus zwei unabhängigen Quellen --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für K. blossfeldiana --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Sukkulente CAM-Pflanze mit flachem, salzempfindlichem Wurzelsystem; Überdüngung führt zu Salzakkumulation (sichtbarer weißer Belag auf Substrat/Topfrand) und Wurzelschäden — daher Einstufung `moderately_sensitive`. Standort: helles indirektes Licht bzw. Halbschatten (partial sun); direkte Mittagssonne kann Blätter verbrennen. pH-Vorzug 6.0–7.0 ist konsistent mit §1.6 (Substrat) und §2.3 (Nährstoffprofile).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +143,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.8–1.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -130,6 +161,12 @@
 | Photoperiode (Stunden) | max. 10–11 (Dunkelperiode min. 13h!) | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 15–20 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 12–16 | `requirement_profiles.temperature_night_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 
 #### Phase: Blütezeit
@@ -138,6 +175,13 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 200–400 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 8–14 | `requirement_profiles.dli_target_mol` |
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–24 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 
 ### 2.3 Nährstoffprofile je Phase
@@ -148,6 +192,18 @@
 | Blüteninduktion | 0:2:1 | 0.4–0.8 | 6.0–7.0 | 50 | 20 |
 | Blütezeit | 1:3:2 | 0.6–1.0 | 6.0–7.0 | 70 | 30 |
 | Ruhephase | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (ppm):**
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Vegetatives Wachstum | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blüteninduktion | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Blütezeit | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+
+**Hinweis:** Für die Mikronährstoffe Mangan (Mn), Zink (Zn), Kupfer (Cu) und Molybdän (Mo) sind keine artspezifischen Sollwerte für *Kalanchoe blossfeldiana* aus zwei unabhängigen seriösen Quellen belegt. Generische Nährlösungswerte (z.B. Hoagland) sind nicht ohne Beleg auf diese leichtzehrende Sukkulente übertragbar; Felder daher als DATEN FEHLEN markiert (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -191,6 +247,23 @@ Sehr leichter Zehrer. Während Blüteninduktion NICHT düngen. Blütezeit: P-K-b
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Aktion (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Aktion Monat | 10 | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Aktion (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Aktion Monat | 5 | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 10–16 (min. 10, nicht unter 10 fallen lassen) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell; 6–8 h direktes/helles Licht täglich | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam; alle 3–4 Wochen, obere 2–5 cm Substrat zwischen Güssen vollständig abtrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Frostempfindliche Kübel-/Zimmerpflanze (USDA 10–11). In Mitteleuropa (USDA 6–8) NICHT winterhart — vor dem ersten Frost (Oktober) frostfrei ins Haus holen, ab den Eisheiligen (Mitte Mai) wieder ins Freie. Im Winterquartier nicht düngen und nicht in Fensternähe mit Kaltlufteinfall stellen. Einstufung `frost_free`, da die Pflanze frostfrei drinnen überwintert (keine Knollen zum Ausgraben → nicht `dig_and_store`).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -218,6 +291,18 @@ Sehr leichter Zehrer. Während Blüteninduktion NICHT düngen. Blütezeit: P-K-b
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schmierläuse |
 | Weniger gießen | cultural | Intervall erhöhen | 0 | Wurzelfäule (Prävention) |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 5–20 /m² (≈0.5–2 /sq ft), wöchentlich nach Bedarf | ca. 1–2 Wochen; optimal 20–27 °C |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 2–10 /m² je Ausbringung (Cryptobug), abends an Befallsherden | mehrere Freilassungen über 3–6 Wochen; wirksam April–Oktober |
+| Schlupfwespe | Aphidius colemani | Blattläuse (Aphididae) | 0.25–4 /m² je Ausbringung, 7–14-tägig wiederholt | 14–21 Tage (Mumienbildung), mind. 3 Freilassungen |
+
+**Hinweis:** Nützling-Wirt-Zuordnung fachlich geprüft: *Phytoseiulus persimilis* → Spinnmilben, *Cryptolaemus montrouzieri* → Schmierläuse, *Aphidius colemani* → Blattläuse. Da Kalanchoe primär als Zimmer-/Topfpflanze kultiviert wird, eignen sich Nützlinge vor allem im Gewächshaus oder bei größeren Beständen; bei Einzelpflanzen sind mechanische/biologische Methoden aus §5.3 meist praktikabler.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -254,3 +339,16 @@ Kalanchoe blossfeldiana,"Flammendes Käthchen;Kalanchoe;Flaming Katy;Christmas K
 3. [Guide to Houseplants — Flaming Katy](https://www.guide-to-houseplants.com/flaming-katy.html) — Kulturdaten
 4. [House Plants Expert — Flaming Katy](https://houseplantsexpert.com/flaming-katy.html) — Schädlinge, Toxizität
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (bufadienolides)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Cowan-Turner et al. 2024 — Development of *Kalanchoë blossfeldiana* as a C3, CAM comparative tool (PLANTS, PEOPLE, PLANET)](https://nph.onlinelibrary.wiley.com/doi/full/10.1002/ppp3.10517) — Photosynthese-Typ (CAM, photoperiod-induzierbar)
+7. [PubMed — Stimulation of CAM Photosynthesis in *Kalanchoë blossfeldiana*](https://pubmed.ncbi.nlm.nih.gov/16666163/) — Bestätigung CAM-Stoffwechsel
+8. [MDPI Antioxidants 2022 — Low-Intensity Blue Light Induces Flowering in Kalanchoe (PMC9137757)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9137757/) — obligate Kurztagspflanze, kritische Tageslänge ~12 h
+9. [Missouri Botanical Garden — Kalanchoe blossfeldiana Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=279373) — Standort (Halbschatten/helles Licht), Kulturansprüche
+10. [Clemson HGIC — Kalanchoe Factsheet](https://hgic.clemson.edu/factsheet/kalanchoe/) — Mindesttemperatur, Überwinterung, Standort
+11. [The Practical Planter — Kalanchoe Winter Care](https://thepracticalplanter.com/kalanchoe-winter-care/) — Überwinterung (Temperatur, Gießen, Licht)
+12. [New York Botanical Garden — Houseplant Care: Kalanchoe](https://libguides.nybg.org/kalanchoe) — Überwinterung, Kulturhinweise
+13. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling-Ausbringrate Schmierläuse
+14. [Koppert — Aphidius colemani (Aphipar)](https://www.koppert.com/aphipar/) — Nützling-Ausbringrate Blattläuse, Etablierungszeit
+15. [Cornell NYSIPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Nützling gegen Spinnmilben, Ausbringrate
+16. [South El Monte Hydroponics — Kalanchoe blossfeldiana](https://southelmontehydroponics.com/kalanchoe-blossfeldiana/) — Boden-pH 6.0–7.0
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

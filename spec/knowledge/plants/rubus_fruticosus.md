@@ -20,7 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -20°C; dornenlose Sorten etwas frostempfindlicher; Norddeutschland problemlos | `species.hardiness_detail` |
@@ -28,6 +28,18 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.5 (Spanne 4–6; Wuchs-/Phänologie-Basis der Rubus-Blüte/Reife) | `species.base_temp` |
+| Lebensdauer (Jahre) | 15–20 (Krone/Wurzel ausdauernd; Ruten biennial) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Endodormanz/Winterruhe) | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true (Kältebedarf zum Endodormanz-Bruch; ~300–900 Chill-Hours <7 °C, mitteleurop. Sorten oberes Ende) | `lifecycle_configs.vernalization_required` |
+| Vernalisation/Chilling Mindest-Tage | ~70 (entspricht ~800–900 Chill-Hours <7 °C bei mitteleurop. Winter ≈ 10–14 effektiven Kältestunden/Tag; als Chilling/Endodormanz-Bruch, nicht echte Vernalisation) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 14 (Floralinduktion bei Kurztag <~14 h + kühlen Temp. im Herbst) | `lifecycle_configs.critical_day_length_hours` |
+| Bestäuber erforderlich (requires pollinator) | false (selbstfruchtbar; Insektenflug erhöht jedoch Fruchtansatz & -größe) | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | — (selbstfruchtbar; keine pomologische Befruchtergruppe) | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten (compatible pollinators) | — (selbstfruchtbar; keine Pollenspender-Sorte nötig) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +94,22 @@
 | Rankhilfe/Stütze nötig | true (Spalier oder Drahtrahmen; Ruten bis 3 m lang) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, durchlässige Erde; pH 5,5–6,5; sandiger Lehm ideal | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP-Messwert für Rubus fruticosus belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP-Messwert für Rubus fruticosus belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (gedeiht in Sonne bis Halbschatten; fruchtet im Schatten schlechter und später) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 60–90 (flach-mittel wurzelnd; Pflanzgrube 30–45 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive (sehr empfindlich gegen Sauerstoffmangel; Wurzelfäule bei Staunässe) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (keine Meeresluft-/Salzspray-Toleranz; starke Na/Cl-Akkumulation) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für Rubus --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) für Rubus --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.5 (Quellen 5,5–7,0; eng gefasst harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -105,24 +133,37 @@
 | Licht PPFD (µmol/m²/s) | 300–600 | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 20–35 | `requirement_profiles.dli_target_mol` |
 | Photoperiode (Stunden) | 14–16 | `requirement_profiles.photoperiod_hours` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> Hinweis Photoperiode: Lange Sommertage (14–16 h) treiben das **vegetative** Rutenwachstum. Die **Floralinduktion** ist dagegen ein Kurztag-/Kühltemperatur-Reiz im Herbst (Kurztagpflanze, `photoperiod_type=short_day`, kritische Tageslänge ~14 h). Kein Widerspruch — verschiedene Phasen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 15–25 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 8–15 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 (oberhalb Zielkorridor; Punkt stomatären Kollaps in vegetativer Phase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 (C3-Strauch; Netto-Assimilation optimal im milden Bereich) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/Vollsonne; im Pflanzenbestand/Schatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 (trockentoleranter als Himbeere) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 1000–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
-| Austrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Blüte | 1:2:2 | 1.2–1.8 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Fruchtreife | 1:3:3 | 1.0–1.5 | 6.0–6.5 | 100 | 40 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Austrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->50–300<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->20–50<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->6–20<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- DATEN FEHLEN: keine publizierte Mo-Suffizienz für Caneberry --> |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–6.5 | 120 | 50 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->50–300<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->20–50<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->6–20<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- DATEN FEHLEN: keine publizierte Mo-Suffizienz für Caneberry --> |
+| Blüte | 1:2:2 | 1.2–1.8 | 6.0–6.5 | 120 | 50 | — | 2 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->50–300<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->20–50<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->6–20<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- DATEN FEHLEN: keine publizierte Mo-Suffizienz für Caneberry --> |
+| Fruchtreife | 1:3:3 | 1.0–1.5 | 6.0–6.5 | 100 | 40 | — | 1 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->50–300<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->20–50<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->6–20<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | <!-- DATEN FEHLEN: keine publizierte Mo-Suffizienz für Caneberry --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> Hinweis Mikronährstoffe: Mn/Zn/Cu-Spannen sind publizierte **Blattgewebe-Suffizienzwerte** (primocane leaf tissue, Strik & Vance 2016, OSU) und keine Nährlösungs-Sollwerte; sie gelten als Referenz über alle aktiven Wuchsphasen. Mo besitzt für Caneberry keinen publizierten Suffizienzbereich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -285,7 +326,7 @@ Brombeere: Düngung ab Mitte August einstellen! Spätdüngung fördert weiches H
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months,pruning_type,pruning_months
-Rubus fruticosus agg.,"Brombeere;Blackberry;Bramble",Rosaceae,Rubus,perennial,long_day,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Nordafrika",limited,50,40,300,200,175,no,limited,false,true,medium_feeder,hardy,"7;8;9","5;6;7",after_harvest,"8;9;10"
+Rubus fruticosus agg.,"Brombeere;Blackberry;Bramble",Rosaceae,Rubus,perennial,short_day,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Nordafrika",limited,50,40,300,200,175,no,limited,false,true,medium_feeder,hardy,"7;8;9","5;6;7",after_harvest,"8;9;10"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen
@@ -305,3 +346,13 @@ Loch Ness,Rubus fruticosus agg.,thornless;large_fruit;robust,75,open_pollinated
 2. [Gartenratgeber Brombeere](https://www.gartenratgeber.net/pflanzen/brombeere-im-garten-pflegen.html) — Pflege, Schnitt
 3. [Lubera Brombeeren](https://www.lubera.com/de/gartenbuch/brombeeren-pflanzen-p2114) — Anbauanleitung, Sorten
 4. [Ellis-Garten Brombeere](https://www.ellis-garten.de/brombeeren-rubus-fruticosus-steckbrief-pflege-verwendung/) — Steckbrief, Verwendung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Rubus fruticosus](https://pfaf.org/user/plant.aspx?latinname=Rubus+fruticosus) — Schatten-/Sonnentoleranz (full sun bis deep shade), Boden-pH-Spanne, Boden-/Drainagepräferenz, keine Meeresluft-/Salztoleranz
+6. [Strik & Vance 2016, Acta Horticulturae — Leaf nutrient sufficiency in blackberry (OSU)](https://horticulture.oregonstate.edu/sites/agscid7/files/horticulture/attachments/ah36_strik_vance_leaf_nutrient_blackberry_1133311-317_2016.pdf) — Primocane-Blattgewebe-Suffizienzbereiche Mn 50–300, Zn 20–50, Cu 6–20, B 30–70 ppm
+7. [Heat Unit Model for Predicting Bloom Dates in Rubus (ResearchGate / HortScience)](https://www.researchgate.net/publication/43277274_Heat_Unit_Model_for_Predicting_Bloom_Dates_in_Rubus) — GDD-Basistemperatur 4–6 °C, Optimumtemperatur 25–27 °C für Blüte
+8. [Temperature and Daylength Effects on Growth and Floral Initiation in Biennial-Fruiting Blackberry (Horticulturae 2023, MDPI)](https://doi.org/10.3390/horticulturae9121285) — Floralinduktion durch Kurztag + kühle Temp. im Herbst, kritische Tageslänge ~14 h (Kurztagpflanze)
+9. [LSU AgCenter — Blackberry Growing Guide](https://www.lsuagcenter.com/articles/page1564515844169) — Chill-Hour-Bedarf 300–900, Drainage/Staunässe-Empfindlichkeit
+10. [Wikifarmer — Blackberries Propagation and Pollination](https://wikifarmer.com/library/en/article/blackberries-propagation-and-pollination) — Selbstfruchtbarkeit; Insektenflug erhöht Fruchtansatz/-größe
+11. [Penn State Extension — Pollination Requirements for Various Fruits and Nuts](https://extension.psu.edu/pollination-requirements-for-various-fruits-and-nuts) — Brombeere selbstfruchtbar (keine Befruchtersorte nötig)
+12. [Ambitious Harvest — Blackberry Growth Stages / Lifespan](https://www.ambitiousharvest.com/learn/blackberry-growth-stages) — Lebensdauer 15–20 Jahre (Krone ausdauernd, Ruten biennial)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,23 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4 | `species.base_temp` |
+| Kritische Tageslänge (critical day length, h) | 13–14 | `lifecycle_configs.critical_day_length_hours` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!--
+  Begründung Photosynthese-Typ: Spinat ist eine klassische C3-Modellpflanze der
+  Photosynthese-Forschung (Yamori 2005; PMC9962497). base_temp 4 °C ist die belegte
+  Wuchs-/Phänologie-GDD-Basis für das Kühlsaison-Gemüse (ResearchGate fig. 296109699,
+  Iowa State Extension), KEIN Keimwert. critical_day_length 13–14 h: Schossen (bolting)
+  setzt oberhalb ~13 h ein (0 % bei 10 h, >85 % bei 16 h; HortScience 36(5):889).
+  Da Spinat über Tageslänge gesteuert wird (echte Langtagpflanze), keine Vernalisation/
+  Dormanz erforderlich — photoperiod_type=long_day bleibt korrekt.
+-->
+
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterspinatsorten überstehen −10 °C bis −15 °C; schießt bei langen Tagen >14h schnell | `species.hardiness_detail` |
@@ -82,6 +99,36 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, lockere Erde; pH 6,5–7,5; gut durchlässig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 8 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 16 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–46 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 2.0 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 7.6 | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+<!--
+  Hinweise:
+  - LCP 8–16 µmol/m²/s = generischer C3-Kompensationspunkt (Netto-Photosynthese = 0),
+    auf Spinat als C3-Modellpflanze übertragen. Sättigung erst bei ~800–1000 µmol/m²/s
+    (PMC9962497) — diese Sättigungswerte gehören NICHT ins LCP-Feld.
+  - Wurzeltiefe 30–46 cm = maximale Durchwurzelung; Hauptwurzelmasse flach (15–30 cm),
+    daher container_suitable und min_container_depth 15 cm konsistent.
+  - salt_tolerance_ece_threshold bezieht sich auf die Substrat-Sättigungsextrakt-ECe
+    (ECe), NICHT auf die Gießwasser-EC. ECe 2.0 / Slope 7.6 % stammen aus der
+    Maas-Hoffman-Tabelle (FAO Annex 1; USDA Handbook 60) → Klasse moderately_sensitive.
+  - pH-Vorzug 6.0–7.0 quellentreu (UC IPM 6.0–6.5, UMass 6.5–6.8); harmonisiert mit der
+    breiteren Topf-Empfehlung pH 6,5–7,5 in §1.6 / §2.3 (Überlappungsbereich 6,5–7,0).
+-->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -108,6 +155,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -119,6 +172,23 @@
 | Keimung | 0:0:0 | 0.0 | 7.0 | — | — | — | — |
 | Sämling | 2:1:1 | 0.8–1.2 | 6.5–7.0 | 80 | 30 | — | 2 |
 | Rosetten-Wachstum | 3:1:2 | 1.0–1.5 | 6.5–7.5 | 100 | 40 | — | 3 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Mikronährstoffe je Phase
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Keimung | — | — | — | — |
+| Sämling | 0.5 | 0.05 | 0.02 | 0.01 |
+| Rosetten-Wachstum | 0.5 | 0.05 | 0.02 | 0.05 |
+
+<!--
+  KA-Felder: nutrient_profiles.manganese_ppm / zinc_ppm / copper_ppm / molybdenum_ppm.
+  Werte aus dem etablierten Hoagland-Standard-Mikronährstoffregime für Blattgemüse
+  (Mn 0,5 / Zn 0,05 / Cu 0,02 / Mo 0,01–0,05 ppm); Mo in der Wuchsphase leicht erhöht,
+  da Spinat über Nitratreduktase (Mo-Cofaktor) stark N-verstoffwechselt.
+-->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -200,6 +270,22 @@ Spinat tendiert zur Nitratspeicherung — daher organische Düngung bevorzugen u
 | Neemöl | biological | Azadirachtin | Sprühen, 0.3% | 3 | Blattläuse, Spinnmilbe |
 | Fruchtfolge (2 Jahre) | cultural | — | Keine Amaranthaceen 2 Jahre | 0 | Mehltau-Dauersporen |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.5 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate (pro m²) | Etablierungszeit |
+|----------|---------------------|----------------|-----------------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Myzus persicae u.a.) | 0,25–4 / Freisetzung, 3× wiederholen | 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse | 1–10 / Freisetzung, wöchentlich | 2–3 Wochen |
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50 / Freisetzung (Standard ~20) | 2–3 Wochen (T 13–27 °C, rF >70 %) |
+
+<!--
+  Nützling-Wirt-Zuordnung passend zu §5.1: Aphidius colemani + Aphidoletes aphidimyza
+  gegen Blattläuse, Phytoseiulus persimilis gegen Spinnmilben. Raten aus Koppert /
+  University-IPM-Tech-Sheets. Phytoseiulus benötigt rF >70 % und 13–27 °C zur Etablierung.
+-->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -259,3 +345,19 @@ Spinacia oleracea,"Spinat;Echter Spinat;Spinach",Amaranthaceae,Spinacia,annual,l
 2. [Spinat anbauen — Gartendialog.de](https://www.gartendialog.de/spinat-anbau/) — Pflege, Schädlinge
 3. [Spinat optimal aussäen — Samen.de](https://samen.de/blog/spinat-optimal-aussaeen-fruehjahr-und-herbst-im-fokus.html) — Aussaatzeiten
 4. [Spinat anbauen, pflegen, ernten — meine-ernte.de](https://www.meine-ernte.de/pflanzen-a-z/gemuese/spinat/) — Lagerung
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Floral Development and Bolting of Spinach as Affected by Photoperiod — HortScience 36(5):889 (2001)](https://journals.ashs.org/hortsci/view/journals/hortsci/36/5/article-p889.xml) — kritische Tageslänge / Bolting (0 % bei 10 h, >85 % bei 16 h), Langtag-Steuerung
+6. [The importance of photoperiodic response for the breeding of glasshouse spinach — Euphytica (Springer)](https://link.springer.com/article/10.1007/BF00035662) — Photoperiodische Reaktion, Langtagpflanze
+7. [Light Intensity Affects the Assimilation Rate and Carbohydrates Partitioning in Spinach — PMC9962497](https://pmc.ncbi.nlm.nih.gov/articles/PMC9962497/) — C3-Photosynthese, Lichtsättigung ~800–1000 µmol/m²/s
+8. [Temperature acclimation of photosynthesis in spinach leaves — Yamori 2005, Plant Cell & Environment](https://onlinelibrary.wiley.com/doi/10.1111/j.1365-3040.2004.01299.x) — Photosynthese-Temperaturoptimum, C3-Modellpflanze
+9. [Crop salt tolerance data — FAO Annex 1, Table A1.1](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz Spinat: ECe-Schwelle 2.0 dS/m, Slope 7.6 %, moderately sensitive (Maas-Hoffman)
+10. [Plant Salt Tolerance — USDA-ARS Handbook 60 (Chapter 13, P2246)](https://www.ars.usda.gov/ARSUserFiles/20360500/pdf_pubs/P2246.pdf) — Maas-Hoffman-Klassifikation, Spinat moderately sensitive
+11. [Cultural Tips for Growing Spinach — UC IPM](https://ipm.ucanr.edu/home-and-landscape/cultural-tips-for-growing-spinach/) — Boden-pH 6.0–6.5
+12. [Spinach — New England Vegetable Management Guide, UMass Amherst](https://nevegetable.org/crops/spinach) — Boden-pH 6.5–6.8
+13. [Vegetable Root Depths Revealed — GrowVeg](https://www.growveg.com/guides/vegetable-root-depths-revealed-use-this-guide-to-make-smarter-planting-decisions/) — Wurzeltiefe Spinat (flachwurzelnd)
+14. [Spinach Roots 101 — Greg](https://greg.app/spinach-roots/) — effektive Durchwurzelung 30–46 cm, staunässeempfindlich
+15. [Using Growing Degree Days to Manage the Home Garden — Iowa State Extension](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basis Kühlsaison-Gemüse
+16. [Aphidius colemani — Koppert](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Nützling, Ausbringrate
+17. [Aphidend (Aphidoletes aphidimyza) — Koppert](https://www.koppert.com/aphidend/) — Gallmücke gegen Blattläuse, Ausbringrate
+18. [Phytoseiulus persimilis — Koppert](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Spinnmilben-Raubmilbe, Rate / Klimabedarf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

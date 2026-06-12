@@ -19,11 +19,15 @@
 | Ordnung | Rosales | `botanical_families.order` |
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- alle untersuchten Ficus-Arten sind C3 (Sternberg-Lab) --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 25–50+ | `lifecycle_configs.typical_lifespan_years` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- wärmeliebende Tropenart: Wuchsstillstand unter ~10°C / 50°F --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Kritische Tageslänge (h) | Entfällt (tagneutral, kein Kurz-/Langtagblüher) | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- tropisch, kein Kältebedarf --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindest-Tage | Entfällt | `lifecycle_configs.vernalization_min_days` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 12°C, optimal 18–24°C. Extrem empfindlich gegenüber Zugluft, Temperaturwechseln und Standortwechseln — führt zu Blattabwurf. | `species.hardiness_detail` |
@@ -91,6 +95,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, gut durchlässige Qualitätserde mit hohem organischen Anteil. 60% Einheitserde + 20% Perlite + 20% Kokoserde. pH 6.0–7.0. Tongefäße mit guter Drainage bevorzugt. Nicht zu oft umtopfen (stresst die Pflanze). | — |
 
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 25–40 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Der Lichtkompensationspunkt (light compensation point, LCP — Netto-Photosynthese = 0) liegt im Bereich schattentoleranter tropischer Foliage-Arten; ein art-spezifischer Messwert für *Ficus lyrata* fehlt. Der Wert ist aus schatten-akklimatisierten Ficus-Foliage-Daten (Ficus benjamina) und dem allgemeinen Bereich schattentoleranter Arten (10–50 µmol/m²/s) abgeleitet. Lichtsättigung und Optimumbereich (300–800 PPFD, vgl. §2.2) gehören NICHT in das LCP-Feld. *Ficus lyrata* wächst als Jungpflanze (Hemiepiphyt) unter dem Regenwald-Kronendach (partial_shade), benötigt indoor aber helles indirektes Licht. Maas-Hoffman-Salztoleranzparameter (ECe-Schwelle, Slope) sind für die Art nicht publiziert; die qualitative Einstufung "sensitive" ist durch die dokumentierte Empfindlichkeit gegenüber Düngersalz-Akkumulation belegt (monatliches Durchspülen empfohlen). Der pH-Vorzug 6.0–7.0 ist konsistent mit §1.6 und §2.3; einzelne Extension-Quellen nennen einen leicht saureren Optimalbereich (pH < 6.0).
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +140,10 @@
 | Luftfeuchtigkeit Tag (%) | 50–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- stomatärer Kollaps deutlich oberhalb des Zielkorridors (Oberkante 1.2 + ~0.3) --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- C3-Tropenart, feuchteliebend, kein CAM --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- helles indirektes Licht ≈ offenes Tageslicht; unter Kronendach (Jungpflanze) höher --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -129,15 +157,21 @@
 | Temperatur Tag (°C) | 16–21 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 14–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 45–60 | `requirement_profiles.humidity_day_percent` |
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Ruhephase niedrigere Schwelle (geringere Transpiration, trockenere Heizungsluft) --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–7.0 | 100 | 40 |
-| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 6.0–7.0 | 100 | 40 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Winterruhe | 0:0:0 | 0.0–0.3 | 6.0–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Mikronährstoffe Mn/Zn/Cu/Mo nach Hoagland-Standardlösung (kein art-spezifischer Wert für Ficus lyrata publiziert); Felder nutrient_profiles.manganese/zinc/copper/molybdenum_ppm --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -195,6 +229,25 @@ Monatlich März bis September düngen. Oktober bis Februar: kein Dünger. Überd
 | Okt–Feb | Weniger gießen | Substrat zwischen Güssen deutlich abtrocknen | hoch |
 | Ganzjährig | Standort NICHT wechseln | Kritischste Pflegemaßnahme | hoch |
 
+### 4.3 Überwinterung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 16–21 (min. 12) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; ggf. Pflanzenlampe ergänzen | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | reduziert, Substrat zwischen Güssen deutlich antrocknen lassen | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** *Ficus lyrata* ist nicht frosthart (frost_free) — als Kübel-/Zimmerpflanze überwintert sie ganzjährig frostfrei drinnen. Falls im Sommer im Freien (geschützter, halbschattiger Stand), muss sie spätestens nach den Eisheiligen ausgeräumt und vor dem ersten Frost (Mitte Oktober, USDA 6–8) wieder eingeräumt werden. Mindesttemperatur 12°C, Optimum 16–24°C. Zugluft und plötzliche Temperaturwechsel beim Ein-/Ausräumen vermeiden — sie lösen Blattabwurf aus. Kein Knollen-Ausgraben (dig_and_store entfällt).
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -222,8 +275,11 @@ Monatlich März bis September düngen. Oktober bis Februar: kein Dünger. Überd
 
 | Nützling | Ziel-Schädling | Ausbringrate (/m²) | Etablierungszeit (Tage) |
 |----------|---------------|---------------------|------------------------|
-| Phytoseiulus persimilis | Spinnmilbe | 10–20 | 14–21 |
-| Cryptolaemus montrouzieri | Schmierlaus | 2–5 | 21–28 |
+| Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 10–20 | 14–21 |
+| Cryptolaemus montrouzieri | Schmierlaus (Pseudococcus spp.) | 2–5 | 21–28 |
+| Metaphycus helvolus | Weichschildlaus (Coccus hesperidum, Coccidae) | 5–10 | 21–30 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Metaphycus → Weichschildläuse (Coccidae), korrekt zur in §5.1 gelisteten Coccus hesperidum --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Encarsia formosa | Weiße Fliege (Trialeurodes vaporariorum) | 3–6 | 14–21 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Aphidius colemani | Blattlaus (Aphididae) | 0.5–2 | 14–21 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 5.4 Behandlungsmethoden
 
@@ -278,3 +334,10 @@ Little Fiddle,Ficus lyrata,"ornamental;compact",clone
 3. [Lively Root — Fiddle Leaf Fig](https://www.livelyroot.com/blogs/plant-care/ficus-lyrata-fiddle-leaf-fig-care-guide) — Lichtanforderungen
 4. [Soltech — Fiddle Leaf Fig Care](https://soltech.com/products/fiddle-leaf-fig-care) — Lichtbedarf
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
+6. [NC State Extension — Ficus lyrata Plant Toolbox](https://plants.ces.ncsu.edu/plants/ficus-lyrata/) — Lichttoleranz (partial shade / bright indirect), Boden-pH, Habitat, Wuchs <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+7. [Sternberg Lab (Univ. of Miami) — Photosynthesis in hemiepiphytic species of Clusia and Ficus](https://biology.as.miami.edu/_assets/pdf/sternberg-lab/photosynthesis-in-hemiphiphytic-species.pdf) — Ficus = C3-Photosynthese <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. [UF/IFAS MREC — Acclimatization of Ficus benjamina](https://mrec.ifas.ufl.edu/foliage/resrpts/) — Lichtkompensationspunkt schatten-akklimatisierter Ficus-Foliage <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+9. [Hoagland solution — Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Standardkonzentrationen Mn/Zn/Cu/Mo <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+10. [PictureThis — How to Overwinter Ficus lyrata](https://www.picturethisai.com/care/overwinter/Ficus_lyrata.html) — Überwinterung, Mindesttemperatur <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. [Plant Addicts — Growing Ficus Outdoors](https://plantaddicts.com/growing-ficus-outdoors/) — Temperaturschwelle für Wuchsstillstand (~10°C) <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. [Zhen & Bugbee — Far-red / R:FR im Pflanzenbestand (Kontext Far-Red-Fraction)](https://academic.oup.com/jxb/article/76/3/712/7727419) — R:FR-Verhältnis offenes vs. Kronendach-Licht <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -21,6 +21,12 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | 10–13 (Wuchs der Hauptphase wird unter 10–13 °C eingeschränkt; wärmeliebende Art; NICHT der Keim-Basiswert von 13–19 °C) | `species.base_temp` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral) — kein Kurztag-/Langtag-Blüher, daher kein numerischer Stunden-Schwellwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 9a–11b (als Jahrespflanze in 5a–11b kultivierbar) | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frost-empfindlich; stirbt bei Frost ab; in Mitteleuropa als einjährige Sommerkultur; Vorkultur im Warmhaus ab März–April; Auspflanzung nach letztem Frost | `species.hardiness_detail` |
@@ -51,6 +57,10 @@
 | Schwierigkeit | difficult | `species.propagation_difficulty` |
 
 **Saatgut-Hinweis:** Tabaksamen sind extrem klein (10.000–20.000 Samen/g). Nicht eingraben — Samen benötigen Licht zur Keimung (Lichtkeimer). Auf feuchtes Substrat streuen; Folie oder Glas drüber; 25–30°C.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Bestäubungs-Hinweis:** Nicotiana tabacum ist selbstbestäubend und selbstfruchtbar (self-pollinating, self-fertile); die Blütenstruktur (Antheren nahe der Narbe) ermöglicht autonome Selbstbestäubung. Es ist KEIN Obst-Fremdbefruchter — daher bleiben `species.requires_pollinator` (= false), `species.pollinator_group` und `species.compatible_pollinators` leer/ungesetzt. Insektenbesuch (Bienen, Hummeln, nachts Schwärmer) steigert lediglich die genetische Vielfalt, ist aber für den Samenansatz nicht erforderlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.4 Toxizität & Allergene
 
@@ -90,6 +100,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, nährstoffreiche Erde; pH 5,8–6,5; leicht sauer; durchlässig; Substrat wie für Tomaten | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein tabak-spezifischer Kompensationspunkt aus ≥2 seriösen Quellen belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein tabak-spezifischer Kompensationspunkt aus ≥2 seriösen Quellen belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (benötigt mind. 6 h volle Sonne; FAO: gut belüftete, sonnige Standorte) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 50–100 (FAO: D = 0,5–1,0 m; 75 % der Wasseraufnahme in den oberen 30 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (FAO: sehr empfindlich gegen Staunässe; 2+ Tage Vernässung schädigen/töten die Pflanze) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (FAO: geringe Salztoleranz; Bodensalinität mindert die Blattqualität) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: Tabak ist nicht in der FAO/Maas-Hoffman-Salztoleranztabelle gelistet; kein belegter Schwellwert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope für Tabak --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.0–6.5 (FAO-Optimum; Feinabstimmung 5,8–6,5 wie in §1.6/§2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -119,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 70–90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 75–90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (deutlich oberhalb des Zielkorridors; kritischer Punkt für stomatären Kollaps der feuchteliebenden Keimphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high (junge Keimlinge reagieren empfindlich auf Austrocknung) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–32 (Netto-CO₂-Assimilations-Optimum für N. tabacum, Kubien 2008) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: stark vom Anzuchtspektrum abhängig; unter Vollspektrum-/Tageslicht ≈ 0.5, unter FR-armer roter LED < 0.3 --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2 (feucht halten; nicht nass) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -134,6 +166,12 @@
 | Temperatur Nacht (°C) | 18–24 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.5–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (oberer Zielwert + ~0.4 kPa; stomatärer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–32 (Netto-CO₂-Assimilations-Optimum für N. tabacum, Kubien 2008) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | <!-- DATEN FEHLEN: spektrumabhängig; Tageslicht/Vollspektrum ≈ 0.5, FR-arme rote LED < 0.3 --> | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–1000 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -150,6 +188,12 @@
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.4 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 (oberer Zielwert + ~0.4 kPa; stomatärer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 28–32 (Netto-CO₂-Assimilations-Optimum für N. tabacum, Kubien 2008) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freilandkultur unter offener Vollsonne; R:FR ≈ 1,1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 800–1200 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 2–3 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +208,12 @@
 | Temperatur Nacht (°C) | 18–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 55–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.0–1.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 2.0 (oberer Zielwert + ~0.4 kPa; abgehärtete Blattmasse, stomatärer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low (ausgereifte Blätter toleranter gegenüber höherem VPD) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 26–30 (Abreifephase; etwas niedriger für optimale Blattqualität, 22–28 °C Feldwachstumsoptimum) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freilandkultur unter offener Vollsonne; R:FR ≈ 1,1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 800–1200 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 3–5 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–2000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -179,6 +229,19 @@
 | Blatternte | 1:1:3 | 1.0–1.6 | 5.8–6.5 | 100 | 50 | hoch |
 
 **Besonderheit:** Tabak hat einen extrem hohen Kalium-Bedarf — Kalium beeinflusst Verbrennungseigenschaften und Blattqualität. Chlorid-freies Kalium (K₂SO₄) verwenden, da Chlorid die Blattqualität mindert.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe (Mn/Zn/Cu/Mo):**
+
+| Mikronährstoff | Wert | KA-Feld |
+|----------------|------|---------|
+| Mangan (Mn, ppm) | <!-- DATEN FEHLEN: tabak-spezifischer Nährlösungs-Sollwert nicht aus ≥2 Quellen belegt. Belegt ist nur der Blattgewebe-Suffizienzbereich 20–250 ppm (NC State Extension), >1000 ppm toxisch --> | `nutrient_profiles.manganese_ppm` |
+| Zink (Zn, ppm) | <!-- DATEN FEHLEN: kein belegter Sollwert; Zn-Mangel bei Tabak laut NC State Extension extrem selten --> | `nutrient_profiles.zinc_ppm` |
+| Kupfer (Cu, ppm) | <!-- DATEN FEHLEN: kein belegter Sollwert; Cu-Mangel bei Tabak laut NC State Extension extrem selten --> | `nutrient_profiles.copper_ppm` |
+| Molybdän (Mo, ppm) | <!-- DATEN FEHLEN: kein tabak-spezifischer Sollwert aus ≥2 Quellen belegt --> | `nutrient_profiles.molybdenum_ppm` |
+
+Hinweis: Die belegten Werte sind Blattgewebe-Suffizienzbereiche (tissue sufficiency), nicht Nährlösungs-Konzentrationen — daher nicht direkt in die phasenbezogenen Lösungs-ppm-Felder übernommen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -256,6 +319,12 @@ Hoher Kalium-Bedarf — KEIN Kaliumchlorid (KCl) verwenden (Chlorid verschlechte
 | Jul–Aug | Blatternten | Unterste reife Blätter (gelb-grün) zuerst ernten; ca. 2–3 Blätter/Woche | hoch |
 | Aug–Sep | Letzte Ernte | Obere Blätter noch unreifer; trocknen separat | mittel |
 | Sep–Okt | Trocknung | Blätter aufhängen; 30–40°C; 4–8 Wochen | mittel |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Nicht zutreffend: Nicotiana tabacum ist in Mitteleuropa eine einjährige (annual) Sommerkultur und stirbt beim ersten Frost ab (`species.frost_sensitivity` = tender). Es findet keine Überwinterung der Pflanze statt; eine erneute Kultur erfolgt jährlich über Aussaat. Daher werden `hardiness_rating`, `winter_action` und `spring_action` für diese Art nicht gesetzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -386,3 +455,13 @@ Oriental Izmir,Nicotiana tabacum,"oriental_type;aromatic;small_leaf;sun_cured",1
 3. [FAO Tobacco Crop Profile](https://www.fao.org/tobacco) — Globale Anbausysteme
 4. [North Carolina State University Extension — Tobacco IPM](https://entomology.ces.ncsu.edu) — IPM, Schädlinge
 5. [RHS — Growing Tobacco as a Garden Plant](https://www.rhs.org.uk) — Gartenkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [FAO Land & Water — Tobacco Crop Information](https://www.fao.org/land-water/databases-and-software/crop-information/tobacco/en/) — Effektive Wurzeltiefe (0,5–1,0 m), Boden-pH 5,0–6,5, Staunässe-Empfindlichkeit, geringe Salztoleranz
+7. [Springer/Planta — Inhibition of oxygen release in a C3-plant (Nicotiana tabacum cv. Wisconsin 38)](https://link.springer.com/article/10.1007/BF00387973) — Photosynthese-Typ C3
+8. [Frontiers in Plant Science (PMC5121285) — Eucalyptus camaldulensis and herbaceous Nicotiana tabacum photosynthesis](https://pmc.ncbi.nlm.nih.gov/articles/PMC5121285/) — Tabak als krautige C3-Pflanze
+9. [PMC5799153 — Effects of different growth temperatures on growth and development of tobacco](https://pmc.ncbi.nlm.nih.gov/articles/PMC5799153/) — Wuchsbeschränkung unter 10–13 °C (GDD-Wuchsbasis), Absterben bei 2–3 °C
+10. [Kubien et al. 2008, Plant Cell & Environment — Temperature response of photosynthesis in tobacco with reduced Rubisco](https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-3040.2008.01778.x) — Photosynthese-T_opt 30–32 °C (Netto-CO₂-Assimilation)
+11. [NC State Extension — Tobacco Fertility / Nutrients & Manganese Deficiency](https://tobacco.ces.ncsu.edu/tobacco-fertility-nutrients/) — Mn-Blattgewebe-Suffizienz 20–250 ppm, Zn/Cu-Mangel selten
+12. [Greg.app — Pollinating Tobacco](https://greg.app/pollinate-tobacco/) — Selbstbestäubung/Selbstfruchtbarkeit von N. tabacum
+13. [FAO — Crop salt tolerance data (Annex 1)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Beleg, dass Tabak NICHT in der Maas-Hoffman-Salztoleranztabelle gelistet ist
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

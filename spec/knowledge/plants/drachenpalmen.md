@@ -23,6 +23,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 15–30 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend, tropisch) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Keinerlei Frosttoleranz; Schäden ab +5 °C möglich, Absterben unter 0 °C | `species.hardiness_detail` |
@@ -52,6 +61,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
+| Lebensdauer (Jahre) | 15–30 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (nicht zutreffend, tropisch) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10b–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Keinerlei Frosttoleranz; Schäden ab +5 °C, Absterben unter 0 °C; tropische Heimat Sudan–Angola | `species.hardiness_detail` |
@@ -142,6 +160,30 @@ Dracaena spp. werden als Zimmerpflanzen nicht gesät und nicht geerntet. Die fol
 
 ---
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein artspezifischer Messwert aus ≥2 unabhängigen Quellen) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein artspezifischer Messwert aus ≥2 unabhängigen Quellen) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–40 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (Wasserstau) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-a-Wert; Quellen qualitativ „poor/sensitive") | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> (kein belegter Maas-Hoffman-b-Wert) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+**Hinweise zur Umgebungs-Physiologie:**
+- *Schattentoleranz:* Beide Arten wachsen im Naturhabitat unter dem Kronendach (Waldränder, Savanne) und gelten als ausgeprägt schattentolerant; sie überstehen sehr lichtarme Innenräume (D. fragrans toleriert bis ~100 fc / ≈ 10–11 klx-Äquivalent gemessen als sehr niedriger PPFD), wachsen aber bei mehr indirektem Licht voller. Enum `shade` gewählt (zwischen `partial_shade` und `deep_shade`); Mittagsdirektsonne wird gemieden (Blattverbrennung). (Quellen 16, 17)
+- *Lichtkompensationspunkt:* Für schattentolerante Interior-Foliage-Pflanzen (u. a. *Epipremnum*, *Ficus benjamina*, *Chlorophytum*) werden in der Literatur sehr niedrige LCPs von etwa 10–20 µmol/m²/s berichtet; ein art­spezifischer, doppelt belegter Messwert für *Dracaena marginata*/*fragrans* ist nicht auffindbar, daher die KA-Felder als DATEN FEHLEN markiert (Hinweis-Bereich nicht als Messwert in das Feld übernehmen). (Quellen 18, 19)
+- *Salztoleranz:* UF/IFAS stuft *D. marginata* als salzempfindlich („poor salt tolerance") ein; die Art reagiert empfindlich auf Salz- und insbesondere Fluoridakkumulation (vgl. §2.3/§3.4). Bezugsgröße einer etwaigen ECe-Schwelle wäre die Substrat-Sättigungsextrakt-ECe (nicht die Gießwasser-EC), ein quantitativer Maas-Hoffman-Wert ist jedoch nicht belegt. (Quellen 16, 20)
+- *Staunässe:* Wurzeln benötigen Sauerstoff; dauerhaft nasses Substrat führt zu Wurzelfäule (*Pythium*, *Erwinia*). Daher `sensitive`. (Quelle 21)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+---
+
 ## 2. Wachstumsphasen
 
 Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzten phänologischen Phasen wie Kulturpflanzen. Das nachfolgende Modell orientiert sich an den biologisch sinnvollen Pflegephasen im Jahresverlauf und am Anwachsen nach dem Umtopfen.
@@ -155,7 +197,16 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 | Aktives Wachstum (Frühjahr–Sommer) | 180–210 | 3 | false | false | medium |
 | Dormanz / Winterruhe | 90–120 | 4 | false | false | high |
 
-**Hinweis zum Phasenmodell:** Da Dracaena perennial und day_neutral ist, wiederholt sich das Phasenpaar „Aktives Wachstum + Dormanz" jährlich. In Kamerplanter wird empfohlen, die Lifecycle-Config auf `perennial` mit `dormancy_required: true` zu setzen und die Phasen 3–4 als Jahreszyklus zu konfigurieren. Phase 1–2 werden nur beim ersten Einpflanzen durchlaufen.
+**Hinweis zum Phasenmodell:** Da Dracaena perennial und day_neutral ist, wiederholt sich das Phasenpaar „Aktives Wachstum + Dormanz" jährlich. In Kamerplanter werden die Phasen 3–4 als Jahreszyklus konfiguriert; Phase 1–2 werden nur beim ersten Einpflanzen durchlaufen.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zu `dormancy_required` (botanische Korrektur):** *Dracaena* ist eine immergrüne tropische Art ohne physiologisch erzwungene Ruhephase (keine Endodormanz, kein Kältebedarf). Das KA-Feld `lifecycle_configs.dormancy_required` ist daher korrekt `false` (siehe §1.1/§1.1b). Die in §2.1 gelistete „Winterruhe" (Phase 4) ist eine rein umweltbedingte Wachstumsverlangsamung durch reduziertes Winterlicht und Heizungsluft in Mitteleuropa (USDA 6–8 als Indoor-Standort) — kein obligater Dormanzzyklus. Pflegerelevant (weniger Gießen/Düngen im Winter), aber kein zu erzwingender Kältereiz.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zum Photosynthese-Typ:** *Dracaena marginata* und *D. fragrans* sind nicht-sukkulente, breitblättrige C3-Pflanzen (`photosynthesis_type: c3`). Sie sind NICHT mit dem fakultativen CAM-Stoffwechsel der sukkulenten *Dracaena trifasciata* (syn. *Sansevieria trifasciata*, Bogenhanf) zu verwechseln, die in derselben Gattung steht, aber als Blattsukkulente CAM betreibt. Gaswechsel-/CO₂-Assimilationsmessungen an *D. fragrans* dokumentieren C3-Verhalten (Quelle 15).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -173,6 +224,12 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 | Luftfeuchtigkeit Tag (%) | 65–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 24–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 (Raumluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 (Substrat oben trocken, unten leicht feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -189,6 +246,12 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 (Raumluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -205,6 +268,12 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 | Luftfeuchtigkeit Tag (%) | 40–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 (Raumluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7 (Sommer; obere 50–75 % Substrat trocken) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 (je nach Topfgröße) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -221,6 +290,12 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 | Luftfeuchtigkeit Tag (%) | 40–60 (Heizungsluft ist kritisch: zu trockene Luft begünstigt Spinnmilben) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 45–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–600 (Raumluft) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 14–21 (obere 75 % Substrat vollständig trocken) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -229,12 +304,19 @@ Dracaena spp. durchlaufen als mehrjährige Zimmerpflanzen keine klar abgegrenzte
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) |
-|-------|----------------|------------|-----|----------|----------|----------|
-| Bewurzelung | 0:0:0 (kein Dünger) | 0.0 | 6.0–6.5 | — | — | — |
-| Juvenil | 3:1:2 (halbe Dosis) | 0.4–0.6 | 6.0–6.5 | 40–60 | 20–30 | 1–2 |
-| Aktives Wachstum | 3:1:2 | 0.6–0.8 | 6.0–6.5 | 80–100 | 30–50 | 2–3 |
-| Dormanz | 0:0:0 (keine Düngung) | 0.0 | 6.0–6.5 | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo ergänzt) -->
+| Phase | NPK-Verhältnis | EC (mS/cm) | pH | Ca (ppm) | Mg (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|------------|-----|----------|----------|----------|----------|----------|----------|----------|
+| Bewurzelung | 0:0:0 (kein Dünger) | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — |
+| Juvenil | 3:1:2 (halbe Dosis) | 0.4–0.6 | 6.0–6.5 | 40–60 | 20–30 | 1–2 | 0.25–0.5 | 0.025–0.05 | 0.01–0.02 | 0.005–0.01 |
+| Aktives Wachstum | 3:1:2 | 0.6–0.8 | 6.0–6.5 | 80–100 | 30–50 | 2–3 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Dormanz | 0:0:0 (keine Düngung) | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Werte für Mn/Zn/Cu/Mo (`nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) orientieren sich an der Standard-Hoagland-Vollnährlösung (Mn 0,5 / Zn 0,05 / Cu 0,02 / Mo 0,01 ppm) und sind für die schwachzehrende *Dracaena* (light_feeder) in der Juvenilphase auf etwa halbe Konzentration reduziert. In handelsüblichen Volldüngern sind diese Spurenelemente bereits chelatiert enthalten; eine separate Gabe ist nur bei reiner Salz-/Osmosewasser-Rezeptur nötig. (Quelle 22)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 **Fluorid-Warnung (kritisch für Dracaena):** Beide Arten sind extrem fluoridempfindlich. Fluorid ab 0,25 ppm (wie in vielen Kommunalwassern auf 1 ppm dosiert) verursacht Blattspitzenverbrennung (Tip Burn) und Blattflecken. Daher:
 - Kein Leitungswasser direkt verwenden — 24 h abstehen lassen oder Regenwasser/gefiltertes Wasser benutzen
@@ -362,7 +444,9 @@ Dracaena spp. sind vollständig frostunverträglich (tender) und verbringen den 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` |
-| **Winterhärte-Ampel** | **ROT** — muss frostfrei überwintern | Winterhärte-Ampel |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (UI-Ampelfarbe entfernt; hardiness_rating ist maßgeblich) -->
+| Winterhärte-Einstufung | frost_free — muss frostfrei (≥ 12 °C) im beheizten Innenraum überwintern; keinerlei Frosttoleranz | `overwintering_profiles.hardiness_rating` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Winter-Maßnahme | none (Pflanze bleibt drinnen) | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | harden_off (Balkon erst ab stabilen Nacht-Temp. >12 °C) | `overwintering_profiles.spring_action` |
@@ -571,3 +655,15 @@ Diese Tabelle dient als Schnell-Referenz für die häufigsten Probleme bei Draca
 12. [Bloomscape — Dracaena Care Guide](https://bloomscape.com/plant-care-guide/dracaena/) — Allgemeine Pflege, Temperaturen, Luftfeuchtigkeit
 13. [Gardenia.net — Dracaena marginata](https://www.gardenia.net/plant/dracaena-marginata-dragon-tree) — Kulturdaten, Sorten, USDA Zones
 14. [Wikipedia — Dracaena fragrans](https://en.wikipedia.org/wiki/Dracaena_fragrans) — Taxonomie, Heimat, Synonyme
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. [ScienceDirect — Light green leaf sectors of variegated *Dracaena fragrans* show similar rates of oxygenic photosynthesis (Journal of Plant Physiology 2024)](https://www.sciencedirect.com/science/article/abs/pii/S0981942824007083) — Netto-CO₂-Assimilation / Gaswechsel belegt C3-Photosynthese bei *D. fragrans* (Abgrenzung zu CAM)
+16. [UF/IFAS Environmental Horticulture — *Dracaena marginata* Fact Sheet (FPS-185)](https://hort.ifas.ufl.edu/database/documents/pdf/shrub_fact_sheets/dramara.pdf) — geringe Salztoleranz („poor salt tolerance"), Licht/Schatten, Trockenheitstoleranz, Wuchshöhe
+17. [Plants For All Seasons — Dracaena sunlight requirements: A complete guide](https://www.plantsforallseasons.co.uk/blogs/dracaena-care/dracaena-sunlight-requirements-a-complete-guide) — Schattentoleranz, indirektes Licht, Naturhabitat unter Kronendach, ~100 fc Minimum
+18. [Frontiers in Plant Science (2023) — Method for selecting ornamental species for different shading intensity in urban green spaces](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2023.1271341/full) — Lichtkompensationspunkte schattentoleranter Zierarten (10–15 µmol/m²/s für *Chlorophytum*, *Epipremnum*, *Ficus benjamina*)
+19. [Conover, C.A. & Poole, R.T. (1984) — Acclimatization of Indoor Foliage Plants, Horticultural Reviews 6:119–154](https://onlinelibrary.wiley.com/doi/10.1002/9781118060797.ch4) — niedrige LCPs schattentoleranter Foliage-Pflanzen, Akklimatisierung von *Dracaena*
+20. [PNW Pest Management Handbooks — Dracaena Tip Burn](https://pnwhandbooks.org/plantdisease/host-disease/dracaena-tip-burn) — Salz-/Fluoridakkumulation, Substrat-ECe-Bezug, physiologische Blattspitzenbräunung
+21. [Cafe Planta — The Dangers of Overwatering Dracaena: Waterlogged Roots](https://cafeplanta.com/a/blog/the-dangers-of-overwatering-dracaena-how-to-prevent-waterlogged-roots) — Staunässeempfindlichkeit, Sauerstoffmangel der Wurzeln, Wurzelfäule (*Pythium*/*Erwinia*)
+22. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen (Mn 0,5 / Zn 0,05 / Cu 0,02 / Mo 0,01 ppm) als Referenz für §2.3
+23. [Yamori, W. et al. (2014) — Temperature response of photosynthesis in C3, C4, and CAM plants, Photosynthesis Research 119:101–117](https://link.springer.com/article/10.1007/s11120-013-9874-6) — Photosynthese-Temperaturoptimum tropischer C3-Pflanzen (Grundlage T_opt 25–30 °C)
+24. [Foliage Friend — How Long Do Dracaena Plants Live](https://foliagefriend.com/how-long-do-dracaena-plants-live/) — Lebensdauer indoor 10–15 Jahre typisch, mehrere Jahrzehnte möglich
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

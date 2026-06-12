@@ -102,6 +102,27 @@ class NutrientPlanPhaseEntry(BaseModel):
     sulfur_ppm: float | None = Field(default=None, ge=0)
     iron_ppm: float | None = Field(default=None, ge=0)
     boron_ppm: float | None = Field(default=None, ge=0)
+    # ── Mikronährstoffe Mn/Zn/Cu/Mo (REQ-004 v3.5) — pH-gated availability (REQ-001) ──
+    manganese_ppm: float | None = Field(
+        default=None,
+        ge=0,
+        description="Mn — photosynthesis/enzyme activation; availability drops as pH rises.",
+    )
+    zinc_ppm: float | None = Field(
+        default=None,
+        ge=0,
+        description="Zn — auxin synthesis/internodes; pH-dependent availability.",
+    )
+    copper_ppm: float | None = Field(
+        default=None,
+        ge=0,
+        description="Cu — enzymes/lignification; narrow tolerance band, phytotoxic in excess.",
+    )
+    molybdenum_ppm: float | None = Field(
+        default=None,
+        ge=0,
+        description="Mo — nitrate reductase/N-fixation; availability increases with rising pH.",
+    )
     # REQ-004 §4b: Normalized EC dosing — phase-level targets
     target_ec_ms: float | None = Field(default=None, ge=0, le=10)
     reference_ec_ms: float | None = Field(

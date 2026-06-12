@@ -20,7 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -25°C; oberirdische Teile sterben im Winter ab; Wurzeln überdauern sicher; in ganz Norddeutschland problemlos | `species.hardiness_detail` |
@@ -28,6 +30,15 @@
 | Allelopathie-Score | -0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre, lifespan) | 8–10 (oft länger; Teilung alle 3–4 Jahre erhält die Vitalität) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (entfällt; Blüte ist altersgesteuert ab dem 2. Standjahr, keine Kältebedingung) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), kein echter Kurztag-/Langtagblüher --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 **Wichtig:** Apiaceae — enthält Furanocumarine (phototoxisch bei Kontakt mit Pflanzensäften im Sonnenlicht). Beim Ernten Handschuhe empfehlenswert.
 
@@ -86,6 +97,24 @@
 | Rankhilfe/Stütze nötig | true (Blütenstände können bei Wind umknicken) | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Nährstoffreiche, tiefgründige Erde; pH 6,5–7,5; kein Staunässe; große Pflanzgefäße nötig | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 35 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 40–90 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | <!-- DATEN FEHLEN: keine belastbare Quelle für Maas-Hoffman-Einstufung --> | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 | `species.soil_ph_preference` |
+
+**Hinweis:** Lichtkompensationspunkt-Werte sind als typische Spanne für krautige C3-Kühljahres-Apiaceae angesetzt (Netto-Photosynthese = 0; Sättigung und Optimum liegen deutlich höher, siehe §2.2 PPFD/DLI). Liebstöckel gedeiht am besten in voller Sonne, verträgt aber lichten Halbschatten (in heißen Lagen sogar bevorzugt nachmittags beschattet) — `full_sun` mit Halbschatten-Toleranz. pH-Vorzug quellentreu auf 6.0–7.5 gespannt und mit §1.6 (Topf pH 6,5–7,5) sowie §2.3 (Nährlösung pH 6,5–7,0) harmonisiert.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -114,6 +143,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–23 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -127,6 +162,20 @@
 | Vegetativ | 2:1:1 | 1.0–1.4 | 6.5–7.0 | 100 | 50 | – | 2 |
 | Blüte/Samen | 1:2:2 | 0.8–1.2 | 6.5–7.0 | 80 | 40 | – | 1 |
 | Winterruhe | 0:0:0 | 0.0 | – | – | – | – | – |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+#### Mikronährstoffe je Phase (Mn/Zn/Cu/Mo)
+
+| Phase | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------|----------|----------|----------|
+| Keimung | – | – | – | – |
+| Sämling | 0.5 | 0.25 | 0.05 | 0.02 |
+| Vegetativ | 0.5–1.0 | 0.25–0.5 | 0.05–0.1 | 0.03–0.05 |
+| Blüte/Samen | 0.5 | 0.25 | 0.05 | 0.03 |
+| Winterruhe | – | – | – | – |
+
+KA-Felder: `nutrient_profiles.manganese_ppm`, `nutrient_profiles.zinc_ppm`, `nutrient_profiles.copper_ppm`, `nutrient_profiles.molybdenum_ppm`. Werte sind etablierte Sollwert-Spannen für blattbetonte Kulturen in Nährlösung (Penn State Extension; Hydroponik-Standardbereiche) — speziesspezifische Daten für Liebstöckel liegen nicht vor; bei Topf-/Erdkultur über organische Volldünger meist ausreichend gedeckt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -217,6 +266,18 @@ Liebstöckel ist ein kräftiger Mittelzehrer mit hohem Stickstoffbedarf für die
 | Schmierseife | biological | Kaliumpalmitat | 1% sprühen | 1 | Blattläuse |
 | Schneckenbarriere | cultural | – | Kupferband oder Schneckenkorn | 0 | Schnecken |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Aphis spp.) | 0,5–1 Tier/m²/Woche bis Etablierung; bei Befallsnestern höher | Mumien nach 2–3 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 1–3 Larven/m²/Ausbringung, wöchentlich wiederholen | ca. 3 Wochen (Generationszyklus ~24 Tage) |
+| Schnecken-Nematode | Phasmarhabditis hermaphrodita | Nacktschnecken (Arion/Deroceras spp.) | 300.000 Nematoden/m² (Nemaslug); bei starkem Befall bis 1 Mio./m² | Schnecken sterben in 4–21 Tagen; Wiederholung nach 2–3 Wochen |
+
+**Hinweis:** Nützling-Wirt-Zuordnung an die in §5.1 gelisteten Schädlinge (Blattläuse, Schnecken) angepasst. Aphidius colemani und Aphidoletes aphidimyza zielen ausschließlich auf Blattläuse; Phasmarhabditis hermaphrodita ausschließlich auf Nacktschnecken. Für die Sellerieblattmotte (Depressaria radiella) ist kein praxisreifer kommerzieller Nützling für den Hausgarten etabliert — hier bleibt Absammeln/Kulturschutznetz die Methode der Wahl.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -271,8 +332,12 @@ Liebstöckel ist ein kräftiger Mittelzehrer mit hohem Stickstoffbedarf für die
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Levisticum officinale,"Liebstöckel;Maggikraut;Suppengrün;Lovage",Apiaceae,Levisticum,perennial,long_day,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",-0.1,"Südwestasien, Vorderasien",limited,40,50,200,100,90,no,limited,false,true,medium_feeder,false,hardy,"6;7;8"
+Levisticum officinale,"Liebstöckel;Maggikraut;Suppengrün;Lovage",Apiaceae,Levisticum,perennial,day_neutral,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",-0.1,"Südwestasien, Vorderasien",limited,40,50,200,100,90,no,limited,false,true,medium_feeder,false,hardy,"6;7;8"
 ```
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis zur Photoperiode:** `photoperiod_type` wurde von `long_day` auf `day_neutral` korrigiert (an dieser CSV-Zeile sowie in §1.1). Liebstöckel ist eine langlebige Staude, deren Blüte altersgesteuert ab dem zweiten Standjahr erfolgt — kein photoperiodischer Lang- oder Kurztagblüher und keine Vernalisationsanforderung. Die in §2.2 genannte Photoperiode 14–16 h ist eine reine Standort-/Saisonangabe (Sommertaglänge im Freiland) und kein Blühtrigger.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -283,3 +348,17 @@ Levisticum officinale,"Liebstöckel;Maggikraut;Suppengrün;Lovage",Apiaceae,Levi
 3. [Samen.de Liebstöckel im Kräutergarten](https://samen.de/blog/liebstoeckel-im-kraeutergarten-anbau-und-verwendung.html) — Anbau, Verwendung
 4. [Lubera Liebstöckel](https://www.lubera.com/de/gartenbuch/liebstoeckel-anbau-p2616) — Kultivierung
 5. [Hausgarten.net Zitronenmelisse Pflege](https://www.hausgarten.net/zitronenmelisse-pflege/) — Vergleichsdaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [PFAF — Levisticum officinale](https://pfaf.org/user/Plant.aspx?LatinName=Levisticum+officinale) — Lebenszyklus (perennial, Winter-Rückzug), Halbschatten-Toleranz, pH-Spanne, Frosthärte, keine Vernalisationsanforderung
+7. [NC State Extension — Levisticum officinale](https://plants.ces.ncsu.edu/plants/levisticum-officinale/) — Licht (full sun/part shade), pH-Bereich, Drainage, USDA-Zonen 4a–9b, herbaceous perennial/Winterrückzug
+8. [RHS — Levisticum officinale (Lovage)](https://www.rhs.org.uk/plants/10030/levisticum-officinale/details) — Standort, Boden (tief, fruchtbar, durchlässig, nicht staunass), Halbschatten
+9. [Gardener's Path — Growing Lovage](https://gardenerspath.com/plants/vegetables/growing-lovage-uncommon-leafy-green-many-uses/) — Wurzeltiefe (Pfahlwurzel bis ~89 cm), Standortansprüche, Lebensdauer
+10. [Johnny's Selected Seeds — Lovage Growing Information](https://www.johnnyseeds.com/growers-library/herbs/lovage/lovage-key-growing-information.html) — Sonne/Halbschatten, Bodenansprüche
+11. [Iowa State Univ. Extension — Using Growing Degree Days](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur ~5 °C für Kühljahres-Kulturen
+12. [MSU Extension — Understanding Growing Degree Days](https://www.canr.msu.edu/news/understanding_growing_degree_days) — Basistemperatur-Konvention (5 °C kühl, 10 °C warm)
+13. [MDPI Horticulturae — Light & Temperature on Lettuce Photosynthesis](https://www.mdpi.com/2311-7524/8/2/178) — Photosynthese-Temperaturoptimum Kühljahres-Blattgemüse (~23/18 °C)
+14. [Penn State Extension — Hydroponics: Plant Nutrition](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Sollbereiche (Mn/Zn/Cu/Mo)
+15. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Gallmücke gegen Blattläuse, Ausbringung
+16. [Sound Horticulture — Aphidius / Aphidoletes](https://soundhorticulture.com/pages/aphids) — Ausbringraten, Etablierungszeiten Blattlaus-Nützlinge
+17. [Wikipedia — Phasmarhabditis hermaphrodita](https://en.wikipedia.org/wiki/Phasmarhabditis_hermaphrodita) — Schnecken-Nematode, Ausbringrate, Wirkungszeit
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

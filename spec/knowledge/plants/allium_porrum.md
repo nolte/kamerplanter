@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, Hortipendium, Wikipedia, Bio-Gaertner, naturadb.de, gartenratgeber.net, samen.de, pflanzenkrankheiten.ch, schadbild.com, gartenjournal.net, Koraylights
+> **Quellen:** ASPCA, Hortipendium, Wikipedia, Bio-Gaertner, naturadb.de, gartenratgeber.net, samen.de, pflanzenkrankheiten.ch, schadbild.com, gartenjournal.net, Koraylights, ScienceDirect (Wiebe), FAO IDP 61, OSU/MSU/UMN Extension, UC Marin Master Gardeners
 
 ---
 
@@ -20,7 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | biennial (wird als Einjaehrige kultiviert; Bluete im 2. Jahr nach Vernalisation) | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day (Langtagspflanze -- lange Tage foerdern Wachstum; Bluete im 2. Jahr durch Langtag nach Vernalisation) | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral (tagneutral -- das Schaft-/Blattwachstum ist nicht tageslaengenabhaengig; der Tageslaengeneinfluss auf das Schossen ist nur quantitativ: Langtage NACH der Vernalisation foerdern die Bluete im 2. Jahr) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Winterlauch-Sorten vertragen Froeste bis -15 degC und koennen den ganzen Winter im Boden stehen bleiben. Sommerlauch-Sorten sind weniger frosthart (bis -5 degC). In Mitteleuropa je nach Sorte ganzjaehrig im Freiland kultivierbar (Sommer- und Wintertypen). | `species.hardiness_detail` |
@@ -29,6 +29,14 @@
 | Naehrstoffbedarf-Stufe | heavy_feeder (Starkzehrer) | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible | `species.traits` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (alle kultivierten Allium-/Gemuesearten sind C3-Pflanzen; keine C4-/CAM-Anatomie) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4 (Kuehlsaison-Knollen-/Zwiebelgemuese; Onion und verwandte Allium liegen im Bereich 4--4.5 degC nach Extension-GDD-Modellen) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (Lauch hat keine echte Endo-/Knollendormanz; die Pflanze waechst bei milder Witterung kontinuierlich) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true (obligater Kaeltebedarf zur Bluehinduktion im 2. Jahr; ohne Vernalisation kein Schossen) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | 21--28 (induktive Temperatur 0--18 degC, Optimum ca. 5 degC; Bolting-Trigger < 10 degC ueber 3--4 Wochen nach Erreichen der Juvenilschwelle von ca. 5--6 Blaettern; > 18 degC entvernalisiert) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (tagneutral; kein echter Kurztag-/Langtagblueher -- kein kritischer Tageslaengenwert) <!-- DATEN FEHLEN: kein kritischer Tageslaengen-Schwellenwert, da day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -96,11 +104,26 @@ Hinweis: Beschaedigte oder gelbe Aussenblaetter regelmaessig entfernen. Bluetens
 | Balkon-/Terrassenanbau | limited (nur in sehr tiefen Gefaessen und mit viel Geduld) | `species.balcony_suitable` |
 | Gewaechshaus empfohlen | false (Freiland genuegt; Gewaechshaus nur fuer Voranzucht) | `species.greenhouse_recommended` |
 | Rankhilfe/Stuetze noetig | false | `species.support_required` |
-| Substrat-Empfehlung (Topf) | Naehrstoffreiche, tiefgruendige, humose Erde mit guter Drainage. pH 6.0--7.5. Starkzehrer -- vor Pflanzung Kompost einarbeiten. | -- |
+| Substrat-Empfehlung (Topf) | Naehrstoffreiche, tiefgruendige, humose Erde mit guter Drainage. pH 6.0--7.0 (Vorzugsbereich; siehe 1.7). Starkzehrer -- vor Pflanzung Kompost einarbeiten. | -- |
 
 **Hinweis:** Porree ist ein klassisches Freilandgemuese mit langer Kulturzeit (5--8 Monate). Der weisse Schaft entsteht durch Anhaeuefeln (Bleichen) -- regelmaessig Erde an den Schaft aufschuetten, um den weissen Teil zu verlaengern. Winterlauch-Sorten stehen den ganzen Winter im Beet und werden nach Bedarf geerntet.
 
 ---
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD umol/m2/s) | -- <!-- DATEN FEHLEN: kein leek-spezifischer Lichtkompensationspunkt (light compensation point) aus zwei unabhaengigen seroesen Quellen belegbar --> | `species.light_compensation_point_ppfd_min` / `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (Lauch braucht volle Sonne; im Halbschatten bleiben die Schaefte duenn und die Pflanzen "strecken" sich zum Licht) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 45--60 (nach ca. 4 Monaten Kultur; Hauptwurzelmasse flach, aber Pfahlwurzeln reichen bis 45--60 cm) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (braucht durchlaessigen Boden; Staunaesse foerdert Schaft-/Wurzelfaeule und Fusarium) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Allium gilt als salzempfindlich; analog zur etablierten Maas-Hoffman-Einstufung von Zwiebel/Onion als "sensitive") | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.2 (Maas-Hoffman a; bezogen auf die Substrat-/Bodensalinitaet ECe des Saettigungsextrakts, NICHT auf die Giesswasser-EC; Lauch-Feldstudie und Onion-Referenzwert konvergieren bei ca. 1.2 dS/m) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 7.0 (Maas-Hoffman b; relative Ertragsminderung je dS/m oberhalb der Schwelle, aus Lauch-Bewaesserungsstudie unter Rain-Shelter) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min--max) | 6.0--7.0 (neutral bis leicht sauer; harmoniert mit der Topf-Substratempfehlung in 1.6 und den Naehrstoffprofilen in 2.3) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ## 2. Wachstumsphasen
 
@@ -132,6 +155,12 @@ Hinweis: Die vegetative Phase ist mit 90--150 Tagen aussergewoehnlich lang. Das 
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 0.9 (kritischer Punkt des stomataeren Kollaps -- deutlich oberhalb des feuchteliebenden Ziel-Korridors 0.3--0.6) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Pflanze; in der feuchten Keimphase besonders trockenstress-empfindlich) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 16--18 (kuehle Fruehphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht; kein gezieltes Far-Red-Management) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 #### Phase: Saemling (seedling)
 
@@ -148,6 +177,12 @@ Hinweis: Die vegetative Phase ist mit 90--150 Tagen aussergewoehnlich lang. Das 
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--40 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (kritischer Punkt -- ca. 0.3 kPa oberhalb der Ziel-Oberkante 0.9) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Pflanze) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 17--20 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Saemlinge sind duenn und grasartig. Beim Pikieren oder vor der Pflanzung koennen Blatt- und Wurzelspitzen leicht gekuerzt werden (auf ca. 2/3 der Laenge) -- das foerdert kraeftiges Anwachsen.
 
@@ -166,6 +201,12 @@ Hinweis: Saemlinge sind duenn und grasartig. Beim Pikieren oder vor der Pflanzun
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 (gleichmaessig feucht, besonders bei Hitze) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt des stomataeren Kollaps -- ca. 0.3 kPa oberhalb der Ziel-Oberkante 1.3; bei Ueberschreitung schliessen die Stomata, das Schaftwachstum stockt) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Pflanze; gleichmaessige Wasserversorgung ist fuer dicke Schaefte entscheidend) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (deckt sich mit dem Wachstumsoptimum von ca. 20 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Anhaeuefeln (Erde am Schaft hochziehen) in 2--3 Etappen, je 5--10 cm, fuer weissen Schaft. Keine Erde ins Herz kommen lassen (Faeulnis!). Gleichmaessige Wasserversorgung ist entscheidend fuer dicke Schaefte.
 
@@ -184,17 +225,27 @@ Hinweis: Anhaeuefeln (Erde am Schaft hochziehen) in 2--3 Etappen, je 5--10 cm, f
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | -- (natuerlich, bei Frostboden nicht giessen) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | -- | `requirement_profiles.irrigation_volume_ml_per_plant` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (Richtwert; im Herbst/Winter bei kuehl-feuchter Witterung praktisch nie erreicht) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | low (Erntephase bei kuehler, feuchter Witterung -- kaum Trockenstress-Risiko) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 8--15 (Herbst-/Winter-Erntefenster; Photosynthese laeuft bei kuehler Witterung verlangsamt) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Winterlauch wird nach Bedarf geerntet. Bei anhaltendem Frost (Boden gefroren) kann nicht geerntet werden -- ggf. Vlies/Laub als Frostschutz auflegen, damit der Boden locker bleibt. Vor dem Schossen im Fruehjahr (Maerz/April) alle verbleibenden Pflanzen ernten.
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.6--1.0 | 6.0--7.0 | 80 | 30 | 20 | 2 |
-| Vegetativ | 3-1-3 | 1.4--2.0 | 6.0--7.0 | 120 | 50 | 35 | 3 |
-| Ernte | 1-1-2 | 0.8--1.2 | 6.0--7.0 | 80 | 30 | 20 | 2 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.6--1.0 | 6.0--7.0 | 80 | 30 | 20 | 2 | -- | -- | -- | -- |
+| Vegetativ | 3-1-3 | 1.4--2.0 | 6.0--7.0 | 120 | 50 | 35 | 3 | -- | -- | -- | -- |
+| Ernte | 1-1-2 | 0.8--1.2 | 6.0--7.0 | 80 | 30 | 20 | 2 | -- | -- | -- | -- |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- DATEN FEHLEN: Keine leek-spezifischen Mn/Zn/Cu/Mo-Sollkonzentrationen (ppm) fuer die Naehrloesung aus zwei unabhaengigen seroesen Quellen belegbar. Allium gilt qualitativ als sehr empfindlich gegenueber Zink-, Mangan- und Molybdaen-Mangel (Onion-Mikronaehrstoff-Studien) -- bei mineralischem (Hydro-)Anbau eine Standard-Mikronaehrstoffloesung mit ausreichend Mn/Zn/Mo verwenden; konkrete ppm-Sollwerte bleiben bis zur Quellenlage offen. Hydroanbau ist bei Porree ohnehin unueblich. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Porree ist ein Starkzehrer mit hohem Stickstoff- und Kaliumbedarf. N foerdert die Blattmasse und das Schaftwachstum; K verbessert die Frostresistenz (besonders wichtig bei Winterlauch). Kalibetonte Duengung ab Spaetsommer staerkt die Winterhaerte. Schwefel ist fuer alle Allium-Arten wichtig (Geschmack, Abwehrstoffe).
 
@@ -303,6 +354,21 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren.
 ### 4.3 Ueberwinterung
 
 Winterlauch-Sorten (z.B. 'Blaugruener Winter', 'Carentan') sind bis -15 degC winterhart und stehen den ganzen Winter im Beet. Schutz: Vlies oder Laubschicht auflegen, damit der Boden nicht komplett durchfriert (sonst ist die Ernte unmoeglich). Vor dem Schiessen im Fruehjahr (Maerz/April) alle verbleibenden Pflanzen ernten. Sommerlauch-Sorten sind weniger frosthart und sollten vor dem ersten starken Frost geerntet werden.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Einstufung (hardiness rating) | hardy (Winterlauch ueberwintert im Freiland ohne Ausgraben; nur leichter Schutz noetig) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme (winter action) | mulch (Laub-/Strohmulch oder Vlies als Frostschutz, damit der Boden locker und erntbar bleibt) | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 11 (November, vor dem ersten Dauerfrost) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme (spring action) | uncover (Mulch/Vlies abnehmen; verbleibende Pflanzen vor dem Schossen ernten) | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 3 (Maerz, vor Schossbeginn) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (degC) | -- (bleibt im Freiland; kein Winterquartier noetig) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | -- (Freiland, natuerliches Tageslicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | -- (natuerliche Niederschlaege; bei Frostboden nicht giessen) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+Hinweis: Sommerlauch-Sorten sind frostempfindlicher und werden nicht ueberwintert -- sie werden vor dem ersten starken Frost vollstaendig geerntet (winter_action entfaellt).
 
 ---
 
@@ -416,7 +482,7 @@ Winterlauch-Sorten (z.B. 'Blaugruener Winter', 'Carentan') sind bis -15 degC win
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat
-Allium porrum,Porree;Lauch;Winterlauch;Leek;Garden Leek,Amaryllidaceae,Allium,biennial,long_day,herb,fibrous,5a;5b;6a;6b;7a;7b;8a;8b;9a;9b,0.2,"Mittelmeerraum, Vorderasien"
+Allium porrum,Porree;Lauch;Winterlauch;Leek;Garden Leek,Amaryllidaceae,Allium,biennial,day_neutral,herb,fibrous,5a;5b;6a;6b;7a;7b;8a;8b;9a;9b,0.2,"Mittelmeerraum, Vorderasien"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -446,3 +512,13 @@ Lancelot,Allium porrum,,,early_maturing;high_yield,95,,f1_hybrid
 9. gartenjournal.net -- Porree Schaedlinge: https://www.gartenjournal.net/porree-schaedlinge-krankheiten
 10. samen.de -- Krankheiten und Schaedlinge bei Porree: https://samen.de/blog/haeufige-krankheiten-und-schaedlinge-bei-porree-erkennen-und-bekaempfen.html
 11. Koraylights -- Indoor cultivation PPFD and DLI: https://koraylights.com/how-much-light-do-your-plants-need-indoor-cultivation-ppfd-and-dli/
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. Wiebe, H.-J. -- Effects of temperature and daylength on bolting of leek (Allium porrum L.), Scientia Horticulturae (ScienceDirect): obligater Vernalisationsbedarf, induktive Temperatur 0--18 degC (Optimum 5 degC), Tageslaengeneffekt nur quantitativ (tagneutral): https://www.sciencedirect.com/science/article/abs/pii/0304423894900116
+13. FAO Irrigation and Drainage Paper 61, Annex 1 -- Crop salt tolerance data (Onion: ECe-Schwelle 1.2 dS/m, Slope 16 %/dS/m, Einstufung "sensitive"): https://www.fao.org/4/y4263e/y4263e0e.htm
+14. ResearchGate -- Response of Leek (Allium porrum L.) to Different Irrigation Water Levels Under Rain Shelter (Lauch-Salinitaetsschwelle ca. 1.20 dS/m, Slope ca. 7.0 %): https://www.researchgate.net/publication/322357487_Response_of_Leek_Allium_porrum_L_to_Different_Irrigation_Water_Levels_Under_Rain_Shelter
+15. OSU Extension EM 9305 -- Vegetable degree-day models (Basistemperatur Kuehlsaison-Gemuese 4--4.5 degC): https://extension.oregonstate.edu/catalog/em-9305-vegetable-degree-day-models-introduction-farmers-gardeners
+16. MSU Extension -- Understanding growing degree-days (Tbase Kuehlsaison-Wurzel-/Knollengemuese, inkl. Onion, ca. 4 degC): https://www.canr.msu.edu/news/understanding_growing_degree_days
+17. UMN Extension -- Growing leeks in home gardens (pH 6.0--7.0, volle Sonne, durchlaessiger Boden): https://extension.umn.edu/vegetables/growing-leeks
+18. UC Marin Master Gardeners -- Leeks (Wurzeltiefe 45--60 cm nach ca. 4 Monaten, neutraler pH): https://ucanr.edu/site/uc-marin-master-gardeners/document/leeks
+19. MSU Extension E486 -- Secondary and Micro-nutrients for Vegetable and Field Crops (Allium/Onion-Empfindlichkeit gegenueber Zn-, Mn-, Mo-Mangel): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

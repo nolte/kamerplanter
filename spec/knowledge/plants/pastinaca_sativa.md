@@ -20,7 +20,15 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photoperiode | day_neutral (Blüte ist vernalisationsgesteuert, nicht photoperiodisch — bei eng verwandter Möhre konditioniert die Tageslänge nach Vernalisation die Blüte nachweislich NICHT; im Anbau wird ohnehin im 1. Jahr vor jeder Blüte geerntet) | `lifecycle_configs.photoperiod_type` |
+| Photosynthese-Typ (photosynthesis pathway) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Hauptwuchs (base temp, °C) | 4–6 (Kühlsaison-Apiaceae; Tbase der Möhre als Familien-Proxy 4–6 °C; kein Keimwert) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (Wurzel überdauert im Boden ohne erzwungene Dormanzphase; ganzjährig erntbar) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (min days) | 14 (2–12 Wochen Kälte bei ~2–9 °C im 2. Jahr lösen Schossen/Blüte aus; juvenile Mindestgröße zusätzlich nötig) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: kein echter Kurz-/Langtagblüher; Blüte vernalisationsgesteuert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sehr winterhart bis -15°C; Wurzeln im Boden überwintern problemlos; Frost verbessert Aroma (Stärke → Zucker); ideal für Norddeutschland; ganzjährige Ernte möglich | `species.hardiness_detail` |
@@ -82,6 +90,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | — (ausschließlich Freilandkultur; tiefe Pfahlwurzel braucht lockeren, tiefen Boden) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 40 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (volle Sonne für optimale Wurzelbildung; leichter Halbschatten am Nachmittag wird toleriert, starker Schatten mindert Wurzelgröße/Ertrag) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–45 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (anhaltende Staunässe → Wurzelfäule; gute Drainage essenziell) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (FAO-Einstufung; Apiaceae-Familie durchgängig salzempfindlich) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: Pastinake nur qualitativ "sensitive" gelistet, keine eigenen Maas-Hoffman-Zahlen; Familien-Proxy Möhre = 1.0 dS/m, aber nicht art-spezifisch belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein art-spezifischer Maas-Hoffman-Slope für Pastinake belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 (harmonisiert mit §2.3 pH 6.0–7.0 und §1.6; RHS/PFAF/Extension nennen 6.0–7.5, Optimum 6.5–7.0) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,18 +133,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5–1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kritischer Wert, kPa) | 1.4 (deutlich oberhalb des Zielkorridors; stomatärer Kollaps-Punkt = oberer Zielwert 1.0 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (sensitivity) | medium (C3-Kühlsaison-Wurzelgemüse) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (Kühlsaison-Apiaceae; oberhalb 24 °C sinkt Netto-Assimilation) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-Vollsonne; offenes Tageslicht ≈ 0.5, R:FR ≈ 1.1) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (trockenverträglich nach Keimung) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–400 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — |
-| Sämling | 1:1:1 | 0.4–0.6 | 6.0–7.0 | 60 | 25 | — | 2 |
-| Vegetativ | 1:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 40 | — | 2 |
-| Reife | 0:1:2 | 0.6–0.8 | 6.0–7.0 | 80 | 30 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.4–0.6 | 6.0–7.0 | 60 | 25 | — | 2 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Vegetativ | 1:1:2 | 0.8–1.2 | 6.0–7.0 | 100 | 40 | — | 2 | 0.5 | 0.25 | 0.05 | 0.05 |
+| Reife | 0:1:2 | 0.6–0.8 | 6.0–7.0 | 80 | 30 | — | 1 | 0.5 | 0.25 | 0.05 | 0.05 |
+<!-- Mikronährstoffe Mn/Zn/Cu/Mo ergänzt. Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- nutrient_profiles.manganese/zinc/copper/molybdenum_ppm -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Keimung 0:0:0 ohne Mikronährstoffgabe (reines Quellwasser). -->
+
 
 ---
 
@@ -167,6 +202,23 @@ KEIN frischer Mist oder frischer Kompost — lockt Möhrenfliege an! Pastinaken 
 | Jul–Sep | Jäten | Unkraut; Pastinake ist langsam zu Beginn | niedrig |
 | Okt–Mär | Ernte | Nach erstem Frost am süßesten; nach Bedarf ernten | hoch |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Pastinaken sind sehr winterhart (frosthart bis ca. -15 °C); die Wurzeln überwintern problemlos im Freilandboden und werden durch Frost süßer (Stärke → Zucker). Eine Einlagerung ist nicht nötig — geerntet wird laufend „aus dem Beet". Im 2. Jahr nicht geerntete Wurzeln schossen im Frühjahr und werden holzig/ungenießbar; daher spätestens vor dem Austrieb räumen.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | mulch (Stroh-/Laubmulch erleichtert die Ernte bei gefrorenem Boden und markiert die Reihen) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11 (November) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | uncover (Mulch abräumen; verbliebene Wurzeln vor dem Schossen ernten) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (März) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (verbleibt im Freilandboden; kein frostfreies Quartier nötig) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | — (natürliche Bodenfeuchte genügt; nicht zusätzlich gießen) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -192,6 +244,16 @@ KEIN frischer Mist oder frischer Kompost — lockt Möhrenfliege an! Pastinaken 
 | Kulturschutznetz | cultural | — | 0,8 mm Maschenweite; ab Keimung | 0 | Möhrenfliege |
 | Mischkultur Zwiebeln | cultural | — | Zwiebelduft verwirrt Möhrenfliege | 0 | Möhrenfliege |
 | Fruchtwechsel | cultural | — | Keine Apiaceae auf gleicher Fläche | 0 | alle Krankheiten |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit | KA-Edge |
+|----------|--------------------|-----------------|--------------|------------------|---------|
+| Insektenpathogene Nematoden | Steinernema feltiae | Möhrenfliege (Psila rosae) — Larven/Puppen im Boden | 250.000–500.000 /m² als Bodengießung | wenige Tage (Boden feucht halten; wirksam 14–26 °C) | `controlled_by` |
+| Blattlaus-Schlupfwespe | Aphidius colemani | Blattläuse (Aphis spp.) | 0,25–4 /m² je Freilassung, 3× wiederholen | 2–4 Wochen (vorbeugend nach Aufgang starten) | `controlled_by` |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphis spp.) | 2–5 Puppen /m² | 2–4 Wochen | `controlled_by` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -244,7 +306,7 @@ KEIN frischer Mist oder frischer Kompost — lockt Möhrenfliege an! Pastinaken 
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,direct_sow_months,harvest_months
-Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,long_day,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Eurasien, Mittelmeer",no,no,no,false,false,medium_feeder,hardy,"2;3;4;5;6","10;11;12;1;2;3"
+Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,day_neutral,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Eurasien, Mittelmeer",no,no,no,false,false,medium_feeder,hardy,"2;3;4;5;6","10;11;12;1;2;3"
 ```
 
 ---
@@ -255,3 +317,19 @@ Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,lo
 2. [Samen.de Pastinaken](https://samen.de/blog/pastinaken-anbauen-vom-samen-zur-ernte.html) — Anbau, Pflege
 3. [Kraut&Rüben Pastinaken](https://www.krautundrueben.de/steckbrief-pastinaken-saeen-pflegen-und-ernten-2547) — Steckbrief
 4. [LandBZL Pastinaken](https://www.landwirtschaft.de/garten/selbst-anbauen/gemuesesteckbriefe/pastinaken-selbst-im-garten-anbauen) — Allgemein
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [RHS — Pastinaca sativa](https://www.rhs.org.uk/plants/24473/pastinaca-sativa/details) — Boden-pH 6.0–7.5, Standort volle Sonne/leichter Halbschatten
+6. [PFAF — Pastinaca sativa](https://pfaf.org/user/plant.aspx?LatinName=Pastinaca+sativa) — Boden (leicht/mittel/schwer), gut drainiert, Halbschatten-Toleranz, pH-Vorzug
+7. [SDSU Extension — Parsnips: How to Grow It](https://extension.sdstate.edu/parsnips-how-grow-it) — Vernalisation, Schossen im 2. Jahr, Kühlsaison-Charakter
+8. [MSU Extension — Bolting in spring vegetables](https://www.canr.msu.edu/news/bolting-in-spring-vegetables) — Vernalisation Pastinake 2–12 Wochen bei ~2–9 °C, juvenile Mindestgröße
+9. [MDPI Plants 2022 — Vernalization Requirement, but Not Post-Vernalization Day Length, Conditions Flowering in Carrot](https://www.mdpi.com/2223-7747/11/8/1075) — Apiaceae-Proxy: Blüte vernalisations-, nicht photoperiodengesteuert (Begründung day_neutral)
+10. [ScienceDirect — Base and upper temperature thresholds for GDD (FAO56rev review)](https://www.sciencedirect.com/science/article/pii/S037837742500469X) — Möhren-Tbase 4–6 °C als Apiaceae-Familien-Proxy für base_temp
+11. [FAO — Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Pastinake „sensitive" (geschätzt); Möhre ECe 1.0 dS/m, Slope 14 %
+12. [USDA-ARS Shannon & Grieve — Tolerance of vegetable crops to salinity](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1567.pdf) — Apiaceae durchgängig salzempfindlich
+13. [ScienceDirect Topics — Light Compensation](https://www.sciencedirect.com/topics/engineering/light-compensation) — LCP krautiger C3-Pflanzen 8–12 (Einzelblatt) bis 30–70 (Gesamtpflanze) µmol/m²/s
+14. [PSU Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) — Mikronährstoff-Richtbereiche Mn/Zn/Cu/Mo
+15. [Koppert — Entonem (Steinernema feltiae)](https://www.koppert.com/entonem/) — Ausbringrate 250.000–500.000/m², Bodenfeuchte/Temperatur
+16. [Warwick (Acta Hortic.) — Steinernema feltiae als Mittel gegen Psila rosae](https://www.actahort.org/books/1393/1393_15.htm) — Nematode gegen Möhrenfliege-Larven
+17. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Freilassungsraten
+18. [Sound Horticulture — Aphid Tech Sheet](https://soundhorticulture.com/pages/aphids) — Aphidius/Aphidoletes Ausbringraten und Etablierung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

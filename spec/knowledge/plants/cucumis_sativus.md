@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, NCSU Extension, Haifa Group, Cornell University, Gardenia.net, Plantura, fryd.app, Epic Gardening, Gardener's Path, Old Farmer's Almanac, MasterClass
+> **Quellen:** ASPCA, NCSU Extension, Haifa Group, Cornell University, Gardenia.net, Plantura, fryd.app, Epic Gardening, Gardener's Path, Old Farmer's Almanac, MasterClass, Oregon State Croptime, FAO, PMC/PLOS (peer-reviewed), UF/IFAS
 
 ---
 
@@ -21,6 +21,13 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral (fakultativ; die meisten modernen Sorten sind tagneutral; einige Landsorten kurztagsempfindlich) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Rubisco/RuBP-Carboxylierung, klassischer Calvin-Zyklus; PEPC nur als Nebenweg in Frucht-/Leitgewebe) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 10 (Wuchs-/Phaenologie-Basis; CROPTIME-Modell der Oregon State University nutzt 50 degF = 10 degC als untere Schwelle, obere Schwelle 32 degC) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false (einjaehrig, keine Ruhephase) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tagneutral, Bluehinduktion ueber Entwicklungsreife/Waermesumme, kein Kaeltebedarf) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (critical day length, h) | day_neutral (keine kritische Tageslaenge; Bluete entwicklungsgesteuert. Hinweis: Langtag beguenstigt bei manchen Sorten maennliche Blueten, loest aber keine Bluehinduktion aus) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b; 11a; 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart, stirbt bei Temperaturen unter 5 degC ab. Extrem kaelteempfindlich -- bereits Temperaturen unter 10 degC verursachen Wachstumsstopp und Kaelteschaeden (Blattverfaerbung, reduzierte Fruchtqualitaet). In Mitteleuropa Freiland-Kultur nur Mai--September. | `species.hardiness_detail` |
@@ -100,6 +107,24 @@ Hinweis: Gewaechshaus-Gurken (Schlangengurken) werden an Schnur/Draht gezogen un
 
 **Hinweis:** Gurken sind waermeliebende Starkzehrer mit hohem Wasserbedarf. Im Gewaechshaus werden Salatgurken (parthenokarpe Sorten -- keine Bestaeubung noetig, kernlos) an Schnueren gezogen. Freiland-Einlegegurken am Boden oder an niedrigem Gitter. Mindestens 6 Stunden direkte Sonne. Hohe Luftfeuchtigkeit foerdert Wachstum, aber auch Mehltau-Risiko.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 7.5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 8.3 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (benoetigt 6--8 h direkte Sonne fuer guten Fruchtansatz; vertraegt etwas Halbschatten, fruchtet dort aber deutlich schwaecher) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30--60 (flachwurzelnd; FAO: 30 cm Anfangsphase, 60 cm ab Vollentwicklung) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (gilt als staunaesseempfindlich; Hypoxie reduziert rasch Photosynthese/Wachstum, nur einzelne Genotypen bilden Adventivwurzeln) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 2.5 (Substrat-ECe im Saettigungsextrakt, NICHT Giesswasser-EC; Maas-Hoffman a) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 13 (Ertragsminderung je dS/m oberhalb der Schwelle; Maas-Hoffman b) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0--6.8 | `species.soil_ph_preference` |
+
+Hinweis (Lichtkompensationspunkt): Die belegten LCP-Werte (~7.5 umol bei 10 degC, ~8.3 umol bei 13 degC) stammen aus Messungen bei kuehlen Temperaturen; bei waermeren Wuchstemperaturen liegt der Kompensationspunkt typischerweise hoeher. Der CO2-Saettigungspunkt (deutlich oberhalb, ~1500--1600 umol mol-1 CO2) ist KEIN Lichtkompensationspunkt und gehoert nicht in dieses Feld. Boden-pH-Vorzug 6.0--6.8 ist mit den Angaben in 1.6 (Erdkultur) und 2.3 (Erdkultur 6.0--6.8) konsistent; fuer Hydro-/Substratkultur gilt weiterhin der niedrigere Bereich 5.5--6.0 aus 2.3.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -130,6 +155,12 @@ Hinweis: Gurken wachsen extrem schnell -- von Aussaat bis Ernte vergehen nur 50-
 | Luftfeuchtigkeit Tag (%) | 80--90 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 85--95 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt oberhalb des Zielkorridors; feuchteliebende Keimphase, niedrige Schwelle) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high (duenne Blaetter, hohe Transpiration; reagiert empfindlich auf atmosphaerische Trockenheit) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -146,6 +177,12 @@ Hinweis: Gurken wachsen extrem schnell -- von Aussaat bis Ernte vergehen nur 50-
 | Luftfeuchtigkeit Tag (%) | 65--80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 70--85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (Oberkante Zielkorridor + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -162,6 +199,12 @@ Hinweis: Gurken wachsen extrem schnell -- von Aussaat bis Ernte vergehen nur 50-
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Oberkante Zielkorridor + ca. 0.4 kPa; ab ~2.0 kPa stomataerer Kollaps/Transpirationsdrosselung) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (hoher Wasserbedarf!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -180,6 +223,12 @@ Hinweis: Gurken brauchen VIEL Wasser -- die Frucht besteht zu 95% aus Wasser. Wa
 | Luftfeuchtigkeit Tag (%) | 60--75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (Oberkante Zielkorridor + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--1000 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 300--600 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -198,6 +247,12 @@ Hinweis: Parthenokarpe Sorten (Gewaechshaus-Schlangengurken) benoetigen keine Be
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 (Oberkante Zielkorridor + ca. 0.4 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 25--30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (offenes Tageslicht/Vollsonne ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 600--800 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (bei Hitze 2x taeglich!) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 500--1500 (Fruchtentwicklung = enormer Wasserbedarf) | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -206,13 +261,16 @@ Hinweis: REGELMAESSIG ERNTEN! Alle 1--2 Tage kontrollieren. Ueberreife Gurken (g
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 5.5--6.5 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.6--1.0 | 5.5--6.0 | 80 | 30 | 25 | 2 |
-| Vegetativ | 3-1-2 | 1.5--2.0 | 5.5--6.0 | 150 | 50 | 40 | 3 |
-| Bluete | 2-2-3 | 1.7--2.2 | 5.5--6.0 | 180 | 60 | 45 | 3 |
-| Ernte | 1-2-3 | 1.7--2.5 | 5.5--6.0 | 200 | 60 | 45 | 3 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 5.5--6.5 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.6--1.0 | 5.5--6.0 | 80 | 30 | 25 | 2 | 0.2--0.5 | 0.04--0.1 | 0.01--0.05 | 0.01--0.05 |
+| Vegetativ | 3-1-2 | 1.5--2.0 | 5.5--6.0 | 150 | 50 | 40 | 3 | 0.2--0.5 | 0.04--0.1 | 0.01--0.05 | 0.01--0.05 |
+| Bluete | 2-2-3 | 1.7--2.2 | 5.5--6.0 | 180 | 60 | 45 | 3 | 0.2--0.5 | 0.04--0.1 | 0.01--0.05 | 0.01--0.05 |
+| Ernte | 1-2-3 | 1.7--2.5 | 5.5--6.0 | 200 | 60 | 45 | 3 | 0.2--0.5 | 0.04--0.1 | 0.01--0.05 | 0.01--0.05 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mikronaehrstoffe Mn/Zn/Cu/Mo aus Standard-Naehrloesungs-Rezepturen fuer Gewaechshausgurke ergaenzt (konstante Mikronaehrstoff-Basis ueber alle aktiven Phasen; in der Keimung ohne Naehrloesung). Werte als Spanne aus zwei unabhaengigen Rezepturen: Mn 0.2--0.5, Zn 0.04--0.1, Cu 0.01--0.05, Mo 0.006--0.05 ppm. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweis: Gurken sind Starkzehrer mit extrem hohem Kalium- und Calcium-Bedarf. Kaliummangel zeigt sich als Blattrandnekrose und missgeformte, birnenfoermige Fruechte. Calciummangel verursacht Bluetenendstueckfaeule (weniger haeufig als bei Tomate/Paprika). pH-Bereich 5.5--6.0 fuer Hydrokultur, 6.0--6.8 fuer Erdkultur.
 
@@ -472,3 +530,18 @@ Chinese Slangen,Cucumis sativus,,,long_season;heirloom,65,,open_pollinated
 8. MasterClass -- Cucumber Companion Planting Guide: https://www.masterclass.com/articles/cucumber-companion-planting-guide
 9. Old Farmer's Almanac -- Cucumbers: https://www.almanac.com/plant/cucumbers
 10. GrowDirector -- Hydro Cucumbers Guide: https://growdirector.com/how-to-grow-hydro-cucumbers-case-based-guide-2024/
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. Oregon State University -- Croptime: Scheduling Vegetables with Degree-Day Models (Gurken-Basistemperatur 50 degF/10 degC): https://smallfarms.oregonstate.edu/smallfarms/croptime-scheduling-vegetables-degree-day-models
+12. Pest Prophet -- Cucumber Growing Degree Day Model (untere Schwelle 50 degF, obere 90 degF): https://blog.pestprophet.com/how-to-use-the-cucumber-growing-degree-day-model/
+13. PMC -- The complex character of photosynthesis in cucumber fruit (C3-Pfad, Rubisco/RuBP): https://pmc.ncbi.nlm.nih.gov/articles/PMC5441898/
+14. PLOS ONE -- Suitable illumination intensity is essential for preserving the quality of cucumber seedlings during storage (Lichtkompensationspunkt ~7.5--8.3 umol/m2/s): https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0247882
+15. FAO -- Cucumber water use / effektive Wurzeltiefe 30--60 cm (via ScienceDirect WUE-Studie, FAO 1998 zitiert): https://www.sciencedirect.com/science/article/pii/S0378377413001467
+16. Almomany et al. 2023, cropj.com -- Cucumber and salinity (Maas-Hoffman: ECe-Schwelle 2.5 dS/m, Slope 13 %, moderately sensitive): https://www.cropj.com/almomany-17-7-2023-581-590.pdf
+17. FAO -- Annex 1: Crop salt tolerance data (Salztoleranz-Tabellen): https://www.fao.org/4/y4263e/y4263e0e.htm
+18. PMC -- Long-Term Waterlogging / Hypoxia Stress Tolerance in Cucumber (staunaesseempfindlich): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7912563/
+19. PMC -- Genetic and Transcriptomic Analysis of Photoperiod-Regulated Flowering in Cucumber / Tagneutralitaet (CsFT): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8304308/
+20. Bayer Vegetables -- Understanding Micronutrients and Greenhouse Vegetables (Mn/Zn/Cu/Mo-Richtwerte Naehrloesung): https://www.vegetables.bayer.com/ca/en-ca/resources/growing-tips/cultivation-insights/understanding-micronutrients-and-greenhouse-vegetables.html
+21. UF/IFAS HS787/CV265 -- Fertilizer Management for Greenhouse Vegetables (Mikronaehrstoff-Rezeptur): https://ask.ifas.ufl.edu/publication/CV265
+22. MDPI Horticulturae 8(2):147 -- Regulating VPD and Soil Moisture Improves Tomato and Cucumber Growth (VPD-Management, hohe VPD ab ~2.0 kPa kritisch): https://www.mdpi.com/2311-7524/8/2/147
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

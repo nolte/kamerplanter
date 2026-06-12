@@ -21,6 +21,10 @@
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 10 | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Frostfrei halten; keine Temperaturen unter 8°C | `species.hardiness_detail` |
@@ -28,6 +32,13 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Lebensdauer (Jahre, perennial) | 10+ (mehrjährig, bei guter Pflege sehr langlebig) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (ausgeprägte Winterruhe, auch im Zimmer) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization) | false (subtropisch-sukkulent, kein Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +93,25 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Durchlässiges Kakteensubstrat oder 60% Zimmerpflanzenerde + 40% Perlite; sehr gute Drainage zwingend | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | — <!-- DATEN FEHLEN: kein quantifizierter Maas-Hoffman-Wert in Literatur belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | — <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–6.5 | `species.soil_ph_preference` |
+
+> Hinweis: Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt bei dieser schattenverträglichen CAM-Pflanze niedrig (~10–25 µmol/m²/s). Die für gutes Wachstum nötigen PPFD-Sättigungswerte liegen deutlich höher (siehe §2.2, 150–350 µmol/m²/s) und gehören NICHT in das Kompensationspunkt-Feld. Direkte Mittagssonne führt zu Blattverbrennungen (keine Vollsonnentoleranz). Die Salztoleranz wird qualitativ als empfindlich eingestuft (sukkulenter Schwachzehrer; Salzanreicherung im Substrat verursacht Blattbräunung), eine quantitative ECe-Schwelle (bezogen auf Substrat-ECe, nicht Gießwasser-EC) ist in der Literatur nicht belegt.
+
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -109,6 +139,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -125,6 +161,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40–60 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -141,6 +183,12 @@
 | Luftfeuchtigkeit Tag (%) | 40–55 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 40–55 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.9–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–26 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -157,18 +205,24 @@
 | Luftfeuchtigkeit Tag (%) | 30–50 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 30–50 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 1.0–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 21–35 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Etablierung | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 60 | 30 | — | 1 |
-| Vegetativ | 2:1:2 | 0.6–1.0 | 6.0–6.5 | 80 | 40 | — | 2 |
-| Blüte | 1:2:2 | 0.6–0.8 | 6.0–6.5 | 80 | 40 | — | 1 |
-| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Etablierung | 1:1:1 | 0.4–0.6 | 6.0–6.5 | 60 | 30 | — | 1 | —<!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- DATEN FEHLEN: keine Ceropegia-spezifischen Mikronährstoffwerte belegt --> | — | — | —<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Vegetativ | 2:1:2 | 0.6–1.0 | 6.0–6.5 | 80 | 40 | — | 2 | —<!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- DATEN FEHLEN --> | — | — | —<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Blüte | 1:2:2 | 0.6–0.8 | 6.0–6.5 | 80 | 40 | — | 1 | —<!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- DATEN FEHLEN --> | — | — | —<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Winterruhe | 0:0:0 | 0.0 | 6.0–6.5 | — | — | — | — | — | — | — | — |
 
 ### 2.4 Phasenübergangsregeln
 
@@ -353,6 +407,15 @@ scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_hab
 Ceropegia woodii,Leuchterblume;String of Hearts;Rosary Vine,Apocynaceae,Ceropegia,perennial,day_neutral,vine,tuberous,10a;10b;11a;11b;12a;12b,0.0,Südafrika,yes,2,10,10,90,—,yes,limited,false,false
 ```
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Ergänzende Species-Felder (Erweiterung 2026-06):**
+
+```csv
+scientific_name,photosynthesis_type,base_temp,typical_lifespan_years,dormancy_required,vernalization_required,critical_day_length_hours,shade_tolerance,effective_root_depth_cm,waterlogging_tolerance,salt_tolerance_class,soil_ph_preference,light_compensation_point_ppfd_min,light_compensation_point_ppfd_max
+Ceropegia woodii,cam,10,10,true,false,—,partial_shade,15-30,sensitive,sensitive,6.0-6.5,10,25
+```
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
 
 ```csv
@@ -370,3 +433,14 @@ Silver Glory,Ceropegia woodii,—,—,silver_leaf;compact,—,—,open_pollinate
 3. [PlantFrand – Ceropegia woodii](https://www.plantfrand.com/pflanzen/apocynaceae/ceropegia-woodii/) — Botanik, Pflege
 4. [Die Grüne Welt – Leuchterblume](https://www.diegruenewelt.de/pflanze/leuchterblume-ceropegia-woodii.html) — Steckbrief
 5. [Pflanzenfreunde – Ceropegia](https://www.pflanzenfreunde.com/lexika/sukkulenten/ceropegia.htm) — Kulturtipps
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Wikipedia – Crassulacean acid metabolism (CAM)](https://en.wikipedia.org/wiki/Crassulacean_acid_metabolism) — Beleg CAM-Photosynthese für Ceropegia (Subfamilie Asclepiadoideae), peer-reviewed Zitate (Nelson; Bender)
+7. [University of Wisconsin–Madison Extension – String of Hearts, Ceropegia woodii](https://hort.extension.wisc.edu/articles/string-of-hearts-ceropegia-woodii/) — University Extension: Winterruhe ("winter rest period"), Mindesttemperatur >60°F (~16°C), Lichtbedarf
+8. [Plantiary – Ceropegia woodii Care Guide](https://plantiary.com/plant/ceropegia-woodii_974.html) — Boden-pH 6.0–7.0 (slightly acidic to neutral), Substrat
+9. [Cafe Planta – Understanding the Root System of String of Hearts](https://cafeplanta.com/a/blog/understanding-the-root-system-of-string-of-hearts-a-comprehensive-guide) — Wurzelsystem flach/sukkulent, Knollen oberflächennah, Wurzeltiefe ~6–12 inch
+10. [Greg.app – Ultimate Guide to Ceropegia Roots](https://greg.app/ceropegia-roots/) — flaches Wurzelsystem (6–12 inch), aerische Knollen oberflächennah
+11. [Greenhouse Management – Superior succulents](https://www.greenhousemag.com/article/superior-succulents/) — Sukkulenten-Temperaturoptimum (ADT 18–24°C), CAM-Bezug
+12. [Biology Insights – What Temperature Should Succulents Be Kept At?](https://biologyinsights.com/what-temperature-should-succulents-be-kept-at/) — Wachstumsstillstand/Kälte-Dormanz nicht-harter Sukkulenten unter 10°C (GDD-Basis)
+13. [Planet Desert – String of Hearts Care Guide](https://planetdesert.com/blogs/news/string-of-hearts-plant-care-growing-guide-types-ceropegia-woodii) — helles indirektes Licht, keine direkte Sonne, Schattenverträglichkeit
+14. [Healthy Houseplants – String of Hearts Plant Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/string-of-hearts-plant-care-guide/) — Salz-/Überdüngungsempfindlichkeit (Blattbräunung), Schwachzehrer, pH
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

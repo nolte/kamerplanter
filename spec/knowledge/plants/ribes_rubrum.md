@@ -20,7 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–7b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Sehr winterhart bis -30°C; in Norddeutschland absolut zuverlässig; spät blühend → wenig Spätfrostgefahr | `species.hardiness_detail` |
@@ -28,6 +28,18 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 5 | `species.base_temp` |
+| Lebensdauer (Jahre) | 15–20 (produktiv 10–15 Jahre, Sträucher werden Jahrzehnte alt) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich (chilling) | true (Endodormanz-Bruch durch Kältereiz, ~800–1500 Chill Hours bei 0–7 °C; streng genommen Chilling, nicht Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Mindest-Chilling (Tage) | 35–60 (≈ 800–1500 Chill Hours) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | 16 (Kurztag-Induktion von Wachstumsstopp und Blüteninitiation im Herbst; Gattung Ribes) | `lifecycle_configs.critical_day_length_hours` |
+| Befruchter erforderlich (requires pollinator) | false (selbstfruchtbar/self-fertile; Insektenbestäubung [Bienen, Hummeln] steigert nur Ertrag und Fruchtgröße) | `species.requires_pollinator` |
+| Kreuzbefruchtungsgruppe (pollinator group) | — (selbstfruchtbar; keine pomologische Befruchtergruppe) | `species.pollinator_group` |
+| Empfohlene Befruchter-Sorten | — (nicht erforderlich; Fremdbefruchtung durch andere Sorte steigert Ertrag, ist aber nicht nötig) | `species.compatible_pollinators` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -82,6 +94,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Humusreiche, mäßig feuchte Gartenerde; pH 5,5–6,5; sandiger Lehm | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> (kein art-spezifischer Messwert in seriösen Quellen gefunden) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (verträgt Halbschatten, sogar Nordlage; volle Sonne möglich, Fruchtansatz dann besser) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 20–40 (flach, fibröses Wurzelsystem in den oberen 20–40 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | moderate (verträgt feuchte Böden, Staunässe führt jedoch zu Wurzelfäule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive (Ribes generell salzempfindlich) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> (keine Maas-Hoffman-Daten für Ribes; Klasse sensitive entspricht ECe < 2 dS/m) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–6.8 (slightly acidic; Optimum ≈ 6.5) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,19 +138,29 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt für stomatären Kollaps; deutlich oberhalb des Zielkorridors, ≈ oberer Zielwert + 0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühl-temperate C3-Art; optimaler Wuchsbereich 15–24 °C, Hitzestress > 25 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland/offenes Tageslicht, R:FR ≈ 1.1–1.2; im Halbschatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 2000–4000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
-| Austrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Blüte | 1:2:1 | 1.0–1.4 | 6.0–6.5 | 100 | 40 | — | 2 |
-| Fruchtentwicklung | 1:2:3 | 1.2–1.8 | 6.0–6.5 | 120 | 50 | — | 2 |
-| Reife | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 30 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Austrieb | 2:1:1 | 0.8–1.2 | 6.0–6.5 | 100 | 40 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Blüte | 1:2:1 | 1.0–1.4 | 6.0–6.5 | 100 | 40 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Fruchtentwicklung | 1:2:3 | 1.2–1.8 | 6.0–6.5 | 120 | 50 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Reife | 0:1:2 | 0.8–1.2 | 6.0–6.5 | 80 | 30 | — | 1 | 0.5 | 0.05 | 0.02 | 0.01 |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Mikronährstoffe (Mn/Zn/Cu/Mo):** Werte entsprechen der etablierten Standard-Nährlösungsversorgung (Hoagland-Solution: Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm). Art-spezifische Sufficiency-Bereiche für *Ribes rubrum* sind in seriösen Quellen nicht publiziert; KA-Felder `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -216,6 +254,16 @@ Zwei Düngungen im Frühjahr: Ende Februar (Startdüngung) und Ende April (Fruch
 | Neemöl | biological | Azadirachtin | 0,5% Lösung bei Blattläusen | 3 | Blattläuse |
 | Befallene Äste entfernen | cultural | — | Glasflügler: befallene Äste sofort raus | 0 | Glasflügler |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Blattlaus-Schlupfwespe | Aphidius colemani | Johannisbeer-Blattlaus (Cryptomyzus ribis) | 1–2 Tiere/m² (3 Freilassungen im Wochenabstand) | 2–3 Wochen (Mumienbildung) |
+| Gallmücke (Räuber) | Aphidoletes aphidimyza | Johannisbeer-Blattlaus (Cryptomyzus ribis) | ≈ 1 Tier/m² | 2–3 Wochen |
+| Florfliege (Larven) | Chrysoperla carnea | Johannisbeer-Blattlaus (Cryptomyzus ribis) | 10–20 Larven/m² (bei Befall) | 1–2 Wochen |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -265,7 +313,7 @@ Zwei Düngungen im Frühjahr: Ende Februar (Startdüngung) und Ende April (Fruch
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months,pruning_type
-Ribes rubrum,"Rote Johannisbeere;Ahlbeere;Red Currant;Ribes",Grossulariaceae,Ribes,perennial,long_day,shrub,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b",0.0,"Europa",limited,50,40,180,150,135,no,limited,false,false,medium_feeder,hardy,"6;7","4;5",after_harvest
+Ribes rubrum,"Rote Johannisbeere;Ahlbeere;Red Currant;Ribes",Grossulariaceae,Ribes,perennial,short_day,shrub,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b",0.0,"Europa",limited,50,40,180,150,135,no,limited,false,false,medium_feeder,hardy,"6;7","4;5",after_harvest
 ```
 
 ### 8.2 Cultivar CSV-Zeilen
@@ -285,3 +333,23 @@ Rovada,Ribes rubrum,late;very_long_clusters;mildew_tolerant,80,open_pollinated
 2. [Pflanzen-Kölle Johannisbeere](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meine-johannisbeeren-richtig/) — Pflege, Düngung
 3. [Lubera Johannisbeeren](https://www.lubera.com/de/gartenbuch/johannisbeeren-pflanzen-p1304) — Anbauanleitung, Sorten
 4. [IVA Johannisbeere](https://www.iva.de/iva-magazin/umwelt-verbraucher/johannisbeeren-im-garten) — Praxistipps
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [PFAF — Ribes rubrum](https://pfaf.org/user/Plant.aspx?LatinName=Ribes+rubrum) — Selbstfruchtbarkeit, Bestäubung durch Bienen, Schattentoleranz (Nordlage)
+6. [Redcurrant — Wikipedia](https://en.wikipedia.org/wiki/Redcurrant) — Selbstfruchtbarkeit, Cross-Pollination-Ertragsvorteil
+7. [Deep Green Permaculture — Chill Hours for Currants and Gooseberries](https://deepgreenpermaculture.com/2024/10/05/the-essential-guide-to-chill-hours-for-growing-currants-and-gooseberries/) — Chilling-Bedarf (800–1500 Chill Hours), Dormanzbruch
+8. [Chilling requirement of Ribes cultivars — PMC/NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC4285813/) — Kältebedarf Ribes, Dormanz
+9. [Critical photoperiod for short-day induction of flowering in black currant (Ribes nigrum) — J. Hort. Sci. Biotech.](https://www.tandfonline.com/doi/abs/10.1080/14620316.2011.11512737) — Kurztag-Induktion, kritische Photoperiode 16 h
+10. [Effects of temperature and photoperiod on growth and flowering in red currant cultivars (Ribes sativum)](https://www.researchgate.net/publication/378990085) — Kurztag-Response red currant, Wachstumsstopp + Blüteninitiation
+11. [Ribes Bloom Phenology (USDA ARS, Corvallis) — ResearchGate](https://www.researchgate.net/publication/298852902_Ribes_Bloom_Phenology_Sections_Botrycarpum_and_Ribes) — GDD-Basistemperatur 5 °C, Erstblüte ≈ 247 GDD
+12. [Biology Insights — Where Do Red Currants Grow](https://biologyinsights.com/where-do-red-currants-grow-climate-conditions/) — pH-Vorzug, Optimum-Temperatur 15–24 °C, Schattentoleranz
+13. [USU Extension — Red Currants in the Garden](https://extension.usu.edu/yardandgarden/research/red-currants-in-the-garden) — pH, Schattentoleranz, flaches Wurzelsystem
+14. [Greg.app — Redcurrant Roots](https://greg.app/redcurrant-roots/) — flaches fibröses Wurzelsystem 20–40 cm, Staunässe-Empfindlichkeit
+15. [FAO — Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Salztoleranz-Klassifikation (sensitive ECe < 2 dS/m)
+16. [Wyoming Extension B-988R — Salt Tolerance of Landscape Plants](https://wyoextension.org/publications/html/B988R/) — Ribes salzempfindlich
+17. [Zhen & Bugbee 2022, New Phytologist — Far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Fraction Vollsonne ≈ 0.46–0.5
+18. [Hoagland solution — Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen (Mn/Zn/Cu/Mo)
+19. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/wp-content/uploads/sites/3216/2022/12/2019Biologicalcontrolofaphidsfinal3.pdf) — Aphidius, Aphidoletes, Florfliege Ausbringraten/Etablierung
+20. [Cornell Biocontrol — Aphidoletes aphidimyza](https://biocontrol.entomology.cornell.edu/predators/Aphidoletes.php) — Ausbringrate Gallmücke gegen Blattläuse
+21. [Koppert — Aphipar (Aphidius colemani)](https://www.koppert.com/aphipar/) — Aphidius-Ausbringrate 1–2/m², Mumienbildung 2–3 Wochen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

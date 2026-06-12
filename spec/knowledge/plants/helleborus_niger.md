@@ -20,9 +20,20 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (krautige Ranunculaceae-Schattenstaude; kein CAM/C4-Mechanismus belegt) | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (critical day length, h) | — (tagneutral nach Vernalisation; keine kritische Tageslänge — Blühinduktion kältegesteuert, nicht photoperiodisch) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | true (Kälteperiode für Blüteninduktion zwingend) | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindest-Tage (min vernalization days) | ~42 (6 Wochen; Kältereiz von 2–6 Wochen bei 2–7 °C; 6 Wochen für zuverlässige Blühinduktion) | `lifecycle_configs.vernalization_min_days` |
+| Lebensdauer (typical lifespan, Jahre) | 20–30 (sehr langlebig; bei gutem Standort Jahrzehnte) | `lifecycle_configs.typical_lifespan_years` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter Wuchs-/Phänologie-Basiswert für Helleborus niger auffindbar | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C; Blüten vertragen leichten Frost bis -5°C; bei strengem Frost hängen Blüten herunter, erholen sich aber | `species.hardiness_detail` |
@@ -94,6 +105,22 @@
 
 **Standort:** Halbschatten bis Schatten; ideal unter Laubbäumen (Sonnenschutz im Sommer durch Laub; Licht im Winter/Frühjahr). Kalkhaltige Böden bevorzugt.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (light compensation point, PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade (Waldrand-/Unterholzstaude; verträgt auch volle Sonne bei feuchtem Boden) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 30–50 (tiefwurzelnd; Rhizomwurzeln bis ~60 cm) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (verträgt keine nassen/staunassen Böden; Drainage zwingend) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant (auf mehreren Listen salztoleranter Schattenstauden geführt) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Schwellenwert (a) für Helleborus belegt | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> kein Maas-Hoffman-Slope (b) für Helleborus belegt | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 6.5–7.5 (neutral bis leicht alkalisch; kalkhaltige Böden bevorzugt) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -115,12 +142,18 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 50–200 (Halbschatten; Winterlicht) | `requirement_profiles.light_ppfd_target` |
 | DLI (mol/m²/Tag) | 3–12 | `requirement_profiles.dli_target_mol` |
-| Photoperiode (Stunden) | 8–10 (Kurztagspflanze) | `requirement_profiles.photoperiod_hours` |
+| Photoperiode (Stunden) | 8–10 (natürliche Winter-Tageslänge; tagneutral — Blühinduktion kältegesteuert, keine Kurztag-Anforderung) | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 2–10 (Winterblüher; verträgt kurze Minusgrade) | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | -5–5 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.2–0.6 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.0 (kritischer Punkt stomatären Kollaps; deutlich oberhalb Ziel-Oberkante) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 10–15 (kühlliebend; Winterblattphase) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.55 (unter laublosem Winter-/Vorfrühlingsbaumdach nahe offenem Tageslicht ≈ 0.5; kahle Äste heben FR minimal) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 300–800 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -137,18 +170,28 @@
 | Luftfeuchtigkeit Tag (%) | 60–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3–0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (kritischer Punkt stomatären Kollaps; deutlich oberhalb Ziel-Oberkante) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–20 (kühl-temperierte C3-Schattenstaude; Wuchsmaximum bei kühlen Tagestemperaturen ~14 °C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.55–0.65 (zunehmend beschattet bei einsetzendem Laubaustrieb des Baumdaches; Unterwuchs unter Laub höher als offenes Tageslicht ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 400–1000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Blüte (Winter) | 0:0:0 (keine Düngung) | 0.0 | 6.5–7.5 | — | — | — | — |
-| Vegetativ Frühjahr | 1:1:1 | 0.6–1.0 | 6.5–7.5 | 100 | 40 | — | 2 |
-| Vegetativ Sommer | 1:1:1 | 0.4–0.8 | 6.5–7.5 | 80 | 40 | — | 1 |
-| Blütenanlagenphase | 0:1:1 | 0.4–0.8 | 6.5–7.5 | 80 | 30 | — | 1 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Blüte (Winter) | 0:0:0 (keine Düngung) | 0.0 | 6.5–7.5 | — | — | — | — | — | — | — | — |
+| Vegetativ Frühjahr | 1:1:1 | 0.6–1.0 | 6.5–7.5 | 100 | 40 | — | 2 | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN |
+| Vegetativ Sommer | 1:1:1 | 0.4–0.8 | 6.5–7.5 | 80 | 40 | — | 1 | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN |
+| Blütenanlagenphase | 0:1:1 | 0.4–0.8 | 6.5–7.5 | 80 | 30 | — | 1 | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN | DATEN FEHLEN |
+
+<!-- DATEN FEHLEN --> Keine Helleborus-niger-spezifischen Mikronährstoff-Lösungswerte (Mn/Zn/Cu/Mo, `nutrient_profiles.manganese/zinc/copper/molybdenum_ppm`) aus seriösen Quellen belegt; Spalten als Platzhalter angelegt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -313,3 +356,16 @@ Helleborus niger,"Christrose;Weihnachtsrose;Christmas Rose",Ranunculaceae,Helleb
 3. [Pflanzen-Kölle — Christrose Pflegeratgeber](https://www.pflanzen-koelle.de/ratgeber/pflanzen-a-z/wie-pflege-ich-meine-christrose-richtig/) — IPM, Düngung
 4. [Gartenratgeber.net — Christrosen](https://www.gartenratgeber.net/pflanzen/christrosen-schneerosen-lenzrosen.html) — Kulturdaten
 5. [Zulauf Gartencenter — Christrose](https://www.zulauf.ch/de/ratgeber/news/christrosen-helleborus) — Boden, Pflege
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Helleborus niger (Christmas rose)](https://www.rhs.org.uk/plants/8575/helleborus-niger/details) — Boden-pH (alkaline/neutral), Halbschatten, Wuchshöhe/-breite, "moist but well-drained"
+7. [MSU Floriculture — Vernalization (parts 3 & 4)](https://www.canr.msu.edu/resources/vernalization-part-4) — Vernalisationsbedarf, day-neutral nach Kälte bei Stauden
+8. [ScienceDirect — Flower development and effects of cold treatment on flowering of Helleborus niger](https://www.sciencedirect.com/science/article/pii/S030442381200026X) — Kälteperiode 2–6 Wochen bei 2–7 °C zur Blühinduktion
+9. [Journal of Environmental Horticulture — Day/Night Temperatures Influence Growth and Photosynthesis of Helleborus](https://jeh.kglmeridian.com/view/journals/jenh/28/3/article-p179.xml) — Wuchs-/Photosynthese-Optimum bei kühlen Temperaturen (~14/10 °C)
+10. [ScienceDirect Topics — Compensation Point](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — Lichtkompensationspunkt Schattenpflanzen (Spanne)
+11. [Gardener's Path — Salt-Tolerant Shade Perennials](https://gardenerspath.com/how-to/shade/7-outstanding-salt-tolerant-shade-perennials/) — Helleborus als salztolerante Schattenstaude
+12. [White Flower Farm — Salt Tolerant Plants](https://www.whiteflowerfarm.com/salt-tolerant) — Helleborus auf Salztoleranz-Liste
+13. [BBC Gardeners' World — How to grow hellebores](https://www.gardenersworld.com/how-to/grow-plants/how-to-grow-hellebores/) — staunässeempfindlich; tiefwurzelnd
+14. [Gardener's Path — Divide and Transplant Hellebores](https://gardenerspath.com/how-to/propagation/divide-transplant-hellebores/) — Wurzeltiefe 30–45 cm, bis ~60 cm
+15. [Plant Delights — Hellebores Beginner's Guide](https://www.plantdelights.com/blogs/marketing/hellebores-a-beginners-guide-to-growing-lenten-roses) — sehr langlebig (20+ Jahre), tiefwurzelnd
+16. [Zhen & Bugbee 2022, New Phytologist — Photosynthesis in sun and shade: importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Fraction Anker offenes/beschattetes Lichtmilieu
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

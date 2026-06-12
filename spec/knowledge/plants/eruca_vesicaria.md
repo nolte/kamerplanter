@@ -21,6 +21,14 @@
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual (in milden Wintern auch biennial moeglich) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day (Schoessung durch lange Tage ausgeloest; schnell bolting in Sommerhitze) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 (Brassicaceae-Blattgemuese; keine CAM-/C4-Merkmale) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, degC) | 4 (Wuchs-GDD-Basis kuehler Brassicaceae/Blattsalate; NICHT die Keim-Basis) | `species.base_temp` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (einjaehrig; Schossung photoperioden-/hitzegetrieben, nicht kaeltegetrieben) | `lifecycle_configs.vernalization_required` |
+| Kritische Tageslaenge (critical day length, h) | -- (Schossungstrigger ~12--13 h; siehe Freitext; kein klassischer Kurztag-Bluehmechanismus) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy (vertraegt leichte Froeste bis -5 degC; Herbst-/Winteranbau moeglich) | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Uebersteht leichte Froeste (bis -5 degC). Winteranbau im Kalthaus oder unter Vlies moeglich. Im milden Winter ueberwintert Rucola im Freien in Zone 7+. | `species.hardiness_detail` |
@@ -99,6 +107,26 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 | Rankhilfe/Stuetze noetig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte bis mittelschwere, gut drainierte Kraeutererde. pH 5.5--7.0. Moderate Naehrstoffversorgung -- Ueberduentung foerdert milden Geschmack statt Aromatik! | -- |
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD umol/m2/s) | 15 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD umol/m2/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 15--30 (Hauptwurzelmasse in obersten ~15 cm; Pfahlwurzel in lockerem Boden tiefer) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz (waterlogging tolerance) | sensitive (Staunaesse foerdert Umfallkrankheit/Wurzelfaeule) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | -- <!-- DATEN FEHLEN: kein eindeutiger Maas-Hoffman-Threshold (a) fuer kultivierte Rucola belegt; Ashraf & Sarwar 2002 nennen ~11 dS/m als 50%-Ertragsschwelle, das ist nicht der Maas-Hoffman-a-Wert --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | -- <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope fuer Eruca --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0--6.8 | `species.soil_ph_preference` |
+
+**Hinweis Lichtkompensationspunkt:** Der LCP von Blattgemuese inkl. Rucola liegt bei ca. 20 umol/m2/s (ISHS-Studie). Davon zu trennen sind Saettigung/Photoinhibition: Rucola reagiert empfindlich auf Dauer-Starklicht -- 24-h-Belichtung mit ~217 umol/m2/s loeste schwere Blattchlorose aus (kein LCP-Wert!).
+
+**Hinweis Schatten/Sonne:** Rucola vertraegt volle Sonne, profitiert im Sommer aber von leichtem Schatten (Halbschatten bremst Schossen). Bezugsgroesse der Salztoleranz ist die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), nicht die Giesswasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -128,6 +156,12 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 | Luftfeuchtigkeit Tag (%) | 60--80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--85 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.3--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt oberhalb des Zielkorridors; feuchteliebende Keimphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.4--0.5 (diffuses Licht/Halbschatten in der Keimphase) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1 (feucht halten) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -144,6 +178,12 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 | Luftfeuchtigkeit Tag (%) | 55--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt oberhalb des Zielkorridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 15--18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.3--0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 15--40 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -160,6 +200,12 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 | Luftfeuchtigkeit Tag (%) | 50--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (kritischer Punkt deutlich oberhalb der Korridor-Oberkante; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet (vpd sensitivity) | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 16--18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50 (Erntephase im Freiland in direkter Sonne/offenem Tageslicht ≈ 0.5) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--4 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 50--150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -168,11 +214,14 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- |
-| Saemling | 1-0.5-1 | 0.4--0.8 | 5.5--7.0 | 40 | 20 | -- | 1 |
-| Blattentwicklung | 2-0.5-1 | 0.8--1.4 | 5.5--7.0 | 60 | 25 | 20 | 2 |
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.0--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Saemling | 1-0.5-1 | 0.4--0.8 | 5.5--7.0 | 40 | 20 | -- | 1 | 0.5 | 0.3 | 0.05 | 0.03 |
+| Blattentwicklung | 2-0.5-1 | 0.8--1.4 | 5.5--7.0 | 60 | 25 | 20 | 2 | 0.5--1.0 | 0.3--0.5 | 0.05 | 0.03--0.05 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 **Hinweis:** Rucola ist ein Schwachzehrer. Ueberduentung (insbesondere zu viel Stickstoff) macht die Blaetter zwar gross, aber geschmacklos und mild -- der typische nussig-pfeffrige Rucolafgeschmack kommt von mildem Naehrstoffstress. Organische Duengung (Kompost) genuegt fuer die meisten Standorte.
 
@@ -406,3 +455,14 @@ Eruca vesicaria,Rucola;Senfrauke;Rocket;Arugula,Brassicaceae,Eruca,annual,long_d
 5. [Mein-gartenexperte.de -- Rucola pflanzen](https://www.mein-gartenexperte.de/rucola-pflanzen) -- Standort; Pflege
 6. [Pflanzenfreunde.com -- Rucola](https://www.pflanzenfreunde.com/garten/kraeutergarten/rucola-salat-pflanze.htm) -- Kuebelanbau; Winterrucola
 7. [Mein-garten.info -- Rucola pflanzen](https://mein-garten.info/rucola-pflanzen-pflegen-und-ernten/) -- Companion Planting; Sorten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+8. [MDPI Agronomy -- Photosynthesis & Quality of Hydroponic Arugula (Eruca sativa Mill.)](https://www.mdpi.com/2073-4395/11/7/1340) -- C3-Photosynthese; Temperaturoptimum (~16.6 degC fuer Photosynthese, ~22 degC fuer Blattflaeche)
+9. [Wisconsin Horticulture (UW-Extension) -- Arugula, Eruca sativa](https://hort.extension.wisc.edu/articles/arugula/) -- Standort (volle Sonne/Halbschatten), Boden-pH, Halbschatten bremst Schossen
+10. [Johnny's Selected Seeds -- Arugula Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/greens/arugula-key-growing-information.html) -- pH 6.0--6.8, Kuehlkultur, Bolting durch Hitze/Photoperiode
+11. [Harvest to Table -- Arugula Growing Guide](https://harvesttotable.com/how-to-grow-arugula/) -- Wurzeltiefe (Hauptmasse obere ~15 cm; flach wurzelnd)
+12. [ScienceDirect -- Base/upper temperature thresholds for GDD (FAO56rev) Review](https://www.sciencedirect.com/science/article/pii/S037837742500469X) -- Wuchs-GDD-Basistemperatur kuehler Kulturen (Lettuce 3.5--4.5 degC, Brassica/Cole 3--5 degC, Spinat ~4 degC)
+13. [PeerJ -- Evaluation of salt tolerance in Eruca sativa accessions](https://peerj.com/articles/9749/) -- Salztoleranz (relativ tolerant; Sortenvariation)
+14. [ISHS Acta Horticulturae 1337_15 -- Light compensation point of indoor leafy greens](https://www.ishs.org/ishs-article/1337_15) -- Lichtkompensationspunkt Blattgemuese ~20 umol/m2/s
+15. [Penn State Extension -- Hydroponics Nutrient Solution Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) -- Mikronaehrstoff-Richtwerte Blattgemuese (Mn/Zn/Cu/Mo ppm)
+16. [West Coast Seeds -- How to Grow Arugula from Seed](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-arugula) -- Kuehlkultur 10--18 degC; Bolting-Trigger Photoperiode > 12--13 h + Bodentemperatur
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

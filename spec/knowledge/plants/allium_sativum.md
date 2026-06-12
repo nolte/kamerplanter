@@ -21,6 +21,15 @@
 | Wurzeltyp | bulbous | `species.root_type` |
 | Lebenszyklus | perennial (als Gemüse einjährig kultiviert) | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | 4.5 | `species.base_temp` |
+| Lebensdauer (Jahre, perennial) | 3–5 (vegetative Erhaltung über Brutzehen; als Kulturgemüse jährlich neu gesteckt) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true (Winterruhe der Zehe/Knolle) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (min days) | 40–60 (Kältereiz 0–10 °C; Optimum ~4–8 Wochen) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | 13–14 (Langtagblüher/-knollenbildner; Knollenbildung ab >13–14 h Tageslänge in Kombination mit Wärme) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis −20 °C im Boden; Herbstpflanzung überwintert problemlos in Norddeutschland | `species.hardiness_detail` |
@@ -82,6 +91,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, gut drainierte Erde, pH 6,0–7,0; kein Staunässe | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein art­spezifischer Messwert aus 2 unabhängigen Quellen belegt | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN --> kein art­spezifischer Messwert aus 2 unabhängigen Quellen belegt | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 45–60 (flaches, faseriges Wurzelsystem, 18–24 inch) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | 3.9 (Maas-Hoffman a; bezogen auf Sättigungsextrakt-ECe des Bodens, NICHT Gießwasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | 14.3 (Ertragsrückgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 | `species.soil_ph_preference` |
+
+> **Freitext-Hinweis Licht:** Knoblauch ist eine ausgesprochene Vollsonnenkultur (min. 6 h direkte Sonne, optimal ≥ 8 h). Ein art­spezifischer Lichtkompensationspunkt ist in der zugänglichen Literatur nicht aus zwei unabhängigen, seriösen Quellen belegt; als C3-Blattgemüse ist ein Kompensationspunkt im niedrigen zweistelligen PPFD-Bereich plausibel, wird hier aber mangels Beleg nicht eingetragen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,18 +137,27 @@
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.7 (kritischer Punkt des stomatären Kollaps, oberer Zielwert 1.3 + ~0.4) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 (kühl-temperierte Kultur; oberhalb ~25–27 °C Photosynthese-/Lagerqualitätseinbußen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.46 (offenes Tageslicht, Solar-Noon; NICHT mit R:FR ~1.2 verwechseln) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–10 (trockenverträglich) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Verwurzelung | 1:2:1 | 0.5–0.8 | 6.0–7.0 | 60 | 30 | — | 1 |
-| Dormanz | 0:0:0 | 0.0 | — | — | — | — | — |
-| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–7.0 | 80 | 40 | 20 | 2 |
-| Reife | 0:0:1 | 0.5–0.8 | 6.0–7.0 | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Verwurzelung | 1:2:1 | 0.5–0.8 | 6.0–7.0 | 60 | 30 | — | 1 | 0.3 | 0.05 | 0.02 | 0.01 |
+| Dormanz | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+| Vegetativ | 2:1:2 | 1.0–1.5 | 6.0–7.0 | 80 | 40 | 20 | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Reife | 0:0:1 | 0.5–0.8 | 6.0–7.0 | — | — | — | — | 0.3 | 0.05 | 0.02 | 0.01 |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Mikronährstoff-Hinweis (Mn/Zn/Cu/Mo):** Die ppm-Werte folgen der etablierten Vollnährlösung nach Hoagland & Arnon (1950) als generischer Bezug für C3-Gemüse — art­spezifische Lösungs-Sollwerte für Knoblauch sind nicht aus zwei unabhängigen Quellen belegt. Knoblauch reagiert empfindlich auf **Mangan-Mangel** (verstärkt bei hohem Boden-pH); Zn, Cu und Mo fördern Wuchs und Knollenertrag. `nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -177,6 +213,23 @@ Knoblauch ist ein Schwachzehrer — bei gut versortem Boden ist keine Düngung n
 | Jun–Jul | Ernte | Wenn 2/3 des Laubs braun ist; trocken und sonnig ernten | hoch |
 | Jul–Aug | Trocknung | 3–4 Wochen hängend oder auf Rost trocknen | mittel |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+Knoblauch wird im Herbst gesteckt und überwintert als bewurzelte Zehe im Freilandboden. Er ist vollwinterhart und benötigt die Kälteperiode als Vernalisationsreiz (siehe §1.1). Eine Überwinterung im Haus oder das Ausgraben ist NICHT erforderlich; in rauen Lagen (USDA 6, Kahlfröste ohne Schneedecke) genügt eine leichte Mulchschicht als Frostschutz.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung (hardiness rating) | hardy | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | mulch (nur bei Kahlfrost/rauen Lagen; sonst none) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 11 (Nov, nach dem Stecken) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | uncover (Mulch bei Austrieb abräumen) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 3 (Mär) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (Freilandüberwinterung, winterhart bis −20 °C im Boden) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland; kein geschütztes Quartier nötig) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | minimal/keine (Niederschlag genügt; Staunässe vermeiden) | `overwintering_profiles.winter_quarter_watering` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -204,6 +257,16 @@ Knoblauch ist ein Schwachzehrer — bei gut versortem Boden ist keine Düngung n
 | Pflanzabstand einhalten | cultural | — | 15 cm zwischen Zehen | 0 | Mehltau |
 | Knoblauchzehen-Beizung | biological | Trichoderma | Vor Pflanzung in Lösung tauchen | 0 | Weißfäule |
 | Neemöl | biological | Azadirachtin | Sprühen, 0.5% | 3 | Thripse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|---------------------|----------------|--------------|------------------|
+| Insektenpathogene Nematoden (entomopathogenic nematodes) | Steinernema feltiae | Zwiebelfliege (Delia antiqua), Boden-Stadium Thripse | 250.000–500.000/m² (Bodendurchfeuchtung, 5–30 °C) | Abtötung in 24–48 h; sichtbare Larvenreduktion ~1–2 Wochen |
+| Raubmilbe (predatory mite) | Neoseiulus (Amblyseius) cucumeris | Thripse (Thrips tabaci, L1-Larven) | 50–100/m² bzw. 1 Tütchen (sachet)/m² | ~2–4 Wochen bis zur Populationsetablierung |
+| Blumenwanze (predatory bug) | Orius laevigatus | Thripse (adulte + Larven) | nach Befallsdruck; Förderung über Blühstreifen (z. B. Lobularia maritima) | mehrere Wochen; abhängig von Temperatur/Pollenangebot |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -273,3 +336,15 @@ Morado de Pedroñeras,Allium sativum,–,–,"softneck;spanish",240,,open_pollin
 2. [NaturaDB Allium sativum](https://www.naturadb.de/pflanzen/allium-sativum/) — Stammdaten
 3. [OBI Knoblauch pflanzen](https://www.obi.de/magazin/garten/pflanzen/gemuesepflanzen/knoblauch-pflanzen) — Praxistipps
 4. [Lubera Knoblauch](https://www.lubera.com/de/gartenbuch/knoblauch-pflanzen-p4430) — Anbau-Details
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [Rohamati et al. (2016): Response of garlic bolting and bulbing to temperature and photoperiod — Biology Open / PMC4890667](https://pmc.ncbi.nlm.nih.gov/articles/PMC4890667/) — Vernalisation (0–10 °C), Langtag-/Wärmebedarf für Knollenbildung
+6. [MDPI Agronomy 9(12):879 — Photoperiod & Temperature Regimes on Garlic](https://www.mdpi.com/2073-4395/9/12/879) — kritische Tageslänge (14 h), Bulbing-Optimum
+7. [FAO — Annex 1. Crop salt tolerance data (Maas-Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Garlic ECe-Schwelle 3.9 dS/m, Slope 14.3 %/dS/m, Rating MS
+8. [USDA-ARS — Yield and Quality Response of Salt-stressed Garlic (P1318)](https://www.ars.usda.gov/arsuserfiles/20360500/pdf_pubs/P1318.pdf) — Ertragsrückgang 14.3 %/dS/m oberhalb 3.9 dS/m
+9. [Hsiao et al. (2019/2022): Process-Based Models for Hardneck Garlic — Frontiers/PMC8967357](https://pmc.ncbi.nlm.nih.gov/articles/PMC8967357/) — C3-Photosynthese-Modell, gekoppelte Blatt-Gaswechselparameter
+10. [Biology Insights — Garlic Temperature Tolerance](https://biologyinsights.com/garlic-temperature-tolerance-from-planting-to-storage/) — Wachstumsoptimum ~20–21 °C, Hitze-/Staunässeempfindlichkeit
+11. [Hoagland solution — Wikipedia (Hoagland & Arnon 1950)](https://en.wikipedia.org/wiki/Hoagland_solution) — generische Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo) der Vollnährlösung
+12. [Koppert — Beneficial nematodes and natural enemies in garlic, leek and onion](https://www.koppert.com/news-information/news/beneficial-nematodes-and-natural-enemies-effectively-control-pests-and-diseases-in-garlic-leek-and-onion/) — Nützlinge: S. feltiae, O. laevigatus
+13. [Koppert — Neoseiulus cucumeris (predatory mite for thrips control)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Ausbringrate 50–100/m² gegen Thripse
+14. [Frontiers Lighting / Apogee — R:FR & Far-Red-Fraction im Tageslicht](https://www.apogeeinstruments.com/content/Estimating-Phytochrome-Photoequilibrium.pdf) — FR/(R+FR) ≈ 0.46 im offenen Tageslicht
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

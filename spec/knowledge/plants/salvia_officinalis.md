@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für S. officinalis auffindbar; Keim-Kardinaltemperaturen NICHT als Wuchsbasis übernommen --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 3–5 (kurzlebige Staude/subshrub; nach 3–4 Jahren verholzt und weniger ertragreich) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false (immergrüner Halbstrauch/evergreen subshrub; keine obligate Dormanz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false (tagneutraler Blüher; blüht ab 2. Jahr an reifen Trieben ohne Kältebedarf) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (entfällt; vernalization_required = false) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Schwellenwert; photoperiod_type = day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -15°C (Sorte 'Berggarten' bis -20°C); in Norddeutschland Zone 7b-8a mit leichtem Mulchschutz zuverlässig; bei Kahlfrösten ohne Schneebedeckung gelegentliche Ausfälle | `species.hardiness_detail` |
@@ -82,6 +91,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Kalkhaltige, durchlässige Kräutererde mit Sand; pH 6,5–7,5; kein Torf | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein exakter numerischer Kompensationspunkt für S. officinalis veröffentlicht; Studie zeigt bei ~5 % Vollsonne Annäherung an den Kompensationspunkt (Netto-Photosynthese ~0), aber ohne absoluten µmol-Wert --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | full_sun (verträgt partial_shade, vergeilt dann jedoch; PFAF: „cannot grow in the shade") | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 30–60 (Bodenbearbeitung ~25–30 cm empfohlen; etablierte Pflanze tiefer wurzelnd, trockenheitstolerant) | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive (intolerant gegenüber nassen/schlecht drainierten Böden; Staunässe tödlich) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant (Studien: keine nachteiligen Effekte bis ~10–12 dS/m Substrat-ECe) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-a-Schwellenwert für S. officinalis; die 12,3 dS/m aus Einzelstudie ist kein Maas-Hoffman-Threshold --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein publizierter Maas-Hoffman-b-Wert --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.5 (Bestaroma 6,0–7,0; verträgt mild alkalisch bis ~7,8; kalkliebend, meidet sauer) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -110,18 +135,25 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.8–2.0 (stomatärer Kollaps deutlich oberhalb des Zielkorridors; oberer Zielwert + ~0,3–0,5 kPa) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium (C3-Mediterrankraut, trockenheitsadaptiert, aber kein CAM) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–28 (optimale Tagestemperatur 21–29°C) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Freiland-/Vollsonne-Anker; R:FR ≈ 1,1; Vollsonnen-Kultur) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 (trockenverträglich; Staunässe vermeiden) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 150–300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — |
-| Sämling | 1:1:1 | 0.4–0.6 | 6.5 | 60 | 20 | — | 1 |
-| Vegetativ | 1:0:1 | 0.6–1.0 | 6.5–7.0 | 80 | 30 | — | 1 |
-| Blüte | 0:1:1 | 0.5–0.8 | 6.5–7.0 | 60 | 30 | — | 1 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.5 | — | — | — | — | — | — | — | — |
+| Sämling | 1:1:1 | 0.4–0.6 | 6.5 | 60 | 20 | — | 1 | 0.5 | 0.25 | 0.05 | 0.02 |
+| Vegetativ | 1:0:1 | 0.6–1.0 | 6.5–7.0 | 80 | 30 | — | 1 | 0.5–1.0 | 0.25–0.5 | 0.05–0.1 | 0.02–0.05 |
+| Blüte | 0:1:1 | 0.5–0.8 | 6.5–7.0 | 60 | 30 | — | 1 | 0.5–1.0 | 0.25–0.5 | 0.05–0.1 | 0.02–0.05 |
+<!-- Mikronährstoffe Mn/Zn/Cu/Mo ergänzt — Quelle: Steckbrief-Erweiterung 2026-06 (light_feeder-angepasste Hydroponik-Richtwerte) -->
 
 ---
 
@@ -220,6 +252,19 @@ Salbei WENIG düngen! Auf mageren, gut kalkhaltig-durchlässigen Böden bildet e
 | Schnittmaßnahmen | cultural | — | Befallene Triebe entfernen | 0 | Grauschimmel, Rost |
 | Schwefelspritzung | chemical | Schwefel | 0,3–0,5% Lösung | 14 | Mehltau, Rost |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|--------------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 20–30/m², ggf. alle 2 Wochen wiederholen | ~2–3 Wochen |
+| Raubmilbe | Neoseiulus (Amblyseius) californicus | Spinnmilbe (Tetranychus urticae) | 20–50/m² (präventiv geringer) | ~2–4 Wochen |
+| Gallmücke | Aphidoletes aphidimyza | Blattläuse (Aphidoidea) | 1–10/m², 2–3× im Abstand von 7–10 Tagen | ~2–3 Wochen |
+| Schlupfwespe | Aphidius colemani | Blattläuse (z.B. Myzus persicae, Aphis gossypii) | 0,5–1/m², 2–3× wöchentlich bis Mumienbildung | ~2–3 Wochen |
+
+> Hinweis: Gegen Wanzen (Lygus spp.) und Schnecken gibt es keine etablierten kommerziellen Antagonisten dieser Tabelle; hier greifen kulturelle Maßnahmen (Kulturschutznetz, Schneckenkragen). Larvale Florfliegen (Chrysoperla carnea) und Marienkäfer ergänzen die Blattlausregulierung im Freiland.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 6. Fruchtfolge & Mischkultur
@@ -281,3 +326,17 @@ Salvia officinalis,"Echter Salbei;Küchensalbei;Common Sage;Garden Sage",Lamiace
 2. [Samen.de Salbei](https://samen.de/blog/tipps-fuer-den-erfolgreichen-salbei-anbau.html) — Anbau-Praxis
 3. [Gartenratgeber Salbei](https://www.gartenratgeber.net/pflanzen/salbei.html) — Pflege, Rückschnitt, Überwinterung
 4. [Samen.de Begleitpflanzen Salbei](https://samen.de/blog/ideale-begleitpflanzen-fuer-salbei-im-kraeutergarten.html) — Mischkultur
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+5. [NC State Extension — Salvia officinalis](https://plants.ces.ncsu.edu/plants/salvia-officinalis/) — Lichtbedarf (full sun/partial shade), Boden-pH 6.0–8.0, Drainage, kurzlebige Staude
+6. [PFAF — Salvia officinalis](https://pfaf.org/user/Plant.aspx?LatinName=Salvia+officinalis) — Schatten („cannot grow in the shade"), pH-Vorzug neutral/alkalisch, Bodenfeuchte
+7. [Wisconsin Horticulture — Sage (Salvia officinalis)](https://hort.extension.wisc.edu/articles/sage-salvia-officinalis/) — Lebensdauer 3–5 Jahre, Verholzung, immergrüner Halbstrauch
+8. [Wikipedia — Salvia officinalis](https://en.wikipedia.org/wiki/Salvia_officinalis) — immergrüner Halbstrauch, Blütezeit Mai–Juli, C3-Lamiaceae
+9. [Canadian Journal of Plant Science — Photosynthesis & low-light response of sage](https://cdnsciencepub.com/doi/10.4141/cjps-2014-010) — Lichtkompensationspunkt-Kontext, Photosynthese unter Schwachlicht
+10. [Greg.app — Salvia temperature range](https://greg.app/salvia-temperature/) — optimale Photosynthese-Tagestemperatur 21–29°C
+11. [ScienceDirect — Sage under salt stress (essential oil/fruits)](https://www.sciencedirect.com/science/article/abs/pii/S0926669009000867) — Salztoleranz bis ~10–12 dS/m
+12. [Chem. Biol. Technol. Agric. — Salinity tolerance in S. officinalis](https://chembioagro.springeropen.com/articles/10.1186/s40538-021-00221-y) — Salzstress-Antwort, moderate Toleranz
+13. [Buglogical — Phytoseiulus persimilis](https://www.buglogical.com/spider-mite-predator/phytoseiulus-persimilis/) — Ausbringrate Spinnmilben-Raubmilbe
+14. [Sound Horticulture — Phytoseiulus persimilis Tech Sheet](https://soundhorticulture.com/pages/phytoseiulus-persimilis-spider-mite-predator) — Ausbringrate/Etablierung Spinnmilben-Raubmilbe
+15. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Blattlaus-Gallmücke, Ausbringrate/Etablierung
+16. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Blattlaus-Schlupfwespe, Ausbringrate
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

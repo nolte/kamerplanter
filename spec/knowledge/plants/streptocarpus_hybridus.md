@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN — kein belegter Wuchs-/Phänologie-GDD-Basiswert für Streptocarpus auffindbar; nur Kulturtemperatur-Optima (12–21 °C aktiv, Schaden > 24 °C) verfügbar, die nicht als GDD-Basis umetikettiert werden dürfen --> | `species.base_temp` |
+| Lebensdauer (Jahre, perennial) | <!-- DATEN FEHLEN — Quellen nennen nur „evergreen perennial / many years“ ohne belegte Jahreszahl; Verjüngung durch Teilung üblich --> | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage (vernalization min days) | — (tropisch/subtropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN — Hobbyquelle nennt ~13 h als Blühtrigger, aber nur einfach belegt und professionelle Quellen berichten ganzjährige Blüte; kein doppelt-seriös belegter Stundenwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhärte-Detail | Ausschließlich Zimmerpflanze; keine Temperaturen unter 10°C | `species.hardiness_detail` |
@@ -82,6 +91,24 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Leichte, durchlässige Erde für Afrikanische Veilchen oder Spezialsubstrat; pH 5.5–6.5; flache Töpfe bevorzugen (flaches Wurzelsystem) | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 10 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 25 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 8–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN — keine Maas-Hoffman-Daten für Streptocarpus; Quellen belegen nur qualitative Salzempfindlichkeit (Spülen/Leaching nötig) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN — kein belegter Maas-Hoffman-Slope für diese Zierart --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+> Hinweis: Der LCP-Bereich nennt ausschließlich den Lichtkompensationspunkt (Netto-Photosynthese = 0) und ist mit einer schattentoleranten C3-Waldbodenpflanze konsistent (typischer LCP schattenadaptierter Arten 10–25 µmol/m²/s). Lichtsättigung liegt deutlich höher und ist nicht in diesem Feld abgebildet. Streptocarpus toleriert laut NCSU „deep shade“ bis „partial shade“; gewählt wurde die Hauptklasse `shade`. Salzempfindlichkeit erfordert regelmäßiges Durchspülen (Leaching) des Substrats; Bezugsgröße der (fehlenden) Schwelle wäre Substrat-ECe, nicht Gießwasser-EC.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -108,6 +135,12 @@
 | Luftfeuchtigkeit Tag (%) | 50–65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 55–70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.1 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -124,17 +157,26 @@
 | Luftfeuchtigkeit Tag (%) | 45–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8–1.3 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 14–18 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 10–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–100 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Etablierung | 1:1:1 | 0.4–0.6 | 5.5–6.5 | 60 | 30 | — | 1 |
-| Vegetativ/Blüte | 1:2:1 | 0.8–1.2 | 5.5–6.5 | 80 | 40 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Etablierung | 1:1:1 | 0.4–0.6 | 5.5–6.5 | 60 | 30 | — | 1 | 0.3 | 0.03 | 0.01 | 0.01 |
+| Vegetativ/Blüte | 1:2:1 | 0.8–1.2 | 5.5–6.5 | 80 | 40 | — | 2 | 0.5 | 0.05 | 0.02 | 0.01 |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Mn/Zn/Cu/Mo: allgemeine Mikronährstoff-Richtwerte für eine schwachzehrende Topf-/Hydrokultur (Hoagland-abgeleitete Größenordnung), keine streptocarpus-spezifischen Messwerte verfügbar. Werte bewusst niedrig (light_feeder, salzempfindlich). -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 2.4 Phasenübergangsregeln
 
@@ -206,6 +248,23 @@ Streptocarpus ist ein Schwachzehrer (light_feeder) — Überdüngung verbrennt d
 | Sep–Okt | Herbstblüte | Noch Blüten möglich, Gießen reduzieren | mittel |
 | Okt | Blattpflege | Ältere Blätter entfernen | niedrig |
 | Nov–Dez | Winterruhe | Kühl stellen, wenig Wasser | niedrig |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Okt) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach Eisheiligen — nur falls im Sommer im Freien) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 12–15 | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt (keine direkte Sonne); Tageslicht oder LED | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | sparsam, oberste Substratschicht abtrocknen lassen; nie ganz austrocknen (kein Rhizom/Knolle) | `overwintering_profiles.winter_quarter_watering` |
+
+> Hinweis: Streptocarpus ist eine ausschließlich frostfrei zu haltende Zimmerpflanze (frost_sensitivity = tender). Sie bildet keine Speicherorgane (Rhizom/Knolle) und darf daher nicht vollständig austrocknen. Eine kurze, kühle Winterruhe (≈ 12–15 °C, reduziertes Gießen/Düngen) fördert die Blühinduktion im Frühjahr; daher `dormancy_required: true`. `move_indoors`/`move_outdoors` greifen nur, wenn die Pflanze im Sommer im Freien (Halbschatten) kultiviert wurde — andernfalls ganzjährig Innenkultur.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -292,3 +351,11 @@ Streptocarpus hybridus,Kap-Primel;Drehfrucht;Cape Primrose,Gesneriaceae,Streptoc
 3. [Gardening Know How – Streptocarpus](https://www.gardeningknowhow.com/houseplants/streptocarpus-plants/care-for-streptocarpus.htm) — Indoor Care
 4. [Global Flowers – Streptocarpus](https://global.flowers/en/plants/streptocarpus/) — Botanik, Kulturtipps
 5. [University of Vermont – Plant Profile Streptocarpus](https://www.uvm.edu/extension/news/plant-profile-streptocarpus) — Extension Service
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [NC State Extension – Streptocarpus Plant Toolbox](https://plants.ces.ncsu.edu/plants/streptocarpus/) — Schattentoleranz (deep shade–partial shade), pH (acid <6.0), Staunässe-/Überwässerungsempfindlichkeit (root/crown rot), Temperaturen
+7. [New York Botanical Garden – African violet (Streptocarpus) Research Guide](https://libguides.nybg.org/africanviolet) — Taxonomie (Gesneriaceae), Kulturtemperatur-Optima
+8. [Plantly – Streptocarpus Plant Care](https://plantly.io/plant-care/streptocarpus/) — flaches Wurzelsystem, gut durchlässiges Substrat, pH, Überwässerungsempfindlichkeit
+9. [Clemson HGIC – Cape Primrose (Streptocarpus saxorum)](https://hgic.clemson.edu/cape-primrose-streptocarpus-saxorum-how-to-grow-this-easy-houseplant/) — Salzempfindlichkeit (Fertilizer-Salt-Build-up, Leaching), perennierende Kultur
+10. [FEBS Letters / Wiley – Photosynthesis under far-red light (Amelii 2026)](https://febs.onlinelibrary.wiley.com/doi/10.1002/1873-3468.70191) — R:FR-Abfall im Unterwuchs (Kronendach 1.2 → Boden 0.1), FR-Anreicherung im Schatten als Grundlage der Far-Red-Fraction
+11. [frillfree – Flowering Streptocarpus](https://www.frillfree.com/flowering-streptocarpus.html) — Blühverhalten, Tageslängen-/Lichtmengen-Hinweis (Hobbyquelle, nur einfach belegt)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

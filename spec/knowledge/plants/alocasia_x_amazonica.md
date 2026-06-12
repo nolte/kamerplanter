@@ -18,6 +18,9 @@
 | Gattung | Alocasia | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Wurzelanpassungen | tuberous (Rhizomknollen als Wasserspeicher) | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -25,6 +28,10 @@
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (saisonale Ruhephase im Winter häufig, besonders bei kühlem Standort) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> (keine zwei unabhängigen GDD-Basiswerte für Alocasia belegt; wärmeliebende Tropenpflanze, Wachstumsstillstand unter ~15 °C) | `species.base_temp` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 15°C, optimal 18–27°C. Unter 15°C Wachstumsstillstand und mögliche Dormanz. | `species.hardiness_detail` |
@@ -93,6 +100,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockeres, gut drainiertes Substrat: Einheitserde + 30% Perlite + 10% Orchideenrinde. pH 5.5–7.0. Guter Wasserabzug zwingend (kein Staunasser Topf!). | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 15–30 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN --> (kein Maas-Hoffman-Schwellenwert für Alocasia/Colocasia in FAO-/USDA-Salztoleranztabellen gelistet) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–7.0 | `species.soil_ph_preference` |
+
+**Hinweis Licht-Physiologie:** Der angegebene Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist der für schattentolerante Tropenwald-Unterwuchspflanzen (understory) typische Bereich; die nahe verwandte Art *Alocasia macrorrhiza* ist eine klassische Unterwuchs-Studienart mit ausgeprägter Schattenanpassung (niedriger Kompensationspunkt, niedrige Dunkelatmung). Die Lichtsättigung liegt davon getrennt deutlich höher (ca. 150–400 µmol/m²/s im aktiven Wachstum, siehe §2.2); bereits kurze direkte Mittagssonne führt zu Blattbleiche (Chlorose).
+
+**Hinweis Salztoleranz:** Die Einordnung als moderately_tolerant stützt sich auf Salinitätsversuche an der nah verwandten *Colocasia esculenta* (Taro, gleiche Familie, vergleichbare Wuchsform), die bis ~100 mM NaCl ohne wesentliche Wuchseinbußen toleriert und bis ~200 mM NaCl überlebt. Ein quantitativer Maas-Hoffman-Schwellenwert (a) bzw. Slope (b) ist für die Gattung nicht publiziert und bleibt daher offen. Bezugsgröße der Klasse: Substrat-ECe (saturated paste), nicht Gießwasser-EC. Im Topf gilt: Calciumoxalat-empfindliche Wurzeln reagieren empfindlich auf Salzakkumulation aus Überdüngung → regelmäßiges Durchspülen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -118,6 +145,12 @@
 | Luftfeuchtigkeit Tag (%) | 60–80 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.3 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–28 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–7 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -130,15 +163,25 @@
 | Temperatur Tag (°C) | 16–22 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 15–18 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | high | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–22 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–150 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 5.5–7.0 | 100 | 50 |
-| Dormanz | 0:0:0 | 0.0 | 5.5–7.0 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktives Wachstum | 3:1:2 | 0.8–1.4 | 5.5–7.0 | 100 | 50 | 0.5 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | 0.05 | 0.02 | 0.01–0.05 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Dormanz | 0:0:0 | 0.0 | 5.5–7.0 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Die Mikronährstoff-Zielwerte Mn/Zn/Cu/Mo entsprechen den Konzentrationen einer vollständigen Standard-Nährlösung (Hoagland-Referenz: Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01–0.05 ppm) — generische Foliage-Plant-Richtwerte, keine Alocasia-spezifischen Messwerte. In der Dormanz wird nicht gedüngt (Nullprofil).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -182,6 +225,23 @@ Alle 2–4 Wochen in der Wachstumsphase. Im Herbst/Winter kein Dünger. Überdü
 | Schädlingskontroll-Intervall (Tage) | 10 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | true | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (vor erstem Frost / Nachttemperaturen unter 15 °C hereinholen) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5–6 (nach den Eisheiligen, langsam abhärten) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 15–21 (frostfrei; unter 15 °C Dormanz, optimal ≥ 18 °C zur Dormanzvermeidung) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell, indirekt; bei Dormanz dunklerer Stand tolerierbar | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | stark reduziert (alle 14–21 Tage, Substrat nur leicht feucht halten — bei voller Dormanz alle 3–5 Wochen) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis Überwinterung:** Als nicht frosthartes (frost_free) Tropengewächs wird Alocasia × amazonica frostfrei im Haus überwintert — keine Frostschutz-Maßnahme im Freiland (kein Mulch/Vlies). Eine winterliche Ruhephase (Dormanz) mit Einziehen der Blätter ist normal: Die Rhizomknolle überwintert im Substrat und treibt im Frühjahr neu aus (nicht entsorgen!). Bei konstant ≥ 18–21 °C und ausreichend Licht kann die Dormanz ganz ausbleiben. Staunässe im kühlen Winterquartier ist die häufigste Verlustursache (Knollenfäule).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -208,6 +268,17 @@ Alle 2–4 Wochen in der Wachstumsphase. Im Herbst/Winter kein Dünger. Überdü
 | Neemöl | biological | Sprühen 0.5% | 0 Tage | Spinnmilbe, Schmierläuse |
 | Luftfeuchtigkeit erhöhen | cultural | Befeuchter | 0 | Spinnmilbe (Prävention) |
 | Umtopfen | cultural | Faule Teile entfernen | 0 | Wurzelfäule |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50 / m² je Ausbringung; bei Bedarf wöchentlich wiederholen | ab Befallsbeginn; kurativ, schnelle Reduktion |
+| Australischer Marienkäfer | Cryptolaemus montrouzieri (Adulte) | Schmierläuse (Pseudococcus spp.) | 2–10 / m² je Ausbringung (Larven „Cryptobug-L": 5–40 / m²) | wirksam ab 16 °C, optimal 25–28 °C; Larven-Ausbringung 3× im Abstand 1–2 Wochen |
+
+**Hinweis Nützlinge:** Im Innenraum/Wintergarten sind Raubmilben (Phytoseiulus persimilis) gegen Spinnmilben und der Marienkäfer Cryptolaemus montrouzieri gegen Schmierläuse die bewährten Nützlinge. Phytoseiulus arbeitet am besten bei hoher Luftfeuchtigkeit (> 60 %), die für Alocasia ohnehin gegeben ist. Bei starkem Spinnmilbenbefall zuerst Phytoseiulus einsetzen, anschließend für die Langzeitkontrolle Amblyseius-Arten ergänzen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -252,3 +323,16 @@ Polly,Alocasia × amazonica,"ornamental;compact;dark_leaves",clone
 3. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität
 4. [Bloomscape — Alocasia Care Guide](https://bloomscape.com/plant-care-guide/alocasia/) — Pflegehinweise
 5. [The Sill](https://www.thesill.com/blogs/plants-101/how-to-care-for-an-alocasia) — Praxiswissen
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Sims & Pearcy (1989), Oecologia — Photosynthetic characteristics of *Alocasia macrorrhiza* and *Colocasia esculenta*](https://pubmed.ncbi.nlm.nih.gov/28312812/) — Unterwuchs-/Schatten-Physiologie der Gattung (light compensation point, Lichtakklimatisierung, T-Optimum); peer-reviewed
+7. [ScienceDirect — Stable isotope (δ13C) and carbon-water relations of taro (*Colocasia esculenta*)](https://www.sciencedirect.com/science/article/abs/pii/S0176161718305431) — Beleg C3-Photosynthese-Typ (δ13C −23‰ bis −30‰) für nah verwandte Art
+8. [MDPI Plants (2021) — Effects of Salinity on the Growth and Nutrition of Taro (*Colocasia esculenta*)](https://www.mdpi.com/2223-7747/10/11/2319) — Salztoleranz der Familie (bis ~100 mM NaCl ohne Wuchseinbuße, Überleben bis ~200 mM)
+9. [FAO — Crop salt tolerance data (Annex 1, Maas-Hoffman)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Beleg, dass kein Maas-Hoffman-Schwellenwert für Taro/Colocasia tabelliert ist
+10. [Soltech — Alocasia Polly Plant Care](https://soltech.com/products/alocasia-polly-care) — Boden-pH, Staunässe-Empfindlichkeit, Wurzelraum
+11. [RHS / Wikipedia — Shade tolerance](https://en.wikipedia.org/wiki/Shade_tolerance) — Physiologie schattentoleranter Unterwuchspflanzen (niedriger Kompensationspunkt, Far-Red-Nutzung)
+12. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate Raubmilbe gegen Spinnmilben (2–50 / m²)
+13. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate/Temperatur Marienkäfer gegen Schmierläuse
+14. [Highland Moss — Alocasia Dormancy](https://highlandmoss.com/everything-you-need-to-know-about-alocasia-dormancy/) — Überwinterung, Dormanz-Auslöser, Wintergießen
+15. [Smart Garden Guide — Alocasia Dormancy](https://smartgardenguide.com/alocasia-dormancy/) — Mindesttemperatur 15 °C, Dormanz-Pflege
+16. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen Mn/Zn/Cu/Mo der Referenz-Nährlösung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

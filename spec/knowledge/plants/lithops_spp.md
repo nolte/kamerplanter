@@ -19,11 +19,18 @@
 | Ordnung | Caryophyllales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Lithops auffindbar; keine Keim-Basistemperatur umetikettiert --> | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 10–50+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (Sommer- und Winterdormanz) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral), Zyklus saisonal über Temperatur/Feuchte gesteuert, nicht photoperiodisch — kein Stundenwert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 4°C. Optimal 18–27°C im Wachstum, 10–15°C in der Winterruhe. | `species.hardiness_detail` |
@@ -90,6 +97,23 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | 80% mineralisch (Quarzsand, Perlite, Bimssplit) + 20% Kakteenerde. pH 6.5–7.5. Extrem schnelldränierende Mischung. Hohes Topf (10+ cm tief) für Pfahlwurzel. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min/max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch belegter Netto-Null-Kompensationspunkt (LCP) für Lithops auffindbar --> | `species.light_compensation_point_ppfd_min` / `_max` |
+| Schatten-/Sonnentoleranz | full_sun | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 7–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Schwellenwert (a) für Lithops; Klasse sensitive qualitativ belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein belegter Maas-Hoffman-Slope (b) für Lithops --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis:** Lithops sind volle Sonne (full sun) gewohnt (Kieswüsten Südafrika/Namibia, kein Kronendach), benötigen aber im Mitteleuropa-Sommer Schutz vor intensiver Mittagssonne (40% Schattiergewebe April–September) zur Vermeidung von Verbrennungen — das ist Stressschutz, keine echte Schattentoleranz. Lichtkompensationspunkt (light compensation point, LCP): CAM-Sukkulenten haben sehr niedrige LCP-Werte, ein artspezifischer Wert für Lithops ist aber nicht belegt. Salztoleranz: Lithops reagieren empfindlich (sensitive) auf Dünger-/Salzanreicherung im Substrat; Symptome (gelbe Körper, weiße Salzkruste, braune Spitzen) treten schon bei geringer Überdüngung auf — quantitative ECe-Schwellen (Substrat-ECe, nicht Gießwasser-EC) sind in der Literatur nicht belegt. Boden-pH 6.0–7.0 (quellentreu); dies überschneidet sich mit der in §1.6/§2.3 genannten Spanne 6.5–7.5 — der konsensgestützte Optimalbereich liegt bei 6.5–7.0. <!-- W-013 -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +140,12 @@
 | Temperatur Nacht (°C) | 12–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 10–30 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 1.5–3.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 4.0 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 20–60 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -125,15 +155,26 @@
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 400–1000 | `requirement_profiles.light_ppfd_target` |
 | Temperatur Tag (°C) | 15–27 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 4.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 15–25 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 60–90 (gar nicht gießen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 0 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Wachstum | 0:1:1 | 0.2–0.4 | 6.5–7.5 | 20 | 8 |
-| Dormanz | 0:0:0 | 0.0 | 6.5–7.5 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Wachstum | 0:1:1 | 0.2–0.4 | 6.5–7.5 | 20 | 8 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Dormanz | 0:0:0 | 0.0 | 6.5–7.5 | — | — | — | — | — | — |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis Mikronährstoffe:** Für Lithops (extremer Schwachzehrer, light feeder) sind keine artspezifischen Mikronährstoff-Sollwerte (Mn/Zn/Cu/Mo in ppm) aus seriösen Quellen belegt. Bedarf wird über das jährliche Umtopfen in frisches mineralisches Substrat sowie eine sehr verdünnte (¼–½ Dosis) Herbst-Düngung gedeckt; eigene Mikronährstoff-Zugaben werden nicht empfohlen (Salzanreicherungs-/Überdüngungsrisiko, salt_tolerance_class = sensitive). Daher Mn/Zn/Cu/Mo als DATEN FEHLEN markiert statt geschätzt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -176,6 +217,23 @@ Extremer Schwachzehrer. Höchstens 1× pro Jahr düng im Herbst (sehr verdünnt)
 | Schädlingskontroll-Intervall (Tage) | 21 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober, vor erstem Frost) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5 (Mai, nach Eisheiligen) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 10–15 (Minimum 8) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (Südfenster oder Pflanzenlicht, 10–12 h/Tag; Vergeilung/Etiolierung vermeiden) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | none (komplett trocken halten; November–März kein Wasser) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Lithops sind nicht frosthart (frost_sensitivity = tender) und müssen in Mitteleuropa (USDA 6–8) frostfrei drinnen überwintern — Einstufung frost_free (nicht hardy/needs_protection, da keine Freiland-Überwinterung möglich). In die Winterruhe fällt der Hüllblattwechsel: das alte Blattpaar trocknet ein, das neue zieht Wasser daraus; Gießen während dieser Phase führt zu Fäulnis/Platzen. Hell, kühl (10–15 °C), absolut trocken halten. <!-- W-013 -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -200,6 +258,18 @@ Extremer Schwachzehrer. Höchstens 1× pro Jahr düng im Herbst (sehr verdünnt)
 |---------|-----|-----------|------------|-------|
 | Gießplan einhalten | cultural | Jahreszeitlichen Kalender strikt befolgen | 0 | Platzen, Wurzelfäule (Prävention) |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 Tage | Schmierläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|--------------------|--------------|------------------|
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Schmierläuse (Pseudococcus spp.) | 2–10 Käfer/m²/Freilassung (bei Befall bis 25–35/Pflanze); 3 Gaben im Abstand von 1–2 Wochen | ca. 3–6 Wochen (Generationszyklus ~7 Wochen) |
+| Raubmilbe (Hypoaspis) | Stratiolaelaps scimitus (syn. Hypoaspis miles) | Trauermücken-Larven (Bradysia spp.) | 100–500 Milben/m²; 2 Gaben im Abstand von 2–3 Wochen, präventiv früh ausbringen | 2–3 Wochen |
+| Insektenpathogene Nematoden | Steinernema feltiae | Trauermücken-Larven (Bradysia spp.) | ca. 0,5 Mio. infektiöse Juvenile/m² (Bodenausbringung mit Gießwasser) | 1–2 Wochen |
+
+**Hinweis:** Nützlingseinsatz bei Lithops eher selten nötig (geschlossene Sukkulenten-Sammlung). Cryptolaemus montrouzieri und Wattestäbchen-Alkohol (§5.3) gegen Schmierläuse in der Mittelspalte; Stratiolaelaps scimitus / Steinernema feltiae gegen Trauermücken im Substrat (treten v. a. bei zu feuchtem Substrat auf — primäre Maßnahme bleibt der strikte Gießkalender). Nematoden benötigen ausnahmsweise leicht feuchtes Substrat zur Ausbringung. <!-- W-013 -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -236,3 +306,20 @@ Lithops spp.,"Lebende Steine;Steinpflanzen;Living Stones;Pebble Plants",Aizoacea
 3. [UK Houseplants — Lithops](https://www.ukhouseplants.com/plants/lithops-living-stones) — Kulturdaten
 4. [Wisconsin Horticulture Extension — Lithops](https://hort.extension.wisc.edu/articles/living-stones-lithops/) — Wissenschaftliche Daten
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Wikipedia — Crassulacean acid metabolism (CAM)](https://en.wikipedia.org/wiki/Crassulacean_acid_metabolism) — CAM-Photosynthese bei Wüstensukkulenten (Lithops als CAM-Pflanze)
+7. [ScienceDirect — Crassulacean Acid Metabolism Plant (Overview)](https://www.sciencedirect.com/topics/pharmacology-toxicology-and-pharmaceutical-science/crassulacean-acid-metabolism-plant) — Bestätigung CAM-Photosynthesetyp bei Sukkulenten/Lithops
+8. [Beci Lithops — Cultivation and care fundamentals](https://www.lithops.me/en/lithops-cultivation-and-care-fundamentals/) — Boden-pH (6–7), Lichtbedarf/Sonnenschutz, Wurzeltiefe (≥7 cm, Pfahlwurzel), Düngung (½ Dosis)
+9. [Planteria Latina — Best Soil for Lithops](https://planterialatina.com/best-soil-for-lithops/) — Boden-pH (5,5–7), Drainage/Substrat
+10. [Greg.app — Lithops Light Requirements](https://greg.app/lithops-light-requirements/) — Lichtbedarf, volle Sonne mit Mittagsschutz
+11. [Quest Climate — Vapor Pressure Deficit (Part 1)](https://www.questclimate.com/vapor-pressure-deficit-indoor-growing-part-1-vpd/) — Sukkulenten/CAM tolerieren hohe VPD (niedrige VPD-Sensitivität)
+12. [Cdnsciencepub — VPD and diffusion resistance in Opuntia compressa](https://cdnsciencepub.com/doi/abs/10.1139/b75-321) — CAM-Stomataverhalten unter VPD (Beleg geringe VPD-Empfindlichkeit)
+13. [Cactus-online — Winter Care for Lithops and Succulents](https://www.cactus-online.net/winter-care-for-lithops-and-succulents-maintenance-without-watering/) — Überwinterung (frostfrei, kein Wasser)
+14. [Succulentwise — Lithops Dormancy and Winter Care](https://succulentwise.com/lithops-dormancy-and-winter-care/) — Winterquartier 10–15 °C (Min. 8 °C), hell, trocken
+15. [Live to Plant — Guide to Fertilizing Your Lithops](https://livetoplant.com/guide-to-fertilizing-your-lithops-plant/) — Salzempfindlichkeit/Überdüngungssymptome (salt_tolerance_class sensitive)
+16. [University of Maryland Extension — Mineral and Fertilizer Salt Deposits on Indoor Plants](https://extension.umd.edu/resource/mineral-and-fertilizer-salt-deposits-indoor-plants) — Salzanreicherung im Substrat (Stützbeleg sensitive)
+17. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate gegen Schmierläuse (2–10/m², Wiederholung)
+18. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Raubmilbe gegen Trauermücken
+19. [Penn State Extension — Stratiolaelaps scimitus (Hypoaspis miles)](https://extension.psu.edu/all-about-stratiolaelaps-scimitus-hypoaspis-miles-predatory-mites) — Ausbringrate/Etablierung (100–500/m², 2 Gaben)
+20. [Bugs for Growers — Biocontrol agents for fungus gnats (Steinernema feltiae)](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Nematoden gegen Trauermücken-Larven
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** grove.eco, naturadb.de, samen.de, fryd.app, floragard.de, Hortipendium, wurzelwerk.net, botanikguide.de, gruenundgesund.de, pflanzenkrankheiten.ch, Oregon State Extension, UGA Extension, Portland Nursery
+> **Quellen:** grove.eco, naturadb.de, samen.de, fryd.app, floragard.de, Hortipendium, wurzelwerk.net, botanikguide.de, gruenundgesund.de, pflanzenkrankheiten.ch, Oregon State Extension, UGA Extension, Portland Nursery, FAO Land & Water, Ohio State Extension, MSU Extension, University of Delaware, SeedSavers, ScienceDirect <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -19,8 +19,18 @@
 | Ordnung | Brassicales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 (Brassicaceae sind C3-Pflanzen) | `species.photosynthesis_type` |
+| GDD-Basistemperatur (degC) | 4--5 (Hauptwuchsphase; kuehlliebende Kohlart -- Studienwerte mit Basis +5 degC, Cole-Crops-Reviews 3--5 degC) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | biennial (in Kultur als annual genutzt -- Ernte im 1. Jahr) | `lifecycle_configs.cycle_type` |
-| Photoperiode | long_day (Langtagspflanze -- vegetatives Wachstum durch Langtag gefoerdert; Roeschenbildung durch kuerzere Tage und Frost im Herbst initiiert) | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | day_neutral (kein echter Kurz-/Langtagblueher; Bluete im 2. Jahr wird ueber Vernalisation/Kaeltereiz induziert, nicht ueber Tageslaenge -- Korpus-Konvention fuer vernalisationsgesteuerte Arten) | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Dormanz erforderlich | false (keine echte Endodormanz; Pflanze waechst bei milder Witterung durch) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (echte Kaeltevernalisation -- Bluetenbildung im 2. Jahr nur nach Kaelteperiode) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | 14--56 (2--8 Wochen Kaelte bei ca. 1--4 degC; relevant nur fuer Samenbau im 2. Jahr, nicht fuer Roeschenernte) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslaenge (h) | -- (day_neutral: Roeschenbildung wird durch Temperatur/Frost ausgeloest, kein echter Kurztag-/Langtagblueher; Bluete benoetigt Vernalisation, nicht Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 2a; 2b; 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | very_hardy | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Der winterhaerteste aller Kohlarten. Ausgewachsene Pflanzen vertragen Temperaturen bis ca. -15 degC. Leichter Frost verbessert den Geschmack (Umwandlung von Staerke in Zucker). Jungpflanzen sind empfindlicher -- Spaetfrost unter -5 degC kann schaedigen. | `species.hardiness_detail` |
@@ -102,6 +112,24 @@ Hinweis: Ab August/September die Triebspitze (Endknospe) kappen ("Koepfen"). Die
 
 **Hinweis:** Rosenkohl ist das klassische Wintergemuese Mitteleuropas. Er braucht eine lange, kuehle Wachstumsphase und Frost verbessert den Geschmack (Staerke wird in Zucker umgewandelt). Pflanzabstand nicht unterschaetzen (50--70 cm). Pflanzen tief setzen (bis zum 1. Blattpaar) fuer bessere Standfestigkeit. Anhaeuufeln ab August foerdert zusaetzlich die Stabilitaet.
 
+### 1.7 Umgebungs-Physiologie & Standortqualitaet
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD umol/m2/s) | 20 (C3-Sonnenblatt bei ca. 15 degC; Nettophotosynthese = 0) | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD umol/m2/s) | 40 (steigt mit Blatttemperatur an) | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | full_sun (mind. 6 h direkte Sonne fuer feste Roeschen) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | 40--50 (flachwurzelnde Cole-Crop; Hauptwurzelmasse in oberen 0.4--0.5 m, FAO Cabbage) | `species.effective_root_depth_cm` |
+| Staunaesse-Toleranz | sensitive (Staunaesse foerdert Wurzelfaeule und Kohlhernie; braucht gut drainierten Boden) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | moderately_sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m) | 1.8 (Substrat-ECe, Maas-Hoffman a; Bezug Bodensaettigungsextrakt, NICHT Giesswasser-EC) | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | 9.7 (Maas-Hoffman b; Ertragsrueckgang je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug | 6.5--7.5 (Optimum 6.5--7.0; pH >= 6.5 unterdrueckt Kohlhernie; harmonisiert mit S.1.6 und S.2.3) | `species.soil_ph_preference` |
+
+Hinweis: Der Lichtkompensationspunkt gibt nur den Nettonull-Punkt an. Lichtsaettigung liegt deutlich hoeher (Sonnenkultur), siehe PPFD-Zielwerte in S.2.2. Die ECe-Schwelle bezieht sich auf den Bodensaettigungsextrakt (ECe), nicht auf die Giesswasser-Leitfaehigkeit.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -132,6 +160,12 @@ Hinweis: Rosenkohl hat keine echte Bluetephase im 1. Kulturjahr. Die Roeschenbil
 | Luftfeuchtigkeit Tag (%) | 75--85 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 80--90 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.1 (kritischer Punkt oberhalb des Zielkorridors; feuchteliebende Keimphase) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | -- (Dunkelkeimer; keine Photosynthese) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | -- (Dunkelkeimung) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 (Umgebung genuegt) | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 1--2 (Substrat gleichmaessig feucht) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 5--15 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -148,6 +182,12 @@ Hinweis: Rosenkohl hat keine echte Bluetephase im 1. Kulturjahr. Die Roeschenbil
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.5--0.8 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (deutlich oberhalb des Korridors; stomataerer Kollaps) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--22 (kuehlliebend; Nettophotosynthese faellt ueber 25 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (Tageslicht-/Freiland-Naehe; bei reiner LED-Anzucht ggf. niedriger) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 30--80 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -164,6 +204,12 @@ Hinweis: Rosenkohl hat keine echte Bluetephase im 1. Kulturjahr. Die Roeschenbil
 | Luftfeuchtigkeit Tag (%) | 55--65 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60--70 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.8--1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 (oberer Zielwert + ~0.4; stomataerer Kollaps bei Hitze/Trockenheit) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 18--24 (kuehlliebend; Nettophotosynthese faellt steil ueber 25 degC) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400--600 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 2--3 | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 200--500 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -182,6 +228,12 @@ Hinweis: Rosenkohl bevorzugt kuehle Temperaturen. Hitze ueber 25 degC fuehrt zu 
 | Luftfeuchtigkeit Tag (%) | 60--70 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 65--80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.6--1.0 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 (oberer Zielwert + ~0.4; in kuehler Herbstphase selten erreicht) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivitaet | medium (C3-Blattgemuese) | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (degC) | 12--18 (kuehle Herbstphase; Roeschenqualitaet steigt bei niedrigen Temperaturen) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Freiland) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO2 (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Giessintervall (Tage) | 3--5 (natuerlicher Niederschlag oft ausreichend) | `requirement_profiles.irrigation_frequency_days` |
 | Giessmenge (ml/Pflanze) | 100--300 | `requirement_profiles.irrigation_volume_ml_per_plant` |
@@ -190,13 +242,17 @@ Hinweis: Kuehle Nachttemperaturen und leichter Frost sind ERWUENSCHT -- sie verb
 
 ### 2.3 Naehrstoffprofile je Phase
 
-| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Keimung | 0-0-0 | 0.0 | 6.5--7.0 | -- | -- | -- | -- |
-| Saemling | 1-1-1 | 0.5--0.8 | 6.2--6.8 | 80 | 30 | 30 | 2 |
-| Vegetativ | 3-1-2 | 1.4--2.0 | 6.2--6.8 | 150 | 50 | 50 | 4 |
-| Roeschenbildung | 2-2-3 | 1.6--2.2 | 6.2--6.8 | 180 | 60 | 50 | 4 |
-| Ernte | 0-0-0 | 0.0 | -- | -- | -- | -- | -- |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo) -->
+| Phase | NPK-Verhaeltnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+| Keimung | 0-0-0 | 0.0 | 6.5--7.0 | -- | -- | -- | -- | -- | -- | -- | -- |
+| Saemling | 1-1-1 | 0.5--0.8 | 6.2--6.8 | 80 | 30 | 30 | 2 | 0.25 | 0.03 | 0.01 | 0.01 |
+| Vegetativ | 3-1-2 | 1.4--2.0 | 6.2--6.8 | 150 | 50 | 50 | 4 | 0.5 | 0.05 | 0.02 | 0.05 |
+| Roeschenbildung | 2-2-3 | 1.6--2.2 | 6.2--6.8 | 180 | 60 | 50 | 4 | 0.5 | 0.05 | 0.02 | 0.05 |
+| Ernte | 0-0-0 | 0.0 | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+
+Hinweis (Mikronaehrstoffe): Mn/Zn/Cu orientieren sich an Standard-Hoagland-Loesungskonzentrationen (Mn 0.5, Zn 0.05, Cu 0.02 ppm bei Vollversorgung). Brassicaceae haben einen ueberdurchschnittlich hohen Molybdaen-Bedarf -- Mo-Mangel verursacht "Whiptail" (deformierte, riemenfoermige Blaetter), besonders auf sauren Boeden; daher Mo gegenueber dem Hoagland-Standard (0.01 ppm) in der Hauptwuchsphase angehoben. Bor (B) ist bei Kohl ebenfalls kritisch (Hohlstrunk, braune Roeschen) -- siehe S.2.3-Hinweis und S.3.4.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 (Spalten Mn/Zn/Cu/Mo) -->
 
 Hinweis: Rosenkohl ist ein Starkzehrer mit besonders hohem Stickstoff- und Kaliumbedarf. ACHTUNG: Ueberduengung mit Stickstoff fuehrt zu lockeren, qualitativ schlechten Roeschen und reduzierter Winterhaerte. N-Duengung ab August STOPPEN, damit die Roeschen fest und kompakt werden. Bor-Mangel kann zu hohlen Stengeln fuehren.
 
@@ -308,6 +364,21 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 ### 4.3 Ueberwinterung
 
 Rosenkohl ist der winterhaerteste aller Kohlarten und uebersteht Temperaturen bis ca. -15 degC. Die Pflanzen bleiben den Winter ueber im Beet stehen und werden gestaffelt geerntet. Bei extremem Frost (unter -15 degC) schuetzt ein Vlies oder Frostschutzvlies die oberen Roeschen. Frost verbessert den Geschmack erheblich (Staerke-Zucker-Konversion). Pflanzen im Fruehjahr nach der letzten Ernte roden.
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Einstufung | hardy (winterhart im Beet, bis ca. -15 degC; keine Einlagerung noetig) | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | none (Standard); bei strengem Kahlfrost < -15 degC: fleece (Vlies ueber die Pflanze) | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 11; 12; 1 (Vlies nur bei Bedarf) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | replant (abgeerntete Struenke roden, Flaeche fuer Folgekultur raeumen) | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 3 | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (degC) | -- (keine Einlagerung; Pflanze bleibt im Freiland) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | -- (Freiland, natuerliches Tageslicht) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Giessen | -- (natuerlicher Niederschlag genuegt; nicht giessen bei Frost) | `overwintering_profiles.winter_quarter_watering` |
+
+Hinweis: Rosenkohl wird NICHT eingelagert (kein `dig_and_store`) und NICHT ins Haus geholt (kein `frost_free`) -- er ist echt winterhart (`hardy`) und wird ueber den Winter direkt im Beet beerntet. Ein Vlies dient nur dem Schutz der oberen Roeschen bei extremem Kahlfrost, nicht dem Ueberleben der Pflanze.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -428,7 +499,7 @@ Rosenkohl als Art hat moderate natuerliche Resistenzen. Die Glucosinolate (Senfo
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,direct_sow_months,harvest_months,sowing_indoor_weeks_before_last_frost
-Brassica oleracea var. gemmifera,Rosenkohl;Kohlsprossen;Bruesseler Kohl;Brussels Sprouts;Sprouts,Brassicaceae,Brassica,biennial,long_day,herb,taproot,2a;2b;3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b,0.0,"Nordwesteuropa (Belgien)",very_hardy,heavy_feeder,false,edible;cold_hardy,4;5,10;11;12;1;2;3,6
+Brassica oleracea var. gemmifera,Rosenkohl;Kohlsprossen;Bruesseler Kohl;Brussels Sprouts;Sprouts,Brassicaceae,Brassica,biennial,day_neutral,herb,taproot,2a;2b;3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b,0.0,"Nordwesteuropa (Belgien)",very_hardy,heavy_feeder,false,edible;cold_hardy,4;5,10;11;12;1;2;3,6
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -460,3 +531,19 @@ Rosenkohl (Pötschke Historisch),Brassica oleracea var. gemmifera,Pötschke,,hei
 10. botanikguide.de -- Rosenkohl pflanzen: https://botanikguide.de/rosenkohl-pflanzen-so-gelingt-der-anbau-im-garten/
 11. gruenundgesund.de -- Rosenkohl Mischkultur: https://gruenundgesund.de/magazin/naturgarten-selbstversorgung/rosenkohl-mischkultur/
 12. pflanzenkrankheiten.ch -- Kohlgemuese: https://www.pflanzenkrankheiten.ch/krankheiten-an-kulturpflanzen-2/gemuese-offcanvas/brassica-arten-offcanvas/kohlgemuese-krankheiten-schaedlinge-einleitung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. FAO Land & Water -- Cabbage (Brassica oleracea): Wurzeltiefe 0.4--0.5 m, Salztoleranz ECe-Schwelle 1.8 dS/m, moderately sensitive, p=0.35: https://www.fao.org/land-water/databases-and-software/crop-information/cabbage/en/
+14. Wikipedia -- Salt tolerance of crops: Brassica oleracea (cabbage) moderately sensitive, ECe-Schwelle ~1.8 dS/m, Slope ~9.7 %/dS/m (nach Maas & Hoffman): https://en.wikipedia.org/wiki/Salt_tolerance_of_crops
+15. ResearchGate -- The Effect of Planting Times on Brussels Sprouts (Brassica oleracea var. gemmifera): thermische Zeit mit Basistemperatur +5 degC: https://www.researchgate.net/publication/46026707
+16. ScienceDirect -- Base and upper temperature thresholds for GDD (FAO56rev): Cole-Crops-Basistemperatur ca. 3--5 degC: https://www.sciencedirect.com/science/article/pii/S037837742500469X
+17. SeedSavers -- How to Grow & Save Brussels Sprouts: biennial, Vernalisation 2--8 Wochen Kaelte zur Bluetenbildung im 2. Jahr: https://shop.seedsavers.org/site/pdf/grow-save-brussels-sprouts.pdf
+18. LearnSeedSaving -- Brussels Sprouts: Vernalisationsbedingungen (ca. 1--4 degC, 2--8 Wochen): https://www.learnseedsaving.com/brussels-sprouts/
+19. ScienceDirect Topics -- Light Compensation Point: C3-Pflanzen LCP ~8--16 (Schatten) bis ~20--50 umol/m2/s (Sonne, temperaturabhaengig): https://www.sciencedirect.com/topics/engineering/light-compensation
+20. ScienceDirect Topics -- Compensation Point (C3): LCP steigt von ca. 20 umol/m2/s bei 15 degC auf >50 bei 30 degC: https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point
+21. Portland Nursery -- Brussels Sprouts Site Requirements: full sun, gut drainierter Boden, pH 6.0--7.5: https://portlandnursery.com/docs/veggies/brussels-sprout.pdf
+22. Ohioline (Ohio State University Extension) -- Growing Cabbage: Boden-pH ~6.8 optimal zur Kohlhernie-Vermeidung, Wachstumsoptimum 15--24 degC: https://ohioline.osu.edu/factsheet/hyg-1611
+23. Hoagland solution (Wikipedia) -- Mikronaehrstoff-Standardkonzentrationen: Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm: https://en.wikipedia.org/wiki/Hoagland_solution
+24. MSU Extension -- Commercial Vegetable Recommendations, Cole Crops: erhoehter Bor- und Molybdaen-Bedarf der Brassicaceae (Whiptail bei Mo-Mangel): https://www.canr.msu.edu/resources/commercial_vegetable_recommendations_cole_crops_e1591
+25. University of Delaware Weekly Crop Update -- Calcium and Boron Deficiencies in Brassica Crops: hoher Bor-Bedarf, Hohlstrunk/braune Roeschen bei Mangel: https://sites.udel.edu/weeklycropupdate/?p=12446
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

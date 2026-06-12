@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur (°C) | 5 (Phänologie-Standard für Laubgehölze; Wuchs-/Austriebsbasis, budburst GDD referenced to 5 °C) | `species.base_temp` |
+| Lebensdauer (Jahre) | 40+ (unter günstigen Bedingungen) | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich | true (winterliche Endodormanz; sommergrünes Laubgehölz) | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich | true (chilling — Endodormanz-Bruch durch Kältephase, keine echte Vernalisation) | `lifecycle_configs.vernalization_required` |
+| Chilling Mindest-Tage | ca. 60–90 (Kältestratifikation ~5 °C; aus Samen-/Endodormanz-Studien) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral (day_neutral) — kein Kurz-/Langtagblüher, daher kein numerischer Stunden-Schwellwert --> | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Winterhart bis -30°C; absolut winterhart in ganz Norddeutschland; einheimischer Wildstrauch | `species.hardiness_detail` |
@@ -92,6 +101,22 @@
 
 **Standort:** Sonne bis Halbschatten; feuchte bis nasse Böden; ideal an Teichrändern oder Gewässernähe. Heimisch in Erlenbrüchen und Feuchtgehölzen.
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch gemessener Wert für V. opulus belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifisch gemessener Wert für V. opulus belegt --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz | partial_shade (gedeiht in lichtem Halbschatten; reichste Blüte/Fruchtbildung in voller Sonne) | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: nur qualitativ belegt ("tieferes Wurzelsystem mit Reife"), keine quantitative Spanne aus seriöser Quelle --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz | tolerant (verträgt zeitweise gesättigte/nasse Böden; native Feuchtgehölzart aus Erlenbrüchen) | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse | sensitive (salzempfindlich; vor Streusalz/Salzspray schützen) | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (dS/m, Substrat-ECe, Maas-Hoffman a) | <!-- DATEN FEHLEN: kein quantitativer Maas-Hoffman-Schwellwert für V. opulus belegt (qualitativ: sensitive) --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m, Maas-Hoffman b) | <!-- DATEN FEHLEN: kein quantitativer Maas-Hoffman-Slope für V. opulus belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 5.5–8.0 (anpassungsfähig; mild sauer bis basisch; sehr saure Böden ungünstig; harmonisiert mit §1.6 Topf-Empfehlung pH 5,5–7,0 als engerer Kultur-Optimalbereich) | `species.soil_ph_preference` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -120,16 +145,26 @@
 | Luftfeuchtigkeit Tag (%) | 55–75 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 60–80 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.4–0.9 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.2 (deutlich oberhalb des Zielkorridors; kritischer Punkt stomatären Schließens ≈ oberer Zielwert 0.9 + ~0.3) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 20–25 (gemäßigtes C3-Laubgehölz) | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.5 (offenes Tageslicht/Vollsonne ≈ 0.5; im Halbschatten unter Laub höher 0.6–0.8) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 3000–8000 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) |
-|-------|----------------|---------|-----|----------|----------|---------|----------|
-| Blüte/Vegetativ | 1:1:1 | 0.6–1.0 | 5.5–7.0 | 80 | 40 | — | 2 |
-| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | S (ppm) | Fe (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|---------|----------|----------|----------|----------|----------|
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Blüte/Vegetativ | 1:1:1 | 0.6–1.0 | 5.5–7.0 | 80 | 40 | — | 2 | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> | <!-- DATEN FEHLEN --> |
+| Winterruhe | 0:0:0 | 0.0 | — | — | — | — | — | — | — | — | — |
+
+<!-- Hinweis: Für V. opulus liegen keine artspezifischen Mikronährstoff-Zielkonzentrationen (Mn/Zn/Cu/Mo in ppm) aus seriösen Quellen vor; als genügsamer Schwachzehrer auf normalem Gartenboden ist eine gezielte Mikronährstoff-Düngung nicht erforderlich. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -183,6 +218,13 @@ Viburnum opulus ist ein genügsamer Einheimischer und braucht auf normalen Garte
 | Winterhärte-Rating | hardy | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | none | `overwintering_profiles.winter_action` |
 | Winter-Gießen | none | `overwintering_profiles.winter_watering` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Frühjahrs-Maßnahme | none (keine Abdeckung zu entfernen; vollständig winterhart bis ca. -30 °C, bleibt im Freiland) | `overwintering_profiles.spring_action` |
+| Winter-Maßnahme Monat | — (keine Schutzmaßnahme nötig) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme Monat | — (keine Maßnahme nötig) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | — (kein Winterquartier; freistehend im Beet) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | — (Freiland) | `overwintering_profiles.winter_quarter_light` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -270,3 +312,15 @@ Viburnum opulus,"Gewöhnlicher Schneeball;Gemeiner Schneeball;Guelder-rose",Adox
 3. [Plantura — Gewöhnlicher Schneeball](https://www.plantura.garden/gehoelze/schneeball/gewoehnlicher-schneeball) — Standort, Pflege
 4. [Naturadb — Viburnum opulus](https://www.naturadb.de/pflanzen/viburnum-opulus/) — Ökologischer Wert
 5. [Gartenratgeber — Schneeball](https://www.gartenratgeber.net/pflanzen/schneeball-duftschneeball-winterschneeball.html) — Kulturdaten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Viburnum opulus (guelder rose)](https://www.rhs.org.uk/plants/18919/viburnum-opulus/details) — Standort, Boden, Sonne/Halbschatten, Winterhärte
+7. [NC State Extension — Viburnum opulus](https://plants.ces.ncsu.edu/plants/viburnum-opulus/) — Licht (partial_shade), Boden-pH, USDA-Zonen, Feuchte-/Trockentoleranz
+8. [PFAF — Viburnum opulus (Guelder Rose)](https://pfaf.org/user/Plant.aspx?LatinName=Viburnum+opulus) — Boden-pH 5.5–8.0, Standortökologie (zeitweise staunasse Lehmböden)
+9. [Cornell Woody Plants Database — Viburnum opulus](https://woodyplants.cals.cornell.edu/plant/274) — Boden-pH 5.0–8.0, Feuchtetoleranz, Wuchsmaße, Lebensdauer
+10. [Wisconsin Horticulture — Winter Salt Injury and Salt-tolerant Landscape Plants](https://hort.extension.wisc.edu/articles/winter-salt-injury-and-salt-tolerant-landscape-plants/) — Salzempfindlichkeit (Viburnum mit nackten Knospen sehr salzspray-anfällig)
+11. [Gardens Illustrated — Viburnum (best to grow & when to prune)](https://www.gardensillustrated.com/plants/spring/viburnum-best-prune-care) — salzempfindlich, vor Salzspray schützen, Lebensdauer 40+ Jahre
+12. [PMC — Deep simple epicotyl morphophysiological dormancy in Viburnum seeds](https://pmc.ncbi.nlm.nih.gov/articles/PMC3119608/) — Dormanz-/Chilling-Anforderung (Warm-/Kältestratifikation)
+13. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Konzept, Basistemperatur
+14. [Klosterman et al. 2018 — Later springs green-up faster (Int. J. Biometeorology)](https://ecoss.nau.edu/wp-content/uploads/2018/11/Klosterman-et-al.-2018-International-Journal-of-Biometerology.pdf) — Laubgehölz-Budburst GDD referenziert auf 5 °C
+15. [Zhen et al. 2022 — Photosynthesis in sun and shade: importance of far-red photons (New Phytologist)](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — R:FR ≈ 1.1 Vollsonne (FR-Fraction ≈ 0.5), höher im Unterwuchs
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

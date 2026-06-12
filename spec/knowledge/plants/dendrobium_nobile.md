@@ -20,11 +20,19 @@
 | Ordnung | Asparagales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter phänologischer Wuchs-/GDD-Basiswert für diese tropisch-subtropische Epiphytenart auffindbar; Blühsteuerung erfolgt nicht über Wärmesummen, sondern über Kühlphase (Vernalisation/Chilling) | `species.base_temp` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Typische Lebensdauer (Jahre) | 10–30+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | true | `lifecycle_configs.vernalization_required` |
+| Vernalisation erforderlich | true (Kühl-/Vernalisationsphase; in der Nobile-Dendrobium-Literatur als "vernalization" geführt, physiologisch Kältereiz zur Blühinduktion) | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Vernalisation Mindest-Tage (min days) | 21–42 (≥ 3 Wochen bei 13–15 °C bzw. 2–6 Wochen bei ~10 °C, kultivarabhängig) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral / day_neutral; Blühinduktion temperatur-, nicht photoperiodengesteuert — keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Kühle Herbst-/Wintertemperaturen (7–15°C) sind für Blütenbildung obligat — ohne Kühlung keine Blüten. | `species.hardiness_detail` |
@@ -91,6 +99,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Orchidenbark-Mix (grobkörnig). pH 5.5–6.5. Kleine Töpfe bevorzugt — eng eingetopft blüht Dendrobium besser. Niemals normale Einheitserde. | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (LCP, PPFD µmol/m²/s) | 5 | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (LCP, PPFD µmol/m²/s) | 20 | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (effective root depth, cm) | 8–15 | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | sensitive | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Maas-Hoffman a, Substrat-ECe, dS/m) | 2.0 | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (Maas-Hoffman b, %/dS/m) | <!-- DATEN FEHLEN --> kein belegter Maas-Hoffman-Slope für Dendrobium auffindbar | `species.salt_tolerance_slope_pct` |
+| Boden-/Substrat-pH-Vorzug (min–max) | 5.5–6.5 | `species.soil_ph_preference` |
+
+**Hinweis (LCP):** Als CAM-Epiphyt liegt der Lichtkompensationspunkt niedrig (Netto-Photosynthese = 0 bei ~5–20 µmol/m²/s, wie für CAM-Orchideen typisch). Davon zu trennen sind Sättigungs-/Photoinhibitions-Werte: In Kultur sind 200–500 µmol/m²/s das Optimum (siehe §2.2); ab ~1000 µmol/m²/s wird die nächtliche Stomataöffnung (CAM) gehemmt, im Hochsommer drohen Blattverbrennungen (daher ~30 % Schattierung).
+
+**Hinweis (Salz):** Die ECe-Schwelle bezieht sich auf die **Substrat-Leitfähigkeit (ECe)**, nicht auf die Gießwasser-EC. Empfindlichkeit gegen Versalzung ist hoch — bereits ab 2 dS/m sinken Blatt- und Blütenzahl; ab 4 dS/m leiden Pseudobulben/Infloreszenzen. Konsistent mit dem light_feeder-Status (§1.1) und der niedrigen Nährlösungs-EC (0.4–0.8 mS, §2.3).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -116,6 +144,12 @@
 | Temperatur Nacht (°C) | 15–22 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 50–70 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.6–1.2 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.6 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 22–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 (halbschattiger Epiphytenstandort; offenes Tageslicht ≈ 0.5, lichter Baumkronenschatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 5–10 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 100–250 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -124,9 +158,18 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 150–400 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 9–17 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 10–18 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 7–13 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.4 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 12–17 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 (halbschattiger Epiphytenstandort; offenes Tageslicht ≈ 0.5, lichter Baumkronenschatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 14–21 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 50–120 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
@@ -135,17 +178,30 @@
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
 | Licht PPFD (µmol/m²/s) | 200–400 | `requirement_profiles.light_ppfd_target` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| DLI (mol/m²/Tag) | 12–20 | `requirement_profiles.dli_target_mol` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Temperatur Tag (°C) | 18–24 | `requirement_profiles.temperature_day_c` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.5 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | low | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 18–23 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 (halbschattiger Epiphytenstandort; offenes Tageslicht ≈ 0.5, lichter Baumkronenschatten höher) | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Gießintervall (Tage) | 7–14 | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 80–200 | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Aktivwachstum | 20:20:20 ausgewogen | 0.4–0.8 | 5.5–6.5 | 40 | 20 |
-| Kühlphase | 0:0:0 | 0.0–0.2 | 5.5–6.5 | — | — |
-| Blüte | 0:0:0 | 0.0–0.2 | 5.5–6.5 | — | — |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Aktivwachstum | 20:20:20 ausgewogen | 0.4–0.8 | 5.5–6.5 | 40 | 20 | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->0.5 | 0.05 | 0.02 | 0.01<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Kühlphase | 0:0:0 | 0.0–0.2 | 5.5–6.5 | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— | — | — | —<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+| Blüte | 0:0:0 | 0.0–0.2 | 5.5–6.5 | — | — | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->— | — | — | —<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Werte als Richtwerte einer ausgewogenen, stark verdünnten Vollnährlösung für leichtzehrende Epiphyten (Mangan/manganese, Zink/zinc, Kupfer/copper, Molybdän/molybdenum). Mikronährstoffe werden ausschließlich in der Aktivwachstumsphase zugeführt; in Kühl- und Blütephase erfolgt keine Düngung (0:0:0). Bei reinem Regen-/RO-Wasser einen Orchideen-Volldünger mit Spurenelementen verwenden, niemals überdosieren (Versalzungsgefahr, siehe §1.7 Salztoleranz).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -189,6 +245,23 @@ Leichter Zehrer. Alle 14 Tage April bis September bei halber Empfehlungsdosis. O
 | Schädlingskontroll-Intervall (Tage) | 14 | `care_profiles.pest_check_interval_days` |
 | Luftfeuchtigkeitsprüfung | false | `care_profiles.humidity_check_enabled` |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 4.3 Überwinterung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Einstufung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 9–10 (vor erstem Frost / Ende Eisheilige-Saison hereinholen) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 5–6 (nach Eisheiligen, abgehärtet) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temperatur (°C) | 7–15 (Kühlphase obligat für Blüte; Nacht 7–13 °C, Tag 10–18 °C) | `overwintering_profiles.winter_quarter_temp_c` |
+| Winterquartier Licht | hell (heller Standort, kein Schatten im Winter; PPFD 150–400 µmol/m²/s) | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Gießen | stark reduziert (alle 14–21 Tage, fast trocken halten; kein Dünger) | `overwintering_profiles.winter_quarter_watering` |
+
+**Hinweis:** Dendrobium nobile ist frostempfindlich (`tender`, §1.1) und überwintert in Mitteleuropa (USDA 6–8) zwingend frostfrei im Haus → Einstufung `frost_free` (kein Ausgraben/Einlagern wie bei Knollen, kein Winterschutz im Freiland). Anders als bei reinen Zimmerpflanzen ist die kühle, helle, trockene Überwinterung hier **funktional notwendig**: Ohne den Kältereiz (7–15 °C) im Herbst/Winter bleibt die Blüte aus. Ein zu warmer Wohnraum (> 18 °C nachts) im Winter verhindert die Blühinduktion.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten
@@ -215,6 +288,18 @@ Leichter Zehrer. Alle 14 Tage April bis September bei halber Empfehlungsdosis. O
 | Kühlphase einhalten | cultural | Herbst: 10°C Nacht | 0 | Blütenausfall (Prävention) |
 | Alkohol 70% | mechanical | Wattestäbchen | 0 | Wollschildläuse, Schildläuse |
 | Neemöl | biological | Sprühen 0.3% | 0 | Spinnmilben |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilbe (Tetranychus urticae) | 2–50 Tiere/m² (1–2× wöchentlich wiederholen) | 2–4 Wochen |
+| Australischer Marienkäfer (Mealybug destroyer) | Cryptolaemus montrouzieri | Woll-/Schmierläuse (Pseudococcus spp.) | 2–10 Tiere/m² (bei Bedarf wiederholen) | 3–6 Wochen |
+| Schlupfwespe | Metaphycus helvolus | Weichschildlaus (Coccus hesperidum) | 1–5 Tiere/m² (mehrfach im 1–2-Wochen-Takt) | 3–5 Wochen |
+
+**Hinweis:** Nützlingseinsatz ist v. a. im Wintergarten/Gewächshaus oder bei Sommerstand im Freien sinnvoll; im trockenen Wohnraum etablieren sich Raubmilben schlecht. Nützling-Wirt-Zuordnung beachten: *Phytoseiulus persimilis* nur gegen Spinnmilben (kein Alternativwirt), *Cryptolaemus montrouzieri* gegen Woll-/Schmierläuse, *Metaphycus helvolus* gegen Weichschildläuse (Coccidae, z. B. *Coccus hesperidum*) — **nicht** gegen Panzer-/Deckelschildläuse (dafür wären *Aphytis*-Arten zuständig).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -252,3 +337,19 @@ Dendrobium nobile,"Dendrobium-Orchidee;Edle Dendrobie;Bambusorchidee;Noble Dendr
 3. [UK Houseplants — Dendrobiums](https://www.ukhouseplants.com/plants/dendrobiums) — Schädlinge, Phasen
 4. [Carter & Holmes — Nobile Dendrobium](https://www.carterandholmes.com/pages/dendrobium-nobile-and-ise-care-sheet) — Professionelle Pflegekarte
 5. [ASPCA Animal Poison Control](https://www.aspca.org/) — Toxizität (nicht giftig)
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [Zhang et al. 2019, J. Exp. Bot. 70(22):6611 — CAM evolution in Dendrobium](https://academic.oup.com/jxb/article/70/22/6611/5592895) — Beleg Photosynthese-Typ CAM in der Gattung Dendrobium
+7. [BMC Plant Biology 2023 — Chloroplast genomic evolution of Dendrobium among photosynthetic pathways](https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-023-04186-y) — Beleg CAM/fakultative CAM bei Dendrobium
+8. [HortScience 43(6) 2008 — Effects of Cooling Temperature and Duration on Flowering of the Nobile Dendrobium Orchid](https://journals.ashs.org/hortsci/view/journals/hortsci/43/6/article-p1765.xml) — Kühl-/Vernalisationsdauer (≥3 Wochen 13–15 °C; 2–6 Wochen 10 °C)
+9. [Scientia Horticulturae 2011 — Deferring flowering of nobile dendrobium hybrids after vernalization](https://www.sciencedirect.com/science/article/abs/pii/S0304423811004493) — Bestätigung Vernalisations-/Kühlbedarf, Mindestdauer kultivarabhängig
+10. [Frontiers Plant Sci. 2022 — Salinity stress mechanisms in facultative CAM Dendrobium officinale](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.1028245/full) — Salzempfindlichkeit, Schwellen ≥2 / ≥4 dS/m
+11. [Abdullakasim & Kongpaisan — Physiological responses of potted Dendrobium orchid to salinity stress](https://www.researchgate.net/publication/326068718_Physiological_responses_of_potted_Dendrobium_orchid_to_salinity_stress) — ECe-Schwellenwerte Topf-Dendrobium
+12. [Scientific Reports 2025 — Photosynthetic acclimation of CAM orchid Phalaenopsis to light level](https://www.nature.com/articles/s41598-025-96167-4) — niedriger Lichtkompensationspunkt bei CAM-Orchideen (Vergleichsbeleg)
+13. [Zhen & Bugbee 2020, Frontiers Plant Sci. — Substituting Far-Red for PAR photons](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.581156/full) — Far-Red-Fraction-Methodik/Anker (offenes Tageslicht vs. direkte Sonne)
+14. [OrchidWeb — Nobile Type Dendrobium Orchid Care](https://www.orchidweb.com/orchid-care/nobile-type-dendrobium-orchid-care) — Substrat-pH 5.5–6.5, hohe Lichtansprüche, Sommerschattierung
+15. [Floricultura — Cultivation manual Dendrobium nobile pot plant 2021](https://www.floricultura.com/media/5298/dendrobium-nobile-pot-plant-cultivation-manual-2021_en.pdf) — Substrat, pH, Kulturführung Topfpflanze
+16. [New York Botanical Garden — Nobile Dendrobium Hybrids](https://libguides.nybg.org/c.php?g=1285826&p=9477919) — Winter-Ruhetemperaturen, Blühinduktion durch kühle Nächte
+17. [Koppert — Phytoseiulus persimilis (Spidex)](https://www.koppert.com/spidex/) — Ausbringrate Raubmilbe gegen Spinnmilben
+18. [Koppert — Cryptolaemus montrouzieri (Cryptobug)](https://www.koppert.com/cryptobug/) — Ausbringrate gegen Woll-/Schmierläuse
+19. [UF/IFAS ENY-2114 — Orchid Insect and Mite Pests in South Florida](https://ask.ifas.ufl.edu/publication/IN1433) — Schädlings-/Nützling-Zuordnung bei Orchideen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

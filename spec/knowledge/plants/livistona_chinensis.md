@@ -21,6 +21,15 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
+| GDD-Basistemperatur Wuchsphase (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Livistona chinensis auffindbar; nur subjektive Kältegrenzen --> | `species.base_temp` |
+| Lebensdauer (Jahre) | 50–150 | `lifecycle_configs.typical_lifespan_years` |
+| Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
+| Vernalisation/Chilling erforderlich | false | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindest-Tage | — (tropisch/subtropisch, kein Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
+| Kritische Tageslänge (h) | — (tagneutral; kein Kurz-/Langtagblüher) | `lifecycle_configs.critical_day_length_hours` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Kurzfristig bis -5°C; junge Pflanzen frostempfindlicher; als Zimmerpalme ganzjährig frostfrei halten | `species.hardiness_detail` |
@@ -85,6 +94,26 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Torfbasierte Anzuchterde 2:1 mit grobem Sand/Perlit; pH 6.0–7.0; gute Drainage; schwerer Topf für Stabilität | — |
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 1.7 Umgebungs-Physiologie & Standortqualität
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtkompensationspunkt min (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: kein artspezifischer LCP-Messwert für Livistona chinensis in seriösen Quellen; nur generische Palmen-Schattentoleranz belegt --> | `species.light_compensation_point_ppfd_min` |
+| Lichtkompensationspunkt max (PPFD µmol/m²/s) | <!-- DATEN FEHLEN: siehe min --> | `species.light_compensation_point_ppfd_max` |
+| Schatten-/Sonnentoleranz (shade tolerance) | partial_shade | `species.shade_tolerance` |
+| Effektive Wurzeltiefe (cm) | <!-- DATEN FEHLEN: kein belegter Messwert zur Durchwurzelungstiefe von Livistona chinensis --> | `species.effective_root_depth_cm` |
+| Staunässe-Toleranz (waterlogging tolerance) | sensitive | `species.waterlogging_tolerance` |
+| Salztoleranz-Klasse (salt tolerance class) | moderately_tolerant | `species.salt_tolerance_class` |
+| Salztoleranz ECe-Schwelle (Substrat-ECe, dS/m) | <!-- DATEN FEHLEN: nur qualitative Angabe "moderately tolerant of salt spray", kein Maas-Hoffman-Schwellenwert belegt --> | `species.salt_tolerance_ece_threshold_ds_m` |
+| Salztoleranz Slope (%/dS/m) | <!-- DATEN FEHLEN: kein Maas-Hoffman-Slope belegt --> | `species.salt_tolerance_slope_pct` |
+| Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
+
+**Hinweis (Licht):** Livistona chinensis wächst laut RHS in voller Sonne und im Halbschatten; Jungpflanzen sind lichtempfindlicher und sollten partiell beschattet werden, ältere Exemplare vertragen mehr Sonne. Als Palme der schattigen Unterschicht tropischer Wälder ist sie gut schattenadaptiert, die Kultur als Zimmerpalme erfolgt aber idealerweise in hellem, indirektem Licht (RHS: "Full sun, Partial shade").
+
+**Hinweis (Salz/Wasser):** Bezugsgröße der Salztoleranz ist Sprühnebel-/Substratsalzbelastung (salt spray); Gardenia/IFAS stufen die Art als "moderately tolerant of salt spray" ein. Staunässe wird schlecht vertragen — schlecht drainierte, vernässte Böden führen zu Wurzelverlust und Wurzelfäule (Phytophthora). Der pH-Vorzug ist quellentreu auf den mit §1.6 und §2.3 harmonisierten Korridor 6.0–7.0 gesetzt; RHS bestätigt zusätzlich eine Toleranz gegenüber leicht alkalischen Böden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -111,17 +140,30 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–65 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | 0.7–1.5 | `requirement_profiles.vpd_target_kpa` |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Sensitivität (vpd sensitivity) | medium | `requirement_profiles.vpd_sensitivity` |
+| Photosynthese-T_opt (°C) | 25–30 | `requirement_profiles.photosynthesis_temp_opt_c` |
+| Far-Red-Fraction FR/(R+FR) | 0.50–0.60 | `requirement_profiles.far_red_fraction` |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | CO₂ (ppm) | 400–800 | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 7–14 (obere Erdschicht 2–3 cm abtrocknen lassen) | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 500–2000 (je nach Topfgröße) | `requirement_profiles.irrigation_volume_ml_per_plant` |
 
 ### 2.3 Nährstoffprofile je Phase
 
-| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) |
-|-------|----------------|---------|-----|----------|----------|
-| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | — | — |
-| Jungpalme | 1:1:1 | 0.5–0.8 | 6.0–7.0 | 60 | 30 |
-| Vegetativ | 3:1:3 | 0.6–1.2 | 6.0–7.0 | 100 | 50 |
+| Phase | NPK-Verhältnis | EC (mS) | pH | Ca (ppm) | Mg (ppm) | Mn (ppm) | Zn (ppm) | Cu (ppm) | Mo (ppm) |
+|-------|----------------|---------|-----|----------|----------|----------|----------|----------|----------|
+| Keimung | 0:0:0 | 0.0 | 6.0–7.0 | — | — | — | — | — | — |
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+| Jungpalme | 1:1:1 | 0.5–0.8 | 6.0–7.0 | 60 | 30 | 0.5 | 0.1 | 0.05 | 0.03 |
+| Vegetativ | 3:1:3 | 0.6–1.2 | 6.0–7.0 | 100 | 50 | 0.5 | 0.1 | 0.05 | 0.05 |
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Hinweis (Mikronährstoffe):** Palmen sind besonders Mangan- und Magnesium-empfindlich; ein Mn/Mg-haltiger Palmen-Spezialdünger beugt der bei Palmen häufigen Manganmangel-Aufhellung (gelbliche Jungblätter mit grünen Adern) vor. Die Mikronährstoff-Konzentrationen entsprechen Standardwerten für eine schwach zehrende (light feeder) Topfkultur-Nährlösung (Mn/Zn/Cu/Mo in Sulfat- oder Chelatform); IFAS empfiehlt für Containerpalmen einen 3N-1P₂O₅-2K₂O-Volldünger mit Mg und Mikronährstoffen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
 
 ---
 
@@ -182,7 +224,7 @@ Palmen sind Langsamwachser mit vergleichsweise geringem Nährstoffbedarf. Mangan
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free | `overwintering_profiles.hardiness_rating` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 — Korrektur: frostempfindliche Kübel-/Zimmerpalme, die frostfrei (move_indoors) drinnen überwintert → Enum frost_free statt der UI-nahen needs_protection-Ampelstufe; RHS-Hardiness H2 (1–5 °C, übersteht kein Einfrieren) -->
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
@@ -219,6 +261,18 @@ Palmen sind Langsamwachser mit vergleichsweise geringem Nährstoffbedarf. Mangan
 | Neemöl | biological | Azadirachtin | Sprühen 0.5%, alle 7d | 3 | Spinnmilben, Schildläuse |
 | Regelmäßiges Absprühen | cultural | — | Wedel mit Wasser abbrausen | 0 | Milben-Prävention |
 | Isopropanol | biological | Isopropylalkohol | Wattestäbchen | 0 | Schildläuse |
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+### 5.4 Nützlinge (Biologische Bekämpfung)
+
+| Nützling | Wissenschaftl. Name | Ziel-Schädling | Ausbringrate | Etablierungszeit |
+|----------|--------------------|-----------------|--------------|------------------|
+| Raubmilbe | Phytoseiulus persimilis | Spinnmilben (Tetranychus urticae) | 2–6 Tiere/m² (ab 20 °C) | 2–3 Wochen |
+| Australische Marienkäfer | Cryptolaemus montrouzieri | Wollläuse (Planococcus citri) | 2–5 Käfer/m² | 3–4 Wochen |
+| Schlupfwespe | Metaphycus helvolus | Weichschildläuse (Coccoidea/Coccidae) | 5–10 Tiere/m² | 3–6 Wochen |
+
+**Hinweis:** Phytoseiulus persimilis benötigt höhere Luftfeuchte (> 60 %) und Temperaturen über 20 °C, was zur tropischen Kultur der Fächerpalme passt. Cryptolaemus montrouzieri ist gegen Woll- und Schmierläuse die erste Wahl. Metaphycus helvolus parasitiert Weichschildläuse (Coccidae); gegen Panzer-/Deckelschildläuse (Diaspididae) wären stattdessen Aphytis-Arten zu wählen — die Wirt-Zuordnung darf nicht vermischt werden.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 
@@ -262,3 +316,11 @@ Livistona chinensis,Chinesische Fächerpalme;Fächerpalme;Chinese Fan Palm,Areca
 3. [Bouqs Blog — Chinese Fan Palm Care](https://bouqs.com/blog/chinese-fan-palm-care/) — Temperatur, Gießen
 4. [Gardenia.net — Livistona chinensis](https://www.gardenia.net/plant/livistona-chinensis) — Botanische Einordnung
 5. [UF/IFAS Fact Sheet — Livistona chinensis](https://hort.ifas.ufl.edu/database/documents/pdf/tree_fact_sheets/livchia.pdf) — Wissenschaftliche Daten
+<!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+6. [RHS — Livistona chinensis (Chinese fan palm)](https://www.rhs.org.uk/plants/10385/livistona-chinensis-chinese-fan-palm-chinese-fountain-palm/details) — Boden-pH (acid/neutral/alkaline), Exposition (full sun/partial shade), Feuchte (moist but well-drained), Winterhärte H2 (1–5 °C)
+7. [UF/IFAS ENH-524/ST365 — Livistona chinensis](https://ask.ifas.ufl.edu/publication/ST365) — Lichtexposition ("light shade or full sunlight"), Salztoleranz ("moderately tolerant of salt spray"), Trockentoleranz
+8. [ProjectPalm — Livistona chinensis](https://projectpalm.net/species/livistona-chinensis) — Boden-pH-Spanne (leicht sauer bis neutral, Toleranz 5.0–8.0), Sonnenbedarf, Trockentoleranz
+9. [Marler & Cruz — Convergent Evolution towards High Net Carbon Gain Efficiency / Shade Tolerance of Palms (Arecaceae), PMC4604201](https://pmc.ncbi.nlm.nih.gov/articles/PMC4604201/) — C3-Stoffwechsel und Schattenadaptation der Arecaceae (Understory)
+10. [UF/IFAS ENH1010/EP262 — Nutrition and Fertilization of Palms in Containers](https://ask.ifas.ufl.edu/publication/EP262) — 3N-1P₂O₅-2K₂O-Volldünger mit Mg + Mikronährstoffen (Mn/Zn/Cu/Fe in Sulfat-/Chelatform) für Containerpalmen
+11. [Grossiord et al. — Plant responses to rising vapour pressure deficit, New Phytologist 2020](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16485) — VPD-Stomata-Sensitivität tropischer (isohydrischer) Arten als Grundlage der VPD-Einstufung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
