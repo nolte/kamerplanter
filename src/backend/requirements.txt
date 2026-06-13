@@ -45,7 +45,7 @@ click-repl==0.3.0
     # via celery
 croniter==6.2.2
     # via kamerplanter-backend (pyproject.toml)
-cryptography==48.0.1
+cryptography==49.0.0
     # via
     #   authlib
     #   kamerplanter-backend (pyproject.toml)
