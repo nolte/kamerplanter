@@ -125,7 +125,7 @@ six==1.17.0
     # via
     #   markdownify
     #   python-dateutil
-slowapi==0.1.9
+slowapi==0.1.10
     # via kamerplanter-backend (pyproject.toml)
 soupsieve==2.8.4
     # via beautifulsoup4
