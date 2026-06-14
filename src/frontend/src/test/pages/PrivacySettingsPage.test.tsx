@@ -1,4 +1,5 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -36,5 +37,73 @@ describe('PrivacySettingsPage', () => {
     expect(screen.getByTestId('privacy-tab-export')).toBeTruthy();
     expect(screen.getByTestId('privacy-tab-erasure')).toBeTruthy();
     expect(screen.getByTestId('privacy-tab-restrict')).toBeTruthy();
+  });
+
+  it('loads and displays consents on the default tab', async () => {
+    renderWithProviders(<PrivacySettingsPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Analyse')).toBeTruthy();
+    });
+    expect(screen.getByTestId('privacy-consents-list')).toBeTruthy();
+  });
+
+  it('shows a consent-loading error from the backend', async () => {
+    server.use(
+      http.get('/api/v1/privacy/consents', () =>
+        HttpResponse.json(
+          { error_id: 'e', error_code: 'INTERNAL', message: 'boom', details: [], timestamp: '', path: '', method: '' },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderWithProviders(<PrivacySettingsPage />);
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeTruthy();
+    });
+  });
+
+  it('requests a data export and surfaces the resulting status', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-export'));
+    await user.click(await screen.findByTestId('privacy-export-request-btn'));
+
+    expect(await screen.findByTestId('privacy-export-result')).toBeTruthy();
+  });
+
+  it('confirms account erasure through the confirmation dialog', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-erasure'));
+    await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+
+    // Confirmation dialog appears, confirm it
+    await user.click(await screen.findByTestId('privacy-erasure-confirm-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText(i18n.t('pages.privacy.erasureRequested'))).toBeTruthy();
+    });
+  });
+
+  it('validates the restriction scope before submitting', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-restrict'));
+    // Submit button is disabled until a scope is entered
+    const submitBtn = await screen.findByTestId('privacy-restrict-submit-btn');
+    expect(submitBtn).toBeDisabled();
+
+    const scopeField = within(await screen.findByTestId('privacy-restrict-scope')).getByRole('textbox');
+    await user.type(scopeField, 'sensor_data');
+    await waitFor(() => expect(submitBtn).not.toBeDisabled());
+
+    await user.click(submitBtn);
+    // Created restriction is appended to the list
+    await waitFor(() => {
+      expect(screen.getByText('sensor_data')).toBeTruthy();
+    });
   });
 });

@@ -78,6 +78,73 @@ describe('UI-NFR-012 service worker registration helper', () => {
     expect(result).toBe(registration);
     expect(onUpdateAvailable).toHaveBeenCalledWith(registration);
   });
+
+  /** Build a registration that synchronously fires updatefound → statechange=installed. */
+  function makeUpdatingRegistration() {
+    const installing = { state: 'installed', addEventListener: vi.fn() };
+    const registration = {
+      waiting: null,
+      installing,
+      addEventListener: vi.fn((event: string, cb: () => void) => {
+        if (event === 'updatefound') cb();
+      }),
+    };
+    return { registration, installing };
+  }
+
+  /** Run the statechange callback the helper attached to the installing worker. */
+  function fireStatechange(installing: { addEventListener: ReturnType<typeof vi.fn> }) {
+    const cb = installing.addEventListener.mock.calls.find(
+      ([e]: unknown[]) => e === 'statechange',
+    )?.[1] as () => void;
+    cb();
+  }
+
+  it('signals onUpdateAvailable for an update found while a controller is active', async () => {
+    const { registration, installing } = makeUpdatingRegistration();
+    const register = vi.fn().mockResolvedValue(registration);
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { serviceWorker: { register, getRegistrations: vi.fn(), controller: {} } },
+      configurable: true,
+      writable: true,
+    });
+    const onUpdateAvailable = vi.fn();
+    await registerServiceWorker({ onUpdateAvailable });
+    fireStatechange(installing);
+    expect(onUpdateAvailable).toHaveBeenCalledWith(registration);
+  });
+
+  it('signals onActivated for a first install with no controller', async () => {
+    const { registration, installing } = makeUpdatingRegistration();
+    const register = vi.fn().mockResolvedValue(registration);
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { serviceWorker: { register, getRegistrations: vi.fn(), controller: null } },
+      configurable: true,
+      writable: true,
+    });
+    const onActivated = vi.fn();
+    await registerServiceWorker({ onActivated });
+    fireStatechange(installing);
+    expect(onActivated).toHaveBeenCalledWith(registration);
+  });
+
+  it('ignores an updatefound event without an installing worker', async () => {
+    const registration = {
+      waiting: null,
+      installing: null,
+      addEventListener: vi.fn((event: string, cb: () => void) => {
+        if (event === 'updatefound') cb();
+      }),
+    };
+    const register = vi.fn().mockResolvedValue(registration);
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { serviceWorker: { register, getRegistrations: vi.fn(), controller: null } },
+      configurable: true,
+      writable: true,
+    });
+    const result = await registerServiceWorker({ onActivated: vi.fn() });
+    expect(result).toBe(registration);
+  });
 });
 
 describe('activateWaitingWorker', () => {

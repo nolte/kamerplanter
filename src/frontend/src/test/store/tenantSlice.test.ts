@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   switchTenant,
   clearTenants,
@@ -6,6 +7,10 @@ import reducer, {
   createOrganization,
 } from '@/store/slices/tenantSlice';
 import { getActiveTenantSlug } from '@/api/client';
+import * as tenantApi from '@/api/endpoints/tenants';
+
+// Isolated module mock — no real HTTP, no handlers.ts.
+vi.mock('@/api/endpoints/tenants');
 
 const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
 
@@ -110,5 +115,44 @@ describe('tenantSlice', () => {
       payload: [tenantA, tenantB],
     });
     expect(state.myTenants).toEqual([tenantA, tenantB]);
+  });
+});
+
+describe('tenantSlice thunks', () => {
+  const mocked = vi.mocked(tenantApi);
+
+  beforeEach(() => {
+    stubLocalStorage();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('loadMyTenants calls the API and stores the tenants', async () => {
+    mocked.listMyTenants.mockResolvedValue([tenantA, tenantB] as never);
+    const store = configureStore({ reducer: { tenants: reducer } });
+    await store.dispatch(loadMyTenants());
+    expect(mocked.listMyTenants).toHaveBeenCalled();
+    expect(store.getState().tenants.myTenants).toEqual([tenantA, tenantB]);
+  });
+
+  it('loadMyTenants surfaces a rejection as the slice error', async () => {
+    mocked.listMyTenants.mockRejectedValue(new Error('load failed'));
+    const store = configureStore({ reducer: { tenants: reducer } });
+    await store.dispatch(loadMyTenants());
+    expect(store.getState().tenants.error).toBe('load failed');
+  });
+
+  it('createOrganization creates and then reloads the tenant list', async () => {
+    mocked.createOrganization.mockResolvedValue({ key: 'tc' } as never);
+    mocked.listMyTenants.mockResolvedValue([tenantA] as never);
+    const store = configureStore({ reducer: { tenants: reducer } });
+    const payload = { name: 'New Org', slug: 'new-org' } as never;
+    await store.dispatch(createOrganization(payload));
+    expect(mocked.createOrganization).toHaveBeenCalledWith(payload);
+    expect(mocked.listMyTenants).toHaveBeenCalled();
+    expect(store.getState().tenants.myTenants).toEqual([tenantA]);
   });
 });

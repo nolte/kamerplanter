@@ -1,7 +1,7 @@
 import { type ReactElement } from 'react';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import { ThemeContextProvider } from '@/theme';
@@ -12,22 +12,57 @@ import sitesReducer from '@/store/slices/sitesSlice';
 import substratesReducer from '@/store/slices/substratesSlice';
 import plantInstancesReducer from '@/store/slices/plantInstancesSlice';
 import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
+import authReducer from '@/store/slices/authSlice';
 
-export function createTestStore() {
+const rootReducer = combineReducers({
+  ui: uiReducer,
+  botanicalFamilies: botanicalFamiliesReducer,
+  species: speciesReducer,
+  sites: sitesReducer,
+  substrates: substratesReducer,
+  plantInstances: plantInstancesReducer,
+  userPreferences: userPreferencesReducer,
+  auth: authReducer,
+});
+
+// Loosely-typed preloaded state: only the slices a given test cares about need
+// to be supplied. configureStore fills the rest from each reducer's initial state.
+type PreloadedState = Record<string, unknown>;
+
+export function createTestStore(preloadedState?: PreloadedState) {
   return configureStore({
-    reducer: {
-      ui: uiReducer,
-      botanicalFamilies: botanicalFamiliesReducer,
-      species: speciesReducer,
-      sites: sitesReducer,
-      substrates: substratesReducer,
-      plantInstances: plantInstancesReducer,
-      userPreferences: userPreferencesReducer,
-    },
+    reducer: rootReducer,
+    preloadedState: preloadedState as never,
   });
 }
 
 export type TestStore = ReturnType<typeof createTestStore>;
+
+type ExpertiseLevel = 'beginner' | 'intermediate' | 'expert';
+
+/**
+ * Store seeded with a loaded user-preference experience level. Components that
+ * gate fields behind {@link useExpertiseLevel} (ExpertiseFieldWrapper) show the
+ * intermediate/expert fields only when a preference is actually loaded.
+ */
+export function createStoreWithExpertise(level: ExpertiseLevel): TestStore {
+  return createTestStore({
+    userPreferences: {
+      preferences: {
+        key: 'pref-1',
+        user_key: 'user-1',
+        experience_level: level,
+        onboarding_completed: true,
+        locale: 'de',
+        theme: 'light',
+        watering_can_liters: 5,
+        smart_home_enabled: false,
+      },
+      loading: false,
+      error: null,
+    },
+  });
+}
 
 export function renderWithProviders(
   ui: ReactElement,

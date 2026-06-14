@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   clearError,
   fetchCalendarEvents,
@@ -9,6 +10,14 @@ import reducer, {
   fetchSowingCalendar,
   fetchSeasonOverview,
 } from '@/store/slices/calendarSlice';
+import * as calendarApi from '@/api/endpoints/calendar';
+
+// Isolated module mock — no real HTTP, no handlers.ts.
+vi.mock('@/api/endpoints/calendar');
+
+function makeStore() {
+  return configureStore({ reducer: { calendar: reducer } });
+}
 
 function initial() {
   return reducer(undefined, { type: 'unknown' });
@@ -95,5 +104,93 @@ describe('calendarSlice', () => {
     expect(fulfilled.seasonOverview).toEqual({ months: [] });
     const rejected = reducer(initial(), { type: fetchSeasonOverview.rejected.type, error: {} });
     expect(rejected.error).toBe('Failed to load season overview');
+  });
+});
+
+describe('calendarSlice thunks', () => {
+  const mocked = vi.mocked(calendarApi);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetchCalendarEvents forwards its args and stores the events', async () => {
+    mocked.getCalendarEvents.mockResolvedValue({ events: [{ key: 'e1' }] } as never);
+    const store = makeStore();
+    await store.dispatch(
+      fetchCalendarEvents({ start: '2026-01-01', end: '2026-01-31', category: 'task', tenantKey: 't1' }),
+    );
+    expect(mocked.getCalendarEvents).toHaveBeenCalledWith('2026-01-01', '2026-01-31', 'task', 't1');
+    expect(store.getState().calendar.events).toEqual([{ key: 'e1' }]);
+  });
+
+  it('fetchCalendarFeeds stores the feeds', async () => {
+    mocked.listCalendarFeeds.mockResolvedValue([{ key: 'f1' }] as never);
+    const store = makeStore();
+    await store.dispatch(fetchCalendarFeeds({ userKey: 'u1', tenantKey: 't1' }));
+    expect(mocked.listCalendarFeeds).toHaveBeenCalledWith('u1', 't1');
+    expect(store.getState().calendar.feeds).toEqual([{ key: 'f1' }]);
+  });
+
+  it('createCalendarFeed appends the new feed', async () => {
+    mocked.createCalendarFeed.mockResolvedValue({ key: 'f2' } as never);
+    const store = makeStore();
+    const filters = { categories: ['task'], site_key: null };
+    await store.dispatch(createCalendarFeed({ name: 'My Feed', filters }));
+    expect(mocked.createCalendarFeed).toHaveBeenCalledWith('My Feed', filters);
+    expect(store.getState().calendar.feeds).toContainEqual({ key: 'f2' });
+  });
+
+  it('deleteCalendarFeed removes the feed by key', async () => {
+    mocked.deleteCalendarFeed.mockResolvedValue(undefined);
+    const store = configureStore({
+      reducer: { calendar: reducer },
+      preloadedState: {
+        calendar: { ...reducer(undefined, { type: 'unknown' }), feeds: [{ key: 'f1' }] as never },
+      },
+    });
+    await store.dispatch(deleteCalendarFeed('f1'));
+    expect(mocked.deleteCalendarFeed).toHaveBeenCalledWith('f1');
+    expect(store.getState().calendar.feeds).toEqual([]);
+  });
+
+  it('regenerateCalendarFeedToken replaces the matching feed', async () => {
+    mocked.regenerateCalendarFeedToken.mockResolvedValue({ key: 'f1', token: 'new' } as never);
+    const store = configureStore({
+      reducer: { calendar: reducer },
+      preloadedState: {
+        calendar: { ...reducer(undefined, { type: 'unknown' }), feeds: [{ key: 'f1', token: 'old' }] as never },
+      },
+    });
+    await store.dispatch(regenerateCalendarFeedToken('f1'));
+    expect(store.getState().calendar.feeds[0]).toEqual({ key: 'f1', token: 'new' });
+  });
+
+  it('fetchSowingCalendar stores entries, frost config and year', async () => {
+    mocked.getSowingCalendar.mockResolvedValue({
+      entries: [{ species_key: 's1' }],
+      frost_config: { last_frost: '2026-05-15' },
+      year: 2026,
+    } as never);
+    const store = makeStore();
+    await store.dispatch(fetchSowingCalendar({ siteId: 'site-1', year: 2026 }));
+    expect(mocked.getSowingCalendar).toHaveBeenCalledWith('site-1', 2026);
+    expect(store.getState().calendar.sowingYear).toBe(2026);
+    expect(store.getState().calendar.sowingFrostConfig).toEqual({ last_frost: '2026-05-15' });
+  });
+
+  it('fetchSeasonOverview stores the overview', async () => {
+    mocked.getSeasonOverview.mockResolvedValue({ months: [{ month: 1 }] } as never);
+    const store = makeStore();
+    await store.dispatch(fetchSeasonOverview({ siteId: 'site-1', year: 2026 }));
+    expect(mocked.getSeasonOverview).toHaveBeenCalledWith('site-1', 2026);
+    expect(store.getState().calendar.seasonOverview).toEqual({ months: [{ month: 1 }] });
+  });
+
+  it('fetchCalendarEvents surfaces a rejection as the slice error', async () => {
+    mocked.getCalendarEvents.mockRejectedValue(new Error('load failed'));
+    const store = makeStore();
+    await store.dispatch(fetchCalendarEvents({ start: '2026-01-01', end: '2026-01-31' }));
+    expect(store.getState().calendar.error).toBe('load failed');
   });
 });
