@@ -253,10 +253,17 @@ def root_health() -> dict:
     return result
 
 
-# Static file serving for task photo uploads
+# Static file serving for task photo uploads.
+# Mounting is best-effort: a non-writable upload location (e.g. a missing
+# volume in local/CI environments) must not prevent the application from
+# starting. The upload endpoints degrade gracefully when the directory is
+# unavailable.
 upload_dir = Path(settings.upload_dir)
-upload_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads/tasks", StaticFiles(directory=str(upload_dir)), name="task_uploads")
+try:
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads/tasks", StaticFiles(directory=str(upload_dir)), name="task_uploads")
+except OSError as exc:
+    logger.warning("upload_dir_unavailable", path=str(upload_dir), error=str(exc))
 
 app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]

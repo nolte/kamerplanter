@@ -81,4 +81,30 @@ describe('speciesSlice', () => {
     });
     expect(state.current).toEqual(species);
   });
+
+  it('fetchSpecies.pending sets loading and clears prior error', () => {
+    const withError = {
+      items: [], total: 0, offset: 0, limit: 50, current: null, loading: false, error: 'old',
+    };
+    const state = reducer(withError, { type: fetchSpecies.pending.type });
+    expect(state.loading).toBe(true);
+    expect(state.error).toBeNull();
+  });
+
+  it('fetchSpecies.rejected sets error', () => {
+    const state = reducer(undefined, {
+      type: fetchSpecies.rejected.type,
+      error: { message: 'Detail fail' },
+    });
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe('Detail fail');
+  });
+
+  it('fetches a single species via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchSpecies('sp-1'));
+    const state = store.getState().species;
+    expect(state.current?.scientific_name).toBe('Solanum lycopersicum');
+    expect(state.loading).toBe(false);
+  });
 });
