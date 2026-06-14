@@ -34,6 +34,9 @@ helm/kamerplanter/charts/
 
 # Claude Code runtime state
 .claude/scheduled_tasks.lock
+# Harness-managed isolation worktrees — never commit these, and never run long
+# work from here (no resumable transcript). Use `task worktree:add` instead.
+.claude/worktrees/
 
 # MkDocs build output
 site/
