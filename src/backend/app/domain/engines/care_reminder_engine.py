@@ -131,6 +131,114 @@ CARE_STYLE_PRESETS: dict[CareStyleType, dict] = {
         "humidity_check_enabled": False,
         "humidity_check_interval_days": 14,
     },
+    # Outdoor/Freiland presets (REQ-022 §"Outdoor-/Freiland-Care-Style-Presets").
+    # repotting_interval_months is capped at 60 (= "practically never" for
+    # field-grown plants) because the model constrains it to 6..60; outdoor
+    # plants don't get a repotting task unless auto_create_repotting_task is set.
+    CareStyleType.FRUIT_TREE: {
+        # Apple, pear, cherry, plum — established trees rarely need watering.
+        "watering_interval_days": 14,
+        "winter_watering_multiplier": 1.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 90,
+        "fertilizing_active_months": [3, 4, 5],
+        "repotting_interval_months": 60,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.BERRY_SHRUB: {
+        # Raspberry, currant, gooseberry — water regularly in dry spells.
+        "watering_interval_days": 7,
+        "winter_watering_multiplier": 1.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 30,
+        "fertilizing_active_months": [3, 4, 5, 6],
+        "repotting_interval_months": 60,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.ROSE: {
+        # Bed/shrub/climbing roses — water deeply once a week, near the base
+        # (foliage wetting promotes black spot). Disease-prone, so a short
+        # pest-check interval.
+        "watering_interval_days": 7,
+        "winter_watering_multiplier": 1.5,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 30,
+        "fertilizing_active_months": [4, 5, 6, 7],
+        "repotting_interval_months": 60,
+        "pest_check_interval_days": 7,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.FROST_TENDER_TUBER: {
+        # Dahlia, gladiolus, canna — dug up and stored frost-free over winter,
+        # hence the maximal winter multiplier (effectively no winter watering).
+        # Annual dig-and-replant cycle drives the 12-month repotting interval.
+        "watering_interval_days": 5,
+        "winter_watering_multiplier": 5.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 21,
+        "fertilizing_active_months": [5, 6, 7, 8],
+        "repotting_interval_months": 12,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.FROST_TENDER_CONTAINER: {
+        # Oleander, citrus, olive — containers dry fast in summer, kept nearly
+        # dry in the 5-12 C winter quarters.
+        "watering_interval_days": 5,
+        "winter_watering_multiplier": 4.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 21,
+        "fertilizing_active_months": [4, 5, 6, 7, 8, 9],
+        "repotting_interval_months": 36,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.WINTER_VEGETABLE: {
+        # Kale, lamb's lettuce, winter purslane — sown late summer, reduced
+        # watering, left outdoors with fleece on bare frost.
+        "watering_interval_days": 7,
+        "winter_watering_multiplier": 2.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 30,
+        "fertilizing_active_months": [8, 9],
+        "repotting_interval_months": 12,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.SPRING_BULB: {
+        # Tulip, daffodil, crocus, hyacinth — hardy, left in the ground; summer
+        # dormancy means watering only matters during spring growth.
+        "watering_interval_days": 14,
+        "winter_watering_multiplier": 1.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 30,
+        "fertilizing_active_months": [3, 4, 5],
+        "repotting_interval_months": 60,
+        "pest_check_interval_days": 30,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+    },
+    CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL: {
+        # Pansy, primrose, geranium, lobelia — annual balcony/bed culture in
+        # fast-drying containers; continuous bloomers need regular feeding.
+        "watering_interval_days": 3,
+        "winter_watering_multiplier": 1.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 14,
+        "fertilizing_active_months": [4, 5, 6, 7, 8, 9],
+        "repotting_interval_months": 12,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 14,
+    },
     CareStyleType.CUSTOM: {
         "watering_interval_days": 7,
         "winter_watering_multiplier": 1.5,
