@@ -94,9 +94,12 @@ export default function LoginPage() {
               variant="contained"
               fullWidth
               disabled={isLoading}
+              startIcon={
+                isLoading ? <CircularProgress size={20} color="inherit" aria-hidden /> : undefined
+              }
               sx={{ mb: 2 }}
             >
-              {isLoading ? <CircularProgress size={24} /> : t('pages.auth.loginButton')}
+              {t('pages.auth.loginButton')}
             </Button>
           </Box>
 
