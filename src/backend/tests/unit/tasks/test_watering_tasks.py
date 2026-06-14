@@ -25,9 +25,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    if "app.tasks.watering_tasks" in sys.modules:
-        del sys.modules["app.tasks.watering_tasks"]
-
 
 def _legacy_run(**overrides):
     """A single-plan run row as returned by get_active_runs_with_schedule."""
@@ -257,3 +254,6 @@ class TestFindLastCompletedDate:
         result = _find_last_completed_date(task_repo, "run_1", "watering:run_1:ch_b:")
 
         assert result is None
+        # The history lookup must query by planting_run_key — a changed field
+        # would silently match the wrong tasks.
+        task_repo.find_by_field.assert_called_once_with("planting_run_key", "run_1")

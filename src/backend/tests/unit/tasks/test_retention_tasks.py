@@ -20,9 +20,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    if "app.tasks.retention_tasks" in sys.modules:
-        del sys.modules["app.tasks.retention_tasks"]
-
 
 class TestProcessDataExport:
     def test_returns_status_from_result(self, _mock_dependencies):

@@ -35,9 +35,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    if "app.tasks.tank_maintenance_tasks" in sys.modules:
-        del sys.modules["app.tasks.tank_maintenance_tasks"]
-
 
 def _schedule(**overrides):
     """Build a MaintenanceSchedule double with sensible defaults."""
@@ -115,7 +112,7 @@ class TestGenerateTankMaintenanceTasks:
         assert result == {"created": 0, "skipped": 0}
 
     def test_idempotent_skip_when_task_exists(self, _mock_dependencies):
-        from app.common.enums import TaskStatus
+        from app.common.enums import TaskCategory, TaskStatus
 
         existing_task = SimpleNamespace(
             name="maintenance:water_change:tank_1",
@@ -136,6 +133,9 @@ class TestGenerateTankMaintenanceTasks:
 
         assert result == {"created": 0, "skipped": 1}
         task_repo.create_task.assert_not_called()
+        # The existing-task lookup must be scoped to the MAINTENANCE category,
+        # otherwise unrelated tasks could suppress maintenance creation.
+        assert task_repo.get_all_tasks.call_args.args[2]["category"] == TaskCategory.MAINTENANCE.value
 
 
 class TestSyncTankStatesFromHa:

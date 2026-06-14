@@ -63,6 +63,7 @@ class TestCreate:
         repo.create(_model(site_key="site1"))
 
         edge = coll.insert.call_args_list[1].args[0]
+        assert edge["_from"] == "sensors/s1"
         assert edge["_to"] == "sites/site1"
 
     def test_create_with_location_when_no_site(self, repo, mock_db):

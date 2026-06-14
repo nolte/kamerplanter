@@ -107,7 +107,9 @@ class TestListPendingForUser:
 
 class TestExpireOld:
     def test_counts_expired(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([1, 1])
+        # side_effect yields a fresh cursor per call (return_value would hand
+        # back the same exhausted iterator on a second invocation).
+        mock_db.aql.execute.side_effect = lambda *a, **k: iter([1, 1])
 
         assert repo.expire_old("2026-06-14T00:00:00Z") == 2
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"

@@ -33,9 +33,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    if "app.tasks.care_tasks" in sys.modules:
-        del sys.modules["app.tasks.care_tasks"]
-
 
 def _wire(deps, *, profiles, plants_with_schedule=None):
     """Wire up the common collaborator graph and return the service double."""
@@ -101,7 +98,11 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 1, "skipped": 0}
-        service.ensure_next_watering_task.assert_called_once()
+        # Verify the profile and the phase-interval keyword are forwarded, not
+        # just that the method was called — guards against a dropped argument.
+        call = service.ensure_next_watering_task.call_args
+        assert call.args[0].plant_key == "plant_1"
+        assert call.kwargs["phase_watering_interval"] is None
 
     def test_resolves_phase_interval_from_phase_sequence(self, _mock_dependencies):
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])

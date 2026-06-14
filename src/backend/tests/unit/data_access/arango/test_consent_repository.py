@@ -118,11 +118,13 @@ class TestDelete:
 
 class TestDeleteAllForUser:
     def test_counts_removed_rows(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([1, 1, 1])
+        # side_effect (not return_value) yields a fresh cursor per call, so the
+        # assertion holds even if the method is invoked more than once.
+        mock_db.aql.execute.side_effect = lambda *a, **k: iter([1, 1, 1])
 
         assert repo.delete_all_for_user("u1") == 3
 
     def test_zero_when_nothing_removed(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([])
+        mock_db.aql.execute.side_effect = lambda *a, **k: iter([])
 
         assert repo.delete_all_for_user("u1") == 0
