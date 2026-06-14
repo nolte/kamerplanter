@@ -1,12 +1,21 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   clearCurrentRun,
   clearError,
   fetchPlantingRuns,
   fetchPlantingRun,
 } from '@/store/slices/plantingRunsSlice';
+import * as runsApi from '@/api/endpoints/plantingRuns';
+
+// Isolated module mock — no real HTTP, no handlers.ts.
+vi.mock('@/api/endpoints/plantingRuns');
 
 const baseState = { runs: [], currentRun: null, loading: false, error: null };
+
+function makeStore() {
+  return configureStore({ reducer: { plantingRuns: reducer } });
+}
 
 describe('plantingRunsSlice', () => {
   it('has the empty initial state', () => {
@@ -50,5 +59,36 @@ describe('plantingRunsSlice', () => {
     const run = { key: 'r1' };
     const state = reducer(undefined, { type: fetchPlantingRun.fulfilled.type, payload: run });
     expect(state.currentRun).toEqual(run);
+  });
+});
+
+describe('plantingRunsSlice thunks', () => {
+  const mocked = vi.mocked(runsApi);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetchPlantingRuns forwards paging/filter args and stores the runs', async () => {
+    mocked.listPlantingRuns.mockResolvedValue([{ key: 'r1' }] as never);
+    const store = makeStore();
+    await store.dispatch(fetchPlantingRuns({ offset: 5, limit: 10, status: 'active', runType: 'seed' }));
+    expect(mocked.listPlantingRuns).toHaveBeenCalledWith(5, 10, 'active', 'seed');
+    expect(store.getState().plantingRuns.runs).toEqual([{ key: 'r1' }]);
+  });
+
+  it('fetchPlantingRuns surfaces a rejection as the slice error', async () => {
+    mocked.listPlantingRuns.mockRejectedValue(new Error('load failed'));
+    const store = makeStore();
+    await store.dispatch(fetchPlantingRuns({}));
+    expect(store.getState().plantingRuns.error).toBe('load failed');
+  });
+
+  it('fetchPlantingRun calls getPlantingRun and stores the selection', async () => {
+    mocked.getPlantingRun.mockResolvedValue({ key: 'r9' } as never);
+    const store = makeStore();
+    await store.dispatch(fetchPlantingRun('r9'));
+    expect(mocked.getPlantingRun).toHaveBeenCalledWith('r9');
+    expect(store.getState().plantingRuns.currentRun).toEqual({ key: 'r9' });
   });
 });

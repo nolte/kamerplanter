@@ -7,7 +7,7 @@ import NotFoundPage from '@/pages/NotFoundPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createTestStore } from '../helpers';
 
 const expectNoCritical = async (container: HTMLElement) => {
   const results = await axe(container);
@@ -30,7 +30,19 @@ describe('Accessibility (axe)', () => {
   });
 
   it('LoginPage has no critical a11y violations', async () => {
-    const { container } = renderWithProviders(<LoginPage />);
+    // Seed a settled (non-loading) auth state: the auth slice's initial state is
+    // isLoading=true, which would collapse the submit button to a spinner-only
+    // (no discernible text). The real page is rendered once auth has settled.
+    const store = createTestStore({
+      auth: {
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      },
+    });
+    const { container } = renderWithProviders(<LoginPage />, { store });
     await waitFor(() => expectNoCritical(container));
   });
 

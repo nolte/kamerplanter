@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   clearCurrentTask,
   clearError,
   fetchWorkflows,
+  fetchWorkflow,
   deleteWorkflowThunk,
   fetchTaskTemplates,
   fetchTasks,
@@ -10,6 +12,14 @@ import reducer, {
   fetchTaskQueue,
   fetchOverdueTasks,
 } from '@/store/slices/tasksSlice';
+import * as tasksApi from '@/api/endpoints/tasks';
+
+// Isolated module mock — no real HTTP, no handlers.ts.
+vi.mock('@/api/endpoints/tasks');
+
+function makeTasksStore() {
+  return configureStore({ reducer: { tasks: reducer } });
+}
 
 const baseState = {
   workflows: [],
@@ -114,5 +124,92 @@ describe('tasksSlice', () => {
     const overdue = [{ key: 'task-2' }];
     const state = reducer(undefined, { type: fetchOverdueTasks.fulfilled.type, payload: overdue });
     expect(state.overdueTasks).toEqual(overdue);
+  });
+});
+
+describe('tasksSlice thunks', () => {
+  const mocked = vi.mocked(tasksApi);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetchWorkflows forwards paging and stores workflows', async () => {
+    mocked.listWorkflows.mockResolvedValue([{ key: 'w1' }] as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchWorkflows({ offset: 0, limit: 10 }));
+    expect(mocked.listWorkflows).toHaveBeenCalledWith(0, 10);
+    expect(store.getState().tasks.workflows).toEqual([{ key: 'w1' }]);
+  });
+
+  it('fetchWorkflows surfaces a rejection as the slice error', async () => {
+    mocked.listWorkflows.mockRejectedValue(new Error('load failed'));
+    const store = makeTasksStore();
+    await store.dispatch(fetchWorkflows({}));
+    expect(store.getState().tasks.error).toBe('load failed');
+  });
+
+  it('fetchWorkflow calls getWorkflow', async () => {
+    mocked.getWorkflow.mockResolvedValue({ key: 'w9' } as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchWorkflow('w9'));
+    expect(mocked.getWorkflow).toHaveBeenCalledWith('w9');
+  });
+
+  it('deleteWorkflowThunk calls the API and removes the workflow', async () => {
+    mocked.deleteWorkflow.mockResolvedValue(undefined);
+    const store = configureStore({
+      reducer: { tasks: reducer },
+      preloadedState: { tasks: { ...baseState, workflows: [{ key: 'w1' }] as never } },
+    });
+    await store.dispatch(deleteWorkflowThunk('w1'));
+    expect(mocked.deleteWorkflow).toHaveBeenCalledWith('w1');
+    expect(store.getState().tasks.workflows).toEqual([]);
+  });
+
+  it('fetchTaskTemplates forwards the workflow key and stores templates', async () => {
+    mocked.listTaskTemplates.mockResolvedValue([{ key: 'tt1' }] as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchTaskTemplates('w1'));
+    expect(mocked.listTaskTemplates).toHaveBeenCalledWith('w1');
+    expect(store.getState().tasks.taskTemplates).toEqual([{ key: 'tt1' }]);
+  });
+
+  it('fetchTasks maps filter args into the API filter object', async () => {
+    mocked.listTasks.mockResolvedValue([{ key: 'task-1' }] as never);
+    const store = makeTasksStore();
+    await store.dispatch(
+      fetchTasks({ offset: 5, limit: 10, status: 'open', category: 'watering', entityType: 'plant', entityKey: 'pl1' }),
+    );
+    expect(mocked.listTasks).toHaveBeenCalledWith(5, 10, {
+      status: 'open',
+      category: 'watering',
+      entity_type: 'plant',
+      entity_key: 'pl1',
+    });
+    expect(store.getState().tasks.tasks).toEqual([{ key: 'task-1' }]);
+  });
+
+  it('fetchTask stores the current task', async () => {
+    mocked.getTask.mockResolvedValue({ key: 'task-9' } as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchTask('task-9'));
+    expect(mocked.getTask).toHaveBeenCalledWith('task-9');
+    expect(store.getState().tasks.currentTask).toEqual({ key: 'task-9' });
+  });
+
+  it('fetchTaskQueue forwards the plant key and stores the queue', async () => {
+    mocked.getTaskQueue.mockResolvedValue([{ key: 'task-q' }] as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchTaskQueue('pl1'));
+    expect(mocked.getTaskQueue).toHaveBeenCalledWith('pl1');
+    expect(store.getState().tasks.taskQueue).toEqual([{ key: 'task-q' }]);
+  });
+
+  it('fetchOverdueTasks stores overdue tasks', async () => {
+    mocked.getOverdueTasks.mockResolvedValue([{ key: 'task-od' }] as never);
+    const store = makeTasksStore();
+    await store.dispatch(fetchOverdueTasks());
+    expect(store.getState().tasks.overdueTasks).toEqual([{ key: 'task-od' }]);
   });
 });

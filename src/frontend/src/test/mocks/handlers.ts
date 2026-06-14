@@ -95,6 +95,61 @@ const mockPlants = [
   },
 ];
 
+// Exported so substrate-list/detail tests can seed a populated list locally
+// via server.use() without mutating the (intentionally empty) global handler.
+export const mockSubstrates = [
+  {
+    key: 'sub-1',
+    type: 'coco',
+    brand: 'CocoBrand',
+    name_de: 'Kokos Substrat',
+    name_en: 'Coco Substrate',
+    is_mix: false,
+    mix_components: [],
+    ph_base: 6.0,
+    ec_base_ms: 0.4,
+    water_retention: 'medium',
+    air_porosity_percent: 30,
+    composition: {},
+    buffer_capacity: 'medium',
+    reusable: true,
+    max_reuse_cycles: 3,
+    water_holding_capacity_percent: null,
+    easily_available_water_percent: null,
+    cec_meq_per_100g: null,
+    particle_size_mm: null,
+    bulk_density_g_per_l: null,
+    irrigation_strategy: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: null,
+  },
+  {
+    key: 'sub-2',
+    type: 'perlite',
+    brand: null,
+    name_de: 'Perlit',
+    name_en: 'Perlite',
+    is_mix: false,
+    mix_components: [],
+    ph_base: 7.0,
+    ec_base_ms: 0.1,
+    water_retention: 'low',
+    air_porosity_percent: 60,
+    composition: {},
+    buffer_capacity: 'low',
+    reusable: false,
+    max_reuse_cycles: 1,
+    water_holding_capacity_percent: null,
+    easily_available_water_percent: null,
+    cec_meq_per_100g: null,
+    particle_size_mm: null,
+    bulk_density_g_per_l: null,
+    irrigation_strategy: null,
+    created_at: '2024-01-02T00:00:00Z',
+    updated_at: null,
+  },
+];
+
 export const handlers = [
   // Health
   http.get('/api/v1/health/live', () => {
@@ -120,6 +175,10 @@ export const handlers = [
   }),
   http.get('/api/v1/users/me', () => {
     return HttpResponse.json({ key: 'user-1', email: 'demo@kamerplanter.local', display_name: 'Demo' });
+  }),
+  // OAuth providers (login page) — default: none configured
+  http.get('/api/v1/auth/oauth/providers', () => {
+    return HttpResponse.json([]);
   }),
 
   // User preferences (tenant-scoped + fallback)
@@ -161,6 +220,61 @@ export const handlers = [
     if (!species) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });
     return HttpResponse.json(species);
   }),
+  http.post('/api/v1/species', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'sp-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  // Lifecycle config + growth phases (plant-instance create dialog)
+  http.get('/api/v1/species/:key/lifecycle', ({ params }) => {
+    return HttpResponse.json({
+      key: `lc-${params.key}`,
+      species_key: params.key,
+      cycle_type: 'annual',
+      typical_lifespan_years: null,
+      dormancy_required: false,
+      vernalization_required: false,
+      vernalization_min_days: null,
+      photoperiod_type: 'day_neutral',
+      critical_day_length_hours: null,
+      phase_sequence_key: null,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: null,
+    });
+  }),
+  http.get('/api/v1/growth-phases', () => {
+    return HttpResponse.json([
+      {
+        key: 'gp-veg',
+        name: 'vegetative',
+        display_name: 'Vegetativ',
+        description: '',
+        lifecycle_key: 'lc-sp-1',
+        typical_duration_days: 30,
+        sequence_order: 1,
+        is_terminal: false,
+        allows_harvest: false,
+        stress_tolerance: 'medium',
+        watering_interval_days: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: null,
+      },
+      {
+        key: 'gp-flower',
+        name: 'flowering',
+        display_name: 'Blüte',
+        description: '',
+        lifecycle_key: 'lc-sp-1',
+        typical_duration_days: 60,
+        sequence_order: 2,
+        is_terminal: true,
+        allows_harvest: true,
+        stress_tolerance: 'low',
+        watering_interval_days: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: null,
+      },
+    ]);
+  }),
 
   // Sites (tenant-scoped)
   http.get('/api/v1/t/:tenant/sites', () => {
@@ -189,6 +303,16 @@ export const handlers = [
   // Slots (tenant-scoped)
   http.get('/api/v1/t/:tenant/slots', () => {
     return HttpResponse.json(mockSlots);
+  }),
+  http.get('/api/v1/t/:tenant/slots/:key', ({ params }) => {
+    const slot = mockSlots.find((s) => s.key === params.key);
+    if (!slot) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });
+    return HttpResponse.json(slot);
+  }),
+  http.get('/api/v1/slots/:key', ({ params }) => {
+    const slot = mockSlots.find((s) => s.key === params.key);
+    if (!slot) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });
+    return HttpResponse.json(slot);
   }),
 
   // Location types (non-scoped)
@@ -222,10 +346,101 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json({ key: 'loc-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
   }),
+  // Create site / location (non-scoped fallback for tests without active tenant)
+  http.post('/api/v1/sites', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'site-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  http.post('/api/v1/locations', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'loc-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  // Locations / slots (non-scoped fallback)
+  http.get('/api/v1/locations', () => {
+    return HttpResponse.json(mockLocations);
+  }),
+  http.get('/api/v1/slots', () => {
+    return HttpResponse.json(mockSlots);
+  }),
+  // Location tree (non-scoped fallback)
+  http.get('/api/v1/sites/:key/location-tree', () => {
+    return HttpResponse.json([
+      {
+        key: 'loc-1',
+        name: 'Zone A',
+        location_type_key: 'lt-bed',
+        slot_count: 2,
+        active_plant_count: 1,
+        tank_name: null,
+        children: [],
+      },
+    ]);
+  }),
 
-  // Substrates
+  // Substrates — global list stays empty (preserves existing empty-state test).
+  // Substrate-detail tests seed a populated list locally via server.use().
   http.get('/api/v1/substrates', () => {
     return HttpResponse.json([]);
+  }),
+  http.post('/api/v1/substrates', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'sub-new', is_mix: false, mix_components: [], composition: {}, ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  http.post('/api/v1/substrates/preview-mix', async ({ request }) => {
+    const body = (await request.json()) as { name_de?: string; name_en?: string; components: { substrate_key: string; fraction: number }[] };
+    return HttpResponse.json({
+      key: 'sub-preview',
+      type: 'coco',
+      brand: null,
+      name_de: body.name_de ?? 'Mix',
+      name_en: body.name_en ?? 'Mix',
+      is_mix: true,
+      mix_components: body.components,
+      ph_base: 6.2,
+      ec_base_ms: 0.3,
+      water_retention: 'medium',
+      air_porosity_percent: 40,
+      composition: { coco: 0.5, perlite: 0.5 },
+      buffer_capacity: 'medium',
+      reusable: false,
+      max_reuse_cycles: 1,
+      water_holding_capacity_percent: null,
+      easily_available_water_percent: null,
+      cec_meq_per_100g: null,
+      particle_size_mm: null,
+      bulk_density_g_per_l: null,
+      irrigation_strategy: 'cycle',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: null,
+    });
+  }),
+  http.post('/api/v1/substrates/mix', async ({ request }) => {
+    const body = (await request.json()) as { name_de?: string; name_en?: string; components: { substrate_key: string; fraction: number }[] };
+    return HttpResponse.json({
+      key: 'sub-mix-new',
+      type: 'coco',
+      brand: null,
+      name_de: body.name_de ?? 'Mix',
+      name_en: body.name_en ?? 'Mix',
+      is_mix: true,
+      mix_components: body.components,
+      ph_base: 6.2,
+      ec_base_ms: 0.3,
+      water_retention: 'medium',
+      air_porosity_percent: 40,
+      composition: { coco: 0.5, perlite: 0.5 },
+      buffer_capacity: 'medium',
+      reusable: false,
+      max_reuse_cycles: 1,
+      water_holding_capacity_percent: null,
+      easily_available_water_percent: null,
+      cec_meq_per_100g: null,
+      particle_size_mm: null,
+      bulk_density_g_per_l: null,
+      irrigation_strategy: null,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: null,
+    }, { status: 201 });
   }),
 
   // Plant instances (tenant-scoped + fallback)
@@ -246,14 +461,41 @@ export const handlers = [
     return HttpResponse.json(plant);
   }),
 
-  // Planting runs (tenant-scoped) — list used for plant→run mapping
+  http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'plant-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  http.post('/api/v1/plant-instances', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'plant-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+
+  // Planting runs (tenant-scoped + non-scoped fallback) — list used for plant→run mapping
   http.get('/api/v1/t/:tenant/planting-runs', () => {
+    return HttpResponse.json([]);
+  }),
+  http.get('/api/v1/planting-runs', () => {
     return HttpResponse.json([]);
   }),
 
   // Cultivars (nested under species)
   http.get('/api/v1/species/:key/cultivars', () => {
     return HttpResponse.json([]);
+  }),
+
+  // Privacy / DSGVO (PrivacySettingsPage) — defaults; per-test overrides via server.use()
+  http.get('/api/v1/privacy/consents', () => {
+    return HttpResponse.json([]);
+  }),
+  http.post('/api/v1/privacy/export', () => {
+    return HttpResponse.json({ key: 'exp-1', status: 'pending', requested_at: '2024-01-01T00:00:00Z', completed_at: null });
+  }),
+  http.post('/api/v1/privacy/erasure', () => {
+    return new HttpResponse(null, { status: 202 });
+  }),
+  http.post('/api/v1/privacy/restrict', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'restr-1', notes: null, created_at: '2024-01-01T00:00:00Z', lifted_at: null, ...body });
   }),
 
   // Calculations
