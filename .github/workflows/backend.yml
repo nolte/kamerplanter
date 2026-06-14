@@ -41,3 +41,13 @@ jobs:
 
       - name: Unit tests
         run: pytest tests/unit/ -v --tb=short
+
+  coverage:
+    name: Coverage
+    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@v1.1.22
+    with:
+      python-version: '3.14'
+      working-directory: src/backend
+      install-command: pip install -e ".[dev]"
+      coverage-source: app
+      fail-under: 60

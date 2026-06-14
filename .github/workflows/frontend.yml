@@ -51,3 +51,13 @@ jobs:
           name: frontend-dist
           path: src/frontend/dist/
           retention-days: 7
+
+  coverage:
+    name: Coverage
+    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@v1.1.22
+    with:
+      node-version: '22'
+      working-directory: src/frontend
+      install-command: npm ci
+      test-command: npm run test:coverage
+      fail-under: 80
