@@ -79,4 +79,28 @@ describe('botanicalFamiliesSlice', () => {
     expect(state.current).toEqual(family);
     expect(state.loading).toBe(false);
   });
+
+  it('fetchBotanicalFamily.pending sets loading and clears prior error', () => {
+    const withError = { items: [], current: null, loading: false, error: 'old' };
+    const state = reducer(withError, { type: fetchBotanicalFamily.pending.type });
+    expect(state.loading).toBe(true);
+    expect(state.error).toBeNull();
+  });
+
+  it('fetchBotanicalFamily.rejected sets error', () => {
+    const state = reducer(undefined, {
+      type: fetchBotanicalFamily.rejected.type,
+      error: { message: 'Detail fail' },
+    });
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe('Detail fail');
+  });
+
+  it('fetches a single family via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchBotanicalFamily('fam-1'));
+    const state = store.getState().botanicalFamilies;
+    expect(state.current?.name).toBe('Solanaceae');
+    expect(state.loading).toBe(false);
+  });
 });

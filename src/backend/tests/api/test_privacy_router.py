@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.v1.privacy.router import public_router as privacy_public_router
 from app.api.v1.privacy.router import router as privacy_router
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
@@ -34,6 +35,7 @@ USER_KEY = "u-test-1"
 def _build_app(service):
     app = FastAPI()
     app.include_router(privacy_router, prefix="/api/v1")
+    app.include_router(privacy_public_router, prefix="/api/v1")
     app.dependency_overrides[get_privacy_service] = lambda: service
     app.dependency_overrides[get_current_user] = lambda: User(
         _key=USER_KEY,

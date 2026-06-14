@@ -106,11 +106,70 @@ describe('sitesSlice', () => {
     expect(state.slots).toEqual(slots);
   });
 
+  it('fetchSite.rejected sets error', () => {
+    const state = reducer(undefined, {
+      type: fetchSite.rejected.type,
+      error: { message: 'Site fail' },
+    });
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe('Site fail');
+  });
+
+  it('fetchLocation.pending sets loading and clears prior error', () => {
+    const withError = {
+      sites: [], currentSite: null, locations: [], currentLocation: null,
+      slots: [], loading: false, error: 'old',
+    };
+    const state = reducer(withError, { type: fetchLocation.pending.type });
+    expect(state.loading).toBe(true);
+    expect(state.error).toBeNull();
+  });
+
+  it('fetchLocation.rejected sets error', () => {
+    const state = reducer(undefined, {
+      type: fetchLocation.rejected.type,
+      error: { message: 'Location fail' },
+    });
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe('Location fail');
+  });
+
   it('fetches sites via thunk with MSW', async () => {
     const store = createStore();
     await store.dispatch(fetchSites({}));
     const state = store.getState().sites;
     expect(state.sites.length).toBe(1);
     expect(state.sites[0].name).toBe('Main Greenhouse');
+  });
+
+  it('fetches a single site via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchSite('site-1'));
+    const state = store.getState().sites;
+    expect(state.currentSite?.name).toBe('Main Greenhouse');
+    expect(state.loading).toBe(false);
+  });
+
+  it('fetches locations of a site via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchLocations('site-1'));
+    const state = store.getState().sites;
+    expect(state.locations.length).toBe(1);
+    expect(state.locations[0].name).toBe('Zone A');
+  });
+
+  it('fetches a single location via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchLocation('loc-1'));
+    const state = store.getState().sites;
+    expect(state.currentLocation?.name).toBe('Zone A');
+  });
+
+  it('fetches slots of a location via thunk with MSW', async () => {
+    const store = createStore();
+    await store.dispatch(fetchSlots('loc-1'));
+    const state = store.getState().sites;
+    expect(state.slots.length).toBe(1);
+    expect(state.slots[0].slot_id).toBe('A1');
   });
 });
