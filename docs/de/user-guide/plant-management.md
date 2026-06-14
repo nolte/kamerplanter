@@ -70,6 +70,9 @@ Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (RE
 !!! note "Sichtbarkeit nach Erfahrungsstufe"
     Das Feld **Vermehrungsarten** erscheint ab der Erfahrungsstufe **Fortgeschrittener**. Im Einsteiger-Modus ist es ausgeblendet, kann aber über **Alle Felder anzeigen** eingeblendet werden.
 
+!!! note "Vermehrungsart im Tab \"Aussaat & Ernte\" sichtbar"
+    Auf der **Detailseite einer Art** (Stammdaten > Arten) gibt es den Tab **Aussaat & Ernte** (Aussaatübersicht). Dort werden die hinterlegten Vermehrungsarten als Chips angezeigt — `seed` (Aussaat) ist dabei grün hervorgehoben. Wenn eine Art **ausschließlich vegetativ** vermehrt wird (z.B. nur Steckling oder Teilung, kein `seed`-Eintrag), erscheint dort ein Hinweistext, dass für diese Art keine Aussaatzeiträume zu erwarten sind. **Fehlende Aussaatdaten sind in diesem Fall kein Datenfehler**, sondern korrekt — die Art wird eben nicht über Samen vermehrt.
+
 ### Art bearbeiten
 
 1. Klicke auf eine Art in der Liste

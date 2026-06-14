@@ -70,6 +70,9 @@ This information feeds into care reminders, propagation planning (REQ-017), and 
 !!! note "Visibility by expertise level"
     The **Propagation Methods** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
 
+!!! note "Propagation methods visible in the \"Sowing & Harvest\" tab"
+    On the **species detail page** (Master Data > Species) the **Sowing & Harvest** tab (sowing overview) now displays the configured propagation methods as chips — `seed` is highlighted in green. If a species is propagated **exclusively by vegetative means** (e.g. cutting or division only, no `seed` entry), a notice appears explaining that no sowing windows are expected for this species. **Missing sowing data is not a data error in this case** — it simply reflects that the species is not propagated from seed.
+
 ### Editing a Species
 
 1. Click on a species in the list

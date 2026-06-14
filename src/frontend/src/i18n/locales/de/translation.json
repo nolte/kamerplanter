@@ -680,6 +680,9 @@
       "growingPeriods": "Anbauzeiträume",
       "growingPeriodsHelper": "Ziehen Sie die Balkenenden, um Aussaat- und Ernte-/Blütemonate anzupassen. Klicken Sie auf einen Zeitraum, um Details zu bearbeiten.",
       "growingPeriodsTab": "Aussaat & Ernte",
+      "propagationOverviewLabel": "Vermehrung",
+      "vegetativeOnlyNotice": "Diese Art wird vegetativ vermehrt – über {{methods}} – und nicht durch Aussaat. Aussaatzeiträume sind hier daher nicht hinterlegt.",
+      "noPeriodsVegetativeHint": "Diese Art wird nicht aus Samen gezogen, sondern über {{methods}} – fehlende Aussaatzeiträume sind hier normal.",
       "noPeriodsDefined": "Noch keine Anbauzeiträume definiert.",
       "addPeriod": "Zeitraum hinzufügen",
       "barKind": {

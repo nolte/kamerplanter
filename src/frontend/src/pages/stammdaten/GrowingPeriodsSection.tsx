@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -246,6 +247,23 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const isOrnamental = !species.allows_harvest;
   const currentMonth = new Date().getMonth() + 1;
 
+  // Propagation overview — clarifies why sowing data may be sparse or absent
+  // (e.g. species propagated only via cuttings/division have no sowing periods).
+  // Stabilise the array reference so downstream memos don't thrash on every render.
+  const propagationMethods = useMemo(
+    () => species.propagation_methods ?? [],
+    [species.propagation_methods],
+  );
+  const hasSeedPropagation = useMemo(
+    () => propagationMethods.includes('seed'),
+    [propagationMethods],
+  );
+  // String primitive — memo avoids re-joining on unrelated re-renders.
+  const propagationLabels = useMemo(
+    () => propagationMethods.map((m) => t(`enums.propagationMethod.${m}`)).join(', '),
+    [propagationMethods, t],
+  );
+
   // Computed timeline bars (mirrors SowingCalendarEngine)
   const timelineBars = useMemo(() => {
     if (periods.length === 0) return [];
@@ -371,6 +389,44 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.species.growingPeriodsHelper')}
       </Typography>
+
+      {/* Propagation overview — makes the propagation method explicit so that
+          missing/sparse sowing data is not mistaken for incomplete records. */}
+      {propagationMethods.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          {/* role="group" + aria-labelledby ties the label text to the chip set
+              so screen readers announce "Vermehrung: Steckling, Teilung" as a unit
+              rather than reading each chip without context. */}
+          <Box
+            role="group"
+            aria-label={t('pages.species.propagationOverviewLabel')}
+            sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}
+          >
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              aria-hidden="true"
+              sx={{ mr: 0.5 }}
+            >
+              {t('pages.species.propagationOverviewLabel')}:
+            </Typography>
+            {propagationMethods.map((m) => (
+              <Chip
+                key={m}
+                size="small"
+                variant="outlined"
+                color={m === 'seed' ? 'success' : 'default'}
+                label={t(`enums.propagationMethod.${m}`)}
+              />
+            ))}
+          </Box>
+          {!hasSeedPropagation && (
+            <Alert severity="info" sx={{ mt: 1.5 }}>
+              {t('pages.species.vegetativeOnlyNotice', { methods: propagationLabels })}
+            </Alert>
+          )}
+        </Box>
+      )}
 
       {/* Computed timeline preview */}
       {timelineBars.length > 0 && (
@@ -575,10 +631,15 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
 
       {/* Empty state */}
       {periods.length === 0 && (
-        <Card variant="outlined" sx={{ mb: 3, textAlign: 'center', py: 4 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Card variant="outlined" sx={{ mb: 3, textAlign: 'center', py: 4, px: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: propagationMethods.length > 0 && !hasSeedPropagation ? 1 : 0 }}>
             {t('pages.species.noPeriodsDefined')}
           </Typography>
+          {propagationMethods.length > 0 && !hasSeedPropagation && (
+            <Typography variant="caption" color="text.secondary">
+              {t('pages.species.noPeriodsVegetativeHint', { methods: propagationLabels })}
+            </Typography>
+          )}
         </Card>
       )}
 

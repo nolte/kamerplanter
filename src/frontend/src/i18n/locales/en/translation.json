@@ -680,6 +680,9 @@
       "growingPeriods": "Growing Periods",
       "growingPeriodsHelper": "Drag bar edges to adjust sowing and harvest/bloom months. Click a period to edit details.",
       "growingPeriodsTab": "Sowing & Harvest",
+      "propagationOverviewLabel": "Propagation",
+      "vegetativeOnlyNotice": "This species is propagated vegetatively — via {{methods}} — not from seed. Sowing periods are therefore not recorded here.",
+      "noPeriodsVegetativeHint": "This species is not grown from seed but via {{methods}} — missing sowing periods are expected here.",
       "noPeriodsDefined": "No growing periods defined yet.",
       "addPeriod": "Add Period",
       "barKind": {
