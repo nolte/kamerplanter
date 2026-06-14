@@ -126,7 +126,7 @@ pygments==2.20.0
     # via pytest
 pyjwt==2.13.0
     # via python-arango
-pytest==9.0.3
+pytest==9.1.0
     # via
     #   kamerplanter-backend (pyproject.toml)
     #   pytest-asyncio
@@ -163,7 +163,7 @@ six==1.17.0
     # via
     #   markdownify
     #   python-dateutil
-slowapi==0.1.9
+slowapi==0.1.10
     # via kamerplanter-backend (pyproject.toml)
 soupsieve==2.8.4
     # via beautifulsoup4
