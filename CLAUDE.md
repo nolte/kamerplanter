@@ -32,6 +32,46 @@ Agents authored under `.claude/agents/` (`distribution: project`) MAY author the
 - `src/backend/` — Python/FastAPI backend (implemented)
 - `src/frontend/` — React/TypeScript frontend (implemented)
 
+## Crash recovery & parallel working copies
+
+A notebook crash, terminal close, or session expiry does **not** destroy
+in-flight work — Claude Code persists every top-level session transcript under
+`~/.claude/projects/<encoded-cwd>/`. To get back to an interrupted run:
+
+```bash
+task resume          # list this working copy's resumable sessions, newest first
+claude --continue    # resume the most recent
+claude --resume <id> # resume a specific one
+```
+
+Two things are **not** recoverable with `claude --resume`, which is why long or
+autonomous work must be a top-level session:
+
+- **Dispatched worktree-isolated subagents** — their transcript lives under the
+  parent session, not as a standalone session.
+- **`Workflow` runs** — resumable only via `Workflow({resumeFromRunId})` from
+  inside the parent session; never via `claude --resume`.
+
+A real loss happened this way: the `nfr-lektorat` Workflow run on 2026-06-11
+executed inside a worktree nested under `.claude/worktrees/`, whose top-level
+transcript was gone after the crash. (Its output had already been merged via
+PR #166, so nothing was actually lost that time — but the session was not
+resumable.)
+
+**Rule:** run long feature work as a top-level session inside a worktree created
+under the centralised worktree root, never from a harness worktree under
+`.claude/worktrees/`:
+
+```bash
+# from the primary checkout:
+task worktree:add -- feat/<branch>        # creates it off origin/develop
+cd ${NOLTE_WORKTREE_ROOT:-~/repos/.worktrees}/kamerplanter/<slug>
+claude                                     # a top-level, --resume-able session
+```
+
+The `guard-nested-worktree` pre-commit hook enforces this by rejecting any
+commit made from a worktree under `.claude/worktrees/`.
+
 ## Requirements Overview
 
 | REQ | Title | Category |

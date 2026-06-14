@@ -12,6 +12,19 @@ repos:
         exclude: ^src/frontend/src/i18n/
       - id: check-merge-conflict
 
+  # ── Crash-recovery guard ───────────────────────────────────────────────
+  # Refuses commits from a worktree nested under .claude/worktrees/. Sessions
+  # run from there have no resumable top-level transcript, so a crash strands
+  # the work (see CLAUDE.md §"Crash recovery"). Use `task worktree:add` instead.
+  - repo: local
+    hooks:
+      - id: guard-nested-worktree
+        name: no commits from .claude/worktrees/ (not resumable)
+        entry: scripts/guard_nested_worktree.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local
