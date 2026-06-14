@@ -33,10 +33,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    # Cleanup: remove cached notification_tasks so it re-imports fresh
-    if "app.tasks.notification_tasks" in sys.modules:
-        del sys.modules["app.tasks.notification_tasks"]
-
 
 class TestDispatchDueCareNotifications:
     def test_no_due_tasks(self, _mock_dependencies):

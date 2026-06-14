@@ -21,9 +21,6 @@ def _mock_dependencies(monkeypatch):
 
     yield mock_deps
 
-    if "app.tasks.vernalization_updates" in sys.modules:
-        del sys.modules["app.tasks.vernalization_updates"]
-
 
 def _plant(**overrides):
     data = {"key": "plant_1", "removed_on": None, "species_key": "species_1"}
