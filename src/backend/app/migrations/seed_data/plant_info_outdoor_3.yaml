@@ -46,6 +46,7 @@ new_species_family_map:
 new_species:
   - scientific_name: "Nymphaea alba"
     propagation_methods: [rhizome_division, seed]
+    propagation_notes: "Rhizomteilung im April/Mai ist die zuverlaessigste Methode: Rhizom aus dem Teichkorb nehmen, mit scharfem Messer in Stuecke mit je einem Wachstumspunkt (Auge) teilen und sofort neu einpflanzen. Samen in flaches Wasser aussaeen (Lichtkeimer), Wassertemperatur mindestens 20 Grad; Pflanzen dann erst nach 2-3 Jahren bluetenreif. Tiefe der Teichkoerbe beachten: gross- und mittelwuechsige Sorten benoetigen mindestens 50-80 cm Wassertiefe ueber dem Rhizom."
     propagation_months: [4, 5]
     common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
     genus: Nymphaea

@@ -350,6 +350,7 @@ new_species:
 
   - scientific_name: "Forsythia x intermedia"
     propagation_methods: [cutting, layering]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni/Juli) von diesjährigen Trieben schneiden, ca. 10–15 cm lang. Untere Blätter entfernen, in feuchtem Sand-Torf-Gemisch bewurzeln. Absenker durch Einscharren langer Triebe bis Herbst; einfachste Methode für Hobbygärtner."
     propagation_months: [6, 7]
     common_names: [Forsythie, Goldgloeckchen, Forsythia]
     genus: Forsythia
@@ -387,6 +388,7 @@ new_species:
 
   - scientific_name: "Geranium sanguineum"
     propagation_methods: [division, seed]
+    propagation_notes: "Teilung etablierter Horste im Frühjahr (März/April) beim Austrieb; Wurzelballen mit Spaten teilen und sofort einpflanzen. Aussaat von frisch geerntetem Samen im Herbst direkt ins Freiland oder kühl stratifiziert; Keimung im Frühjahr. Samen sind Kaltkeimer und benötigen Frosteinwirkung."
     propagation_months: [3, 4]
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
     genus: Geranium
@@ -425,6 +427,7 @@ new_species:
 
   - scientific_name: "Helleborus niger"
     propagation_methods: [division, seed]
+    propagation_notes: "Teilung nur nach der Blüte im Frühjahr; ältere Wurzelballen mit scharfem Messer teilen. Samen sofort nach der Reife im Sommer aussäen – Doppelkeimer, die zwei Kältephasen benötigen. Keimung erst nach 12–18 Monaten; bis zur Blüte dauert es weitere 2–3 Jahre. Handschuhe tragen: alle Pflanzenteile sind hochgiftig."
     propagation_months: [4, 5]
     common_names: [Christrose, Schneerose, Christmas Rose]
     genus: Helleborus
@@ -460,6 +463,7 @@ new_species:
 
   - scientific_name: "Hemerocallis spp."
     propagation_methods: [division]
+    propagation_notes: "Horste alle 3–5 Jahre im Frühjahr beim ersten Austrieb teilen; Wurzelballen mit zwei Grabgabeln auseinanderhebeln. Jedes Teilstück sollte 3–5 Triebe besitzen. Sofort replantieren und gut wässern. Geteilte Pflanzen blühen im ersten Jahr oft schwächer – spätestens ab dem zweiten Jahr volle Blütenleistung."
     propagation_months: [3, 4]
     common_names: [Taglilie, Daylily]
     genus: Hemerocallis
@@ -496,6 +500,7 @@ new_species:
 
   - scientific_name: "Hosta spp."
     propagation_methods: [division]
+    propagation_notes: "Teilung im frühen Frühjahr, wenn die Triebe 5–10 cm hoch sind; zu diesem Zeitpunkt sind die Knospen noch klar sichtbar. Scharfes Messer oder Spaten verwenden; jede Teilpflanze braucht mindestens 2–3 Augen. Direkt wieder einpflanzen und ausreichend wässern. Im Sommer geteilte Pflanzen brauchen Schattierung und intensive Bewässerung."
     propagation_months: [3, 4]
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
     genus: Hosta
@@ -535,6 +540,7 @@ new_species:
 
   - scientific_name: "Hydrangea macrophylla"
     propagation_methods: [cutting, layering]
+    propagation_notes: "Weiche bis halbverholzte Stecklinge im Frühsommer (Juni/Juli) ohne Blütenknospe; 2–3 Blattetagen stehen lassen, untere Blätter entfernen. In luftig-feuchtem Substrat unter Folie bei 18–20 °C bewurzeln. Absenker durch Eingraben langer Triebe ohne Abtrennen; Wasser-pH unter 6,5 halten für optimale Bewurzelung."
     propagation_months: [6, 7]
     common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
     genus: Hydrangea
@@ -572,6 +578,7 @@ new_species:
 
   - scientific_name: "Ligustrum vulgare"
     propagation_methods: [cutting, layering]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer ca. 15 cm lang schneiden; sehr leicht bewurzelnd, oft auch ohne Anzuchtfolie. Ebenso möglich: verholzte Stecklinge im Herbst; diese überwintern im Freiland. Absenker durch Eingraben bodennah laufender Triebe im Sommer; Abtrennen im Frühjahr des Folgejahres."
     propagation_months: [6, 7]
     common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
     genus: Ligustrum
@@ -608,6 +615,7 @@ new_species:
 
   - scientific_name: "Paeonia lactiflora"
     propagation_methods: [division]
+    propagation_notes: "Ausschließlich im Herbst teilen (September/Oktober) wenn das Laub einzieht; Rhizom ausgraben und mit scharfem Messer in Segmente mit je 3–5 Augen schneiden. Schnittflächen trocknen lassen und mit Holzkohlepulver desinfizieren. Pflanztiefe entscheidend: Knospen maximal 2–3 cm unter die Erde, sonst bleibt die Blüte aus."
     propagation_months: [9, 10]
     common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
     genus: Paeonia
@@ -646,6 +654,7 @@ new_species:
 
   - scientific_name: "Phlox paniculata"
     propagation_methods: [division, cutting]
+    propagation_notes: "Teilung großer Horste im Frühjahr (März/April) beim Austrieb; nur vitale Randtriebe verwenden, Mittelteil verwerfen. Wurzelstecklinge im Winter (Jan/Feb) aus fingerlangen Wurzelsegmenten möglich. Stecklinge ohne Blütenknospe nehmen, unter Folie bewurzeln. Regelmäßige Teilung alle 3–4 Jahre fördert Blühfreude und Mehltauresistenz."
     propagation_months: [3, 4]
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
     genus: Phlox
@@ -682,6 +691,7 @@ new_species:
 
   - scientific_name: "Rhododendron spp."
     propagation_methods: [layering, cutting, grafting]
+    propagation_notes: "Absenker sind die zuverlässigste Methode: tiefsitzende Triebe ohne Abtrennen eingraben, nach 1–2 Jahren bewurzelt abtrennen. Stecklinge im Frühsommer von halbverholzten Trieben (10 cm); Bewurzelung in Torf-Sand unter Folie dauert 8–12 Wochen. Auf saures Substrat (pH 4,5–5,5) achten; Veredlung auf Rhododendron-Unterlage für großwüchsige Sorten."
     propagation_months: [6, 7]
     common_names: [Rhododendron, Alpenrose]
     genus: Rhododendron
@@ -722,6 +732,7 @@ new_species:
 
   - scientific_name: "Rosa spp."
     propagation_methods: [cutting, grafting]
+    propagation_notes: "Halbverholzte Stecklinge im Spätsommer (Aug/Sep) ca. 20 cm lang, Blüte und obere Blätter entfernen. In sandiges Substrat stecken und frostfrei überwintern; Bewurzelung im Frühjahr. Stecklinge sind wurzelecht und zeigen ggf. abweichenden Wuchs. Fachveredlung (Okulation auf Rosa canina-Unterlage) erzeugt triebkräftigere Pflanzen mit besserer Frosthärte."
     propagation_months: [8, 9]
     common_names: [Gartenrose, Rose, Garden Rose]
     genus: Rosa
@@ -762,6 +773,7 @@ new_species:
 
   - scientific_name: "Syringa vulgaris"
     propagation_methods: [cutting, layering, grafting]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni/Juli) von kurzen, blütenlosem Seitenästen; unter Folie bewurzeln. Absenker durch Eingraben bodennah verlaufender Triebe. Veredlung auf Liguster- oder Eschentriebe ist Facharbeit. Wurzelausläufer von eigenwurzeliger Flieder können abgestochen werden; bei veredelten Exemplaren Ausläufer sofort entfernen."
     propagation_months: [6, 7]
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
     genus: Syringa
@@ -798,6 +810,7 @@ new_species:
 
   - scientific_name: "Viburnum opulus"
     propagation_methods: [cutting, layering, seed]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni/Juli) unter Folie bewurzeln. Absenker durch Eingraben tiefsitzender Triebe; nach 1 Jahr Saison abtrennen. Samen sind Doppelkeimer: direkt nach der Reife im Herbst aussäen, Keimung erst nach zwei Wintern. Vegetative Methoden sind deutlich schneller als die Anzucht aus Samen."
     propagation_months: [6, 7]
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
     genus: Viburnum
@@ -834,6 +847,7 @@ new_species:
 
   - scientific_name: "Weigela florida"
     propagation_methods: [cutting, layering]
+    propagation_notes: "Sehr leicht aus halbverholzten Stecklingen im Frühsommer (Juni/Juli); 10–15 cm lange Triebe ohne Blüten, untere Blätter entfernen. Bewurzelung in feuchtem Perlite-Substrat in 4–6 Wochen auch ohne Folie. Absenker gelingen ebenfalls zuverlässig. Topfpflanzen nach der Bewurzelung zügig ins Freiland bringen."
     propagation_months: [6, 7]
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
     genus: Weigela
@@ -873,6 +887,7 @@ new_species:
 
   - scientific_name: "Malus domestica"
     propagation_methods: [grafting]
+    propagation_notes: "Ausschließlich Veredlung auf geprüfte Unterlagen (M9 zwergwüchsig, MM106 mittelstark, M25 starkwüchsig); Unterlage bestimmt Endgröße und Reife. Kopulations- oder Spaltveredelung im späten Winter (Feb/März) wenn die Unterlage austreibt, der Edelreis noch ruht. Sortenechte Reiser aus zertifizierten Baumschulen nehmen. Eigensaat aus Apfelkernen gibt keine sortenechten Pflanzen."
     propagation_months: [2, 3]
     common_names: [Kulturapfel, Apfel, Apple]
     genus: Malus
@@ -913,6 +928,7 @@ new_species:
 
   - scientific_name: "Prunus avium"
     propagation_methods: [grafting]
+    propagation_notes: "Veredlung auf schwach- bis mittelstarkwüchsige Unterlagen (Gisela 5 zwerg, Colt mittelstark) im späten Winter; Kopulations- oder Okulationsverfahren. Schnittwunden sofort mit Baumwachs verschließen (besonders Kirsche moniliagefährdet). Selbststerile Sorten benötigen einen Pollenspender der gleichen Blütezeit; sortenkundige Wahl der Unterlage ist entscheidend."
     propagation_months: [2, 3]
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
     genus: Prunus
@@ -952,6 +968,7 @@ new_species:
 
   - scientific_name: "Prunus domestica"
     propagation_methods: [grafting]
+    propagation_notes: "Veredlung auf Pflaumenunterlage (z. B. Pixy zwerg, St. Julien A mittelstark) im späten Winter. Pflaume verträgt Okulation im Sommer gut. Viele Sorten sind selbstfruchtbar, aber Erträge steigen mit Bestäuber-Sorten in der Nähe. Wurzelausläufer von eigenwurzeliger Pflaume können zur vegetativen Vermehrung abgestochen werden."
     propagation_months: [2, 3]
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
     genus: Prunus
@@ -992,6 +1009,7 @@ new_species:
 
   - scientific_name: "Pyrus communis"
     propagation_methods: [grafting]
+    propagation_notes: "Veredlung auf Quittenunterlage (MA/MC zwerg bis mittelstark) im späten Winter; Quitten-verträgliche Zwischenveredelung bei unverträglichen Sorten notwendig. Auf Birnenpyrus als Unterlage für Standorte mit schweren Böden oder Quittenmüdigkeit. Birne ist ausschließlich fremdbestäubt; zwei Sorten gleicher Blütezeit pflanzen."
     propagation_months: [2, 3]
     common_names: [Kulturbirne, Gemeine Birne, Pear]
     genus: Pyrus
@@ -1033,6 +1051,7 @@ new_species:
 
   - scientific_name: "Ribes rubrum"
     propagation_methods: [cutting, division]
+    propagation_notes: "Verholzte Stecklinge im Spätherbst oder frühen Frühjahr (Feb/März) ca. 20 cm lang schneiden und senkrecht in die Erde stecken; obere 2 Augen ragen heraus. Bewurzelung bis zum Sommer, im Herbst umpflanzen. Stockteilung alter Büsche im Winter möglich. Nur gesunde, virusfreie Mutterpflanzen verwenden, da Virusbefall die Ernte deutlich reduziert."
     propagation_months: [2, 3]
     common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
     genus: Ribes
@@ -1071,6 +1090,7 @@ new_species:
 
   - scientific_name: "Ribes uva-crispa"
     propagation_methods: [cutting, layering]
+    propagation_notes: "Verholzte Stecklinge im Herbst oder Frühjahr (Feb/März) ca. 20–25 cm lang; alle Augen außer den zwei oberen entfernen, damit kein Busch, sondern ein Stamm entsteht. Absenker durch Eingraben langer Triebe im Sommer; sehr zuverlässig. Dornige Handschuhe tragen. Nur mehltauresistente Sorten (z. B. Invicta, Hinnonmäki) verwenden."
     propagation_months: [2, 3]
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
     genus: Ribes
@@ -1109,6 +1129,7 @@ new_species:
 
   - scientific_name: "Rubus fruticosus agg."
     propagation_methods: [layering, cutting]
+    propagation_notes: "Rutenbogenabsenker im Sommer (Juli/Aug) sind die einfachste Methode: Triebspitze in die Erde stecken, beschweren, nach 6–8 Wochen bewurzelt abtrennen. Halbverholzte Stecklinge im Sommer unter Folie ebenfalls möglich. Nur Ruten von gesunden, virusfreien Mutterpflanzen nehmen. Zu dichte Ausläufer konsequent entfernen, um Wildwuchs einzudämmen."
     propagation_months: [7, 8]
     common_names: [Brombeere, Blackberry, Bramble]
     genus: Rubus
@@ -1149,6 +1170,7 @@ new_species:
 
   - scientific_name: "Rubus idaeus"
     propagation_methods: [runner, division]
+    propagation_notes: "Bewurzelte Bodentriebe (Ausläufer) im Sommer/Herbst abstechen und 30–40 cm auseinander versetzen. Nur Ruten von gesunden, virusfreien Mutterpflanzen verwenden; Virusbefall überträgt sich vegetativ. Zu dichte Ausläufer regelmäßig entfernen, um die Anlage in Form zu halten und Luftzirkulation zu gewährleisten."
     propagation_months: [7, 8]
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
     genus: Rubus
@@ -1187,6 +1209,7 @@ new_species:
 
   - scientific_name: "Sambucus nigra"
     propagation_methods: [cutting]
+    propagation_notes: "Sehr leicht aus halbverholzten Stecklingen im Frühsommer (Juni/Juli); 15–20 cm lange Triebe in feuchtes Substrat stecken. Bewurzelung meist innerhalb von 3–4 Wochen, auch ohne Folie. Im Spätherbst gelingen verholzte Stecklinge ebenfalls gut. Schnell wüchsig; junge Pflanzen im ersten Winter vor Frost schützen."
     propagation_months: [6, 7]
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
     genus: Sambucus
@@ -1226,6 +1249,7 @@ new_species:
 
   - scientific_name: "Vaccinium corymbosum"
     propagation_methods: [cutting]
+    propagation_notes: "Verholzte Stecklinge im späten Winter (Feb/März) ca. 10–15 cm aus dem Vorjahresholz schneiden; in Rhododendron-Erde (pH 4,5–5,0) einpflanzen. Bewurzelung dauert 6–8 Wochen. Ausschließlich saures Substrat verwenden – normaler Kompost schädigt die Mykorrhiza. Zwei verschiedene Sorten pflanzen, da Fremdbestäubung den Ertrag deutlich steigert."
     propagation_months: [2, 3]
     common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
     genus: Vaccinium
@@ -1264,6 +1288,7 @@ new_species:
 
   - scientific_name: "Vitis vinifera"
     propagation_methods: [cutting, grafting]
+    propagation_notes: "Verholzte Ruhestecklinge (Rebholz) im Winter (Jan–März) ca. 30–40 cm lang mit 3–4 Augen schneiden; ober- und unterhalb eines Auges glatt schneiden. Senkrecht in sandigen Boden stecken, nur oberes Auge ragen lassen. Veredlung auf Reblaus-resistente Unterlagen (SO4, Teleki) ist in Reblausgebieten gesetzlich vorgeschrieben."
     propagation_months: [1, 2, 3]
     common_names: [Weinrebe, Weintraube, Grape Vine]
     genus: Vitis
@@ -1306,6 +1331,7 @@ new_species:
 
   - scientific_name: "Levisticum officinale"
     propagation_methods: [division, seed]
+    propagation_notes: "Stockteilung im Frühjahr beim Austrieb (März/April); Pfahlwurzel mit Spaten teilen, jede Teilpflanze braucht mindestens eine Knospe. Aussaat in Schalen ab März, Lichtkeimer – nur leicht andrücken, nicht bedecken. Frischer Samen keimt besser; Keimung nach 2–3 Wochen. Etablierte Pflanzen werden sehr groß und beschatten Nachbarn."
     propagation_months: [3, 4]
     common_names: [Liebstoeckel, Maggikraut, Lovage]
     genus: Levisticum
@@ -1346,6 +1372,7 @@ new_species:
 
   - scientific_name: "Melissa officinalis"
     propagation_methods: [division, cutting, seed]
+    propagation_notes: "Horste im Frühjahr teilen (April/Mai) und Teilstücke direkt einpflanzen. Stecklinge von krautigen Trieben im Frühsommer schnell bewurzelnd. Aussaat auf feuchter Oberfläche – Lichtkeimer, nicht bedecken; Keimtemperatur 18–20 °C. Samen bei Lagerung rasch keimfähig einbüßen; frischen Samen bevorzugen. Säet stark selbst aus; Aussaat vor Samenreife zurückschneiden."
     propagation_months: [4, 5]
     common_names: [Zitronenmelisse, Melisse, Lemon Balm]
     genus: Melissa
@@ -1387,6 +1414,7 @@ new_species:
 
   - scientific_name: "Origanum vulgare"
     propagation_methods: [division, cutting, seed]
+    propagation_notes: "Stockteilung im Frühjahr (April/Mai) alle 3–4 Jahre; vitale Randtriebe verwenden. Krautige Stecklinge von 8–10 cm Länge im Frühsommer unter Folie schnell bewurzelnd. Aussaat auf Oberfläche – Lichtkeimer; Keimtemperatur 20–25 °C. Aus Samen gezogene Pflanzen variieren im Aroma; für intensiveren Duft vegetative Vermehrung bevorzugen."
     propagation_months: [4, 5]
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
     genus: Origanum
@@ -1428,6 +1456,7 @@ new_species:
 
   - scientific_name: "Satureja hortensis"
     propagation_methods: [seed]
+    propagation_notes: "Direktsaat ab Mitte Mai an Ort und Stelle; frostempfindlich, nicht früher säen. Lichtkeimer – Samen nur leicht andrücken. Keimung nach 7–14 Tagen bei 18–22 °C. Nach Aufgang auf 20–25 cm vereinzeln. Kompakter Wuchs; verblühte Triebe regelmäßig abschneiden verlängert die Erntesaison. Als Einjährige stirbt die Pflanze nach dem ersten Frost ab."
     common_names: [Sommer-Bohnenkraut, Summer Savory]
     genus: Satureja
     plant_category: herb
@@ -1469,6 +1498,7 @@ new_species:
 
   - scientific_name: "Pastinaca sativa"
     propagation_methods: [seed]
+    propagation_notes: "Ausschließlich Direktsaat – Pfahlwurzel verträgt keine Umpflanzung. Frischen Samen verwenden, da Keimfähigkeit nach 1 Jahr stark nachlässt. Saatbett gründlich tiefgründig lockern (mind. 30 cm) für gerade Rüben. Gleichmäßige Feuchthaltung bis zum Auflaufen (2–3 Wochen) entscheidend. Frost nach der Ernte verbessert den süßen Geschmack."
     common_names: [Pastinake, Parsnip]
     genus: Pastinaca
     plant_category: outdoor_vegetable
@@ -1508,6 +1538,7 @@ new_species:
 
   - scientific_name: "Rheum rhabarbarum"
     propagation_methods: [division, seed]
+    propagation_notes: "Stockteilung im Frühjahr (März/April) beim ersten Austrieb; Rhizom mit scharfem Spaten teilen, jedes Segment braucht mindestens 1–2 kräftige Knospen. Schnittflächen kurz antrocknen lassen. Aussaat möglich, aber langsam (2 Jahre bis Ernte) und nicht sortentreu. Blütenstände sofort entfernen, damit Kraft in die Blattstiele geht."
     propagation_months: [3, 4]
     common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
     genus: Rheum
@@ -1545,6 +1576,7 @@ new_species:
 
   - scientific_name: "Spinacia oleracea"
     propagation_methods: [seed]
+    propagation_notes: "Direktsaat in Reihen; Samen leicht 1–2 cm mit Erde bedecken. Kühlkeimer: optimale Keimtemperatur 5–15 °C – bei Wärme über 20 °C Keimhemmung. Frühjahrs- und Herbstsaat möglich; Sommersaaten schießen rasch. Nach Aufgang auf 10–15 cm vereinzeln. Sukzessionsaussaat im Abstand von 2–3 Wochen für fortlaufende Ernte."
     common_names: [Spinat, Echter Spinat, Spinach]
     genus: Spinacia
     plant_category: outdoor_vegetable
@@ -1590,6 +1622,7 @@ new_species:
 
   - scientific_name: "Lupinus polyphyllus"
     propagation_methods: [seed, self_seeding]
+    propagation_notes: "Samen vor der Aussaat 24 Stunden in lauwarmem Wasser einweichen, da die Samenschale sehr hart ist. Direktsaat von April–Juni oder Vorkultur ab März. Pfahlwurzel verträgt keine Umpflanzung – am Endstandort säen oder sehr früh pikieren. Impfung mit Rhizobium-Knöllchenbakterien erhöht Stickstofffixierung deutlich."
     common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
     genus: Lupinus
     plant_category: outdoor_vegetable
@@ -1628,6 +1661,7 @@ new_species:
 
   - scientific_name: "Medicago sativa"
     propagation_methods: [seed]
+    propagation_notes: "Direktsaat von April–August breitwürfig oder in Reihen auf gut vorbereitetem Saatbett. Kalkung auf pH 6,5–7,5 sicherstellen – auf sauren Böden schlechte Keimung. Impfung des Saatguts mit Rhizobium-Spezialinokulum (Sinorhizobium meliloti) für effektive Stickstofffixierung empfohlen. Tiefe Pfahlwurzel nach Etablierung nicht mehr umpflanzen."
     common_names: [Luzerne, Alfalfa, Ewiger Klee]
     genus: Medicago
     plant_category: outdoor_vegetable
@@ -1666,6 +1700,7 @@ new_species:
 
   - scientific_name: "Phacelia tanacetifolia"
     propagation_methods: [seed, self_seeding]
+    propagation_notes: "Direktsaat von März–September breitwürfig; Samen leicht 0,5–1 cm mit Erde bedecken. Schnellkeimer: Auflaufen nach 7–14 Tagen, Blüte bereits 6–8 Wochen nach Aussaat. Sät sich bei Samenreife stark selbst aus; für gezielte Gründüngung vor Samenreife unterpflügen. Kontakt mit Pflanzensäften kann Hautreizungen verursachen – Handschuhe empfohlen."
     common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
     genus: Phacelia
     plant_category: outdoor_vegetable
@@ -1700,6 +1735,7 @@ new_species:
 
   - scientific_name: "Sinapis alba"
     propagation_methods: [seed, self_seeding]
+    propagation_notes: "Direktsaat von April–September breitwürfig (20–30 g/m²) auf gelockertem Boden; Samen 1–2 cm tief bedecken. Sehr schnellwüchsig: Auflaufen nach 5–7 Tagen, Gründüngungsreife nach 6–8 Wochen. Vor der Blüte (max. Knospenstadium) einarbeiten, um unkontrollierte Selbstaussaat zu verhindern. Nicht nach Kohlgewächsen (Kreuzblütler-Fruchtfolge beachten)."
     common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
     genus: Sinapis
     plant_category: outdoor_vegetable
@@ -1736,6 +1772,7 @@ new_species:
 
   - scientific_name: "Tagetes patula"
     propagation_methods: [seed]
+    propagation_notes: "Voranzucht ab März/April in Schalen bei 18–22 °C; Keimung nach 5–7 Tagen. Direktsaat nach den Eisheiligen (ab Mitte Mai) möglich. Nach Aufgang pikieren und abhärten. Regelmäßiges Ausputzen verblühter Köpfe verlängert die Blütezeit bis in den Herbst. Allelopatische Wirkung auf Nematoden entfaltet sich erst nach mehrjährigem Anbau im selben Beet."
     common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
     genus: Tagetes
     plant_category: outdoor_ornamental
@@ -1775,6 +1812,7 @@ new_species:
 
   - scientific_name: "Tropaeolum majus"
     propagation_methods: [seed, self_seeding]
+    propagation_notes: "Direktsaat ab Mitte Mai an Ort und Stelle (frostempfindlich); Samen 2–3 cm tief legen, Keimung nach 7–14 Tagen. Nicht zu stickstoffreich düngen – fördert Blattwuchs auf Kosten der Blüte. Sät sich selbst zuverlässig aus; Keimlinge im Frühjahr ausdünnen. Auf armen Böden blüht die Pflanze reichlicher als auf humusreichen Standorten."
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
     plant_category: herb
@@ -1820,6 +1858,7 @@ new_species:
 species_enrichment:
   "Lactuca sativa":
     propagation_methods: [seed]
+    propagation_notes: "Aussaat in Schalen ab Februar/März unter Glas; Lichtkeimer – Samen nicht bedecken, nur andrücken. Pikieren bei 2 Keimblättern, abhärten und nach den Eisheiligen auspflanzen. Direktsaat von März–August möglich. Keimhemmung bei Temperaturen über 25 °C; für Sommersaaten kühlen Standort wählen oder Samen vorkühlen."
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 15
@@ -1844,6 +1883,7 @@ species_enrichment:
 
   "Lavandula angustifolia":
     propagation_methods: [cutting, seed, layering]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni–Aug) ca. 8–10 cm ohne Blüte; untere Blätter entfernen, in durchlässigem Substrat bewurzeln. Bewurzelung unter Folie in 4–6 Wochen. Aussaat sehr langsam (10–21 Tage) bei 15–18 °C; Pflanzen blühen erst im 2. Jahr. Absenker durch Einscharren tiefer Triebe gelingen zuverlässig ohne Fachwissen."
     propagation_months: [6, 7, 8]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
@@ -1866,6 +1906,7 @@ species_enrichment:
 
   "Mentha piperita":
     propagation_methods: [division, cutting, runner]
+    propagation_notes: "Ausläufer im Frühjahr (April/Mai) abstechen und direkt einpflanzen; einfachste Methode. Stecklinge von krautigen Trieben jederzeit im Wasser bewurzelnd. Unbedingt einpflanzen im Topf oder mit unterirdischer Barriere (mind. 30 cm Tiefe) – Rhizome breiten sich aggressiv aus und verdrängen Nachbarn. Regelmäßige Teilung alle 2–3 Jahre hält die Pflanze vital."
     propagation_months: [4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
@@ -1888,6 +1929,7 @@ species_enrichment:
 
   "Ocimum basilicum":
     propagation_methods: [seed, cutting]
+    propagation_notes: "Voranzucht ab März/April bei 20–25 °C; Samen nicht bedecken (Lichtkeimer), Keimung nach 7–14 Tagen. Frostempfindlich: erst nach den Eisheiligen ins Freie. Stecklinge aus Supermarkt-Basilikum im Wasser bewurzeln (1–2 Wochen). Nicht in die Nähe kalter Fenster stellen; unter 10 °C Schäden an Blättern. Blütenstände regelmäßig abzwicken für buschiges Wachstum."
     propagation_months: [6, 7]
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
@@ -1913,6 +1955,7 @@ species_enrichment:
 
   "Petroselinum crispum":
     propagation_methods: [seed]
+    propagation_notes: "Zweijährige Pflanze; Direktsaat von März–Juli an Ort und Stelle. Langsamer Keimer (3–5 Wochen): Samen vor Aussaat 24 h in lauwarmem Wasser quellen. Keimtemperatur 15–20 °C; gleichmäßige Feuchthaltung bis zum Auflaufen entscheidend. Im zweiten Jahr schießt die Pflanze und wird bitter; im Herbst neu säen. Pfahlwurzel lässt sich nicht umpflanzen."
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 20
@@ -1937,6 +1980,7 @@ species_enrichment:
 
   "Phaseolus vulgaris":
     propagation_methods: [seed]
+    propagation_notes: "Direktsaat nach den Eisheiligen (ab Mitte Mai) bei mindestens 12 °C Bodentemperatur; frostempfindlich. Samen 3–4 cm tief legen, Reihenabstand 40–50 cm, in der Reihe 8–10 cm. Gleichmäßige Feuchthaltung bis zur Keimung; staunasse Böden fördern Fäulnis. Erneute Aussaat bis Mitte Juli für Sukzession möglich. Stangenbohnen benötigen stabiles Gerüst."
     container_suitable: limited
     recommended_container_volume_l: "10-15"
     min_container_depth_cm: 20
@@ -1962,6 +2006,7 @@ species_enrichment:
 
   "Pisum sativum":
     propagation_methods: [seed]
+    propagation_notes: "Kaltkeimer: Frühjahrssaat ab März/April möglich, verträgt leichte Fröste. Samen 4–5 cm tief, Reihenabstand 20–30 cm. Stützgitter oder Rankhilfe ab 30 cm Wuchshöhe. Auf Leguminosen-Fruchtfolge achten; nicht mehr als einmal in 4 Jahren am gleichen Ort. Frühe Aussaat bringt bessere Erträge; Hitze im Sommer beendet die Erntesaison vorzeitig."
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -1987,6 +2032,7 @@ species_enrichment:
 
   "Salvia officinalis":
     propagation_methods: [cutting, seed, layering]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni/Juli) ca. 8–10 cm; Bewurzelung in durchlässigem Substrat unter Folie in 3–4 Wochen. Absenker durch Einscharren langer Triebe im Sommer. Aussaat im März bei 18–22 °C; Pflanzen blühen erst im zweiten Jahr aromatisch. Nach einigen Jahren verholzt Salbei stark; durch neue Stecklinge ersetzen."
     propagation_months: [6, 7]
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
@@ -2012,6 +2058,7 @@ species_enrichment:
 
   "Salvia rosmarinus":
     propagation_methods: [cutting, layering, seed]
+    propagation_notes: "Halbverholzte Stecklinge im Frühsommer (Juni/Juli) ca. 10 cm ohne Blüte; in gut drainiertes Substrat stecken und unter Folie oder Glas bewurzeln. Bewurzelung dauert 4–8 Wochen. Aussaat sehr langsam und unzuverlässig (Keimung 2–4 Wochen); vegetative Methoden bevorzugen. Absenker gelingen gut. In Mitteleuropa im Winter vor Frost und Staunässe schützen."
     propagation_months: [6, 7]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
@@ -2034,6 +2081,7 @@ species_enrichment:
 
   "Solanum lycopersicum":
     propagation_methods: [seed, cutting]
+    propagation_notes: "Voranzucht ab Mitte März bei 20–25 °C; Keimung nach 7–10 Tagen. Pikieren in Einzeltöpfe, schrittweise abhärten und nach den Eisheiligen auspflanzen. Seitentriebe (Geiztriebe) im Wasser oder Substrat leicht bewurzelnd – kostengünstige Vermehrung von Lieblingssorten. Frostempfindlich: Auspflanzen frühestens Mitte Mai."
     propagation_months: [6, 7]
     container_suitable: limited
     recommended_container_volume_l: "10-20"
@@ -2059,6 +2107,7 @@ species_enrichment:
 
   "Solanum tuberosum":
     propagation_methods: [tuber, seed]
+    propagation_notes: "Ausschließlich zertifiziertes Pflanzgut (virusgeprüfte Saatknollen) verwenden; eigene Knollen akkumulieren Viren und reduzieren Erträge nach 2–3 Jahren. Knollen ab März im Hellen vorankeimen lassen (Lichtkeimung bei 10–15 °C). Frostempfindlich: in die Erde erst ab Mitte April, bei Spätfrostgefahr mit Vlies abdecken. Tiefes Häufeln fördert Knollenbildung und verhindert Vergrünung."
     propagation_months: [3, 4]
     container_suitable: limited
     recommended_container_volume_l: "40-60"
@@ -2084,6 +2133,7 @@ species_enrichment:
 
   "Thymus vulgaris":
     propagation_methods: [cutting, seed, division, layering]
+    propagation_notes: "Stecklinge im Frühjahr/Frühsommer (Mai/Juni) ca. 5–8 cm von nicht verholzten Trieben; in durchlässigem Substrat schnell bewurzelnd. Stockteilung älterer Pflanzen im Frühjahr. Aussaat bei 20–22 °C auf Oberfläche (Lichtkeimer). Aus Samen gezogene Pflanzen variieren im Aromagehalt; vegetative Methoden für aromareiche Muttersorte bevorzugen."
     propagation_months: [5, 6]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -2109,6 +2159,7 @@ species_enrichment:
 
   "Trifolium pratense":
     propagation_methods: [seed]
+    propagation_notes: "Direktsaat von März–September breitwürfig (2–3 g/m²) auf gelockertem Boden; Samen nur 0,5–1 cm tief bedecken. Impfung mit spezifischen Rhizobium-Knöllchenbakterien steigert Stickstofffixierung deutlich – besonders auf bisher leguminosen-freien Flächen. Bei pH unter 6,0 Kalkung vor der Saat. Als Dauerkultur oder Grüneinsaat zwischen Kulturpflanzen einsäen."
     container_suitable: "no"
     indoor_suitable: "no"
     balcony_suitable: "no"
