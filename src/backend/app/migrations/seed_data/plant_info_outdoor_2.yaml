@@ -349,6 +349,7 @@ new_species:
   # ---------- Ornamental shrubs / trees ----------
 
   - scientific_name: "Forsythia x intermedia"
+    propagation_methods: [cutting, layering]
     common_names: [Forsythie, Goldgloeckchen, Forsythia]
     genus: Forsythia
     plant_category: outdoor_ornamental
@@ -384,6 +385,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Geranium sanguineum"
+    propagation_methods: [division, seed]
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
     genus: Geranium
     plant_category: outdoor_ornamental
@@ -420,6 +422,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Helleborus niger"
+    propagation_methods: [division, seed]
     common_names: [Christrose, Schneerose, Christmas Rose]
     genus: Helleborus
     plant_category: outdoor_ornamental
@@ -453,6 +456,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Hemerocallis spp."
+    propagation_methods: [division]
     common_names: [Taglilie, Daylily]
     genus: Hemerocallis
     plant_category: outdoor_ornamental
@@ -487,6 +491,7 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Hosta spp."
+    propagation_methods: [division]
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
     genus: Hosta
     plant_category: outdoor_ornamental
@@ -524,6 +529,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Hydrangea macrophylla"
+    propagation_methods: [cutting, layering]
     common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
     genus: Hydrangea
     plant_category: outdoor_ornamental
@@ -559,6 +565,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Ligustrum vulgare"
+    propagation_methods: [cutting, layering]
     common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
     genus: Ligustrum
     plant_category: outdoor_ornamental
@@ -593,6 +600,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Paeonia lactiflora"
+    propagation_methods: [division]
     common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
     genus: Paeonia
     plant_category: outdoor_ornamental
@@ -629,6 +637,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Phlox paniculata"
+    propagation_methods: [division, cutting]
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
     genus: Phlox
     plant_category: outdoor_ornamental
@@ -663,6 +672,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Rhododendron spp."
+    propagation_methods: [layering, cutting, grafting]
     common_names: [Rhododendron, Alpenrose]
     genus: Rhododendron
     plant_category: outdoor_ornamental
@@ -701,6 +711,7 @@ new_species:
       max_ph: 5.5
 
   - scientific_name: "Rosa spp."
+    propagation_methods: [cutting, grafting]
     common_names: [Gartenrose, Rose, Garden Rose]
     genus: Rosa
     plant_category: outdoor_ornamental
@@ -739,6 +750,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Syringa vulgaris"
+    propagation_methods: [cutting, layering, grafting]
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
     genus: Syringa
     plant_category: outdoor_ornamental
@@ -773,6 +785,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Viburnum opulus"
+    propagation_methods: [cutting, layering, seed]
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
     genus: Viburnum
     plant_category: outdoor_ornamental
@@ -807,6 +820,7 @@ new_species:
       max_ph: 8.0
 
   - scientific_name: "Weigela florida"
+    propagation_methods: [cutting, layering]
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
     genus: Weigela
     plant_category: outdoor_ornamental
@@ -844,6 +858,7 @@ new_species:
   # ---------- Fruit trees ----------
 
   - scientific_name: "Malus domestica"
+    propagation_methods: [grafting]
     common_names: [Kulturapfel, Apfel, Apple]
     genus: Malus
     plant_category: outdoor_vegetable
@@ -882,6 +897,7 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Prunus avium"
+    propagation_methods: [grafting]
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
     genus: Prunus
     plant_category: outdoor_vegetable
@@ -919,6 +935,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Prunus domestica"
+    propagation_methods: [grafting]
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
     genus: Prunus
     plant_category: outdoor_vegetable
@@ -957,6 +974,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Pyrus communis"
+    propagation_methods: [grafting]
     common_names: [Kulturbirne, Gemeine Birne, Pear]
     genus: Pyrus
     plant_category: outdoor_vegetable
@@ -996,6 +1014,7 @@ new_species:
   # ---------- Berry shrubs ----------
 
   - scientific_name: "Ribes rubrum"
+    propagation_methods: [cutting, division]
     common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
     genus: Ribes
     plant_category: outdoor_vegetable
@@ -1032,6 +1051,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Ribes uva-crispa"
+    propagation_methods: [cutting, layering]
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
     genus: Ribes
     plant_category: outdoor_vegetable
@@ -1068,6 +1088,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Rubus fruticosus agg."
+    propagation_methods: [layering, cutting]
     common_names: [Brombeere, Blackberry, Bramble]
     genus: Rubus
     plant_category: outdoor_vegetable
@@ -1106,6 +1127,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Rubus idaeus"
+    propagation_methods: [runner, division]
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
     genus: Rubus
     plant_category: outdoor_vegetable
@@ -1142,6 +1164,7 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Sambucus nigra"
+    propagation_methods: [cutting]
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
     genus: Sambucus
     plant_category: outdoor_vegetable
@@ -1179,6 +1202,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Vaccinium corymbosum"
+    propagation_methods: [cutting]
     common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
     genus: Vaccinium
     plant_category: outdoor_vegetable
@@ -1215,6 +1239,7 @@ new_species:
       max_ph: 5.5
 
   - scientific_name: "Vitis vinifera"
+    propagation_methods: [cutting, grafting]
     common_names: [Weinrebe, Weintraube, Grape Vine]
     genus: Vitis
     plant_category: outdoor_vegetable
@@ -1255,6 +1280,7 @@ new_species:
   # ---------- Herbs ----------
 
   - scientific_name: "Levisticum officinale"
+    propagation_methods: [division, seed]
     common_names: [Liebstoeckel, Maggikraut, Lovage]
     genus: Levisticum
     plant_category: herb
@@ -1293,6 +1319,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Melissa officinalis"
+    propagation_methods: [division, cutting, seed]
     common_names: [Zitronenmelisse, Melisse, Lemon Balm]
     genus: Melissa
     plant_category: herb
@@ -1332,6 +1359,7 @@ new_species:
       max_ph: 9
 
   - scientific_name: "Origanum vulgare"
+    propagation_methods: [division, cutting, seed]
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
     genus: Origanum
     plant_category: herb
@@ -1371,6 +1399,7 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Satureja hortensis"
+    propagation_methods: [seed]
     common_names: [Sommer-Bohnenkraut, Summer Savory]
     genus: Satureja
     plant_category: herb
@@ -1411,6 +1440,7 @@ new_species:
   # ---------- Vegetables ----------
 
   - scientific_name: "Pastinaca sativa"
+    propagation_methods: [seed]
     common_names: [Pastinake, Parsnip]
     genus: Pastinaca
     plant_category: outdoor_vegetable
@@ -1449,6 +1479,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rheum rhabarbarum"
+    propagation_methods: [division, seed]
     common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
     genus: Rheum
     plant_category: outdoor_vegetable
@@ -1484,6 +1515,7 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Spinacia oleracea"
+    propagation_methods: [seed]
     common_names: [Spinat, Echter Spinat, Spinach]
     genus: Spinacia
     plant_category: outdoor_vegetable
@@ -1528,6 +1560,7 @@ new_species:
   # ---------- Green manure / cover crops ----------
 
   - scientific_name: "Lupinus polyphyllus"
+    propagation_methods: [seed, self_seeding]
     common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
     genus: Lupinus
     plant_category: outdoor_vegetable
@@ -1565,6 +1598,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Medicago sativa"
+    propagation_methods: [seed]
     common_names: [Luzerne, Alfalfa, Ewiger Klee]
     genus: Medicago
     plant_category: outdoor_vegetable
@@ -1602,6 +1636,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Phacelia tanacetifolia"
+    propagation_methods: [seed, self_seeding]
     common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
     genus: Phacelia
     plant_category: outdoor_vegetable
@@ -1635,6 +1670,7 @@ new_species:
       max_ph: 8.5
 
   - scientific_name: "Sinapis alba"
+    propagation_methods: [seed, self_seeding]
     common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
     genus: Sinapis
     plant_category: outdoor_vegetable
@@ -1670,6 +1706,7 @@ new_species:
   # ---------- Annual ornamentals ----------
 
   - scientific_name: "Tagetes patula"
+    propagation_methods: [seed]
     common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
     genus: Tagetes
     plant_category: outdoor_ornamental
@@ -1708,6 +1745,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Tropaeolum majus"
+    propagation_methods: [seed, self_seeding]
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
     plant_category: herb
@@ -1752,6 +1790,7 @@ new_species:
 
 species_enrichment:
   "Lactuca sativa":
+    propagation_methods: [seed]
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 15
@@ -1775,6 +1814,7 @@ species_enrichment:
     pruning_months: []
 
   "Lavandula angustifolia":
+    propagation_methods: [cutting, seed, layering]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
     min_container_depth_cm: 20
@@ -1795,6 +1835,7 @@ species_enrichment:
     pruning_months: [3, 4, 8]
 
   "Mentha piperita":
+    propagation_methods: [division, cutting, runner]
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
     min_container_depth_cm: 20
@@ -1815,6 +1856,7 @@ species_enrichment:
     pruning_months: [6, 7, 8, 9]
 
   "Ocimum basilicum":
+    propagation_methods: [seed, cutting]
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 15
@@ -1838,6 +1880,7 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9]
 
   "Petroselinum crispum":
+    propagation_methods: [seed]
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 20
@@ -1861,6 +1904,7 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9, 10]
 
   "Phaseolus vulgaris":
+    propagation_methods: [seed]
     container_suitable: limited
     recommended_container_volume_l: "10-15"
     min_container_depth_cm: 20
@@ -1885,6 +1929,7 @@ species_enrichment:
     pruning_months: []
 
   "Pisum sativum":
+    propagation_methods: [seed]
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -1909,6 +1954,7 @@ species_enrichment:
     pruning_months: []
 
   "Salvia officinalis":
+    propagation_methods: [cutting, seed, layering]
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
     min_container_depth_cm: 20
@@ -1932,6 +1978,7 @@ species_enrichment:
     pruning_months: [3, 4]
 
   "Salvia rosmarinus":
+    propagation_methods: [cutting, layering, seed]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
     min_container_depth_cm: 20
@@ -1952,6 +1999,7 @@ species_enrichment:
     pruning_months: [3, 4]
 
   "Solanum lycopersicum":
+    propagation_methods: [seed, cutting]
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 30
@@ -1975,6 +2023,7 @@ species_enrichment:
     pruning_months: [6, 7, 8, 9]
 
   "Solanum tuberosum":
+    propagation_methods: [tuber, seed]
     container_suitable: limited
     recommended_container_volume_l: "40-60"
     min_container_depth_cm: 40
@@ -1998,6 +2047,7 @@ species_enrichment:
     pruning_months: []
 
   "Thymus vulgaris":
+    propagation_methods: [cutting, seed, division, layering]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -2021,6 +2071,7 @@ species_enrichment:
     pruning_months: [4, 7]
 
   "Trifolium pratense":
+    propagation_methods: [seed]
     container_suitable: "no"
     indoor_suitable: "no"
     balcony_suitable: "no"

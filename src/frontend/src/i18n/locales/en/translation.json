@@ -588,6 +588,8 @@
       "growthHabitHelper": "Typical growth form: herb, shrub, tree, vine or groundcover",
       "rootType": "Root Type",
       "rootTypeHelper": "Root system: fibrous, taproot, tuberous or bulbous",
+      "propagationMethods": "Propagation Methods",
+      "propagationMethodsHelper": "How the species can be propagated — multiple choices allowed (e.g. seed, cutting, division)",
       "activePlants": "Active Plants",
       "hardinessZones": "Hardiness Zones",
       "hardinessZonesHelper": "USDA hardiness zones (e.g. '7a', '8b') — press Enter to add",
@@ -607,6 +609,7 @@
       "taxonomicStatusHelper": "Current status: accepted, synonym, doubtful, misapplied",
       "sectionTaxonomy": "Taxonomy",
       "sectionGrowth": "Growth",
+      "sectionGrowthDesc": "Growth habit, root type and how the species can be propagated.",
       "sectionEnvironment": "Environment",
       "sectionClassification": "Classification",
       "sectionCultivation": "Cultivation Conditions",
@@ -3112,6 +3115,21 @@
       "taproot": "Taproot",
       "tuberous": "Tuberous",
       "bulbous": "Bulbous"
+    },
+    "propagationMethod": {
+      "seed": "Seed",
+      "cutting": "Cutting",
+      "division": "Division",
+      "rhizome_division": "Rhizome division",
+      "bulb": "Bulb",
+      "tuber": "Tuber",
+      "offset": "Offset / Pup",
+      "grafting": "Grafting",
+      "layering": "Layering",
+      "spore": "Spore",
+      "runner": "Runner",
+      "leaf_cutting": "Leaf cutting",
+      "self_seeding": "Self-seeding"
     },
     "photoperiodType": {
       "short_day": "Short Day",

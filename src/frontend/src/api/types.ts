@@ -2,6 +2,20 @@
 
 export type GrowthHabit = 'herb' | 'shrub' | 'tree' | 'vine' | 'groundcover';
 export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous';
+export type PropagationMethod =
+  | 'seed'
+  | 'cutting'
+  | 'division'
+  | 'rhizome_division'
+  | 'bulb'
+  | 'tuber'
+  | 'offset'
+  | 'grafting'
+  | 'layering'
+  | 'spore'
+  | 'runner'
+  | 'leaf_cutting'
+  | 'self_seeding';
 export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral';
 export type CycleType = 'annual' | 'biennial' | 'perennial';
 export type StressTolerance = 'low' | 'medium' | 'high';
@@ -192,6 +206,7 @@ export interface Species {
   bloom_from_year: number | null;
   frost_sensitivity: FrostTolerance | null;
   plant_category: string | null;
+  propagation_methods: PropagationMethod[];
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
   container_suitable: Suitability | null;
@@ -234,6 +249,7 @@ export interface SpeciesCreate {
   bloom_from_year?: number | null;
   frost_sensitivity?: FrostTolerance | null;
   plant_category?: string | null;
+  propagation_methods?: PropagationMethod[];
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
   container_suitable?: Suitability | null;

@@ -23,6 +23,9 @@ Kamerplanter dokumentiert die genetische Abstammung deiner Pflanzen lückenlos: 
 | **Veredelung** | Edelreis auf Unterlage aufgebracht | Edelreis bleibt genetisch unverändert |
 | **Teilung** | Pflanze in mehrere Teile geteilt | Genetisch identisch (wie Klon) |
 
+!!! note "Vermehrungsarten im Arten-Steckbrief"
+    Im **Arten-Steckbrief** (Stammdaten > Arten) gibt es das Feld **Vermehrungsarten** (`propagation_methods`). Dort ist hinterlegt, welche Methoden für eine Art **generell üblich** sind — z.B. Tomate: Aussaat + Steckling. Das Feld ist eine Mehrfachauswahl aus 13 Methoden und wird ab der Erfahrungsstufe **Fortgeschrittener** angezeigt. Alle vorgefertigten Kulturpflanzen-Stammdaten enthalten bereits diese Information. Weitere Details: [Stammdaten verwalten — Vermehrungsarten](plant-management.md#vermehrungsarten-propagation_methods).
+
 ---
 
 ## Stecklinge (Klone) nehmen

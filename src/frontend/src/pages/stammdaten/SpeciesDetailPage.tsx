@@ -49,6 +49,7 @@ import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
+import FormMultiSelectField from '@/components/form/FormMultiSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -81,6 +82,23 @@ import type {
 } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
+/** Propagation method enum values — mirrors PropagationMethod in api/types.ts. */
+const PROPAGATION_METHODS = [
+  'seed',
+  'cutting',
+  'division',
+  'rhizome_division',
+  'bulb',
+  'tuber',
+  'offset',
+  'grafting',
+  'layering',
+  'spore',
+  'runner',
+  'leaf_cutting',
+  'self_seeding',
+] as const;
+
 const schema = z.object({
   scientific_name: z.string().min(1),
   common_names: z.array(z.string()),
@@ -88,6 +106,7 @@ const schema = z.object({
   genus: z.string(),
   growth_habit: z.enum(['herb', 'shrub', 'tree', 'vine', 'groundcover']),
   root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']),
+  propagation_methods: z.array(z.enum(PROPAGATION_METHODS)),
   hardiness_zones: z.array(z.string()),
   native_habitat: z.string(),
   allelopathy_score: z.number().min(-1).max(1),
@@ -174,6 +193,7 @@ export default function SpeciesDetailPage() {
       genus: '',
       growth_habit: 'herb',
       root_type: 'fibrous',
+      propagation_methods: [],
       hardiness_zones: [],
       native_habitat: '',
       allelopathy_score: 0,
@@ -249,6 +269,7 @@ export default function SpeciesDetailPage() {
         genus: current.genus,
         growth_habit: current.growth_habit,
         root_type: current.root_type,
+        propagation_methods: current.propagation_methods ?? [],
         hardiness_zones: current.hardiness_zones,
         native_habitat: current.native_habitat,
         allelopathy_score: current.allelopathy_score,
@@ -516,8 +537,11 @@ export default function SpeciesDetailPage() {
               {/* ── Panel 2: Wachstum (compact, R-057) ── */}
               <Card variant="outlined">
                 <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                     {t('pages.species.sectionGrowth')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.species.sectionGrowthDesc')}
                   </Typography>
                   <FormRow>
                     <FormSelectField
@@ -543,6 +567,16 @@ export default function SpeciesDetailPage() {
                       />
                     </ExpertiseFieldWrapper>
                   </FormRow>
+                  <FormMultiSelectField
+                    name="propagation_methods"
+                    control={control}
+                    label={t('pages.species.propagationMethods')}
+                    helperText={t('pages.species.propagationMethodsHelper')}
+                    options={PROPAGATION_METHODS.map((v) => ({
+                      value: v,
+                      label: t(`enums.propagationMethod.${v}`),
+                    }))}
+                  />
                 </CardContent>
               </Card>
             </Box>

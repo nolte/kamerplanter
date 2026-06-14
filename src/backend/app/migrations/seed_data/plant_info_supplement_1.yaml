@@ -48,7 +48,7 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting_leaf, seed, division]
+    propagation_methods: [leaf_cutting, seed, division]
     propagation_difficulty: easy
     container_suitable: "yes"
     recommended_container_volume_l: "1"
@@ -93,7 +93,7 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting_stem]
+    propagation_methods: [cutting]
     propagation_difficulty: easy
     container_suitable: "yes"
     recommended_container_volume_l: "5"
@@ -136,7 +136,7 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental, bee_friendly]
-    propagation_methods: [division, cutting_stem]
+    propagation_methods: [division, cutting]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"

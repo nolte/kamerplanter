@@ -25,7 +25,7 @@ Kamerplanter verwendet ArangoDB als primäre Datenbank — ein Multi-Modell-Syst
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
 | `botanical_families` | Botanische Familien | `name` (unique), `common_name` |
-| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `frost_sensitivity` |
+| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_methods[]` |
 | `cultivars` | Sorten / Varietäten | `name`, `species_key`, genetische Herkunft |
 | `lifecycle_configs` | Lebenszyklusdefinitionen pro Art | `species_key`, `lifecycle_type` |
 | `growth_phases` | Einzelne Wachstumsphasen | `name`, `order`, `lifecycle_config_key` |
@@ -33,6 +33,16 @@ Kamerplanter verwendet ArangoDB als primäre Datenbank — ein Multi-Modell-Syst
 | `nutrient_profiles` | Nährstoffprofile je Phase | `npk_ratio`, `target_ec_ms`, `target_ph` |
 | `phase_transition_rules` | Übergangskriterien zwischen Phasen | `from_phase_key`, `to_phase_key`, `trigger_type`, `gdd_threshold` |
 | `phase_histories` | Protokoll vergangener Phasenübergänge | `entered_at`, `exited_at`, `actual_duration_days` |
+
+#### Species — Feld `propagation_methods`
+
+Das Feld `propagation_methods` ist ein Array von Enum-Werten (`PropagationMethod`) und dokumentiert die für die Art üblichen Vermehrungsmethoden. Erlaubte Werte:
+
+`seed` · `cutting` · `division` · `rhizome_division` · `bulb` · `tuber` · `offset` · `grafting` · `layering` · `spore` · `runner` · `leaf_cutting` · `self_seeding`
+
+Das Array ist optional (Standard: leer) im `SpeciesCreate`-Schema und Pflichtfeld in `SpeciesResponse` (wird als leere Liste zurückgegeben, wenn nicht gepflegt). Alle vorgefertigten Kulturpflanzen-Seed-Daten (143 Arten) sind befüllt.
+
+---
 
 ### Standorte und Infrastruktur (REQ-002, REQ-019)
 

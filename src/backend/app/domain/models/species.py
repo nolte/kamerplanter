@@ -9,6 +9,7 @@ from app.common.enums import (
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
+    PropagationMethod,
     RootType,
     Suitability,
     WateringMethod,
@@ -137,7 +138,7 @@ class Species(BaseModel):
     pruning_months: list[int] = Field(default_factory=list)
     pruning_type: str | None = None
     traits: list[str] = Field(default_factory=list)
-    propagation_methods: list[str] = Field(default_factory=list)
+    propagation_methods: list[PropagationMethod] = Field(default_factory=list)
     propagation_difficulty: str | None = None
     allows_harvest: bool = True
     # ── Anbaubedingungen (cultivation conditions) ──

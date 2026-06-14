@@ -40,6 +40,35 @@ Die Hierarchie ist: Familie → Art → Sorte. Jede Sorte gehört zu genau einer
 | Nährstoffbedarf | Starkzehrer, Mittelzehrer, Schwachzehrer | Starkzehrer |
 | Photoperiodismus | Kurztagspflanze, Langtagspflanze, Tagneutral | Tagneutral |
 | Toxizität | Giftigkeit für Katzen/Hunde (ASPCA-Daten) | Giftig für Katzen |
+| **Vermehrungsarten** | Eine oder mehrere übliche Vermehrungsmethoden (Mehrfachauswahl) | Aussaat, Steckling |
+
+### Vermehrungsarten (propagation_methods)
+
+Das Feld **Vermehrungsarten** ist eine Mehrfachauswahl und dokumentiert, wie eine Art üblicherweise vermehrt wird. Es wird im **Fortgeschrittenen-Modus** (REQ-021) angezeigt.
+
+Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (REQ-017) und den KI-Wissensassistenten. Alle 143 vorgefertigten Kulturpflanzen-Stammdaten sind bereits mit den üblichen Methoden befüllt.
+
+| Wert | Bezeichnung | Beschreibung |
+|------|------------|-------------|
+| `seed` | Aussaat / Samen | Generative Vermehrung über Samen |
+| `cutting` | Steckling | Bewurzelter Trieb von einer Mutterpflanze (Klon) |
+| `division` | Teilung | Pflanze wird in mehrere Teile geteilt |
+| `rhizome_division` | Rhizomteilung | Teilung unterirdischer Speichertriebe (z.B. Ingwer, Bambus) |
+| `bulb` | Zwiebel | Vermehrung über Brutzwiebeln oder Tochterzwiebeln |
+| `tuber` | Knolle | Vermehrung über Tochterknollen (z.B. Dahlie, Kartoffel) |
+| `offset` | Kindel | Seitentriebe / Ableger (z.B. Aloe vera, Bromelia) |
+| `grafting` | Veredelung | Edelreis auf Unterlage (z.B. Tomaten auf Tomatillo) |
+| `layering` | Absenker | Trieb im Boden bewurzeln, dann abtrennen |
+| `spore` | Sporen | Generative Vermehrung bei Farnen und Moosen |
+| `runner` | Ausläufer | Kriechende Bodenläufer (z.B. Erdbeere, Pothos) |
+| `leaf_cutting` | Blattsteckling | Blatt oder Blattsegment bewurzeln (z.B. Begonie, Sansevieria) |
+| `self_seeding` | Selbstaussaat | Pflanze sät sich ohne Zutun selbst aus (z.B. Borretsch, Ringelblume) |
+
+!!! tip "Mehrere Methoden möglich"
+    Eine Art kann mehrere Vermehrungsarten gleichzeitig angegeben haben. Tomate zum Beispiel: `seed` (für den Anbau aus Samen) und `cutting` (für den Ganzjahresanbau im Gewächshaus über Stecklinge).
+
+!!! note "Sichtbarkeit nach Erfahrungsstufe"
+    Das Feld **Vermehrungsarten** erscheint ab der Erfahrungsstufe **Fortgeschrittener**. Im Einsteiger-Modus ist es ausgeblendet, kann aber über **Alle Felder anzeigen** eingeblendet werden.
 
 ### Art bearbeiten
 
@@ -125,3 +154,4 @@ flowchart LR
 - [Wachstumsphasen](growth-phases.md) — Phasensteuerung pro Art
 - [Pflanzdurchläufe](planting-runs.md) — Pflanzen von der Aussaat bis zur Ernte begleiten
 - [Dünge-Logik](fertilization.md) — Nährstoffpläne und Feeding-Charts
+- [Vermehrungsmanagement](propagation.md) — Abstammungsgraph, Stecklinge, Veredelung

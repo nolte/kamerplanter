@@ -25,7 +25,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
 | `botanical_families` | Plant families | `name` (unique), `common_name` |
-| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity` |
+| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_methods[]` |
 | `cultivars` | Cultivars / varieties | `name`, `species_key`, genetic lineage |
 | `lifecycle_configs` | Lifecycle definitions per species | `species_key`, `lifecycle_type` |
 | `growth_phases` | Individual growth phases | `name`, `order`, `lifecycle_config_key` |
@@ -33,6 +33,16 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | `nutrient_profiles` | Nutrient profiles per phase | `npk_ratio`, `target_ec_ms`, `target_ph` |
 | `phase_transition_rules` | Transition criteria between phases | `from_phase_key`, `to_phase_key`, `trigger_type`, `gdd_threshold` |
 | `phase_histories` | Log of past phase transitions | `entered_at`, `exited_at`, `actual_duration_days` |
+
+#### Species — field `propagation_methods`
+
+The `propagation_methods` field is an array of `PropagationMethod` enum values documenting which propagation techniques are typical for the species. Allowed values:
+
+`seed` · `cutting` · `division` · `rhizome_division` · `bulb` · `tuber` · `offset` · `grafting` · `layering` · `spore` · `runner` · `leaf_cutting` · `self_seeding`
+
+The array is optional (default: empty list) in the `SpeciesCreate` schema and a required field in `SpeciesResponse` (returned as an empty list when not populated). All pre-loaded crop species seed data (143 species) is fully populated.
+
+---
 
 ### Locations and Infrastructure (REQ-002, REQ-019)
 

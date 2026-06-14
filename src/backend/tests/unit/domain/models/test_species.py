@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import RootType, Suitability
+from app.common.enums import PropagationMethod, RootType, Suitability
 from app.domain.models.species import Cultivar, Species
 
 
@@ -134,6 +134,57 @@ class TestRootTypeCorm:
     def test_species_with_corm(self):
         s = Species(scientific_name="Tigridia pavonia", root_type=RootType.CORM)
         assert s.root_type == RootType.CORM
+
+
+class TestPropagationMethodEnum:
+    def test_enum_has_thirteen_values(self):
+        assert len(PropagationMethod) == 13
+
+    def test_enum_values(self):
+        assert PropagationMethod.SEED == "seed"
+        assert PropagationMethod.CUTTING == "cutting"
+        assert PropagationMethod.RHIZOME_DIVISION == "rhizome_division"
+        assert PropagationMethod.LEAF_CUTTING == "leaf_cutting"
+        assert PropagationMethod.SELF_SEEDING == "self_seeding"
+
+
+class TestSpeciesPropagationMethods:
+    def test_default_is_empty_list(self):
+        s = Species(scientific_name="Genus species")
+        assert s.propagation_methods == []
+
+    def test_accepts_enum_members(self):
+        s = Species(
+            scientific_name="Genus species",
+            propagation_methods=[PropagationMethod.SEED, PropagationMethod.CUTTING],
+        )
+        assert s.propagation_methods == [PropagationMethod.SEED, PropagationMethod.CUTTING]
+
+    def test_coerces_strings_to_enum(self):
+        s = Species(
+            scientific_name="Genus species",
+            propagation_methods=["division", "tuber"],
+        )
+        assert s.propagation_methods == [PropagationMethod.DIVISION, PropagationMethod.TUBER]
+        assert all(isinstance(m, PropagationMethod) for m in s.propagation_methods)
+
+    def test_invalid_value_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", propagation_methods=["teleportation"])
+
+    def test_model_validate_from_seed_dict(self):
+        raw = {
+            "scientific_name": "Mentha spicata",
+            "genus": "Mentha",
+            "propagation_methods": ["seed", "cutting", "runner", "division"],
+        }
+        s = Species.model_validate(raw)
+        assert s.propagation_methods == [
+            PropagationMethod.SEED,
+            PropagationMethod.CUTTING,
+            PropagationMethod.RUNNER,
+            PropagationMethod.DIVISION,
+        ]
 
 
 class TestEnvironmentalPhysiologyFields:

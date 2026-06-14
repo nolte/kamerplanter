@@ -588,6 +588,8 @@
       "growthHabitHelper": "Typische Wuchsform der Art: Kraut, Strauch, Baum, Ranke oder Bodendecker",
       "rootType": "Wurzeltyp",
       "rootTypeHelper": "Wurzelsystem: Faserig, Pfahlwurzel, Knollig oder Zwiebel",
+      "propagationMethods": "Vermehrungsart",
+      "propagationMethodsHelper": "Wie sich die Art vermehren lässt — Mehrfachauswahl möglich (z. B. Aussaat, Steckling, Teilung)",
       "activePlants": "Aktive Pflanzen",
       "hardinessZones": "Winterhärtezonen",
       "hardinessZonesHelper": "USDA-Winterhärtezonen (z. B. '7a', '8b') — Enter drücken zum Hinzufügen",
@@ -607,6 +609,7 @@
       "taxonomicStatusHelper": "Aktueller Status: accepted, synonym, doubtful, misapplied",
       "sectionTaxonomy": "Taxonomie",
       "sectionGrowth": "Wachstum",
+      "sectionGrowthDesc": "Wuchsform, Wurzeltyp und wie sich die Art vermehren lässt.",
       "sectionEnvironment": "Umgebung",
       "sectionClassification": "Klassifikation",
       "sectionCultivation": "Anbaubedingungen",
@@ -3113,6 +3116,21 @@
       "taproot": "Pfahlwurzel",
       "tuberous": "Knollig",
       "bulbous": "Zwiebel"
+    },
+    "propagationMethod": {
+      "seed": "Aussaat / Samen",
+      "cutting": "Steckling",
+      "division": "Teilung",
+      "rhizome_division": "Rhizomteilung",
+      "bulb": "Zwiebel",
+      "tuber": "Knolle",
+      "offset": "Kindel",
+      "grafting": "Veredelung",
+      "layering": "Absenker",
+      "spore": "Sporen",
+      "runner": "Ausläufer",
+      "leaf_cutting": "Blattsteckling",
+      "self_seeding": "Selbstaussaat"
     },
     "photoperiodType": {
       "short_day": "Kurztagpflanze",

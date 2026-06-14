@@ -45,6 +45,7 @@ new_species_family_map:
 # ==============================================================================
 new_species:
   - scientific_name: "Nymphaea alba"
+    propagation_methods: [rhizome_division, seed]
     common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
     genus: Nymphaea
     growth_habit: herb

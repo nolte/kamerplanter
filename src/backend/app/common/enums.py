@@ -29,6 +29,22 @@ class RootType(StrEnum):
     CORM = "corm"
 
 
+class PropagationMethod(StrEnum):
+    SEED = "seed"
+    CUTTING = "cutting"
+    DIVISION = "division"
+    RHIZOME_DIVISION = "rhizome_division"
+    BULB = "bulb"
+    TUBER = "tuber"
+    OFFSET = "offset"
+    GRAFTING = "grafting"
+    LAYERING = "layering"
+    SPORE = "spore"
+    RUNNER = "runner"
+    LEAF_CUTTING = "leaf_cutting"
+    SELF_SEEDING = "self_seeding"
+
+
 class PhotoperiodType(StrEnum):
     SHORT_DAY = "short_day"
     LONG_DAY = "long_day"

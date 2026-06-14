@@ -223,6 +223,13 @@ $defs:
         enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
                succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
         description: "Broad category for UI grouping"
+      propagation_methods:
+        type: array
+        description: "Propagation methods supported by this species (REQ-001 Vermehrungsart)."
+        items:
+          type: string
+          enum: [seed, cutting, division, rhizome_division, bulb, tuber, offset,
+                 grafting, layering, spore, runner, leaf_cutting, self_seeding]
       # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
       photosynthesis_type:
         type: [string, "null"]
@@ -276,6 +283,13 @@ $defs:
     description: "Partial species update — scientific_name is the key, all other fields are optional overrides"
     properties:
       scientific_name: { type: string }
+      propagation_methods:
+        type: array
+        description: "Propagation methods supported by this species (REQ-001 Vermehrungsart)."
+        items:
+          type: string
+          enum: [seed, cutting, division, rhizome_division, bulb, tuber, offset,
+                 grafting, layering, spore, runner, leaf_cutting, self_seeding]
     required: [scientific_name]
     additionalProperties: true
 

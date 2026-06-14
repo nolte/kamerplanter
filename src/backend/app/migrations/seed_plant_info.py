@@ -33,6 +33,7 @@ from app.common.enums import (
     PhotoperiodType,
     PlantCategory,
     PlantTrait,
+    PropagationMethod,
     RootType,
     StressTolerance,
     Suitability,
@@ -115,6 +116,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 allelopathy_score=entry.get("allelopathy_score", 0.0),
                 base_temp=entry.get("base_temp", 10.0),
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
+                propagation_methods=[PropagationMethod(m) for m in entry.get("propagation_methods", [])],
                 allows_harvest=entry.get("allows_harvest", True),
                 sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
                 sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),
@@ -164,6 +166,8 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for field, value in fields.items():
             if field == "watering_guide" and value is not None:
                 converted[field] = _build_watering_guide(value)
+            elif field == "propagation_methods" and value is not None:
+                converted[field] = [PropagationMethod(m) for m in value]
             elif field in enum_field_map and value is not None:
                 converted[field] = enum_field_map[field](value)
             else:

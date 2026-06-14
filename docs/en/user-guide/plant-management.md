@@ -40,6 +40,35 @@ The hierarchy is: Family → Species → Cultivar. Each cultivar belongs to exac
 | Nutrient Demand | Heavy feeder, Medium feeder, Light feeder | Heavy feeder |
 | Photoperiodism | Short-day, Long-day, Day-neutral | Day-neutral |
 | Toxicity | Toxicity for cats/dogs (ASPCA data) | Toxic to cats |
+| **Propagation Methods** | One or more typical propagation methods (multi-select) | Seed, Cutting |
+
+### Propagation Methods (propagation_methods)
+
+The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above (REQ-021).
+
+This information feeds into care reminders, propagation planning (REQ-017), and the AI knowledge assistant. All 143 pre-loaded crop species already include their standard propagation methods.
+
+| Value | Label | Description |
+|-------|-------|-------------|
+| `seed` | Seed | Generative propagation from seeds |
+| `cutting` | Cutting | Rooted shoot taken from a mother plant (clone) |
+| `division` | Division | Plant split into several parts |
+| `rhizome_division` | Rhizome Division | Division of underground storage shoots (e.g. ginger, bamboo) |
+| `bulb` | Bulb | Propagation via bulblets or daughter bulbs |
+| `tuber` | Tuber | Propagation via daughter tubers (e.g. dahlia, potato) |
+| `offset` | Offset | Side shoots / pups (e.g. aloe vera, bromeliad) |
+| `grafting` | Grafting | Scion onto rootstock (e.g. tomato onto tomatillo) |
+| `layering` | Layering | Root a shoot while still attached, then separate |
+| `spore` | Spore | Generative propagation for ferns and mosses |
+| `runner` | Runner | Creeping stolons (e.g. strawberry, pothos) |
+| `leaf_cutting` | Leaf Cutting | Root a leaf or leaf segment (e.g. begonia, sansevieria) |
+| `self_seeding` | Self-seeding | Plant self-seeds without human intervention (e.g. borage, calendula) |
+
+!!! tip "Multiple methods possible"
+    A species can have several propagation methods at the same time. Tomato, for example, uses `seed` (for growing from seed) and `cutting` (for year-round greenhouse production via cuttings).
+
+!!! note "Visibility by expertise level"
+    The **Propagation Methods** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
 
 ### Editing a Species
 
@@ -126,3 +155,4 @@ flowchart LR
 - [Growth Phases](growth-phases.md) — Phase control per species
 - [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest
 - [Fertilization](fertilization.md) — Nutrient plans and feeding charts
+- [Propagation Management](propagation.md) — Lineage graph, cuttings, grafting

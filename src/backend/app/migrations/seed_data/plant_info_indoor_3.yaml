@@ -50,6 +50,7 @@ new_species_family_map:
 # ──────────────────────────────────────────────
 new_species:
   - scientific_name: "Monstera adansonii"
+    propagation_methods: [cutting, layering]
     common_names:
       - "Adansonii"
       - "Fensterblatt"
@@ -86,6 +87,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Neoregelia carolinae"
+    propagation_methods: [offset]
     common_names:
       - "Nestrosette"
       - "Karminrote Neoregelia"
@@ -120,6 +122,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Nephrolepis exaltata"
+    propagation_methods: [division, runner, spore]
     common_names:
       - "Schwertfarn"
       - "Nephrolepis"
@@ -158,6 +161,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Opuntia microdasys"
+    propagation_methods: [cutting, seed]
     common_names:
       - "Hasenohr-Kaktus"
       - "Goldstachel-Kaktus"
@@ -197,6 +201,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Oxalis triangularis"
+    propagation_methods: [bulb, division]
     common_names:
       - "Lila Sauerklee"
       - "Glücksklee"
@@ -241,6 +246,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pachira aquatica"
+    propagation_methods: [seed, cutting]
     common_names:
       - "Glückskastanie"
       - "Malabar-Kastanie"
@@ -276,6 +282,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pelargonium zonale"
+    propagation_methods: [cutting, seed]
     common_names:
       - "Geranie"
       - "Zonalpelargonie"
@@ -308,6 +315,7 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Peperomia obtusifolia"
+    propagation_methods: [leaf_cutting, cutting]
     common_names:
       - "Zwergpfeffer"
       - "Baby Rubber Plant"
@@ -342,6 +350,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Phalaenopsis hybrida"
+    propagation_methods: [offset, division]
     common_names:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
@@ -381,6 +390,7 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Philodendron hederaceum"
+    propagation_methods: [cutting, layering]
     common_names:
       - "Kletter-Philodendron"
       - "Herzblatt-Philodendron"
@@ -418,6 +428,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Pilea peperomioides"
+    propagation_methods: [offset, cutting]
     common_names:
       - "Ufopflanze"
       - "Chinesischer Geldbaum"
@@ -446,6 +457,7 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Platycerium bifurcatum"
+    propagation_methods: [offset, spore]
     common_names:
       - "Geweihfarn"
       - "Elchgeweihfarn"
@@ -482,6 +494,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Plectranthus verticillatus"
+    propagation_methods: [cutting]
     common_names:
       - "Harfenstrauch"
       - "Schwedischer Efeu"
@@ -514,6 +527,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Rhipsalis baccifera"
+    propagation_methods: [cutting, seed]
     common_names:
       - "Korallenkaktus"
       - "Binsenkaktus"
@@ -548,6 +562,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rhododendron simsii"
+    propagation_methods: [cutting, layering]
     common_names:
       - "Zimmerazalee"
       - "Indische Azalee"
@@ -588,6 +603,7 @@ new_species:
       max_ph: 6
 
   - scientific_name: "Schefflera arboricola"
+    propagation_methods: [cutting, layering]
     common_names:
       - "Kleine Strahlenaralie"
       - "Schefflera"
@@ -624,6 +640,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Schlumbergera truncata"
+    propagation_methods: [cutting]
     common_names:
       - "Weihnachtskaktus"
       - "Gliederkaktus"
@@ -660,6 +677,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Sedum morganianum"
+    propagation_methods: [leaf_cutting, cutting]
     common_names:
       - "Eselsschwanz"
       - "Donkey's Tail"
@@ -697,6 +715,7 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Soleirolia soleirolii"
+    propagation_methods: [division, cutting]
     common_names:
       - "Bubikopf"
       - "Baby's Tears"
@@ -734,6 +753,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stephanotis floribunda"
+    propagation_methods: [cutting, layering]
     common_names:
       - "Brautstrauch"
       - "Madagaskarjasmin"
@@ -767,6 +787,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Strelitzia reginae"
+    propagation_methods: [division, seed]
     common_names:
       - "Paradiesvogelblume"
       - "Königin-Strelitzie"
@@ -805,6 +826,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Streptocarpus hybridus"
+    propagation_methods: [leaf_cutting, division]
     common_names:
       - "Drehfrucht"
       - "Streptocarpus"
@@ -842,6 +864,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stromanthe sanguinea"
+    propagation_methods: [division]
     common_names:
       - "Stromanthe Triostar"
       - "Sanguinea"
@@ -879,6 +902,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Tillandsia usneoides"
+    propagation_methods: [offset, cutting]
     common_names:
       - "Spanisches Moos"
       - "Louisianamoos"
@@ -915,6 +939,7 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Tradescantia zebrina"
+    propagation_methods: [cutting]
     common_names:
       - "Dreimasterblume"
       - "Silbrige Tradescantie"
@@ -954,6 +979,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Vriesea splendens"
+    propagation_methods: [offset]
     common_names:
       - "Flammendes Schwert"
       - "Vriesea"
@@ -993,6 +1019,7 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Yucca elephantipes"
+    propagation_methods: [cutting, offset]
     common_names:
       - "Yucca-Palme"
       - "Riesen-Palmlilie"
@@ -1030,6 +1057,7 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Zamioculcas zamiifolia"
+    propagation_methods: [leaf_cutting, division]
     common_names:
       - "Zamioculcas"
       - "Glücksfeder"
@@ -1065,6 +1093,7 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Zantedeschia aethiopica"
+    propagation_methods: [rhizome_division, offset]
     common_names:
       - "Calla"
       - "Weiße Calla"
