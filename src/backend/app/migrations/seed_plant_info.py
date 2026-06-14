@@ -117,6 +117,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 base_temp=entry.get("base_temp", 10.0),
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
                 propagation_methods=[PropagationMethod(m) for m in entry.get("propagation_methods", [])],
+                propagation_months=entry.get("propagation_months", []),
                 allows_harvest=entry.get("allows_harvest", True),
                 sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
                 sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),

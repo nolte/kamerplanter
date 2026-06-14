@@ -128,6 +128,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
                 nutrient_demand_level=NutrientDemandLevel(ndl) if ndl else None,
                 propagation_methods=[PropagationMethod(m) for m in _to_list(entry.get("propagation_methods", []))],
+                propagation_months=entry.get("propagation_months", []),
                 allows_harvest=entry.get("allows_harvest", True),
                 sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
                 sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),

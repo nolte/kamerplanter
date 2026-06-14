@@ -42,6 +42,23 @@ The `propagation_methods` field is an array of `PropagationMethod` enum values d
 
 The array is optional (default: empty list) in the `SpeciesCreate` schema and a required field in `SpeciesResponse` (returned as an empty list when not populated). All pre-loaded crop species seed data (143 species) is fully populated.
 
+#### Species — field `propagation_months`
+
+The `propagation_months` field is an array of integers (`list[int]`, range 1–12) indicating in which months **vegetative propagation** (division, cuttings, offsets, runners, etc.) is most suitable for the species. Month numbers are deduplicated and sorted ascending on the server side.
+
+| Property | Value |
+|----------|-------|
+| Type | `list[int]` |
+| Range | 1–12 (January–December) |
+| Default | `[]` (empty when not populated) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | always present (empty list when not populated) |
+| API | `PUT /api/v1/species/{key}` accepts and returns the field |
+
+**Distinction:** `propagation_months` covers vegetative propagation timing only. Sowing windows (generative propagation from seed) are represented by the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`.
+
+**Example:** *Anemone hupehensis* (Japanese anemone) — `propagation_months: [3, 4]` (division in early spring, before new growth begins).
+
 ---
 
 ### Locations and Infrastructure (REQ-002, REQ-019)

@@ -140,6 +140,7 @@ class Species(BaseModel):
     traits: list[str] = Field(default_factory=list)
     propagation_methods: list[PropagationMethod] = Field(default_factory=list)
     propagation_difficulty: str | None = None
+    propagation_months: list[int] = Field(default_factory=list)
     allows_harvest: bool = True
     # ── Anbaubedingungen (cultivation conditions) ──
     container_suitable: Suitability | None = None
@@ -213,13 +214,19 @@ class Species(BaseModel):
 
     model_config = {"populate_by_name": True}
 
-    @field_validator("direct_sow_months", "harvest_months", "bloom_months", "pruning_months")
+    @field_validator(
+        "direct_sow_months",
+        "harvest_months",
+        "bloom_months",
+        "pruning_months",
+        "propagation_months",
+    )
     @classmethod
     def validate_month_lists(cls, v: list[int]) -> list[int]:
         for m in v:
             if m < 1 or m > 12:
                 raise ValueError(f"Month must be between 1 and 12, got {m}")
-        return v
+        return sorted(set(v))
 
     @field_validator("scientific_name")
     @classmethod

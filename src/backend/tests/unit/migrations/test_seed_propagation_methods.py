@@ -58,6 +58,52 @@ class TestBaseSeederPropagationMethods:
         ]
 
 
+class TestBaseSeederPropagationMonths:
+    def test_build_species_passes_months_as_int_list(self):
+        data = {
+            "new_species": [
+                {
+                    "scientific_name": "Anemone hupehensis",
+                    "genus": "Anemone",
+                    "propagation_months": [3, 4],
+                }
+            ]
+        }
+        species = _build_species(data)
+        assert species[0].propagation_months == [3, 4]
+
+    def test_build_species_months_default_to_empty(self):
+        data = {"new_species": [{"scientific_name": "Genus species", "genus": "Genus"}]}
+        species = _build_species(data)
+        assert species[0].propagation_months == []
+
+    def test_build_species_months_dedup_and_sort(self):
+        """The Species validator deduplicates and sorts month lists."""
+        data = {
+            "new_species": [
+                {
+                    "scientific_name": "Genus species",
+                    "genus": "Genus",
+                    "propagation_months": [4, 3, 3],
+                }
+            ]
+        }
+        species = _build_species(data)
+        assert species[0].propagation_months == [3, 4]
+
+    def test_build_enrichment_passes_months_through(self):
+        data = {
+            "species_enrichment": {
+                "Hosta sieboldiana": {
+                    "scientific_name": "Hosta sieboldiana",
+                    "propagation_months": [3, 4, 9],
+                }
+            }
+        }
+        result = _build_enrichment(data)
+        assert result["Hosta sieboldiana"]["propagation_months"] == [3, 4, 9]
+
+
 class TestExtendedSeederPropagationMethods:
     def test_build_species_converts_list(self):
         data = {
@@ -107,3 +153,35 @@ class TestExtendedSeederPropagationMethods:
             PropagationMethod.SEED,
             PropagationMethod.CUTTING,
         ]
+
+
+class TestExtendedSeederPropagationMonths:
+    def test_build_species_passes_months_as_int_list(self):
+        data = {
+            "new_species": [
+                {
+                    "scientific_name": "Anemone hupehensis",
+                    "genus": "Anemone",
+                    "propagation_months": [3, 4],
+                }
+            ]
+        }
+        species = _build_species_extended(data)
+        assert species[0].propagation_months == [3, 4]
+
+    def test_build_species_months_default_to_empty(self):
+        data = {"new_species": [{"scientific_name": "Genus species", "genus": "Genus"}]}
+        species = _build_species_extended(data)
+        assert species[0].propagation_months == []
+
+    def test_build_enrichment_passes_months_through(self):
+        data = {
+            "species_enrichment": {
+                "Hosta sieboldiana": {
+                    "scientific_name": "Hosta sieboldiana",
+                    "propagation_months": [3, 4, 9],
+                }
+            }
+        }
+        result = _build_enrichment_extended(data)
+        assert result["Hosta sieboldiana"]["propagation_months"] == [3, 4, 9]

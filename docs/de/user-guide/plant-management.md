@@ -73,6 +73,26 @@ Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (RE
 !!! note "Vermehrungsart im Tab \"Aussaat & Ernte\" sichtbar"
     Auf der **Detailseite einer Art** (Stammdaten > Arten) gibt es den Tab **Aussaat & Ernte** (Aussaatübersicht). Dort werden die hinterlegten Vermehrungsarten als Chips angezeigt — `seed` (Aussaat) ist dabei grün hervorgehoben. Wenn eine Art **ausschließlich vegetativ** vermehrt wird (z.B. nur Steckling oder Teilung, kein `seed`-Eintrag), erscheint dort ein Hinweistext, dass für diese Art keine Aussaatzeiträume zu erwarten sind. **Fehlende Aussaatdaten sind in diesem Fall kein Datenfehler**, sondern korrekt — die Art wird eben nicht über Samen vermehrt.
 
+### Beste Vermehrungszeit (propagation_months)
+
+Das Feld **propagation_months** (Beste Vermehrungszeit) ergänzt die Vermehrungsarten um eine Zeitangabe: In welchen Monaten ist die vegetative Vermehrung — also Teilung, Stecklingsnahme, Abnahme von Kindeln oder Ausläufern — am erfolgversprechendsten?
+
+Das Feld ist ebenfalls eine Mehrfachauswahl; gespeichert werden die Monatsnummern 1 (Januar) bis 12 (Dezember), dedupliziert und sortiert.
+
+**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite, im Bereich der Vermehrungsübersicht:
+
+- **Leseansicht:** "Beste Vermehrungszeit: März–April" (zusammengefasste Monatsanzeige)
+- **Bearbeitungsmodus:** 12 klickbare Monats-Chips — einfach die gewünschten Monate anklicken, dann **Speichern**
+
+!!! example "Beispiel: Herbst-Anemone (*Anemone hupehensis*)"
+    Die Herbst-Anemone bildet dichte Rhizomhorste und lässt sich am besten **im zeitigen Frühjahr teilen**, bevor der Neuaustrieb beginnt. Kamerplanter speichert das als `propagation_months: [3, 4]` — März und April. Das ergibt in der UI die Anzeige "Beste Vermehrungszeit: März–April".
+
+!!! note "Abgrenzung zu Aussaatfeldern"
+    Das Feld `propagation_months` bezieht sich **ausschließlich auf vegetative Vermehrung** (Teilung, Steckling, Kindel, Ausläufer, Ableger). Für Aussaatzeitpunkte (generative Vermehrung über Samen) bleiben die separaten Felder `direct_sow_months`, `indoor_start_months` und `transplant_months` zuständig. Beide Felder können gleichzeitig gepflegt sein, wenn eine Art sowohl aus Samen gezogen als auch vegetativ vermehrt werden kann.
+
+!!! tip "Pflegeerinnerungen profitieren automatisch"
+    Sobald `propagation_months` gepflegt ist, kann der KI-Wissensassistent (und zukünftig: Pflegeerinnerungen, REQ-017) konkrete Hinweise zum optimalen Vermehrungszeitpunkt ausgeben — ohne dass du dich selbst an den Kalender erinnern musst.
+
 ### Art bearbeiten
 
 1. Klicke auf eine Art in der Liste

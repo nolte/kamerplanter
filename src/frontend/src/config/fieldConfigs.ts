@@ -17,6 +17,7 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   description: { level: 'intermediate' },
   growth_habit: { level: 'intermediate' },
   propagation_methods: { level: 'intermediate' },
+  propagation_months: { level: 'intermediate' },
   scientific_name: { level: 'intermediate' },
   family_key: { level: 'intermediate' },
   genus: { level: 'intermediate' },

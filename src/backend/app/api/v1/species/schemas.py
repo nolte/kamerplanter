@@ -31,6 +31,7 @@ class SpeciesCreate(BaseModel):
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
     propagation_methods: list[PropagationMethod] = Field(default_factory=list)
+    propagation_months: list[int] = Field(default_factory=list)
     allows_harvest: bool = True
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None
@@ -74,6 +75,7 @@ class SpeciesResponse(BaseModel):
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
     propagation_methods: list[PropagationMethod] = Field(default_factory=list)
+    propagation_months: list[int] = Field(default_factory=list)
     allows_harvest: bool = True
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None

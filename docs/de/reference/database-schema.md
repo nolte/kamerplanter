@@ -42,6 +42,23 @@ Das Feld `propagation_methods` ist ein Array von Enum-Werten (`PropagationMethod
 
 Das Array ist optional (Standard: leer) im `SpeciesCreate`-Schema und Pflichtfeld in `SpeciesResponse` (wird als leere Liste zurückgegeben, wenn nicht gepflegt). Alle vorgefertigten Kulturpflanzen-Seed-Daten (143 Arten) sind befüllt.
 
+#### Species — Feld `propagation_months`
+
+Das Feld `propagation_months` ist ein Array von Ganzzahlen (`list[int]`, Wertebereich 1–12) und gibt an, in welchen Monaten die **vegetative Vermehrung** (Teilung, Steckling, Kindel, Ausläufer o. Ä.) für die Art am besten geeignet ist. Die Monatsnummern werden serverseitig dedupliziert und aufsteigend sortiert.
+
+| Eigenschaft | Wert |
+|-------------|------|
+| Typ | `list[int]` |
+| Wertebereich | 1–12 (Januar–Dezember) |
+| Standard | `[]` (leer, wenn nicht gepflegt) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | immer vorhanden (leere Liste, wenn nicht gepflegt) |
+| API | `PUT /api/v1/species/{key}` akzeptiert und liefert das Feld |
+
+**Abgrenzung:** `propagation_months` bezieht sich ausschließlich auf vegetative Vermehrungszeitpunkte. Aussaatzeiträume (generative Vermehrung über Samen) werden über `direct_sow_months`, `indoor_start_months` und `transplant_months` abgebildet.
+
+**Beispiel:** *Anemone hupehensis* (Herbst-Anemone) — `propagation_months: [3, 4]` (Teilung im zeitigen Frühjahr, vor dem Neuaustrieb).
+
 ---
 
 ### Standorte und Infrastruktur (REQ-002, REQ-019)

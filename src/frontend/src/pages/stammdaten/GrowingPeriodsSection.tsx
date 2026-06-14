@@ -240,6 +240,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const notification = useNotification();
   const { handleError } = useApiError();
   const [periods, setPeriods] = useState<GrowingPeriod[]>([]);
+  const [propagationMonths, setPropagationMonths] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -264,6 +265,28 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
     [propagationMethods, t],
   );
 
+  // Human-readable propagation-month range(s), e.g. "März–April, Sep".
+  // String primitive — memo avoids re-deriving on unrelated re-renders.
+  const propagationMonthsLabel = useMemo(
+    () =>
+      monthsToRanges(propagationMonths)
+        .map(([s, e]) =>
+          s === e
+            ? t(`pages.species.months.${s}`)
+            : `${t(`pages.species.months.${s}`)}–${t(`pages.species.months.${e}`)}`,
+        )
+        .join(', '),
+    [propagationMonths, t],
+  );
+
+  const togglePropagationMonth = useCallback((month: number) => {
+    setPropagationMonths((prev) =>
+      prev.includes(month)
+        ? prev.filter((m) => m !== month)
+        : [...prev, month].sort((a, b) => a - b),
+    );
+  }, []);
+
   // Computed timeline bars (mirrors SowingCalendarEngine)
   const timelineBars = useMemo(() => {
     if (periods.length === 0) return [];
@@ -273,6 +296,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   }, [periods, isOrnamental]);
 
   useEffect(() => {
+    setPropagationMonths([...(species.propagation_months ?? [])].sort((a, b) => a - b));
     if (species.growing_periods?.length) {
       setPeriods([...species.growing_periods]);
     } else {
@@ -321,6 +345,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
       await api.updateSpecies(speciesKey, {
         scientific_name: species.scientific_name,
         growing_periods: periods,
+        propagation_months: propagationMonths,
       });
       notification.success(t('common.save'));
       onSaved?.();
@@ -425,6 +450,44 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
               {t('pages.species.vegetativeOnlyNotice', { methods: propagationLabels })}
             </Alert>
           )}
+
+          {/* Best propagation time — when to take cuttings / divide / detach offsets.
+              Complements propagation_methods (the "how") with the "when". */}
+          <Box sx={{ mt: 1.5 }}>
+            {propagationMonths.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {t('pages.species.propagationMonthsValue', { range: propagationMonthsLabel })}
+              </Typography>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+              {t('pages.species.propagationMonthsHelper')}
+            </Typography>
+            <Box
+              role="group"
+              aria-label={t('pages.species.propagationMonthsLabel')}
+              sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+              data-testid="propagation-months-group"
+            >
+              {MONTHS.map((m) => {
+                const selected = propagationMonths.includes(m);
+                const monthName = t(`pages.species.months.${m}`);
+                return (
+                  <Chip
+                    key={m}
+                    size="small"
+                    clickable
+                    color={selected ? 'primary' : 'default'}
+                    variant={selected ? 'filled' : 'outlined'}
+                    label={monthName}
+                    aria-label={t('pages.species.propagationMonthChipAriaLabel', { month: monthName })}
+                    aria-pressed={selected}
+                    onClick={() => togglePropagationMonth(m)}
+                    data-testid={`propagation-month-${m}`}
+                  />
+                );
+              })}
+            </Box>
+          </Box>
         </Box>
       )}
 

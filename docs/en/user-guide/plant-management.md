@@ -73,6 +73,26 @@ This information feeds into care reminders, propagation planning (REQ-017), and 
 !!! note "Propagation methods visible in the \"Sowing & Harvest\" tab"
     On the **species detail page** (Master Data > Species) the **Sowing & Harvest** tab (sowing overview) now displays the configured propagation methods as chips — `seed` is highlighted in green. If a species is propagated **exclusively by vegetative means** (e.g. cutting or division only, no `seed` entry), a notice appears explaining that no sowing windows are expected for this species. **Missing sowing data is not a data error in this case** — it simply reflects that the species is not propagated from seed.
 
+### Best Propagation Time (propagation_months)
+
+The **propagation_months** field (Best Propagation Time) adds a timing dimension to propagation methods: in which months is vegetative propagation — division, taking cuttings, removing offsets or runners — most likely to succeed?
+
+The field is also a multi-select; the stored values are month numbers 1 (January) through 12 (December), deduplicated and sorted.
+
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, within the propagation overview section:
+
+- **Read view:** "Best propagation time: March–April" (condensed month display)
+- **Edit mode:** 12 clickable month chips — click the desired months, then **Save**
+
+!!! example "Example: Japanese anemone (*Anemone hupehensis*)"
+    The Japanese anemone forms dense rhizome clumps and divides best **in early spring**, before new growth begins. Kamerplanter stores this as `propagation_months: [3, 4]` — March and April. The UI displays this as "Best propagation time: March–April".
+
+!!! note "Distinction from sowing fields"
+    The `propagation_months` field applies **exclusively to vegetative propagation** (division, cuttings, offsets, runners, layers). Sowing windows (generative propagation from seed) remain the responsibility of the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`. Both can be populated simultaneously when a species can be grown from seed and propagated vegetatively.
+
+!!! tip "Care reminders benefit automatically"
+    Once `propagation_months` is populated, the AI knowledge assistant (and, in a future release, care reminders via REQ-017) can provide concrete hints about the optimal propagation window — without you needing to keep track of the calendar yourself.
+
 ### Editing a Species
 
 1. Click on a species in the list

@@ -207,6 +207,7 @@ export interface Species {
   frost_sensitivity: FrostTolerance | null;
   plant_category: string | null;
   propagation_methods: PropagationMethod[];
+  propagation_months: number[];
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
   container_suitable: Suitability | null;
@@ -250,6 +251,7 @@ export interface SpeciesCreate {
   frost_sensitivity?: FrostTolerance | null;
   plant_category?: string | null;
   propagation_methods?: PropagationMethod[];
+  propagation_months?: number[];
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
   container_suitable?: Suitability | null;
