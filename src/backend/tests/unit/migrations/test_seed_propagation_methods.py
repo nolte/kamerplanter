@@ -104,6 +104,38 @@ class TestBaseSeederPropagationMonths:
         assert result["Hosta sieboldiana"]["propagation_months"] == [3, 4, 9]
 
 
+class TestBaseSeederPropagationNotes:
+    def test_build_species_passes_notes_through(self):
+        data = {
+            "new_species": [
+                {
+                    "scientific_name": "Hosta sieboldiana",
+                    "genus": "Hosta",
+                    "propagation_notes": "Im Frühjahr teilen, jeder Teil braucht ein Auge.",
+                }
+            ]
+        }
+        species = _build_species(data)
+        assert species[0].propagation_notes == "Im Frühjahr teilen, jeder Teil braucht ein Auge."
+
+    def test_build_species_notes_default_to_none(self):
+        data = {"new_species": [{"scientific_name": "Genus species", "genus": "Genus"}]}
+        species = _build_species(data)
+        assert species[0].propagation_notes is None
+
+    def test_build_enrichment_passes_notes_through(self):
+        data = {
+            "species_enrichment": {
+                "Mentha spicata": {
+                    "scientific_name": "Mentha spicata",
+                    "propagation_notes": "Stecklinge wurzeln leicht im Wasserglas.",
+                }
+            }
+        }
+        result = _build_enrichment(data)
+        assert result["Mentha spicata"]["propagation_notes"] == "Stecklinge wurzeln leicht im Wasserglas."
+
+
 class TestExtendedSeederPropagationMethods:
     def test_build_species_converts_list(self):
         data = {
@@ -185,3 +217,35 @@ class TestExtendedSeederPropagationMonths:
         }
         result = _build_enrichment_extended(data)
         assert result["Hosta sieboldiana"]["propagation_months"] == [3, 4, 9]
+
+
+class TestExtendedSeederPropagationNotes:
+    def test_build_species_passes_notes_through(self):
+        data = {
+            "new_species": [
+                {
+                    "scientific_name": "Hosta sieboldiana",
+                    "genus": "Hosta",
+                    "propagation_notes": "Im Frühjahr teilen, jeder Teil braucht ein Auge.",
+                }
+            ]
+        }
+        species = _build_species_extended(data)
+        assert species[0].propagation_notes == "Im Frühjahr teilen, jeder Teil braucht ein Auge."
+
+    def test_build_species_notes_default_to_none(self):
+        data = {"new_species": [{"scientific_name": "Genus species", "genus": "Genus"}]}
+        species = _build_species_extended(data)
+        assert species[0].propagation_notes is None
+
+    def test_build_enrichment_passes_notes_through(self):
+        data = {
+            "species_enrichment": {
+                "Mentha spicata": {
+                    "scientific_name": "Mentha spicata",
+                    "propagation_notes": "Stecklinge wurzeln leicht im Wasserglas.",
+                }
+            }
+        }
+        result = _build_enrichment_extended(data)
+        assert result["Mentha spicata"]["propagation_notes"] == "Stecklinge wurzeln leicht im Wasserglas."

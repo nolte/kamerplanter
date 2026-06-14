@@ -59,6 +59,24 @@ The `propagation_months` field is an array of integers (`list[int]`, range 1–1
 
 **Example:** *Anemone hupehensis* (Japanese anemone) — `propagation_months: [3, 4]` (division in early spring, before new growth begins).
 
+#### Species — field `propagation_notes`
+
+The `propagation_notes` field is an expert free-text field capturing practical propagation knowledge that cannot be expressed in structured fields like `propagation_methods` or `propagation_months` — typical failure points, species-specific substrate or temperature requirements, acclimatisation steps, and similar success factors.
+
+| Property | Value |
+|----------|-------|
+| Type | `string \| null` |
+| Max. length | 1,000 characters |
+| Language | German |
+| Default | `null` (not set) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | always present (`null` when not populated) |
+| API | `PUT /api/v1/species/{key}` accepts and returns the field |
+
+**Distinction:** `propagation_notes` is plain free text for qualitative expert knowledge. Structured timing belongs in `propagation_months`; technique classification belongs in `propagation_methods`.
+
+**Population:** All 183 species with populated propagation methods in the seed data include a notes text.
+
 ---
 
 ### Locations and Infrastructure (REQ-002, REQ-019)

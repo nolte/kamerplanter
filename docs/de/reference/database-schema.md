@@ -59,6 +59,24 @@ Das Feld `propagation_months` ist ein Array von Ganzzahlen (`list[int]`, Wertebe
 
 **Beispiel:** *Anemone hupehensis* (Herbst-Anemone) — `propagation_months: [3, 4]` (Teilung im zeitigen Frühjahr, vor dem Neuaustrieb).
 
+#### Species — Feld `propagation_notes`
+
+Das Feld `propagation_notes` ist ein fachlicher Freitext und hält praxisnahes Vermehrungswissen fest, das sich nicht in strukturierten Feldern wie `propagation_methods` oder `propagation_months` abbilden lässt — typische Fehlerquellen, artspezifische Substrat- oder Temperaturanforderungen, Akklimatisierungsschritte und ähnliche Erfolgsfaktoren.
+
+| Eigenschaft | Wert |
+|-------------|------|
+| Typ | `string \| null` |
+| Max. Länge | 1000 Zeichen |
+| Sprache | Deutsch |
+| Standard | `null` (nicht gesetzt) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | immer vorhanden (`null`, wenn nicht gepflegt) |
+| API | `PUT /api/v1/species/{key}` akzeptiert und liefert das Feld |
+
+**Abgrenzung:** `propagation_notes` ist reiner Freitext für qualitatives Erfahrungswissen. Strukturierte Zeitangaben (Monate) gehören in `propagation_months`, Methoden-Klassifikation in `propagation_methods`.
+
+**Befüllung:** Alle 183 Arten mit gepflegten Vermehrungsmethoden in den Seed-Daten sind mit einem Hinweistext versehen.
+
 ---
 
 ### Standorte und Infrastruktur (REQ-002, REQ-019)

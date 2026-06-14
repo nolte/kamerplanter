@@ -84,6 +84,8 @@ Zusätzlich erfasst das System:
     - `allergen_info: Optional[AllergenInfo]` — Embedded-Objekt mit Pollen-, Kontakt- und VOC-Allergenrisiko (siehe AllergenInfo-Definition)
     - `propagation_methods: list[str]` (Unterstützte Vermehrungsmethoden: `'seed'`, `'cutting_stem'`, `'cutting_leaf'`, `'division'`, `'offset'`, `'layering'`, `'grafting'`, `'spore'`)
     - `propagation_difficulty: Optional[Literal['easy', 'moderate', 'difficult']]` (Schwierigkeit für Einsteiger — wird im Beginner-Modus REQ-021 angezeigt)
+    - `propagation_months: list[int]` (Empfohlene Monate (1–12) für die *vegetative* Vermehrung — Teilung, Steckling, Offset; Aussaat-Zeitpunkte separat über die Aussaatfelder)
+    - `propagation_notes: Optional[str]` (Freitext-Hinweise zur Vermehrung — Besonderheiten und worauf der Nutzer achten muss)
     <!-- Quelle: Outdoor-Garden-Planner Review G-001, G-006 -->
     # Freiland-/Gartenplanung (Quelle: Outdoor-Garden-Planner Review G-001)
     - `frost_sensitivity: Optional[Literal['hardy', 'half_hardy', 'tender']]` (hardy = übersteht Frost, half_hardy = leichter Frost ok, tender = frostfrei halten)
@@ -788,6 +790,8 @@ Hinweis: *Ficus benjamina* emittiert nachweislich Latexproteine in die Raumluft 
 | *Cannabis sativa* | seed, cutting_stem | easy |
 | *Ocimum basilicum* | seed, cutting_stem | easy |
 
+Ergänzend zu Methode und Schwierigkeit werden je Art zwei weitere Vermehrungsfelder gepflegt: `propagation_months` hält den **Zeitpunkt** der vegetativen Vermehrung fest (empfohlene Monate für Teilung, Steckling, Offset), und `propagation_notes` enthält **fachliche Freitext-Hinweise** dazu, worauf bei der Vermehrung dieser Art zu achten ist (Besonderheiten, Tipps). Beide Felder werden in der Vermehrungs-Übersicht der Aussaatübersicht angezeigt und sind dort editierbar — so weiß der Nutzer pro Art nicht nur *wie* und *womit*, sondern auch *wann* und *worauf zu achten* er sie vermehrt.
+
 Hinweis: Im Einsteiger-Modus (REQ-021) werden nur Arten mit `propagation_difficulty: 'easy'` als Vermehrungskandidaten vorgeschlagen. Detaillierte Vermehrungsanleitungen werden über REQ-017 (Vermehrungsmanagement) abgebildet.
 
 ## 3. Technische Umsetzung (Python)
@@ -1029,6 +1033,15 @@ class SpeciesDefinition(BaseModel):
     propagation_difficulty: Optional[Literal['easy', 'moderate', 'difficult']] = Field(
         None,
         description="Schwierigkeitsgrad für Einsteiger — wird im Beginner-Modus (REQ-021) angezeigt"
+    )
+    propagation_months: list[int] = Field(
+        default_factory=list,
+        description="Empfohlene Monate (1–12) für die vegetative Vermehrung (Teilung, Steckling, Offset) — "
+                    "Aussaat-Zeitpunkte werden separat über die Aussaatfelder gepflegt"
+    )
+    propagation_notes: Optional[str] = Field(
+        None, max_length=1000,
+        description="Freitext-Hinweise zur Vermehrung — Besonderheiten und worauf der Nutzer achten muss"
     )
     vernalization_required: bool = False
     vernalization_days: Optional[int] = Field(None, ge=0, le=180)

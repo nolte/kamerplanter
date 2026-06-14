@@ -234,6 +234,9 @@ $defs:
         type: array
         description: "Recommended months (1–12) for vegetative propagation (division, cutting, offset etc.)."
         items: { type: integer, minimum: 1, maximum: 12 }
+      propagation_notes:
+        type: [string, "null"]
+        description: "Free-text propagation hints — what to watch out for, special considerations, tips."
       # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
       photosynthesis_type:
         type: [string, "null"]
@@ -298,6 +301,9 @@ $defs:
         type: array
         description: "Recommended months (1–12) for vegetative propagation (division, cutting, offset etc.)."
         items: { type: integer, minimum: 1, maximum: 12 }
+      propagation_notes:
+        type: [string, "null"]
+        description: "Free-text propagation hints — what to watch out for, special considerations, tips."
     required: [scientific_name]
     additionalProperties: true
 

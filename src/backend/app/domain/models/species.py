@@ -141,6 +141,7 @@ class Species(BaseModel):
     propagation_methods: list[PropagationMethod] = Field(default_factory=list)
     propagation_difficulty: str | None = None
     propagation_months: list[int] = Field(default_factory=list)
+    propagation_notes: str | None = Field(default=None, max_length=1000)
     allows_harvest: bool = True
     # ── Anbaubedingungen (cultivation conditions) ──
     container_suitable: Suitability | None = None

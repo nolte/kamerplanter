@@ -686,6 +686,8 @@
       "propagationMonthsHelper": "Empfohlene Monate für die vegetative Vermehrung (z. B. Teilung, Steckling, Offset) – Monate antippen zum Auswählen.",
       "propagationMonthsValue": "Beste Vermehrungszeit: {{range}}",
       "propagationMonthChipAriaLabel": "Vermehrungsmonat {{month}}",
+      "propagationNotesLabel": "Vermehrungshinweise",
+      "propagationNotesHelper": "Worauf bei der Vermehrung dieser Art zu achten ist",
       "noPeriodsVegetativeHint": "Diese Art wird nicht aus Samen gezogen, sondern über {{methods}} – fehlende Aussaatzeiträume sind hier normal.",
       "noPeriodsDefined": "Noch keine Anbauzeiträume definiert.",
       "addPeriod": "Zeitraum hinzufügen",

@@ -686,6 +686,8 @@
       "propagationMonthsHelper": "Recommended months for vegetative propagation (e.g. division, cutting, offset) — tap months to select.",
       "propagationMonthsValue": "Best propagation time: {{range}}",
       "propagationMonthChipAriaLabel": "Propagation month {{month}}",
+      "propagationNotesLabel": "Propagation notes",
+      "propagationNotesHelper": "What to watch out for when propagating this species",
       "noPeriodsVegetativeHint": "This species is not grown from seed but via {{methods}} — missing sowing periods are expected here.",
       "noPeriodsDefined": "No growing periods defined yet.",
       "addPeriod": "Add Period",

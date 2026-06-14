@@ -93,6 +93,25 @@ Das Feld ist ebenfalls eine Mehrfachauswahl; gespeichert werden die Monatsnummer
 !!! tip "Pflegeerinnerungen profitieren automatisch"
     Sobald `propagation_months` gepflegt ist, kann der KI-Wissensassistent (und zukünftig: Pflegeerinnerungen, REQ-017) konkrete Hinweise zum optimalen Vermehrungszeitpunkt ausgeben — ohne dass du dich selbst an den Kalender erinnern musst.
 
+### Vermehrungshinweise (propagation_notes)
+
+Das Feld **Vermehrungshinweise** ist ein fachlicher Freitext (max. 1000 Zeichen, Deutsch) und erklärt **wie** die Vermehrung der Art in der Praxis abläuft — welche Schritte besondere Sorgfalt erfordern, welche Fehler häufig passieren und was den Unterschied zwischen Erfolg und Misserfolg ausmacht.
+
+Das Feld ergänzt die strukturierten Felder `propagation_methods` (Methoden) und `propagation_months` (optimaler Zeitpunkt) um das handwerkliche Detailwissen, das sich nicht in einer einfachen Auswahlliste abbilden lässt.
+
+**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite, im Bereich der Vermehrungsübersicht — direkt unterhalb der Vermehrungsarten-Chips und der besten Vermehrungszeit:
+
+- **Leseansicht:** Der Text erscheint als abgesetzter Hinweis-Block, deutlich vom restlichen Inhalt abgegrenzt. Wenn kein Text hinterlegt ist, bleibt der Bereich leer.
+- **Bearbeitungsmodus:** Ein mehrzeiliges Textfeld mit Zeichenzähler (max. 1000 Zeichen). Der Text wird gemeinsam mit den übrigen Feldern der Sektion über den **Speichern**-Button gespeichert.
+
+!!! tip "Wofür eignet sich das Feld?"
+    Notiere hier konkrete Praxistipps: Substrattemperatur für die Bewurzelung, empfohlene Hormondosis, Lichtbedarf direkt nach der Bewurzelung, Akklimatisierungsschritte beim Wechsel von Vitro- auf Ex-Vitro-Bedingungen oder der häufigste Grund für scheiternde Stecklinge bei dieser Art. Allgemeine Hinweise, die für alle Arten gleichermaßen gelten, gehören dagegen nicht hier her.
+
+!!! note "Sichtbarkeit nach Erfahrungsstufe"
+    Das Feld **Vermehrungshinweise** erscheint ab der Erfahrungsstufe **Fortgeschrittener**. Im Einsteiger-Modus ist es ausgeblendet, kann aber über **Alle Felder anzeigen** eingeblendet werden.
+
+Alle 183 Arten mit gepflegten Vermehrungsmethoden haben bereits einen fachlichen Hinweistext hinterlegt.
+
 ### Art bearbeiten
 
 1. Klicke auf eine Art in der Liste

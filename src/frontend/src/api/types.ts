@@ -208,6 +208,7 @@ export interface Species {
   plant_category: string | null;
   propagation_methods: PropagationMethod[];
   propagation_months: number[];
+  propagation_notes: string | null;
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
   container_suitable: Suitability | null;
@@ -252,6 +253,7 @@ export interface SpeciesCreate {
   plant_category?: string | null;
   propagation_methods?: PropagationMethod[];
   propagation_months?: number[];
+  propagation_notes?: string | null;
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
   container_suitable?: Suitability | null;

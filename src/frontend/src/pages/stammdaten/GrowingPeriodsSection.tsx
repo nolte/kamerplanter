@@ -18,6 +18,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SaveIcon from '@mui/icons-material/Save';
+import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/species';
@@ -241,6 +242,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const { handleError } = useApiError();
   const [periods, setPeriods] = useState<GrowingPeriod[]>([]);
   const [propagationMonths, setPropagationMonths] = useState<number[]>([]);
+  const [propagationNotes, setPropagationNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -297,6 +299,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
 
   useEffect(() => {
     setPropagationMonths([...(species.propagation_months ?? [])].sort((a, b) => a - b));
+    setPropagationNotes(species.propagation_notes ?? '');
     if (species.growing_periods?.length) {
       setPeriods([...species.growing_periods]);
     } else {
@@ -346,6 +349,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
         scientific_name: species.scientific_name,
         growing_periods: periods,
         propagation_months: propagationMonths,
+        propagation_notes: propagationNotes.trim() || null,
       });
       notification.success(t('common.save'));
       onSaved?.();
@@ -487,6 +491,58 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
                 );
               })}
             </Box>
+          </Box>
+
+          {/* Propagation notes — the "what to watch out for" companion to the
+              propagation method (how) and propagation months (when).
+              Read view: subtle outlined box with tip icon — intentionally lighter
+              than the vegetative-only Alert above so two equal-weight blue Alerts
+              never stack. Edit view: multiline TextField below. */}
+          <Box sx={{ mt: 2 }}>
+            {propagationNotes.trim() && (
+              <Box
+                role="note"
+                aria-label={t('pages.species.propagationNotesLabel')}
+                sx={{
+                  mb: 1.5,
+                  display: 'flex',
+                  gap: 1,
+                  alignItems: 'flex-start',
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: (th) => alpha(th.palette.action.selected, 0.04),
+                }}
+              >
+                <TipsAndUpdatesIcon
+                  aria-hidden="true"
+                  sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25, flexShrink: 0 }}
+                />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ whiteSpace: 'pre-line' }}
+                >
+                  {propagationNotes}
+                </Typography>
+              </Box>
+            )}
+            <TextField
+              id="propagation-notes-field"
+              label={t('pages.species.propagationNotesLabel')}
+              helperText={`${propagationNotes.length}/1000 — ${t('pages.species.propagationNotesHelper')}`}
+              value={propagationNotes}
+              onChange={(e) => setPropagationNotes(e.target.value)}
+              multiline
+              minRows={3}
+              maxRows={6}
+              fullWidth
+              size="small"
+              data-testid="propagation-notes-field"
+              slotProps={{ htmlInput: { maxLength: 1000, 'aria-describedby': 'propagation-notes-field-helper-text' } }}
+            />
           </Box>
         </Box>
       )}

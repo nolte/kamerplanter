@@ -93,6 +93,25 @@ The field is also a multi-select; the stored values are month numbers 1 (January
 !!! tip "Care reminders benefit automatically"
     Once `propagation_months` is populated, the AI knowledge assistant (and, in a future release, care reminders via REQ-017) can provide concrete hints about the optimal propagation window — without you needing to keep track of the calendar yourself.
 
+### Propagation Notes (propagation_notes)
+
+The **Propagation Notes** field is a free-text field for expert knowledge (max. 1,000 characters) that explains **how** propagation works in practice for this species — which steps require particular care, which mistakes are common, and what makes the difference between success and failure.
+
+The field complements the structured fields `propagation_methods` (techniques) and `propagation_months` (optimal timing) with the practical, hands-on detail that cannot be captured in a simple multi-select list.
+
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, within the propagation overview section — directly below the propagation method chips and the best propagation time:
+
+- **Read view:** The text appears as a distinct callout block, visually separated from the surrounding content. If no text has been entered, the area remains empty.
+- **Edit mode:** A multi-line text field with a character counter (max. 1,000 characters). The text is saved together with the other fields in the section via the **Save** button.
+
+!!! tip "What belongs in this field?"
+    Record concrete practical tips: substrate temperature for rooting, recommended rooting hormone dose, light requirements immediately after rooting, acclimatisation steps when moving from in-vitro to ex-vitro conditions, or the most common reason cuttings fail for this particular species. General advice that applies equally to all species does not belong here.
+
+!!! note "Visibility by expertise level"
+    The **Propagation Notes** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
+
+All 183 species with populated propagation methods already have an expert notes text.
+
 ### Editing a Species
 
 1. Click on a species in the list
