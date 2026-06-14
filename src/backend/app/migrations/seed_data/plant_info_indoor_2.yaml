@@ -333,6 +333,7 @@ new_species_family_map:
 new_species:
   - scientific_name: "Dracaena trifasciata"
     propagation_methods: [division, leaf_cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
     genus: Dracaena
     plant_category: succulent_cactus
@@ -362,6 +363,7 @@ new_species:
 
   - scientific_name: "Dypsis lutescens"
     propagation_methods: [seed, division]
+    propagation_months: [4, 5, 6]
     common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
     genus: Dypsis
     plant_category: tropical_foliage
@@ -398,6 +400,7 @@ new_species:
 
   - scientific_name: "Echeveria elegans"
     propagation_methods: [leaf_cutting, offset]
+    propagation_months: [5, 6, 7]
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
     genus: Echeveria
     plant_category: succulent_cactus
@@ -438,6 +441,7 @@ new_species:
 
   - scientific_name: "Euphorbia pulcherrima"
     propagation_methods: [cutting]
+    propagation_months: [6, 7, 8]
     common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
     genus: Euphorbia
     plant_category: indoor_houseplant
@@ -474,6 +478,7 @@ new_species:
 
   - scientific_name: "Fatsia japonica"
     propagation_methods: [cutting, seed]
+    propagation_months: [4, 5, 6]
     common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
     genus: Fatsia
     plant_category: indoor_houseplant
@@ -509,6 +514,7 @@ new_species:
 
   - scientific_name: "Ficus benjamina"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
     genus: Ficus
     plant_category: tropical_foliage
@@ -547,6 +553,7 @@ new_species:
 
   - scientific_name: "Ficus elastica"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
     genus: Ficus
     plant_category: tropical_foliage
@@ -583,6 +590,7 @@ new_species:
 
   - scientific_name: "Ficus lyrata"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Geigenfeige, Fiddle Leaf Fig]
     genus: Ficus
     plant_category: tropical_foliage
@@ -620,6 +628,7 @@ new_species:
 
   - scientific_name: "Fittonia albivenis"
     propagation_methods: [cutting, division]
+    propagation_months: [3, 4, 5, 6]
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
     genus: Fittonia
     plant_category: tropical_foliage
@@ -657,6 +666,7 @@ new_species:
 
   - scientific_name: "Gardenia jasminoides"
     propagation_methods: [cutting]
+    propagation_months: [3, 4, 5]
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
     genus: Gardenia
     plant_category: indoor_houseplant
@@ -694,6 +704,7 @@ new_species:
 
   - scientific_name: "Goeppertia lancifolia"
     propagation_methods: [division]
+    propagation_months: [3, 4, 5]
     common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -733,6 +744,7 @@ new_species:
 
   - scientific_name: "Goeppertia makoyana"
     propagation_methods: [division]
+    propagation_months: [3, 4, 5]
     common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -771,6 +783,7 @@ new_species:
 
   - scientific_name: "Goeppertia orbifolia"
     propagation_methods: [division]
+    propagation_months: [3, 4, 5]
     common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -800,6 +813,7 @@ new_species:
 
   - scientific_name: "Gymnocalycium mihanovichii"
     propagation_methods: [offset, seed, grafting]
+    propagation_months: [4, 5, 6]
     common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
     genus: Gymnocalycium
     plant_category: succulent_cactus
@@ -836,6 +850,7 @@ new_species:
 
   - scientific_name: "Haworthiopsis fasciata"
     propagation_methods: [offset, leaf_cutting]
+    propagation_months: [5, 6, 7]
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
     plant_category: succulent_cactus
@@ -872,6 +887,7 @@ new_species:
 
   - scientific_name: "Hedera helix"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
     genus: Hedera
     plant_category: indoor_houseplant
@@ -911,6 +927,7 @@ new_species:
 
   - scientific_name: "Hibiscus rosa-sinensis"
     propagation_methods: [cutting, grafting, seed]
+    propagation_months: [3, 4, 5]
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
     genus: Hibiscus
     plant_category: balcony_plant
@@ -947,6 +964,7 @@ new_species:
 
   - scientific_name: "Hippeastrum hybridum"
     propagation_methods: [bulb, offset]
+    propagation_months: [4, 5]
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
     genus: Hippeastrum
     plant_category: bulb_tuber
@@ -1022,6 +1040,7 @@ new_species:
 
   - scientific_name: "Hoya carnosa"
     propagation_methods: [cutting, layering]
+    propagation_months: [3, 4, 5]
     common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
     genus: Hoya
     plant_category: tropical_foliage
@@ -1059,6 +1078,7 @@ new_species:
 
   - scientific_name: "Impatiens walleriana"
     propagation_methods: [seed, cutting]
+    propagation_months: [3, 4, 5]
     common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
     genus: Impatiens
     plant_category: balcony_plant
@@ -1095,6 +1115,7 @@ new_species:
 
   - scientific_name: "Jasminum polyanthum"
     propagation_methods: [cutting, layering]
+    propagation_months: [6, 7, 8]
     common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
     genus: Jasminum
     plant_category: indoor_houseplant
@@ -1131,6 +1152,7 @@ new_species:
 
   - scientific_name: "Kalanchoe blossfeldiana"
     propagation_methods: [cutting, leaf_cutting, seed]
+    propagation_months: [4, 5, 6]
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
     genus: Kalanchoe
     plant_category: succulent_cactus
@@ -1168,6 +1190,7 @@ new_species:
 
   - scientific_name: "Kalanchoe daigremontiana"
     propagation_methods: [offset, leaf_cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
     genus: Kalanchoe
     plant_category: succulent_cactus
@@ -1204,6 +1227,7 @@ new_species:
 
   - scientific_name: "Lithops spp."
     propagation_methods: [seed, division]
+    propagation_months: [4, 5]
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
     genus: Lithops
     plant_category: succulent_cactus
@@ -1276,6 +1300,7 @@ new_species:
 
   - scientific_name: "Mammillaria spp."
     propagation_methods: [offset, seed]
+    propagation_months: [5, 6, 7]
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
     genus: Mammillaria
     plant_category: succulent_cactus
@@ -1315,6 +1340,7 @@ new_species:
 
   - scientific_name: "Maranta leuconeura"
     propagation_methods: [division, cutting]
+    propagation_months: [3, 4, 5]
     common_names: [Pfeilwurz, Marante, Prayer Plant]
     genus: Maranta
     plant_category: tropical_foliage
@@ -1404,6 +1430,7 @@ species_enrichment:
 
   "Epipremnum aureum":
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     # Enrichment fields from removed new_species entry (species exists in species.yaml)
     frost_sensitivity: sensitive
     allows_harvest: false

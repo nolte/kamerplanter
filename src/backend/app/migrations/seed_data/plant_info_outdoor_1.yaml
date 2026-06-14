@@ -133,6 +133,7 @@ new_species:
     green_manure_suitable: false
     traits: [edible]
     propagation_methods: [seed, bulb]
+    propagation_months: [3, 4]
     propagation_difficulty: easy
     container_suitable: limited
     indoor_suitable: "no"
@@ -183,6 +184,7 @@ new_species:
     green_manure_suitable: false
     traits: [edible, medicinal]
     propagation_methods: [bulb]
+    propagation_months: [10, 11]
     propagation_difficulty: easy
     container_suitable: "yes"
     indoor_suitable: limited
@@ -233,6 +235,7 @@ new_species:
     traits: [ornamental]
     propagation_methods: [seed, division]
     propagation_difficulty: moderate
+    propagation_months: [3, 4]
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -275,6 +278,7 @@ new_species:
     green_manure_suitable: false
     traits: [edible]
     propagation_methods: [seed, division]
+    propagation_months: [3, 4]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"
@@ -323,6 +327,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [division, seed]
+    propagation_months: [3, 4]
     propagation_difficulty: easy
     container_suitable: "yes"
     indoor_suitable: "no"
@@ -409,6 +414,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental, evergreen]
     propagation_methods: [cutting]
+    propagation_months: [7, 8]
     propagation_difficulty: moderate
     container_suitable: "yes"
     indoor_suitable: limited
@@ -499,6 +505,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [cutting, layering]
+    propagation_months: [5, 6]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"
@@ -544,6 +551,7 @@ new_species:
     green_manure_suitable: false
     traits: [edible, ornamental]
     propagation_methods: [seed, cutting, layering]
+    propagation_months: [7, 8]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"
@@ -588,6 +596,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [seed, division]
+    propagation_months: [3, 4]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"
@@ -633,6 +642,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental, medicinal]
     propagation_methods: [seed, division]
+    propagation_months: [3, 4]
     propagation_difficulty: easy
     container_suitable: "yes"
     indoor_suitable: "no"
@@ -689,6 +699,7 @@ species_enrichment:
     green_manure_suitable: false
     traits: [edible, ornamental]
     propagation_methods: [seed, division]
+    propagation_months: [3, 4]
     propagation_difficulty: easy
     container_suitable: "yes"
     indoor_suitable: "yes"
@@ -725,6 +736,7 @@ species_enrichment:
     green_manure_suitable: false
     traits: [edible]
     propagation_methods: [cutting, division]
+    propagation_months: [4, 5]
     propagation_difficulty: moderate
     container_suitable: "yes"
     indoor_suitable: limited

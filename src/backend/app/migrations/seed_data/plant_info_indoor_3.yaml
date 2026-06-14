@@ -51,6 +51,7 @@ new_species_family_map:
 new_species:
   - scientific_name: "Monstera adansonii"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Adansonii"
       - "Fensterblatt"
@@ -88,6 +89,7 @@ new_species:
 
   - scientific_name: "Neoregelia carolinae"
     propagation_methods: [offset]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Nestrosette"
       - "Karminrote Neoregelia"
@@ -123,6 +125,7 @@ new_species:
 
   - scientific_name: "Nephrolepis exaltata"
     propagation_methods: [division, runner, spore]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Schwertfarn"
       - "Nephrolepis"
@@ -162,6 +165,7 @@ new_species:
 
   - scientific_name: "Opuntia microdasys"
     propagation_methods: [cutting, seed]
+    propagation_months: [5, 6, 7]
     common_names:
       - "Hasenohr-Kaktus"
       - "Goldstachel-Kaktus"
@@ -202,6 +206,7 @@ new_species:
 
   - scientific_name: "Oxalis triangularis"
     propagation_methods: [bulb, division]
+    propagation_months: [3, 4]
     common_names:
       - "Lila Sauerklee"
       - "Glücksklee"
@@ -247,6 +252,7 @@ new_species:
 
   - scientific_name: "Pachira aquatica"
     propagation_methods: [seed, cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Glückskastanie"
       - "Malabar-Kastanie"
@@ -283,6 +289,7 @@ new_species:
 
   - scientific_name: "Pelargonium zonale"
     propagation_methods: [cutting, seed]
+    propagation_months: [3, 4, 5]
     common_names:
       - "Geranie"
       - "Zonalpelargonie"
@@ -316,6 +323,7 @@ new_species:
 
   - scientific_name: "Peperomia obtusifolia"
     propagation_methods: [leaf_cutting, cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Zwergpfeffer"
       - "Baby Rubber Plant"
@@ -351,6 +359,7 @@ new_species:
 
   - scientific_name: "Phalaenopsis hybrida"
     propagation_methods: [offset, division]
+    propagation_months: [6, 7, 8]
     common_names:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
@@ -391,6 +400,7 @@ new_species:
 
   - scientific_name: "Philodendron hederaceum"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Kletter-Philodendron"
       - "Herzblatt-Philodendron"
@@ -429,6 +439,7 @@ new_species:
 
   - scientific_name: "Pilea peperomioides"
     propagation_methods: [offset, cutting]
+    propagation_months: [3, 4, 5]
     common_names:
       - "Ufopflanze"
       - "Chinesischer Geldbaum"
@@ -458,6 +469,7 @@ new_species:
 
   - scientific_name: "Platycerium bifurcatum"
     propagation_methods: [offset, spore]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Geweihfarn"
       - "Elchgeweihfarn"
@@ -495,6 +507,7 @@ new_species:
 
   - scientific_name: "Plectranthus verticillatus"
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Harfenstrauch"
       - "Schwedischer Efeu"
@@ -528,6 +541,7 @@ new_species:
 
   - scientific_name: "Rhipsalis baccifera"
     propagation_methods: [cutting, seed]
+    propagation_months: [5, 6, 7]
     common_names:
       - "Korallenkaktus"
       - "Binsenkaktus"
@@ -563,6 +577,7 @@ new_species:
 
   - scientific_name: "Rhododendron simsii"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Zimmerazalee"
       - "Indische Azalee"
@@ -604,6 +619,7 @@ new_species:
 
   - scientific_name: "Schefflera arboricola"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Kleine Strahlenaralie"
       - "Schefflera"
@@ -641,6 +657,7 @@ new_species:
 
   - scientific_name: "Schlumbergera truncata"
     propagation_methods: [cutting]
+    propagation_months: [6, 7, 8]
     common_names:
       - "Weihnachtskaktus"
       - "Gliederkaktus"
@@ -678,6 +695,7 @@ new_species:
 
   - scientific_name: "Sedum morganianum"
     propagation_methods: [leaf_cutting, cutting]
+    propagation_months: [5, 6, 7]
     common_names:
       - "Eselsschwanz"
       - "Donkey's Tail"
@@ -716,6 +734,7 @@ new_species:
 
   - scientific_name: "Soleirolia soleirolii"
     propagation_methods: [division, cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Bubikopf"
       - "Baby's Tears"
@@ -754,6 +773,7 @@ new_species:
 
   - scientific_name: "Stephanotis floribunda"
     propagation_methods: [cutting, layering]
+    propagation_months: [1, 2, 3]
     common_names:
       - "Brautstrauch"
       - "Madagaskarjasmin"
@@ -788,6 +808,7 @@ new_species:
 
   - scientific_name: "Strelitzia reginae"
     propagation_methods: [division, seed]
+    propagation_months: [9, 10]
     common_names:
       - "Paradiesvogelblume"
       - "Königin-Strelitzie"
@@ -827,6 +848,7 @@ new_species:
 
   - scientific_name: "Streptocarpus hybridus"
     propagation_methods: [leaf_cutting, division]
+    propagation_months: [3, 4, 5]
     common_names:
       - "Drehfrucht"
       - "Streptocarpus"
@@ -865,6 +887,7 @@ new_species:
 
   - scientific_name: "Stromanthe sanguinea"
     propagation_methods: [division]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Stromanthe Triostar"
       - "Sanguinea"
@@ -903,6 +926,7 @@ new_species:
 
   - scientific_name: "Tillandsia usneoides"
     propagation_methods: [offset, cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Spanisches Moos"
       - "Louisianamoos"
@@ -940,6 +964,7 @@ new_species:
 
   - scientific_name: "Tradescantia zebrina"
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Dreimasterblume"
       - "Silbrige Tradescantie"
@@ -980,6 +1005,7 @@ new_species:
 
   - scientific_name: "Vriesea splendens"
     propagation_methods: [offset]
+    propagation_months: [7, 8, 9]
     common_names:
       - "Flammendes Schwert"
       - "Vriesea"
@@ -1020,6 +1046,7 @@ new_species:
 
   - scientific_name: "Yucca elephantipes"
     propagation_methods: [cutting, offset]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Yucca-Palme"
       - "Riesen-Palmlilie"
@@ -1058,6 +1085,7 @@ new_species:
 
   - scientific_name: "Zamioculcas zamiifolia"
     propagation_methods: [leaf_cutting, division]
+    propagation_months: [4, 5, 6]
     common_names:
       - "Zamioculcas"
       - "Glücksfeder"
@@ -1094,6 +1122,7 @@ new_species:
 
   - scientific_name: "Zantedeschia aethiopica"
     propagation_methods: [rhizome_division, offset]
+    propagation_months: [7, 8, 9]
     common_names:
       - "Calla"
       - "Weiße Calla"

@@ -23,6 +23,7 @@
 species_enrichment:
   "Dracaena fragrans":
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     allows_harvest: false
     native_habitat: "Tropical Africa (Sudan, Mozambique, Angola)"
     hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin Sudan-Angola."

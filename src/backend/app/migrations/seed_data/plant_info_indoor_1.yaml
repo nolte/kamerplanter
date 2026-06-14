@@ -341,6 +341,7 @@ new_species_family_map:
 new_species:
   - scientific_name: "Adiantum raddianum"
     propagation_methods: [spore, division]
+    propagation_months: [3, 4]
     common_names: [Frauenhaarfarn, Delta Maidenhair Fern]
     genus: Adiantum
     plant_category: tropical_foliage
@@ -373,6 +374,7 @@ new_species:
 
   - scientific_name: "Aechmea fasciata"
     propagation_methods: [offset]
+    propagation_months: [9, 10, 11]
     common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant]
     genus: Aechmea
     plant_category: tropical_foliage
@@ -403,6 +405,7 @@ new_species:
 
   - scientific_name: "Aeschynanthus radicans"
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
     plant_category: tropical_foliage
@@ -433,6 +436,7 @@ new_species:
 
   - scientific_name: "Aglaonema commutatum"
     propagation_methods: [division, cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Kolbenfaden, Chinese Evergreen]
     genus: Aglaonema
     plant_category: tropical_foliage
@@ -467,6 +471,7 @@ new_species:
   # Trade name, not a valid botanical binomial; syn. Alocasia 'Polly'
   - scientific_name: "Alocasia x amazonica"
     propagation_methods: [division, offset]
+    propagation_months: [4, 5]
     common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear]
     genus: Alocasia
     plant_category: tropical_foliage
@@ -500,6 +505,7 @@ new_species:
 
   - scientific_name: "Aloe vera"
     propagation_methods: [offset, seed]
+    propagation_months: [5, 6, 7]
     common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant]
     genus: Aloe
     plant_category: succulent_cactus
@@ -532,6 +538,7 @@ new_species:
 
   - scientific_name: "Anthurium andraeanum"
     propagation_methods: [division, cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
     genus: Anthurium
     plant_category: tropical_foliage
@@ -566,6 +573,7 @@ new_species:
 
   - scientific_name: "Aphelandra squarrosa"
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
     genus: Aphelandra
     plant_category: tropical_foliage
@@ -596,6 +604,7 @@ new_species:
 
   - scientific_name: "Ardisia crenata"
     propagation_methods: [seed, cutting]
+    propagation_months: [5, 6, 7]
     common_names: [Spitzblume, Korallenbeere, Coralberry, Christmas Berry]
     genus: Ardisia
     plant_category: indoor_houseplant
@@ -626,6 +635,7 @@ new_species:
 
   - scientific_name: "Asparagus setaceus"
     propagation_methods: [division, seed]
+    propagation_months: [3, 4, 5]
     common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
     genus: Asparagus
     plant_category: tropical_foliage
@@ -656,6 +666,7 @@ new_species:
 
   - scientific_name: "Aspidistra elatior"
     propagation_methods: [division]
+    propagation_months: [3, 4, 5]
     common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
     genus: Aspidistra
     plant_category: indoor_houseplant
@@ -715,6 +726,7 @@ new_species:
 
   - scientific_name: "Beaucarnea recurvata"
     propagation_methods: [seed, offset]
+    propagation_months: [5, 6, 7]
     common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree]
     genus: Beaucarnea
     plant_category: succulent_cactus
@@ -744,6 +756,7 @@ new_species:
 
   - scientific_name: "Begonia rex-cultorum"
     propagation_methods: [leaf_cutting, division]
+    propagation_months: [4, 5, 6]
     common_names: [Blattbegonie, Königsbegonie, Rex Begonia, Painted-Leaf Begonia]
     genus: Begonia
     plant_category: tropical_foliage
@@ -776,6 +789,7 @@ new_species:
 
   - scientific_name: "Begonia semperflorens"
     propagation_methods: [seed, cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Eisbegonie, Gottesauge, Wax Begonia, Bedding Begonia]
     genus: Begonia
     plant_category: balcony_plant
@@ -811,6 +825,7 @@ new_species:
 
   - scientific_name: "Cattleya hybrida"
     propagation_methods: [division, offset]
+    propagation_months: [3, 4, 5]
     common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids]
     genus: Cattleya
     plant_category: orchid
@@ -842,6 +857,7 @@ new_species:
 
   - scientific_name: "Ceropegia woodii"
     propagation_methods: [cutting, tuber, seed]
+    propagation_months: [5, 6, 7]
     common_names: [Leuchterblume, String of Hearts, Rosary Vine, Chain of Hearts]
     genus: Ceropegia
     plant_category: succulent_cactus
@@ -902,6 +918,7 @@ new_species:
 
   - scientific_name: "Clivia miniata"
     propagation_methods: [division, seed]
+    propagation_months: [5, 6]
     common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily]
     genus: Clivia
     plant_category: indoor_houseplant
@@ -934,6 +951,7 @@ new_species:
 
   - scientific_name: "Codiaeum variegatum"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Croton, Wunderstrauch, Garden Croton, "Joseph's Coat"]
     genus: Codiaeum
     plant_category: tropical_foliage
@@ -964,6 +982,7 @@ new_species:
 
   - scientific_name: "Coffea arabica"
     propagation_methods: [seed, cutting]
+    propagation_months: [4, 5, 6]
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
     genus: Coffea
     plant_category: tropical_foliage
@@ -996,6 +1015,7 @@ new_species:
 
   - scientific_name: "Crassula ovata"
     propagation_methods: [cutting, leaf_cutting]
+    propagation_months: [5, 6, 7]
     common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
     genus: Crassula
     plant_category: succulent_cactus
@@ -1028,6 +1048,7 @@ new_species:
 
   - scientific_name: "Ctenanthe burle-marxii"
     propagation_methods: [division]
+    propagation_months: [4, 5, 6]
     common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant]
     genus: Ctenanthe
     plant_category: tropical_foliage
@@ -1061,6 +1082,7 @@ new_species:
 
   - scientific_name: "Curio rowleyanus"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
     genus: Curio
     plant_category: succulent_cactus
@@ -1123,6 +1145,7 @@ new_species:
 
   - scientific_name: "Dendrobium nobile"
     propagation_methods: [offset, division]
+    propagation_months: [5, 6]
     common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
     genus: Dendrobium
     plant_category: orchid
@@ -1154,6 +1177,7 @@ new_species:
 
   - scientific_name: "Dieffenbachia seguine"
     propagation_methods: [cutting, division]
+    propagation_months: [4, 5, 6]
     common_names: [Dieffenbachie, Stumme Bohne, Dumb Cane, Leopard Lily]
     genus: Dieffenbachia
     plant_category: tropical_foliage
@@ -1187,6 +1211,7 @@ new_species:
 
   - scientific_name: "Dracaena angolensis"
     propagation_methods: [cutting, division]
+    propagation_months: [4, 5, 6]
     common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
     genus: Dracaena
     plant_category: succulent_cactus
@@ -1217,6 +1242,7 @@ new_species:
 
   - scientific_name: "Dracaena marginata"
     propagation_methods: [cutting, layering]
+    propagation_months: [4, 5, 6]
     common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree]
     genus: Dracaena
     plant_category: tropical_foliage

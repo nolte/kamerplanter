@@ -42,6 +42,7 @@ new_species_family_map:
 new_species:
   - scientific_name: "Dahlia pinnata"
     propagation_methods: [tuber, cutting, seed]
+    propagation_months: [3, 4, 5]
     common_names: [Dahlie, Dahlia, Garden Dahlia]
     genus: Dahlia
     plant_category: bulb_tuber
@@ -81,6 +82,7 @@ new_species:
 
   - scientific_name: "Tigridia pavonia"
     propagation_methods: [bulb, offset, seed]
+    propagation_months: [4, 5]
     common_names:
       - Pfauenblume
       - Tigerblume
@@ -173,6 +175,7 @@ new_species:
 species_enrichment:
   "Chlorophytum comosum":
     propagation_methods: [offset, division]
+    propagation_months: [3, 4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -198,6 +201,7 @@ species_enrichment:
 
   "Guzmania lingulata":
     propagation_methods: [offset, seed]
+    propagation_months: [3, 4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "1-2"
     min_container_depth_cm: 10
@@ -222,6 +226,7 @@ species_enrichment:
 
   "Monstera deliciosa":
     propagation_methods: [cutting, layering, seed]
+    propagation_months: [4, 5, 6]
     container_suitable: "yes"
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -247,6 +252,7 @@ species_enrichment:
 
   "Petunia x hybrida":
     propagation_methods: [seed, cutting]
+    propagation_months: [2, 3, 4]
     # Enrichment fields from removed new_species entry (species exists in species.yaml)
     plant_category: balcony_plant
     allows_harvest: false
@@ -259,6 +265,7 @@ species_enrichment:
 
   "Spathiphyllum wallisii":
     propagation_methods: [division]
+    propagation_months: [3, 4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -284,6 +291,7 @@ species_enrichment:
 
   "Fragaria x ananassa":
     propagation_methods: [runner, division, seed]
+    propagation_months: [7, 8]
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 20

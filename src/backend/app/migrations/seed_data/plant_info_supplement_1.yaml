@@ -49,6 +49,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [leaf_cutting, seed, division]
+    propagation_months: [4, 5, 6]
     propagation_difficulty: easy
     container_suitable: "yes"
     recommended_container_volume_l: "1"
@@ -94,6 +95,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [cutting]
+    propagation_months: [4, 5, 6]
     propagation_difficulty: easy
     container_suitable: "yes"
     recommended_container_volume_l: "5"
@@ -137,6 +139,7 @@ new_species:
     green_manure_suitable: false
     traits: [ornamental, bee_friendly]
     propagation_methods: [division, cutting]
+    propagation_months: [3, 4, 5]
     propagation_difficulty: moderate
     container_suitable: limited
     indoor_suitable: "no"
