@@ -45,8 +45,11 @@ describe('LoginPage', () => {
     });
     renderWithProviders(<LoginPage />, { store });
 
-    const submit = screen.getByRole('button', { name: '' });
+    // The submit button keeps its accessible name while loading (the spinner is
+    // a decorative, aria-hidden startIcon, not a replacement for the label).
+    const submit = screen.getByRole('button', { name: 'Anmelden' });
     expect(submit).toBeDisabled();
+    expect(submit.querySelector('.MuiCircularProgress-root')).toBeTruthy();
   });
 
   it('renders an error alert after a failed login attempt', async () => {
