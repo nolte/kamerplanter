@@ -25,6 +25,7 @@ from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_rout
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
 from app.api.v1.print.tenant_router import router as tenant_print_router
+from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
 from app.api.v1.slots.tenant_router import router as tenant_slots_router
 from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
@@ -64,3 +65,4 @@ tenant_scoped_router.include_router(tenant_notifications_router)
 tenant_scoped_router.include_router(tenant_user_preferences_router)
 tenant_scoped_router.include_router(tenant_observations_router)
 tenant_scoped_router.include_router(tenant_print_router)
+tenant_scoped_router.include_router(tenant_recognition_router)

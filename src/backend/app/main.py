@@ -11,7 +11,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
+import app.data_access.external.local_embedding_adapter  # noqa: F401  register identification adapter (priority 1)
 import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
+import app.data_access.external.plantnet_adapter  # noqa: F401  register identification adapter
 from app.api.v1.auth.router import limiter
 from app.api.v1.router import api_router
 from app.common.dependencies import close_connection, get_connection, get_ha_client

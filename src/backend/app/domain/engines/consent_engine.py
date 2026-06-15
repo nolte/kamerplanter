@@ -2,6 +2,9 @@
 
 from app.domain.models.privacy import ConsentPurpose, ConsentRecord
 
+# Well-known consent purpose keys (REQ-025 / REQ-029).
+CONSENT_PURPOSE_PLANT_IDENTIFICATION = "plant_identification"
+
 
 class ConsentEngine:
     """Defines processing purposes and validates consent state changes.
@@ -44,6 +47,22 @@ class ConsentEngine:
             label_en="External master-data enrichment",
             description_de=("Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten."),
             description_en=("Querying botanical data from GBIF, Perenual and other external services."),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key="plant_identification",
+            label_de="Foto-Pflanzenerkennung",
+            label_en="Photo plant identification",
+            description_de=(
+                "Pflanzenfotos werden zur Identifikation an externe Dienste (z.B. Pl@ntNet) "
+                "gesendet. Bilder werden dort nicht dauerhaft gespeichert; lokal wird kein "
+                "Originalbild persistiert."
+            ),
+            description_en=(
+                "Plant photos are sent to external services (e.g. Pl@ntNet) for identification. "
+                "Images are not stored there permanently; no original image is persisted locally."
+            ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
         ),

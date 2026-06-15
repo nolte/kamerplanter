@@ -106,6 +106,28 @@ class Settings(BaseSettings):
     privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
     privacy_email_change_ttl_hours: int = 24
 
+    # REQ-029 KI-Bilderkennung (Plant identification — all optional)
+    plantnet_api_key: str = ""  # Pl@ntNet (fallback adapter)
+    plantnet_enabled: bool = True  # disable the Pl@ntNet adapter entirely
+    plantnet_base_url: str = "https://my-api.plantnet.org/v2"
+    # Self-hosted DINOv2 inference-service (REQ-029-A, priority-1 adapter).
+    # Disabled by default until the service is deployed (WS-6); when disabled
+    # the local adapter is unavailable and the registry falls back to Pl@ntNet.
+    inference_service_enabled: bool = False
+    inference_service_url: str = "http://kamerplanter-ki-inference-service:8000"
+    # Preferred adapter key. Local embedding wins when available; if the
+    # inference-service is disabled, get_preferred() falls back to Pl@ntNet.
+    identification_primary_adapter: str = "local_embedding"
+    identification_http_timeout: int = 30
+    identification_max_image_size_mb: int = 5
+    identification_confidence_auto_accept: float = 0.85
+    identification_confidence_min_show: float = 0.10
+    # REQ-029-A §4 reference-image acquisition (DINOv2 index population)
+    reference_image_max_candidates: int = 40  # n_max queried per species
+    reference_image_min_usable: int = 5  # below this a species is "not recognizable"
+    reference_image_min_dimension: int = 224  # px on the shorter edge (model input)
+    reference_image_max_aspect_ratio: float = 3.0  # reject extreme crops/banners
+
     # REQ-030 Notifications
     vapid_private_key: str = ""
     vapid_public_key: str = ""
