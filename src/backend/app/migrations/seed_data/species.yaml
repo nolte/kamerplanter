@@ -7,6 +7,9 @@ species:
     genus: Solanum
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 10.0
     hardiness_zones: ["9a", "10a", "11a"]
     native_habitat: South America
@@ -27,7 +30,6 @@ species:
     greenhouse_recommended: true
     support_required: true
     nutrient_demand_level: heavy_feeder
-    nutrient_demand_level: heavy_feeder
     photosynthesis_type: c3
     light_compensation_point_ppfd_min: 16
     light_compensation_point_ppfd_max: 30
@@ -47,6 +49,9 @@ species:
     genus: Capsicum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 12.0
     hardiness_zones: ["9a", "10a", "11a"]
     native_habitat: Central America
@@ -85,6 +90,9 @@ species:
     genus: Solanum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 12.0
     hardiness_zones: ["9a", "10a"]
     native_habitat: South Asia
@@ -123,6 +131,8 @@ species:
     genus: Solanum
     growth_habit: herb
     root_type: tuberous
+    harvest_pattern: single
+    harvested_part: tuber
     base_temp: 7.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: South America
@@ -157,6 +167,9 @@ species:
     genus: Physalis
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 10.0
     hardiness_zones: ["8a", "11a"]
     native_habitat: South America
@@ -230,6 +243,8 @@ species:
     genus: Cannabis
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 12.0
     hardiness_zones: ["6a", "10a"]
     native_habitat: Central Asia
@@ -267,6 +282,8 @@ species:
     genus: Humulus
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: flower
     base_temp: 6.0
     hardiness_zones: ["3a", "8a"]
     native_habitat: Europe
@@ -300,6 +317,8 @@ species:
     genus: Ocimum
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 10.0
     hardiness_zones: ["10a", "11a"]
     native_habitat: South Asia
@@ -336,6 +355,8 @@ species:
     genus: Mentha
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -366,8 +387,10 @@ species:
     common_names: [Thyme, Thymian]
     family: Lamiaceae
     genus: Thymus
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -398,8 +421,10 @@ species:
     common_names: [Rosemary, Rosmarin]
     family: Lamiaceae
     genus: Salvia
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["7a", "10a"]
     native_habitat: Mediterranean
@@ -431,8 +456,10 @@ species:
     common_names: [Sage, Salbei]
     family: Lamiaceae
     genus: Salvia
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["4a", "9a"]
     native_habitat: Mediterranean
@@ -462,8 +489,10 @@ species:
     common_names: [Lavender, Lavendel]
     family: Lamiaceae
     genus: Lavandula
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: flower
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -499,6 +528,8 @@ species:
     genus: Daucus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     base_temp: 4.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe
@@ -533,6 +564,8 @@ species:
     genus: Foeniculum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: bulb
     base_temp: 8.0
     hardiness_zones: ["6a", "10a"]
     native_habitat: Mediterranean
@@ -568,6 +601,8 @@ species:
     genus: Anethum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 7.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Mediterranean
@@ -601,6 +636,8 @@ species:
     genus: Coriandrum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 7.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -634,6 +671,8 @@ species:
     genus: Apium
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: stem
     base_temp: 7.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Mediterranean
@@ -669,6 +708,8 @@ species:
     genus: Petroselinum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -703,6 +744,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -738,6 +781,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -771,6 +816,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: stem
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe
@@ -804,6 +851,8 @@ species:
     genus: Raphanus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     base_temp: 4.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Asia
@@ -838,6 +887,8 @@ species:
     genus: Eruca
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -870,6 +921,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Europe
@@ -906,6 +959,8 @@ species:
     genus: Phaseolus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
@@ -940,6 +995,8 @@ species:
     genus: Pisum
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: seed
     base_temp: 4.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -976,6 +1033,8 @@ species:
     genus: Vicia
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["2a", "9a"]
     native_habitat: Mediterranean
@@ -1011,6 +1070,8 @@ species:
     genus: Glycine
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 10.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: East Asia
@@ -1045,6 +1106,8 @@ species:
     genus: Lens
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 5.0
     hardiness_zones: ["4a", "9a"]
     native_habitat: Near East
@@ -1075,6 +1138,8 @@ species:
     genus: Trifolium
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: whole_plant
     base_temp: 4.0
     hardiness_zones: ["3a", "8a"]
     native_habitat: Europe
@@ -1111,6 +1176,9 @@ species:
     genus: Cucumis
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 12.0
     hardiness_zones: ["4a", "11a"]
     native_habitat: South Asia
@@ -1148,6 +1216,9 @@ species:
     genus: Cucumis
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 12.0
     hardiness_zones: ["4a", "11a"]
     native_habitat: Africa
@@ -1184,6 +1255,8 @@ species:
     genus: Cucurbita
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Americas
@@ -1219,6 +1292,8 @@ species:
     genus: Cucurbita
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: South America
@@ -1252,6 +1327,9 @@ species:
     genus: Citrullus
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 15.0
     hardiness_zones: ["5a", "11a"]
     native_habitat: Africa
@@ -1286,6 +1364,8 @@ species:
     genus: Luffa
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 15.0
     hardiness_zones: ["7a", "11a"]
     native_habitat: South Asia
@@ -1319,6 +1399,8 @@ species:
     genus: Lactuca
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 4.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Mediterranean
@@ -1356,6 +1438,8 @@ species:
     genus: Cichorium
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -1388,6 +1472,8 @@ species:
     genus: Helianthus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 8.0
     hardiness_zones: ["2a", "11a"]
     native_habitat: North America
@@ -1460,6 +1546,8 @@ species:
     genus: Matricaria
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: flower
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -1491,6 +1579,8 @@ species:
     genus: Artemisia
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["4a", "8a"]
     native_habitat: Central Asia
@@ -1521,8 +1611,10 @@ species:
     common_names: [Corn, Mais]
     family: Poaceae
     genus: Zea
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
@@ -1556,8 +1648,10 @@ species:
     common_names: [Wheat, Weizen]
     family: Poaceae
     genus: Triticum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 4.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1593,8 +1687,10 @@ species:
     common_names: [Barley, Gerste]
     family: Poaceae
     genus: Hordeum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1625,8 +1721,10 @@ species:
     common_names: [Oat, Hafer]
     family: Poaceae
     genus: Avena
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1655,8 +1753,10 @@ species:
     common_names: [Rice, Reis]
     family: Poaceae
     genus: Oryza
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 12.0
     hardiness_zones: ["8a", "11a"]
     native_habitat: East Asia
@@ -1690,8 +1790,10 @@ species:
     common_names: [Sorghum, Hirse]
     family: Poaceae
     genus: Sorghum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 10.0
     hardiness_zones: ["5a", "10a"]
     native_habitat: Africa
@@ -1815,7 +1917,7 @@ species:
     common_names: [Scarlet Star, Guzmania]
     family: Bromeliaceae
     genus: Guzmania
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     base_temp: 18.0
     hardiness_zones: ["10b", "11a"]
@@ -1848,6 +1950,9 @@ species:
     genus: Fragaria
     growth_habit: groundcover
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe (hybrid)
@@ -1945,7 +2050,7 @@ species:
     common_names: [Snake Plant, Bogenhanf, Sansevieria]
     family: Asparagaceae
     genus: Dracaena
-    growth_habit: herb
+    growth_habit: succulent
     root_type: tuberous
     base_temp: 10.0
     hardiness_zones: ["10a", "12a"]
@@ -1974,7 +2079,7 @@ species:
     common_names: [Corn Plant, Duftdracaena, Maispalme, Mass Cane, Happy Plant]
     family: Asparagaceae
     genus: Dracaena
-    growth_habit: tree
+    growth_habit: shrub
     root_type: fibrous
     base_temp: 15.0
     hardiness_zones: ["10b", "11a", "11b", "12a", "12b"]
@@ -2010,7 +2115,7 @@ species:
     common_names: [White Water Lily, Weisse Seerose, European White Waterlily]
     family: Nymphaeaceae
     genus: Nymphaea
-    growth_habit: herb
+    growth_habit: aquatic
     root_type: fibrous
     base_temp: 8.0
     hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
@@ -2081,6 +2186,8 @@ species:
     genus: Allium
     growth_habit: herb
     root_type: bulbous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9b"]
     native_habitat: Europe
@@ -2113,7 +2220,7 @@ species:
     common_names: [Zonal Geranium, Geranie]
     family: Geraniaceae
     genus: Pelargonium
-    growth_habit: herb
+    growth_habit: subshrub
     root_type: fibrous
     base_temp: 10.0
     hardiness_zones: ["10a", "11a"]
