@@ -1,7 +1,18 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import PropagationDifficulty, PropagationMethod, RootType, Suitability, WoodStage
+from app.common.enums import (
+    ClimactericClass,
+    DtmReference,
+    GrowthHabit,
+    HarvestedPart,
+    HarvestPattern,
+    PropagationDifficulty,
+    PropagationMethod,
+    RootType,
+    Suitability,
+    WoodStage,
+)
 from app.domain.models.species import Cultivar, PropagationConfig, Species
 
 
@@ -273,6 +284,81 @@ class TestEnvironmentalPhysiologyFields:
     def test_invalid_salt_tolerance_class(self):
         with pytest.raises(ValidationError):
             Species(scientific_name="Genus species", salt_tolerance_class="extreme")
+
+
+class TestGrowthHabitEnum:
+    """Plan WP-1 — growth_habit enum expanded to cover the real botanical range."""
+
+    def test_expanded_values_present(self):
+        for value in (
+            GrowthHabit.SUBSHRUB,
+            GrowthHabit.GRASS,
+            GrowthHabit.SUCCULENT,
+            GrowthHabit.BULB_GEOPHYTE,
+            GrowthHabit.FERN,
+            GrowthHabit.AQUATIC,
+            GrowthHabit.EPIPHYTE,
+        ):
+            assert value in GrowthHabit
+
+    def test_species_accepts_new_value(self):
+        s = Species(scientific_name="Echinocactus grusonii", growth_habit="succulent")
+        assert s.growth_habit == GrowthHabit.SUCCULENT
+
+    def test_invalid_growth_habit_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", growth_habit="liana")
+
+
+class TestSpeciesHarvestBehaviour:
+    """Plan WP-6 — harvest_pattern / harvested_part / climacteric on Species."""
+
+    def test_defaults_are_none(self):
+        s = Species(scientific_name="Genus species")
+        assert s.harvest_pattern is None
+        assert s.harvested_part is None
+        assert s.climacteric is None
+
+    def test_pattern_and_part_are_orthogonal(self):
+        # Same harvested part, different patterns (head lettuce vs. cut-and-come-again).
+        single = Species(scientific_name="Lactuca sativa", harvested_part="leaf", harvest_pattern="single")
+        cont = Species(scientific_name="Lactuca crispa", harvested_part="leaf", harvest_pattern="continuous")
+        assert single.harvest_pattern == HarvestPattern.SINGLE
+        assert cont.harvest_pattern == HarvestPattern.CONTINUOUS
+        assert single.harvested_part == cont.harvested_part == HarvestedPart.LEAF
+
+    def test_climacteric_accepts_atypical(self):
+        s = Species(scientific_name="Cucumis melo", climacteric="atypical")
+        assert s.climacteric == ClimactericClass.ATYPICAL
+
+    def test_invalid_values_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", harvest_pattern="sometimes")
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", harvested_part="essence")
+
+
+class TestCultivarHarvestFields:
+    """Plan WP-6 — dtm_reference + bearing-year corridor on Cultivar."""
+
+    def test_defaults_are_none(self):
+        c = Cultivar(name="Test", species_key="sp1")
+        assert c.dtm_reference is None
+        assert c.bearing_start_year_min is None
+        assert c.bearing_start_year_max is None
+
+    def test_dtm_reference_set(self):
+        c = Cultivar(name="Test", species_key="sp1", days_to_maturity=70, dtm_reference="transplant")
+        assert c.dtm_reference == DtmReference.TRANSPLANT
+
+    def test_bearing_year_corridor(self):
+        c = Cultivar(name="Apple M9", species_key="sp1", bearing_start_year_min=2, bearing_start_year_max=4)
+        assert c.bearing_start_year_min == 2
+        assert c.bearing_start_year_max == 4
+
+    def test_bearing_year_out_of_range_rejected(self):
+        with pytest.raises(ValidationError):
+            Cultivar(name="Test", species_key="sp1", bearing_start_year_max=25)
 
     def test_lcp_range_valid(self):
         s = Species(

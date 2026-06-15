@@ -16,9 +16,16 @@ class PlantCategory(StrEnum):
 class GrowthHabit(StrEnum):
     HERB = "herb"
     SHRUB = "shrub"
+    SUBSHRUB = "subshrub"
     TREE = "tree"
     VINE = "vine"
     GROUNDCOVER = "groundcover"
+    GRASS = "grass"
+    SUCCULENT = "succulent"
+    BULB_GEOPHYTE = "bulb_geophyte"
+    FERN = "fern"
+    AQUATIC = "aquatic"
+    EPIPHYTE = "epiphyte"
 
 
 class RootType(StrEnum):
@@ -74,6 +81,57 @@ class CycleType(StrEnum):
     ANNUAL = "annual"
     BIENNIAL = "biennial"
     PERENNIAL = "perennial"
+
+
+class FloweringStrategy(StrEnum):
+    """Reproductive strategy — orthogonal to lifespan (REQ-003, Plan WP-4)."""
+
+    MONOCARPIC = "monocarpic"  # flowers once, then dies (e.g. agave, many bamboos)
+    POLYCARPIC = "polycarpic"  # flowers repeatedly over years (default for most perennials)
+
+
+class HarvestPattern(StrEnum):
+    """Lifetime harvest pattern of a species (REQ-007, Plan WP-6a).
+
+    Distinct from HarvestType, which describes a single harvest *event*.
+    """
+
+    SINGLE = "single"  # one (or few) concentrated harvests, often the whole plant
+    CONTINUOUS = "continuous"  # repeated pick-over within one season (indeterminate)
+    PERENNIAL = "perennial"  # recurring harvests across years, after a juvenile phase
+
+
+class HarvestedPart(StrEnum):
+    """The plant part that is harvested (REQ-007, Plan WP-6b)."""
+
+    FRUIT = "fruit"
+    SEED = "seed"
+    LEAF = "leaf"
+    ROOT = "root"
+    TUBER = "tuber"
+    BULB = "bulb"
+    FLOWER_BUD = "flower_bud"
+    FLOWER = "flower"
+    STEM = "stem"
+    WHOLE_PLANT = "whole_plant"
+
+
+class ClimactericClass(StrEnum):
+    """Post-harvest ripening behaviour of fruit (REQ-008, Plan WP-6d).
+
+    The third value is required: several species are genuine borderline cases.
+    """
+
+    CLIMACTERIC = "climacteric"  # ripens after harvest (apple, banana, tomato)
+    NON_CLIMACTERIC = "non_climacteric"  # does not ripen further (strawberry, citrus)
+    ATYPICAL = "atypical"  # contested / borderline (honeydew, blueberry, fig, pepper)
+
+
+class DtmReference(StrEnum):
+    """Reference point for days_to_maturity (REQ-007, Plan WP-6c)."""
+
+    DIRECT_SEED = "direct_seed"
+    TRANSPLANT = "transplant"
 
 
 class StressTolerance(StrEnum):

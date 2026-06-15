@@ -4,8 +4,12 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import (
+    ClimactericClass,
+    DtmReference,
     FrostTolerance,
     GrowthHabit,
+    HarvestedPart,
+    HarvestPattern,
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
@@ -72,6 +76,24 @@ class Cultivar(BaseModel):
     patent_status: str = ""
     seed_type: str = ""
     days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
+    # ── Ernte-Bezug (REQ-007, Plan WP-6) ──
+    dtm_reference: DtmReference | None = Field(
+        default=None,
+        description="Reference point for days_to_maturity (direct_seed vs. transplant) — "
+        "disambiguates the value, as the seed-industry convention differs.",
+    )
+    bearing_start_year_min: int | None = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Earliest standing year with a usable yield (perennial harvest pattern); a corridor.",
+    )
+    bearing_start_year_max: int | None = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Year of full yield (perennial harvest pattern) — rootstock/planting-stock dependent.",
+    )
     disease_resistances: list[str] = Field(default_factory=list)
     watering_guide_override: WateringGuide | None = None
     phase_watering_overrides: dict[str, int] | None = Field(
@@ -175,6 +197,21 @@ class Species(BaseModel):
     # so that timing and notes attach to the method, not to the whole species.
     propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
+    # ── Ernteverhalten (REQ-007, Plan WP-6) — orthogonal axes ──
+    harvest_pattern: HarvestPattern | None = Field(
+        default=None,
+        description="Lifetime harvest pattern (single/continuous/perennial). Distinct from the "
+        "per-event HarvestType; orthogonal to harvested_part.",
+    )
+    harvested_part: HarvestedPart | None = Field(
+        default=None,
+        description="The plant part that is harvested. Orthogonal to harvest_pattern.",
+    )
+    climacteric: ClimactericClass | None = Field(
+        default=None,
+        description="Post-harvest ripening behaviour of fruit (climacteric/non/atypical) — drives "
+        "ripen-after-harvest and storage logic.",
+    )
     # ── Anbaubedingungen (cultivation conditions) ──
     container_suitable: Suitability | None = None
     recommended_container_volume_l: str | None = None

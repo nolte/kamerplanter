@@ -2,12 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import CycleType, PhotoperiodType
+from app.common.enums import CycleType, FloweringStrategy, PhotoperiodType
 
 
 class LifecycleCreate(BaseModel):
     species_key: str
     cycle_type: CycleType = CycleType.ANNUAL
+    cultivation_cycle_type: CycleType | None = None
+    flowering_strategy: FloweringStrategy | None = None
     typical_lifespan_years: int | None = None
     dormancy_required: bool = False
     vernalization_required: bool = False
@@ -20,6 +22,8 @@ class LifecycleResponse(BaseModel):
     key: str
     species_key: str
     cycle_type: CycleType
+    cultivation_cycle_type: CycleType | None = None
+    flowering_strategy: FloweringStrategy | None = None
     typical_lifespan_years: int | None
     dormancy_required: bool
     vernalization_required: bool

@@ -125,7 +125,7 @@ $defs:
         type: array
         items:
           type: string
-          enum: [herb, shrub, tree, vine, groundcover]
+          enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
       common_pests:
         type: array
         items: { type: string }
@@ -164,7 +164,7 @@ $defs:
       genus: { type: string }
       growth_habit:
         type: string
-        enum: [herb, shrub, tree, vine, groundcover]
+        enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
       root_type:
         type: string
         enum: [fibrous, taproot, tuberous, bulbous, corm]
@@ -186,6 +186,19 @@ $defs:
         type: string
         enum: [sensitive, moderate, hardy, very_hardy]
       allows_harvest: { type: boolean }
+      # ── Ernteverhalten (REQ-007, Plan WP-6) ──
+      harvest_pattern:
+        type: [string, "null"]
+        enum: [single, continuous, perennial, null]
+        description: "Lifetime harvest pattern — distinct from the per-event HarvestType."
+      harvested_part:
+        type: [string, "null"]
+        enum: [fruit, seed, leaf, root, tuber, bulb, flower_bud, flower, stem, whole_plant, null]
+        description: "Harvested plant part. Orthogonal to harvest_pattern."
+      climacteric:
+        type: [string, "null"]
+        enum: [climacteric, non_climacteric, atypical, null]
+        description: "Post-harvest ripening behaviour of fruit (third value for genuine borderline cases)."
       sowing_indoor_weeks_before_last_frost:
         type: [integer, "null"]
       sowing_outdoor_after_last_frost_days:
