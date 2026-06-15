@@ -346,7 +346,7 @@ new_species:
     common_names: [Frauenhaarfarn, Delta Maidenhair Fern]
     genus: Adiantum
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Tropisches Amerika"
@@ -380,7 +380,7 @@ new_species:
     common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant]
     genus: Aechmea
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Brasilien (Atlantischer Regenwald)"
@@ -412,7 +412,7 @@ new_species:
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
     plant_category: tropical_foliage
-    growth_habit: vine
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
     native_habitat: "Südostasien (Malaysia, Thailand, Indonesien)"
@@ -515,8 +515,10 @@ new_species:
     common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant]
     genus: Aloe
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     hardiness_zones: [9b, 10a, 10b, 11a, 11b, 12a]
     native_habitat: "Arabische Halbinsel (vermutlich Oman, Jemen)"
     allelopathy_score: 0.0
@@ -712,7 +714,7 @@ new_species:
     common_names: [Nestfarn, Bird's Nest Fern]
     genus: Asplenium
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Tropisches Asien, Australien, Ostafrika"
@@ -845,7 +847,7 @@ new_species:
     common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids]
     genus: Cattleya
     plant_category: orchid
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Mittel- und Südamerika (Bergnebelwälder)"
@@ -878,7 +880,7 @@ new_species:
     common_names: [Leuchterblume, String of Hearts, Rosary Vine, Chain of Hearts]
     genus: Ceropegia
     plant_category: succulent_cactus
-    growth_habit: vine
+    growth_habit: succulent
     root_type: tuberous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Südafrika (KwaZulu-Natal, Eswatini)"
@@ -941,7 +943,7 @@ new_species:
     common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily]
     genus: Clivia
     plant_category: indoor_houseplant
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a]
     native_habitat: "Südafrika (KwaZulu-Natal, Ostkap)"
@@ -1009,6 +1011,9 @@ new_species:
     plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
     native_habitat: "Äthiopien, Jemen (tropisches Hochland)"
     allelopathy_score: 0.1
@@ -1041,7 +1046,7 @@ new_species:
     common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
     genus: Crassula
     plant_category: succulent_cactus
-    growth_habit: shrub
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Südafrika (Ostkap-Region)"
@@ -1110,7 +1115,7 @@ new_species:
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
     genus: Curio
     plant_category: succulent_cactus
-    growth_habit: vine
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b, 12a, 12b]
     native_habitat: "Südafrika (Namaqualand, Kapprovinz)"
@@ -1143,7 +1148,7 @@ new_species:
     common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen]
     genus: Cyclamen
     plant_category: indoor_houseplant
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a]
     native_habitat: "Mittelmeerraum, Naher Osten (Türkei, Israel)"
@@ -1175,7 +1180,7 @@ new_species:
     common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
     genus: Dendrobium
     plant_category: orchid
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Nepal, Indien, China, Myanmar, Thailand"
@@ -1243,7 +1248,7 @@ new_species:
     common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
     genus: Dracaena
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Angola, tropisches Afrika"

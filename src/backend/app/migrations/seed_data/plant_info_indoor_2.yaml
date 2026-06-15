@@ -338,7 +338,7 @@ new_species:
     common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
     genus: Dracaena
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Westafrika (Nigeria bis Kongo)"
@@ -407,7 +407,7 @@ new_species:
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
     genus: Echeveria
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Mexiko (Hidalgo)"
@@ -641,7 +641,7 @@ new_species:
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
     genus: Fittonia
     plant_category: tropical_foliage
-    growth_habit: groundcover
+    growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
     native_habitat: "Peru, Kolumbien (tropische Regenwaelder)"
@@ -831,7 +831,7 @@ new_species:
     common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
     genus: Gymnocalycium
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
     native_habitat: "Paraguay, Argentinien (Gran Chaco)"
@@ -869,7 +869,7 @@ new_species:
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Suedafrika (Eastern Cape)"
@@ -986,7 +986,7 @@ new_species:
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
     genus: Hippeastrum
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Suedamerika (tropisch und subtropisch)"
@@ -1179,7 +1179,7 @@ new_species:
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
     genus: Kalanchoe
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Madagaskar"
@@ -1218,7 +1218,7 @@ new_species:
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
     genus: Kalanchoe
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Madagaskar"
@@ -1256,7 +1256,7 @@ new_species:
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
     genus: Lithops
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: taproot
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Suedliches Afrika (Namibia, Suedafrika)"
@@ -1331,7 +1331,7 @@ new_species:
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
     genus: Mammillaria
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Mexiko, suedwestliche USA"

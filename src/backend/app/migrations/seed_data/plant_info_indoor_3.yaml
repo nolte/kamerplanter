@@ -98,7 +98,7 @@ new_species:
       - "Blushing Bromeliad"
     genus: Neoregelia
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -136,7 +136,7 @@ new_species:
       - "Sword Fern"
     genus: Nephrolepis
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -177,7 +177,7 @@ new_species:
       - "Angel Wings Cactus"
     genus: Opuntia
     plant_category: succulent_cactus
-    growth_habit: shrub
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -219,7 +219,7 @@ new_species:
       - "False Shamrock"
     genus: Oxalis
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
     hardiness_zones:
       - "6a"
@@ -304,7 +304,7 @@ new_species:
       - "Horseshoe Geranium"
     genus: Pelargonium
     plant_category: balcony_plant
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -375,7 +375,7 @@ new_species:
       - "Moth Orchid"
     genus: Phalaenopsis
     plant_category: orchid
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -489,7 +489,7 @@ new_species:
       - "Elkhorn Fern"
     genus: Platycerium
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -562,7 +562,7 @@ new_species:
       - "Mistletoe Cactus"
     genus: Rhipsalis
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9b"
@@ -682,7 +682,7 @@ new_species:
       - "Holiday Cactus"
     genus: Schlumbergera
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -720,7 +720,7 @@ new_species:
       - "Burro's Tail"
     genus: Sedum
     plant_category: succulent_cactus
-    growth_habit: vine
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9b"
@@ -957,7 +957,7 @@ new_species:
       - "Spanish Moss"
     genus: Tillandsia
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "8a"
@@ -997,7 +997,7 @@ new_species:
       - "Silver Inch Plant"
     genus: Tradescantia
     plant_category: indoor_houseplant
-    growth_habit: groundcover
+    growth_habit: herb
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -1038,7 +1038,7 @@ new_species:
       - "Flaming Sword"
     genus: Vriesea
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -1160,7 +1160,7 @@ new_species:
       - "Arum Lily"
     genus: Zantedeschia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     hardiness_zones:
       - "8a"

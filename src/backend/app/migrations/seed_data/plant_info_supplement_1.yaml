@@ -131,7 +131,7 @@ new_species:
   - scientific_name: "Dahlia x cultorum"
     common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]
     genus: Dahlia
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
     hardiness_zones: ["8a", "8b", "9a", "9b", "10a", "10b", "11a"]
