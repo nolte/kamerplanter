@@ -1,5 +1,7 @@
 # Spezifikation: REQ-029 - KI-basierte Pflanzenidentifikation
 
+> ⚠️ **Architektur-Korrektur (siehe REQ-029-A):** Dieses Dokument priorisiert **Plant.id (Kindwise)** als primären Dienst. Plant.id ist jedoch **pro Request kostenpflichtig** (kein dauerhafter Free-Tier) und verletzt damit die Vorgabe „keine Zusatzkosten für Endnutzer". Die verbindliche Ziel-Architektur ist **`REQ-029-A` (Self-Hosted DINOv2-Embedding-Matching + Referenzbild-Beschaffung)**: self-hosted primär, **Pl@ntNet-Free-Tier** als optionaler Fallback, **Plant.id nur als bewusstes Operator-Opt-in** (kein Default). Weiterhin gültig aus diesem Dokument: Adapter-Interface (§3.1), Adapter-Registry (§3.4), Consent `plant_identification` (§5), EXIF-Stripping (§5.4), Frontend-Dialog & Integration (§4), Request-Collections (§2). Grundlage: `spec/analysis/n-001-pflanzenerkennung-bilderkennung-research.md`.
+
 ```yaml
 ID: REQ-029
 Titel: KI-basierte Pflanzenidentifikation via Plant.id (Optional)
