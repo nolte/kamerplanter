@@ -894,6 +894,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Zentralasien (Kasachstan)"
     allelopathy_score: 0.0
@@ -935,6 +938,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Westasien"
     allelopathy_score: 0.0
@@ -975,6 +981,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Kultivierter Hybrid (Vorderasien/Kaukasus)"
     allelopathy_score: 0.0
@@ -1016,6 +1025,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Westasien, Europa"
     allelopathy_score: 0.0
@@ -1058,6 +1070,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Europa (West- und Mitteleuropa)"
     allelopathy_score: 0.0
@@ -1097,6 +1112,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Kaukasus"
     allelopathy_score: 0.0
@@ -1136,6 +1154,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Nordafrika, Westasien"
     allelopathy_score: 0.0
@@ -1177,6 +1198,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Asien"
     allelopathy_score: 0.0
@@ -1216,6 +1240,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
     allelopathy_score: 0.0
@@ -1256,6 +1283,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: atypical
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Nordamerika (oestliche USA, Kanada)"
     allelopathy_score: 0.0
@@ -1295,6 +1325,9 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Vorderasien, Kaukasus, Mittelmeerraum"
     allelopathy_score: 0.0
@@ -1338,6 +1371,8 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Vorderasien (Iran, Afghanistan)"
     allelopathy_score: 0.1
@@ -1379,6 +1414,8 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
     native_habitat: "Oestliches Mittelmeer, Westasien"
     allelopathy_score: 0.1
@@ -1419,8 +1456,10 @@ new_species:
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
     genus: Origanum
     plant_category: herb
-    growth_habit: herb
+    growth_habit: subshrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Mittelmeerraum, Europa, Westasien"
     allelopathy_score: 0.1
@@ -1462,6 +1501,8 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Oestliches Mittelmeergebiet, Kleinasien"
     allelopathy_score: 0.2
@@ -1504,6 +1545,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
     native_habitat: "Europa, Westasien"
     allelopathy_score: 0.0
@@ -1545,6 +1588,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: stem
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Zentralasien (China, Sibirien)"
     allelopathy_score: 0.0
@@ -1582,6 +1627,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Westasien (Persien)"
     allelopathy_score: 0.0

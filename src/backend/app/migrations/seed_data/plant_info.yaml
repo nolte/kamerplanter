@@ -47,7 +47,7 @@ new_species:
     common_names: [Dahlie, Dahlia, Garden Dahlia]
     genus: Dahlia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
     native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
@@ -93,7 +93,7 @@ new_species:
       - Peacock Flower
     genus: Tigridia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: corm
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
     native_habitat: "Mexiko, Guatemala, Kolumbien (2000-3000 m)"
@@ -139,6 +139,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: tuberous
+    harvest_pattern: single
+    harvested_part: root
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Mittelmeerraum, Vorderasien"
     allelopathy_score: 0.1

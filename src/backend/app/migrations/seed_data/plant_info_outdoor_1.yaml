@@ -123,8 +123,10 @@ new_species:
     common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
     genus: Allium
     plant_category: outdoor_vegetable
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
+    harvest_pattern: single
+    harvested_part: bulb
     native_habitat: "Zentralasien"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.3
@@ -175,8 +177,10 @@ new_species:
     common_names: ["Knoblauch", "Garlic"]
     genus: Allium
     plant_category: outdoor_vegetable
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
+    harvest_pattern: single
+    harvested_part: bulb
     native_habitat: "Zentralasien"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.4
@@ -273,6 +277,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: stem
     native_habitat: "Europa, Westasien, Nordafrika"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.1
@@ -366,6 +372,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     native_habitat: "Mittelmeerraum, Westeuropa"
     hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
     allelopathy_score: 0.0
@@ -459,6 +467,8 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: flower
     native_habitat: "Mittelmeerraum"
     hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a"]
     allelopathy_score: 0.1
@@ -552,6 +562,9 @@ new_species:
     plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     native_habitat: "Suedeuropa, Westasien"
     hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.0
@@ -645,6 +658,8 @@ new_species:
     plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: root
     native_habitat: "Nordamerika (oestliches USA)"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.0
