@@ -340,9 +340,13 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Adiantum raddianum"
-    propagation_methods: [spore, division]
-    propagation_months: [3, 4]
-    propagation_notes: "Teilung im Fruehjahr beim Umtopfen: Rhizom mit mind. 3–4 Wedeln und intakten Wurzeln abtrennen. Sporenvermehrung ist fuer Zimmerkultur wenig praktikabel (sterile Bedingungen, Monate bis Keimung). Geteilte Stuecke bei hoher Luftfeuchte (>70 %) und 22 °C einwachsen lassen — Zugluft und trockene Heizungsluft sind die haeufigsten Gruende fuer Misserfolg."
+    propagation_configs:
+      - method: spore
+        months: [3, 4, 5, 6]
+        notes: Sporen auf feuchtem Torf, warm und feucht halten
+      - method: division
+        months: [3, 4]
+        notes: Horst beim Umtopfen teilen
     common_names: [Frauenhaarfarn, Delta Maidenhair Fern]
     genus: Adiantum
     plant_category: tropical_foliage
@@ -374,9 +378,10 @@ new_species:
       max_ph: 7.8
 
   - scientific_name: "Aechmea fasciata"
-    propagation_methods: [offset]
-    propagation_months: [9, 10, 11]
-    propagation_notes: "Kindel (Seitentriebe) entstehen nach der Bluetephase an der Mutterpflanze. Abschneiden, wenn das Kindel mindestens 15 cm hoch ist und eigene Wurzeln zeigt — zu fruehes Abtrennen fuehrt zu hohen Ausfaellen. Kindel in Bromelienmix einzeln einpflanzen und bis zur Verwurzelung leicht feucht halten; die Mutterpflanze stirbt nach der Blüte langsam ab."
+    propagation_configs:
+      - method: offset
+        months: [9, 10, 11]
+        notes: Kindel nach der Blüte bei halber Mutterpflanzengröße trennen
     common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant]
     genus: Aechmea
     plant_category: tropical_foliage
@@ -406,9 +411,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Aeschynanthus radicans"
-    propagation_methods: [cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge (8–12 cm) im Fruehjahr unterhalb eines Blattpaares schneiden und in feuchten Anzuchtmix (Perlite/Torf 1:1) bei 22–25 °C bewurzeln. Minigewaechshaus oder Plastiktuete erhoehen die Luftfeuchte und verkuerzen die Bewurzelungszeit auf 3–5 Wochen. Triebe ohne Bluetenansatz liefern zuverlaessigere Bewurzelung."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
     plant_category: tropical_foliage
@@ -438,9 +444,12 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Aglaonema commutatum"
-    propagation_methods: [division, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Teilung beim Fruehjahrumtopfen ist die einfachste Methode: Seitentriebe mit eigenen Wurzeln vom Hauptstock abtrennen und einzeln einpflanzen. Kopfstecklinge (10–15 cm, mindestens 3–4 Blaetter) in Wasser oder feuchtem Perlite bei 22–25 °C bewurzeln. Achtung: Milchsaft reizt Haut und Schleimhaeute — Handschuhe tragen."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names: [Kolbenfaden, Chinese Evergreen]
     genus: Aglaonema
     plant_category: tropical_foliage
@@ -474,9 +483,12 @@ new_species:
 
   # Trade name, not a valid botanical binomial; syn. Alocasia 'Polly'
   - scientific_name: "Alocasia x amazonica"
-    propagation_methods: [division, offset]
-    propagation_months: [4, 5]
-    propagation_notes: "Teilung im Fruehjahr: Rhizomabschnitte mit mind. 1–2 Blaettern und eigenen Wurzeln abtrennen, Schnittflaechen mit Aktivkohle oder Zimtpulver behandeln und kurz antrocknen lassen. Tochterpflanzen (Kindel) an der Rhizombasis abloesen. Nach Teilung bei 22–25 °C und hoher Luftfeuchte (>70 %) aufstellen; die Pflanze reagiert empfindlich auf Kalte und Staunasse."
+    propagation_configs:
+      - method: division
+        months: [4, 5]
+      - method: offset
+        months: [4, 5]
+        notes: Knollenkindel beim Umtopfen abtrennen
     common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear]
     genus: Alocasia
     plant_category: tropical_foliage
@@ -509,9 +521,13 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Aloe vera"
-    propagation_methods: [offset, seed]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Kindel (Seitentriebe) vom Mutterstock abtrennen, wenn sie 8–10 cm Hoehe erreicht haben. Schnittflaechen 1–2 Tage antrocknen lassen, dann in gut durchlaessiges Sukkulentensubstrat setzen und erst nach 2 Wochen giesssen. Saat bei 20–22 °C moeglich, aber Keimung unsicher und Aufzucht langwierig (Jahre bis zur ersten Ernte)."
+    propagation_configs:
+      - method: offset
+        months: [5, 6, 7]
+        notes: Kindel mit eigenen Wurzeln abtrennen
+      - method: seed
+        months: [3, 4, 5]
+        notes: Warmkeimer
     common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant]
     genus: Aloe
     plant_category: succulent_cactus
@@ -545,9 +561,13 @@ new_species:
       max_ph: 8.5
 
   - scientific_name: "Anthurium andraeanum"
-    propagation_methods: [division, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Teilung beim Umtopfen im Fruehjahr: Seitentriebe mit mind. 2–3 Blaettern und eigenen Luftwurzeln abtrennen. Kopfstecklinge mit mehreren Blaettern in feuchtem Anzuchtmix (Orchideenmix + Perlite) bei 22–26 °C und 70–80 % Luftfeuchte bewurzeln. Alle Pflanzenteile enthalten Calciumoxalatkristalle — Handschuhe tragen und Kontakt mit Schleimhaeuten vermeiden."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Kopfsteckling mit Luftwurzeln
     common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
     genus: Anthurium
     plant_category: tropical_foliage
@@ -581,9 +601,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Aphelandra squarrosa"
-    propagation_methods: [cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge (8–12 cm) mit 2–3 Blaetterparen nach der Bluete im Fruehjahr schneiden. Anzucht in feuchtem Perlite/Torf-Gemisch unter Folie oder Minigewaechshaus bei 24–26 °C Bodenwaerme und mind. 70 % Luftfeuchte. Ohne Bodenwaerme und Luftfeuchte sehr schlechte Bewurzelungsrate; Stecklinge faellen gerne bei Kaltezug."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
     genus: Aphelandra
     plant_category: tropical_foliage
@@ -613,9 +634,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Ardisia crenata"
-    propagation_methods: [seed, cutting]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Saat frisch nach der Beerenreife: Fruchtfleisch entfernen, Samen unmittelbar ausstellen und bei 18–22 °C und Bodenwaerme keimen lassen (4–8 Wochen). Kopfstecklinge (8–10 cm) im Fruehjahr in feuchtem Anzuchtsubstrat unter Folie bewurzeln; Bewurzelungszeit 6–10 Wochen. Aeltere Samen verlieren schnell ihre Keimfaehigkeit."
+    propagation_configs:
+      - method: seed
+        months: [5, 6, 7]
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: semi_hardwood
     common_names: [Spitzblume, Korallenbeere, Coralberry, Christmas Berry]
     genus: Ardisia
     plant_category: indoor_houseplant
@@ -645,9 +669,12 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Asparagus setaceus"
-    propagation_methods: [division, seed]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Teilung im Fruehjahr beim Umtopfen ist die sicherste Methode: Wurzelballen mit Messer teilen, je Abschnitt mehrere Triebe behalten. Saat nach der Beerenreife moeglich: Fruchtfleisch abwaschen, Samen bei 20–22 °C und Bodenwaerme ausstreuen (Keimzeit 3–6 Wochen). Stachelige Triebe — Handschuhe empfehlenswert. Direkte Sonne verbrennt die feinen Nadeln."
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+      - method: seed
+        months: [3, 4, 5]
+        notes: Saat vorquellen
     common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
     genus: Asparagus
     plant_category: tropical_foliage
@@ -677,9 +704,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Aspidistra elatior"
-    propagation_methods: [division]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Teilung beim Fruehjahrumtopfen: Rhizom mit scharfem Messer so schneiden, dass jeder Abschnitt mind. 2–3 Blaetter und intakte Wurzeln hat. Schnittwunden antrocknen oder mit Aktivkohle bestreuen. Einwurzelung dauert lange (8–12 Wochen) — Geduld ist noetig, da die Schusterpalme generell langsam waechst."
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: Rhizom mit mind. zwei Blättern je Teilstück
     common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
     genus: Aspidistra
     plant_category: indoor_houseplant
@@ -709,8 +737,10 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Asplenium nidus"
-    propagation_methods: [spore]
-    propagation_notes: "Sporenvermehrung ist die einzige vegetative Methode, aber fuer die Zimmerkultur anspruchsvoll: Sporentraegende Wedel abschneiden, Sporen auf sterile Torferde streuen und unter Glas oder Folie bei 22–25 °C und sehr hoher Luftfeuchte halten. Keimung nach 4–12 Wochen, Prothallien koennen mit Giesskanne besprueht werden. Bis zur erkennbaren Jungpflanze vergehen 6–12 Monate."
+    propagation_configs:
+      - method: spore
+        months: [3, 4, 5, 6]
+        notes: Sporen warm und konstant feucht
     common_names: [Nestfarn, Bird's Nest Fern]
     genus: Asplenium
     plant_category: tropical_foliage
@@ -739,9 +769,13 @@ new_species:
       max_ph: 6
 
   - scientific_name: "Beaucarnea recurvata"
-    propagation_methods: [seed, offset]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Saat bei 25–28 °C in mageres, gut durchlaessiges Substrat (Kakteenerde + Perlite): Samen nur leicht andrücken, nicht bedecken, Keimzeit 2–6 Wochen. Kindel bilden sich am Stammfuss und koennen abgetrennt werden, wenn sie 15–20 cm hoch sind — Schnittflaechen antrocknen lassen. Jungpflanzen aus Saat wachsen extrem langsam; der charakteristische Caudex bildet sich erst nach Jahren."
+    propagation_configs:
+      - method: seed
+        months: [5, 6, 7]
+        notes: Warmkeimer
+      - method: offset
+        months: [5, 6, 7]
+        notes: Seitentriebe abtrennen
     common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree]
     genus: Beaucarnea
     plant_category: succulent_cactus
@@ -770,9 +804,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Begonia rex-cultorum"
-    propagation_methods: [leaf_cutting, division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Blattstecklinge sind die Standardmethode: ganzes Blatt mit Stiel in feuchten Anzuchtmix stecken oder Blattspreite in 4–5 cm grosse Stuecke schneiden und flach auf feuchtem Perlite auslegern — je Stueck an der Blattrippe einschneiden. Bei 20–24 °C unter Folie bilden sich nach 4–6 Wochen Juengpflanzen. Zu nasses Substrat foerdert Faeulnis — Substrat nur leicht feucht halten."
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Blattschnittling mit angeschnittenen Adern
+      - method: division
+        months: [4, 5, 6]
+        notes: Rhizom teilen
     common_names: [Blattbegonie, Königsbegonie, Rex Begonia, Painted-Leaf Begonia]
     genus: Begonia
     plant_category: tropical_foliage
@@ -804,9 +843,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Begonia semperflorens"
-    propagation_methods: [seed, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Lichtkeimer: Samen nur auf feuchte Aussaaterde streuen, nicht bedecken, und bei 22–24 °C unter Glas keimen lassen (Keimzeit 2–3 Wochen). Fuer Balkonpflanzen ist Voranzucht ab Januar noetig (lange Anzuchtzeit). Kopfstecklinge (5–8 cm) bewurzeln leicht in Wasser oder feuchtem Perlite; praktisch fuer die Ueberwinterung empfindlicher Sorten."
+    propagation_configs:
+      - method: seed
+        months: [1, 2, 3]
+        notes: Lichtkeimer, feines Saatgut nicht bedecken
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names: [Eisbegonie, Gottesauge, Wax Begonia, Bedding Begonia]
     genus: Begonia
     plant_category: balcony_plant
@@ -841,9 +884,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Cattleya hybrida"
-    propagation_methods: [division, offset]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Teilung nach der Bluete: Rhizom mit scharfer, desinfizierter Klinge so schneiden, dass jeder Abschnitt mind. 3–4 Pseudobulben (davon mind. 1–2 mit Blaettern) hat. Schnittstellen mit Zimtpulver oder Fungizid behandeln. Keikis (Kindel an Pseudobulben) abloesen, wenn sie 3–5 cm eigene Wurzeln haben — vorher abtrennen fuehrt zu Ausfaellen."
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: Bei Neutrieb teilen, mind. drei Bulben je Teilstück
+      - method: offset
+        months: [3, 4, 5]
+        notes: Keiki/Rückbulben abtrennen
     common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids]
     genus: Cattleya
     plant_category: orchid
@@ -874,9 +921,15 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Ceropegia woodii"
-    propagation_methods: [cutting, tuber, seed]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Stecklinge (2–3 Blattpaare) in Wasser oder feuchtem Perlite bei 22–25 °C bewurzeln — funktioniert sehr zuverlaessig innerhalb von 3–4 Wochen. Harte Knoellenchen (Luftknoellen) entlang der Ranken koennen direkt auf feuchtes Substrat gelegt und leicht angedrueckt werden. Saat ist moeglich, aber langsam und unzuverlaessiger; fuer Einsteiger Stecklinge empfohlen."
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+      - method: tuber
+        months: [5, 6, 7]
+        notes: Brutknöllchen an den Trieben bewurzeln
+      - method: seed
+        months: [4, 5, 6]
     common_names: [Leuchterblume, String of Hearts, Rosary Vine, Chain of Hearts]
     genus: Ceropegia
     plant_category: succulent_cactus
@@ -906,8 +959,10 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Chamaedorea elegans"
-    propagation_methods: [seed]
-    propagation_notes: "Frische Samen (schwarze, reife Beeren, Fruchtfleisch abwaschen) bei 26–28 °C in feuchtem Torf-Perlite-Mix keimen lassen: Keimzeit 3–6 Monate. Samen verlieren schnell ihre Keimfaehigkeit — nur frische Ware verwenden. Getrocknete oder laenger gelagerte Handelssaat keimt oft nur schwach. Jungpflanzen benoetigen Schattierung und hohe Luftfeuchte."
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Warmkeimer, frisches Saatgut
     common_names: [Bergpalme, Mexikanische Bergpalme, Parlour Palm, Neanthe Bella Palm]
     genus: Chamaedorea
     plant_category: tropical_foliage
@@ -937,9 +992,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Clivia miniata"
-    propagation_methods: [division, seed]
-    propagation_months: [5, 6]
-    propagation_notes: "Teilung nach der Bluete im Fruehjahr: Seitentriebe (Kindel) abloesen, wenn sie mind. 15–20 cm hoch sind und 4–5 eigene Blaetter haben — zu frueh getrennnte Kindel wachsen nur schlecht an. Saat aus frischen Beeren: Fruchtfleisch entfernen, Samen sofort in Torf-Sand-Mix legen und feucht bei 18–22 °C halten; Keimzeit 4–8 Wochen, Erstbluete nach 3–5 Jahren."
+    propagation_configs:
+      - method: division
+        months: [5, 6]
+        notes: Kindel nach der Blüte mit eigenen Wurzeln trennen
+      - method: seed
+        months: [5, 6]
+        notes: Frische Samen, Warmkeimer, langsam
     common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily]
     genus: Clivia
     plant_category: indoor_houseplant
@@ -971,9 +1030,14 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Codiaeum variegatum"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge (10–15 cm) im Fruehjahr schneiden, Milchsaft kurz ablaufen lassen, dann Schnittflaeche mit Aktivkohle behandeln. Anzucht unter Folie bei 24–28 °C Bodenwaerme und 80 % Luftfeuchte — ohne ausreichend Waerme schlechte Bewurzelungsrate. Abmoosing (Luftabsenker) ist bei dickeren Aesten sicherer: Rindenverletzung mit feuchtem Moos umwickeln und mit Folie abdichten."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Milchsaft abspülen, Bodenwärme
+      - method: layering
+        months: [5, 6, 7]
+        notes: Abmoosen bei kahlen Trieben
     common_names: [Croton, Wunderstrauch, Garden Croton, "Joseph's Coat"]
     genus: Codiaeum
     plant_category: tropical_foliage
@@ -1003,9 +1067,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Coffea arabica"
-    propagation_methods: [seed, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Saat mit frischen, nicht geroesteten Bohnen bei 22–26 °C in naehrstoffarmes, feuchtes Substrat (Keimzeit 4–10 Wochen); gehandelte 'Rohbohnen' verlieren schnell die Keimfaehigkeit. Halbholzstecklinge (10–12 cm, 2 Blattpaare) unter Folie mit Bodenwaerme (24–26 °C) bewurzeln; Bewurzelungszeit 8–12 Wochen. Stecklinge von diagonalen Seitentrieben bilden keine aufrechten Pflanzen — nur aus senkrechten Trieben schneiden."
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: Frisches Saatgut, Warmkeimer
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: semi_hardwood
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
     genus: Coffea
     plant_category: tropical_foliage
@@ -1040,9 +1108,15 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Crassula ovata"
-    propagation_methods: [cutting, leaf_cutting]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Kopf- oder Triebstecklinge (5–10 cm) mit scharfem Messer schneiden und 2–3 Tage antrocknen lassen, bevor sie in mageres Sukkulentensubstrat gesteckt werden. Blattstecklinge: ganzes, gesundes Blatt abdrehen und auf trockene Erde legen — Adventivwuerzeln und Juengpflanzen bilden sich an der Blattbasis nach 4–8 Wochen. Erst giesssen, wenn erkennbare Wurzeln gebildet wurden."
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: Schnittstelle antrocknen lassen
+      - method: leaf_cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: Einzelblatt antrocknen, dann auflegen
     common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
     genus: Crassula
     plant_category: succulent_cactus
@@ -1074,9 +1148,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Ctenanthe burle-marxii"
-    propagation_methods: [division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Teilung beim Fruehjahrumtopfen ist die einzige praktikable Methode: Wurzelballen vorsichtig auseinanderzupfen oder mit Messer trennen, je Abschnitt mind. 2–3 Blaetter und ausreichend Wurzeln behalten. Nach Teilung kurz welken lassen ist normal — Pflanze bei 22–24 °C und 70 % Luftfeuchte aufstellen und einige Tage nicht in direkte Sonne stellen."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: Horst beim Umtopfen teilen
     common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant]
     genus: Ctenanthe
     plant_category: tropical_foliage
@@ -1109,9 +1184,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Curio rowleyanus"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Stecklinge (5–10 cm Ranke) an einem trockenen Ort 1 Tag antrocknen lassen, dann waagerecht auf feuchtes Sukkulentensubstrat legen und leicht andrücken. Alternativ einfach Triebe auf die Erdoberflaeche des Mutterkubels legen — sie bewurzeln sich an den Nodien selbststaendig (natuerlicher Ableger). Sehr feuchtes Substrat oder Staunasse foerdert Faeulnis — sparsamste Bewurzelung bei trockenem Substrat."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Triebe auflegen, bewurzeln an den Nodien
+      - method: layering
+        months: [4, 5, 6]
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
     genus: Curio
     plant_category: succulent_cactus
@@ -1143,8 +1222,10 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Cyclamen persicum"
-    propagation_methods: [seed]
-    propagation_notes: "Saat im Juli–August fuer Bluete im naechsten Winter: Samen 12 Stunden in lauwarmem Wasser einweichen, dann 1 cm tief in Anzuchterde legen. Keimung bei 18 °C im Dunkeln nach 3–6 Wochen. Licht hemmt die Keimung — Abdeckung bis zum Auflaufen. Von der Saat bis zur ersten Bluete vergehen ca. 14–16 Monate; Fertigpflanzen kaufen ist fuer viele Hobbygaertner praktischer."
+    propagation_configs:
+      - method: seed
+        months: [8, 9, 10]
+        notes: Dunkelkeimer, kühle Spätsommeraussaat
     common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen]
     genus: Cyclamen
     plant_category: indoor_houseplant
@@ -1174,9 +1255,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Dendrobium nobile"
-    propagation_methods: [offset, division]
-    propagation_months: [5, 6]
-    propagation_notes: "Keikis (Kindel auf alten Pseudobulben) abloesen, wenn sie 3–4 cm eigene Wurzeln entwickelt haben — vorher abtrennen fuehrt zu Ausfaellen. Rhizomteilung nach der Bluete: je Abschnitt mind. 3–4 Pseudobulben, darunter aktive (gruene). Alle Schnittstellen mit Zimtpulver oder Aktivkohle behandeln. Benzinierte oder veraltete Pseudobulben koennen ebenfalls Keikis bilden — auf feuchtes Moos legen."
+    propagation_configs:
+      - method: offset
+        months: [5, 6]
+        notes: Keiki mit eigenen Wurzeln abtrennen
+      - method: division
+        months: [5, 6]
+        notes: Mind. drei bis vier Bulben je Teilstück
     common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
     genus: Dendrobium
     plant_category: orchid
@@ -1207,9 +1292,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Dieffenbachia seguine"
-    propagation_methods: [cutting, division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge (10–15 cm) oder Stammabschnitte (5–8 cm) in feuchtem Anzuchtmix bei 22–26 °C und 70 % Luftfeuchte bewurzeln. Stammabschnitte waagerecht auf Anzuchterde legen und leicht andrücken. WICHTIG: Alle Pflanzenteile enthalten Calciumoxalatkristalle und proteolytische Enzyme — Handschuhe und Schutzbrille tragen, Kontakt mit Mund und Augen unbedingt vermeiden."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Kopf- oder Stammstecklinge, Milchsaft reizend
+      - method: division
+        months: [4, 5, 6]
     common_names: [Dieffenbachie, Stumme Bohne, Dumb Cane, Leopard Lily]
     genus: Dieffenbachia
     plant_category: tropical_foliage
@@ -1242,9 +1331,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Dracaena angolensis"
-    propagation_methods: [cutting, division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Stammabschnitte (5–10 cm der zylindrischen Schosse) mit richtiger Polung in Sukkulentensubstrat stecken — verkehrt herum treiben sie nicht aus. Schnittflaechen 1–2 Tage antrocknen lassen. Rhizomteilung beim Umtopfen moeglich: je Abschnitt mind. 2–3 Sprosse behalten. Bewurzelung dauert 4–8 Wochen; sparlich giesssen bis neue Triebe sichtbar sind."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+      - method: division
+        months: [4, 5, 6]
     common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
     genus: Dracaena
     plant_category: succulent_cactus
@@ -1274,9 +1366,14 @@ new_species:
       max_ph: 8.5
 
   - scientific_name: "Dracaena marginata"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge (10–20 cm) im Fruehjahr in feuchtem Perlite oder Wasser bei 22–25 °C bewurzeln — zuverlaessig innerhalb von 4–8 Wochen. Auch Stammabschnitte (8–10 cm, richtige Polung beachten) treiben aus. Abmoosing bei zu kahl gewachsenen Staemmen: Rindenverletzung mit nassem Moos umwickeln und luftdicht mit Folie umhuellen bis Wurzeln sichtbar sind, dann abschneiden."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Kopf- und Stammstecklinge
+      - method: layering
+        months: [5, 6, 7]
+        notes: Abmoosen bei kahlen Stämmen
     common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree]
     genus: Dracaena
     plant_category: tropical_foliage

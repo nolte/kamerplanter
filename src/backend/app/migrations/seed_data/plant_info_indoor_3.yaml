@@ -50,9 +50,13 @@ new_species_family_map:
 # ──────────────────────────────────────────────
 new_species:
   - scientific_name: "Monstera adansonii"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge mit 1-2 Knoten und mindestens einem Luftwurzel-Ansatz im Fruehjahr in feuchtes Perlite oder Wasser bewurzeln; Bewurzelung dauert 4-6 Wochen bei 22-25 °C. Abmoosen gelingt zuverlaessig an traegen Trieben: Wundstelle mit feuchtem Moos umwickeln und in Folie einschlagen. Stecklinge kein Direktlicht, hohe Luftfeuchtigkeit und Waerme von unten (Heizkabel) foerdern die Wurzelbildung deutlich."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling mit Luftwurzel
+      - method: layering
+        months: [4, 5, 6]
     common_names:
       - "Adansonii"
       - "Fensterblatt"
@@ -89,9 +93,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Neoregelia carolinae"
-    propagation_methods: [offset]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kindel bilden sich seitlich an der Mutterpflanze nachdem diese begonnen hat zu bluehen (monokarpe Art). Ableger erst abtrennen, wenn sie ca. 8-10 cm gross sind und eigene Wurzeln zeigen. Mit einem scharfen, sterilen Messer dicht am Mutterstock abschneiden und einzeln in kleine Toepfe mit lockerer Bromelienerde einpflanzen; Rosettenzentrum nicht mit Erde bedecken."
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel nach der Blüte abtrennen
     common_names:
       - "Nestrosette"
       - "Karminrote Neoregelia"
@@ -126,9 +131,16 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Nephrolepis exaltata"
-    propagation_methods: [division, runner, spore]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Einfachste Methode ist die Teilung beim Fruehjahrumtopfen: Wurzelballen in gleichgrosse Segmente teilen, jedes Teilstuck muss mehrere Wedel und intakte Wurzeln haben. Auslaeufertriebe (Stolonen) koennen in kleine Toepfe neben der Mutterpflanze gesteckt und nach der Bewurzelung abgetrennt werden. Sporenanzucht ist moeglich, aber sehr zeitaufwaendig (6-12 Monate bis zum Saemling) und erfordert sterile Bedingungen sowie konstant hohe Feuchtigkeit."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: beim Umtopfen
+      - method: runner
+        months: [4, 5, 6]
+        notes: Ausläufer bewurzeln
+      - method: spore
+        months: [4, 5, 6]
+        notes: langwierig
     common_names:
       - "Schwertfarn"
       - "Nephrolepis"
@@ -167,9 +179,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Opuntia microdasys"
-    propagation_methods: [cutting, seed]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Padenstecklinge (ganze Glieder) mit dicken Handschuhen oder Papierzange abheben und 1-2 Wochen an einem hellen, trockenen Ort abtrocknen lassen, bis die Wunde gut verkorkt ist. Anschliessend aufrecht in trockenes Kakteensubstrat stecken und erst nach 2-3 Wochen sparsam angiessen. Achtung: Die winzigen Glochiden (Widerhaken-Borsten) haften sich unsichtbar in der Haut fest und sind schmerzhaft zu entfernen."
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        notes: Glied antrocknen lassen; Glochiden vorsichtig
+      - method: seed
+        months: [5, 6, 7]
     common_names:
       - "Hasenohr-Kaktus"
       - "Goldstachel-Kaktus"
@@ -209,9 +224,12 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Oxalis triangularis"
-    propagation_methods: [bulb, division]
-    propagation_months: [3, 4]
-    propagation_notes: "Nach der Dormanzperiode (Sommer) treibt die Pflanze aus kleinen Tochterzwiebelchen neu aus; diese koennen beim Umtopfen im Fruehjahr vorsichtig getrennt und einzeln ca. 2-3 cm tief in frische Erde gesetzt werden. Teilung des Wurzelballens ist ebenfalls moeglich, wenn mehrere Triebzentren vorhanden sind. Waehrend der Dormanz (trockene Ruhephase) keine Zwiebelchen wegwerfen, da sie unveraendert aussehendes Trockensubstrat enthalten koennen."
+    propagation_configs:
+      - method: bulb
+        months: [3, 4]
+        notes: Brutzwiebeln/Rhizomstücke
+      - method: division
+        months: [3, 4]
     common_names:
       - "Lila Sauerklee"
       - "Glücksklee"
@@ -256,9 +274,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pachira aquatica"
-    propagation_methods: [seed, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Frische Samen keimen am besten ohne langen Lagerungsverzug bei 25-28 °C in feuchtem Anzuchtsubstrat innerhalb von 1-2 Wochen; aeltere Samen verlieren schnell ihre Keimfaehigkeit. Stammstecklinge mit mindestens 2 Knoten im Fruehjahr nehmen und die Schnittstelle 30 Minuten antrocknen lassen, bevor sie in feuchte Perlite-Erde-Mischung gesteckt werden. Bewurzelung gelingt am besten unter einer Haube bei 25 °C und indirektem Licht innerhalb von 6-8 Wochen."
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: frisches Saatgut, warm
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: semi_hardwood
+        notes: Bodenwärme
     common_names:
       - "Glückskastanie"
       - "Malabar-Kastanie"
@@ -294,9 +317,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pelargonium zonale"
-    propagation_methods: [cutting, seed]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Kopfstecklinge von ca. 8-10 cm Laenge direkt in Topferde ohne Anzuchthilfe stecken; untere Blaetter entfernen und Stecklinge nicht bedecken, da Pelargonien bei Naesse leicht faulen. Samen fuer Bluehjahr im Januar/Februar unter Glas bei 20-22 °C aussaeen; Keimdauer 5-15 Tage, Vorzucht 14-16 Wochen noetig. Typischer Fehler: Stecklinge zu frueh giessen, bevor erste Wurzeln entstanden sind."
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5, 8]
+        wood_stage: herbaceous
+        notes: Kopfstecklinge ganzjährig in Wachstumsperiode
+      - method: seed
+        months: [2, 3, 4]
+        notes: Vorkultur ab Spätwinter
     common_names:
       - "Geranie"
       - "Zonalpelargonie"
@@ -329,9 +357,14 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Peperomia obtusifolia"
-    propagation_methods: [leaf_cutting, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Blatt- oder Kopfstecklinge in leicht feuchtes Perlite oder Kakteenerde stecken und mit einer Klarsichthaube abdecken, ohne dabei direkte Sonne. Bewurzelung nach 4-6 Wochen bei 22-24 °C. Blattstecklinge koennen auch mit dem Stiel ins Wasser gestellt werden, bis sich Wurzeln bilden. Haufigster Fehler ist zu feuchtes Substrat, das Faulnis foerdert; das Anzuchtmedium sollte nur leicht feucht, nie nass sein."
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Blatt mit Stiel
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names:
       - "Zwergpfeffer"
       - "Baby Rubber Plant"
@@ -366,9 +399,12 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Phalaenopsis hybrida"
-    propagation_methods: [offset, division]
-    propagation_months: [6, 7, 8]
-    propagation_notes: "Keikis (Kindel) erst abtrennen, wenn sie 2-3 eigene Wurzeln von mindestens 5 cm Laenge entwickelt haben; fruehzeitiges Abtrennen fuehrt zu schwachen Pflanzen. Teilung der Pflanze nur sinnvoll bei mehreren Wachstumspunkten und ist selten noetig. Schneidwerkzeug und Wunden immer mit Aktivkohle oder Zimtpulver behandeln, um Faeulnis und Virusinfektionen zu verhindern."
+    propagation_configs:
+      - method: offset
+        months: [6, 7, 8]
+        notes: Keiki abnehmen wenn bewurzelt
+      - method: division
+        months: [6, 7, 8]
     common_names:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
@@ -408,9 +444,13 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Philodendron hederaceum"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge mit 1-2 Knoten und vorhandenen Luftwurzeln im Fruehjahr in Wasser oder feuchtes Perlite bewurzeln; Bewurzelung in Wasser sichtbar und zuverlaessig nach 2-4 Wochen. Abmoosen an laengeren Trieben durch Einschneiden und Einwickeln mit feuchtem Moos moeglich. Stecklinge ohne Luftwurzeln brauchen Bodenwaerme (25 °C) und haeufiges Spruehen, damit keine Welke eintritt."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling
+      - method: layering
+        months: [4, 5, 6]
     common_names:
       - "Kletter-Philodendron"
       - "Herzblatt-Philodendron"
@@ -448,9 +488,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Pilea peperomioides"
-    propagation_methods: [offset, cutting]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Seitentriebe (Kindel) wachsen aus dem Hauptstamm oder an der Erdoberflaeche; diese erst abschneiden, wenn sie 5-8 cm gross sind und nach Moeglichkeit schon kleine Wurzeln zeigen. Abschnitt direkt in feuchte Einheitserde topfen und hell, aber ohne direkte Sonne stellen. Kopfstecklinge des Haupttriebs bewurzeln im Wasser gut, fuehren aber zum Verlust der Mutterform; Kindel sind daher die bevorzugte Methode."
+    propagation_configs:
+      - method: offset
+        months: [3, 4, 5]
+        notes: Kindel abtrennen
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
     common_names:
       - "Ufopflanze"
       - "Chinesischer Geldbaum"
@@ -479,9 +523,13 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Platycerium bifurcatum"
-    propagation_methods: [offset, spore]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Ableger (Seitenwedel mit eigenem Schildwedel) bilden sich am Rand der Mutterpflanze und koennen bei einer Groesse von ca. 5 cm vorsichtig abgetrennt und mit Woll- oder Gummifaden an einem Holzbrett oder in einem kleinen Koerbchen mit Sphagnum befestigt werden. Sporenvermehrung erfordert sterile Bedingungen, Feuchtigkeit und Monate Geduld bis zum sichtbaren Prothalluswachstum. Die Schildwedel unbedingt unbeschaedigt lassen, da sie die Pflanze verankern und naehren."
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel teilen
+      - method: spore
+        months: [4, 5, 6]
+        notes: Sporen langwierig
     common_names:
       - "Geweihfarn"
       - "Elchgeweihfarn"
@@ -518,9 +566,11 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Plectranthus verticillatus"
-    propagation_methods: [cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Triebspitzenstecklinge von 8-12 cm Laenge bewurzeln ausserordentlich leicht: Schnittflaeche kurz antrocknen lassen, dann in feuchte Erde stecken oder ins Wasser stellen, wo nach 1-2 Wochen schon Wurzeln sichtbar sind. Keine Haube noetig, da die Pflanze wenig welkt. Mehrere Stecklinge zusammen in einen Topf setzen fuer einen buschigen Habitus. Im Herbst geroettete Triebe durch Fruhjahrsschnitt und Neustecklinge erneuern."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: sehr leicht im Wasser
     common_names:
       - "Harfenstrauch"
       - "Schwedischer Efeu"
@@ -553,9 +603,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Rhipsalis baccifera"
-    propagation_methods: [cutting, seed]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Triebabschnitte von 10-15 cm Laenge 2-3 Tage antrocknen lassen und dann aufrecht oder liegend auf feuchtes Kakteensubstrat legen; bei hoher Luftfeuchtigkeit treiben Wurzeln innerhalb von 3-5 Wochen aus. Als Epiphyt braucht Rhipsalis kein tiefes Substrat – auch Sphagnum oder reines Perlite eignen sich gut. Samen aus reifen Beeren waschen, auf der Erdoberflaeche verteilen und nicht bedecken; Keimung bei 22-25 °C unter Folie."
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: Glieder antrocknen lassen
+      - method: seed
+        months: [5, 6, 7]
     common_names:
       - "Korallenkaktus"
       - "Binsenkaktus"
@@ -590,9 +644,14 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rhododendron simsii"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Halbverholzte Kopfstecklinge (5-8 cm) nach der Bluete (April-Mai) in saures, torfiges Anzuchtsubstrat (pH 4,5-5,0) stecken und mit Folie abdecken; Bewurzelung dauert 8-12 Wochen bei 20-22 °C. Substrat-pH ist entscheidend: normales Einheitssubstrat toetet die Wurzeln durch zu hohen pH. Abmoosen ist die sicherste Methode fuer Hobbygaertner, da die Bewurzelung am Mutterstock stattfindet und Verluste minimiert werden."
+    propagation_configs:
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     common_names:
       - "Zimmerazalee"
       - "Indische Azalee"
@@ -633,9 +692,13 @@ new_species:
       max_ph: 6
 
   - scientific_name: "Schefflera arboricola"
-    propagation_methods: [cutting, layering]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Kopfstecklinge mit 3-4 Blaettern im Fruehjahr nehmen, untere Blaetter entfernen und in leichtes, humoses Substrat stecken; Bewurzelung unter Folie bei 22-25 °C dauert 6-8 Wochen. Abmoosen empfiehlt sich bei aelteren, verholzten Pflanzen ohne Seitentriebe. Typischer Fehler: zu dunkler Standort und zu nasses Substrat waehrend der Bewurzelung fuehren zu Faeulnis; heller, indirekter Standort und maessige Feuchtigkeit sind entscheidend."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+      - method: layering
+        months: [4, 5, 6]
+        notes: Abmoosen bei verkahlten Pflanzen
     common_names:
       - "Kleine Strahlenaralie"
       - "Schefflera"
@@ -672,9 +735,11 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Schlumbergera truncata"
-    propagation_methods: [cutting]
-    propagation_months: [6, 7, 8]
-    propagation_notes: "Gliederabschnitte von 2-3 Segmenten nach der Bluete oder im Sommer abdrehen (nicht schneiden) und 1-2 Tage antrocknen lassen. Dann flach in kaum feuchtes Kakteensubstrat stecken und erst nach 3-4 Wochen vorsichtig angiessen, wenn erste Wurzeln zu spueren sind. Stecklinge zu feuchtes Substrat ist der haeufigste Fehler; trockenere Haltung und heller Standort ohne direkte Mittagssonne foerdern die Bewurzelung."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6, 7, 8]
+        wood_stage: herbaceous
+        notes: Glieder antrocknen lassen, nach Blüte
     common_names:
       - "Weihnachtskaktus"
       - "Gliederkaktus"
@@ -711,9 +776,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Sedum morganianum"
-    propagation_methods: [leaf_cutting, cutting]
-    propagation_months: [5, 6, 7]
-    propagation_notes: "Abgefallene oder vorsichtig abgezupfte Blaetter auf trockene Sukkulentenerde legen (nicht eingraben) und nicht begiessen, bis sich nach 2-4 Wochen kleine Rosettenrosetten zeigen. Triebstecklinge 3-5 Tage antrocknen lassen, bevor sie in trockenes Substrat gesteckt werden; erst nach 1-2 Wochen das erste Mal giessen. Die wachsigen Blaetter fallen beim kleinsten Beruehren ab, also Pflanze beim Vermehren nicht unnoetig bewegen."
+    propagation_configs:
+      - method: leaf_cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: abgefallene Blätter bewurzeln
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
     common_names:
       - "Eselsschwanz"
       - "Donkey's Tail"
@@ -751,9 +821,13 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Soleirolia soleirolii"
-    propagation_methods: [division, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Dichte Matten einfach in Portionen teilen und in feuchte Erde druecken; die Pflanze erfordert kaum Technik und waechst nach Teilung sehr schnell wieder zusammen. Kleine Triebbueschel lassen sich auch in Wasser wurzeln und dann auspflanzen. Wichtigster Erfolgsfaktor ist konstante Feuchtigkeit – kurze Austrocknung fuehrt zu braunen Flecken und dem Absterben ganzer Bereiche."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: Polster teilen
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names:
       - "Bubikopf"
       - "Baby's Tears"
@@ -791,9 +865,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stephanotis floribunda"
-    propagation_methods: [cutting, layering]
-    propagation_months: [1, 2, 3]
-    propagation_notes: "Halbverholzte Seitentriebstecklinge (8-10 cm) im Winter/Fruehjahr nehmen, alle Blaetter bis auf das oberste Blattpaar entfernen und in sandig-humoses Substrat stecken; Bodenwaerme von 25-28 °C und Abdeckung mit Folie sind entscheidend fuer die Bewurzelung innerhalb von 6-10 Wochen. Abmoosen ist zuverlaessiger und empfehlenswert fuer dicke Triebe. Achtung: Stecklinge von bluehenden Trieben bewurzeln schlechter; nicht-bluehende Seitentriebe bevorzugen."
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5, 6]
+        wood_stage: semi_hardwood
+        notes: halbreife Triebe, mit Bodenwärme
+      - method: layering
+        months: [5, 6, 7]
     common_names:
       - "Brautstrauch"
       - "Madagaskarjasmin"
@@ -827,9 +905,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Strelitzia reginae"
-    propagation_methods: [division, seed]
-    propagation_months: [9, 10]
-    propagation_notes: "Rhizomteilung beim Umtopfen (Herbst) mit einem scharfen Messer: Jedes Teilstuck muss mindestens 2-3 Blaetter und intakte Wurzeln haben; Schnittstellen mit Aktivkohle behandeln. Frische Samen (orangener Haarschopf sichtbar) nach Entfernung des Haarschopfs 24-48 Stunden einweichen und bei 25-28 °C aussaeen; Keimung dauert 1-6 Monate. Aus Samen gezogene Pflanzen bluehen erst nach 5-7 Jahren, aus Teilung nach 2-3 Jahren."
+    propagation_configs:
+      - method: division
+        months: [3, 4, 9, 10]
+        notes: Teilung nach Blüte
+      - method: seed
+        months: [3, 4]
+        notes: frische Samen, sehr langsam
     common_names:
       - "Paradiesvogelblume"
       - "Königin-Strelitzie"
@@ -868,9 +950,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Streptocarpus hybridus"
-    propagation_methods: [leaf_cutting, division]
-    propagation_months: [3, 4, 5]
-    propagation_notes: "Blattabschnitte quer in ca. 5-8 cm breite Stuecke teilen, die unteren senkrecht flach in Anzuchterde stecken (Unterseite nach unten) und leicht anfeuchten; Saemling erscheinen an der Basis innerhalb von 6-10 Wochen. Alternativ: Ein Blatt mit dem Mittelnerv halbieren und beide Blatthaefte mit der Schnittflaeche in die Erde druecken. Teilung der Mutterpflanze beim Umtopfen im Fruehjahr moglich, wenn mehrere Rosetten vorhanden sind."
+    propagation_configs:
+      - method: leaf_cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Blattquerschnitte oder Mittelrippe
+      - method: division
+        months: [3, 4, 5]
     common_names:
       - "Drehfrucht"
       - "Streptocarpus"
@@ -908,9 +994,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stromanthe sanguinea"
-    propagation_methods: [division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Beim Umtopfen im Fruehjahr den Wurzelballen vorsichtig in Abschnitte mit je mehreren Trieben teilen; ein scharfes Messer nur verwenden wenn noetig, da Reissen weniger Wunden verursacht als Schneiden. Jedes Teilstuck braucht intakte Wurzeln und mindestens 2-3 Blaetter. Nach der Teilung warm (mindestens 20 °C), schattig und hoch-luftfeucht halten und bis zum neuen Austrieb massig giessen."
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: beim Umtopfen teilen
     common_names:
       - "Stromanthe Triostar"
       - "Sanguinea"
@@ -948,9 +1035,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Tillandsia usneoides"
-    propagation_methods: [offset, cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Das Spanische Moos vermehrt sich fast von selbst: Einzelne Fadenstuecke von mindestens 10-15 cm Laenge abzupfen und an einem neuen Standort aufhaengen oder einfach herunterfallen lassen, wo sie sich weiterentwickeln. Als wurzellose Luftpflanze (Epiphyt) braucht sie kein Substrat, nur regelmaessiges Bespruefen mit weichem Wasser (2-3 mal pro Woche) und gute Luftzirkulation. Chlorhaltiges Leitungswasser schaedigt die Schuppen und hemmt die Naehrstoffaufnahme."
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Teilstücke abtrennen
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Strähnen teilen
     common_names:
       - "Spanisches Moos"
       - "Louisianamoos"
@@ -987,9 +1079,11 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Tradescantia zebrina"
-    propagation_methods: [cutting]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Triebspitzenstecklinge von 8-12 cm Laenge ins Wasser stellen; nach 5-10 Tagen sind Wurzeln sichtbar und der Ableger kann in Erde umgepflanzt werden. Alternativ direkt in Anzuchterde stecken, faellt mit Haube und feuchtem Substrat ebenfalls zuverlaessig an. Stecklinge aelter werdender Triebe sind erschlafft und gruenen schlechter ein; immer frische Triebspitzen verwenden. Mehrere Stecklinge pro Topf ergeben direkt einen vollen Habitus."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: sehr leicht im Wasser
     common_names:
       - "Dreimasterblume"
       - "Silbrige Tradescantie"
@@ -1029,9 +1123,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Vriesea splendens"
-    propagation_methods: [offset]
-    propagation_months: [7, 8, 9]
-    propagation_notes: "Kindel entwickeln sich nach der Bluete der monokarpen Mutterpflanze seitlich am Stamm. Ableger erst abtrennen, wenn sie ein Drittel der Muttergroesse erreicht haben und eigene Wurzeln zeigen (ca. 6-12 Monate nach dem Erscheinen). Mit einem scharfen Messer dicht am Mutterstock abschneiden, in kleine Toepfe mit lockerer Bromelienerde setzen und hell, aber nicht sonnig halten; die Trichtermitte darf kein stehendes Wasser enthalten, das faul wuerden kann."
+    propagation_configs:
+      - method: offset
+        months: [7, 8, 9]
+        notes: Kindel nach der Blüte abnehmen
     common_names:
       - "Flammendes Schwert"
       - "Vriesea"
@@ -1071,9 +1166,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Yucca elephantipes"
-    propagation_methods: [cutting, offset]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Stammabschnitte von 10-20 cm Laenge mit scharfem Messer schneiden, Schnittstellen 1-2 Tage trocknen lassen und aufrecht in trockenes, sandiges Substrat stecken; Bewurzelung dauert 4-8 Wochen bei 22-25 °C. Seitensprosse (Kindel) am Stammfuss koennen abgenommen und wie Stecklinge behandelt werden. Haeufiger Fehler: zu feuchtes Substrat und unzureichendes Licht fuehren zu Faeulnis; trockenes Substrat und volle Sonne beschleunigen die Bewurzelung."
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Stammstücke bewurzeln
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel abtrennen
     common_names:
       - "Yucca-Palme"
       - "Riesen-Palmlilie"
@@ -1111,9 +1211,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Zamioculcas zamiifolia"
-    propagation_methods: [leaf_cutting, division]
-    propagation_months: [4, 5, 6]
-    propagation_notes: "Einzelblaettchen von einem Fiederwedel abtrennen und ca. 1 cm tief aufrecht in trockenes Perlite oder Sukkulentenerde stecken; nach 3-6 Monaten bildet sich an der Blattstecklingsbasis ein kleines Rhizom, aus dem dann ein Neuaustrieb erscheint. Geduld ist entscheidend: sichtbarer Austrieb kann 6-12 Monate dauern. Rhizomteilung beim Umtopfen ist schneller, aber invasiver; jedes Teilstuck muss mindestens ein intaktes Wurzel- und Rhizomsegment besitzen."
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6, 7]
+        wood_stage: herbaceous
+        notes: Einzelblatt, langwierig (Knöllchenbildung)
+      - method: division
+        months: [4, 5, 6]
+        notes: Rhizom teilen
     common_names:
       - "Zamioculcas"
       - "Glücksfeder"
@@ -1149,9 +1254,13 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Zantedeschia aethiopica"
-    propagation_methods: [rhizome_division, offset]
-    propagation_months: [7, 8, 9]
-    propagation_notes: "Rhizomteilung in der Ruhephase (Sommer/Herbst): Rhizom ausgraben, in Segmente mit je 1-2 Augen teilen und Schnittstellen mit Aktivkohle bestreuen, bevor sie in frisches Substrat gepflanzt werden. Tochterknollen (Beiknoellen) am Rhizomrand koennen abgenommen und separat eingetopft werden. Beide Methoden bei ca. 10 °C und mit wenig Wasser einlagern, bis im Herbst der neue Austrieb beginnt."
+    propagation_configs:
+      - method: rhizome_division
+        months: [7, 8, 9]
+        notes: Rhizom nach Ruhephase teilen
+      - method: offset
+        months: [7, 8, 9]
+        notes: Tochterknollen abtrennen
     common_names:
       - "Calla"
       - "Weiße Calla"

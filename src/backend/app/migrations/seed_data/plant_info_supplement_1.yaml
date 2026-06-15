@@ -48,10 +48,15 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [leaf_cutting, seed, division]
-    propagation_notes: "Ein gesundes Blatt dicht am Stiel abschneiden und senkrecht zur Haelfte in feuchtes Vermiculit oder Anzuchterde stecken; bei 22-24 Grad und indirektem Licht bewurzeln (6-8 Wochen). Saatgut ist sehr fein - auf der Erdoberflaeche ausstreuen, nicht bedecken, unter Folie keimen lassen. Teilung grosser Pflanzen beim Umtopfen moeglich; Staunasse vermeiden, da Wurzeln sehr faeulnisanfaellig."
-    propagation_months: [4, 5, 6]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Blattstecklinge (Usambaraveilchen)
+      - method: seed
+        months: [4, 5, 6]
+      - method: division
+        months: [4, 5, 6]
     container_suitable: "yes"
     recommended_container_volume_l: "1"
     min_container_depth_cm: 8
@@ -95,10 +100,11 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting]
-    propagation_notes: "Kopfstecklinge mit 10-15 cm Laenge direkt unterhalb eines Blattknotens schneiden; unteren Blaetter entfernen und in Wasser oder feuchtes Perlite stellen. Bewurzelung innerhalb von 3-4 Wochen bei 20-24 Grad. Beim Schneiden Kontakt mit dem Milchsaft vermeiden - bei Hautkontakt oder Augenkontakt sofort mit Wasser spuelen (Calcium-Oxalat-Raphiden reizen Schleimhaeute)."
-    propagation_months: [4, 5, 6]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling
     container_suitable: "yes"
     recommended_container_volume_l: "5"
     min_container_depth_cm: 15
@@ -140,10 +146,14 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental, bee_friendly]
-    propagation_methods: [division, cutting]
-    propagation_notes: "Knollenballen im Fruehjahr nach dem Antreiben teilen - jedes Stueck muss mindestens ein Auge am Wurzelhals tragen (Augen sitzen NUR dort, nicht an den Knollen selbst). Stecklinge (Basalstecklinge) von 8-12 cm Laenge bei 18-20 Grad in sandig-lehmigem Substrat bewurzeln; nur sortenechte Klone ergeben identische Bluetenform. Knollen nach dem ersten Frost ausgraben und frostfrei einlagern."
-    propagation_months: [3, 4, 5]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: Knollen teilen, je Teil ein Auge am Wurzelhals
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Triebstecklinge von vorgetriebenen Knollen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited

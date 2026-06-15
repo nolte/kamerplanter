@@ -134,10 +134,12 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed, bulb]
-    propagation_notes: "Steckzwiebeln im März-April in Reihen setzen, Abstand 10 cm, Tiefe ca. 2 cm mit der Spitze nach oben. Aus Samen ist eine Voranzucht ab Februar möglich, aber langsamer. Nur gesunde, feste Steckzwiebeln verwenden – weiche oder schimmlige Exemplare verwerfen."
-    propagation_months: [3, 4]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: bulb
+        months: [3, 4]
+        notes: Steckzwiebeln im Frühjahr setzen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -188,10 +190,10 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, medicinal]
-    propagation_methods: [bulb]
-    propagation_notes: "Im Herbst (Oktober-November) die größten, gesunden Zehen einzeln 3–5 cm tief mit der Spitze nach oben stecken, Reihenabstand 25 cm. Nur Zehen aus krankheitsfreien, aromatisch riechenden Knollen verwenden. Der Kältereiz über den Winter ist für eine gute Knollenbildung im Folgejahr unerlässlich."
-    propagation_months: [10, 11]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: bulb
+        months: [10, 11]
+        notes: Zehen im Herbst stecken
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -239,10 +241,12 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [seed, division]
-    propagation_notes: "Horste im zeitigen Frühjahr (März-April) beim Austrieb ausgraben und mit dem Spaten teilen – jedes Teilstück benötigt mindestens 3 Triebe. Samen benötigen Kältestratifikation (4–6 Wochen bei 4 °C) vor der Keimung. Achtung: Alle Pflanzenteile enthalten Protoanemonin und reizen Haut und Schleimhäute."
-    propagation_difficulty: moderate
-    propagation_months: [3, 4]
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr oder Herbst, auch Wurzelschnittlinge
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -286,10 +290,12 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed, division]
-    propagation_notes: "Spargel wird am zuverlässigsten durch einjährige Kronen (Rhizome) vermehrt, die im März-April flach (15–20 cm tief) in vorbereitete Gräben gepflanzt werden. Die Samenvermehrung dauert 2–3 Jahre länger bis zur ersten Ernte. Geduld ist entscheidend: Im Pflanzjahr darf nicht geerntet werden, um die Kronen zu stärken."
-    propagation_months: [3, 4]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Wurzelstöcke im Frühjahr teilen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -336,10 +342,13 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [division, seed]
-    propagation_notes: "Die einfachste Methode ist die Teilung etablierter Horste im frühen Frühjahr (März-April) bei Austrieb: Horst ausgraben, mit dem Spaten in Stücke mit je mehreren Trieben teilen und sofort wieder einpflanzen. Reichlich wässern, bis die Teilstücke angewachsen sind. Astilben brauchen dauerhaft frischen, feuchten Boden – Trockenheit nach der Pflanzung ist der häufigste Misserfolgsgrund."
-    propagation_months: [3, 4]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr oder Herbst
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer, Lichtkeimer
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -381,9 +390,10 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von Mai bis Juli, 1 cm tief, Abstand 50 cm. Alternativ Voranzucht ab April unter Glas und Auspflanzung nach den Eisheiligen. Grünkohl verträgt leichten Frost und schmeckt nach dem ersten Frost (Umwandlung von Stärke zu Zucker) deutlich milder – daher Ernte erst ab Oktober bevorzugen."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: Aussaat für Herbst-/Winterernte
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -427,10 +437,11 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental, evergreen]
-    propagation_methods: [cutting]
-    propagation_notes: "Halbholzige Stecklinge im Juli-August schneiden: 8–10 cm lange Triebspitzen, untere Blätter entfernen, in Anzuchterde mit Quarzsand stecken und feucht halten. Bewurzelung dauert 4–6 Wochen; am besten unter Folie oder in einem Minigewächshaus bei 18–20 °C. Buchsbaum bewurzelt langsam – Geduld und gleichmäßige Feuchtigkeit sind entscheidend."
-    propagation_months: [7, 8]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [7, 8]
+        wood_stage: semi_hardwood
+        notes: Halbreife Stecklinge im Spätsommer
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -476,9 +487,10 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
     traits: [ornamental, medicinal, edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von März bis Mai und nochmals im September möglich – Ringelblume toleriert leichten Frost und keimt bereits ab 5 °C. Samen 0,5–1 cm tief säen, nicht zu dicht (30 cm Abstand). Regelmäßiges Ausputzen verwelkter Blüten (Deadheading) verlängert die Blüte und fördert erneute Samenbildung für Selbstaussaat."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat, Dunkelkeimer, auch Selbstaussaat
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -522,10 +534,14 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting, layering]
-    propagation_notes: "Weiche Stecklinge im Mai-Juni schneiden: 10–15 cm lange Triebspitzen mit 2 Internodien, untere Blätter entfernen, in Anzuchterde bei 18–20 °C bewurzeln. Für die Absenker einen bodennah verlaufenden Trieb im Mai eingraben (8–10 cm tief, Triebspitze freilassen) und nach der Bewurzelung im Herbst abtrennen. Die Schneidegruppe der Mutterpflanze bestimmt den Schnittzeitpunkt im Folgejahr."
-    propagation_months: [5, 6]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [5, 6]
+        wood_stage: semi_hardwood
+        notes: Internodien-Stecklinge
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -572,10 +588,15 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, ornamental]
-    propagation_methods: [seed, cutting, layering]
-    propagation_notes: "Halbholzige Stecklinge im Juli-August schneiden (10 cm), in Anzuchterde bei 18–20 °C bewurzeln. Für Absenker bodennah verlaufende Zweige im Frühjahr eingraben und nach Bewurzelung im Herbst abtrennen. Samen frisch ernten und sofort säen (Lichtkeimer, nicht abdecken) – sie keimen erst nach einer langen Kältestratifikation im Folgejahr."
-    propagation_months: [7, 8]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [9, 10]
+        notes: Kaltkeimer, Herbstaussaat, oft erst im 2. Jahr
+      - method: cutting
+        months: [7, 8]
+        wood_stage: semi_hardwood
+      - method: layering
+        months: [6, 7, 8]
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -618,10 +639,13 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [seed, division]
-    propagation_notes: "Samen im März-April in Anzuchtschalen bei 15–18 °C aussäen, leicht andrücken (Lichtkeimer). Etablierte Stauden im Frühjahr beim Austrieb teilen: Horst ausgraben, in Stücke mit je 3–5 Trieben teilen und sofort umpflanzen. Alle Pflanzenteile sind stark giftig – immer mit Handschuhen arbeiten und Kontakt mit Augen und Mund vermeiden."
-    propagation_months: [3, 4]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer, frisches Saatgut
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -667,10 +691,13 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental, medicinal]
-    propagation_methods: [seed, division]
-    propagation_notes: "Samen im März-April auf der Fensterbank aussäen (nicht abdecken, Lichtkeimer) und nach den Eisheiligen auspflanzen. Horste alle 3–4 Jahre im Frühjahr teilen: Mitte ausgraben und auf faustgroße Randsegmente mit je mehreren Trieben reduzieren. Echinacea toleriert Trockenheit gut – Staunässe im Winter ist der häufigste Ausfallgrund."
-    propagation_months: [3, 4]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer
+      - method: division
+        months: [3, 4]
+        notes: auch im Herbst möglich
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -708,9 +735,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht ab Februar-März in Multitopfplatten, Samen 1 cm tief, bei 15–18 °C keimen. Jungpflanzen im April-Mai in 15 cm tiefe Löcher pflanzen (Bleichen durch Anhäufeln). Porree benötigt einen langen Kulturzeitraum – frühe Aussaat und regelmäßige Düngung sind Voraussetzung für kräftige Schäfte."
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        notes: Voranzucht ab Februar, Auspflanzen ab Mai
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -726,10 +754,12 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, ornamental]
-    propagation_methods: [seed, division]
-    propagation_notes: "Aussaat von März bis Mai direkt ins Beet oder in Töpfe, 0,5 cm tief, mehrere Samen pro Stelle für dichte Büschel. Einfacher und schneller ist die Teilung etablierter Horste im Frühjahr oder Herbst: Büschel ausgraben, in kleinere Portionen teilen und sofort einpflanzen. Schnittlauch treibt nach jedem Schnitt erneut aus – nie tiefer als 3 cm über dem Boden abschneiden."
-    propagation_months: [3, 4]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Horst alle paar Jahre teilen
     container_suitable: "yes"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
@@ -747,9 +777,10 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von April bis Juli alle 3–4 Wochen für kontinuierliche Ernte, Samen 1–2 cm tief, Dill verträgt keinen Pikiervorgang. Nicht in Nähe von Fenchel oder Koriander säen (Kreuzbefruchtung, Wachstumshemmung). Dill schiesst bei Wärme und Trockenheit schnell in Samen – regelmäßig ernten verzögert das Schossen."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7]
+        notes: Direktsaat, verträgt kein Verpflanzen
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -765,10 +796,14 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [cutting, division]
-    propagation_notes: "Echter Estragon (var. sativus) bildet keinen keimfähigen Samen – Vermehrung ausschließlich vegetativ durch Stecklinge (April-Mai) oder Horst-Teilung alle 3 Jahre im Frühjahr. Stecklinge 8–10 cm, untere Blätter entfernen, in sandige Erde bei 18 °C bewurzeln. Russischer Estragon (var. inodorus) keimt aus Samen, hat aber deutlich schwächeres Aroma."
-    propagation_months: [4, 5]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [4, 5]
+        wood_stage: herbaceous
+        notes: Französischer Estragon nur vegetativ vermehrbar
+      - method: division
+        months: [4, 5]
+        notes: Frühjahr oder Herbst
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -783,9 +818,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von April bis Juli, Samen 2 cm tief, Abstand 10 cm. Da jeder Samenknäuel mehrere Keime enthält, müssen Sämlinge nach dem Auflaufen auf 10 cm vereinzelt werden. Beetrote wächst auch gut in tieferen Töpfen; gleichmäßige Feuchtigkeit verhindert Risse in der Knolle."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: Direktsaat ab April
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -802,9 +838,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht im April-Mai in Multitopfplatten bei 18–20 °C, nach den Eisheiligen auspflanzen (Abstand 60 cm). Blumenkohl ist sehr stickstoffhungrig und reagiert empfindlich auf Wassermangel – beides führt zu kleinen, losen Köpfen. Zum Schutz vor Vergilben der Köpfe die Außenblätter über dem Kopf zusammenbinden."
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Voranzucht und Auspflanzen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -821,9 +858,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht April-Mai, Auspflanzen nach den Eisheiligen in großem Abstand (60 cm) – Rosenkohl braucht viel Platz. Die Triebspitze im August kappen fördert gleichmäßige Röschen-Bildung. Frost verbessert den Geschmack erheblich (Umwandlung von Stärke zu Zucker), daher Ernte erst ab Oktober."
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Frühe Voranzucht für lange Kultur
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -839,9 +877,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Mehrere Sätze von April bis August möglich; Voranzucht 4–5 Wochen vor Auspflanzung bei 15–18 °C. Kohlrabi wächst schnell und sollte nicht zu tief gepflanzt werden – der Kohlrabi-Knollen sitzt oberirdisch. Ernte nicht zu spät: Knollen über 7 cm Durchmesser werden holzig."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6]
+        notes: Mehrere Sätze möglich
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -857,9 +896,9 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht von April bis Juni, Auspflanzung nach den Eisheiligen in 45 cm Abstand. Den Hauptkopf ernten, bevor die Knospen aufgehen – danach bilden sich kleinere Seitentriebe für eine zweite Ernte. Regelmäßige Stickstoffdüngung und gleichmäßige Bewässerung sind für große, kompakte Köpfe entscheidend."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -876,9 +915,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible, heat_tolerant]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht ab Februar-März, da Paprika eine sehr lange Anzuchtzeit von 10–12 Wochen benötigt. Keimtemperatur mindestens 25 °C (Bodenheizung empfohlen); Keimung dauert 2–3 Wochen. Auspflanzen erst nach den Eisheiligen Mitte Mai – Paprika ist äußerst frostempfindlich und braucht einen wärmsten, windgeschützten Platz."
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        notes: Frühe warme Voranzucht
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -899,9 +939,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible, medicinal]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von Mai bis Juni, 1 cm tief, später auf 25–30 cm vereinzeln. Chicorée wird bewusst im Sommer gesät, um das Schossen im Ansaatjahr zu vermeiden. Für Chicoree-Treiberei im Winter: Wurzeln im Oktober ausgraben, einlagern und ab Dezember bei 15–18 °C dunkel treiben – Lichtausschluss ist für die zarten, weißen Treib-Zapfen essenziell."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [5, 6]
+        notes: Direktsaat ab Mai
     container_suitable: limited
     indoor_suitable: limited
     balcony_suitable: limited
@@ -918,9 +959,10 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von April bis August alle 3–4 Wochen in Reihen, Samen 1 cm tief – Koriander verträgt keinen Pikiervorgang. Warmem, trockenem Wetter schiesst er rasch in Blüte; für Blatternte frühe Sorten und halbschattige Standorte bevorzugen. Die halbreifen Samen können frisch als Gewürz geerntet werden, vollreife Samen zum Trocknen am Stängel belassen."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7]
+        notes: Direktsaat, verträgt kein Verpflanzen
     container_suitable: "yes"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
@@ -937,9 +979,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht ab April in Einzeltöpfen bei 25 °C (Gurken bilden keine Pfahlwurzel und lassen sich schlecht pikieren), Auspflanzen nach den Eisheiligen. Direktsaat ab Mai möglich, dann 3–4 Samen je Stelle, später auf eine Pflanze ausdünnen. Gurken brauchen hohe Bodenwärme – Folientunnel oder schwarze Mulchfolie beschleunigen den Start."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Warme Voranzucht, frostempfindlich
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -961,9 +1004,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht ab Ende April in großen Einzeltöpfen (Wurzelballen nicht stören), Auspflanzen nach den Eisheiligen mit mindestens 175 cm Abstand. Samen hochkant in die Erde stecken (verhindert Fäulnis). Große Kürbisse brauchen viel Platz, Wärme und Wasser – je Pflanze nur 1–2 Früchte für maximale Größe stehen lassen."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Voranzucht ab April, Auspflanzen nach Eisheiligen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -984,9 +1028,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible, high_yield]
-    propagation_methods: [seed]
-    propagation_notes: "Voranzucht ab April in Einzeltöpfen bei 22–25 °C oder Direktsaat ab Mitte Mai (hochkant stecken). Auspflanzen nach den Eisheiligen, Abstand 90 cm. Zucchini produziert bei regelmäßiger Ernte (alle 2–3 Tage, wenn die Früchte 15–20 cm lang sind) über Monate – zu spät geerntete Früchte hemmen die Neubildung."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Voranzucht ab April, Auspflanzen nach Eisheiligen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -1005,9 +1050,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von März bis Juli in Reihen (30 cm Abstand), Samen 1 cm tief dünn ausstreuen, da sie schlecht keimen. Nach dem Auflaufen auf 5 cm vereinzeln – Konkurrenz hemmt die Wurzelentwicklung. Möhren keimen langsam (2–3 Wochen); Boden bis zur Keimung gleichmäßig feucht halten und nie austrocknen lassen."
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6]
+        notes: Direktsaat, Dunkelkeimer
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -1025,9 +1071,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_notes: "Direktsaat von Mai bis Juli an Ort und Stelle (Knollenfenchel verträgt keinen Pikiervorgang), 1 cm tief, Abstand 28 cm. Fenchel schiesst bei kühler Witterung oder Trockenheit schnell in Samen – nur bolzresistente Sorten verwenden. Wichtig: Fenchel abseitig vom übrigen Gemüse pflanzen, da seine ätherischen Öle das Wachstum vieler Nachbarn hemmen."
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat, Pfahlwurzel mag keine Verpflanzung
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
