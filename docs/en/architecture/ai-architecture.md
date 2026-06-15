@@ -507,15 +507,204 @@ backend:
 
 ---
 
+## Image Recognition (DINOv2) {#image-recognition-dinov2}
+
+This section describes the architecture of self-hosted plant identification (REQ-029-A). Plant identification is an optional, standalone component and does not affect the AI Assistant (RAG pipeline).
+
+### Core Principle: Embedding Matching Instead of Classification
+
+Recognition is not based on a classical image classifier with fixed output classes. Instead:
+
+1. The user photo is converted into an **embedding vector** (384 dimensions) by the DINOv2 model.
+2. This vector is matched against a **reference index** (also DINOv2 embeddings from curated species photos) via cosine similarity search.
+3. The most similar species are returned as a suggestion list.
+
+This nearest-neighbor matching is **few-shot capable**: only a few reference images per species are needed. New species can be added by providing reference images — no retraining required.
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend (React/MUI)"
+        PID[PlantIdentificationDialog]
+    end
+
+    subgraph "API Layer (FastAPI)"
+        RI["/api/v1/t/slug/identification/identify"]
+        RC["/api/v1/t/slug/identification/confirm"]
+        RS["/api/v1/t/slug/identification/status"]
+        RH["/api/v1/t/slug/identification/history"]
+    end
+
+    subgraph "Business Logic"
+        IS[IdentificationService]
+        EXIF[EXIF Strip]
+        CGATE[Consent Gate]
+    end
+
+    subgraph "Adapter Registry"
+        LEA["LocalEmbeddingAdapter<br/>(Priority 1)"]
+        PNA["PlantNetAdapter<br/>(Priority 2, Fallback)"]
+    end
+
+    subgraph "Inference Microservice (inference-service)"
+        ONNX["ONNX Runtime<br/>DINOv2 ViT-S/14"]
+        PRE["Preprocessing<br/>RGB → 224×224 → ImageNet Norm"]
+        MATCH["POST /match<br/>Embedding → Top-k species"]
+        EMBED["POST /embed(batch)<br/>Reference images → vectors"]
+    end
+
+    subgraph "Data Layer"
+        PGV[("pgvector<br/>species_embeddings<br/>HNSW, Cosine")]
+        ARD[("ArangoDB<br/>reference_image_jobs<br/>identification_requests")]
+    end
+
+    subgraph "Acquisition Pipeline (Celery)"
+        GBIF["GBIF Media API<br/>CC0/CC-BY filter"]
+        ACQ["acquire_reference_images_task"]
+    end
+
+    PID -->|"multipart photo + organ"| RI
+    RI --> IS
+    IS --> EXIF
+    IS --> CGATE
+    IS --> LEA
+    CGATE --> PNA
+
+    LEA -->|"HTTP internal"| MATCH
+    MATCH --> PRE
+    PRE --> ONNX
+    ONNX -->|"Vector 384-dim"| PGV
+    PGV -->|"Top-k species_key + score"| MATCH
+
+    ACQ --> GBIF
+    GBIF -->|"licence-filtered images"| EMBED
+    EMBED --> PRE
+    ONNX --> PGV
+    ACQ --> ARD
+```
+
+### Adapter Registry and Fallback Chain
+
+The `IdentificationAdapterRegistry` follows the same pattern as the `ExternalSourceAdapterRegistry` from REQ-011:
+
+| Priority | Adapter | Prerequisite | Privacy |
+|:--------:|---------|-------------|---------|
+| 1 | `LocalEmbeddingAdapter` | `INFERENCE_SERVICE_ENABLED=true`, index populated | Photo stays on the instance |
+| 2 | `PlantNetAdapter` | Pl@ntNet key + user consent `plant_identification` | Photo sent to Pl@ntNet (France, EU) |
+
+The fallback chain activates when the `LocalEmbeddingAdapter` returns a confidence below the `CONFIDENCE_AUTO_ACCEPT` threshold (default: 0.85) — or when `INFERENCE_SERVICE_ENABLED=false`.
+
+```python
+# Pseudocode — IdentificationService.identify()
+result = await local_adapter.identify(image_bytes, organ=organ)
+
+if result.top_confidence < settings.confidence_auto_accept:
+    if plantnet_adapter.available and user_has_consent("plant_identification"):
+        plantnet_result = await plantnet_adapter.identify(image_bytes, organ=organ)
+        result = merge_results(result, plantnet_result)
+```
+
+### Preprocessing Contract
+
+> **Critical:** Reference images and user photos must be preprocessed **identically**. Any deviation renders the matching unusable.
+
+```python
+# src/inference-service/app/preprocessing.py — binding for both index AND query
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD  = (0.229, 0.224, 0.225)
+INPUT_SIZE    = 224  # Multiple of DINOv2 patch size 14
+
+# Steps (both paths):
+# 1. EXIF strip + RGB conversion (apply orientation)
+# 2. Resize: shorter edge to INPUT_SIZE, then center-crop INPUT_SIZE×INPUT_SIZE
+# 3. /255.0, (x − MEAN) / STD
+# 4. HWC → CHW, batch dim, float32
+```
+
+### Model Selection
+
+| Variant | Parameters | Embedding dim | Footprint | Status |
+|---------|:----------:|:-------------:|-----------|--------|
+| DINOv2 ViT-S/14 | ~21 M | 384 | CPU, fast | **MVP default** |
+| DINOv2 ViT-B/14 | ~86 M | 768 | CPU ok, more accurate | Upgrade path |
+| DINOv2 ViT-L/14 | ~300 M | 1024 | GPU recommended | On demand |
+
+**Binding:** Only the Apache-2.0-licensed base backbone (`facebookresearch/dinov2`) is used. PlantCLEF fine-tuned weights (CC-BY-NC) are explicitly excluded.
+
+### Reference Image Acquisition Pipeline
+
+The pipeline runs as a Celery task (`acquire_reference_images_task`) and is idempotent:
+
+```
+For each species (scientific_name) from REQ-001 master data:
+  1. GBIF Occurrence/Media API → candidate images with licence metadata
+  2. Licence filter: ONLY CC0 / CC-BY → discard CC-BY-NC, CC-BY-SA, unknown
+  3. Quality curation: min. 224px, aspect ratio ≤ 3:1
+  4. EXIF strip → preprocessing contract → inference-service /embed/batch
+  5. Embedding + provenance → pgvector (species_embeddings)
+  6. Coverage report → ArangoDB (reference_image_jobs)
+  NO original image is stored.
+```
+
+### Confidence Calibration
+
+Cosine similarity is not a probability. The conversion to displayed confidence scores (0–100 %) uses calibrated thresholds derived from internal evaluation against the ~210 species:
+
+| Setting | Default | Meaning |
+|---------|:-------:|---------|
+| `CONFIDENCE_AUTO_ACCEPT` | 0.85 | Suggest species directly (high confidence) |
+| `CONFIDENCE_SHOW_RESULTS` | 0.10 | Minimum to appear in the list |
+| Below threshold | — | "Not identifiable" + offer fallback |
+
+### Data Model (pgvector)
+
+```sql
+-- Table: species_embeddings (in the kamerplanter_vectors schema)
+CREATE TABLE species_embeddings (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    species_key VARCHAR(128) NOT NULL,      -- Foreign key to ArangoDB species
+    scientific_name VARCHAR(256) NOT NULL,
+    organ       VARCHAR(64),               -- 'leaf' | 'flower' | 'fruit' | ...
+    embedding   vector(384) NOT NULL,      -- DINOv2 ViT-S/14
+    model       VARCHAR(64) NOT NULL,      -- 'dinov2_vits14'
+    source      VARCHAR(64) NOT NULL,      -- 'gbif' | 'wikimedia'
+    license     VARCHAR(64) NOT NULL,      -- 'CC0' | 'CC-BY'
+    attribution TEXT,                      -- Attribution (required for CC-BY)
+    source_url  TEXT,
+    indexed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- HNSW index for fast cosine similarity search
+CREATE INDEX idx_species_embeddings_hnsw
+    ON species_embeddings USING hnsw (embedding vector_cosine_ops);
+```
+
+### GDPR Compliance
+
+| Aspect | Measure |
+|--------|---------|
+| User photo not stored | Image held in RAM only during embedding computation |
+| EXIF strip | Applied before any processing (Pillow `getexif()`) |
+| Primary path local | No third-country transfer, no data processing agreement needed |
+| Fallback consent | Pl@ntNet use requires `plant_identification` consent (REQ-025) |
+| Reference image provenance | Source/licence/attribution stored in `species_embeddings` |
+
+---
+
 ## References
 
 - REQ-031 — AI Assistant & Plant Advisory (`spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md`)
+- REQ-029-A — Self-Hosted Image Recognition (`spec/req/REQ-029-A_Self-Hosted-Bilderkennung-Referenzbild-Beschaffung.md`)
 - REQ-011 — External Master Data Enrichment (`spec/req/REQ-011_Externe-Stammdatenanreicherung.md`)
 - REQ-025 — Privacy & GDPR (`spec/req/REQ-025_Datenschutz-Betroffenenrechte.md`)
 - [ADR-006 — Embedding Model E5-base and Hybrid Search](../adr/006-embedding-modell-e5-base-hybrid-search.md)
 - [ADR-007 — Cross-Encoder Re-Ranking for RAG Pipeline](../adr/007-cross-encoder-reranking.md)
 - [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md)
 - [AI Assistant](../user-guide/ai-assistant.md)
+- [Plant Identification (User Guide)](../user-guide/plant-identification.md)
+- [Setting Up Plant Identification (Deployment)](../deployment/inference-service.md)
 - [pgvector Documentation](https://github.com/pgvector/pgvector)
 - [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
 - [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+- [facebookresearch/dinov2](https://github.com/facebookresearch/dinov2)

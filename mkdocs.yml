@@ -106,6 +106,7 @@ plugins:
             Light-Modus: Light Mode
             KI-Assistent: AI Assistant
             KI-Provider einrichten: AI Provider Setup
+            Pflanzen-Bilderkennung: Plant Identification
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
@@ -137,6 +138,7 @@ plugins:
             Helm Charts: Helm Charts
             ArgoCD: ArgoCD
             CI/CD: CI/CD
+            Bilderkennung (Inferenz-Service): Setting Up Plant Identification
             Guides: Guides
             GDD-Berechnung: GDD Calculation
             VPD-Optimierung: VPD Optimization
@@ -261,6 +263,7 @@ nav:
       - Light-Modus: de/user-guide/light-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
+      - Pflanzen-Bilderkennung: de/user-guide/plant-identification.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
@@ -300,6 +303,7 @@ nav:
       - Helm Charts: de/deployment/helm.md
       - ArgoCD: de/deployment/argocd.md
       - CI/CD: de/deployment/ci-cd.md
+      - Bilderkennung (Inferenz-Service): de/deployment/inference-service.md
   - Guides:
       - de/guides/index.md
       - GDD-Berechnung: de/guides/gdd-calculation.md
