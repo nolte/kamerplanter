@@ -91,6 +91,7 @@ class ErasureEngine:
         "email_change_requests",
         "auth_providers",
         "refresh_tokens",
+        "identification_requests",
         "_pseudonymize_audit_collections",
         "users",
     ]

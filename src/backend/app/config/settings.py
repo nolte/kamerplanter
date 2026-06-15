@@ -46,6 +46,23 @@ class Settings(BaseSettings):
 
     gbif: GBIFSettings = GBIFSettings()
 
+    # REQ-029 / REQ-029-A Phase 1 — Plant identification (all optional)
+    # Pl@ntNet is the Phase-1 primary adapter (free tier, <=500/day).
+    plantnet_api_key: str = ""  # Pl@ntNet free API key; empty = adapter disabled
+    plantnet_base_url: str = "https://my-api.plantnet.org/v2"
+    # Plant.id remains an operator opt-in (no default, never auto-primary).
+    plant_id_api_key: str = ""  # Plant.id (Kindwise) — opt-in only
+    plant_id_base_url: str = "https://plant.id/api/v3"
+    # Config-driven adapter priority (REQ-029-A §0.1.1 point 1) — never hard-coded.
+    # Phase 2 switches this to "local_embedding" without touching engine/service/API.
+    identification_primary_adapter: str = "plantnet"
+    identification_http_timeout: int = 30
+    identification_confidence_auto_accept: float = 0.85
+    identification_confidence_min_show: float = 0.10
+    identification_max_image_size_mb: int = 5
+    # Per-user daily rate limit; 0 = use the adapter's own free-tier default.
+    identification_rate_limit_per_user_day: int = 0
+
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"

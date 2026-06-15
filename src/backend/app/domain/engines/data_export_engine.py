@@ -119,6 +119,20 @@ class DataExportEngine:
             label="Plant diary entries",
             fields=["plant_key", "entry_type", "title", "body", "logged_at"],
         ),
+        DataSourceDefinition(
+            collection="identification_requests",
+            filter_field="user_key",
+            label="Plant identification requests",
+            # image_hash is an internal dedup/audit value, not user-facing data.
+            fields=[
+                "adapter_key",
+                "image_organ",
+                "status",
+                "results",
+                "selected_result_rank",
+                "created_at",
+            ],
+        ),
     ]
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
