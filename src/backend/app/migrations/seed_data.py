@@ -276,6 +276,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         "balcony_suitable",
         "greenhouse_recommended",
         "support_required",
+        # Plant-properties fields (WP-5 / Phase A / WP-10) — keep existing rows in
+        # sync on re-seed, otherwise species.yaml species never receive them.
+        "growth_habit",
+        "propagation_configs",
+        "harvest_pattern",
+        "harvested_part",
+        "climacteric",
     )
 
     species_key_map: dict[str, str] = {}
