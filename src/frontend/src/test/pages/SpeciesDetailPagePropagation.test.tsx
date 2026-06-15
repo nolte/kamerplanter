@@ -93,7 +93,7 @@ describe('SpeciesDetailPage — propagation config editor', () => {
   });
 
   it('renders the existing propagation config row from the seeded species', async () => {
-    renderWithProviders(<SpeciesDetailPage />, { store: makeStore() });
+    renderWithProviders(<SpeciesDetailPage />, { store: makeStore(), route: '/#edit' });
 
     await waitFor(() => {
       expect(screen.getByTestId('propagation-config-0')).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('SpeciesDetailPage — propagation config editor', () => {
 
   it('adds a propagation method row', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<SpeciesDetailPage />, { store: makeStore() });
+    renderWithProviders(<SpeciesDetailPage />, { store: makeStore(), route: '/#edit' });
 
     await waitFor(() => {
       expect(screen.getByTestId('propagation-config-0')).toBeInTheDocument();
@@ -120,7 +120,7 @@ describe('SpeciesDetailPage — propagation config editor', () => {
 
   it('removes a propagation method row', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<SpeciesDetailPage />, { store: makeStore() });
+    renderWithProviders(<SpeciesDetailPage />, { store: makeStore(), route: '/#edit' });
 
     await waitFor(() => {
       expect(screen.getByTestId('propagation-config-0')).toBeInTheDocument();

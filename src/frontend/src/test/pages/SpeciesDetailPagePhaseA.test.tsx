@@ -94,6 +94,9 @@ describe('SpeciesDetailPage — Phase A harvest properties', () => {
   it('renders harvest_pattern, harvested_part and climacteric values for an expert', async () => {
     renderWithProviders(<SpeciesDetailPage />, {
       store: makeStore('expert', makeSpecies()),
+      // The harvest fields live on the Edit tab, which is no longer the default
+      // landing (U-1/U-2); deep-link to it via its hash slug.
+      route: '/#edit',
     });
 
     // intermediate fields
@@ -110,6 +113,7 @@ describe('SpeciesDetailPage — Phase A harvest properties', () => {
   it('offers a newly added growth_habit value (succulent) in the select', async () => {
     renderWithProviders(<SpeciesDetailPage />, {
       store: makeStore('intermediate', makeSpecies({ growth_habit: 'succulent' })),
+      route: '/#edit',
     });
 
     const growthHabit = await screen.findByTestId('form-field-growth_habit');
@@ -120,6 +124,7 @@ describe('SpeciesDetailPage — Phase A harvest properties', () => {
   it('hides the expert-only climacteric field from a beginner', async () => {
     renderWithProviders(<SpeciesDetailPage />, {
       store: makeStore('beginner', makeSpecies()),
+      route: '/#edit',
     });
 
     await waitFor(() => {
@@ -134,6 +139,7 @@ describe('SpeciesDetailPage — Phase A harvest properties', () => {
   it('shows intermediate harvest fields but hides the expert climacteric field for an intermediate', async () => {
     renderWithProviders(<SpeciesDetailPage />, {
       store: makeStore('intermediate', makeSpecies()),
+      route: '/#edit',
     });
 
     expect(await screen.findByTestId('form-field-harvest_pattern')).toBeInTheDocument();

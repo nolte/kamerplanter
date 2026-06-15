@@ -21,6 +21,7 @@ import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import EmptyState from '@/components/common/EmptyState';
 import * as api from '@/api/endpoints/species';
 import type { GrowingPeriod, HarvestPattern, PropagationConfig, Species } from '@/api/types';
 
@@ -577,33 +578,39 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
         </Card>
       )}
 
-      {/* Empty state */}
+      {/* Empty state (QW-6): shared EmptyState with a primary "add period" CTA.
+          The vegetative-only hint is surfaced as the EmptyState description. */}
       {periods.length === 0 && (
-        <Card variant="outlined" sx={{ mb: 3, textAlign: 'center', py: 4, px: 2 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: propagationConfigs.length > 0 && !hasSeedPropagation ? 1 : 0 }}
-          >
-            {t('pages.species.noPeriodsDefined')}
-          </Typography>
-          {propagationConfigs.length > 0 && !hasSeedPropagation && (
-            <Typography variant="caption" color="text.secondary">
-              {t('pages.species.noPeriodsVegetativeHint', { methods: propagationLabels })}
-            </Typography>
-          )}
-        </Card>
+        <EmptyState
+          message={t('pages.species.noPeriodsDefined')}
+          description={
+            propagationConfigs.length > 0 && !hasSeedPropagation
+              ? t('pages.species.noPeriodsVegetativeHint', { methods: propagationLabels })
+              : undefined
+          }
+          actionLabel={t('pages.species.addPeriod')}
+          onAction={handleAdd}
+        />
       )}
 
-      {/* Actions */}
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAdd}>
-          {t('pages.species.addPeriod')}
-        </Button>
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={saving}>
-          {t('common.save')}
-        </Button>
-      </Box>
+      {/* Actions — the "add period" CTA already lives in the empty state, so the
+          action bar (and the disabled "save" with nothing to save) is only shown
+          once at least one period exists (QW-6). */}
+      {periods.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAdd}>
+            {t('pages.species.addPeriod')}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {t('common.save')}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }
