@@ -20,8 +20,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import * as api from '@/api/endpoints/species';
-import type { GrowingPeriod, PropagationConfig, Species } from '@/api/types';
+import type { GrowingPeriod, HarvestPattern, PropagationConfig, Species } from '@/api/types';
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const CELL_MIN_W = 40;
@@ -101,6 +102,11 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const notification = useNotification();
   const { handleError } = useApiError();
+  const { isFieldVisible } = useExpertiseLevel();
+  // Progressive Disclosure (R-030): drag editing is held back for beginners; the
+  // numeric detail block (pre-culture weeks, days-after-frost) is expert-only.
+  const allowDrag = isFieldVisible('intermediate');
+  const showNumericDetails = isFieldVisible('expert');
   const [periods, setPeriods] = useState<GrowingPeriod[]>([]);
   const [saving, setSaving] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -155,6 +161,26 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
         return [...p.harvest_months, ...p.bloom_months].some((m) => sow.has(m));
       }),
     [periods],
+  );
+
+  // Lifespan heuristic (R-016 / R-002): `cycle_type` is not reliably available on
+  // `Species` today, so we infer "likely perennial" from the data instead of
+  // forcing a false linear "sow → harvest" sequence. The overlap itself is NOT a
+  // perennial signal here (that would be circular — the overlap is exactly what
+  // we want to frame). Instead we look for independent perennial markers:
+  //   • harvest_pattern === 'perennial' (explicit recurring harvest), or
+  //   • the species bears no harvest but blooms (typical of a perennial
+  //     ornamental whose bloom recurs on the established plant).
+  // When such a marker is present we frame an Aussaat∩Ernte/Blüte overlap as
+  // "normal for perennials" (R-020); for a clearly annual-looking species (no
+  // perennial marker) we do NOT downplay it but flag it for review (R-016 row 1).
+  // Documented as a heuristic (R-050 transparency); the clean fix is the E2
+  // lifespan split (spec §8).
+  const isLikelyPerennial = useMemo(
+    () =>
+      species.harvest_pattern === 'perennial' ||
+      (!species.allows_harvest && periods.some((p) => p.bloom_months.length > 0)),
+    [species.harvest_pattern, species.allows_harvest, periods],
   );
 
   useEffect(() => {
@@ -223,11 +249,34 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
     }
   };
 
+  // Plant-type-adaptive track visibility (§4). A track is hidden when it would be
+  // a *misinformation* rather than a neutral empty row (e.g. a harvest row on an
+  // ornamental reads as "never harvested"; a sow row on a strictly vegetatively
+  // propagated plant reads as "must be sown").
+  const showSowTrack = useMemo(
+    // R-013: show the sow track only if the species can be raised from seed
+    // (seed propagation config) OR sowing months are actually maintained. With
+    // purely vegetative propagation and no sow data the propagation track alone
+    // carries the timing.
+    () => hasSeedPropagation || periods.some((p) => p.direct_sow_months.length > 0),
+    [hasSeedPropagation, periods],
+  );
+  // R-010: hide the harvest track for non-harvestable (ornamental) species.
+  const showHarvestTrack = species.allows_harvest === true;
+
   const getBarKinds = useCallback(
     // Propagation first — it's a species-level, read-only summary row that frames
-    // the editable sow/growth/harvest/bloom timing below.
-    (): BarKind[] => ['propagation', 'sow', 'growth', 'harvest', 'bloom'],
-    [],
+    // the editable sow/growth/harvest/bloom timing below. Sow (R-013) and harvest
+    // (R-010) are conditional on the adaptive visibility above.
+    (): BarKind[] => {
+      const kinds: BarKind[] = ['propagation'];
+      if (showSowTrack) kinds.push('sow');
+      kinds.push('growth');
+      if (showHarvestTrack) kinds.push('harvest');
+      kinds.push('bloom');
+      return kinds;
+    },
+    [showSowTrack, showHarvestTrack],
   );
 
   const getMonthsForKind = useCallback(
@@ -299,6 +348,16 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
 
   const labelWidth = isMobile ? 100 : 150;
   const barKinds = getBarKinds();
+
+  // R-012: derive the section title from the tracks actually shown, so it never
+  // names a harvest that has no row. With harvest → "Sowing, Harvest & Bloom";
+  // without harvest but with sow → "Sowing & Bloom"; with neither (pure
+  // ornamental: only propagation + bloom) → "Propagation & Bloom".
+  const timingChartTitleKey = barKinds.includes('harvest')
+    ? 'pages.species.timingChartTitle'
+    : barKinds.includes('sow')
+      ? 'pages.species.timingChartTitleSowBloom'
+      : 'pages.species.timingChartTitlePropBloom';
 
   return (
     <Box sx={{ maxWidth: 1100 }}>
@@ -422,7 +481,7 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
               variant="subtitle2"
               sx={{ fontWeight: 600, mb: hasSowHarvestOverlap ? 0.5 : 1.5 }}
             >
-              {t('pages.species.timingChartTitle')}
+              {t(timingChartTitleKey)}
             </Typography>
             {hasSowHarvestOverlap && (
               <Typography
@@ -430,7 +489,14 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
                 color="text.secondary"
                 sx={{ display: 'block', mb: 1.5 }}
               >
-                {t('pages.species.sowHarvestOverlapHint')}
+                {/* R-016/R-002: only frame the overlap as "normal" when the
+                    heuristic suggests a perennial; otherwise flag it for review
+                    instead of downplaying a real annual-season contradiction. */}
+                {t(
+                  isLikelyPerennial
+                    ? 'pages.species.sowHarvestOverlapHint'
+                    : 'pages.species.sowHarvestOverlapHintAnnual',
+                )}
               </Typography>
             )}
             <Box sx={{ overflowX: 'auto' }}>
@@ -500,6 +566,9 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
                     onDragMove={handleBarDrag}
                     onDragEnd={() => setDragState(null)}
                     getMonthsForKind={getMonthsForKind}
+                    harvestPattern={species.harvest_pattern}
+                    allowDrag={allowDrag}
+                    showNumericDetails={showNumericDetails}
                   />
                 ))}
               </Box>
@@ -564,6 +633,11 @@ interface PeriodGanttRowsProps {
   ) => void;
   onDragEnd: () => void;
   getMonthsForKind: (period: GrowingPeriod, kind: BarKind) => number[];
+  harvestPattern: HarvestPattern | null;
+  /** Drag editing is enabled from `intermediate` upward (R-030). */
+  allowDrag: boolean;
+  /** Numeric detail fields (pre-culture weeks, days-after-frost) are expert-only (R-030). */
+  showNumericDetails: boolean;
 }
 
 function PeriodGanttRows({
@@ -583,6 +657,9 @@ function PeriodGanttRows({
   onDragMove,
   onDragEnd,
   getMonthsForKind,
+  harvestPattern,
+  allowDrag,
+  showNumericDetails,
 }: PeriodGanttRowsProps) {
   const periodLabel = period.label || `${t('pages.species.growingPeriods')} ${periodIdx + 1}`;
 
@@ -661,7 +738,11 @@ function PeriodGanttRows({
             onDragMove={onDragMove}
             onDragEnd={onDragEnd}
             fromYear={fromYear}
-            readOnly={kind === 'propagation'}
+            // Propagation is always read-only (R-006). For beginners, the
+            // editable tracks are shown but not draggable (R-030: "without edit
+            // handles in the foreground").
+            readOnly={kind === 'propagation' || !allowDrag}
+            harvestPattern={kind === 'harvest' ? harvestPattern : null}
           />
         );
       })}
@@ -681,7 +762,13 @@ function PeriodGanttRows({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(5, 1fr) auto' },
+              // R-030: the two numeric pre-culture fields are expert-only, so the
+              // md column count adapts (5 data fields + delete for experts, 3 + delete otherwise).
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr',
+                md: showNumericDetails ? 'repeat(5, 1fr) auto' : 'repeat(3, 1fr) auto',
+              },
               gap: 1.5,
               alignItems: 'start',
             }}
@@ -694,38 +781,44 @@ function PeriodGanttRows({
               fullWidth
               onClick={(e) => e.stopPropagation()}
             />
-            <TextField
-              label={t('pages.species.sowingIndoorWeeks')}
-              helperText={t('pages.species.sowingIndoorWeeksHelper')}
-              type="number"
-              value={period.sowing_indoor_weeks_before_last_frost ?? ''}
-              onChange={(e) =>
-                update(
-                  'sowing_indoor_weeks_before_last_frost',
-                  e.target.value ? Number(e.target.value) : null,
-                )
-              }
-              size="small"
-              fullWidth
-              slotProps={{ htmlInput: { min: 1, max: 26 } }}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <TextField
-              label={t('pages.species.sowingOutdoorDays')}
-              helperText={t('pages.species.sowingOutdoorDaysHelper')}
-              type="number"
-              value={period.sowing_outdoor_after_last_frost_days ?? ''}
-              onChange={(e) =>
-                update(
-                  'sowing_outdoor_after_last_frost_days',
-                  e.target.value ? Number(e.target.value) : null,
-                )
-              }
-              size="small"
-              fullWidth
-              slotProps={{ htmlInput: { min: 0, max: 90 } }}
-              onClick={(e) => e.stopPropagation()}
-            />
+            {/* R-030: numeric detail parameters (pre-culture weeks, days after last
+                frost) are expert-only progressive-disclosure fields. */}
+            {showNumericDetails && (
+              <TextField
+                label={t('pages.species.sowingIndoorWeeks')}
+                helperText={t('pages.species.sowingIndoorWeeksHelper')}
+                type="number"
+                value={period.sowing_indoor_weeks_before_last_frost ?? ''}
+                onChange={(e) =>
+                  update(
+                    'sowing_indoor_weeks_before_last_frost',
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                size="small"
+                fullWidth
+                slotProps={{ htmlInput: { min: 1, max: 26 } }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            {showNumericDetails && (
+              <TextField
+                label={t('pages.species.sowingOutdoorDays')}
+                helperText={t('pages.species.sowingOutdoorDaysHelper')}
+                type="number"
+                value={period.sowing_outdoor_after_last_frost_days ?? ''}
+                onChange={(e) =>
+                  update(
+                    'sowing_outdoor_after_last_frost_days',
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                size="small"
+                fullWidth
+                slotProps={{ htmlInput: { min: 0, max: 90 } }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
             <TextField
               label={t('pages.species.harvestFromYear')}
               helperText={t('pages.species.harvestFromYearHelper')}
@@ -798,6 +891,8 @@ interface BarRowProps {
   fromYear: number | null;
   /** Static, display-only bar — no drag handles, no resize cursor (e.g. propagation). */
   readOnly?: boolean;
+  /** Harvest pattern for the harvest track only (R-021); null for every other track. */
+  harvestPattern?: HarvestPattern | null;
 }
 
 function BarRow({
@@ -815,9 +910,46 @@ function BarRow({
   onDragEnd,
   fromYear,
   readOnly = false,
+  harvestPattern = null,
 }: BarRowProps) {
   const color = BAR_COLORS[kind];
   const gridRef = useRef<HTMLDivElement>(null);
+  // aria-live announcement (R-044): the new month range after a drag/keyboard
+  // edit, verbalised for screen-reader users via a visually-hidden polite region.
+  const [announcement, setAnnouncement] = useState('');
+
+  // R-021: differentiate the harvest bar by harvest pattern. `single` → a narrow,
+  // point-like bar (single harvest); `continuous`/`perennial` → the full-width
+  // continuous bar (multiple/recurring harvest). Only the harvest track is affected.
+  const isSingleHarvest = kind === 'harvest' && harvestPattern === 'single';
+  const harvestPatternTooltip =
+    kind === 'harvest' && harvestPattern
+      ? t(
+          harvestPattern === 'single'
+            ? 'pages.species.harvestPatternSingleTooltip'
+            : harvestPattern === 'continuous'
+              ? 'pages.species.harvestPatternContinuousTooltip'
+              : 'pages.species.harvestPatternPerennialTooltip',
+        )
+      : '';
+
+  // Human-readable range label for a range, e.g. "März–April" or "Mai".
+  const rangeText = useCallback(
+    (s: number, e: number): string =>
+      s === e
+        ? t(`pages.species.months.${s}`)
+        : `${t(`pages.species.months.${s}`)}–${t(`pages.species.months.${e}`)}`,
+    [t],
+  );
+
+  // Announce the full track range after an edit settles (R-044 aria-live).
+  const announceRanges = useCallback(
+    (rs: [number, number][]) => {
+      const range = rs.map(([s, e]) => rangeText(s, e)).join(', ');
+      setAnnouncement(t('pages.species.barRangeAnnouncement', { kind: kindLabel, range }));
+    },
+    [rangeText, t, kindLabel],
+  );
 
   const monthFromPointer = useCallback((clientX: number): number => {
     const grid = gridRef.current;
@@ -850,8 +982,34 @@ function BarRow({
   );
 
   const handlePointerUp = useCallback(() => {
+    // Announce the settled range (R-044). After a pointer drag the ranges prop is
+    // already updated for the next render, so verbalise the current ranges.
+    announceRanges(ranges);
     onDragEnd();
-  }, [onDragEnd]);
+  }, [onDragEnd, announceRanges, ranges]);
+
+  // R-044: keyboard resize of a handle. ArrowLeft/Right move the edge month by
+  // ∓1 using the exact same clamping logic as the pointer drag (start ≤ end ≤ 12,
+  // start ≥ 1), then announce the new range.
+  const handleHandleKeyDown = useCallback(
+    (e: React.KeyboardEvent, rangeIdx: number, edge: 'start' | 'end') => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const delta = e.key === 'ArrowRight' ? 1 : -1;
+      const [s, eMonth] = ranges[rangeIdx];
+      const current = edge === 'start' ? s : eMonth;
+      const target = Math.max(1, Math.min(12, current + delta));
+      onDragStart({ periodIdx, kind, rangeIdx, edge, originMonth: current });
+      onDragMove(periodIdx, kind, rangeIdx, edge, target);
+      onDragEnd();
+      // Reflect the clamped move in the announcement (mirror handleBarDrag clamps).
+      const next: [number, number] =
+        edge === 'start' ? [Math.min(target, eMonth), eMonth] : [s, Math.max(target, s)];
+      const updated = ranges.map((r, i) => (i === rangeIdx ? next : r));
+      announceRanges(updated);
+    },
+    [ranges, periodIdx, kind, onDragStart, onDragMove, onDragEnd, announceRanges],
+  );
 
   return (
     <>
@@ -948,27 +1106,49 @@ function BarRow({
               {inRange && (
                 <Tooltip
                   title={
-                    readOnly
-                      ? `${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)} — ${t('pages.species.barKindReadOnlyHint')}`
-                      : `${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)}`
+                    // R-042 base tooltip (kind + month range), plus R-007 read-only
+                    // hint and R-021 harvest-pattern note where applicable.
+                    `${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)}` +
+                    (readOnly ? ` — ${t('pages.species.barKindReadOnlyHint')}` : '') +
+                    (harvestPatternTooltip ? ` — ${harvestPatternTooltip}` : '')
                   }
                   arrow
                   disableInteractive
                 >
                   <Box
+                    // R-021 marker for assertions: which harvest rendering applies.
+                    data-bar-variant={
+                      kind === 'harvest' ? (isSingleHarvest ? 'single' : 'continuous') : undefined
+                    }
                     sx={{
-                      width: '100%',
+                      // R-021: a single (final) harvest renders as a narrow,
+                      // point-like bar centred in the cell; continuous/perennial
+                      // (and every non-harvest track) keep the full-width bar.
+                      width: isSingleHarvest ? '40%' : '100%',
+                      mx: isSingleHarvest ? 'auto' : 0,
                       height: BAR_H,
                       bgcolor: alpha(color, 0.75),
-                      borderRadius: `${isStart ? 4 : 0}px ${isEnd ? 4 : 0}px ${isEnd ? 4 : 0}px ${isStart ? 4 : 0}px`,
+                      borderRadius: isSingleHarvest
+                        ? '4px'
+                        : `${isStart ? 4 : 0}px ${isEnd ? 4 : 0}px ${isEnd ? 4 : 0}px ${isStart ? 4 : 0}px`,
                       position: 'relative',
                     }}
                   >
                     {/* Drag handles are omitted on read-only rows (e.g. propagation):
-                        the bar is purely visual and edited elsewhere. */}
+                        the bar is purely visual and edited elsewhere. The visible
+                        handle stays 8px wide; an invisible ::before overlay provides
+                        the ≥44×44px touch target (R-041) without widening the optic. */}
                     {!readOnly && isStart && (
                       <Box
+                        role="slider"
+                        tabIndex={0}
+                        aria-label={t('pages.species.barResizeStartAriaLabel', { kind: kindLabel })}
+                        aria-valuemin={1}
+                        aria-valuemax={12}
+                        aria-valuenow={ranges[rangeIdx][0]}
+                        aria-valuetext={t(`pages.species.months.${ranges[rangeIdx][0]}`)}
                         onPointerDown={(e) => handlePointerDown(e, rangeIdx, 'start')}
+                        onKeyDown={(e) => handleHandleKeyDown(e, rangeIdx, 'start')}
                         sx={{
                           position: 'absolute',
                           left: -2,
@@ -977,7 +1157,21 @@ function BarRow({
                           height: '100%',
                           cursor: 'ew-resize',
                           zIndex: 3,
-                          '&:hover, &:active': {
+                          // R-041: invisible centred 44×44px touch/hit target.
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 44,
+                            height: 44,
+                          },
+                          '&:focus-visible': {
+                            outline: `2px solid ${theme.palette.primary.main}`,
+                            outlineOffset: 1,
+                          },
+                          '&:hover, &:active, &:focus-visible': {
                             '&::after': {
                               content: '""',
                               position: 'absolute',
@@ -995,7 +1189,15 @@ function BarRow({
                     {/* Drag handle: end edge */}
                     {!readOnly && isEnd && (
                       <Box
+                        role="slider"
+                        tabIndex={0}
+                        aria-label={t('pages.species.barResizeEndAriaLabel', { kind: kindLabel })}
+                        aria-valuemin={1}
+                        aria-valuemax={12}
+                        aria-valuenow={ranges[rangeIdx][1]}
+                        aria-valuetext={t(`pages.species.months.${ranges[rangeIdx][1]}`)}
                         onPointerDown={(e) => handlePointerDown(e, rangeIdx, 'end')}
+                        onKeyDown={(e) => handleHandleKeyDown(e, rangeIdx, 'end')}
                         sx={{
                           position: 'absolute',
                           right: -2,
@@ -1004,7 +1206,20 @@ function BarRow({
                           height: '100%',
                           cursor: 'ew-resize',
                           zIndex: 3,
-                          '&:hover, &:active': {
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 44,
+                            height: 44,
+                          },
+                          '&:focus-visible': {
+                            outline: `2px solid ${theme.palette.primary.main}`,
+                            outlineOffset: 1,
+                          },
+                          '&:hover, &:active, &:focus-visible': {
                             '&::after': {
                               content: '""',
                               position: 'absolute',
@@ -1026,6 +1241,29 @@ function BarRow({
           );
         })}
       </Box>
+
+      {/* R-044: visually-hidden polite live region announcing the new range after
+          a drag/keyboard edit. Spans the full row so it sits in the grid flow. */}
+      {!readOnly && (
+        <Box
+          aria-live="polite"
+          data-testid={`bar-live-${periodIdx}-${kind}`}
+          sx={{
+            gridColumn: '1 / -1',
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            p: 0,
+            m: -1,
+            overflow: 'hidden',
+            clip: 'rect(0 0 0 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {announcement}
+        </Box>
+      )}
     </>
   );
 }
