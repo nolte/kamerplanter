@@ -142,6 +142,14 @@ build:
       context: docker/reranker-service
       docker:
         dockerfile: Dockerfile.dev
+    - image: kamerplanter-inference-service
+      context: src/inference-service
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
 
 deploy:
   statusCheckDeadlineSeconds: 1800
@@ -163,6 +171,8 @@ deploy:
           controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
           controllers.reranker-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_reranker_service}}"
           controllers.reranker-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_reranker_service}}"
+          controllers.inference-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_inference_service}}"
+          controllers.inference-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_inference_service}}"
 
 portForward:
   - resourceType: service
@@ -185,3 +195,8 @@ portForward:
     namespace: default
     port: 8081
     localPort: 8081
+  - resourceType: service
+    resourceName: kamerplanter-ki-inference-service
+    namespace: default
+    port: 8000
+    localPort: 8091

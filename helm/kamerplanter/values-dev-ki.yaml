@@ -195,6 +195,63 @@ controllers:
             cpu: "2"
             memory: 4Gi
 
+  # REQ-029-A — DINOv2 inference service (embedding + pgvector match)
+  inference-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-inference-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          VECTORDB_HOST: kamerplanter-ki-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
+          MODEL_PATH: /app/models/dinov2
+          MODEL_NAME: dinov2_vits14
+          MODEL_DIM: "384"
+          INPUT_SIZE: "224"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+
   vectordb:
     type: statefulset
     replicas: 1
@@ -277,6 +334,11 @@ service:
     ports:
       http:
         port: 8080
+  inference-service:
+    controller: inference-service
+    ports:
+      http:
+        port: 8000
   vectordb:
     controller: vectordb
     ports:
@@ -439,6 +501,45 @@ networkpolicies:
             - protocol: TCP
               port: 8080
       egress:
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  inference-service:
+    controller: inference-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        # From KP backend / celery (cross-release, matched by controller label)
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # VectorDB (same release) — pgvector reference index
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
         # DNS resolution
         - to:
             - namespaceSelector: {}
