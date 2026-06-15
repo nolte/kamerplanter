@@ -332,10 +332,18 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Dracaena trifasciata"
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: Rhizom mit Wurzeln teilen
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: buntlaubige Sorten revertieren oft zu Grün
     common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
     genus: Dracaena
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Westafrika (Nigeria bis Kongo)"
@@ -360,6 +368,13 @@ new_species:
     support_required: false
 
   - scientific_name: "Dypsis lutescens"
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: frisches Saatgut, warm halten
+      - method: division
+        months: [4, 5, 6]
+        notes: horstweise Halme abtrennen
     common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
     genus: Dypsis
     plant_category: tropical_foliage
@@ -395,10 +410,18 @@ new_species:
       max_ph: 7.3
 
   - scientific_name: "Echeveria elegans"
+    propagation_configs:
+      - method: leaf_cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: Blatt antrocknen lassen
+      - method: offset
+        months: [5, 6, 7]
+        notes: Kindel abtrennen
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
     genus: Echeveria
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Mexiko (Hidalgo)"
@@ -434,6 +457,11 @@ new_species:
   # Enrichment fields moved to species_enrichment section below.
 
   - scientific_name: "Euphorbia pulcherrima"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: softwood
+        notes: Milchsaft abspülen
     common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
     genus: Euphorbia
     plant_category: indoor_houseplant
@@ -469,6 +497,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Fatsia japonica"
+    propagation_configs:
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
+      - method: seed
+        months: [4, 5, 6]
+        notes: frisches Saatgut
     common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
     genus: Fatsia
     plant_category: indoor_houseplant
@@ -503,6 +538,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Ficus benjamina"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: semi_hardwood
+        notes: Milchsaft abspülen, Bodenwärme
+      - method: layering
+        months: [6, 7, 8]
+        notes: Abmoosen
     common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
     genus: Ficus
     plant_category: tropical_foliage
@@ -540,6 +583,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Ficus elastica"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: semi_hardwood
+        notes: Kopf- oder Augensteckling, Bodenwärme
+      - method: layering
+        months: [6, 7, 8]
+        notes: Abmoosen
     common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
     genus: Ficus
     plant_category: tropical_foliage
@@ -575,6 +626,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Ficus lyrata"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: semi_hardwood
+        notes: Bodenwärme, Milchsaft abspülen
+      - method: layering
+        months: [6, 7, 8]
+        notes: Abmoosen
     common_names: [Geigenfeige, Fiddle Leaf Fig]
     genus: Ficus
     plant_category: tropical_foliage
@@ -611,10 +670,17 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Fittonia albivenis"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5, 6]
+        wood_stage: herbaceous
+        notes: hohe Luftfeuchte
+      - method: division
+        months: [3, 4, 5, 6]
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
     genus: Fittonia
     plant_category: tropical_foliage
-    growth_habit: groundcover
+    growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
     native_habitat: "Peru, Kolumbien (tropische Regenwaelder)"
@@ -647,6 +713,11 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Gardenia jasminoides"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: semi_hardwood
+        notes: Bodenwärme
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
     genus: Gardenia
     plant_category: indoor_houseplant
@@ -683,6 +754,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Goeppertia lancifolia"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: beim Umtopfen
     common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -721,6 +796,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Goeppertia makoyana"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: beim Umtopfen, hohe Luftfeuchte
     common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -758,6 +837,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Goeppertia orbifolia"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: beim Umtopfen
     common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
     genus: Goeppertia
     plant_category: tropical_foliage
@@ -786,10 +869,19 @@ new_species:
     support_required: false
 
   - scientific_name: "Gymnocalycium mihanovichii"
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+      - method: seed
+        months: [4, 5, 6]
+        notes: warm halten
+      - method: grafting
+        months: [4, 5, 6]
+        notes: chlorophyllfreie Sorten brauchen Unterlage; in Wachstumsperiode pfropfen
     common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
     genus: Gymnocalycium
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
     native_habitat: "Paraguay, Argentinien (Gran Chaco)"
@@ -821,10 +913,17 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Haworthiopsis fasciata"
+    propagation_configs:
+      - method: offset
+        months: [5, 6, 7]
+      - method: leaf_cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: niedrige Erfolgsrate
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Suedafrika (Eastern Cape)"
@@ -856,6 +955,13 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Hedera helix"
+    propagation_configs:
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: bewurzelt auch in Wasser
+      - method: layering
+        months: [6, 7, 8]
     common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
     genus: Hedera
     plant_category: indoor_houseplant
@@ -894,6 +1000,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Hibiscus rosa-sinensis"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: semi_hardwood
+        notes: Bodenwärme
+      - method: grafting
+        months: [3, 4, 5]
+      - method: seed
+        months: [3, 4, 5]
+        notes: sortenuntreu
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
     genus: Hibiscus
     plant_category: balcony_plant
@@ -929,10 +1045,17 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Hippeastrum hybridum"
+    propagation_configs:
+      - method: bulb
+        months: [4, 5]
+        notes: Brutzwiebeln; auch Schuppenstecklinge
+      - method: offset
+        months: [4, 5]
+        notes: Tochterzwiebeln abtrennen
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
     genus: Hippeastrum
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Suedamerika (tropisch und subtropisch)"
@@ -965,6 +1088,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Howea forsteriana"
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: frisches Saatgut, warm, sehr langsam
     common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
     genus: Howea
     plant_category: tropical_foliage
@@ -1002,6 +1129,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Hoya carnosa"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Knotensteckling mit 1-2 Blattpaaren
+      - method: layering
+        months: [5, 6, 7]
     common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
     genus: Hoya
     plant_category: tropical_foliage
@@ -1038,6 +1172,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Impatiens walleriana"
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        notes: Lichtkeimer, warm
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: bewurzelt leicht in Wasser
     common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
     genus: Impatiens
     plant_category: balcony_plant
@@ -1073,6 +1215,12 @@ new_species:
       max_ph: 6.6
 
   - scientific_name: "Jasminum polyanthum"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: semi_hardwood
+      - method: layering
+        months: [6, 7, 8]
     common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
     genus: Jasminum
     plant_category: indoor_houseplant
@@ -1108,10 +1256,21 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Kalanchoe blossfeldiana"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: anschnittstelle antrocknen lassen
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+      - method: seed
+        months: [4, 5, 6]
+        notes: Lichtkeimer, sehr fein
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
     genus: Kalanchoe
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Madagaskar"
@@ -1144,10 +1303,17 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Kalanchoe daigremontiana"
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Brutpflanzen vom Blattrand
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
     genus: Kalanchoe
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Madagaskar"
@@ -1179,10 +1345,17 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Lithops spp."
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: flach aussäen, warm
+      - method: division
+        months: [4, 5]
+        notes: Gruppen teilen
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
     genus: Lithops
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: taproot
     hardiness_zones: [10a, 10b, 11a, 11b]
     native_habitat: "Suedliches Afrika (Namibia, Suedafrika)"
@@ -1214,6 +1387,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Livistona chinensis"
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: frisches Saatgut, warm, langsam
     common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
     genus: Livistona
     plant_category: tropical_foliage
@@ -1249,10 +1426,17 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Mammillaria spp."
+    propagation_configs:
+      - method: offset
+        months: [5, 6, 7]
+        notes: Kindel antrocknen lassen
+      - method: seed
+        months: [5, 6, 7]
+        notes: warm halten
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
     genus: Mammillaria
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Mexiko, suedwestliche USA"
@@ -1287,6 +1471,14 @@ new_species:
 # Guzmania lingulata already fully enriched in plant_info.yaml — skipped here.
 
   - scientific_name: "Maranta leuconeura"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: beim Umtopfen
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Knotensteckling
     common_names: [Pfeilwurz, Marante, Prayer Plant]
     genus: Maranta
     plant_category: tropical_foliage
@@ -1375,6 +1567,13 @@ species_enrichment:
           volume_ml_max: 50
 
   "Epipremnum aureum":
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling, bewurzelt auch in Wasser
+      - method: layering
+        months: [4, 5, 6]
     # Enrichment fields from removed new_species entry (species exists in species.yaml)
     frost_sensitivity: sensitive
     allows_harvest: false

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import CycleType
+from app.common.enums import CycleType, FloweringStrategy
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 
 
@@ -42,3 +42,31 @@ class TestGrowthPhase:
         )
         assert p.is_terminal is True
         assert p.allows_harvest is True
+
+
+class TestLifecycleCultivationAndFlowering:
+    """Plan WP-3 / WP-4 — cultivation lifespan split and flowering strategy."""
+
+    def test_defaults_are_none(self):
+        lc = LifecycleConfig(cycle_type=CycleType.ANNUAL)
+        assert lc.cultivation_cycle_type is None
+        assert lc.flowering_strategy is None
+
+    def test_tender_perennial_split(self):
+        # Tomato: botanically perennial, grown as an annual.
+        lc = LifecycleConfig(
+            cycle_type=CycleType.PERENNIAL,
+            cultivation_cycle_type=CycleType.ANNUAL,
+            flowering_strategy=FloweringStrategy.POLYCARPIC,
+        )
+        assert lc.cycle_type == CycleType.PERENNIAL
+        assert lc.cultivation_cycle_type == CycleType.ANNUAL
+        assert lc.flowering_strategy == FloweringStrategy.POLYCARPIC
+
+    def test_monocarpic_value(self):
+        lc = LifecycleConfig(cycle_type=CycleType.PERENNIAL, flowering_strategy="monocarpic")
+        assert lc.flowering_strategy == FloweringStrategy.MONOCARPIC
+
+    def test_invalid_flowering_strategy_rejected(self):
+        with pytest.raises(ValidationError):
+            LifecycleConfig(cycle_type=CycleType.ANNUAL, flowering_strategy="biannual")

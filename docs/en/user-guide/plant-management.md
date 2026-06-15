@@ -40,6 +40,80 @@ The hierarchy is: Family → Species → Cultivar. Each cultivar belongs to exac
 | Nutrient Demand | Heavy feeder, Medium feeder, Light feeder | Heavy feeder |
 | Photoperiodism | Short-day, Long-day, Day-neutral | Day-neutral |
 | Toxicity | Toxicity for cats/dogs (ASPCA data) | Toxic to cats |
+| **Propagation Methods** | One or more typical propagation methods (multi-select) | Seed, Cutting |
+
+### Propagation Methods (propagation_methods)
+
+The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above (REQ-021).
+
+This information feeds into care reminders, propagation planning (REQ-017), and the AI knowledge assistant. All 143 pre-loaded crop species already include their standard propagation methods.
+
+| Value | Label | Description |
+|-------|-------|-------------|
+| `seed` | Seed | Generative propagation from seeds |
+| `cutting` | Cutting | Rooted shoot taken from a mother plant (clone) |
+| `division` | Division | Plant split into several parts |
+| `rhizome_division` | Rhizome Division | Division of underground storage shoots (e.g. ginger, bamboo) |
+| `bulb` | Bulb | Propagation via bulblets or daughter bulbs |
+| `tuber` | Tuber | Propagation via daughter tubers (e.g. dahlia, potato) |
+| `offset` | Offset | Side shoots / pups (e.g. aloe vera, bromeliad) |
+| `grafting` | Grafting | Scion onto rootstock (e.g. tomato onto tomatillo) |
+| `layering` | Layering | Root a shoot while still attached, then separate |
+| `spore` | Spore | Generative propagation for ferns and mosses |
+| `runner` | Runner | Creeping stolons (e.g. strawberry, pothos) |
+| `leaf_cutting` | Leaf Cutting | Root a leaf or leaf segment (e.g. begonia, sansevieria) |
+| `self_seeding` | Self-seeding | Plant self-seeds without human intervention (e.g. borage, calendula) |
+
+!!! tip "Multiple methods possible"
+    A species can have several propagation methods at the same time. Tomato, for example, uses `seed` (for growing from seed) and `cutting` (for year-round greenhouse production via cuttings).
+
+!!! note "Visibility by expertise level"
+    The **Propagation Methods** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
+
+!!! note "Propagation methods visible in the \"Sowing & Harvest\" tab"
+    On the **species detail page** (Master Data > Species) the **Sowing & Harvest** tab (sowing overview) now displays the configured propagation methods as chips — `seed` is highlighted in green. If a species is propagated **exclusively by vegetative means** (e.g. cutting or division only, no `seed` entry), a notice appears explaining that no sowing windows are expected for this species. **Missing sowing data is not a data error in this case** — it simply reflects that the species is not propagated from seed.
+
+### Best Propagation Time (propagation_months)
+
+The **propagation_months** field (Best Propagation Time) adds a timing dimension to propagation methods: in which months is vegetative propagation — division, taking cuttings, removing offsets or runners — most likely to succeed?
+
+The field is also a multi-select; the stored values are month numbers 1 (January) through 12 (December), deduplicated and sorted.
+
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, in two places:
+
+1. **Propagation card** — The card has a read/edit toggle (pencil icon in the top right):
+    - **Read view:** "Best propagation time: March–April" (condensed month display)
+    - **Edit mode:** 12 clickable month chips — click the desired months, then **Save**
+
+2. **Monthly timeline (bar chart)** — The topmost row of the timeline is labelled **"Propagation"** and displays the stored months as a coloured bar (teal). This row is **read-only** — editing is done exclusively via the Propagation card (pencil icon). If no months are stored, the row remains empty.
+
+!!! example "Example: Japanese anemone (*Anemone hupehensis*)"
+    The Japanese anemone forms dense rhizome clumps and divides best **in early spring**, before new growth begins. Kamerplanter stores this as `propagation_months: [3, 4]` — March and April. The UI displays this as "Best propagation time: March–April".
+
+!!! note "Distinction from sowing fields"
+    The `propagation_months` field applies **exclusively to vegetative propagation** (division, cuttings, offsets, runners, layers). Sowing windows (generative propagation from seed) remain the responsibility of the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`. Both can be populated simultaneously when a species can be grown from seed and propagated vegetatively.
+
+!!! tip "Care reminders benefit automatically"
+    Once `propagation_months` is populated, the AI knowledge assistant (and, in a future release, care reminders via REQ-017) can provide concrete hints about the optimal propagation window — without you needing to keep track of the calendar yourself.
+
+### Propagation Notes (propagation_notes)
+
+The **Propagation Notes** field is a free-text field for expert knowledge (max. 1,000 characters) that explains **how** propagation works in practice for this species — which steps require particular care, which mistakes are common, and what makes the difference between success and failure.
+
+The field complements the structured fields `propagation_methods` (techniques) and `propagation_months` (optimal timing) with the practical, hands-on detail that cannot be captured in a simple multi-select list.
+
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, in the **Propagation** card — directly below the propagation method chips and the best propagation time. Switch to edit mode via the pencil icon in the top right of the card:
+
+- **Read view:** The text appears as a distinct callout block, visually separated from the surrounding content. If no text has been entered, the area remains empty.
+- **Edit mode:** A multi-line text field with a character counter (max. 1,000 characters). The text is saved together with the other fields in the section via the **Save** button.
+
+!!! tip "What belongs in this field?"
+    Record concrete practical tips: substrate temperature for rooting, recommended rooting hormone dose, light requirements immediately after rooting, acclimatisation steps when moving from in-vitro to ex-vitro conditions, or the most common reason cuttings fail for this particular species. General advice that applies equally to all species does not belong here.
+
+!!! note "Visibility by expertise level"
+    The **Propagation Notes** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
+
+All 183 species with populated propagation methods already have an expert notes text.
 
 ### Editing a Species
 
@@ -126,3 +200,4 @@ flowchart LR
 - [Growth Phases](growth-phases.md) — Phase control per species
 - [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest
 - [Fertilization](fertilization.md) — Nutrient plans and feeding charts
+- [Propagation Management](propagation.md) — Lineage graph, cuttings, grafting

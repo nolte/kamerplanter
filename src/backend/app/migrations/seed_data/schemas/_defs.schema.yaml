@@ -8,7 +8,7 @@ $defs:
 
   growth_habit:
     type: string
-    enum: [herb, shrub, tree, vine, groundcover]
+    enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
 
   root_type:
     type: string

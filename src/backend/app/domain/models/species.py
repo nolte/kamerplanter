@@ -4,14 +4,21 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import (
+    ClimactericClass,
+    DtmReference,
     FrostTolerance,
     GrowthHabit,
+    HarvestedPart,
+    HarvestPattern,
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
+    PropagationDifficulty,
+    PropagationMethod,
     RootType,
     Suitability,
     WateringMethod,
+    WoodStage,
 )
 from app.domain.models.botanical_family import PhRange
 
@@ -69,6 +76,24 @@ class Cultivar(BaseModel):
     patent_status: str = ""
     seed_type: str = ""
     days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
+    # ── Ernte-Bezug (REQ-007, Plan WP-6) ──
+    dtm_reference: DtmReference | None = Field(
+        default=None,
+        description="Reference point for days_to_maturity (direct_seed vs. transplant) — "
+        "disambiguates the value, as the seed-industry convention differs.",
+    )
+    bearing_start_year_min: int | None = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Earliest standing year with a usable yield (perennial harvest pattern); a corridor.",
+    )
+    bearing_start_year_max: int | None = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Year of full yield (perennial harvest pattern) — rootstock/planting-stock dependent.",
+    )
     disease_resistances: list[str] = Field(default_factory=list)
     watering_guide_override: WateringGuide | None = None
     phase_watering_overrides: dict[str, int] | None = Field(
@@ -101,6 +126,36 @@ class GrowingPeriod(BaseModel):
             if m < 1 or m > 12:
                 raise ValueError(f"Month must be between 1 and 12, got {m}")
         return v
+
+
+class PropagationConfig(BaseModel):
+    """A single propagation method with its method-specific parameters (REQ-017).
+
+    Replaces the former flat ``propagation_methods``/``propagation_months``/
+    ``propagation_notes`` fields: a species may support several methods, and each
+    method carries its own timing window, maturity stage and notes (e.g. softwood
+    cuttings May–July vs. division in autumn on the same species).
+    """
+
+    method: PropagationMethod
+    months: list[int] = Field(
+        default_factory=list,
+        description="Recommended months (1–12) for this method — independent of other methods.",
+    )
+    wood_stage: WoodStage | None = Field(
+        default=None,
+        description="Cutting maturity stage; only meaningful for cutting-type methods.",
+    )
+    difficulty: PropagationDifficulty | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("months")
+    @classmethod
+    def validate_months(cls, v: list[int]) -> list[int]:
+        for m in v:
+            if m < 1 or m > 12:
+                raise ValueError(f"Month must be between 1 and 12, got {m}")
+        return sorted(set(v))
 
 
 class Species(BaseModel):
@@ -137,9 +192,26 @@ class Species(BaseModel):
     pruning_months: list[int] = Field(default_factory=list)
     pruning_type: str | None = None
     traits: list[str] = Field(default_factory=list)
-    propagation_methods: list[str] = Field(default_factory=list)
-    propagation_difficulty: str | None = None
+    # ── Vermehrung (REQ-017) — structured per-method configs ──
+    # Replaces the former flat propagation_methods/months/notes/difficulty fields
+    # so that timing and notes attach to the method, not to the whole species.
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
+    # ── Ernteverhalten (REQ-007, Plan WP-6) — orthogonal axes ──
+    harvest_pattern: HarvestPattern | None = Field(
+        default=None,
+        description="Lifetime harvest pattern (single/continuous/perennial). Distinct from the "
+        "per-event HarvestType; orthogonal to harvested_part.",
+    )
+    harvested_part: HarvestedPart | None = Field(
+        default=None,
+        description="The plant part that is harvested. Orthogonal to harvest_pattern.",
+    )
+    climacteric: ClimactericClass | None = Field(
+        default=None,
+        description="Post-harvest ripening behaviour of fruit (climacteric/non/atypical) — drives "
+        "ripen-after-harvest and storage logic.",
+    )
     # ── Anbaubedingungen (cultivation conditions) ──
     container_suitable: Suitability | None = None
     recommended_container_volume_l: str | None = None
@@ -212,13 +284,18 @@ class Species(BaseModel):
 
     model_config = {"populate_by_name": True}
 
-    @field_validator("direct_sow_months", "harvest_months", "bloom_months", "pruning_months")
+    @field_validator(
+        "direct_sow_months",
+        "harvest_months",
+        "bloom_months",
+        "pruning_months",
+    )
     @classmethod
     def validate_month_lists(cls, v: list[int]) -> list[int]:
         for m in v:
             if m < 1 or m > 12:
                 raise ValueError(f"Month must be between 1 and 12, got {m}")
-        return v
+        return sorted(set(v))
 
     @field_validator("scientific_name")
     @classmethod

@@ -22,6 +22,11 @@
 # fields not present there.
 species_enrichment:
   "Dracaena fragrans":
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Kopf- und Stammstecklinge
     allows_harvest: false
     native_habitat: "Tropical Africa (Sudan, Mozambique, Angola)"
     hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin Sudan-Angola."

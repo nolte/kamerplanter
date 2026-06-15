@@ -25,7 +25,7 @@ Kamerplanter verwendet ArangoDB als primäre Datenbank — ein Multi-Modell-Syst
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
 | `botanical_families` | Botanische Familien | `name` (unique), `common_name` |
-| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `frost_sensitivity` |
+| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_methods[]` |
 | `cultivars` | Sorten / Varietäten | `name`, `species_key`, genetische Herkunft |
 | `lifecycle_configs` | Lebenszyklusdefinitionen pro Art | `species_key`, `lifecycle_type` |
 | `growth_phases` | Einzelne Wachstumsphasen | `name`, `order`, `lifecycle_config_key` |
@@ -33,6 +33,51 @@ Kamerplanter verwendet ArangoDB als primäre Datenbank — ein Multi-Modell-Syst
 | `nutrient_profiles` | Nährstoffprofile je Phase | `npk_ratio`, `target_ec_ms`, `target_ph` |
 | `phase_transition_rules` | Übergangskriterien zwischen Phasen | `from_phase_key`, `to_phase_key`, `trigger_type`, `gdd_threshold` |
 | `phase_histories` | Protokoll vergangener Phasenübergänge | `entered_at`, `exited_at`, `actual_duration_days` |
+
+#### Species — Feld `propagation_methods`
+
+Das Feld `propagation_methods` ist ein Array von Enum-Werten (`PropagationMethod`) und dokumentiert die für die Art üblichen Vermehrungsmethoden. Erlaubte Werte:
+
+`seed` · `cutting` · `division` · `rhizome_division` · `bulb` · `tuber` · `offset` · `grafting` · `layering` · `spore` · `runner` · `leaf_cutting` · `self_seeding`
+
+Das Array ist optional (Standard: leer) im `SpeciesCreate`-Schema und Pflichtfeld in `SpeciesResponse` (wird als leere Liste zurückgegeben, wenn nicht gepflegt). Alle vorgefertigten Kulturpflanzen-Seed-Daten (143 Arten) sind befüllt.
+
+#### Species — Feld `propagation_months`
+
+Das Feld `propagation_months` ist ein Array von Ganzzahlen (`list[int]`, Wertebereich 1–12) und gibt an, in welchen Monaten die **vegetative Vermehrung** (Teilung, Steckling, Kindel, Ausläufer o. Ä.) für die Art am besten geeignet ist. Die Monatsnummern werden serverseitig dedupliziert und aufsteigend sortiert.
+
+| Eigenschaft | Wert |
+|-------------|------|
+| Typ | `list[int]` |
+| Wertebereich | 1–12 (Januar–Dezember) |
+| Standard | `[]` (leer, wenn nicht gepflegt) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | immer vorhanden (leere Liste, wenn nicht gepflegt) |
+| API | `PUT /api/v1/species/{key}` akzeptiert und liefert das Feld |
+
+**Abgrenzung:** `propagation_months` bezieht sich ausschließlich auf vegetative Vermehrungszeitpunkte. Aussaatzeiträume (generative Vermehrung über Samen) werden über `direct_sow_months`, `indoor_start_months` und `transplant_months` abgebildet.
+
+**Beispiel:** *Anemone hupehensis* (Herbst-Anemone) — `propagation_months: [3, 4]` (Teilung im zeitigen Frühjahr, vor dem Neuaustrieb).
+
+#### Species — Feld `propagation_notes`
+
+Das Feld `propagation_notes` ist ein fachlicher Freitext und hält praxisnahes Vermehrungswissen fest, das sich nicht in strukturierten Feldern wie `propagation_methods` oder `propagation_months` abbilden lässt — typische Fehlerquellen, artspezifische Substrat- oder Temperaturanforderungen, Akklimatisierungsschritte und ähnliche Erfolgsfaktoren.
+
+| Eigenschaft | Wert |
+|-------------|------|
+| Typ | `string \| null` |
+| Max. Länge | 1000 Zeichen |
+| Sprache | Deutsch |
+| Standard | `null` (nicht gesetzt) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | immer vorhanden (`null`, wenn nicht gepflegt) |
+| API | `PUT /api/v1/species/{key}` akzeptiert und liefert das Feld |
+
+**Abgrenzung:** `propagation_notes` ist reiner Freitext für qualitatives Erfahrungswissen. Strukturierte Zeitangaben (Monate) gehören in `propagation_months`, Methoden-Klassifikation in `propagation_methods`.
+
+**Befüllung:** Alle 183 Arten mit gepflegten Vermehrungsmethoden in den Seed-Daten sind mit einem Hinweistext versehen.
+
+---
 
 ### Standorte und Infrastruktur (REQ-002, REQ-019)
 

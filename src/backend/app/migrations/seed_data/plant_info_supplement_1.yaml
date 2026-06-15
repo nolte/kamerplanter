@@ -48,8 +48,15 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting_leaf, seed, division]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Blattstecklinge (Usambaraveilchen)
+      - method: seed
+        months: [4, 5, 6]
+      - method: division
+        months: [4, 5, 6]
     container_suitable: "yes"
     recommended_container_volume_l: "1"
     min_container_depth_cm: 8
@@ -93,8 +100,11 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting_stem]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling
     container_suitable: "yes"
     recommended_container_volume_l: "5"
     min_container_depth_cm: 15
@@ -127,7 +137,7 @@ new_species:
   - scientific_name: "Dahlia x cultorum"
     common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]
     genus: Dahlia
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
     hardiness_zones: ["8a", "8b", "9a", "9b", "10a", "10b", "11a"]
@@ -136,8 +146,14 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental, bee_friendly]
-    propagation_methods: [division, cutting_stem]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: Knollen teilen, je Teil ein Auge am Wurzelhals
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Triebstecklinge von vorgetriebenen Knollen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited

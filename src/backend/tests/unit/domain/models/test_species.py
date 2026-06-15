@@ -1,8 +1,19 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import RootType, Suitability
-from app.domain.models.species import Cultivar, Species
+from app.common.enums import (
+    ClimactericClass,
+    DtmReference,
+    GrowthHabit,
+    HarvestedPart,
+    HarvestPattern,
+    PropagationDifficulty,
+    PropagationMethod,
+    RootType,
+    Suitability,
+    WoodStage,
+)
+from app.domain.models.species import Cultivar, PropagationConfig, Species
 
 
 class TestSpeciesValidation:
@@ -136,6 +147,96 @@ class TestRootTypeCorm:
         assert s.root_type == RootType.CORM
 
 
+class TestPropagationMethodEnum:
+    def test_enum_has_seventeen_values(self):
+        assert len(PropagationMethod) == 17
+
+    def test_enum_values(self):
+        assert PropagationMethod.SEED == "seed"
+        assert PropagationMethod.CUTTING == "cutting"
+        assert PropagationMethod.RHIZOME_DIVISION == "rhizome_division"
+        assert PropagationMethod.LEAF_CUTTING == "leaf_cutting"
+        assert PropagationMethod.SELF_SEEDING == "self_seeding"
+
+    def test_reconciled_values_present(self):
+        # Drift fix: REQ-017 methods now realised in the enum.
+        assert PropagationMethod.AIR_LAYERING == "air_layering"
+        assert PropagationMethod.TISSUE_CULTURE == "tissue_culture"
+        assert PropagationMethod.BULBIL == "bulbil"
+        assert PropagationMethod.WATER_PROPAGATION == "water_propagation"
+
+
+class TestPropagationConfig:
+    def test_minimal_config_defaults(self):
+        c = PropagationConfig(method=PropagationMethod.CUTTING)
+        assert c.method == PropagationMethod.CUTTING
+        assert c.months == []
+        assert c.wood_stage is None
+        assert c.difficulty is None
+        assert c.notes is None
+
+    def test_full_config_dedupes_and_sorts_months(self):
+        c = PropagationConfig(
+            method="cutting",
+            months=[7, 6, 5, 6],
+            wood_stage=WoodStage.SOFTWOOD,
+            difficulty=PropagationDifficulty.MODERATE,
+            notes="Bewurzelungshormon empfohlen.",
+        )
+        assert c.method == PropagationMethod.CUTTING
+        assert c.months == [5, 6, 7]
+        assert c.wood_stage == WoodStage.SOFTWOOD
+        assert c.difficulty == PropagationDifficulty.MODERATE
+
+    def test_invalid_method_rejected(self):
+        with pytest.raises(ValidationError):
+            PropagationConfig(method="teleportation")
+
+    def test_invalid_month_rejected(self):
+        with pytest.raises(ValidationError):
+            PropagationConfig(method="seed", months=[13])
+
+
+class TestSpeciesPropagationConfigs:
+    def test_default_is_empty_list(self):
+        s = Species(scientific_name="Genus species")
+        assert s.propagation_configs == []
+
+    def test_accepts_config_objects(self):
+        s = Species(
+            scientific_name="Genus species",
+            propagation_configs=[
+                PropagationConfig(method=PropagationMethod.SEED, months=[3]),
+                PropagationConfig(method=PropagationMethod.DIVISION, months=[9, 10]),
+            ],
+        )
+        assert [c.method for c in s.propagation_configs] == [
+            PropagationMethod.SEED,
+            PropagationMethod.DIVISION,
+        ]
+
+    def test_model_validate_from_dicts(self):
+        raw = {
+            "scientific_name": "Mentha spicata",
+            "genus": "Mentha",
+            "propagation_configs": [
+                {"method": "cutting", "months": [5, 6], "wood_stage": "softwood"},
+                {"method": "division", "months": [3, 4]},
+            ],
+        }
+        s = Species.model_validate(raw)
+        assert s.propagation_configs[0].method == PropagationMethod.CUTTING
+        assert s.propagation_configs[0].wood_stage == WoodStage.SOFTWOOD
+        assert s.propagation_configs[1].method == PropagationMethod.DIVISION
+
+    def test_invalid_method_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(
+                scientific_name="Genus species",
+                propagation_configs=[{"method": "teleportation"}],
+            )
+
+
 class TestEnvironmentalPhysiologyFields:
     """REQ-001 v4.2 — environmental-physiology fields on Species."""
 
@@ -183,6 +284,81 @@ class TestEnvironmentalPhysiologyFields:
     def test_invalid_salt_tolerance_class(self):
         with pytest.raises(ValidationError):
             Species(scientific_name="Genus species", salt_tolerance_class="extreme")
+
+
+class TestGrowthHabitEnum:
+    """Plan WP-1 — growth_habit enum expanded to cover the real botanical range."""
+
+    def test_expanded_values_present(self):
+        for value in (
+            GrowthHabit.SUBSHRUB,
+            GrowthHabit.GRASS,
+            GrowthHabit.SUCCULENT,
+            GrowthHabit.BULB_GEOPHYTE,
+            GrowthHabit.FERN,
+            GrowthHabit.AQUATIC,
+            GrowthHabit.EPIPHYTE,
+        ):
+            assert value in GrowthHabit
+
+    def test_species_accepts_new_value(self):
+        s = Species(scientific_name="Echinocactus grusonii", growth_habit="succulent")
+        assert s.growth_habit == GrowthHabit.SUCCULENT
+
+    def test_invalid_growth_habit_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", growth_habit="liana")
+
+
+class TestSpeciesHarvestBehaviour:
+    """Plan WP-6 — harvest_pattern / harvested_part / climacteric on Species."""
+
+    def test_defaults_are_none(self):
+        s = Species(scientific_name="Genus species")
+        assert s.harvest_pattern is None
+        assert s.harvested_part is None
+        assert s.climacteric is None
+
+    def test_pattern_and_part_are_orthogonal(self):
+        # Same harvested part, different patterns (head lettuce vs. cut-and-come-again).
+        single = Species(scientific_name="Lactuca sativa", harvested_part="leaf", harvest_pattern="single")
+        cont = Species(scientific_name="Lactuca crispa", harvested_part="leaf", harvest_pattern="continuous")
+        assert single.harvest_pattern == HarvestPattern.SINGLE
+        assert cont.harvest_pattern == HarvestPattern.CONTINUOUS
+        assert single.harvested_part == cont.harvested_part == HarvestedPart.LEAF
+
+    def test_climacteric_accepts_atypical(self):
+        s = Species(scientific_name="Cucumis melo", climacteric="atypical")
+        assert s.climacteric == ClimactericClass.ATYPICAL
+
+    def test_invalid_values_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", harvest_pattern="sometimes")
+        with pytest.raises(ValidationError):
+            Species(scientific_name="Genus species", harvested_part="essence")
+
+
+class TestCultivarHarvestFields:
+    """Plan WP-6 — dtm_reference + bearing-year corridor on Cultivar."""
+
+    def test_defaults_are_none(self):
+        c = Cultivar(name="Test", species_key="sp1")
+        assert c.dtm_reference is None
+        assert c.bearing_start_year_min is None
+        assert c.bearing_start_year_max is None
+
+    def test_dtm_reference_set(self):
+        c = Cultivar(name="Test", species_key="sp1", days_to_maturity=70, dtm_reference="transplant")
+        assert c.dtm_reference == DtmReference.TRANSPLANT
+
+    def test_bearing_year_corridor(self):
+        c = Cultivar(name="Apple M9", species_key="sp1", bearing_start_year_min=2, bearing_start_year_max=4)
+        assert c.bearing_start_year_min == 2
+        assert c.bearing_start_year_max == 4
+
+    def test_bearing_year_out_of_range_rejected(self):
+        with pytest.raises(ValidationError):
+            Cultivar(name="Test", species_key="sp1", bearing_start_year_max=25)
 
     def test_lcp_range_valid(self):
         s = Species(

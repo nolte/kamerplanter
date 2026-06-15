@@ -25,7 +25,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
 | `botanical_families` | Plant families | `name` (unique), `common_name` |
-| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity` |
+| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_methods[]` |
 | `cultivars` | Cultivars / varieties | `name`, `species_key`, genetic lineage |
 | `lifecycle_configs` | Lifecycle definitions per species | `species_key`, `lifecycle_type` |
 | `growth_phases` | Individual growth phases | `name`, `order`, `lifecycle_config_key` |
@@ -33,6 +33,51 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | `nutrient_profiles` | Nutrient profiles per phase | `npk_ratio`, `target_ec_ms`, `target_ph` |
 | `phase_transition_rules` | Transition criteria between phases | `from_phase_key`, `to_phase_key`, `trigger_type`, `gdd_threshold` |
 | `phase_histories` | Log of past phase transitions | `entered_at`, `exited_at`, `actual_duration_days` |
+
+#### Species — field `propagation_methods`
+
+The `propagation_methods` field is an array of `PropagationMethod` enum values documenting which propagation techniques are typical for the species. Allowed values:
+
+`seed` · `cutting` · `division` · `rhizome_division` · `bulb` · `tuber` · `offset` · `grafting` · `layering` · `spore` · `runner` · `leaf_cutting` · `self_seeding`
+
+The array is optional (default: empty list) in the `SpeciesCreate` schema and a required field in `SpeciesResponse` (returned as an empty list when not populated). All pre-loaded crop species seed data (143 species) is fully populated.
+
+#### Species — field `propagation_months`
+
+The `propagation_months` field is an array of integers (`list[int]`, range 1–12) indicating in which months **vegetative propagation** (division, cuttings, offsets, runners, etc.) is most suitable for the species. Month numbers are deduplicated and sorted ascending on the server side.
+
+| Property | Value |
+|----------|-------|
+| Type | `list[int]` |
+| Range | 1–12 (January–December) |
+| Default | `[]` (empty when not populated) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | always present (empty list when not populated) |
+| API | `PUT /api/v1/species/{key}` accepts and returns the field |
+
+**Distinction:** `propagation_months` covers vegetative propagation timing only. Sowing windows (generative propagation from seed) are represented by the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`.
+
+**Example:** *Anemone hupehensis* (Japanese anemone) — `propagation_months: [3, 4]` (division in early spring, before new growth begins).
+
+#### Species — field `propagation_notes`
+
+The `propagation_notes` field is an expert free-text field capturing practical propagation knowledge that cannot be expressed in structured fields like `propagation_methods` or `propagation_months` — typical failure points, species-specific substrate or temperature requirements, acclimatisation steps, and similar success factors.
+
+| Property | Value |
+|----------|-------|
+| Type | `string \| null` |
+| Max. length | 1,000 characters |
+| Language | German |
+| Default | `null` (not set) |
+| `SpeciesCreate` | optional |
+| `SpeciesResponse` | always present (`null` when not populated) |
+| API | `PUT /api/v1/species/{key}` accepts and returns the field |
+
+**Distinction:** `propagation_notes` is plain free text for qualitative expert knowledge. Structured timing belongs in `propagation_months`; technique classification belongs in `propagation_methods`.
+
+**Population:** All 183 species with populated propagation methods in the seed data include a notes text.
+
+---
 
 ### Locations and Infrastructure (REQ-002, REQ-019)
 

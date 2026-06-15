@@ -58,3 +58,6 @@ docker/embedding-service/models/
 /docs/en/agents/
 /docs/en/tags.md
 .tool-versions
+
+# Browser MCP debug artifacts (screenshots, a11y snapshots)
+.playwright-mcp/

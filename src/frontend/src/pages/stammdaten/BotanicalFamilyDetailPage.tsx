@@ -37,13 +37,29 @@ import { fetchBotanicalFamily, clearCurrent } from '@/store/slices/botanicalFami
 import * as api from '@/api/endpoints/botanicalFamilies';
 import type { Species } from '@/api/types';
 
-const growthHabitValues = ['herb', 'shrub', 'tree', 'vine', 'groundcover'] as const;
+const growthHabitValues = [
+  'herb',
+  'shrub',
+  'subshrub',
+  'tree',
+  'vine',
+  'groundcover',
+  'grass',
+  'succulent',
+  'bulb_geophyte',
+  'fern',
+  'aquatic',
+  'epiphyte',
+] as const;
 const pollinationValues = ['insect', 'wind', 'self'] as const;
 
 const schema = z.object({
-  name: z.string().min(1).refine((v) => v.endsWith('aceae'), {
-    message: "Muss auf '-aceae' enden",
-  }),
+  name: z
+    .string()
+    .min(1)
+    .refine((v) => v.endsWith('aceae'), {
+      message: "Muss auf '-aceae' enden",
+    }),
   common_name_de: z.string(),
   common_name_en: z.string(),
   order: z.string(),
@@ -108,7 +124,10 @@ export default function BotanicalFamilyDetailPage() {
   useEffect(() => {
     if (key) {
       dispatch(fetchBotanicalFamily(key));
-      api.listSpeciesByFamily(key).then(setFamilySpecies).catch(() => {});
+      api
+        .listSpeciesByFamily(key)
+        .then(setFamilySpecies)
+        .catch(() => {});
     }
     return () => {
       dispatch(clearCurrent());
@@ -195,13 +214,10 @@ export default function BotanicalFamilyDetailPage() {
     { value: 'very_hardy', label: t('enums.frostTolerance.very_hardy') },
   ];
 
-  const growthFormOptions = [
-    { value: 'herb', label: t('enums.growthHabit.herb') },
-    { value: 'shrub', label: t('enums.growthHabit.shrub') },
-    { value: 'tree', label: t('enums.growthHabit.tree') },
-    { value: 'vine', label: t('enums.growthHabit.vine') },
-    { value: 'groundcover', label: t('enums.growthHabit.groundcover') },
-  ];
+  const growthFormOptions = growthHabitValues.map((v) => ({
+    value: v,
+    label: t(`enums.growthHabit.${v}`),
+  }));
 
   const pollinationOptions = [
     { value: 'insect', label: t('enums.pollinationType.insect') },
@@ -215,17 +231,17 @@ export default function BotanicalFamilyDetailPage() {
       <PageTitle
         title={current?.name ?? t('entities.botanicalFamily')}
         action={
-          <Button
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-          >
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
             {t('common.delete')}
           </Button>
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+      >
         <Typography variant="body2" color="text.secondary">
           {t('pages.botanicalFamilies.editIntro')}
         </Typography>
@@ -233,7 +249,10 @@ export default function BotanicalFamilyDetailPage() {
         {/* ── Panel 1: Taxonomie (Pflichtfelder zuerst) ── */}
         {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.botanicalFamilies.sectionTaxonomy')}
             </Typography>
@@ -281,7 +300,10 @@ export default function BotanicalFamilyDetailPage() {
 
         {/* ── Panel 2: Wachstum & Nährstoffe ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.botanicalFamilies.sectionGrowth')}
             </Typography>
@@ -323,7 +345,10 @@ export default function BotanicalFamilyDetailPage() {
 
         {/* ── Panel 3: Umgebung & Boden ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.botanicalFamilies.sectionEnvironment')}
             </Typography>
@@ -361,7 +386,10 @@ export default function BotanicalFamilyDetailPage() {
 
         {/* ── Panel 4: Schädlinge & Krankheiten ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.botanicalFamilies.sectionPestsAndDiseases')}
             </Typography>
@@ -387,7 +415,10 @@ export default function BotanicalFamilyDetailPage() {
 
         {/* ── Panel 5: Bestäubung & Fruchtfolge ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.botanicalFamilies.sectionReproduction')}
             </Typography>
@@ -437,14 +468,12 @@ export default function BotanicalFamilyDetailPage() {
       ) : (
         <List dense>
           {familySpecies.map((s) => (
-            <ListItemButton
-              key={s.key}
-              component={RouterLink}
-              to={`/stammdaten/species/${s.key}`}
-            >
+            <ListItemButton key={s.key} component={RouterLink} to={`/stammdaten/species/${s.key}`}>
               <ListItemText
                 primary={s.scientific_name}
-                secondary={s.common_names.join(', ') || undefined} slotProps={{ primary: { variant: 'body2' } }} />
+                secondary={s.common_names.join(', ') || undefined}
+                slotProps={{ primary: { variant: 'body2' } }}
+              />
               <ParkIcon fontSize="small" sx={{ color: 'text.disabled', ml: 1 }} />
             </ListItemButton>
           ))}

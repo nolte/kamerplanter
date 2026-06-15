@@ -23,6 +23,9 @@ Kamerplanter tracks the genetic lineage of your plants completely: which mother 
 | **Grafting** | Scion applied to rootstock | Scion remains genetically unchanged |
 | **Division** | Plant divided into several parts | Genetically identical (like clone) |
 
+!!! note "Propagation methods in the species profile"
+    The **species profile** (Master Data > Species) includes the **Propagation Methods** field (`propagation_methods`). It records which methods are **typically used** for a species — e.g. tomato: seed + cutting. The field is a multi-select from 13 possible values and is shown from the **Intermediate** expertise level onward. All pre-loaded crop species already include this data. More details: [Managing Master Data — Propagation Methods](plant-management.md#propagation-methods-propagation_methods).
+
 ---
 
 ## Taking Cuttings (Clones)

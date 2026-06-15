@@ -41,7 +41,7 @@ $defs:
         type: array
         items:
           type: string
-          enum: [herb, shrub, tree, vine, groundcover]
+          enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
       common_pests:
         type: array
         items:

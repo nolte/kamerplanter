@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.6 (Umgebungs-Physiologie: VPD-Schwelle, T_opt, Far-Red-Fraction)
+Version: 2.7 (Phase A: Blüh-Strategie monokarp/polykarp, Lebensdauer-in-Kultur)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.7 | 2026-06-15 | **Phase A — Lebenszyklus-Felder (Plan WP-3/WP-4):** `LifecycleConfig.flowering_strategy` (`monocarpic`/`polycarpic`) als eigene Reproduktions-Achse — „blüht einmal, stirbt dann" (Agave, viele Bambusse) auch bei mehrjährigem Wuchs. `cultivation_cycle_type` trennt die Kultur-Praxis von der botanischen `cycle_type`. Beide optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §2.1/§2.2. |
 | 2.6 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** `requirement_profiles` um `vpd_threshold_kpa` + `vpd_sensitivity` (artspezifische VPD-Schwelle als echter Automatik-Trigger), `photosynthesis_temp_opt_c` (T_opt getrennt vom Tag-Zielwert) und `far_red_fraction` (phytochrom-prädiktive Shade-Avoidance-Metrik, ableitbar aus `light_spectrum`) erweitert. Quelle: `spec/analysis/plant-profile-completeness-research.md`. |
 | 2.5 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** SeasonalCycle um `sensor_aggregates`, `aggregate_computed_at`, `aggregate_computed_by`, `aggregate_source_retention_horizon`, `aggregate_config` erweitert. Neue `SensorAggregateEngine` mit avg/min/max/p10/p90 für Quantile-Sensoren und sum/avg_per_day für DLI. Celery-Task `compute_seasonal_aggregates_task` triggert beim Saisonende. Lazy Re-Computation bei Sensor-Drift. Backfill-Migration für bestehende Saisons. |
 | 2.4 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Direkter Phasenwechsel auf einer `PlantInstance`, die Mitglied eines aktiven `PlantingRun` ist (`run_contains` mit `detached_at = null`, `run.status = 'active'`), wird abgelehnt. `PhaseTransitionEngine.assert_transition_allowed()` führt einen AQL-Lookup durch und wirft `RunMembershipConflictError` → API liefert HTTP 409 mit strukturiertem Fehler-Body. Batch-Phasenwechsel ist All-or-Nothing. Drei neue DoD-Punkte (§6). |

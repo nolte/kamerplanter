@@ -50,6 +50,13 @@ new_species_family_map:
 # ──────────────────────────────────────────────
 new_species:
   - scientific_name: "Monstera adansonii"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling mit Luftwurzel
+      - method: layering
+        months: [4, 5, 6]
     common_names:
       - "Adansonii"
       - "Fensterblatt"
@@ -86,13 +93,17 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Neoregelia carolinae"
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel nach der Blüte abtrennen
     common_names:
       - "Nestrosette"
       - "Karminrote Neoregelia"
       - "Blushing Bromeliad"
     genus: Neoregelia
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -120,6 +131,16 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Nephrolepis exaltata"
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: beim Umtopfen
+      - method: runner
+        months: [4, 5, 6]
+        notes: Ausläufer bewurzeln
+      - method: spore
+        months: [4, 5, 6]
+        notes: langwierig
     common_names:
       - "Schwertfarn"
       - "Nephrolepis"
@@ -127,7 +148,7 @@ new_species:
       - "Sword Fern"
     genus: Nephrolepis
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -158,6 +179,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Opuntia microdasys"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        notes: Glied antrocknen lassen; Glochiden vorsichtig
+      - method: seed
+        months: [5, 6, 7]
     common_names:
       - "Hasenohr-Kaktus"
       - "Goldstachel-Kaktus"
@@ -165,7 +192,7 @@ new_species:
       - "Angel Wings Cactus"
     genus: Opuntia
     plant_category: succulent_cactus
-    growth_habit: shrub
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -197,6 +224,12 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Oxalis triangularis"
+    propagation_configs:
+      - method: bulb
+        months: [3, 4]
+        notes: Brutzwiebeln/Rhizomstücke
+      - method: division
+        months: [3, 4]
     common_names:
       - "Lila Sauerklee"
       - "Glücksklee"
@@ -204,7 +237,7 @@ new_species:
       - "False Shamrock"
     genus: Oxalis
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
     hardiness_zones:
       - "6a"
@@ -241,6 +274,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pachira aquatica"
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: frisches Saatgut, warm
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: semi_hardwood
+        notes: Bodenwärme
     common_names:
       - "Glückskastanie"
       - "Malabar-Kastanie"
@@ -276,6 +317,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pelargonium zonale"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5, 8]
+        wood_stage: herbaceous
+        notes: Kopfstecklinge ganzjährig in Wachstumsperiode
+      - method: seed
+        months: [2, 3, 4]
+        notes: Vorkultur ab Spätwinter
     common_names:
       - "Geranie"
       - "Zonalpelargonie"
@@ -283,7 +332,7 @@ new_species:
       - "Horseshoe Geranium"
     genus: Pelargonium
     plant_category: balcony_plant
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -308,6 +357,14 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Peperomia obtusifolia"
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Blatt mit Stiel
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names:
       - "Zwergpfeffer"
       - "Baby Rubber Plant"
@@ -342,13 +399,19 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Phalaenopsis hybrida"
+    propagation_configs:
+      - method: offset
+        months: [6, 7, 8]
+        notes: Keiki abnehmen wenn bewurzelt
+      - method: division
+        months: [6, 7, 8]
     common_names:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
       - "Moth Orchid"
     genus: Phalaenopsis
     plant_category: orchid
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -381,6 +444,13 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Philodendron hederaceum"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling
+      - method: layering
+        months: [4, 5, 6]
     common_names:
       - "Kletter-Philodendron"
       - "Herzblatt-Philodendron"
@@ -418,6 +488,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Pilea peperomioides"
+    propagation_configs:
+      - method: offset
+        months: [3, 4, 5]
+        notes: Kindel abtrennen
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
     common_names:
       - "Ufopflanze"
       - "Chinesischer Geldbaum"
@@ -446,6 +523,13 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Platycerium bifurcatum"
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel teilen
+      - method: spore
+        months: [4, 5, 6]
+        notes: Sporen langwierig
     common_names:
       - "Geweihfarn"
       - "Elchgeweihfarn"
@@ -453,7 +537,7 @@ new_species:
       - "Elkhorn Fern"
     genus: Platycerium
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: fern
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -482,6 +566,11 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Plectranthus verticillatus"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: sehr leicht im Wasser
     common_names:
       - "Harfenstrauch"
       - "Schwedischer Efeu"
@@ -514,13 +603,20 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Rhipsalis baccifera"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: Glieder antrocknen lassen
+      - method: seed
+        months: [5, 6, 7]
     common_names:
       - "Korallenkaktus"
       - "Binsenkaktus"
       - "Mistletoe Cactus"
     genus: Rhipsalis
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9b"
@@ -548,6 +644,14 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rhododendron simsii"
+    propagation_configs:
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     common_names:
       - "Zimmerazalee"
       - "Indische Azalee"
@@ -588,6 +692,13 @@ new_species:
       max_ph: 6
 
   - scientific_name: "Schefflera arboricola"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+      - method: layering
+        months: [4, 5, 6]
+        notes: Abmoosen bei verkahlten Pflanzen
     common_names:
       - "Kleine Strahlenaralie"
       - "Schefflera"
@@ -624,6 +735,11 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Schlumbergera truncata"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6, 7, 8]
+        wood_stage: herbaceous
+        notes: Glieder antrocknen lassen, nach Blüte
     common_names:
       - "Weihnachtskaktus"
       - "Gliederkaktus"
@@ -631,7 +747,7 @@ new_species:
       - "Holiday Cactus"
     genus: Schlumbergera
     plant_category: succulent_cactus
-    growth_habit: herb
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -660,13 +776,21 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Sedum morganianum"
+    propagation_configs:
+      - method: leaf_cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
+        notes: abgefallene Blätter bewurzeln
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: herbaceous
     common_names:
       - "Eselsschwanz"
       - "Donkey's Tail"
       - "Burro's Tail"
     genus: Sedum
     plant_category: succulent_cactus
-    growth_habit: vine
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones:
       - "9b"
@@ -697,6 +821,13 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Soleirolia soleirolii"
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: Polster teilen
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
     common_names:
       - "Bubikopf"
       - "Baby's Tears"
@@ -734,6 +865,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stephanotis floribunda"
+    propagation_configs:
+      - method: cutting
+        months: [3, 4, 5, 6]
+        wood_stage: semi_hardwood
+        notes: halbreife Triebe, mit Bodenwärme
+      - method: layering
+        months: [5, 6, 7]
     common_names:
       - "Brautstrauch"
       - "Madagaskarjasmin"
@@ -767,6 +905,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Strelitzia reginae"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 9, 10]
+        notes: Teilung nach Blüte
+      - method: seed
+        months: [3, 4]
+        notes: frische Samen, sehr langsam
     common_names:
       - "Paradiesvogelblume"
       - "Königin-Strelitzie"
@@ -805,6 +950,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Streptocarpus hybridus"
+    propagation_configs:
+      - method: leaf_cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Blattquerschnitte oder Mittelrippe
+      - method: division
+        months: [3, 4, 5]
     common_names:
       - "Drehfrucht"
       - "Streptocarpus"
@@ -842,6 +994,10 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Stromanthe sanguinea"
+    propagation_configs:
+      - method: division
+        months: [4, 5, 6]
+        notes: beim Umtopfen teilen
     common_names:
       - "Stromanthe Triostar"
       - "Sanguinea"
@@ -879,13 +1035,21 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Tillandsia usneoides"
+    propagation_configs:
+      - method: offset
+        months: [4, 5, 6]
+        notes: Teilstücke abtrennen
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Strähnen teilen
     common_names:
       - "Spanisches Moos"
       - "Louisianamoos"
       - "Spanish Moss"
     genus: Tillandsia
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "8a"
@@ -915,6 +1079,11 @@ new_species:
       max_ph: 6.0
 
   - scientific_name: "Tradescantia zebrina"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: sehr leicht im Wasser
     common_names:
       - "Dreimasterblume"
       - "Silbrige Tradescantie"
@@ -922,7 +1091,7 @@ new_species:
       - "Silver Inch Plant"
     genus: Tradescantia
     plant_category: indoor_houseplant
-    growth_habit: groundcover
+    growth_habit: herb
     root_type: fibrous
     hardiness_zones:
       - "9a"
@@ -954,13 +1123,17 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Vriesea splendens"
+    propagation_configs:
+      - method: offset
+        months: [7, 8, 9]
+        notes: Kindel nach der Blüte abnehmen
     common_names:
       - "Flammendes Schwert"
       - "Vriesea"
       - "Flaming Sword"
     genus: Vriesea
     plant_category: tropical_foliage
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     hardiness_zones:
       - "10a"
@@ -993,6 +1166,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Yucca elephantipes"
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Stammstücke bewurzeln
+      - method: offset
+        months: [4, 5, 6]
+        notes: Kindel abtrennen
     common_names:
       - "Yucca-Palme"
       - "Riesen-Palmlilie"
@@ -1030,6 +1211,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Zamioculcas zamiifolia"
+    propagation_configs:
+      - method: leaf_cutting
+        months: [4, 5, 6, 7]
+        wood_stage: herbaceous
+        notes: Einzelblatt, langwierig (Knöllchenbildung)
+      - method: division
+        months: [4, 5, 6]
+        notes: Rhizom teilen
     common_names:
       - "Zamioculcas"
       - "Glücksfeder"
@@ -1065,6 +1254,13 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Zantedeschia aethiopica"
+    propagation_configs:
+      - method: rhizome_division
+        months: [7, 8, 9]
+        notes: Rhizom nach Ruhephase teilen
+      - method: offset
+        months: [7, 8, 9]
+        notes: Tochterknollen abtrennen
     common_names:
       - "Calla"
       - "Weiße Calla"
@@ -1073,7 +1269,7 @@ new_species:
       - "Arum Lily"
     genus: Zantedeschia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     hardiness_zones:
       - "8a"
