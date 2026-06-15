@@ -2451,6 +2451,30 @@ perennial_species:
   - Salvia officinalis
   - Lavandula angustifolia
 
+# Per-species lifecycle overrides (Plan WP-3/WP-4): cultivation_cycle_type =
+# the practised lifespan when it differs from the botanical cycle_type
+# (tender perennials grown as annuals; vegetables grown as biennials for seed);
+# flowering_strategy = monocarpic/polycarpic where informative.
+lifecycle_overrides:
+  Solanum lycopersicum: { cultivation_cycle_type: annual }
+  Capsicum annuum: { cultivation_cycle_type: annual }
+  Solanum melongena: { cultivation_cycle_type: annual }
+  Physalis peruviana: { cultivation_cycle_type: annual }
+  Ocimum basilicum: { cultivation_cycle_type: annual }
+  Pelargonium zonale: { cultivation_cycle_type: annual }
+  Petunia x hybrida: { cultivation_cycle_type: annual }
+  Verbena x hybrida: { cultivation_cycle_type: annual }
+  Daucus carota: { cultivation_cycle_type: biennial }
+  Apium graveolens: { cultivation_cycle_type: biennial }
+  Petroselinum crispum: { cultivation_cycle_type: biennial }
+  Foeniculum vulgare: { cultivation_cycle_type: biennial }
+  Brassica oleracea var. capitata: { cultivation_cycle_type: biennial }
+  Salvia rosmarinus: { flowering_strategy: polycarpic }
+  Salvia officinalis: { flowering_strategy: polycarpic }
+  Lavandula angustifolia: { flowering_strategy: polycarpic }
+  Thymus vulgaris: { flowering_strategy: polycarpic }
+  Humulus lupulus: { flowering_strategy: polycarpic }
+
 default_phase_sequence: "indoor_default"
 
 default_phases:

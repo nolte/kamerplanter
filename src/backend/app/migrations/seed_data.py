@@ -18,6 +18,8 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
+    DtmReference,
+    FloweringStrategy,
     PhotoperiodType,
     PlantTrait,
     StressTolerance,
@@ -68,6 +70,12 @@ def _load_perennial_species() -> set[str]:
     """Load the set of perennial species names."""
     data = load_yaml("species.yaml")
     return set(data.get("perennial_species", []))
+
+
+def _load_lifecycle_overrides() -> dict[str, dict]:
+    """Load per-species lifecycle overrides (cultivation_cycle_type, flowering_strategy)."""
+    data = load_yaml("species.yaml")
+    return data.get("lifecycle_overrides", {}) or {}
 
 
 def _load_default_phases() -> list[dict]:
@@ -162,6 +170,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     family_species_map = _load_species_family_map()
     cultivar_data = _load_cultivars()
     perennial_species = _load_perennial_species()
+    lifecycle_overrides = _load_lifecycle_overrides()
     default_phases = _load_default_phases()
     profile_gen = ResourceProfileGenerator.from_yaml_phases(default_phases)
     companion_data = _load_companion_planting()
@@ -299,9 +308,14 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
         # Create lifecycle — perennials get PERENNIAL cycle type
         cycle = CycleType.PERENNIAL if sp.scientific_name in perennial_species else CycleType.ANNUAL
+        ov = lifecycle_overrides.get(sp.scientific_name, {})
+        cult_cycle = ov.get("cultivation_cycle_type")
+        flower_strat = ov.get("flowering_strategy")
         lc = LifecycleConfig(
             species_key=species_key,
             cycle_type=cycle,
+            cultivation_cycle_type=CycleType(cult_cycle) if cult_cycle else None,
+            flowering_strategy=FloweringStrategy(flower_strat) if flower_strat else None,
             photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
         )
         created_lc = lifecycle_repo.create_lifecycle(lc)
@@ -343,11 +357,15 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         existing_cultivars = species_repo.get_cultivars(sp_key)
         existing_cv_map = {c.name: c for c in existing_cultivars}
         for cv_data in cv_list:
+            dtm_ref = cv_data.get("dtm_reference")
             cultivar = Cultivar(
                 name=cv_data["name"],
                 species_key=sp_key,
                 breeder=cv_data.get("breeder"),
                 days_to_maturity=cv_data.get("days_to_maturity"),
+                dtm_reference=DtmReference(dtm_ref) if dtm_ref else None,
+                bearing_start_year_min=cv_data.get("bearing_start_year_min"),
+                bearing_start_year_max=cv_data.get("bearing_start_year_max"),
                 traits=[PlantTrait(t) for t in cv_data.get("traits", [])],
             )
             found_cv = existing_cv_map.get(cv_data["name"])
