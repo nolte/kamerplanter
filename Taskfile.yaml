@@ -26,6 +26,11 @@ tasks:
     cmds:
       - skaffold dev -p backend-only
 
+  dev:core:
+    desc: Start Skaffold dev loop for the KP Core module only (backend, frontend, celery, arangodb, timescaledb) — excludes the KI/AI (ki) module
+    cmds:
+      - skaffold dev -m kp
+
   # ── System Tuning ───────────────────────────────────────────
 
   fix:inotify:
