@@ -13,6 +13,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
@@ -22,8 +23,17 @@ import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { LifecycleConfig, PhaseSequence } from '@/api/types';
 
+/** Cycle-type enum values — mirrors CycleType in api/types.ts. */
+const CYCLE_TYPES = ['annual', 'biennial', 'perennial'] as const;
+
+/** Flowering-strategy enum values — mirrors FloweringStrategy in api/types.ts (REQ-003). */
+const FLOWERING_STRATEGIES = ['monocarpic', 'polycarpic'] as const;
+
 const schema = z.object({
-  cycle_type: z.enum(['annual', 'biennial', 'perennial']),
+  cycle_type: z.enum(CYCLE_TYPES),
+  // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  cultivation_cycle_type: z.enum(CYCLE_TYPES).or(z.literal('')).nullable(),
+  flowering_strategy: z.enum(FLOWERING_STRATEGIES).or(z.literal('')).nullable(),
   typical_lifespan_years: z.number().nullable(),
   dormancy_required: z.boolean(),
   vernalization_required: z.boolean(),
@@ -51,10 +61,17 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
 
-  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isDirty },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       cycle_type: 'annual',
+      cultivation_cycle_type: null,
+      flowering_strategy: null,
       typical_lifespan_years: null,
       dormancy_required: false,
       vernalization_required: false,
@@ -68,8 +85,14 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
     setLoading(true);
     const psPromise = phaseSequenceApi
       .getSpeciesPhaseSequence(speciesKey)
-      .then((ps) => { setPhaseSequence(ps); return ps; })
-      .catch(() => { setPhaseSequence(null); return null; });
+      .then((ps) => {
+        setPhaseSequence(ps);
+        return ps;
+      })
+      .catch(() => {
+        setPhaseSequence(null);
+        return null;
+      });
 
     const lcPromise = phasesApi
       .getLifecycleConfig(speciesKey)
@@ -78,6 +101,8 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
         setExists(true);
         reset({
           cycle_type: lc.cycle_type,
+          cultivation_cycle_type: lc.cultivation_cycle_type ?? null,
+          flowering_strategy: lc.flowering_strategy ?? null,
           typical_lifespan_years: lc.typical_lifespan_years,
           dormancy_required: lc.dormancy_required,
           vernalization_required: lc.vernalization_required,
@@ -94,11 +119,16 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
+      const payload = {
+        ...data,
+        cultivation_cycle_type: data.cultivation_cycle_type || null,
+        flowering_strategy: data.flowering_strategy || null,
+      };
       let result: LifecycleConfig;
       if (exists && lifecycle) {
-        result = await phasesApi.updateLifecycleConfig(speciesKey, lifecycle.key, data);
+        result = await phasesApi.updateLifecycleConfig(speciesKey, lifecycle.key, payload);
       } else {
-        result = await phasesApi.createLifecycleConfig(speciesKey, data);
+        result = await phasesApi.createLifecycleConfig(speciesKey, payload);
         setExists(true);
       }
       setLifecycle(result);
@@ -115,12 +145,18 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   return (
     <Box>
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
-
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+      >
         {/* ── Panel 1: Lebenszyklus ── */}
         {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
               {t('pages.lifecycle.title')}
             </Typography>
@@ -129,7 +165,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 name="cycle_type"
                 control={control}
                 label={t('pages.lifecycle.cycleType')}
-                options={['annual', 'biennial', 'perennial'].map((v) => ({
+                options={CYCLE_TYPES.map((v) => ({
                   value: v,
                   label: t(`enums.cycleType.${v}`),
                 }))}
@@ -142,12 +178,50 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 helperText={t('pages.lifecycle.lifespanYearsHelper')}
               />
             </FormRow>
+            {/* Phase A: botanical lifespan (cycle_type) vs. how the species is grown
+              (cultivation_cycle_type, intermediate) and its reproductive strategy
+              (flowering_strategy, expert) — REQ-003. Empty select → null on submit. */}
+            <FormRow>
+              <ExpertiseFieldWrapper minLevel="intermediate">
+                <FormSelectField
+                  name="cultivation_cycle_type"
+                  control={control}
+                  label={t('pages.lifecycle.cultivationCycleType')}
+                  helperText={t('pages.lifecycle.cultivationCycleTypeHelper')}
+                  options={[
+                    { value: '', label: '—' },
+                    ...CYCLE_TYPES.map((v) => ({
+                      value: v,
+                      label: t(`enums.cycleType.${v}`),
+                    })),
+                  ]}
+                />
+              </ExpertiseFieldWrapper>
+              <ExpertiseFieldWrapper minLevel="expert">
+                <FormSelectField
+                  name="flowering_strategy"
+                  control={control}
+                  label={t('pages.lifecycle.floweringStrategy')}
+                  helperText={t('pages.lifecycle.floweringStrategyHelper')}
+                  options={[
+                    { value: '', label: '—' },
+                    ...FLOWERING_STRATEGIES.map((v) => ({
+                      value: v,
+                      label: t(`enums.floweringStrategy.${v}`),
+                    })),
+                  ]}
+                />
+              </ExpertiseFieldWrapper>
+            </FormRow>
           </CardContent>
         </Card>
 
         {/* ── Panel 2: Photoperiode ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
               {t('pages.lifecycle.sectionPhotoperiod')}
             </Typography>
@@ -177,7 +251,10 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
 
         {/* ── Panel 3: Dormanz & Vernalisation ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
               {t('pages.lifecycle.sectionDormancy')}
             </Typography>

@@ -108,6 +108,42 @@ const WOOD_STAGES = ['softwood', 'semi_hardwood', 'hardwood', 'herbaceous'] as c
 /** Propagation-difficulty enum values — mirrors PropagationDifficulty in api/types.ts. */
 const PROPAGATION_DIFFICULTIES = ['easy', 'moderate', 'difficult'] as const;
 
+/** Growth-habit enum values — mirrors GrowthHabit in api/types.ts (Phase A: 12 values). */
+const GROWTH_HABITS = [
+  'herb',
+  'shrub',
+  'subshrub',
+  'tree',
+  'vine',
+  'groundcover',
+  'grass',
+  'succulent',
+  'bulb_geophyte',
+  'fern',
+  'aquatic',
+  'epiphyte',
+] as const;
+
+/** Harvest-pattern enum values — mirrors HarvestPattern in api/types.ts (REQ-007). */
+const HARVEST_PATTERNS = ['single', 'continuous', 'perennial'] as const;
+
+/** Harvested-part enum values — mirrors HarvestedPart in api/types.ts (REQ-007). */
+const HARVESTED_PARTS = [
+  'fruit',
+  'seed',
+  'leaf',
+  'root',
+  'tuber',
+  'bulb',
+  'flower_bud',
+  'flower',
+  'stem',
+  'whole_plant',
+] as const;
+
+/** Climacteric-class enum values — mirrors ClimactericClass in api/types.ts (REQ-008). */
+const CLIMACTERIC_CLASSES = ['climacteric', 'non_climacteric', 'atypical'] as const;
+
 /** Selectable months 1..12 for the propagation month picker. */
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
@@ -116,8 +152,12 @@ const schema = z.object({
   common_names: z.array(z.string()),
   family_key: z.string().nullable(),
   genus: z.string(),
-  growth_habit: z.enum(['herb', 'shrub', 'tree', 'vine', 'groundcover']),
+  growth_habit: z.enum(GROWTH_HABITS),
   root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']),
+  // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  harvest_pattern: z.enum(HARVEST_PATTERNS).or(z.literal('')).nullable(),
+  harvested_part: z.enum(HARVESTED_PARTS).or(z.literal('')).nullable(),
+  climacteric: z.enum(CLIMACTERIC_CLASSES).or(z.literal('')).nullable(),
   propagation_configs: z.array(
     z.object({
       method: z.enum(PROPAGATION_METHODS),
@@ -224,6 +264,9 @@ export default function SpeciesDetailPage() {
       genus: '',
       growth_habit: 'herb',
       root_type: 'fibrous',
+      harvest_pattern: null,
+      harvested_part: null,
+      climacteric: null,
       propagation_configs: [],
       hardiness_zones: [],
       native_habitat: '',
@@ -320,6 +363,9 @@ export default function SpeciesDetailPage() {
         genus: current.genus,
         growth_habit: current.growth_habit,
         root_type: current.root_type,
+        harvest_pattern: current.harvest_pattern ?? null,
+        harvested_part: current.harvested_part ?? null,
+        climacteric: current.climacteric ?? null,
         propagation_configs: (current.propagation_configs ?? []).map((c) => ({
           method: c.method,
           months: [...(c.months ?? [])].sort((a, b) => a - b),
@@ -359,6 +405,9 @@ export default function SpeciesDetailPage() {
         container_suitable: data.container_suitable || null,
         indoor_suitable: data.indoor_suitable || null,
         balcony_suitable: data.balcony_suitable || null,
+        harvest_pattern: data.harvest_pattern || null,
+        harvested_part: data.harvested_part || null,
+        climacteric: data.climacteric || null,
         default_nutrient_plan_key: data.default_nutrient_plan_key || null,
         propagation_configs: data.propagation_configs.map((c) => ({
           method: c.method,
@@ -658,7 +707,7 @@ export default function SpeciesDetailPage() {
                         control={control}
                         label={t('pages.species.growthHabit')}
                         helperText={t('pages.species.growthHabitHelper')}
-                        options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                        options={GROWTH_HABITS.map((v) => ({
                           value: v,
                           label: t(`enums.growthHabit.${v}`),
                         }))}
@@ -901,6 +950,57 @@ export default function SpeciesDetailPage() {
                     ]}
                   />
                 </FormRow>
+                {/* Phase A harvest properties (REQ-007/008). intermediate: pattern + part;
+                  expert: climacteric ripening class. Empty select → null on submit. */}
+                <FormRow>
+                  <ExpertiseFieldWrapper minLevel="intermediate">
+                    <FormSelectField
+                      name="harvest_pattern"
+                      control={control}
+                      label={t('pages.species.harvestPattern')}
+                      helperText={t('pages.species.harvestPatternHelper')}
+                      options={[
+                        { value: '', label: '—' },
+                        ...HARVEST_PATTERNS.map((v) => ({
+                          value: v,
+                          label: t(`enums.harvestPattern.${v}`),
+                        })),
+                      ]}
+                    />
+                  </ExpertiseFieldWrapper>
+                  <ExpertiseFieldWrapper minLevel="intermediate">
+                    <FormSelectField
+                      name="harvested_part"
+                      control={control}
+                      label={t('pages.species.harvestedPart')}
+                      helperText={t('pages.species.harvestedPartHelper')}
+                      options={[
+                        { value: '', label: '—' },
+                        ...HARVESTED_PARTS.map((v) => ({
+                          value: v,
+                          label: t(`enums.harvestedPart.${v}`),
+                        })),
+                      ]}
+                    />
+                  </ExpertiseFieldWrapper>
+                </FormRow>
+                <ExpertiseFieldWrapper minLevel="expert">
+                  <FormRow>
+                    <FormSelectField
+                      name="climacteric"
+                      control={control}
+                      label={t('pages.species.climacteric')}
+                      helperText={t('pages.species.climactericHelper')}
+                      options={[
+                        { value: '', label: '—' },
+                        ...CLIMACTERIC_CLASSES.map((v) => ({
+                          value: v,
+                          label: t(`enums.climacteric.${v}`),
+                        })),
+                      ]}
+                    />
+                  </FormRow>
+                </ExpertiseFieldWrapper>
                 <FormRow>
                   <FormSwitchField
                     name="greenhouse_recommended"

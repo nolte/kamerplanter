@@ -24,8 +24,18 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   container_suitable: { level: 'intermediate' },
   indoor_suitable: { level: 'intermediate' },
   balcony_suitable: { level: 'intermediate' },
+  // intermediate — harvest properties (Phase A / WP-7 tiering)
+  harvest_pattern: { level: 'intermediate' },
+  harvested_part: { level: 'intermediate' },
+  cultivation_cycle_type: { level: 'intermediate' },
+  bearing_start_year_min: { level: 'intermediate' },
+  bearing_start_year_max: { level: 'intermediate' },
   // expert
   root_type: { level: 'expert' },
+  // expert — Phase A advanced plant properties (WP-7 tiering)
+  climacteric: { level: 'expert' },
+  dtm_reference: { level: 'expert' },
+  flowering_strategy: { level: 'expert' },
   allelopathy_score: { level: 'expert' },
   hardiness_zones: { level: 'expert' },
   native_habitat: { level: 'expert' },

@@ -641,6 +641,12 @@
       "greenhouseRecommendedHelper": "Profitiert die Pflanze von geschütztem Anbau im Gewächshaus?",
       "supportRequired": "Rankhilfe/Stütze nötig",
       "supportRequiredHelper": "Benötigt die Pflanze eine Rankhilfe, Stütze oder ein Spalier?",
+      "harvestPattern": "Erntemuster",
+      "harvestPatternHelper": "Wie wird über die Lebenszeit geerntet: einmalig, fortlaufend (Durchpflücken) oder mehrjährig wiederkehrend",
+      "harvestedPart": "Erntegut (Pflanzenteil)",
+      "harvestedPartHelper": "Welcher Pflanzenteil wird geerntet (z. B. Frucht, Blatt, Wurzel, Knolle)",
+      "climacteric": "Nachreife-Verhalten",
+      "climactericHelper": "Reift die Frucht nach der Ernte nach (klimakterisch), nicht (nicht-klimakterisch) oder ist sie ein Grenzfall (atypisch)?",
       "defaultNutrientPlan": "Standard-Nährstoffplan",
       "defaultNutrientPlanHelper": "Wird als Fallback für Pflanzen dieser Art verwendet, wenn kein individueller Plan zugewiesen ist",
       "sectionWateringGuide": "Gießanleitung",
@@ -760,6 +766,12 @@
       "patentStatusHelper": "Schutzstatus: z. B. 'PVP', 'Patent', 'Open Source', leer = unbekannt",
       "daysToMaturity": "Tage bis Reife",
       "daysToMaturityHelper": "Typische Tage von Pflanzung bis Ernte (1–365)",
+      "dtmReference": "Bezugspunkt Tage bis Reife",
+      "dtmReferenceHelper": "Werden die Tage bis Reife ab Direktsaat oder ab Auspflanzung gezählt?",
+      "bearingStartYearMin": "Ertragsbeginn ab Jahr (min)",
+      "bearingStartYearMinHelper": "Frühestes Standjahr, ab dem mehrjährige Pflanzen Ertrag liefern (1–20)",
+      "bearingStartYearMax": "Ertragsbeginn ab Jahr (max)",
+      "bearingStartYearMaxHelper": "Spätestes Standjahr, ab dem mehrjährige Pflanzen Ertrag liefern (1–20)",
       "diseaseResistances": "Krankheitsresistenzen",
       "diseaseResistancesHelper": "Resistenzen gegen Krankheiten (Enter drücken zum Hinzufügen)",
       "phaseWateringOverrides": "Gießintervall pro Phase",
@@ -1115,6 +1127,10 @@
     "lifecycle": {
       "title": "Lebenszyklus-Konfiguration",
       "cycleType": "Zyklustyp",
+      "cultivationCycleType": "Anbau-Zyklustyp",
+      "cultivationCycleTypeHelper": "Wie die Art im Anbau geführt wird — kann vom botanischen Lebenszyklus abweichen (z. B. mehrjährig botanisch, aber einjährig kultiviert)",
+      "floweringStrategy": "Blühstrategie",
+      "floweringStrategyHelper": "Monokarp: blüht einmal und stirbt danach. Polykarp: blüht über mehrere Jahre wiederholt.",
       "lifespanYears": "Lebensdauer (Jahre)",
       "lifespanYearsHelper": "Nur bei mehrjährigen Pflanzen (Perennial) relevant",
       "sectionPhotoperiod": "Photoperiode",
@@ -3126,9 +3142,46 @@
     "growthHabit": {
       "herb": "Kraut",
       "shrub": "Strauch",
+      "subshrub": "Halbstrauch",
       "tree": "Baum",
       "vine": "Ranke",
-      "groundcover": "Bodendecker"
+      "groundcover": "Bodendecker",
+      "grass": "Gras",
+      "succulent": "Sukkulente",
+      "bulb_geophyte": "Zwiebel-/Knollengeophyt",
+      "fern": "Farn",
+      "aquatic": "Wasserpflanze",
+      "epiphyte": "Epiphyt"
+    },
+    "harvestPattern": {
+      "single": "Einmalernte",
+      "continuous": "Mehrfach-/Durchpflückernte",
+      "perennial": "Mehrjährig wiederkehrend"
+    },
+    "harvestedPart": {
+      "fruit": "Frucht",
+      "seed": "Samen",
+      "leaf": "Blatt",
+      "root": "Wurzel",
+      "tuber": "Knolle",
+      "bulb": "Zwiebel",
+      "flower_bud": "Blütenknospe",
+      "flower": "Blüte",
+      "stem": "Stängel/Trieb",
+      "whole_plant": "Ganze Pflanze"
+    },
+    "climacteric": {
+      "climacteric": "Klimakterisch (nachreifend)",
+      "non_climacteric": "Nicht-klimakterisch",
+      "atypical": "Atypisch/Grenzfall"
+    },
+    "dtmReference": {
+      "direct_seed": "ab Direktsaat",
+      "transplant": "ab Auspflanzung"
+    },
+    "floweringStrategy": {
+      "monocarpic": "Monokarp (blüht einmal)",
+      "polycarpic": "Polykarp (blüht mehrfach)"
     },
     "rootType": {
       "fibrous": "Faserig",

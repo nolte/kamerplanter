@@ -1,6 +1,33 @@
 // Enums (mirrors src/backend/app/common/enums.py)
 
-export type GrowthHabit = 'herb' | 'shrub' | 'tree' | 'vine' | 'groundcover';
+export type GrowthHabit =
+  | 'herb'
+  | 'shrub'
+  | 'subshrub'
+  | 'tree'
+  | 'vine'
+  | 'groundcover'
+  | 'grass'
+  | 'succulent'
+  | 'bulb_geophyte'
+  | 'fern'
+  | 'aquatic'
+  | 'epiphyte';
+export type HarvestPattern = 'single' | 'continuous' | 'perennial';
+export type HarvestedPart =
+  | 'fruit'
+  | 'seed'
+  | 'leaf'
+  | 'root'
+  | 'tuber'
+  | 'bulb'
+  | 'flower_bud'
+  | 'flower'
+  | 'stem'
+  | 'whole_plant';
+export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
+export type DtmReference = 'direct_seed' | 'transplant';
+export type FloweringStrategy = 'monocarpic' | 'polycarpic';
 export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous';
 export type PropagationMethod =
   | 'seed'
@@ -248,6 +275,9 @@ export interface Species {
   bloom_from_year: number | null;
   frost_sensitivity: FrostTolerance | null;
   plant_category: string | null;
+  harvest_pattern: HarvestPattern | null;
+  harvested_part: HarvestedPart | null;
+  climacteric: ClimactericClass | null;
   propagation_configs: PropagationConfig[];
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
@@ -291,6 +321,9 @@ export interface SpeciesCreate {
   bloom_from_year?: number | null;
   frost_sensitivity?: FrostTolerance | null;
   plant_category?: string | null;
+  harvest_pattern?: HarvestPattern | null;
+  harvested_part?: HarvestedPart | null;
+  climacteric?: ClimactericClass | null;
   propagation_configs?: PropagationConfig[];
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
@@ -319,6 +352,9 @@ export interface Cultivar {
   traits: PlantTrait[];
   patent_status: string;
   days_to_maturity: number | null;
+  dtm_reference: DtmReference | null;
+  bearing_start_year_min: number | null;
+  bearing_start_year_max: number | null;
   disease_resistances: string[];
   phase_watering_overrides: Record<string, number> | null;
   created_at: string | null;
@@ -333,6 +369,9 @@ export interface CultivarCreate {
   traits?: PlantTrait[];
   patent_status?: string;
   days_to_maturity?: number | null;
+  dtm_reference?: DtmReference | null;
+  bearing_start_year_min?: number | null;
+  bearing_start_year_max?: number | null;
   disease_resistances?: string[];
   phase_watering_overrides?: Record<string, number> | null;
 }
@@ -680,6 +719,8 @@ export interface LifecycleConfig {
   key: string;
   species_key: string;
   cycle_type: CycleType;
+  cultivation_cycle_type: CycleType | null;
+  flowering_strategy: FloweringStrategy | null;
   typical_lifespan_years: number | null;
   dormancy_required: boolean;
   vernalization_required: boolean;
@@ -694,6 +735,8 @@ export interface LifecycleConfig {
 export interface LifecycleConfigCreate {
   species_key: string;
   cycle_type?: CycleType;
+  cultivation_cycle_type?: CycleType | null;
+  flowering_strategy?: FloweringStrategy | null;
   typical_lifespan_years?: number | null;
   dormancy_required?: boolean;
   vernalization_required?: boolean;

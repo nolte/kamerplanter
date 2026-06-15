@@ -27,9 +27,11 @@ import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormSelectField from '@/components/form/FormSelectField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -39,6 +41,9 @@ import * as api from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from '@/api/types';
 
+/** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
+const DTM_REFERENCES = ['direct_seed', 'transplant'] as const;
+
 const schema = z.object({
   name: z.string().min(1),
   breeder: z.string().nullable(),
@@ -46,6 +51,10 @@ const schema = z.object({
   traits: z.array(z.string()),
   patent_status: z.string(),
   days_to_maturity: z.number().min(1).max(365).nullable(),
+  // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  dtm_reference: z.enum(DTM_REFERENCES).or(z.literal('')).nullable(),
+  bearing_start_year_min: z.number().min(1).max(20).nullable(),
+  bearing_start_year_max: z.number().min(1).max(20).nullable(),
   disease_resistances: z.array(z.string()),
 });
 
@@ -92,6 +101,9 @@ export default function CultivarDetailPage() {
       traits: [],
       patent_status: '',
       days_to_maturity: null,
+      dtm_reference: null,
+      bearing_start_year_min: null,
+      bearing_start_year_max: null,
       disease_resistances: [],
     },
   });
@@ -113,6 +125,9 @@ export default function CultivarDetailPage() {
         traits: c.traits,
         patent_status: c.patent_status,
         days_to_maturity: c.days_to_maturity,
+        dtm_reference: c.dtm_reference ?? null,
+        bearing_start_year_min: c.bearing_start_year_min ?? null,
+        bearing_start_year_max: c.bearing_start_year_max ?? null,
         disease_resistances: c.disease_resistances,
       });
 
@@ -177,6 +192,7 @@ export default function CultivarDetailPage() {
       await api.updateCultivar(speciesKey, cultivarKey, {
         ...data,
         traits: data.traits as PlantTrait[],
+        dtm_reference: data.dtm_reference || null,
       } as Omit<CultivarCreate, 'species_key'>);
       notification.success(t('common.save'));
       load();
@@ -205,7 +221,8 @@ export default function CultivarDetailPage() {
         }
       }
       await api.updateCultivar(speciesKey, cultivarKey, {
-        phase_watering_overrides: Object.keys(overridesPayload).length > 0 ? overridesPayload : null,
+        phase_watering_overrides:
+          Object.keys(overridesPayload).length > 0 ? overridesPayload : null,
       } as Omit<CultivarCreate, 'species_key'>);
       notification.success(t('common.saved'));
     } catch (err) {
@@ -241,11 +258,7 @@ export default function CultivarDetailPage() {
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
             {!isDeletionProtected && (
-              <Button
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteOpen(true)}
-              >
+              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
                 {t('common.delete')}
               </Button>
             )}
@@ -276,7 +289,10 @@ export default function CultivarDetailPage() {
         {/* ── Panel 1: Grunddaten ── */}
         {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading, required fields first */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.cultivars.sectionIdentification')}
             </Typography>
@@ -310,7 +326,10 @@ export default function CultivarDetailPage() {
 
         {/* ── Panel 2: Eigenschaften ── */}
         <Card variant="outlined">
-          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+          <CardContent
+            component="fieldset"
+            sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+          >
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
               {t('pages.cultivars.sectionCharacteristics')}
             </Typography>
@@ -325,6 +344,44 @@ export default function CultivarDetailPage() {
               min={1}
               max={365}
             />
+            {/* Phase A: days-to-maturity reference point (expert) — clarifies whether DTM
+              is counted from direct seeding or from transplant (REQ-007). */}
+            <ExpertiseFieldWrapper minLevel="expert">
+              <FormSelectField
+                name="dtm_reference"
+                control={control}
+                label={t('pages.cultivars.dtmReference')}
+                helperText={t('pages.cultivars.dtmReferenceHelper')}
+                options={[
+                  { value: '', label: '—' },
+                  ...DTM_REFERENCES.map((v) => ({
+                    value: v,
+                    label: t(`enums.dtmReference.${v}`),
+                  })),
+                ]}
+              />
+            </ExpertiseFieldWrapper>
+            {/* Phase A: bearing-start year range for perennials (intermediate, 1..20). */}
+            <ExpertiseFieldWrapper minLevel="intermediate">
+              <FormRow>
+                <FormNumberField
+                  name="bearing_start_year_min"
+                  control={control}
+                  label={t('pages.cultivars.bearingStartYearMin')}
+                  helperText={t('pages.cultivars.bearingStartYearMinHelper')}
+                  min={1}
+                  max={20}
+                />
+                <FormNumberField
+                  name="bearing_start_year_max"
+                  control={control}
+                  label={t('pages.cultivars.bearingStartYearMax')}
+                  helperText={t('pages.cultivars.bearingStartYearMaxHelper')}
+                  min={1}
+                  max={20}
+                />
+              </FormRow>
+            </ExpertiseFieldWrapper>
             <FormChipInput
               name="traits"
               control={control}
@@ -370,9 +427,7 @@ export default function CultivarDetailPage() {
         <Paper sx={{ mt: 4, p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <OpacityIcon color="primary" />
-            <Typography variant="h6">
-              {t('pages.cultivars.phaseWateringOverrides')}
-            </Typography>
+            <Typography variant="h6">{t('pages.cultivars.phaseWateringOverrides')}</Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.cultivars.phaseWateringOverridesHelper')}
@@ -382,7 +437,9 @@ export default function CultivarDetailPage() {
               <TableRow>
                 <TableCell>{t('pages.growthPhases.name')}</TableCell>
                 <TableCell sx={{ width: 160 }}>{t('pages.growthPhases.duration')}</TableCell>
-                <TableCell sx={{ width: 160 }}>{t('pages.growthPhases.wateringIntervalDefault')}</TableCell>
+                <TableCell sx={{ width: 160 }}>
+                  {t('pages.growthPhases.wateringIntervalDefault')}
+                </TableCell>
                 <TableCell sx={{ width: 160 }}>{t('pages.cultivars.overrideInterval')}</TableCell>
               </TableRow>
             </TableHead>
@@ -390,7 +447,9 @@ export default function CultivarDetailPage() {
               {growthPhases.map((gp) => (
                 <TableRow key={gp.key}>
                   <TableCell>{gp.display_name || gp.name}</TableCell>
-                  <TableCell>{gp.typical_duration_days} {t('common.days')}</TableCell>
+                  <TableCell>
+                    {gp.typical_duration_days} {t('common.days')}
+                  </TableCell>
                   <TableCell>
                     {gp.watering_interval_days
                       ? `${gp.watering_interval_days} ${t('common.days')}`

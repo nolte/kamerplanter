@@ -641,6 +641,12 @@
       "greenhouseRecommendedHelper": "Does the plant benefit from protected growing in a greenhouse?",
       "supportRequired": "Support Required",
       "supportRequiredHelper": "Does the plant need a trellis, stake or support structure?",
+      "harvestPattern": "Harvest Pattern",
+      "harvestPatternHelper": "How the species is harvested over its lifetime: a single harvest, continuous pick-over, or recurring perennial harvests",
+      "harvestedPart": "Harvested Part",
+      "harvestedPartHelper": "Which plant part is harvested (e.g. fruit, leaf, root, tuber)",
+      "climacteric": "Ripening Behaviour",
+      "climactericHelper": "Does the fruit ripen after harvest (climacteric), not at all (non-climacteric), or is it a borderline case (atypical)?",
       "defaultNutrientPlan": "Default Nutrient Plan",
       "defaultNutrientPlanHelper": "Used as fallback for plants of this species when no individual plan is assigned",
       "sectionWateringGuide": "Watering Guide",
@@ -760,6 +766,12 @@
       "patentStatusHelper": "Protection status: e.g. 'PVP', 'Patent', 'Open Source', empty = unknown",
       "daysToMaturity": "Days to Maturity",
       "daysToMaturityHelper": "Typical days from planting to harvest (1–365)",
+      "dtmReference": "Days-to-Maturity Reference",
+      "dtmReferenceHelper": "Are days-to-maturity counted from direct seeding or from transplant?",
+      "bearingStartYearMin": "Bearing Start Year (min)",
+      "bearingStartYearMinHelper": "Earliest standing year from which perennials start bearing (1–20)",
+      "bearingStartYearMax": "Bearing Start Year (max)",
+      "bearingStartYearMaxHelper": "Latest standing year from which perennials start bearing (1–20)",
       "diseaseResistances": "Disease Resistances",
       "diseaseResistancesHelper": "Disease resistances (press Enter to add)",
       "phaseWateringOverrides": "Watering Interval per Phase",
@@ -1115,6 +1127,10 @@
     "lifecycle": {
       "title": "Lifecycle Configuration",
       "cycleType": "Cycle Type",
+      "cultivationCycleType": "Cultivation Cycle Type",
+      "cultivationCycleTypeHelper": "How the species is grown in cultivation — may differ from the botanical lifespan (e.g. botanically perennial but grown as an annual)",
+      "floweringStrategy": "Flowering Strategy",
+      "floweringStrategyHelper": "Monocarpic: flowers once, then dies. Polycarpic: flowers repeatedly over several years.",
       "lifespanYears": "Lifespan (Years)",
       "lifespanYearsHelper": "Only relevant for perennial plants",
       "sectionPhotoperiod": "Photoperiod",
@@ -3125,9 +3141,46 @@
     "growthHabit": {
       "herb": "Herb",
       "shrub": "Shrub",
+      "subshrub": "Subshrub",
       "tree": "Tree",
       "vine": "Vine",
-      "groundcover": "Groundcover"
+      "groundcover": "Groundcover",
+      "grass": "Grass",
+      "succulent": "Succulent",
+      "bulb_geophyte": "Bulb / Geophyte",
+      "fern": "Fern",
+      "aquatic": "Aquatic plant",
+      "epiphyte": "Epiphyte"
+    },
+    "harvestPattern": {
+      "single": "Single harvest",
+      "continuous": "Continuous / pick-over harvest",
+      "perennial": "Recurring perennial harvest"
+    },
+    "harvestedPart": {
+      "fruit": "Fruit",
+      "seed": "Seed",
+      "leaf": "Leaf",
+      "root": "Root",
+      "tuber": "Tuber",
+      "bulb": "Bulb",
+      "flower_bud": "Flower bud",
+      "flower": "Flower",
+      "stem": "Stem",
+      "whole_plant": "Whole plant"
+    },
+    "climacteric": {
+      "climacteric": "Climacteric (ripens after harvest)",
+      "non_climacteric": "Non-climacteric",
+      "atypical": "Atypical / borderline"
+    },
+    "dtmReference": {
+      "direct_seed": "from direct seeding",
+      "transplant": "from transplant"
+    },
+    "floweringStrategy": {
+      "monocarpic": "Monocarpic (flowers once)",
+      "polycarpic": "Polycarpic (flowers repeatedly)"
     },
     "rootType": {
       "fibrous": "Fibrous",

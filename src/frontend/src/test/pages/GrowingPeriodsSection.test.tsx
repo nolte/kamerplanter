@@ -33,6 +33,9 @@ function makeSpecies(overrides: Partial<Species> = {}): Species {
     bloom_from_year: null,
     frost_sensitivity: null,
     plant_category: null,
+    harvest_pattern: null,
+    harvested_part: null,
+    climacteric: null,
     propagation_configs: [
       { method: 'cutting', months: [5, 6], wood_stage: 'softwood', notes: 'Use sharp blade.' },
       { method: 'division', months: [9] },
