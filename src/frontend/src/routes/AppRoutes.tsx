@@ -57,6 +57,10 @@ const PlantInstanceDetailPage = lazy(
   () => import('@/pages/pflanzen/PlantInstanceDetailPage'),
 );
 const CalculationsPage = lazy(() => import('@/pages/pflanzen/CalculationsPage'));
+// REQ-029 / REQ-029-A KI-Pflanzenerkennung
+const PlantIdentificationPage = lazy(
+  () => import('@/pages/ki-recognition/PlantIdentificationPage'),
+);
 const PlantingRunListPage = lazy(
   () => import('@/pages/durchlaeufe/PlantingRunListPage'),
 );
@@ -487,6 +491,15 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <CalculationsPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-029 / REQ-029-A KI-Pflanzenerkennung */}
+          <Route
+            path="pflanzen/identifikation"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PlantIdentificationPage />
               </Suspense>
             }
           />
