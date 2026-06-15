@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -13,6 +12,7 @@ import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
+import CheckIcon from '@mui/icons-material/Check';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -29,9 +29,10 @@ const CELL_MIN_W = 40;
 const BAR_H = 20;
 const ROW_H = 32;
 
-type BarKind = 'sow' | 'growth' | 'harvest' | 'bloom';
+type BarKind = 'sow' | 'growth' | 'harvest' | 'bloom' | 'propagation';
 
 const BAR_COLORS: Record<BarKind, string> = {
+  propagation: '#26A69A',
   sow: '#66BB6A',
   growth: '#42A5F5',
   harvest: '#FF8F00',
@@ -81,145 +82,6 @@ function rangesToMonths(ranges: [number, number][]): number[] {
   return [...months].sort((a, b) => a - b);
 }
 
-// ── Computed timeline (mirrors SowingCalendarEngine) ─────────────────
-
-type TimelinePhase = 'indoor_sowing' | 'outdoor_planting' | 'growth' | 'harvest' | 'flowering';
-
-interface TimelineBar {
-  phase: TimelinePhase;
-  startMonth: number;
-  endMonth: number;
-  fromYear: number | null;
-}
-
-const TIMELINE_COLORS: Record<TimelinePhase, string> = {
-  indoor_sowing: '#FDD835',
-  outdoor_planting: '#66BB6A',
-  growth: '#42A5F5',
-  harvest: '#FFA726',
-  flowering: '#EC407A',
-};
-
-const DEFAULT_LAST_FROST_MONTH = 5; // May
-
-function computeTimeline(period: GrowingPeriod, isOrnamental: boolean): TimelineBar[] {
-  const bars: TimelineBar[] = [];
-
-  // 1. Indoor sowing (Voranzucht)
-  let indoorEndMonth: number | null = null;
-  if (period.sowing_indoor_weeks_before_last_frost != null) {
-    const weeksBack = period.sowing_indoor_weeks_before_last_frost;
-    const monthsBack = Math.ceil(weeksBack / 4.33);
-    const startMonth = Math.max(1, DEFAULT_LAST_FROST_MONTH - monthsBack);
-    const endMonth = DEFAULT_LAST_FROST_MONTH - 1;
-    if (endMonth >= startMonth) {
-      bars.push({ phase: 'indoor_sowing', startMonth, endMonth, fromYear: null });
-      indoorEndMonth = endMonth;
-    }
-  }
-
-  // 2. Outdoor planting (Direktsaat)
-  if (period.direct_sow_months.length > 0) {
-    for (const [s, e] of monthsToRanges(period.direct_sow_months)) {
-      const start = indoorEndMonth != null && s <= indoorEndMonth ? indoorEndMonth + 1 : s;
-      if (start > e) continue;
-      bars.push({ phase: 'outdoor_planting', startMonth: start, endMonth: e, fromYear: null });
-    }
-  } else if (period.sowing_outdoor_after_last_frost_days != null) {
-    const startMonth = DEFAULT_LAST_FROST_MONTH;
-    bars.push({ phase: 'outdoor_planting', startMonth, endMonth: startMonth, fromYear: null });
-  }
-
-  // 3. Terminal phase (harvest or flowering)
-  const terminalMonths = isOrnamental && period.bloom_months.length > 0
-    ? period.bloom_months
-    : period.harvest_months;
-  const terminalPhase: TimelinePhase = isOrnamental && period.bloom_months.length > 0
-    ? 'flowering' : 'harvest';
-  const terminalFromYear = isOrnamental && period.bloom_months.length > 0
-    ? (period.bloom_from_year ?? null)
-    : (period.harvest_from_year ?? null);
-
-  // Build occupied-months set for sowing to use in terminal clipping
-  const sowBars = bars.filter((b) => b.phase === 'indoor_sowing' || b.phase === 'outdoor_planting');
-
-  if (terminalMonths.length > 0) {
-    for (const [s, e] of monthsToRanges(terminalMonths)) {
-      let start = s;
-      // Clip terminal start to after the sowing range it overlaps with.
-      // Year-crossing exception: if terminal range is entirely before the
-      // sowing range (e.g. harvest Jun-Aug, sow Oct-Nov), keep as-is.
-      for (const sow of sowBars) {
-        if (start >= sow.startMonth && start <= sow.endMonth && e > sow.endMonth) {
-          start = sow.endMonth + 1;
-        }
-      }
-      if (start > e) continue;
-      bars.push({ phase: terminalPhase, startMonth: start, endMonth: e, fromYear: terminalFromYear });
-    }
-  }
-
-  // 4. Growth — explicit growth_months preferred, otherwise circular per-range gap-fill
-  if (period.growth_months.length > 0) {
-    for (const [s, e] of monthsToRanges(period.growth_months)) {
-      bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
-    }
-  } else {
-    const termBars = bars.filter((b) => b.phase === 'harvest' || b.phase === 'flowering');
-
-    if (sowBars.length > 0 && termBars.length > 0) {
-      // Build set of months occupied by sowing or terminal bars
-      const occupied = new Set<number>();
-      for (const bar of [...sowBars, ...termBars]) {
-        for (let m = bar.startMonth; m <= bar.endMonth; m++) occupied.add(m);
-      }
-
-      // For each sowing bar, trace forward circularly until hitting an
-      // occupied month (terminal or another sow range). Unoccupied months
-      // in between become growth. This handles year-crossing naturally.
-      const growthSet = new Set<number>();
-      for (const sow of sowBars) {
-        for (let offset = 1; offset <= 11; offset++) {
-          const m = ((sow.endMonth - 1 + offset) % 12) + 1;
-          if (occupied.has(m)) break;
-          growthSet.add(m);
-        }
-      }
-
-      // Convert collected growth months to ranges
-      const sortedGrowth = [...growthSet].sort((a, b) => a - b);
-      for (const [s, e] of monthsToRanges(sortedGrowth)) {
-        bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
-      }
-    }
-
-    // 4-fallback: No sowing bars but terminal bars exist (indoor ornamentals).
-    // Fill all non-terminal months with growth.
-    if (sowBars.length === 0 && termBars.length > 0) {
-      const terminalSet = new Set<number>();
-      for (const bar of termBars) {
-        for (let m = bar.startMonth; m <= bar.endMonth; m++) terminalSet.add(m);
-      }
-      const growthMonths: number[] = [];
-      for (let m = 1; m <= 12; m++) {
-        if (!terminalSet.has(m)) growthMonths.push(m);
-      }
-      for (const [s, e] of monthsToRanges(growthMonths)) {
-        bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
-      }
-    }
-  }
-
-  // Also show bloom for non-ornamental if bloom_months exist and we used harvest as terminal
-  if (!isOrnamental && period.bloom_months.length > 0) {
-    for (const [s, e] of monthsToRanges(period.bloom_months)) {
-      bars.push({ phase: 'flowering', startMonth: s, endMonth: e, fromYear: period.bloom_from_year ?? null });
-    }
-  }
-
-  return bars;
-}
-
 interface DragState {
   periodIdx: number;
   kind: BarKind;
@@ -243,11 +105,13 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const [periods, setPeriods] = useState<GrowingPeriod[]>([]);
   const [propagationMonths, setPropagationMonths] = useState<number[]>([]);
   const [propagationNotes, setPropagationNotes] = useState<string>('');
+  const [editingPropagation, setEditingPropagation] = useState(false);
+  // Announced to screen readers when the propagation edit mode changes (UI-NFR-002 R-011).
+  const [propagationModeAnnouncement, setPropagationModeAnnouncement] = useState('');
   const [saving, setSaving] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
-  const isOrnamental = !species.allows_harvest;
   const currentMonth = new Date().getMonth() + 1;
 
   // Propagation overview — clarifies why sowing data may be sparse or absent
@@ -281,6 +145,17 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
     [propagationMonths, t],
   );
 
+  const handleToggleEditingPropagation = useCallback(() => {
+    setEditingPropagation((v) => {
+      const next = !v;
+      // Announce mode change to screen readers (UI-NFR-002 R-011).
+      setPropagationModeAnnouncement(
+        next ? t('pages.species.propagationEditModeOn') : t('pages.species.propagationEditModeOff'),
+      );
+      return next;
+    });
+  }, [t]);
+
   const togglePropagationMonth = useCallback((month: number) => {
     setPropagationMonths((prev) =>
       prev.includes(month)
@@ -289,13 +164,17 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
     );
   }, []);
 
-  // Computed timeline bars (mirrors SowingCalendarEngine)
-  const timelineBars = useMemo(() => {
-    if (periods.length === 0) return [];
-    return periods.flatMap((p, i) =>
-      computeTimeline(p, isOrnamental).map((b) => ({ ...b, periodIdx: i })),
-    );
-  }, [periods, isOrnamental]);
+  // Do sowing months overlap harvest/bloom months? For perennials this is normal
+  // (sowing only establishes the plant; harvest/bloom recur on the established
+  // plant) and would otherwise read as a contradiction — so we explain it inline.
+  const hasSowHarvestOverlap = useMemo(
+    () =>
+      periods.some((p) => {
+        const sow = new Set(p.direct_sow_months);
+        return [...p.harvest_months, ...p.bloom_months].some((m) => sow.has(m));
+      }),
+    [periods],
+  );
 
   useEffect(() => {
     setPropagationMonths([...(species.propagation_months ?? [])].sort((a, b) => a - b));
@@ -361,25 +240,31 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   };
 
   const getBarKinds = useCallback(
-    (): BarKind[] => ['sow', 'growth', 'harvest', 'bloom'],
+    // Propagation first — it's a species-level, read-only summary row that frames
+    // the editable sow/growth/harvest/bloom timing below.
+    (): BarKind[] => ['propagation', 'sow', 'growth', 'harvest', 'bloom'],
     [],
   );
 
   const getMonthsForKind = useCallback(
     (period: GrowingPeriod, kind: BarKind): number[] => {
       switch (kind) {
+        // Species-global field — identical for every period (period is ignored).
+        case 'propagation': return propagationMonths;
         case 'sow': return period.direct_sow_months;
         case 'growth': return period.growth_months;
         case 'harvest': return period.harvest_months;
         case 'bloom': return period.bloom_months;
       }
     },
-    [],
+    [propagationMonths],
   );
 
   const setMonthsForKind = useCallback(
     (period: GrowingPeriod, kind: BarKind, months: number[]): GrowingPeriod => {
       switch (kind) {
+        // Read-only row — never written through the timeline; edited in the card above.
+        case 'propagation': return period;
         case 'sow': return { ...period, direct_sow_months: months };
         case 'growth': return { ...period, growth_months: months };
         case 'harvest': return { ...period, harvest_months: months };
@@ -391,6 +276,8 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
 
   const handleBarDrag = useCallback(
     (periodIdx: number, kind: BarKind, rangeIdx: number, edge: 'start' | 'end', newMonth: number) => {
+      // Propagation is read-only in the timeline — guard against any drag effect.
+      if (kind === 'propagation') return;
       setPeriods((prev) =>
         prev.map((p, i) => {
           if (i !== periodIdx) return p;
@@ -419,92 +306,118 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
         {t('pages.species.growingPeriodsHelper')}
       </Typography>
 
-      {/* Propagation overview — makes the propagation method explicit so that
-          missing/sparse sowing data is not mistaken for incomplete records. */}
+      {/* Propagation card — read view by default (method chips, best time, notes),
+          with an edit toggle that reveals the month picker and the notes field.
+          Keeps the common look-up case clean and never shows the same value twice
+          (read text vs. editor). Mirrors the Card framing of the timeline below. */}
       {propagationMethods.length > 0 && (
-        <Box sx={{ mb: 2 }}>
-          {/* role="group" + aria-labelledby ties the label text to the chip set
-              so screen readers announce "Vermehrung: Steckling, Teilung" as a unit
-              rather than reading each chip without context. */}
-          <Box
-            role="group"
-            aria-label={t('pages.species.propagationOverviewLabel')}
-            sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}
-          >
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              aria-hidden="true"
-              sx={{ mr: 0.5 }}
+        <Card variant="outlined" sx={{ mb: 2 }}>
+          <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+            {/* Invisible live region — announces edit-mode transitions to screen readers (UI-NFR-002 R-011). */}
+            <Box
+              aria-live="polite"
+              aria-atomic="true"
+              sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
             >
-              {t('pages.species.propagationOverviewLabel')}:
-            </Typography>
-            {propagationMethods.map((m) => (
-              <Chip
-                key={m}
-                size="small"
-                variant="outlined"
-                color={m === 'seed' ? 'success' : 'default'}
-                label={t(`enums.propagationMethod.${m}`)}
-              />
-            ))}
-          </Box>
-          {!hasSeedPropagation && (
-            <Alert severity="info" sx={{ mt: 1.5 }}>
-              {t('pages.species.vegetativeOnlyNotice', { methods: propagationLabels })}
-            </Alert>
-          )}
+              {propagationModeAnnouncement}
+            </Box>
 
-          {/* Best propagation time — when to take cuttings / divide / detach offsets.
-              Complements propagation_methods (the "how") with the "when". */}
-          <Box sx={{ mt: 1.5 }}>
-            {propagationMonths.length > 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                {t('pages.species.propagationMonthsValue', { range: propagationMonthsLabel })}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {t('pages.species.propagationOverviewLabel')}
               </Typography>
-            )}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
-              {t('pages.species.propagationMonthsHelper')}
-            </Typography>
+              {/* Tooltip clarifies that "Done" only closes the editor — the global Save
+                  button below persists the changes (save-intent clarity). */}
+              <Tooltip
+                title={editingPropagation ? t('pages.species.propagationEditDoneHint') : t('common.edit')}
+                arrow
+              >
+                <IconButton
+                  size="small"
+                  onClick={handleToggleEditingPropagation}
+                  aria-label={editingPropagation ? t('common.done') : t('common.edit')}
+                  aria-pressed={editingPropagation}
+                  data-testid="propagation-edit-toggle"
+                >
+                  {editingPropagation ? <CheckIcon fontSize="small" /> : <EditIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Methods — read-only chips here; the method set is edited on the Edit tab */}
             <Box
               role="group"
-              aria-label={t('pages.species.propagationMonthsLabel')}
-              sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-              data-testid="propagation-months-group"
+              aria-label={t('pages.species.propagationMethods')}
+              sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}
             >
-              {MONTHS.map((m) => {
-                const selected = propagationMonths.includes(m);
-                const monthName = t(`pages.species.months.${m}`);
-                return (
-                  <Chip
-                    key={m}
-                    size="small"
-                    clickable
-                    color={selected ? 'primary' : 'default'}
-                    variant={selected ? 'filled' : 'outlined'}
-                    label={monthName}
-                    aria-label={t('pages.species.propagationMonthChipAriaLabel', { month: monthName })}
-                    aria-pressed={selected}
-                    onClick={() => togglePropagationMonth(m)}
-                    data-testid={`propagation-month-${m}`}
-                  />
-                );
-              })}
+              {propagationMethods.map((m) => (
+                <Chip
+                  key={m}
+                  size="small"
+                  variant="outlined"
+                  color={m === 'seed' ? 'success' : 'default'}
+                  label={t(`enums.propagationMethod.${m}`)}
+                />
+              ))}
             </Box>
-          </Box>
 
-          {/* Propagation notes — the "what to watch out for" companion to the
-              propagation method (how) and propagation months (when).
-              Read view: subtle outlined box with tip icon — intentionally lighter
-              than the vegetative-only Alert above so two equal-weight blue Alerts
-              never stack. Edit view: multiline TextField below. */}
-          <Box sx={{ mt: 2 }}>
-            {propagationNotes.trim() && (
+            {/* Vegetative-only hint — compact caption, not a full-width Alert */}
+            {!hasSeedPropagation && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                {t('pages.species.vegetativeOnlyNotice', { methods: propagationLabels })}
+              </Typography>
+            )}
+
+            {/* Best propagation time — read: range text only; edit: month picker */}
+            <Box sx={{ mt: 2 }}>
+              {(propagationMonths.length > 0 || editingPropagation) && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: editingPropagation ? 0.75 : 0 }}>
+                  {propagationMonths.length > 0
+                    ? t('pages.species.propagationMonthsValue', { range: propagationMonthsLabel })
+                    : t('pages.species.propagationMonthsLabel')}
+                </Typography>
+              )}
+              {editingPropagation && (
+                <>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+                    {t('pages.species.propagationMonthsHelper')}
+                  </Typography>
+                  <Box
+                    role="group"
+                    aria-label={t('pages.species.propagationMonthsLabel')}
+                    sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                    data-testid="propagation-months-group"
+                  >
+                    {MONTHS.map((m) => {
+                      const selected = propagationMonths.includes(m);
+                      const monthName = t(`pages.species.months.${m}`);
+                      return (
+                        <Chip
+                          key={m}
+                          size="small"
+                          clickable
+                          color={selected ? 'primary' : 'default'}
+                          variant={selected ? 'filled' : 'outlined'}
+                          label={monthName}
+                          aria-label={t('pages.species.propagationMonthChipAriaLabel', { month: monthName })}
+                          aria-pressed={selected}
+                          onClick={() => togglePropagationMonth(m)}
+                          data-testid={`propagation-month-${m}`}
+                        />
+                      );
+                    })}
+                  </Box>
+                </>
+              )}
+            </Box>
+
+            {/* Propagation notes — read: tip box; edit: multiline field. Never both. */}
+            {!editingPropagation && propagationNotes.trim() && (
               <Box
                 role="note"
                 aria-label={t('pages.species.propagationNotesLabel')}
                 sx={{
-                  mb: 1.5,
+                  mt: 2,
                   display: 'flex',
                   gap: 1,
                   alignItems: 'flex-start',
@@ -520,158 +433,46 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
                   aria-hidden="true"
                   sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25, flexShrink: 0 }}
                 />
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ whiteSpace: 'pre-line' }}
-                >
+                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
                   {propagationNotes}
                 </Typography>
               </Box>
             )}
-            <TextField
-              id="propagation-notes-field"
-              label={t('pages.species.propagationNotesLabel')}
-              helperText={`${propagationNotes.length}/1000 — ${t('pages.species.propagationNotesHelper')}`}
-              value={propagationNotes}
-              onChange={(e) => setPropagationNotes(e.target.value)}
-              multiline
-              minRows={3}
-              maxRows={6}
-              fullWidth
-              size="small"
-              data-testid="propagation-notes-field"
-              slotProps={{ htmlInput: { maxLength: 1000, 'aria-describedby': 'propagation-notes-field-helper-text' } }}
-            />
-          </Box>
-        </Box>
-      )}
-
-      {/* Computed timeline preview */}
-      {timelineBars.length > 0 && (
-        <Card variant="outlined" sx={{ mb: 2 }}>
-          <CardContent sx={{ pb: '16px !important' }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              {t('pages.species.computedTimeline')}
-            </Typography>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(12, 1fr)`,
-                  minWidth: 100 + 12 * CELL_MIN_W,
-                }}
-              >
-                {/* Month header */}
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
-                {MONTHS.map((m) => (
-                  <Box
-                    key={m}
-                    sx={{
-                      textAlign: 'center',
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      py: 0.25,
-                      ...(m === currentMonth && { bgcolor: alpha(theme.palette.primary.main, 0.08) }),
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: m === currentMonth ? 700 : 400,
-                        color: m === currentMonth ? theme.palette.primary.main : theme.palette.text.secondary,
-                      }}
-                    >
-                      {t(`pages.species.months.${m}`)}
-                    </Typography>
-                  </Box>
-                ))}
-
-                {/* Phase rows */}
-                {(['indoor_sowing', 'outdoor_planting', 'growth', 'flowering', 'harvest'] as TimelinePhase[])
-                  .filter((phase) => timelineBars.some((b) => b.phase === phase))
-                  .map((phase) => {
-                    const phaseBars = timelineBars.filter((b) => b.phase === phase);
-                    const fromYear = phaseBars.find((b) => b.fromYear != null && b.fromYear > 1)?.fromYear ?? null;
-                    return (
-                      <React.Fragment key={phase}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            pl: 1,
-                            borderBottom: 1,
-                            borderColor: 'divider',
-                            height: ROW_H,
-                          }}
-                        >
-                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TIMELINE_COLORS[phase], mr: 0.75, flexShrink: 0 }} />
-                          <Typography variant="caption" noWrap color="text.secondary">
-                            {t(`pages.species.timelinePhase.${phase}`)}
-                          </Typography>
-                          {fromYear != null && (
-                            <Chip
-                              label={t('pages.species.fromYear', { year: fromYear })}
-                              size="small"
-                              variant="outlined"
-                              sx={{ ml: 0.5, height: 18, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
-                            />
-                          )}
-                        </Box>
-                        {MONTHS.map((m) => {
-                          const bar = phaseBars.find((b) => m >= b.startMonth && m <= b.endMonth);
-                          if (!bar) {
-                            return (
-                              <Box
-                                key={m}
-                                sx={{
-                                  borderBottom: 1,
-                                  borderColor: 'divider',
-                                  height: ROW_H,
-                                  ...(m === currentMonth && { bgcolor: alpha(theme.palette.primary.main, 0.06) }),
-                                }}
-                              />
-                            );
-                          }
-                          const isStart = m === bar.startMonth;
-                          const isEnd = m === bar.endMonth;
-                          return (
-                            <Box
-                              key={m}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                px: '1px',
-                                borderBottom: 1,
-                                borderColor: 'divider',
-                                height: ROW_H,
-                                ...(m === currentMonth && { bgcolor: alpha(theme.palette.primary.main, 0.06) }),
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: '100%',
-                                  height: BAR_H,
-                                  bgcolor: alpha(TIMELINE_COLORS[phase], 0.75),
-                                  borderRadius: `${isStart ? 4 : 0}px ${isEnd ? 4 : 0}px ${isEnd ? 4 : 0}px ${isStart ? 4 : 0}px`,
-                                }}
-                              />
-                            </Box>
-                          );
-                        })}
-                      </React.Fragment>
-                    );
-                  })}
-              </Box>
-            </Box>
+            {editingPropagation && (
+              <TextField
+                id="propagation-notes-field"
+                label={t('pages.species.propagationNotesLabel')}
+                helperText={`${propagationNotes.length}/1000 — ${t('pages.species.propagationNotesHelper')}`}
+                value={propagationNotes}
+                onChange={(e) => setPropagationNotes(e.target.value)}
+                multiline
+                minRows={3}
+                maxRows={6}
+                fullWidth
+                size="small"
+                sx={{ mt: 2 }}
+                data-testid="propagation-notes-field"
+                slotProps={{ htmlInput: { maxLength: 1000, 'aria-describedby': 'propagation-notes-field-helper-text' } }}
+              />
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Gantt chart */}
+      {/* Single timing chart — the editable month grid below is the one source of
+          truth. The former "computed timeline" was removed: its clipped sow→harvest
+          sequence contradicted these raw months for perennials (REQ-001 review). */}
       {periods.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent sx={{ pb: '16px !important' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: hasSowHarvestOverlap ? 0.5 : 1.5 }}>
+              {t('pages.species.timingChartTitle')}
+            </Typography>
+            {hasSowHarvestOverlap && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                {t('pages.species.sowHarvestOverlapHint')}
+              </Typography>
+            )}
             <Box sx={{ overflowX: 'auto' }}>
               <Box
                 sx={{
@@ -838,6 +639,8 @@ function PeriodGanttRows({
       <Box
         role="button"
         tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={`${periodLabel} — ${isExpanded ? t('pages.species.periodCollapseLabel') : t('pages.species.periodExpandLabel')}`}
         onClick={onToggleExpand}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -904,6 +707,7 @@ function PeriodGanttRows({
             onDragMove={onDragMove}
             onDragEnd={onDragEnd}
             fromYear={fromYear}
+            readOnly={kind === 'propagation'}
           />
         );
       })}
@@ -1000,17 +804,21 @@ function PeriodGanttRows({
               slotProps={{ htmlInput: { min: 1, max: 10 } }}
               onClick={(e) => e.stopPropagation()}
             />
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(periodIdx);
-              }}
-              sx={{ mt: 0.5 }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
+            <Tooltip title={t('pages.species.deletePeriodLabel', { label: periodLabel })} arrow>
+              <IconButton
+                size="small"
+                color="error"
+                aria-label={t('pages.species.deletePeriodLabel', { label: periodLabel })}
+                data-testid={`delete-period-${periodIdx}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(periodIdx);
+                }}
+                sx={{ mt: 0.5 }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Box>
       )}
@@ -1040,6 +848,8 @@ interface BarRowProps {
   ) => void;
   onDragEnd: () => void;
   fromYear: number | null;
+  /** Static, display-only bar — no drag handles, no resize cursor (e.g. propagation). */
+  readOnly?: boolean;
 }
 
 function BarRow({
@@ -1056,6 +866,7 @@ function BarRow({
   onDragMove,
   onDragEnd,
   fromYear,
+  readOnly = false,
 }: BarRowProps) {
   const color = BAR_COLORS[kind];
   const gridRef = useRef<HTMLDivElement>(null);
@@ -1103,55 +914,63 @@ function BarRow({
 
   return (
     <>
-      {/* Kind label */}
-      <Box
-        sx={{
-          position: 'sticky',
-          left: 0,
-          bgcolor: 'background.paper',
-          zIndex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          pl: 3,
-          pr: 0.5,
-          borderBottom: 1,
-          borderColor: 'divider',
-          height: ROW_H,
-        }}
+      {/* Kind label — wrapped in Tooltip for read-only rows to surface the edit location */}
+      <Tooltip
+        title={readOnly ? t('pages.species.barKindReadOnlyHint') : ''}
+        placement="right"
+        arrow
+        disableInteractive
       >
         <Box
+          aria-label={readOnly ? `${kindLabel} — ${t('pages.species.barKindReadOnlyHint')}` : kindLabel}
           sx={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            bgcolor: color,
-            mr: 0.75,
-            flexShrink: 0,
+            position: 'sticky',
+            left: 0,
+            bgcolor: 'background.paper',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            pl: 3,
+            pr: 0.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            height: ROW_H,
           }}
-        />
-        <Typography
-          variant="caption"
-          noWrap
-          color="text.secondary"
-          sx={{ maxWidth: labelWidth - 50 }}
         >
-          {kindLabel}
-        </Typography>
-        {fromYear != null && fromYear > 1 && (
-          <Chip
-            label={t('pages.species.fromYear', { year: fromYear })}
-            size="small"
-            variant="outlined"
-            sx={{ ml: 0.5, height: 16, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.5 } }}
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: color,
+              mr: 0.75,
+              flexShrink: 0,
+            }}
           />
-        )}
-      </Box>
+          <Typography
+            variant="caption"
+            noWrap
+            color="text.secondary"
+            sx={{ maxWidth: labelWidth - 50 }}
+          >
+            {kindLabel}
+          </Typography>
+          {fromYear != null && fromYear > 1 && (
+            <Chip
+              label={t('pages.species.fromYear', { year: fromYear })}
+              size="small"
+              variant="outlined"
+              sx={{ ml: 0.5, height: 16, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.5 } }}
+            />
+          )}
+        </Box>
+      </Tooltip>
 
       {/* Month cells with bars */}
       <Box
         ref={gridRef}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        onPointerMove={readOnly ? undefined : handlePointerMove}
+        onPointerUp={readOnly ? undefined : handlePointerUp}
         sx={{
           gridColumn: '2 / -1',
           display: 'grid',
@@ -1161,7 +980,7 @@ function BarRow({
           height: ROW_H,
           position: 'relative',
           userSelect: 'none',
-          touchAction: 'none',
+          ...(readOnly ? {} : { touchAction: 'none' }),
         }}
       >
         {MONTHS.map((m) => {
@@ -1185,7 +1004,11 @@ function BarRow({
             >
               {inRange && (
                 <Tooltip
-                  title={`${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)}`}
+                  title={
+                    readOnly
+                      ? `${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)} — ${t('pages.species.barKindReadOnlyHint')}`
+                      : `${kindLabel}: ${t(`pages.species.months.${ranges[rangeIdx][0]}`)}–${t(`pages.species.months.${ranges[rangeIdx][1]}`)}`
+                  }
                   arrow
                   disableInteractive
                 >
@@ -1198,8 +1021,9 @@ function BarRow({
                       position: 'relative',
                     }}
                   >
-                    {/* Drag handle: start edge */}
-                    {isStart && (
+                    {/* Drag handles are omitted on read-only rows (e.g. propagation):
+                        the bar is purely visual and edited elsewhere. */}
+                    {!readOnly && isStart && (
                       <Box
                         onPointerDown={(e) =>
                           handlePointerDown(e, rangeIdx, 'start')
@@ -1228,7 +1052,7 @@ function BarRow({
                       />
                     )}
                     {/* Drag handle: end edge */}
-                    {isEnd && (
+                    {!readOnly && isEnd && (
                       <Box
                         onPointerDown={(e) =>
                           handlePointerDown(e, rangeIdx, 'end')

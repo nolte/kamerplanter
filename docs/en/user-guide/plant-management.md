@@ -79,10 +79,13 @@ The **propagation_months** field (Best Propagation Time) adds a timing dimension
 
 The field is also a multi-select; the stored values are month numbers 1 (January) through 12 (December), deduplicated and sorted.
 
-**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, within the propagation overview section:
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, in two places:
 
-- **Read view:** "Best propagation time: March–April" (condensed month display)
-- **Edit mode:** 12 clickable month chips — click the desired months, then **Save**
+1. **Propagation card** — The card has a read/edit toggle (pencil icon in the top right):
+    - **Read view:** "Best propagation time: March–April" (condensed month display)
+    - **Edit mode:** 12 clickable month chips — click the desired months, then **Save**
+
+2. **Monthly timeline (bar chart)** — The topmost row of the timeline is labelled **"Propagation"** and displays the stored months as a coloured bar (teal). This row is **read-only** — editing is done exclusively via the Propagation card (pencil icon). If no months are stored, the row remains empty.
 
 !!! example "Example: Japanese anemone (*Anemone hupehensis*)"
     The Japanese anemone forms dense rhizome clumps and divides best **in early spring**, before new growth begins. Kamerplanter stores this as `propagation_months: [3, 4]` — March and April. The UI displays this as "Best propagation time: March–April".
@@ -99,7 +102,7 @@ The **Propagation Notes** field is a free-text field for expert knowledge (max. 
 
 The field complements the structured fields `propagation_methods` (techniques) and `propagation_months` (optimal timing) with the practical, hands-on detail that cannot be captured in a simple multi-select list.
 
-**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, within the propagation overview section — directly below the propagation method chips and the best propagation time:
+**Where in the UI:** In the **Sowing & Harvest** tab on the species detail page, in the **Propagation** card — directly below the propagation method chips and the best propagation time. Switch to edit mode via the pencil icon in the top right of the card:
 
 - **Read view:** The text appears as a distinct callout block, visually separated from the surrounding content. If no text has been entered, the area remains empty.
 - **Edit mode:** A multi-line text field with a character counter (max. 1,000 characters). The text is saved together with the other fields in the section via the **Save** button.

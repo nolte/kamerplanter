@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
+    "done": "Done",
     "create": "Create",
     "add": "Add",
     "close": "Close",
@@ -679,6 +680,8 @@
       "directSowMonths": "Direct Sow Months",
       "growingPeriods": "Growing Periods",
       "growingPeriodsHelper": "Drag bar edges to adjust sowing and harvest/bloom months. Click a period to edit details.",
+      "timingChartTitle": "Sowing, Harvest & Bloom",
+      "sowHarvestOverlapHint": "Sowing and harvest/bloom times overlap. This is normal for perennials: sowing only establishes the plant, while harvest and bloom recur on the established plant.",
       "growingPeriodsTab": "Sowing & Harvest",
       "propagationOverviewLabel": "Propagation",
       "vegetativeOnlyNotice": "This species is propagated vegetatively — via {{methods}} — not from seed. Sowing periods are therefore not recorded here.",
@@ -692,6 +695,7 @@
       "noPeriodsDefined": "No growing periods defined yet.",
       "addPeriod": "Add Period",
       "barKind": {
+        "propagation": "Propagation",
         "sow": "Sowing",
         "growth": "Growth",
         "harvest": "Harvest",
@@ -725,14 +729,13 @@
       "bloomFromYear": "Bloom from year",
       "bloomFromYearHelper": "From which year the plant blooms (empty = from year 1)",
       "fromYear": "from year {{year}}",
-      "computedTimeline": "Computed Timeline",
-      "timelinePhase": {
-        "indoor_sowing": "Indoor Sowing",
-        "outdoor_planting": "Outdoor Planting",
-        "growth": "Growth",
-        "harvest": "Harvest",
-        "flowering": "Flowering"
-      }
+      "barKindReadOnlyHint": "Display only — edit in the Propagation card above",
+      "propagationEditDoneHint": "Close editor — changes are only saved when you click \"Save\" below",
+      "propagationEditModeOn": "Propagation editor opened",
+      "propagationEditModeOff": "Propagation editor closed",
+      "periodExpandLabel": "Show details",
+      "periodCollapseLabel": "Hide details",
+      "deletePeriodLabel": "Delete growing period \"{{label}}\""
     },
     "cultivars": {
       "title": "Cultivars",

@@ -4,6 +4,7 @@
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
+    "done": "Fertig",
     "create": "Erstellen",
     "add": "Hinzufügen",
     "close": "Schließen",
@@ -679,6 +680,8 @@
       "directSowMonths": "Direktsaat-Monate",
       "growingPeriods": "Anbauzeiträume",
       "growingPeriodsHelper": "Ziehen Sie die Balkenenden, um Aussaat- und Ernte-/Blütemonate anzupassen. Klicken Sie auf einen Zeitraum, um Details zu bearbeiten.",
+      "timingChartTitle": "Aussaat, Ernte & Blüte",
+      "sowHarvestOverlapHint": "Aussaat- und Ernte-/Blütezeiten überschneiden sich. Das ist normal bei mehrjährigen Pflanzen: Die Aussaat dient nur der Erstanlage, geerntet und geblüht wird an der etablierten Pflanze.",
       "growingPeriodsTab": "Aussaat & Ernte",
       "propagationOverviewLabel": "Vermehrung",
       "vegetativeOnlyNotice": "Diese Art wird vegetativ vermehrt – über {{methods}} – und nicht durch Aussaat. Aussaatzeiträume sind hier daher nicht hinterlegt.",
@@ -692,6 +695,7 @@
       "noPeriodsDefined": "Noch keine Anbauzeiträume definiert.",
       "addPeriod": "Zeitraum hinzufügen",
       "barKind": {
+        "propagation": "Vermehrung",
         "sow": "Aussaat",
         "growth": "Wachstum",
         "harvest": "Ernte",
@@ -725,14 +729,13 @@
       "bloomFromYear": "Blüte ab Standjahr",
       "bloomFromYearHelper": "Ab welchem Standjahr blüht die Pflanze (leer = ab Jahr 1)",
       "fromYear": "ab {{year}}. Jahr",
-      "computedTimeline": "Berechnete Zeitachse",
-      "timelinePhase": {
-        "indoor_sowing": "Voranzucht",
-        "outdoor_planting": "Auspflanzen",
-        "growth": "Wachstum",
-        "harvest": "Ernte",
-        "flowering": "Blüte"
-      }
+      "barKindReadOnlyHint": "Nur Anzeige — in der Vermehrung-Karte oben bearbeiten",
+      "propagationEditDoneHint": "Bearbeitung abschließen — Änderungen werden erst mit \"Speichern\" unten gesichert",
+      "propagationEditModeOn": "Vermehrungs-Bearbeitung geöffnet",
+      "propagationEditModeOff": "Vermehrungs-Bearbeitung geschlossen",
+      "periodExpandLabel": "Details einblenden",
+      "periodCollapseLabel": "Details ausblenden",
+      "deletePeriodLabel": "Anbauzeitraum \"{{label}}\" löschen"
     },
     "cultivars": {
       "title": "Sorten",

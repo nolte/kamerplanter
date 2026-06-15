@@ -79,10 +79,13 @@ Das Feld **propagation_months** (Beste Vermehrungszeit) ergänzt die Vermehrungs
 
 Das Feld ist ebenfalls eine Mehrfachauswahl; gespeichert werden die Monatsnummern 1 (Januar) bis 12 (Dezember), dedupliziert und sortiert.
 
-**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite, im Bereich der Vermehrungsübersicht:
+**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite an zwei Stellen:
 
-- **Leseansicht:** "Beste Vermehrungszeit: März–April" (zusammengefasste Monatsanzeige)
-- **Bearbeitungsmodus:** 12 klickbare Monats-Chips — einfach die gewünschten Monate anklicken, dann **Speichern**
+1. **Vermehrungs-Card** — Die Karte hat einen Lese-/Bearbeiten-Umschalter (Stift-Icon oben rechts):
+    - **Leseansicht:** "Beste Vermehrungszeit: März–April" (zusammengefasste Monatsanzeige)
+    - **Bearbeitungsmodus:** 12 klickbare Monats-Chips — einfach die gewünschten Monate anklicken, dann **Speichern**
+
+2. **Monats-Zeitachse (Balkendiagramm)** — Die oberste Zeile der Zeitachse trägt den Titel **"Vermehrung"** und zeigt die hinterlegten Monate als farbigen Balken (Teal). Diese Zeile ist **nur zur Anzeige** — bearbeitet wird ausschliesslich über die Vermehrungs-Card (Stift-Icon). Ist kein Monat hinterlegt, bleibt die Zeile leer.
 
 !!! example "Beispiel: Herbst-Anemone (*Anemone hupehensis*)"
     Die Herbst-Anemone bildet dichte Rhizomhorste und lässt sich am besten **im zeitigen Frühjahr teilen**, bevor der Neuaustrieb beginnt. Kamerplanter speichert das als `propagation_months: [3, 4]` — März und April. Das ergibt in der UI die Anzeige "Beste Vermehrungszeit: März–April".
@@ -99,7 +102,7 @@ Das Feld **Vermehrungshinweise** ist ein fachlicher Freitext (max. 1000 Zeichen,
 
 Das Feld ergänzt die strukturierten Felder `propagation_methods` (Methoden) und `propagation_months` (optimaler Zeitpunkt) um das handwerkliche Detailwissen, das sich nicht in einer einfachen Auswahlliste abbilden lässt.
 
-**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite, im Bereich der Vermehrungsübersicht — direkt unterhalb der Vermehrungsarten-Chips und der besten Vermehrungszeit:
+**Wo in der UI:** Im Tab **Aussaat & Ernte** der Artdetailseite, in der Karte **Vermehrung** — direkt unterhalb der Vermehrungsarten-Chips und der besten Vermehrungszeit. Den Bearbeitungsmodus öffnest du über das Stift-Icon oben rechts in der Karte:
 
 - **Leseansicht:** Der Text erscheint als abgesetzter Hinweis-Block, deutlich vom restlichen Inhalt abgegrenzt. Wenn kein Text hinterlegt ist, bleibt der Bereich leer.
 - **Bearbeitungsmodus:** Ein mehrzeiliges Textfeld mit Zeichenzähler (max. 1000 Zeichen). Der Text wird gemeinsam mit den übrigen Feldern der Sektion über den **Speichern**-Button gespeichert.
