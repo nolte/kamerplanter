@@ -9,10 +9,12 @@ from app.common.enums import (
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
+    PropagationDifficulty,
     PropagationMethod,
     RootType,
     Suitability,
     WateringMethod,
+    WoodStage,
 )
 from app.domain.models.botanical_family import PhRange
 
@@ -104,6 +106,36 @@ class GrowingPeriod(BaseModel):
         return v
 
 
+class PropagationConfig(BaseModel):
+    """A single propagation method with its method-specific parameters (REQ-017).
+
+    Replaces the former flat ``propagation_methods``/``propagation_months``/
+    ``propagation_notes`` fields: a species may support several methods, and each
+    method carries its own timing window, maturity stage and notes (e.g. softwood
+    cuttings May–July vs. division in autumn on the same species).
+    """
+
+    method: PropagationMethod
+    months: list[int] = Field(
+        default_factory=list,
+        description="Recommended months (1–12) for this method — independent of other methods.",
+    )
+    wood_stage: WoodStage | None = Field(
+        default=None,
+        description="Cutting maturity stage; only meaningful for cutting-type methods.",
+    )
+    difficulty: PropagationDifficulty | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("months")
+    @classmethod
+    def validate_months(cls, v: list[int]) -> list[int]:
+        for m in v:
+            if m < 1 or m > 12:
+                raise ValueError(f"Month must be between 1 and 12, got {m}")
+        return sorted(set(v))
+
+
 class Species(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str
@@ -138,10 +170,10 @@ class Species(BaseModel):
     pruning_months: list[int] = Field(default_factory=list)
     pruning_type: str | None = None
     traits: list[str] = Field(default_factory=list)
-    propagation_methods: list[PropagationMethod] = Field(default_factory=list)
-    propagation_difficulty: str | None = None
-    propagation_months: list[int] = Field(default_factory=list)
-    propagation_notes: str | None = Field(default=None, max_length=1000)
+    # ── Vermehrung (REQ-017) — structured per-method configs ──
+    # Replaces the former flat propagation_methods/months/notes/difficulty fields
+    # so that timing and notes attach to the method, not to the whole species.
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
     # ── Anbaubedingungen (cultivation conditions) ──
     container_suitable: Suitability | None = None
@@ -220,7 +252,6 @@ class Species(BaseModel):
         "harvest_months",
         "bloom_months",
         "pruning_months",
-        "propagation_months",
     )
     @classmethod
     def validate_month_lists(cls, v: list[int]) -> list[int]:

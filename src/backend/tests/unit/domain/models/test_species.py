@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import PropagationMethod, RootType, Suitability
-from app.domain.models.species import Cultivar, Species
+from app.common.enums import PropagationDifficulty, PropagationMethod, RootType, Suitability, WoodStage
+from app.domain.models.species import Cultivar, PropagationConfig, Species
 
 
 class TestSpeciesValidation:
@@ -137,8 +137,8 @@ class TestRootTypeCorm:
 
 
 class TestPropagationMethodEnum:
-    def test_enum_has_thirteen_values(self):
-        assert len(PropagationMethod) == 13
+    def test_enum_has_seventeen_values(self):
+        assert len(PropagationMethod) == 17
 
     def test_enum_values(self):
         assert PropagationMethod.SEED == "seed"
@@ -147,44 +147,83 @@ class TestPropagationMethodEnum:
         assert PropagationMethod.LEAF_CUTTING == "leaf_cutting"
         assert PropagationMethod.SELF_SEEDING == "self_seeding"
 
+    def test_reconciled_values_present(self):
+        # Drift fix: REQ-017 methods now realised in the enum.
+        assert PropagationMethod.AIR_LAYERING == "air_layering"
+        assert PropagationMethod.TISSUE_CULTURE == "tissue_culture"
+        assert PropagationMethod.BULBIL == "bulbil"
+        assert PropagationMethod.WATER_PROPAGATION == "water_propagation"
 
-class TestSpeciesPropagationMethods:
+
+class TestPropagationConfig:
+    def test_minimal_config_defaults(self):
+        c = PropagationConfig(method=PropagationMethod.CUTTING)
+        assert c.method == PropagationMethod.CUTTING
+        assert c.months == []
+        assert c.wood_stage is None
+        assert c.difficulty is None
+        assert c.notes is None
+
+    def test_full_config_dedupes_and_sorts_months(self):
+        c = PropagationConfig(
+            method="cutting",
+            months=[7, 6, 5, 6],
+            wood_stage=WoodStage.SOFTWOOD,
+            difficulty=PropagationDifficulty.MODERATE,
+            notes="Bewurzelungshormon empfohlen.",
+        )
+        assert c.method == PropagationMethod.CUTTING
+        assert c.months == [5, 6, 7]
+        assert c.wood_stage == WoodStage.SOFTWOOD
+        assert c.difficulty == PropagationDifficulty.MODERATE
+
+    def test_invalid_method_rejected(self):
+        with pytest.raises(ValidationError):
+            PropagationConfig(method="teleportation")
+
+    def test_invalid_month_rejected(self):
+        with pytest.raises(ValidationError):
+            PropagationConfig(method="seed", months=[13])
+
+
+class TestSpeciesPropagationConfigs:
     def test_default_is_empty_list(self):
         s = Species(scientific_name="Genus species")
-        assert s.propagation_methods == []
+        assert s.propagation_configs == []
 
-    def test_accepts_enum_members(self):
+    def test_accepts_config_objects(self):
         s = Species(
             scientific_name="Genus species",
-            propagation_methods=[PropagationMethod.SEED, PropagationMethod.CUTTING],
+            propagation_configs=[
+                PropagationConfig(method=PropagationMethod.SEED, months=[3]),
+                PropagationConfig(method=PropagationMethod.DIVISION, months=[9, 10]),
+            ],
         )
-        assert s.propagation_methods == [PropagationMethod.SEED, PropagationMethod.CUTTING]
+        assert [c.method for c in s.propagation_configs] == [
+            PropagationMethod.SEED,
+            PropagationMethod.DIVISION,
+        ]
 
-    def test_coerces_strings_to_enum(self):
-        s = Species(
-            scientific_name="Genus species",
-            propagation_methods=["division", "tuber"],
-        )
-        assert s.propagation_methods == [PropagationMethod.DIVISION, PropagationMethod.TUBER]
-        assert all(isinstance(m, PropagationMethod) for m in s.propagation_methods)
-
-    def test_invalid_value_rejected(self):
-        with pytest.raises(ValidationError):
-            Species(scientific_name="Genus species", propagation_methods=["teleportation"])
-
-    def test_model_validate_from_seed_dict(self):
+    def test_model_validate_from_dicts(self):
         raw = {
             "scientific_name": "Mentha spicata",
             "genus": "Mentha",
-            "propagation_methods": ["seed", "cutting", "runner", "division"],
+            "propagation_configs": [
+                {"method": "cutting", "months": [5, 6], "wood_stage": "softwood"},
+                {"method": "division", "months": [3, 4]},
+            ],
         }
         s = Species.model_validate(raw)
-        assert s.propagation_methods == [
-            PropagationMethod.SEED,
-            PropagationMethod.CUTTING,
-            PropagationMethod.RUNNER,
-            PropagationMethod.DIVISION,
-        ]
+        assert s.propagation_configs[0].method == PropagationMethod.CUTTING
+        assert s.propagation_configs[0].wood_stage == WoodStage.SOFTWOOD
+        assert s.propagation_configs[1].method == PropagationMethod.DIVISION
+
+    def test_invalid_method_rejected(self):
+        with pytest.raises(ValidationError):
+            Species(
+                scientific_name="Genus species",
+                propagation_configs=[{"method": "teleportation"}],
+            )
 
 
 class TestEnvironmentalPhysiologyFields:

@@ -36,7 +36,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -49,7 +49,6 @@ import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
-import FormMultiSelectField from '@/components/form/FormMultiSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -86,18 +85,31 @@ import { kamiMasterdata } from '@/assets/brand/illustrations';
 const PROPAGATION_METHODS = [
   'seed',
   'cutting',
+  'leaf_cutting',
   'division',
   'rhizome_division',
   'bulb',
+  'bulbil',
   'tuber',
   'offset',
+  'runner',
   'grafting',
   'layering',
+  'air_layering',
+  'water_propagation',
+  'tissue_culture',
   'spore',
-  'runner',
-  'leaf_cutting',
   'self_seeding',
 ] as const;
+
+/** Wood-stage enum values — mirrors WoodStage in api/types.ts. */
+const WOOD_STAGES = ['softwood', 'semi_hardwood', 'hardwood', 'herbaceous'] as const;
+
+/** Propagation-difficulty enum values — mirrors PropagationDifficulty in api/types.ts. */
+const PROPAGATION_DIFFICULTIES = ['easy', 'moderate', 'difficult'] as const;
+
+/** Selectable months 1..12 for the propagation month picker. */
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 const schema = z.object({
   scientific_name: z.string().min(1),
@@ -106,7 +118,16 @@ const schema = z.object({
   genus: z.string(),
   growth_habit: z.enum(['herb', 'shrub', 'tree', 'vine', 'groundcover']),
   root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']),
-  propagation_methods: z.array(z.enum(PROPAGATION_METHODS)),
+  propagation_configs: z.array(
+    z.object({
+      method: z.enum(PROPAGATION_METHODS),
+      months: z.array(z.number().min(1).max(12)),
+      // Empty string = "no selection" from the MUI select; normalised to null on submit.
+      wood_stage: z.enum(WOOD_STAGES).or(z.literal('')).nullish(),
+      difficulty: z.enum(PROPAGATION_DIFFICULTIES).or(z.literal('')).nullish(),
+      notes: z.string().max(1000).nullish(),
+    }),
+  ),
   hardiness_zones: z.array(z.string()),
   native_habitat: z.string(),
   allelopathy_score: z.number().min(-1).max(1),
@@ -150,7 +171,15 @@ export default function SpeciesDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [createPlantOpen, setCreatePlantOpen] = useState(false);
-  const [tab, setTab] = useTabUrl(['edit', 'growing-periods', 'cultivars', 'lifecycle', 'workflows', 'companion-planting', 'crop-rotation']);
+  const [tab, setTab] = useTabUrl([
+    'edit',
+    'growing-periods',
+    'cultivars',
+    'lifecycle',
+    'workflows',
+    'companion-planting',
+    'crop-rotation',
+  ]);
   const [families, setFamilies] = useState<BotanicalFamily[]>([]);
   const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
 
@@ -159,7 +188,9 @@ export default function SpeciesDetailPage() {
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
   const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
   const [companionLoading, setCompanionLoading] = useState(false);
-  const [companionDialogType, setCompanionDialogType] = useState<'compatible' | 'incompatible' | null>(null);
+  const [companionDialogType, setCompanionDialogType] = useState<
+    'compatible' | 'incompatible' | null
+  >(null);
   const [companionTargetKey, setCompanionTargetKey] = useState('');
   const [companionScore, setCompanionScore] = useState(1);
   const [companionReason, setCompanionReason] = useState('');
@@ -193,7 +224,7 @@ export default function SpeciesDetailPage() {
       genus: '',
       growth_habit: 'herb',
       root_type: 'fibrous',
-      propagation_methods: [],
+      propagation_configs: [],
       hardiness_zones: [],
       native_habitat: '',
       allelopathy_score: 0,
@@ -216,6 +247,12 @@ export default function SpeciesDetailPage() {
     },
   });
 
+  const {
+    fields: propagationFields,
+    append: appendPropagation,
+    remove: removePropagation,
+  } = useFieldArray({ control, name: 'propagation_configs' });
+
   useEffect(() => {
     if (key) {
       dispatch(fetchSpecies(key));
@@ -224,16 +261,27 @@ export default function SpeciesDetailPage() {
         .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
         .catch(() => setPhaseSequenceKey(null));
     }
-    familiesApi.listBotanicalFamilies(0, 200).then(setFamilies).catch(() => {});
-    planApi.fetchNutrientPlans(0, 200).then(setNutrientPlans).catch(() => {});
-    return () => { dispatch(clearCurrent()); };
+    familiesApi
+      .listBotanicalFamilies(0, 200)
+      .then(setFamilies)
+      .catch(() => {});
+    planApi
+      .fetchNutrientPlans(0, 200)
+      .then(setNutrientPlans)
+      .catch(() => {});
+    return () => {
+      dispatch(clearCurrent());
+    };
   }, [key, dispatch]);
 
   // Load companion planting data when tab 5 is selected
   useEffect(() => {
     if (tab === 5 && key) {
       setCompanionLoading(true);
-      api.listSpecies(0, 200).then((r) => setCompanionSpeciesList(r.items)).catch(() => {});
+      api
+        .listSpecies(0, 200)
+        .then((r) => setCompanionSpeciesList(r.items))
+        .catch(() => {});
       Promise.all([
         companionApi.getCompatibleSpecies(key),
         companionApi.getIncompatibleSpecies(key),
@@ -251,7 +299,10 @@ export default function SpeciesDetailPage() {
   useEffect(() => {
     if (tab === 6 && current?.family_key) {
       setRotationLoading(true);
-      familiesApi.getBotanicalFamily(current.family_key).then(setCurrentFamily).catch(() => {});
+      familiesApi
+        .getBotanicalFamily(current.family_key)
+        .then(setCurrentFamily)
+        .catch(() => {});
       rotationApi
         .getSuccessors(current.family_key)
         .then(setRotationSuccessors)
@@ -269,7 +320,13 @@ export default function SpeciesDetailPage() {
         genus: current.genus,
         growth_habit: current.growth_habit,
         root_type: current.root_type,
-        propagation_methods: current.propagation_methods ?? [],
+        propagation_configs: (current.propagation_configs ?? []).map((c) => ({
+          method: c.method,
+          months: [...(c.months ?? [])].sort((a, b) => a - b),
+          wood_stage: c.wood_stage ?? null,
+          difficulty: c.difficulty ?? null,
+          notes: c.notes ?? '',
+        })),
         hardiness_zones: current.hardiness_zones,
         native_habitat: current.native_habitat,
         allelopathy_score: current.allelopathy_score,
@@ -303,6 +360,13 @@ export default function SpeciesDetailPage() {
         indoor_suitable: data.indoor_suitable || null,
         balcony_suitable: data.balcony_suitable || null,
         default_nutrient_plan_key: data.default_nutrient_plan_key || null,
+        propagation_configs: data.propagation_configs.map((c) => ({
+          method: c.method,
+          months: [...new Set(c.months)].sort((a, b) => a - b),
+          wood_stage: c.wood_stage || null,
+          difficulty: c.difficulty || null,
+          notes: c.notes?.trim() || null,
+        })),
       };
       await api.updateSpecies(key, payload);
       notification.success(t('common.save'));
@@ -344,9 +408,17 @@ export default function SpeciesDetailPage() {
     if (!key || !companionTargetKey) return;
     try {
       if (companionDialogType === 'compatible') {
-        await companionApi.setCompatible({ from_species_key: key, to_species_key: companionTargetKey, score: companionScore });
+        await companionApi.setCompatible({
+          from_species_key: key,
+          to_species_key: companionTargetKey,
+          score: companionScore,
+        });
       } else {
-        await companionApi.setIncompatible({ from_species_key: key, to_species_key: companionTargetKey, reason: companionReason });
+        await companionApi.setIncompatible({
+          from_species_key: key,
+          to_species_key: companionTargetKey,
+          reason: companionReason,
+        });
       }
       notification.success(t('common.create'));
       reloadCompanionRelations();
@@ -397,7 +469,11 @@ export default function SpeciesDetailPage() {
                 </IconButton>
               </Tooltip>
             )}
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setCreatePlantOpen(true)}
+            >
               {t('pages.species.createPlantInstance')}
             </Button>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
@@ -410,7 +486,13 @@ export default function SpeciesDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+      >
         <Tab label={t('common.edit')} />
         <Tab label={t('pages.species.growingPeriodsTab')} />
         <Tab label={t('pages.cultivars.title')} />
@@ -427,431 +509,629 @@ export default function SpeciesDetailPage() {
         <Box
           component="form"
           onSubmit={handleSubmit(onSubmit)}
-          sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+          sx={{
+            maxWidth: FORM_MAX_WIDTH,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: PANEL_GAP,
+          }}
         >
-        <Box
-          component="fieldset"
-          disabled={isReadOnly}
-          sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {t('pages.species.editIntro')}
-            </Typography>
-            {phaseSequenceKey && (
-              <Chip
-                component={RouterLink}
-                to={`/phasen/ablaeufe/${phaseSequenceKey}`}
-                icon={<AccountTreeIcon />}
-                label={t('pages.phaseSequences.viewPhaseSequence')}
-                clickable
-                variant="outlined"
-                size="small"
-              />
-            )}
-          </Box>
+          <Box
+            component="fieldset"
+            disabled={isReadOnly}
+            sx={{
+              border: 'none',
+              p: 0,
+              m: 0,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: PANEL_GAP,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.species.editIntro')}
+              </Typography>
+              {phaseSequenceKey && (
+                <Chip
+                  component={RouterLink}
+                  to={`/phasen/ablaeufe/${phaseSequenceKey}`}
+                  icon={<AccountTreeIcon />}
+                  label={t('pages.phaseSequences.viewPhaseSequence')}
+                  clickable
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+            </Box>
 
-          {/* UI-NFR-008 R-061: Master-detail layout — left column = reading-width prose
+            {/* UI-NFR-008 R-061: Master-detail layout — left column = reading-width prose
               panel (Taxonomy + Description), right column = stacked compact meta panels
               (Growth + Cultivation). On xs/sm everything stacks vertically. R-063: DOM
               order matches visual reading order (left-column first, then right-column). */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
-              gap: PANEL_GAP,
-              alignItems: 'start',
-            }}
-          >
-            {/* ── Panel 1: Taxonomie (master column, reading-width) ── */}
-            {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
-            <Card variant="outlined">
-              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                  {t('pages.species.sectionTaxonomy')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {t('pages.species.editIntro')}
-                </Typography>
-                <FormTextField
-                  name="scientific_name"
-                  control={control}
-                  label={t('pages.species.scientificName')}
-                  helperText={t('pages.species.scientificNameHelper')}
-                  required
-                  autoFocus
-                />
-                <FormChipInput
-                  name="common_names"
-                  control={control}
-                  label={t('pages.species.commonNames')}
-                  helperText={t('pages.species.commonNamesHelper')}
-                />
-                <FormRow>
-                  <Box>
-                    <FormSelectField
-                      name="family_key"
-                      control={control}
-                      label={t('pages.species.family')}
-                      helperText={t('pages.species.familyHelper')}
-                      options={[
-                        { value: '', label: '—' },
-                        ...families.map((f) => ({ value: f.key, label: f.name })),
-                      ]}
-                    />
-                    {current?.family_key && (
-                      <Link
-                        component={RouterLink}
-                        to={`/stammdaten/botanical-families/${current.family_key}`}
-                        variant="body2"
-                        sx={{ display: 'inline-block', mt: -1, mb: 1 }}
-                      >
-                        {t('pages.species.viewFamily')}
-                      </Link>
-                    )}
-                  </Box>
-                  <FormTextField
-                    name="genus"
-                    control={control}
-                    label={t('pages.species.genus')}
-                    helperText={t('pages.species.genusHelper')}
-                  />
-                </FormRow>
-                {/* UI-NFR-008 R-054 + R-055: prose field capped at reading width */}
-                <Box sx={{ maxWidth: READING_COL_MAX }}>
-                  <FormTextField
-                    name="description"
-                    control={control}
-                    label={t('pages.species.description')}
-                    helperText={t('pages.species.descriptionHelper')}
-                    multiline
-                    minRows={4}
-                    maxRows={14}
-                  />
-                </Box>
-              </CardContent>
-            </Card>
-
-            {/* ── Detail column: stacked compact panels (Growth + Cultivation) ── */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
-              {/* ── Panel 2: Wachstum (compact, R-057) ── */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: `minmax(0, ${READING_COL_MAX}px) 1fr` },
+                gap: PANEL_GAP,
+                alignItems: 'start',
+              }}
+            >
+              {/* ── Panel 1: Taxonomie (master column, reading-width) ── */}
+              {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
               <Card variant="outlined">
-                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <CardContent
+                  component="fieldset"
+                  sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+                >
                   <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                    {t('pages.species.sectionGrowth')}
+                    {t('pages.species.sectionTaxonomy')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {t('pages.species.sectionGrowthDesc')}
+                    {t('pages.species.editIntro')}
                   </Typography>
-                  <FormRow>
-                    <FormSelectField
-                      name="growth_habit"
-                      control={control}
-                      label={t('pages.species.growthHabit')}
-                      helperText={t('pages.species.growthHabitHelper')}
-                      options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
-                        value: v,
-                        label: t(`enums.growthHabit.${v}`),
-                      }))}
-                    />
-                    <ExpertiseFieldWrapper minLevel="expert">
-                      <FormSelectField
-                        name="root_type"
-                        control={control}
-                        label={t('pages.species.rootType')}
-                        helperText={t('pages.species.rootTypeHelper')}
-                        options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
-                          value: v,
-                          label: t(`enums.rootType.${v}`),
-                        }))}
-                      />
-                    </ExpertiseFieldWrapper>
-                  </FormRow>
-                  <FormMultiSelectField
-                    name="propagation_methods"
+                  <FormTextField
+                    name="scientific_name"
                     control={control}
-                    label={t('pages.species.propagationMethods')}
-                    helperText={t('pages.species.propagationMethodsHelper')}
-                    options={PROPAGATION_METHODS.map((v) => ({
-                      value: v,
-                      label: t(`enums.propagationMethod.${v}`),
-                    }))}
+                    label={t('pages.species.scientificName')}
+                    helperText={t('pages.species.scientificNameHelper')}
+                    required
+                    autoFocus
                   />
+                  <FormChipInput
+                    name="common_names"
+                    control={control}
+                    label={t('pages.species.commonNames')}
+                    helperText={t('pages.species.commonNamesHelper')}
+                  />
+                  <FormRow>
+                    <Box>
+                      <FormSelectField
+                        name="family_key"
+                        control={control}
+                        label={t('pages.species.family')}
+                        helperText={t('pages.species.familyHelper')}
+                        options={[
+                          { value: '', label: '—' },
+                          ...families.map((f) => ({ value: f.key, label: f.name })),
+                        ]}
+                      />
+                      {current?.family_key && (
+                        <Link
+                          component={RouterLink}
+                          to={`/stammdaten/botanical-families/${current.family_key}`}
+                          variant="body2"
+                          sx={{ display: 'inline-block', mt: -1, mb: 1 }}
+                        >
+                          {t('pages.species.viewFamily')}
+                        </Link>
+                      )}
+                    </Box>
+                    <FormTextField
+                      name="genus"
+                      control={control}
+                      label={t('pages.species.genus')}
+                      helperText={t('pages.species.genusHelper')}
+                    />
+                  </FormRow>
+                  {/* UI-NFR-008 R-054 + R-055: prose field capped at reading width */}
+                  <Box sx={{ maxWidth: READING_COL_MAX }}>
+                    <FormTextField
+                      name="description"
+                      control={control}
+                      label={t('pages.species.description')}
+                      helperText={t('pages.species.descriptionHelper')}
+                      multiline
+                      minRows={4}
+                      maxRows={14}
+                    />
+                  </Box>
                 </CardContent>
               </Card>
-            </Box>
-          </Box>
 
-          {/* ── Panel 3: Anbaubedingungen (full-width below master-detail, R-058 — expert
-              expansion makes this panel tall and unsuited for the right-column stack) ── */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-                {t('pages.species.sectionCultivation')}
-              </Typography>
-              <FormRow>
-                <FormSelectField
-                  name="container_suitable"
-                  control={control}
-                  label={t('pages.species.containerSuitable')}
-                  helperText={t('pages.species.containerSuitableHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...['yes', 'limited', 'no'].map((v) => ({
-                      value: v,
-                      label: t(`enums.suitability.${v}`),
-                    })),
-                  ]}
-                />
-                <FormSelectField
-                  name="indoor_suitable"
-                  control={control}
-                  label={t('pages.species.indoorSuitable')}
-                  helperText={t('pages.species.indoorSuitableHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...['yes', 'limited', 'no'].map((v) => ({
-                      value: v,
-                      label: t(`enums.suitability.${v}`),
-                    })),
-                  ]}
-                />
-              </FormRow>
-              <FormRow>
-                <FormSelectField
-                  name="balcony_suitable"
-                  control={control}
-                  label={t('pages.species.balconySuitable')}
-                  helperText={t('pages.species.balconySuitableHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...['yes', 'limited', 'no'].map((v) => ({
-                      value: v,
-                      label: t(`enums.suitability.${v}`),
-                    })),
-                  ]}
-                />
-                <FormSelectField
-                  name="default_nutrient_plan_key"
-                  control={control}
-                  label={t('pages.species.defaultNutrientPlan')}
-                  helperText={t('pages.species.defaultNutrientPlanHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...nutrientPlans.map((p) => ({
-                      value: p.key,
-                      label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
-                    })),
-                  ]}
-                />
-              </FormRow>
-              <FormRow>
-                <FormSwitchField
-                  name="greenhouse_recommended"
-                  control={control}
-                  label={t('pages.species.greenhouseRecommended')}
-                  helperText={t('pages.species.greenhouseRecommendedHelper')}
-                />
-                <FormSwitchField
-                  name="support_required"
-                  control={control}
-                  label={t('pages.species.supportRequired')}
-                  helperText={t('pages.species.supportRequiredHelper')}
-                />
-              </FormRow>
-
-              {/* Expert: Sizing & spacing details */}
-              <ExpertiseFieldWrapper minLevel="expert">
-                <FormRow>
-                  <FormTextField
-                    name="recommended_container_volume_l"
-                    control={control}
-                    label={t('pages.species.recommendedContainerVolumeL')}
-                    helperText={t('pages.species.recommendedContainerVolumeLHelper')}
-                  />
-                  <FormNumberField
-                    name="min_container_depth_cm"
-                    control={control}
-                    label={t('pages.species.minContainerDepthCm')}
-                    helperText={t('pages.species.minContainerDepthCmHelper')}
-                    min={1}
-                    max={200}
-                  />
-                </FormRow>
-                <FormRow>
-                  <FormTextField
-                    name="mature_height_cm"
-                    control={control}
-                    label={t('pages.species.matureHeightCm')}
-                    helperText={t('pages.species.matureHeightCmHelper')}
-                  />
-                  <FormTextField
-                    name="mature_width_cm"
-                    control={control}
-                    label={t('pages.species.matureWidthCm')}
-                    helperText={t('pages.species.matureWidthCmHelper')}
-                  />
-                </FormRow>
-                <FormRow>
-                  <FormTextField
-                    name="spacing_cm"
-                    control={control}
-                    label={t('pages.species.spacingCm')}
-                    helperText={t('pages.species.spacingCmHelper')}
-                  />
-                </FormRow>
-              </ExpertiseFieldWrapper>
-            </CardContent>
-          </Card>
-
-          {/* ── Panel 4: Umgebung (expert) ── */}
-          {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
-          <ExpertiseFieldWrapper minLevel="expert">
-            <Card variant="outlined">
-              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-                  {t('pages.species.sectionEnvironment')}
-                </Typography>
-                <FormChipInput
-                  name="hardiness_zones"
-                  control={control}
-                  label={t('pages.species.hardinessZones')}
-                  helperText={t('pages.species.hardinessZonesHelper')}
-                />
-                <FormTextField
-                  name="native_habitat"
-                  control={control}
-                  label={t('pages.species.nativeHabitat')}
-                  helperText={t('pages.species.nativeHabitatHelper')}
-                />
-                <FormRow>
-                  <FormNumberField
-                    name="allelopathy_score"
-                    control={control}
-                    label={t('pages.species.allelopathyScore')}
-                    helperText={t('pages.species.allelopathyScoreHelper')}
-                    min={-1}
-                    max={1}
-                    step={0.1}
-                  />
-                  <FormNumberField
-                    name="base_temp"
-                    control={control}
-                    label={t('pages.species.baseTemp')}
-                    helperText={t('pages.species.baseTempHelper')}
-                  />
-                </FormRow>
-              </CardContent>
-            </Card>
-          </ExpertiseFieldWrapper>
-
-          {/* ── Panel 5: Klassifikation (expert) ── */}
-          {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
-          <ExpertiseFieldWrapper minLevel="expert">
-            <Card variant="outlined">
-              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-                  {t('pages.species.sectionClassification')}
-                </Typography>
-                <FormChipInput
-                  name="synonyms"
-                  control={control}
-                  label={t('pages.species.synonyms')}
-                  helperText={t('pages.species.synonymsHelper')}
-                />
-                <FormRow>
-                  <FormTextField
-                    name="taxonomic_authority"
-                    control={control}
-                    label={t('pages.species.taxonomicAuthority')}
-                    helperText={t('pages.species.taxonomicAuthorityHelper')}
-                  />
-                  <FormTextField
-                    name="taxonomic_status"
-                    control={control}
-                    label={t('pages.species.taxonomicStatus')}
-                    helperText={t('pages.species.taxonomicStatusHelper')}
-                  />
-                </FormRow>
-              </CardContent>
-            </Card>
-          </ExpertiseFieldWrapper>
-
-          {/* ── Watering Guide (read-only, before actions) ── */}
-          {current?.watering_guide ? (
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" sx={{ pt: 1.5, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <OpacityIcon fontSize="small" />
-                  {t('pages.species.sectionWateringGuide')}
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
-                  <Typography variant="body2">
-                    <strong>{t('pages.species.wateringInterval')}:</strong>{' '}
-                    {t('pages.species.wateringIntervalDays', { count: current.watering_guide.interval_days })}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>{t('pages.species.wateringVolume')}:</strong>{' '}
-                    {t('pages.species.wateringVolumeMl', { min: current.watering_guide.volume_ml_min, max: current.watering_guide.volume_ml_max })}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>{t('pages.species.wateringMethod')}:</strong>{' '}
-                    {t(`enums.wateringMethod.${current.watering_guide.watering_method}`)}
-                  </Typography>
-                  {current.watering_guide.water_quality_hint && (
-                    <Typography variant="body2">
-                      <strong>{t('pages.species.waterQualityHint')}:</strong>{' '}
-                      {current.watering_guide.water_quality_hint}
+              {/* ── Detail column: stacked compact panels (Growth + Cultivation) ── */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+                {/* ── Panel 2: Wachstum (compact, R-057) ── */}
+                <Card variant="outlined">
+                  <CardContent
+                    component="fieldset"
+                    sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+                  >
+                    <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                      {t('pages.species.sectionGrowth')}
                     </Typography>
-                  )}
-                </Box>
-                {current.watering_guide.practical_tip && (
-                  <Alert severity="info" sx={{ mt: 1 }}>
-                    {current.watering_guide.practical_tip}
-                  </Alert>
-                )}
-                {current.watering_guide.seasonal_adjustments.length > 0 && (
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      <strong>{t('pages.species.seasonalAdjustments')}:</strong>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {t('pages.species.sectionGrowthDesc')}
                     </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {current.watering_guide.seasonal_adjustments.map((adj) => (
-                        <Chip
-                          key={adj.label}
-                          size="small"
-                          label={`${adj.label}: ${t('pages.species.wateringIntervalDays', { count: adj.interval_days })}, ${t('pages.species.wateringVolumeMl', { min: adj.volume_ml_min, max: adj.volume_ml_max })}`}
+                    <FormRow>
+                      <FormSelectField
+                        name="growth_habit"
+                        control={control}
+                        label={t('pages.species.growthHabit')}
+                        helperText={t('pages.species.growthHabitHelper')}
+                        options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                          value: v,
+                          label: t(`enums.growthHabit.${v}`),
+                        }))}
+                      />
+                      <ExpertiseFieldWrapper minLevel="expert">
+                        <FormSelectField
+                          name="root_type"
+                          control={control}
+                          label={t('pages.species.rootType')}
+                          helperText={t('pages.species.rootTypeHelper')}
+                          options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
+                            value: v,
+                            label: t(`enums.rootType.${v}`),
+                          }))}
                         />
-                      ))}
+                      </ExpertiseFieldWrapper>
+                    </FormRow>
+                    {/* Propagation config editor — one repeatable entry per method
+                      (method + month picker + optional wood stage + notes). Replaces
+                      the former flat propagation_methods multi-select (WP-5). */}
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {t('pages.species.propagationConfigs')}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mb: 1.5 }}
+                      >
+                        {t('pages.species.propagationConfigsHelper')}
+                      </Typography>
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {propagationFields.map((cfg, index) => (
+                          <Card
+                            key={cfg.id}
+                            variant="outlined"
+                            data-testid={`propagation-config-${index}`}
+                          >
+                            <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <FormSelectField
+                                    name={`propagation_configs.${index}.method`}
+                                    control={control}
+                                    label={t('pages.species.propagationMethods')}
+                                    options={PROPAGATION_METHODS.map((v) => ({
+                                      value: v,
+                                      label: t(`enums.propagationMethod.${v}`),
+                                    }))}
+                                  />
+                                </Box>
+                                <IconButton
+                                  color="error"
+                                  onClick={() => removePropagation(index)}
+                                  aria-label={t('pages.species.removePropagationMethod')}
+                                  data-testid={`remove-propagation-config-${index}`}
+                                  sx={{ mt: 1 }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+
+                              {/* Month multi-picker (1..12) */}
+                              <Controller
+                                name={`propagation_configs.${index}.months`}
+                                control={control}
+                                render={({ field }) => {
+                                  const selected = field.value ?? [];
+                                  const toggle = (m: number) =>
+                                    field.onChange(
+                                      selected.includes(m)
+                                        ? selected.filter((x) => x !== m)
+                                        : [...selected, m].sort((a, b) => a - b),
+                                    );
+                                  return (
+                                    <Box sx={{ mb: 1.5 }}>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        sx={{ display: 'block', mb: 0.75 }}
+                                      >
+                                        {t('pages.species.propagationMonthsLabel')}
+                                      </Typography>
+                                      <Box
+                                        role="group"
+                                        aria-label={t('pages.species.propagationMonthsLabel')}
+                                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                                        data-testid={`propagation-months-${index}`}
+                                      >
+                                        {MONTHS.map((m) => {
+                                          const isSelected = selected.includes(m);
+                                          const monthName = t(`pages.species.months.${m}`);
+                                          return (
+                                            <Chip
+                                              key={m}
+                                              size="small"
+                                              clickable
+                                              color={isSelected ? 'primary' : 'default'}
+                                              variant={isSelected ? 'filled' : 'outlined'}
+                                              label={monthName}
+                                              aria-pressed={isSelected}
+                                              onClick={() => toggle(m)}
+                                              data-testid={`propagation-month-${index}-${m}`}
+                                            />
+                                          );
+                                        })}
+                                      </Box>
+                                    </Box>
+                                  );
+                                }}
+                              />
+
+                              <FormSelectField
+                                name={`propagation_configs.${index}.wood_stage`}
+                                control={control}
+                                label={t('pages.species.woodStage')}
+                                helperText={t('pages.species.woodStageHelper')}
+                                options={[
+                                  { value: '', label: '—' },
+                                  ...WOOD_STAGES.map((v) => ({
+                                    value: v,
+                                    label: t(`enums.woodStage.${v}`),
+                                  })),
+                                ]}
+                              />
+                              <FormSelectField
+                                name={`propagation_configs.${index}.difficulty`}
+                                control={control}
+                                label={t('pages.species.propagationDifficulty')}
+                                options={[
+                                  { value: '', label: '—' },
+                                  ...PROPAGATION_DIFFICULTIES.map((v) => ({
+                                    value: v,
+                                    label: t(`enums.propagationDifficulty.${v}`),
+                                  })),
+                                ]}
+                              />
+                              <FormTextField
+                                name={`propagation_configs.${index}.notes`}
+                                control={control}
+                                label={t('pages.species.propagationNotesLabel')}
+                                helperText={t('pages.species.propagationNotesHelper')}
+                                multiline
+                                minRows={2}
+                                maxRows={6}
+                              />
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Box>
+
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() =>
+                          appendPropagation({
+                            method: 'seed',
+                            months: [],
+                            wood_stage: null,
+                            difficulty: null,
+                            notes: '',
+                          })
+                        }
+                        data-testid="add-propagation-method"
+                        sx={{ mt: 1.5 }}
+                      >
+                        {t('pages.species.addPropagationMethod')}
+                      </Button>
                     </Box>
-                  </Box>
-                )}
+                  </CardContent>
+                </Card>
+              </Box>
+            </Box>
+
+            {/* ── Panel 3: Anbaubedingungen (full-width below master-detail, R-058 — expert
+              expansion makes this panel tall and unsuited for the right-column stack) ── */}
+            <Card variant="outlined">
+              <CardContent
+                component="fieldset"
+                sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+              >
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                  {t('pages.species.sectionCultivation')}
+                </Typography>
+                <FormRow>
+                  <FormSelectField
+                    name="container_suitable"
+                    control={control}
+                    label={t('pages.species.containerSuitable')}
+                    helperText={t('pages.species.containerSuitableHelper')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...['yes', 'limited', 'no'].map((v) => ({
+                        value: v,
+                        label: t(`enums.suitability.${v}`),
+                      })),
+                    ]}
+                  />
+                  <FormSelectField
+                    name="indoor_suitable"
+                    control={control}
+                    label={t('pages.species.indoorSuitable')}
+                    helperText={t('pages.species.indoorSuitableHelper')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...['yes', 'limited', 'no'].map((v) => ({
+                        value: v,
+                        label: t(`enums.suitability.${v}`),
+                      })),
+                    ]}
+                  />
+                </FormRow>
+                <FormRow>
+                  <FormSelectField
+                    name="balcony_suitable"
+                    control={control}
+                    label={t('pages.species.balconySuitable')}
+                    helperText={t('pages.species.balconySuitableHelper')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...['yes', 'limited', 'no'].map((v) => ({
+                        value: v,
+                        label: t(`enums.suitability.${v}`),
+                      })),
+                    ]}
+                  />
+                  <FormSelectField
+                    name="default_nutrient_plan_key"
+                    control={control}
+                    label={t('pages.species.defaultNutrientPlan')}
+                    helperText={t('pages.species.defaultNutrientPlanHelper')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...nutrientPlans.map((p) => ({
+                        value: p.key,
+                        label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
+                      })),
+                    ]}
+                  />
+                </FormRow>
+                <FormRow>
+                  <FormSwitchField
+                    name="greenhouse_recommended"
+                    control={control}
+                    label={t('pages.species.greenhouseRecommended')}
+                    helperText={t('pages.species.greenhouseRecommendedHelper')}
+                  />
+                  <FormSwitchField
+                    name="support_required"
+                    control={control}
+                    label={t('pages.species.supportRequired')}
+                    helperText={t('pages.species.supportRequiredHelper')}
+                  />
+                </FormRow>
+
+                {/* Expert: Sizing & spacing details */}
+                <ExpertiseFieldWrapper minLevel="expert">
+                  <FormRow>
+                    <FormTextField
+                      name="recommended_container_volume_l"
+                      control={control}
+                      label={t('pages.species.recommendedContainerVolumeL')}
+                      helperText={t('pages.species.recommendedContainerVolumeLHelper')}
+                    />
+                    <FormNumberField
+                      name="min_container_depth_cm"
+                      control={control}
+                      label={t('pages.species.minContainerDepthCm')}
+                      helperText={t('pages.species.minContainerDepthCmHelper')}
+                      min={1}
+                      max={200}
+                    />
+                  </FormRow>
+                  <FormRow>
+                    <FormTextField
+                      name="mature_height_cm"
+                      control={control}
+                      label={t('pages.species.matureHeightCm')}
+                      helperText={t('pages.species.matureHeightCmHelper')}
+                    />
+                    <FormTextField
+                      name="mature_width_cm"
+                      control={control}
+                      label={t('pages.species.matureWidthCm')}
+                      helperText={t('pages.species.matureWidthCmHelper')}
+                    />
+                  </FormRow>
+                  <FormRow>
+                    <FormTextField
+                      name="spacing_cm"
+                      control={control}
+                      label={t('pages.species.spacingCm')}
+                      helperText={t('pages.species.spacingCmHelper')}
+                    />
+                  </FormRow>
+                </ExpertiseFieldWrapper>
               </CardContent>
             </Card>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              {t('pages.species.noWateringGuide')}
-            </Typography>
-          )}
 
-          {/* UI-NFR-008 R-025: Required field legend */}
-          <Typography variant="caption" color="text.secondary">
-            * {t('common.required')}
-          </Typography>
+            {/* ── Panel 4: Umgebung (expert) ── */}
+            {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
+            <ExpertiseFieldWrapper minLevel="expert">
+              <Card variant="outlined">
+                <CardContent
+                  component="fieldset"
+                  sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+                >
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                    {t('pages.species.sectionEnvironment')}
+                  </Typography>
+                  <FormChipInput
+                    name="hardiness_zones"
+                    control={control}
+                    label={t('pages.species.hardinessZones')}
+                    helperText={t('pages.species.hardinessZonesHelper')}
+                  />
+                  <FormTextField
+                    name="native_habitat"
+                    control={control}
+                    label={t('pages.species.nativeHabitat')}
+                    helperText={t('pages.species.nativeHabitatHelper')}
+                  />
+                  <FormRow>
+                    <FormNumberField
+                      name="allelopathy_score"
+                      control={control}
+                      label={t('pages.species.allelopathyScore')}
+                      helperText={t('pages.species.allelopathyScoreHelper')}
+                      min={-1}
+                      max={1}
+                      step={0.1}
+                    />
+                    <FormNumberField
+                      name="base_temp"
+                      control={control}
+                      label={t('pages.species.baseTemp')}
+                      helperText={t('pages.species.baseTempHelper')}
+                    />
+                  </FormRow>
+                </CardContent>
+              </Card>
+            </ExpertiseFieldWrapper>
 
-          {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
-          {!isReadOnly && <FormActions onCancel={() => navigate(-1)} loading={saving} />}
-          {isReadOnly && (
-            <Typography variant="body2" color="text.secondary">
-              {t('common.origin.readOnlyHint')}
+            {/* ── Panel 5: Klassifikation (expert) ── */}
+            {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
+            <ExpertiseFieldWrapper minLevel="expert">
+              <Card variant="outlined">
+                <CardContent
+                  component="fieldset"
+                  sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+                >
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                    {t('pages.species.sectionClassification')}
+                  </Typography>
+                  <FormChipInput
+                    name="synonyms"
+                    control={control}
+                    label={t('pages.species.synonyms')}
+                    helperText={t('pages.species.synonymsHelper')}
+                  />
+                  <FormRow>
+                    <FormTextField
+                      name="taxonomic_authority"
+                      control={control}
+                      label={t('pages.species.taxonomicAuthority')}
+                      helperText={t('pages.species.taxonomicAuthorityHelper')}
+                    />
+                    <FormTextField
+                      name="taxonomic_status"
+                      control={control}
+                      label={t('pages.species.taxonomicStatus')}
+                      helperText={t('pages.species.taxonomicStatusHelper')}
+                    />
+                  </FormRow>
+                </CardContent>
+              </Card>
+            </ExpertiseFieldWrapper>
+
+            {/* ── Watering Guide (read-only, before actions) ── */}
+            {current?.watering_guide ? (
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography
+                    variant="h6"
+                    sx={{ pt: 1.5, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <OpacityIcon fontSize="small" />
+                    {t('pages.species.sectionWateringGuide')}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 1,
+                    }}
+                  >
+                    <Typography variant="body2">
+                      <strong>{t('pages.species.wateringInterval')}:</strong>{' '}
+                      {t('pages.species.wateringIntervalDays', {
+                        count: current.watering_guide.interval_days,
+                      })}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>{t('pages.species.wateringVolume')}:</strong>{' '}
+                      {t('pages.species.wateringVolumeMl', {
+                        min: current.watering_guide.volume_ml_min,
+                        max: current.watering_guide.volume_ml_max,
+                      })}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>{t('pages.species.wateringMethod')}:</strong>{' '}
+                      {t(`enums.wateringMethod.${current.watering_guide.watering_method}`)}
+                    </Typography>
+                    {current.watering_guide.water_quality_hint && (
+                      <Typography variant="body2">
+                        <strong>{t('pages.species.waterQualityHint')}:</strong>{' '}
+                        {current.watering_guide.water_quality_hint}
+                      </Typography>
+                    )}
+                  </Box>
+                  {current.watering_guide.practical_tip && (
+                    <Alert severity="info" sx={{ mt: 1 }}>
+                      {current.watering_guide.practical_tip}
+                    </Alert>
+                  )}
+                  {current.watering_guide.seasonal_adjustments.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        <strong>{t('pages.species.seasonalAdjustments')}:</strong>
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {current.watering_guide.seasonal_adjustments.map((adj) => (
+                          <Chip
+                            key={adj.label}
+                            size="small"
+                            label={`${adj.label}: ${t('pages.species.wateringIntervalDays', { count: adj.interval_days })}, ${t('pages.species.wateringVolumeMl', { min: adj.volume_ml_min, max: adj.volume_ml_max })}`}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.species.noWateringGuide')}
+              </Typography>
+            )}
+
+            {/* UI-NFR-008 R-025: Required field legend */}
+            <Typography variant="caption" color="text.secondary">
+              * {t('common.required')}
             </Typography>
-          )}
-        </Box>
+
+            {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
+            {!isReadOnly && <FormActions onCancel={() => navigate(-1)} loading={saving} />}
+            {isReadOnly && (
+              <Typography variant="body2" color="text.secondary">
+                {t('common.origin.readOnlyHint')}
+              </Typography>
+            )}
+          </Box>
         </Box>
       )}
 
       {tab === 1 && key && current && (
-        <GrowingPeriodsSection speciesKey={key} species={current} onSaved={() => dispatch(fetchSpecies(key))} />
+        <GrowingPeriodsSection
+          speciesKey={key}
+          species={current}
+          onSaved={() => dispatch(fetchSpecies(key))}
+        />
       )}
       {tab === 2 && key && <CultivarListSection speciesKey={key} />}
       {tab === 3 && key && <LifecycleConfigSection speciesKey={key} />}
@@ -878,7 +1158,12 @@ export default function SpeciesDetailPage() {
                         {t('pages.companionPlanting.compatible')}
                       </Typography>
                       {compatible.length > 0 && (
-                        <Chip label={compatible.length} size="small" color="success" variant="outlined" />
+                        <Chip
+                          label={compatible.length}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                        />
                       )}
                     </Box>
                   }
@@ -906,7 +1191,12 @@ export default function SpeciesDetailPage() {
                         <ListItem key={c.species_key} divider>
                           <ListItemText
                             primary={
-                              <Link component={RouterLink} to={`/stammdaten/species/${c.species_key}`} variant="body2" underline="hover">
+                              <Link
+                                component={RouterLink}
+                                to={`/stammdaten/species/${c.species_key}`}
+                                variant="body2"
+                                underline="hover"
+                              >
                                 {c.scientific_name ?? c.species_key}
                               </Link>
                             }
@@ -934,7 +1224,12 @@ export default function SpeciesDetailPage() {
                         {t('pages.companionPlanting.incompatible')}
                       </Typography>
                       {incompatible.length > 0 && (
-                        <Chip label={incompatible.length} size="small" color="error" variant="outlined" />
+                        <Chip
+                          label={incompatible.length}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
                       )}
                     </Box>
                   }
@@ -962,7 +1257,12 @@ export default function SpeciesDetailPage() {
                         <ListItem key={c.species_key} divider>
                           <ListItemText
                             primary={
-                              <Link component={RouterLink} to={`/stammdaten/species/${c.species_key}`} variant="body2" underline="hover">
+                              <Link
+                                component={RouterLink}
+                                to={`/stammdaten/species/${c.species_key}`}
+                                variant="body2"
+                                underline="hover"
+                              >
                                 {c.scientific_name ?? c.species_key}
                               </Link>
                             }
@@ -979,7 +1279,13 @@ export default function SpeciesDetailPage() {
           )}
 
           {/* Companion planting dialog */}
-          <Dialog fullScreen={fullScreen} open={!!companionDialogType} onClose={() => setCompanionDialogType(null)} maxWidth="sm" fullWidth>
+          <Dialog
+            fullScreen={fullScreen}
+            open={!!companionDialogType}
+            onClose={() => setCompanionDialogType(null)}
+            maxWidth="sm"
+            fullWidth
+          >
             <DialogTitle>
               {companionDialogType === 'compatible'
                 ? t('pages.companionPlanting.addCompatible')
@@ -1001,9 +1307,13 @@ export default function SpeciesDetailPage() {
                 sx={{ mt: 1, mb: 2 }}
                 data-testid="target-species-select"
               >
-                {companionSpeciesList.filter((s) => s.key !== key).map((s) => (
-                  <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
-                ))}
+                {companionSpeciesList
+                  .filter((s) => s.key !== key)
+                  .map((s) => (
+                    <MenuItem key={s.key} value={s.key}>
+                      {s.scientific_name}
+                    </MenuItem>
+                  ))}
               </TextField>
               {companionDialogType === 'compatible' && (
                 <TextField
@@ -1032,7 +1342,11 @@ export default function SpeciesDetailPage() {
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setCompanionDialogType(null)}>{t('common.cancel')}</Button>
-              <Button variant="contained" onClick={handleAddCompanion} disabled={!companionTargetKey}>
+              <Button
+                variant="contained"
+                onClick={handleAddCompanion}
+                disabled={!companionTargetKey}
+              >
                 {t('common.create')}
               </Button>
             </DialogActions>
@@ -1067,12 +1381,28 @@ export default function SpeciesDetailPage() {
                 }}
                 data-testid="family-card-link"
               >
-                <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <CardContent
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    py: 1.5,
+                    '&:last-child': { pb: 1.5 },
+                  }}
+                >
                   <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}
+                    >
                       {t('pages.species.family')}
                     </Typography>
-                    <Typography variant="h6" color="text.primary" sx={{ mt: 0.25, lineHeight: 1.3 }}>
+                    <Typography
+                      variant="h6"
+                      color="text.primary"
+                      sx={{ mt: 0.25, lineHeight: 1.3 }}
+                    >
                       {currentFamily?.name ?? '…'}
                     </Typography>
                     {currentFamily?.common_name_de && (
@@ -1081,7 +1411,12 @@ export default function SpeciesDetailPage() {
                       </Typography>
                     )}
                     {currentFamily?.rotation_category && (
-                      <Chip label={currentFamily.rotation_category} size="small" variant="outlined" sx={{ mt: 0.75 }} />
+                      <Chip
+                        label={currentFamily.rotation_category}
+                        size="small"
+                        variant="outlined"
+                        sx={{ mt: 0.75 }}
+                      />
                     )}
                   </Box>
                   <ArrowForwardIcon color="action" />
@@ -1092,7 +1427,14 @@ export default function SpeciesDetailPage() {
 
               {!rotationLoading && (
                 <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      mb: 2,
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         {t('pages.cropRotation.successorsTitle')}
@@ -1107,10 +1449,13 @@ export default function SpeciesDetailPage() {
                       startIcon={<AddIcon />}
                       onClick={() => {
                         if (!rotationFamiliesLoaded) {
-                          familiesApi.listBotanicalFamilies(0, 500).then((f) => {
-                            setRotationFamilies(f);
-                            setRotationFamiliesLoaded(true);
-                          }).catch(() => {});
+                          familiesApi
+                            .listBotanicalFamilies(0, 500)
+                            .then((f) => {
+                              setRotationFamilies(f);
+                              setRotationFamiliesLoaded(true);
+                            })
+                            .catch(() => {});
                         }
                         setRotationDialogOpen(true);
                       }}
@@ -1127,10 +1472,13 @@ export default function SpeciesDetailPage() {
                       actionLabel={t('pages.cropRotation.addSuccessor')}
                       onAction={() => {
                         if (!rotationFamiliesLoaded) {
-                          familiesApi.listBotanicalFamilies(0, 500).then((f) => {
-                            setRotationFamilies(f);
-                            setRotationFamiliesLoaded(true);
-                          }).catch(() => {});
+                          familiesApi
+                            .listBotanicalFamilies(0, 500)
+                            .then((f) => {
+                              setRotationFamilies(f);
+                              setRotationFamiliesLoaded(true);
+                            })
+                            .catch(() => {});
                         }
                         setRotationDialogOpen(true);
                       }}
@@ -1150,22 +1498,52 @@ export default function SpeciesDetailPage() {
                             '&:hover': { borderColor: 'primary.main', boxShadow: 1 },
                           }}
                         >
-                          <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                          <CardContent
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              py: 1.25,
+                              '&:last-child': { pb: 1.25 },
+                            }}
+                          >
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+                              <Typography
+                                variant="body1"
+                                color="text.primary"
+                                sx={{ fontWeight: 500 }}
+                              >
                                 {s.name ?? s.family_key}
                               </Typography>
                               {s.benefit_reason && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: 'block', mt: 0.25 }}
+                                >
                                   {s.benefit_reason}
                                 </Typography>
                               )}
                             </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2, flexShrink: 0 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                ml: 2,
+                                flexShrink: 0,
+                              }}
+                            >
                               <Chip
                                 label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
                                 size="small"
-                                color={s.wait_years <= 1 ? 'success' : s.wait_years <= 3 ? 'warning' : 'error'}
+                                color={
+                                  s.wait_years <= 1
+                                    ? 'success'
+                                    : s.wait_years <= 3
+                                      ? 'warning'
+                                      : 'error'
+                                }
                                 variant="outlined"
                               />
                               <ArrowForwardIcon fontSize="small" color="action" />
@@ -1179,7 +1557,13 @@ export default function SpeciesDetailPage() {
               )}
 
               {/* Crop rotation dialog */}
-              <Dialog fullScreen={fullScreen} open={rotationDialogOpen} onClose={() => setRotationDialogOpen(false)} maxWidth="sm" fullWidth>
+              <Dialog
+                fullScreen={fullScreen}
+                open={rotationDialogOpen}
+                onClose={() => setRotationDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+              >
                 <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
                 <DialogContent>
                   <DialogContentText sx={{ mb: 2 }}>
@@ -1195,9 +1579,13 @@ export default function SpeciesDetailPage() {
                     sx={{ mt: 1, mb: 2 }}
                     data-testid="to-family-select"
                   >
-                    {rotationFamilies.filter((f) => f.key !== current.family_key).map((f) => (
-                      <MenuItem key={f.key} value={f.key}>{f.name}</MenuItem>
-                    ))}
+                    {rotationFamilies
+                      .filter((f) => f.key !== current.family_key)
+                      .map((f) => (
+                        <MenuItem key={f.key} value={f.key}>
+                          {f.name}
+                        </MenuItem>
+                      ))}
                   </TextField>
                   <TextField
                     type="number"
@@ -1212,7 +1600,11 @@ export default function SpeciesDetailPage() {
                 </DialogContent>
                 <DialogActions>
                   <Button onClick={() => setRotationDialogOpen(false)}>{t('common.cancel')}</Button>
-                  <Button variant="contained" onClick={handleAddRotationSuccessor} disabled={!rotationTargetKey}>
+                  <Button
+                    variant="contained"
+                    onClick={handleAddRotationSuccessor}
+                    disabled={!rotationTargetKey}
+                  >
                     {t('common.create')}
                   </Button>
                 </DialogActions>

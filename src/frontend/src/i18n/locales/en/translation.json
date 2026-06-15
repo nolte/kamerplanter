@@ -591,6 +591,13 @@
       "rootTypeHelper": "Root system: fibrous, taproot, tuberous or bulbous",
       "propagationMethods": "Propagation Methods",
       "propagationMethodsHelper": "How the species can be propagated — multiple choices allowed (e.g. seed, cutting, division)",
+      "propagationConfigs": "Propagation methods",
+      "propagationConfigsHelper": "One entry per method with propagation type, recommended months, optional wood stage and notes. Add or remove rows.",
+      "addPropagationMethod": "Add propagation method",
+      "removePropagationMethod": "Remove propagation method",
+      "woodStage": "Wood stage",
+      "woodStageHelper": "Maturity of the shoot for cuttings (softwood, semi-ripe, hardwood, herbaceous) — only relevant for cutting methods",
+      "propagationDifficulty": "Difficulty",
       "activePlants": "Active Plants",
       "hardinessZones": "Hardiness Zones",
       "hardinessZonesHelper": "USDA hardiness zones (e.g. '7a', '8b') — press Enter to add",
@@ -3131,17 +3138,32 @@
     "propagationMethod": {
       "seed": "Seed",
       "cutting": "Cutting",
+      "leaf_cutting": "Leaf cutting",
       "division": "Division",
       "rhizome_division": "Rhizome division",
       "bulb": "Bulb",
+      "bulbil": "Bulbil",
       "tuber": "Tuber",
       "offset": "Offset / Pup",
+      "runner": "Runner",
       "grafting": "Grafting",
       "layering": "Layering",
+      "air_layering": "Air layering",
+      "water_propagation": "Water propagation",
+      "tissue_culture": "Tissue culture",
       "spore": "Spore",
-      "runner": "Runner",
-      "leaf_cutting": "Leaf cutting",
       "self_seeding": "Self-seeding"
+    },
+    "woodStage": {
+      "softwood": "Softwood",
+      "semi_hardwood": "Semi-ripe",
+      "hardwood": "Hardwood",
+      "herbaceous": "Herbaceous"
+    },
+    "propagationDifficulty": {
+      "easy": "Easy",
+      "moderate": "Moderate",
+      "difficult": "Difficult"
     },
     "photoperiodType": {
       "short_day": "Short Day",

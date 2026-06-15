@@ -2,8 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import FrostTolerance, GrowthHabit, PlantCategory, PropagationMethod, RootType, Suitability
-from app.domain.models.species import GrowingPeriod, WateringGuide
+from app.common.enums import FrostTolerance, GrowthHabit, PlantCategory, RootType, Suitability
+from app.domain.models.species import GrowingPeriod, PropagationConfig, WateringGuide
 
 
 class SpeciesCreate(BaseModel):
@@ -30,9 +30,7 @@ class SpeciesCreate(BaseModel):
     bloom_from_year: int | None = None
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
-    propagation_methods: list[PropagationMethod] = Field(default_factory=list)
-    propagation_months: list[int] = Field(default_factory=list)
-    propagation_notes: str | None = None
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None
@@ -75,9 +73,7 @@ class SpeciesResponse(BaseModel):
     bloom_from_year: int | None = None
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
-    propagation_methods: list[PropagationMethod] = Field(default_factory=list)
-    propagation_months: list[int] = Field(default_factory=list)
-    propagation_notes: str | None = None
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None

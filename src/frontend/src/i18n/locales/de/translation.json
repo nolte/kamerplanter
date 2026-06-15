@@ -591,6 +591,13 @@
       "rootTypeHelper": "Wurzelsystem: Faserig, Pfahlwurzel, Knollig oder Zwiebel",
       "propagationMethods": "Vermehrungsart",
       "propagationMethodsHelper": "Wie sich die Art vermehren lässt — Mehrfachauswahl möglich (z. B. Aussaat, Steckling, Teilung)",
+      "propagationConfigs": "Vermehrungsmethoden",
+      "propagationConfigsHelper": "Je Methode ein Eintrag mit Vermehrungsart, empfohlenen Monaten, optionalem Holzreifegrad und Hinweisen. Zeilen hinzufügen oder entfernen.",
+      "addPropagationMethod": "Vermehrungsmethode hinzufügen",
+      "removePropagationMethod": "Vermehrungsmethode entfernen",
+      "woodStage": "Holzreifegrad",
+      "woodStageHelper": "Reifegrad des Triebs für Stecklinge (Weichholz, Halbreif, Hartholz, krautig) — nur bei Steckling-Methoden relevant",
+      "propagationDifficulty": "Schwierigkeit",
       "activePlants": "Aktive Pflanzen",
       "hardinessZones": "Winterhärtezonen",
       "hardinessZonesHelper": "USDA-Winterhärtezonen (z. B. '7a', '8b') — Enter drücken zum Hinzufügen",
@@ -3132,17 +3139,32 @@
     "propagationMethod": {
       "seed": "Aussaat / Samen",
       "cutting": "Steckling",
+      "leaf_cutting": "Blattsteckling",
       "division": "Teilung",
       "rhizome_division": "Rhizomteilung",
       "bulb": "Zwiebel",
+      "bulbil": "Brutzwiebel",
       "tuber": "Knolle",
       "offset": "Kindel",
+      "runner": "Ausläufer",
       "grafting": "Veredelung",
       "layering": "Absenker",
+      "air_layering": "Abmoosen",
+      "water_propagation": "Wasservermehrung",
+      "tissue_culture": "Gewebekultur",
       "spore": "Sporen",
-      "runner": "Ausläufer",
-      "leaf_cutting": "Blattsteckling",
       "self_seeding": "Selbstaussaat"
+    },
+    "woodStage": {
+      "softwood": "Weichholz",
+      "semi_hardwood": "Halbreif",
+      "hardwood": "Hartholz",
+      "herbaceous": "Krautig"
+    },
+    "propagationDifficulty": {
+      "easy": "Einfach",
+      "moderate": "Mittel",
+      "difficult": "Schwierig"
     },
     "photoperiodType": {
       "short_day": "Kurztagpflanze",

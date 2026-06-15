@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.2 (Umgebungs-Physiologie: LCP, Wurzelzone, Salztoleranz, Photosynthese-Typ)
+Version: 4.3 (Vermehrung: strukturierte per-Methode-Configs propagation_configs, ADR-004)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.3 | 2026-06-15 | **Vermehrung strukturiert (ADR-004, Plan WP-5):** Die flachen Species-Felder `propagation_methods`/`propagation_months`/`propagation_notes`/`propagation_difficulty` werden durch ein strukturiertes Feld `propagation_configs: list[PropagationConfig]` ersetzt — Zeitfenster (`months`), Reifegrad (`wood_stage`), Schwierigkeit (`difficulty`) und Hinweise (`notes`) je Methode statt je Art. `PropagationMethod`-Enum-Drift zu REQ-017 geschlossen (+`air_layering`, `tissue_culture`, `bulbil`, `water_propagation`; jetzt 17 Werte); `PropagationDifficulty`- und `WoodStage`-Enums neu. **Breaking Change** (API + Frontend mitgezogen); Seeder adaptiert flache Altdaten rückwärtskompatibel. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §3.3. |
 | 4.2 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** Neue physiologische Steuer-Felder auf Species: `light_compensation_point_ppfd_min/max` (LCP für Standort-Eignungscheck), `shade_tolerance`, `photosynthesis_type` (C3/C4/CAM-Modifikator), `effective_root_depth_cm` + `waterlogging_tolerance` (Wurzelzone/Crop-Steering), `salt_tolerance_class/_ece_threshold_ds_m/_slope_pct` (Maas-Hoffman), optionaler `soil_ph_preference`-Override (ergänzt Family-Default, gated Mikronährstoff-Verfügbarkeit REQ-004). Quelle: `spec/analysis/plant-profile-completeness-research.md` (Deep-Research, adversarial verifiziert). |
 | 4.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext + Export):** `parent_species_key` als optionales Feld auf Species (KI-Genus-Fallback REQ-031 §4.2). `revision`-Feld + `promoted_at` + `promoted_from_tenant` auf Species/Cultivar. Promotion-Workflow als atomare AQL-Transaktion mit Optimistic Locking spezifiziert. Cultivars werden NICHT automatisch mit Species mitpromoted (Workshop-Entscheidung). Neue Collection `promotion_audit_log` (5J Retention, NFR-011 R-19). |
 | 4.0 | 2026-03-16 | **Stammdaten-Scoping:** `origin`-Feld + `tenant_key` auf Species/Cultivar. Drei-Schichten-Architektur: Globale Stammdaten (KA-Admin) → Tenant-Overlay (`tenant_species_config`, `tenant_cultivar_config`) → Tenant-eigene Stammdaten. Edge `tenant_has_access` für Sichtbarkeitssteuerung. Cultivar-Zuweisung transitiv über Species. Promotion-Workflow (tenant→system in-place). Merge-Logik im Service. Neue User Stories, AQL-Queries, Akzeptanzkriterien. |

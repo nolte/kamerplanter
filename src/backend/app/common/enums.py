@@ -32,17 +32,36 @@ class RootType(StrEnum):
 class PropagationMethod(StrEnum):
     SEED = "seed"
     CUTTING = "cutting"
+    LEAF_CUTTING = "leaf_cutting"
     DIVISION = "division"
     RHIZOME_DIVISION = "rhizome_division"
     BULB = "bulb"
+    BULBIL = "bulbil"
     TUBER = "tuber"
     OFFSET = "offset"
+    RUNNER = "runner"
     GRAFTING = "grafting"
     LAYERING = "layering"
+    AIR_LAYERING = "air_layering"
+    WATER_PROPAGATION = "water_propagation"
+    TISSUE_CULTURE = "tissue_culture"
     SPORE = "spore"
-    RUNNER = "runner"
-    LEAF_CUTTING = "leaf_cutting"
     SELF_SEEDING = "self_seeding"
+
+
+class WoodStage(StrEnum):
+    """Cutting maturity stage — drives the propagation time-window per method (REQ-017)."""
+
+    SOFTWOOD = "softwood"
+    SEMI_HARDWOOD = "semi_hardwood"
+    HARDWOOD = "hardwood"
+    HERBACEOUS = "herbaceous"
+
+
+class PropagationDifficulty(StrEnum):
+    EASY = "easy"
+    MODERATE = "moderate"
+    DIFFICULT = "difficult"
 
 
 class PhotoperiodType(StrEnum):

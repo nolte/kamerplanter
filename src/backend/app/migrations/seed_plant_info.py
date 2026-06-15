@@ -33,6 +33,7 @@ from app.common.enums import (
     PhotoperiodType,
     PlantCategory,
     PlantTrait,
+    PropagationDifficulty,
     PropagationMethod,
     RootType,
     StressTolerance,
@@ -40,6 +41,7 @@ from app.common.enums import (
     TreatmentApplicationMethod,
     TreatmentType,
     WateringMethod,
+    WoodStage,
 )
 from app.domain.models.botanical_family import BotanicalFamily, PhRange
 from app.domain.models.ipm import Disease, Pest, Treatment
@@ -47,6 +49,7 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
     Cultivar,
+    PropagationConfig,
     SeasonalWateringAdjustment,
     Species,
     WateringGuide,
@@ -96,6 +99,44 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
     return families
 
 
+def _build_propagation_configs(source: dict[str, Any]) -> list[PropagationConfig]:
+    """Build structured propagation configs from a YAML entry.
+
+    Accepts the native ``propagation_configs`` list, or adapts the legacy flat
+    ``propagation_methods``/``propagation_months``/``propagation_notes`` trio:
+    one config per method sharing the timing window, with the (single) notes on
+    the first method. The per-method timing split is a data-quality follow-up.
+    """
+    native = source.get("propagation_configs")
+    if native:
+        configs: list[PropagationConfig] = []
+        for item in native:
+            ws = item.get("wood_stage")
+            diff = item.get("difficulty")
+            configs.append(
+                PropagationConfig(
+                    method=PropagationMethod(item["method"]),
+                    months=item.get("months", []),
+                    wood_stage=WoodStage(ws) if ws else None,
+                    difficulty=PropagationDifficulty(diff) if diff else None,
+                    notes=item.get("notes"),
+                )
+            )
+        return configs
+
+    methods = [PropagationMethod(m) for m in (source.get("propagation_methods") or [])]
+    if not methods:
+        return []
+    months = source.get("propagation_months") or []
+    notes = source.get("propagation_notes")
+    diff_raw = source.get("propagation_difficulty")
+    difficulty = PropagationDifficulty(diff_raw) if diff_raw in ("easy", "moderate", "difficult") else None
+    return [
+        PropagationConfig(method=method, months=months, difficulty=difficulty, notes=notes if i == 0 else None)
+        for i, method in enumerate(methods)
+    ]
+
+
 def _build_species(data: dict[str, Any]) -> list[Species]:
     """Construct Species models from YAML data."""
     species_list: list[Species] = []
@@ -116,9 +157,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 allelopathy_score=entry.get("allelopathy_score", 0.0),
                 base_temp=entry.get("base_temp", 10.0),
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
-                propagation_methods=[PropagationMethod(m) for m in entry.get("propagation_methods", [])],
-                propagation_months=entry.get("propagation_months", []),
-                propagation_notes=entry.get("propagation_notes"),
+                propagation_configs=_build_propagation_configs(entry),
                 allows_harvest=entry.get("allows_harvest", True),
                 sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
                 sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),
@@ -162,18 +201,28 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "frost_sensitivity": FrostTolerance,
     }
 
+    propagation_keys = {
+        "propagation_configs",
+        "propagation_methods",
+        "propagation_months",
+        "propagation_notes",
+        "propagation_difficulty",
+    }
     result: dict[str, dict[str, Any]] = {}
     for sci_name, fields in data.get("species_enrichment", {}).items():
         converted: dict[str, Any] = {}
         for field, value in fields.items():
+            if field in propagation_keys:
+                continue
             if field == "watering_guide" and value is not None:
                 converted[field] = _build_watering_guide(value)
-            elif field == "propagation_methods" and value is not None:
-                converted[field] = [PropagationMethod(m) for m in value]
             elif field in enum_field_map and value is not None:
                 converted[field] = enum_field_map[field](value)
             else:
                 converted[field] = value
+        configs = _build_propagation_configs(fields)
+        if configs:
+            converted["propagation_configs"] = configs
         result[sci_name] = converted
     return result
 
