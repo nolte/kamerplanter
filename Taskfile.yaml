@@ -255,3 +255,41 @@ tasks:
         echo
         docker compose -f docker-compose.e2e.yml \
           run --rm --service-ports --publish 8080:80 frontend
+
+  # ── Crash recovery & parallel working copies (merged from Taskfile.yml) ──
+
+  resume:
+    desc: |
+      List resumable Claude Code sessions for THIS working copy (newest first,
+      with their opening prompt) and print the exact `claude --resume` command.
+      Use after a notebook crash, terminal close, or session expiry to get back
+      to an interrupted run — covers all top-level work in this directory.
+      Subagent and Workflow runs are NOT --resume-able; see CLAUDE.md
+      §"Crash recovery".
+    cmds:
+      - python3 scripts/resume_sessions.py
+    silent: true
+
+  worktree:root:
+    desc: |
+      Print the resolved worktree root for this machine. Reads
+      NOLTE_WORKTREE_ROOT (the per-machine, freely chosen path) and falls back
+      to ~/repos/.worktrees.
+    cmds:
+      - 'echo "${NOLTE_WORKTREE_ROOT:-$HOME/repos/.worktrees}"'
+    silent: true
+
+  worktree:add:
+    desc: |
+      Create a parallel working copy under the configurable worktree root,
+      always in the same predictable place:
+      ${NOLTE_WORKTREE_ROOT:-~/repos/.worktrees}/<repo>/<slug>/, branched off
+      origin/develop. This is the supported alternative to harness worktrees
+      nested under .claude/worktrees/ (which the guard-nested-worktree hook
+      rejects, because sessions run from there are not --resume-able).
+
+      Usage: task worktree:add -- <branch> [slug]
+        task worktree:add -- feat/parser-fix
+        task worktree:add -- chore/ci-tidy ci
+    cmds:
+      - ./scripts/worktree_add.sh {{.CLI_ARGS}}
