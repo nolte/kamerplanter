@@ -217,6 +217,46 @@ GBIF-Einstellungen können über den Unterstrich-Doppelpunkt-Delimiter verschach
 
 ---
 
+## Foto-Identifikation (REQ-029)
+
+Diese Variablen konfigurieren die optionale Pflanzenerkennung per Foto. Wenn keine der API-Schlüssel gesetzt ist, ist das Feature vollständig deaktiviert — alle Kamera-Schaltflächen sind ausgeblendet und es wird keine Einwilligung abgefragt.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `PLANTNET_API_KEY` | — | Nein | API-Schlüssel für Pl@ntNet (Free-Tier: ≤ 500 Identifikationen/Tag). Registrierung unter [my.plantnet.org](https://my.plantnet.org). |
+| `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | Nein | Basis-URL der Pl@ntNet-API. Nur für Self-Hosting oder Test-Endpunkte ändern. |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Nein | Bevorzugter Adapter. Mögliche Werte: `plantnet`. Erweiterbar durch zukünftige Adapter. |
+| `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | Nein | Übereinstimmungsschwelle (0–1), ab der ein Vorschlag als „sehr sicher" hervorgehoben wird. |
+| `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | Nein | Mindest-Übereinstimmung (0–1) für die Anzeige eines Vorschlags. Ergebnisse darunter werden gefiltert. |
+| `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `10` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 400 abgelehnt. |
+| `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `0` | Nein | Maximale Anfragen pro Nutzer pro Tag. `0` verwendet das Adapter-Standard-Limit (500 bei Pl@ntNet). |
+
+!!! warning "Pl@ntNet nur für nicht-kommerzielle Nutzung"
+    Der Pl@ntNet Free-Tier ist für nicht-kommerzielle Nutzung zugelassen. Für kommerzielle Instanzen die Nutzungsbedingungen unter [my.plantnet.org](https://my.plantnet.org) prüfen.
+
+!!! tip "Kubernetes Secrets"
+    Der `PLANTNET_API_KEY` sollte als Kubernetes Secret hinterlegt werden:
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kamerplanter-identification
+    type: Opaque
+    stringData:
+      PLANTNET_API_KEY: "dein-api-schluessel"
+    ```
+
+### Feature-Toggle-Logik
+
+```
+PLANTNET_API_KEY gesetzt?
+  ├── Ja  → Pl@ntNet aktiv (Artbestimmung, ≤ 500 IDs/Tag)
+  └── Nein → Feature vollständig deaktiviert
+             (Kamera-Buttons ausgeblendet, kein Consent-Dialog)
+```
+
+---
+
 ## Vollständiges .env-Beispiel
 
 ```bash
@@ -258,6 +298,10 @@ HA_ACCESS_TOKEN=
 RERANKER_URL=
 RERANKER_INITIAL_K=20
 RERANKER_TOP_K=5
+
+# Foto-Identifikation (leer = Feature deaktiviert)
+# PLANTNET_API_KEY=
+# IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
 ```
 
 ---

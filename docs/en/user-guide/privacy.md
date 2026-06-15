@@ -80,6 +80,7 @@ No optional consent is needed for the core functions of the system. However, som
 | **Error tracking (Sentry)** | Optional | Yes |
 | **HaveIBeenPwned password check** | Optional | Yes |
 | **External master data enrichment** (GBIF, Perenual) | Optional | Yes |
+| **Photo identification** (Pl@ntNet) | Optional | Yes |
 
 ### Revoking Consent
 
@@ -90,6 +91,28 @@ No optional consent is needed for the core functions of the system. However, som
 
 !!! warning "Effects of revoking consent"
     If you revoke consent for external master data enrichment, no new data will be fetched from GBIF or Perenual. Existing enriched data is retained.
+
+### Photo Identification (plant_identification)
+
+[Plant recognition by photo](plant-identification.md) sends your image to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis. Consent is required because the photo briefly leaves the Kamerplanter instance.
+
+**What happens when you revoke:**
+
+- All camera buttons are immediately hidden
+- New photo requests are rejected with HTTP 403
+- Your identification history is retained (it contains no photos, only results)
+- You can grant consent again at any time
+
+**Data flow when consent is active:**
+
+| Data | Storage location | Retention |
+|------|-----------------|-----------|
+| Image data | RAM only during the API call | No permanent storage |
+| Image checksum (SHA-256 hash) | `identification_requests` collection | 90 days, then automatically deleted |
+| Recognition result (species suggestions) | `identification_requests` collection | 90 days, then automatically deleted |
+| Selected species | Link to the created plant | Lifetime of the plant |
+
+All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, camera model, capture time).
 
 ---
 

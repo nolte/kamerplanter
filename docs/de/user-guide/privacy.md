@@ -80,6 +80,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Fehler-Tracking (Sentry)** | Optional | Ja |
 | **HaveIBeenPwned Passwort-Check** | Optional | Ja |
 | **Externe Stammdatenanreicherung** (GBIF, Perenual) | Optional | Ja |
+| **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 
 ### Einwilligung widerrufen
 
@@ -90,6 +91,28 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 
 !!! warning "Auswirkungen eines Widerrufs"
     Wenn du die Einwilligung für externe Stammdatenanreicherung widerrufst, werden keine neuen Daten mehr von GBIF oder Perenual abgerufen. Bestehende angereicherte Daten bleiben erhalten.
+
+### Foto-Identifikation (plant_identification)
+
+Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur Analyse an Pl@ntNet (CIRAD/INRIA, Frankreich/EU). Die Einwilligung ist erforderlich, weil das Foto die Kamerplanter-Instanz kurzzeitig verlässt.
+
+**Was beim Widerruf passiert:**
+
+- Alle Kamera-Schaltflächen werden sofort ausgeblendet
+- Neue Foto-Anfragen werden mit HTTP 403 abgelehnt
+- Dein Identifikations-Verlauf bleibt erhalten (er enthält keine Fotos, nur Ergebnisse)
+- Die Einwilligung kann jederzeit erneut erteilt werden
+
+**Datenfluss bei aktiver Einwilligung:**
+
+| Datum | Speicherort | Aufbewahrung |
+|-------|------------|-------------|
+| Bilddaten | Nur im Arbeitsspeicher während des API-Aufrufs | Keine dauerhafte Speicherung |
+| Bild-Prüfwert (SHA-256-Hash) | `identification_requests`-Collection | 90 Tage, dann automatisch gelöscht |
+| Erkennungsergebnis (Artvorschläge) | `identification_requests`-Collection | 90 Tage, dann automatisch gelöscht |
+| Ausgewählte Art | Verknüpfung mit der angelegten Pflanze | Lebenszeit der Pflanze |
+
+Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordinaten, Kameramodell, Aufnahmezeitpunkt).
 
 ---
 
