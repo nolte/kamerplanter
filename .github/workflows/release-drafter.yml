@@ -3,6 +3,12 @@ name: Release Drafter
 on:
   push:
     branches: [develop]
+  # Manual fallback: automerge squash-merges into develop are authored by
+  # GITHUB_TOKEN, and GitHub does not trigger downstream workflows for
+  # GITHUB_TOKEN-authored pushes (loop guard). Without this, the draft is
+  # never (re)generated after a bot merge. workflow_dispatch lets an operator
+  # run the drafter by hand (`gh workflow run release-drafter.yml --ref develop`).
+  workflow_dispatch:
 
 jobs:
   update_release_draft:
