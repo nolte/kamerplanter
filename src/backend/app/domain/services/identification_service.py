@@ -77,7 +77,18 @@ class IdentificationService:
 
         In Phase 1 Pl@ntNet is the primary path, so the photo always leaves the
         instance — consent is a hard precondition (REQ-029-A §0.1.1 point 2).
+
+        Mode-aware: this hard backend gate only applies in the ``full`` mode. In
+        the Light mode (REQ-027) there are no user accounts and no consent
+        subsystem (``privacy_router`` is not even registered), so there is no
+        record a consent could be bound to. There the transparency notice and
+        the opt-in are handled client-side (see the frontend's
+        ``PlantIdentificationDialog`` / ``IdentificationConsentGate``), and the
+        photo transparency (third-country transfer, EXIF strip, no persisting)
+        is preserved. We therefore skip the backend consent check in Light mode.
         """
+        if settings.kamerplanter_mode != "full":
+            return
         record = self._consent_repo.get_by_user_and_purpose(user_key, _CONSENT_PURPOSE)
         if not self._consent_engine.is_processing_allowed(_CONSENT_PURPOSE, record):
             raise ConsentRequiredError(_CONSENT_PURPOSE)

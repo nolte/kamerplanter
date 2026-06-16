@@ -2,7 +2,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.domain.models.system_settings import HomeAssistantSettings, SystemSettings
+from app.domain.models.system_settings import (
+    HomeAssistantSettings,
+    PlantIdentificationSettings,
+    SystemSettings,
+)
 from app.domain.services.system_settings_service import SystemSettingsService
 
 
@@ -157,6 +161,107 @@ class TestGetHaSettingsWithSource:
 
         result = service.get_ha_settings_with_source()
         assert result["source_ha_url"] == "default"
+
+
+class TestUpdatePlantIdentificationSettings:
+    def test_sets_key(self, service, mock_repo):
+        mock_repo.get.return_value = None
+        mock_repo.upsert.return_value = SystemSettings(
+            plant_identification=PlantIdentificationSettings(plantnet_api_key="new-key"),
+        )
+        result = service.update_plant_identification_settings("new-key")
+        assert result.plant_identification.plantnet_api_key == "new-key"
+        mock_repo.upsert.assert_called_once()
+
+    def test_preserves_existing_when_none(self, service, mock_repo):
+        existing = SystemSettings(
+            plant_identification=PlantIdentificationSettings(plantnet_api_key="old-key"),
+        )
+        mock_repo.get.return_value = existing
+        mock_repo.upsert.return_value = existing
+
+        service.update_plant_identification_settings(None)
+        upserted = mock_repo.upsert.call_args[0][0]
+        assert upserted.plant_identification.plantnet_api_key == "old-key"
+
+    def test_does_not_touch_ha(self, service, mock_repo):
+        existing = SystemSettings(
+            home_assistant=HomeAssistantSettings(ha_url="http://ha:8123"),
+        )
+        mock_repo.get.return_value = existing
+        mock_repo.upsert.return_value = existing
+
+        service.update_plant_identification_settings("key")
+        upserted = mock_repo.upsert.call_args[0][0]
+        assert upserted.home_assistant.ha_url == "http://ha:8123"
+
+
+class TestDeletePlantIdentificationSettings:
+    def test_clears_key(self, service, mock_repo):
+        existing = SystemSettings(
+            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+        )
+        mock_repo.get.return_value = existing
+        mock_repo.upsert.return_value = SystemSettings()
+
+        result = service.delete_plant_identification_settings()
+        assert result is True
+        upserted = mock_repo.upsert.call_args[0][0]
+        assert upserted.plant_identification.plantnet_api_key == ""
+
+    def test_returns_false_when_none(self, service, mock_repo):
+        mock_repo.get.return_value = None
+        assert service.delete_plant_identification_settings() is False
+
+
+class TestGetEffectivePlantnetApiKey:
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_db_overrides_env(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = "env-key"
+        mock_repo.get.return_value = SystemSettings(
+            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+        )
+        assert service.get_effective_plantnet_api_key() == "db-key"
+
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_falls_back_to_env(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = "env-key"
+        mock_repo.get.return_value = None
+        assert service.get_effective_plantnet_api_key() == "env-key"
+
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_empty_when_neither(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = ""
+        mock_repo.get.return_value = None
+        assert service.get_effective_plantnet_api_key() == ""
+
+
+class TestGetPlantnetSettingsWithSource:
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_source_db_when_stored(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = "env-key"
+        mock_repo.get.return_value = SystemSettings(
+            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+        )
+        result = service.get_plantnet_settings_with_source()
+        assert result["plantnet_api_key"] == "db-key"
+        assert result["source_plantnet_api_key"] == "db"
+
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_source_env_when_no_db(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = "env-key"
+        mock_repo.get.return_value = None
+        result = service.get_plantnet_settings_with_source()
+        assert result["plantnet_api_key"] == "env-key"
+        assert result["source_plantnet_api_key"] == "env"
+
+    @patch("app.domain.services.system_settings_service.env_settings")
+    def test_source_none_when_nothing(self, mock_env, service, mock_repo):
+        mock_env.plantnet_api_key = ""
+        mock_repo.get.return_value = None
+        result = service.get_plantnet_settings_with_source()
+        assert result["plantnet_api_key"] == ""
+        assert result["source_plantnet_api_key"] == "none"
 
 
 class TestMaskToken:

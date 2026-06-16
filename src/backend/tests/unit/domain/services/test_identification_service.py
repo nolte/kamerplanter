@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from app.common.exceptions import ConsentRequiredError, FeatureNotConfiguredError, RateLimitError
+from app.config.settings import settings
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.interfaces.plant_identification_adapter import (
     HealthAssessment,
@@ -90,6 +91,16 @@ def _registry_with_plantnet(configured=True, preferred="plantnet"):
     return _FakeRegistry({"plantnet": adapter}, preferred if configured else None), adapter
 
 
+@pytest.fixture(autouse=True)
+def _full_mode(monkeypatch):
+    """Default every test to the full mode so the consent gate is active.
+
+    The Light-mode behaviour (consent bypass) is exercised explicitly below by
+    overriding ``settings.kamerplanter_mode`` to ``"light"``.
+    """
+    monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+
+
 def test_identify_blocked_without_consent():
     registry, _ = _registry_with_plantnet()
     service = _service(consent_granted=None, registry=registry)
@@ -101,6 +112,34 @@ def test_identify_blocked_without_consent():
 def test_identify_blocked_with_revoked_consent():
     registry, _ = _registry_with_plantnet()
     service = _service(consent_granted=False, registry=registry)
+
+    with pytest.raises(ConsentRequiredError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+
+def test_identify_in_light_mode_skips_backend_consent(monkeypatch):
+    """REQ-027 — Light mode has no consent subsystem; identify must run anyway.
+
+    With no consent record present the full mode would raise ConsentRequiredError;
+    in Light mode the backend gate is skipped and the engine is invoked.
+    """
+    monkeypatch.setattr(settings, "kamerplanter_mode", "light")
+    registry, _ = _registry_with_plantnet()
+    engine = MagicMock()
+    engine.identify.return_value = {"is_plant": True, "suggestions": [], "request_key": "ident_light"}
+    service = _service(consent_granted=None, registry=registry, engine=engine)
+
+    out = service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+    assert out["request_key"] == "ident_light"
+    engine.identify.assert_called_once()
+
+
+def test_identify_full_mode_still_enforces_consent(monkeypatch):
+    """Counterpart: in full mode the consent gate stays a hard precondition."""
+    monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+    registry, _ = _registry_with_plantnet()
+    service = _service(consent_granted=None, registry=registry)
 
     with pytest.raises(ConsentRequiredError):
         service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")

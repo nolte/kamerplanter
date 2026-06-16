@@ -42,7 +42,8 @@ PLANTNET_RESPONSE = {
 
 def _adapter(api_key: str = "test-key") -> PlantNetAdapter:
     adapter = PlantNetAdapter()
-    adapter._api_key = api_key
+    # The key is resolved at call time (DB overrides env); pin it for the test.
+    adapter._resolve_api_key = lambda: api_key  # type: ignore[method-assign]
     return adapter
 
 
@@ -59,6 +60,35 @@ def _mock_client_returning(response: MagicMock):
 def test_is_configured_reflects_api_key():
     assert _adapter("key").is_configured() is True
     assert _adapter("").is_configured() is False
+
+
+def test_resolve_api_key_uses_effective_db_key():
+    """The adapter must resolve the effective key (DB overrides env) at call time."""
+    adapter = PlantNetAdapter()
+    fake_service = MagicMock()
+    fake_service.get_effective_plantnet_api_key.return_value = "db-key"
+    with patch(
+        "app.common.dependencies.get_system_settings_service",
+        return_value=fake_service,
+    ):
+        assert adapter._resolve_api_key() == "db-key"
+        assert adapter.is_configured() is True
+
+
+def test_resolve_api_key_falls_back_to_env_when_collection_missing():
+    """If the settings service blows up (collection missing) fall back to env."""
+    adapter = PlantNetAdapter()
+    with (
+        patch(
+            "app.common.dependencies.get_system_settings_service",
+            side_effect=RuntimeError("collection not found"),
+        ),
+        patch(
+            "app.data_access.external.plantnet_adapter.settings",
+        ) as mock_settings,
+    ):
+        mock_settings.plantnet_api_key = "env-key"
+        assert adapter._resolve_api_key() == "env-key"
 
 
 def test_identify_maps_suggestions():

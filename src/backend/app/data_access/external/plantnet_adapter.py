@@ -43,11 +43,27 @@ class PlantNetAdapter(PlantIdentificationAdapter):
 
     def __init__(self) -> None:
         self._base_url = settings.plantnet_base_url
-        self._api_key = settings.plantnet_api_key
         self._timeout = settings.identification_http_timeout
 
+    def _resolve_api_key(self) -> str:
+        """Resolve the effective Pl@ntNet key at call time (DB overrides env).
+
+        A key set via the admin UI is stored in ``system_settings`` and must
+        take effect immediately, without a pod restart. This mirrors the
+        ``get_ha_client()`` resolution pattern: query the DB-backed settings
+        service and fall back to the environment variable if the collection
+        does not exist yet (fresh install / migration not yet run).
+        """
+        try:
+            from app.common.dependencies import get_system_settings_service
+
+            return get_system_settings_service().get_effective_plantnet_api_key()
+        except Exception:
+            # Collection may not exist yet — fall back to env.
+            return settings.plantnet_api_key
+
     def is_configured(self) -> bool:
-        return bool(self._api_key)
+        return bool(self._resolve_api_key())
 
     def identify(
         self,
@@ -58,7 +74,8 @@ class PlantNetAdapter(PlantIdentificationAdapter):
         include_health: bool = False,
         language: str = "de",
     ) -> IdentificationResult:
-        if not self._api_key:
+        api_key = self._resolve_api_key()
+        if not api_key:
             raise ExternalSourceError(ADAPTER_KEY, "Pl@ntNet API key is not configured.")
 
         organ_param = "auto" if organ == PlantOrgan.AUTO else organ.value
@@ -69,7 +86,7 @@ class PlantNetAdapter(PlantIdentificationAdapter):
                 response = client.post(
                     "/identify/all",
                     params={
-                        "api-key": self._api_key,
+                        "api-key": api_key,
                         "include-related-images": "true",
                         "nb-results": max_results,
                         "lang": language,
