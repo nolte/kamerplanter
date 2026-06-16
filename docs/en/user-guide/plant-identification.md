@@ -2,8 +2,8 @@
 
 With photo identification you can photograph an unknown plant and immediately find out what species it is — no botanical knowledge required. The system analyses your photo and suggests the most likely species with a confidence score. You select the matching result and add the plant directly to the system.
 
-!!! note "Optional feature"
-    Photo identification is only available if the operator of your Kamerplanter instance has configured a Pl@ntNet API key. If the feature is not set up, the camera buttons are hidden — all other features continue to work without restriction.
+!!! note "Optional feature — operator activation required"
+    Photo identification is only available if the operator of your Kamerplanter instance has configured a Pl@ntNet API key. If the feature is not set up, the camera buttons are hidden — all other features continue to work without restriction. **Operators** can find the setup instructions in the [Enabling Plant Photo Identification](admin.md#enabling-plant-photo-identification) section.
 
 ---
 

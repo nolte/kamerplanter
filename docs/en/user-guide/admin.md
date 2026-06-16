@@ -75,6 +75,115 @@ See [Authentication](../api/authentication.md) for details.
 
 ---
 
+## Enabling Plant Photo Identification
+
+[Photo identification](plant-identification.md) is an optional feature that requires API credentials from a third-party service. There is no UI form for the key — the key is an instance-wide operator setting that is configured once at deployment time. As long as no key is configured, the backend reports `available: false` and the entire camera/upload UI remains hidden for all users.
+
+### Why is there no UI form?
+
+The Pl@ntNet free-tier key allows 500 identifications per day — for the **entire instance**. If every user could enter their own key, there would be no shared daily limit and no centralised cost control. The key is therefore set once by the operator and applies platform-wide.
+
+### Step 1: Obtain a free Pl@ntNet key
+
+1. Open [my.plantnet.org](https://my.plantnet.org) in a browser
+2. Create an account or sign in
+3. Navigate to **Account** > **API key**
+4. Copy the displayed API key
+
+!!! warning "Non-commercial use only"
+    The Pl@ntNet free tier is explicitly licensed for non-commercial use. For commercial instances review the terms of use at [my.plantnet.org](https://my.plantnet.org).
+
+### Step 2: Set the key
+
+=== "Production / Kubernetes (recommended)"
+
+    Create a Kubernetes Secret and load it into the backend via `envFrom`. **Never** commit the key in plain text in `values.yaml`.
+
+    ```bash
+    kubectl create secret generic kamerplanter-secrets \
+      --from-literal=PLANTNET_API_KEY="your-api-key" \
+      --namespace kamerplanter
+    ```
+
+    Reference the secret in Helm values:
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (excerpt)
+    backend:
+      envFrom:
+        - secretRef:
+            name: kamerplanter-secrets
+    ```
+
+    After the next rollout the backend automatically reads the key from the secret environment variable.
+
+=== "Local dev (kind / Skaffold)"
+
+    For quick testing without a Kubernetes Secret: add the variable directly to the `env:` block of the backend container in `helm/kamerplanter/values.yaml`. **Do not commit.**
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (local only, do not commit)
+    backend:
+      env:
+        PLANTNET_API_KEY: "your-api-key"
+    ```
+
+    Skaffold redeploys the change automatically.
+
+=== "Docker Compose"
+
+    Add the key to the `.env` file in the repository root:
+
+    ```bash
+    # .env (do not commit)
+    PLANTNET_API_KEY=your-api-key
+    ```
+
+    Restart the stack:
+
+    ```bash
+    docker compose up -d
+    ```
+
+### Step 3: Verify activation
+
+Call the status endpoint:
+
+```bash
+curl -s http://localhost:8000/api/v1/recognition/status | python3 -m json.tool
+```
+
+Expected response when the key is correctly set:
+
+```json
+{
+  "available": true,
+  "adapter": "plantnet",
+  "daily_limit": 500,
+  "remaining_today": 498
+}
+```
+
+After successful configuration, the camera/upload function and the **Add by Photo** button in the species overview appear automatically in the UI. Users see the consent dialog the first time they use the feature — from that point on it is fully functional.
+
+### Optional fine-tuning
+
+The following variables do not usually need to be changed. They have sensible default values. A full description is available in the [Environment Variables reference](../reference/environment-variables.md#photo-identification-req-029):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Preferred adapter (extensible) |
+| `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | Threshold for "very certain" highlighting |
+| `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | Minimum confidence required to show a result |
+| `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `10` | Maximum image size in megabytes |
+| `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `0` | Max requests per user per day (`0` = adapter limit) |
+
+### Privacy note
+
+Photos are **not** stored on the Kamerplanter server — they are transmitted to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis only and discarded immediately afterwards. EXIF metadata (GPS, camera model) is stripped before transmission. Each user must consent to image transfer once. Full details: [Privacy (GDPR) — Photo Identification](privacy.md#photo-identification-plant_identification).
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Who can assign the platform-admin role?"
@@ -86,6 +195,15 @@ See [Authentication](../api/authentication.md) for details.
 ??? question "Is there a viewer role for the admin area?"
     Yes. The platform role `viewer` grants read access to all admin statistics and tenant overviews, but no write permissions.
 
+??? question "Why is there no input field for the Pl@ntNet key in the UI?"
+    The key applies to the entire instance — it controls a shared daily limit of 500 identifications. A user-side input field would remove this central limit. The operator sets the key once as an environment variable; all users automatically benefit from the enabled feature.
+
+??? question "What happens when the daily limit is exhausted?"
+    The backend reports `remaining_today: 0`. The UI shows the message "Daily identification limit reached. Available again tomorrow." The limit resets daily at midnight UTC. All other features remain fully available.
+
+??? question "Can I use a different recognition service instead of Pl@ntNet?"
+    Currently Pl@ntNet is the only implemented adapter (`IDENTIFICATION_PRIMARY_ADAPTER=plantnet`). A phase-2 extension for local offline recognition (without a third-party service) is planned.
+
 ---
 
 ## See Also
@@ -93,3 +211,5 @@ See [Authentication](../api/authentication.md) for details.
 - [Tenants & Gardens](tenants.md) — Tenant management as tenant-admin (REQ-024)
 - [Privacy (GDPR)](privacy.md) — Data subject rights and GDPR compliance
 - [Authentication](../api/authentication.md) — JWT, OAuth2/OIDC, service accounts
+- [Identify Plant by Photo](plant-identification.md) — End-user guide
+- [Environment Variables](../reference/environment-variables.md) — Full variable reference

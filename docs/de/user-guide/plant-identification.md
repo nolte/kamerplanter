@@ -2,8 +2,8 @@
 
 Mit der Foto-Identifikation kannst du eine unbekannte Pflanze fotografieren und sofort erfahren, um welche Art es sich handelt — ohne botanische Vorkenntnisse. Das System analysiert dein Foto und schlägt die wahrscheinlichsten Arten mit Übereinstimmungswert vor. Du wählst den passenden Vorschlag aus und legst die Pflanze direkt im System an.
 
-!!! note "Optionales Feature"
-    Die Foto-Identifikation ist nur verfügbar, wenn der Betreiber deiner Kamerplanter-Instanz einen API-Schlüssel für Pl@ntNet konfiguriert hat. Ist das Feature nicht eingerichtet, sind die Kamera-Schaltflächen ausgeblendet — alle anderen Funktionen laufen uneingeschränkt weiter.
+!!! note "Optionales Feature — Betreiber-Aktivierung erforderlich"
+    Die Foto-Identifikation ist nur verfügbar, wenn der Betreiber deiner Kamerplanter-Instanz einen Pl@ntNet-API-Schlüssel konfiguriert hat. Ist das Feature nicht eingerichtet, sind die Kamera-Schaltflächen ausgeblendet — alle anderen Funktionen laufen uneingeschränkt weiter. **Betreiber** finden die Einrichtungsanleitung im Abschnitt [Pflanzenerkennung per Foto aktivieren](admin.md#pflanzenerkennung-per-foto-aktivieren).
 
 ---
 
