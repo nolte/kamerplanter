@@ -178,9 +178,20 @@ If you revoke your consent to image transfer, all camera buttons are immediately
 
 ---
 
-## Outlook: Offline Recognition (Phase 2)
+## Self-Hosted Recognition with DINOv2
 
-A future phase plans to run image recognition entirely on your own server (without a third-party service). Photos would then never leave the instance. This feature is still under development and is not yet available.
+As an alternative to Pl@ntNet, image recognition can run **entirely on your own server** (REQ-029-A): a DINOv2 model turns the photo into a feature vector and compares it against license-clean reference images of the known species. Benefits: no running costs, no third party, **photos never leave the instance**.
+
+**Nothing changes for you as a user** — same dialog, same suggestion list. Once the operator has enabled self-hosted recognition, it is preferred automatically; Pl@ntNet then only serves as a fallback.
+
+**Setup (operator):** Self-hosted recognition runs in its own optional service (inference service). The full guide is at [Setting Up Plant Identification](../deployment/inference-service.md). In short:
+
+1. Start the service: `task dev:all` (or `task dev:recognition` alongside the running KI stack)
+2. Populate the reference index: `task recognition:acquire` (fetches license-clean reference images from GBIF/Wikimedia and indexes them)
+3. Enable it: backend environment variable `INFERENCE_SERVICE_ENABLED=true`
+
+!!! warning "Mind the order"
+    Before the index is populated, local recognition returns no matches. Only set `INFERENCE_SERVICE_ENABLED=true` after the acquisition run — details on the [deployment page](../deployment/inference-service.md).
 
 ---
 

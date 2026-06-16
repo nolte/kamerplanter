@@ -178,9 +178,20 @@ Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schal
 
 ---
 
-## Ausblick: Offline-Erkennung (Phase 2)
+## Self-Hosted-Erkennung mit DINOv2
 
-In einer zukünftigen Phase ist geplant, die Bilderkennung vollständig auf dem eigenen Server zu betreiben (ohne Drittanbieter). Fotos würden dann die Instanz nicht verlassen. Diese Funktion befindet sich noch in der Entwicklung und ist noch nicht verfügbar.
+Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem eigenen Server** laufen (REQ-029-A): Ein DINOv2-Modell erzeugt aus dem Foto einen Merkmals-Vektor und vergleicht ihn mit lizenzsauberen Referenzbildern der bekannten Arten. Vorteile: keine laufenden Kosten, kein Drittanbieter, **die Fotos verlassen die Instanz nicht**.
+
+**Für dich als Nutzer ändert sich der Bedienablauf nicht** — derselbe Dialog, dieselbe Vorschlagsliste. Sobald der Betreiber die Self-Hosted-Erkennung aktiviert hat, wird sie automatisch bevorzugt; Pl@ntNet dient dann nur noch als Rückfalloption.
+
+**Inbetriebnahme (Betreiber):** Die self-hosted Erkennung läuft in einem eigenen, optionalen Dienst (Inferenz-Service). Die vollständige Anleitung steht unter [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). Kurzfassung:
+
+1. Dienst starten: `task dev:all` (oder `task dev:recognition` neben dem laufenden KI-Stack)
+2. Referenz-Index befüllen: `task recognition:acquire` (lädt lizenzfreie Referenzbilder von GBIF/Wikimedia und indexiert sie)
+3. Aktivieren: Backend-Umgebungsvariable `INFERENCE_SERVICE_ENABLED=true`
+
+!!! warning "Reihenfolge beachten"
+    Vor dem Befüllen des Index liefert die lokale Erkennung keine Treffer. Aktiviere `INFERENCE_SERVICE_ENABLED=true` erst nach dem Beschaffungslauf — Details auf der [Deployment-Seite](../deployment/inference-service.md).
 
 ---
 

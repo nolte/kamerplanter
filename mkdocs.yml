@@ -106,7 +106,6 @@ plugins:
             Light-Modus: Light Mode
             KI-Assistent: AI Assistant
             KI-Provider einrichten: AI Provider Setup
-            Pflanzen-Bilderkennung: Plant Identification
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
@@ -264,7 +263,6 @@ nav:
       - Light-Modus: de/user-guide/light-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
-      - Pflanzen-Bilderkennung: de/user-guide/plant-identification.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
