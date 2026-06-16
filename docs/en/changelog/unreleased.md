@@ -6,7 +6,7 @@ Changes not yet published in a release.
 
 ### Backend
 
-- **REQ-001** Master data management: Botanical families, species, cultivars, lifecycles (ArangoDB)
+- **REQ-001** Master data management: Botanical families, species, cultivars, lifecycles (ArangoDB); field `propagation_methods` (13 propagation method values, multi-select) added to the species profile — all 143 crop species seed records populated
 - **REQ-002** Site management: Sites, locations (recursive hierarchy), slots, location types
 - **REQ-003** Phase control: Phase state machine (germination → harvest), GDD/VPD/photoperiod calculation
 - **REQ-004** Fertilization logic: Fertilizers, nutrient plans, dosages, mixing safety, flushing, runoff, EC budget, water source/CalMag correction

@@ -349,6 +349,14 @@ new_species:
   # ---------- Ornamental shrubs / trees ----------
 
   - scientific_name: "Forsythia x intermedia"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7]
+        wood_stage: softwood
+        notes: auch Hartholz im Winter möglich
+      - method: layering
+        months: [7, 8]
+        notes: Absenker
     common_names: [Forsythie, Goldgloeckchen, Forsythia]
     genus: Forsythia
     plant_category: outdoor_ornamental
@@ -384,6 +392,12 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Geranium sanguineum"
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: auch im Herbst
+      - method: seed
+        months: [3, 4]
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
     genus: Geranium
     plant_category: outdoor_ornamental
@@ -420,6 +434,13 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Helleborus niger"
+    propagation_configs:
+      - method: division
+        months: [4, 5]
+        notes: nach der Blüte; verträgt Teilung schlecht
+      - method: seed
+        months: [6, 7]
+        notes: Frischsaat, Kaltkeimer
     common_names: [Christrose, Schneerose, Christmas Rose]
     genus: Helleborus
     plant_category: outdoor_ornamental
@@ -453,6 +474,10 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Hemerocallis spp."
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: auch im Herbst
     common_names: [Taglilie, Daylily]
     genus: Hemerocallis
     plant_category: outdoor_ornamental
@@ -487,6 +512,10 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Hosta spp."
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: beim Austrieb; auch im Herbst
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
     genus: Hosta
     plant_category: outdoor_ornamental
@@ -524,6 +553,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Hydrangea macrophylla"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7]
+        wood_stage: softwood
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker
     common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
     genus: Hydrangea
     plant_category: outdoor_ornamental
@@ -559,6 +595,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Ligustrum vulgare"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7]
+        wood_stage: softwood
+        notes: auch Hartholz im Winter
+      - method: layering
+        months: [6, 7, 8]
     common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
     genus: Ligustrum
     plant_category: outdoor_ornamental
@@ -593,6 +636,10 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Paeonia lactiflora"
+    propagation_configs:
+      - method: division
+        months: [9, 10]
+        notes: Augen nur flach setzen, sonst blühfaul
     common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
     genus: Paeonia
     plant_category: outdoor_ornamental
@@ -629,6 +676,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Phlox paniculata"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 9, 10]
+        notes: Teilung Frühjahr oder Herbst
+      - method: cutting
+        months: [5, 6]
+        wood_stage: herbaceous
+        notes: Trieb- oder Wurzelschnittlinge
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
     genus: Phlox
     plant_category: outdoor_ornamental
@@ -663,6 +718,17 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Rhododendron spp."
+    propagation_configs:
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: grafting
+        months: [1, 2, 3]
+        notes: Spätwinter-Veredelung
     common_names: [Rhododendron, Alpenrose]
     genus: Rhododendron
     plant_category: outdoor_ornamental
@@ -701,6 +767,14 @@ new_species:
       max_ph: 5.5
 
   - scientific_name: "Rosa spp."
+    propagation_configs:
+      - method: cutting
+        months: [8, 9, 10]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge Spätsommer
+      - method: grafting
+        months: [7, 8]
+        notes: Okulation im Sommer
     common_names: [Gartenrose, Rose, Garden Rose]
     genus: Rosa
     plant_category: outdoor_ornamental
@@ -739,6 +813,17 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Syringa vulgaris"
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7]
+        wood_stage: softwood
+        notes: Weichholzstecklinge, schwierig
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
+      - method: grafting
+        months: [1, 2, 3]
+        notes: Spätwinter-Veredelung
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
     genus: Syringa
     plant_category: outdoor_ornamental
@@ -773,6 +858,17 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Viburnum opulus"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: softwood
+        notes: Weichholzstecklinge im Sommer
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
+      - method: seed
+        months: [9, 10]
+        notes: Kaltkeimer, doppelte Dormanz
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
     genus: Viburnum
     plant_category: outdoor_ornamental
@@ -807,6 +903,14 @@ new_species:
       max_ph: 8.0
 
   - scientific_name: "Weigela florida"
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: softwood
+        notes: Weichholzstecklinge; auch hardwood im Winter
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
     genus: Weigela
     plant_category: outdoor_ornamental
@@ -844,11 +948,18 @@ new_species:
   # ---------- Fruit trees ----------
 
   - scientific_name: "Malus domestica"
+    propagation_configs:
+      - method: grafting
+        months: [2, 3]
+        notes: Spätwinter-Reiserveredelung; Okulation im Sommer alternativ
     common_names: [Kulturapfel, Apfel, Apple]
     genus: Malus
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Zentralasien (Kasachstan)"
     allelopathy_score: 0.0
@@ -882,11 +993,18 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Prunus avium"
+    propagation_configs:
+      - method: grafting
+        months: [2, 3]
+        notes: Spätwinter-Veredelung
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Westasien"
     allelopathy_score: 0.0
@@ -919,11 +1037,18 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Prunus domestica"
+    propagation_configs:
+      - method: grafting
+        months: [2, 3]
+        notes: Spätwinter-Veredelung
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Kultivierter Hybrid (Vorderasien/Kaukasus)"
     allelopathy_score: 0.0
@@ -957,11 +1082,18 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Pyrus communis"
+    propagation_configs:
+      - method: grafting
+        months: [2, 3]
+        notes: Spätwinter-Veredelung
     common_names: [Kulturbirne, Gemeine Birne, Pear]
     genus: Pyrus
     plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Westasien, Europa"
     allelopathy_score: 0.0
@@ -996,11 +1128,22 @@ new_species:
   # ---------- Berry shrubs ----------
 
   - scientific_name: "Ribes rubrum"
+    propagation_configs:
+      - method: cutting
+        months: [10, 11, 12, 1, 2, 3]
+        wood_stage: hardwood
+        notes: Steckholz im Winter
+      - method: division
+        months: [10, 11, 3]
+        notes: Teilung in Ruhe
     common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Europa (West- und Mitteleuropa)"
     allelopathy_score: 0.0
@@ -1032,11 +1175,22 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Ribes uva-crispa"
+    propagation_configs:
+      - method: cutting
+        months: [10, 11, 12, 1, 2, 3]
+        wood_stage: hardwood
+        notes: Steckholz im Winter
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Kaukasus"
     allelopathy_score: 0.0
@@ -1068,11 +1222,21 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Rubus fruticosus agg."
+    propagation_configs:
+      - method: layering
+        months: [7, 8, 9]
+        notes: Bogsenker/Spitzenableger im Sommer
+      - method: cutting
+        months: [7, 8, 9]
+        wood_stage: semi_hardwood
     common_names: [Brombeere, Blackberry, Bramble]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Nordafrika, Westasien"
     allelopathy_score: 0.0
@@ -1106,11 +1270,21 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Rubus idaeus"
+    propagation_configs:
+      - method: runner
+        months: [7, 8, 9, 10]
+        notes: Wurzelausläufer abtrennen
+      - method: division
+        months: [10, 11, 3]
+        notes: Teilung in Ruhe
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Asien"
     allelopathy_score: 0.0
@@ -1142,11 +1316,19 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Sambucus nigra"
+    propagation_configs:
+      - method: cutting
+        months: [11, 12, 1, 2]
+        wood_stage: hardwood
+        notes: Steckholz im Winter, sehr leicht
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
     genus: Sambucus
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
     allelopathy_score: 0.0
@@ -1179,11 +1361,19 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Vaccinium corymbosum"
+    propagation_configs:
+      - method: cutting
+        months: [2, 3]
+        wood_stage: hardwood
+        notes: Steckholz Spätwinter; auch softwood im Sommer
     common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
     genus: Vaccinium
     plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: atypical
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Nordamerika (oestliche USA, Kanada)"
     allelopathy_score: 0.0
@@ -1215,11 +1405,22 @@ new_species:
       max_ph: 5.5
 
   - scientific_name: "Vitis vinifera"
+    propagation_configs:
+      - method: cutting
+        months: [1, 2, 3]
+        wood_stage: hardwood
+        notes: Steckholz im Winter
+      - method: grafting
+        months: [1, 2, 3]
+        notes: Spätwinter-Veredelung/Omega-Veredelung
     common_names: [Weinrebe, Weintraube, Grape Vine]
     genus: Vitis
     plant_category: outdoor_vegetable
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Vorderasien, Kaukasus, Mittelmeerraum"
     allelopathy_score: 0.0
@@ -1255,11 +1456,20 @@ new_species:
   # ---------- Herbs ----------
 
   - scientific_name: "Levisticum officinale"
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: auch im Herbst
+      - method: seed
+        months: [8, 9]
+        notes: Frischsaat keimt am besten
     common_names: [Liebstoeckel, Maggikraut, Lovage]
     genus: Levisticum
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Vorderasien (Iran, Afghanistan)"
     allelopathy_score: 0.1
@@ -1293,11 +1503,24 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Melissa officinalis"
+    propagation_configs:
+      - method: division
+        months: [4, 5]
+        notes: auch im Herbst
+      - method: cutting
+        months: [5, 6]
+        wood_stage: herbaceous
+        notes: bewurzelt in Wasser
+      - method: seed
+        months: [4, 5]
+        notes: Lichtkeimer
     common_names: [Zitronenmelisse, Melisse, Lemon Balm]
     genus: Melissa
     plant_category: herb
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
     native_habitat: "Oestliches Mittelmeer, Westasien"
     allelopathy_score: 0.1
@@ -1332,11 +1555,22 @@ new_species:
       max_ph: 9
 
   - scientific_name: "Origanum vulgare"
+    propagation_configs:
+      - method: division
+        months: [4, 5]
+      - method: cutting
+        months: [5, 6]
+        wood_stage: herbaceous
+      - method: seed
+        months: [3, 4, 5]
+        notes: Lichtkeimer
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
     genus: Origanum
     plant_category: herb
-    growth_habit: herb
+    growth_habit: subshrub
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Mittelmeerraum, Europa, Westasien"
     allelopathy_score: 0.1
@@ -1371,11 +1605,17 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Satureja hortensis"
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Lichtkeimer, einjährig
     common_names: [Sommer-Bohnenkraut, Summer Savory]
     genus: Satureja
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Oestliches Mittelmeergebiet, Kleinasien"
     allelopathy_score: 0.2
@@ -1411,11 +1651,17 @@ new_species:
   # ---------- Vegetables ----------
 
   - scientific_name: "Pastinaca sativa"
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Direktsaat, frisches Saatgut, kurz keimfähig
     common_names: [Pastinake, Parsnip]
     genus: Pastinaca
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
     native_habitat: "Europa, Westasien"
     allelopathy_score: 0.0
@@ -1449,11 +1695,20 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rheum rhabarbarum"
+    propagation_configs:
+      - method: division
+        months: [3, 4, 10, 11]
+        notes: Teilung mit Knospe, Frühjahr oder Herbst
+      - method: seed
+        months: [3, 4]
+        notes: Sorten nicht sortenecht
     common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
     genus: Rheum
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: stem
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Zentralasien (China, Sibirien)"
     allelopathy_score: 0.0
@@ -1484,11 +1739,17 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Spinacia oleracea"
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 8, 9]
+        notes: Direktsaat, schießt bei Hitze/Langtag
     common_names: [Spinat, Echter Spinat, Spinach]
     genus: Spinacia
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: leaf
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Westasien (Persien)"
     allelopathy_score: 0.0
@@ -1528,6 +1789,13 @@ new_species:
   # ---------- Green manure / cover crops ----------
 
   - scientific_name: "Lupinus polyphyllus"
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Samen anrauen/quellen lassen
+      - method: self_seeding
+        months: [8, 9]
+        notes: versamt sich willig
     common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
     genus: Lupinus
     plant_category: outdoor_vegetable
@@ -1565,6 +1833,10 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Medicago sativa"
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat
     common_names: [Luzerne, Alfalfa, Ewiger Klee]
     genus: Medicago
     plant_category: outdoor_vegetable
@@ -1602,6 +1874,12 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Phacelia tanacetifolia"
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7, 8]
+        notes: Dunkelkeimer, Direktsaat als Gründüngung
+      - method: self_seeding
+        months: [8, 9]
     common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
     genus: Phacelia
     plant_category: outdoor_vegetable
@@ -1635,6 +1913,12 @@ new_species:
       max_ph: 8.5
 
   - scientific_name: "Sinapis alba"
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7, 8]
+        notes: Direktsaat als Gründüngung
+      - method: self_seeding
+        months: [8, 9]
     common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
     genus: Sinapis
     plant_category: outdoor_vegetable
@@ -1670,6 +1954,10 @@ new_species:
   # ---------- Annual ornamentals ----------
 
   - scientific_name: "Tagetes patula"
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Vorkultur oder Direktsaat nach Frost
     common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
     genus: Tagetes
     plant_category: outdoor_ornamental
@@ -1708,6 +1996,12 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Tropaeolum majus"
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat nach Frost, Dunkelkeimer
+      - method: self_seeding
+        months: [9, 10]
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
     plant_category: herb
@@ -1752,6 +2046,10 @@ new_species:
 
 species_enrichment:
   "Lactuca sativa":
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Lichtkeimer, kühl keimend
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 15
@@ -1775,6 +2073,16 @@ species_enrichment:
     pruning_months: []
 
   "Lavandula angustifolia":
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: semi_hardwood
+        notes: nicht blühende Triebe
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimung fördert
+      - method: layering
+        months: [6, 7, 8]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
     min_container_depth_cm: 20
@@ -1795,6 +2103,17 @@ species_enrichment:
     pruning_months: [3, 4, 8]
 
   "Mentha piperita":
+    propagation_configs:
+      - method: division
+        months: [4, 5]
+        notes: steril, nur vegetativ
+      - method: cutting
+        months: [5, 6]
+        wood_stage: herbaceous
+        notes: bewurzelt in Wasser
+      - method: runner
+        months: [5, 6]
+        notes: Ausläufer abtrennen
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
     min_container_depth_cm: 20
@@ -1815,6 +2134,14 @@ species_enrichment:
     pruning_months: [6, 7, 8, 9]
 
   "Ocimum basilicum":
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Lichtkeimer, warm
+      - method: cutting
+        months: [6, 7]
+        wood_stage: herbaceous
+        notes: bewurzelt in Wasser
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 15
@@ -1838,6 +2165,10 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9]
 
   "Petroselinum crispum":
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6, 7]
+        notes: Direktsaat, Dunkelkeimer-Tendenz, langsam
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 20
@@ -1861,6 +2192,10 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9, 10]
 
   "Phaseolus vulgaris":
+    propagation_configs:
+      - method: seed
+        months: [5, 6]
+        notes: Direktsaat nach Eisheiligen, frostempfindlich
     container_suitable: limited
     recommended_container_volume_l: "10-15"
     min_container_depth_cm: 20
@@ -1885,6 +2220,10 @@ species_enrichment:
     pruning_months: []
 
   "Pisum sativum":
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Direktsaat, kältetolerant
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -1909,6 +2248,16 @@ species_enrichment:
     pruning_months: []
 
   "Salvia officinalis":
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: seed
+        months: [3, 4]
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     container_suitable: "yes"
     recommended_container_volume_l: "5-10"
     min_container_depth_cm: 20
@@ -1932,6 +2281,17 @@ species_enrichment:
     pruning_months: [3, 4]
 
   "Salvia rosmarinus":
+    propagation_configs:
+      - method: cutting
+        months: [6, 7, 8, 9]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
+      - method: seed
+        months: [3, 4]
+        notes: langsam, variabel
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
     min_container_depth_cm: 20
@@ -1952,6 +2312,14 @@ species_enrichment:
     pruning_months: [3, 4]
 
   "Solanum lycopersicum":
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        notes: Vorkultur warm ab Spätwinter
+      - method: cutting
+        months: [6, 7, 8]
+        wood_stage: herbaceous
+        notes: Geiztriebe bewurzeln
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 30
@@ -1975,6 +2343,13 @@ species_enrichment:
     pruning_months: [6, 7, 8, 9]
 
   "Solanum tuberosum":
+    propagation_configs:
+      - method: tuber
+        months: [3, 4]
+        notes: vorgekeimte Knollen legen
+      - method: seed
+        months: [3, 4]
+        notes: echte Samen, nicht sortenecht
     container_suitable: limited
     recommended_container_volume_l: "40-60"
     min_container_depth_cm: 40
@@ -1998,6 +2373,19 @@ species_enrichment:
     pruning_months: []
 
   "Thymus vulgaris":
+    propagation_configs:
+      - method: cutting
+        months: [5, 6, 7, 8]
+        wood_stage: semi_hardwood
+        notes: halbreife Stecklinge
+      - method: seed
+        months: [4, 5]
+        notes: Lichtkeimer
+      - method: division
+        months: [4, 5, 9]
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -2021,6 +2409,10 @@ species_enrichment:
     pruning_months: [4, 7]
 
   "Trifolium pratense":
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 8, 9]
+        notes: Direktsaat als Gründüngung
     container_suitable: "no"
     indoor_suitable: "no"
     balcony_suitable: "no"

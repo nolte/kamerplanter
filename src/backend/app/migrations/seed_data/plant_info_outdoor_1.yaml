@@ -123,8 +123,10 @@ new_species:
     common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
     genus: Allium
     plant_category: outdoor_vegetable
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
+    harvest_pattern: single
+    harvested_part: bulb
     native_habitat: "Zentralasien"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.3
@@ -132,8 +134,12 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed, bulb]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: bulb
+        months: [3, 4]
+        notes: Steckzwiebeln im Frühjahr setzen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -173,8 +179,10 @@ new_species:
     common_names: ["Knoblauch", "Garlic"]
     genus: Allium
     plant_category: outdoor_vegetable
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: bulbous
+    harvest_pattern: single
+    harvested_part: bulb
     native_habitat: "Zentralasien"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.4
@@ -182,8 +190,10 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, medicinal]
-    propagation_methods: [bulb]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: bulb
+        months: [10, 11]
+        notes: Zehen im Herbst stecken
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -231,8 +241,12 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [seed, division]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr oder Herbst, auch Wurzelschnittlinge
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -267,6 +281,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: stem
     native_habitat: "Europa, Westasien, Nordafrika"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.1
@@ -274,8 +290,12 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed, division]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Wurzelstöcke im Frühjahr teilen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -322,8 +342,13 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [division, seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr oder Herbst
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer, Lichtkeimer
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -356,6 +381,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     native_habitat: "Mittelmeerraum, Westeuropa"
     hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
     allelopathy_score: 0.0
@@ -363,8 +390,10 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: Aussaat für Herbst-/Winterernte
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -408,8 +437,11 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental, evergreen]
-    propagation_methods: [cutting]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [7, 8]
+        wood_stage: semi_hardwood
+        notes: Halbreife Stecklinge im Spätsommer
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -446,6 +478,8 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: flower
     native_habitat: "Mittelmeerraum"
     hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a"]
     allelopathy_score: 0.1
@@ -453,8 +487,10 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
     traits: [ornamental, medicinal, edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat, Dunkelkeimer, auch Selbstaussaat
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -498,8 +534,14 @@ new_species:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [cutting, layering]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [5, 6]
+        wood_stage: semi_hardwood
+        notes: Internodien-Stecklinge
+      - method: layering
+        months: [6, 7, 8]
+        notes: Absenker im Sommer
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -536,6 +578,9 @@ new_species:
     plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: fruit
+    climacteric: non_climacteric
     native_habitat: "Suedeuropa, Westasien"
     hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.0
@@ -543,8 +588,15 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, ornamental]
-    propagation_methods: [seed, cutting, layering]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [9, 10]
+        notes: Kaltkeimer, Herbstaussaat, oft erst im 2. Jahr
+      - method: cutting
+        months: [7, 8]
+        wood_stage: semi_hardwood
+      - method: layering
+        months: [6, 7, 8]
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -587,8 +639,13 @@ new_species:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental]
-    propagation_methods: [seed, division]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer, frisches Saatgut
+      - method: division
+        months: [3, 4]
+        notes: Frühjahr
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -625,6 +682,8 @@ new_species:
     plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: root
     native_habitat: "Nordamerika (oestliches USA)"
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.0
@@ -632,8 +691,13 @@ new_species:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental, medicinal]
-    propagation_methods: [seed, division]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Kaltkeimer
+      - method: division
+        months: [3, 4]
+        notes: auch im Herbst möglich
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -671,8 +735,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        notes: Voranzucht ab Februar, Auspflanzen ab Mai
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -688,8 +754,12 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, ornamental]
-    propagation_methods: [seed, division]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+      - method: division
+        months: [3, 4]
+        notes: Horst alle paar Jahre teilen
     container_suitable: "yes"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
@@ -707,8 +777,10 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7]
+        notes: Direktsaat, verträgt kein Verpflanzen
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -724,8 +796,14 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [cutting, division]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: cutting
+        months: [4, 5]
+        wood_stage: herbaceous
+        notes: Französischer Estragon nur vegetativ vermehrbar
+      - method: division
+        months: [4, 5]
+        notes: Frühjahr oder Herbst
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -740,8 +818,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        notes: Direktsaat ab April
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -758,8 +838,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        notes: Voranzucht und Auspflanzen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -776,8 +858,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        notes: Frühe Voranzucht für lange Kultur
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: "no"
@@ -793,8 +877,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6]
+        notes: Mehrere Sätze möglich
     container_suitable: "yes"
     indoor_suitable: "no"
     balcony_suitable: "yes"
@@ -810,8 +896,9 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -828,8 +915,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible, heat_tolerant]
-    propagation_methods: [seed]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        notes: Frühe warme Voranzucht
     container_suitable: "yes"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -850,8 +939,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible, medicinal]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [5, 6]
+        notes: Direktsaat ab Mai
     container_suitable: limited
     indoor_suitable: limited
     balcony_suitable: limited
@@ -868,8 +959,10 @@ species_enrichment:
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6, 7]
+        notes: Direktsaat, verträgt kein Verpflanzen
     container_suitable: "yes"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
@@ -886,8 +979,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Warme Voranzucht, frostempfindlich
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -909,8 +1004,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Voranzucht ab April, Auspflanzen nach Eisheiligen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -931,8 +1028,10 @@ species_enrichment:
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible, high_yield]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Voranzucht ab April, Auspflanzen nach Eisheiligen
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -951,8 +1050,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: easy
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6]
+        notes: Direktsaat, Dunkelkeimer
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited
@@ -970,8 +1071,10 @@ species_enrichment:
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
-    propagation_methods: [seed]
-    propagation_difficulty: moderate
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat, Pfahlwurzel mag keine Verpflanzung
     container_suitable: limited
     indoor_suitable: "no"
     balcony_suitable: limited

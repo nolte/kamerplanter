@@ -6,7 +6,7 @@
 
 ### Backend
 
-- **REQ-001** Stammdatenverwaltung: Botanische Familien, Arten, Sorten, Lebenszyklen (ArangoDB)
+- **REQ-001** Stammdatenverwaltung: Botanische Familien, Arten, Sorten, Lebenszyklen (ArangoDB); Feld `propagation_methods` (13 Vermehrungsarten, Mehrfachauswahl) im Arten-Steckbrief — alle 143 Kulturpflanzen-Seed-Daten befüllt
 - **REQ-002** Standortverwaltung: Sites, Locations (rekursive Hierarchie), Slots, Standorttypen
 - **REQ-003** Phasensteuerung: Phasen-State-Machine (Keimung → Ernte), GDD/VPD/Photoperiod-Berechnung
 - **REQ-004** Dünge-Logik: Düngemittel, Nährstoffpläne, Dosierungen, Mischsicherheit, Spülung, Runoff, EC-Budget, Wasserquelle/CalMag-Korrektur

@@ -2,8 +2,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import FrostTolerance, GrowthHabit, PlantCategory, RootType, Suitability
-from app.domain.models.species import GrowingPeriod, WateringGuide
+from app.common.enums import (
+    ClimactericClass,
+    FrostTolerance,
+    GrowthHabit,
+    HarvestedPart,
+    HarvestPattern,
+    PlantCategory,
+    RootType,
+    Suitability,
+)
+from app.domain.models.species import GrowingPeriod, PropagationConfig, WateringGuide
 
 
 class SpeciesCreate(BaseModel):
@@ -30,7 +39,11 @@ class SpeciesCreate(BaseModel):
     bloom_from_year: int | None = None
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
+    harvest_pattern: HarvestPattern | None = None
+    harvested_part: HarvestedPart | None = None
+    climacteric: ClimactericClass | None = None
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None
     recommended_container_volume_l: str | None = None
@@ -72,7 +85,11 @@ class SpeciesResponse(BaseModel):
     bloom_from_year: int | None = None
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
+    propagation_configs: list[PropagationConfig] = Field(default_factory=list)
     allows_harvest: bool = True
+    harvest_pattern: HarvestPattern | None = None
+    harvested_part: HarvestedPart | None = None
+    climacteric: ClimactericClass | None = None
     growing_periods: list[GrowingPeriod] = Field(default_factory=list)
     container_suitable: Suitability | None = None
     recommended_container_volume_l: str | None = None

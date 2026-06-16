@@ -78,7 +78,9 @@ function buildTimeline(
       // No history entry -> projected (not started)
       const projStart: string | null = lastEnd;
       const projEnd: string | null = projStart
-        ? new Date(new Date(projStart).getTime() + gp.typical_duration_days * 86400000).toISOString()
+        ? new Date(
+            new Date(projStart).getTime() + gp.typical_duration_days * 86400000,
+          ).toISOString()
         : null;
       entries.push({
         phase_key: gp.key,
@@ -100,7 +102,12 @@ function buildTimeline(
   return entries;
 }
 
-export default function PlantPhaseTimeline({ plant, history, speciesName, onLifecycleLoaded }: Props) {
+export default function PlantPhaseTimeline({
+  plant,
+  history,
+  speciesName,
+  onLifecycleLoaded,
+}: Props) {
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,6 +130,8 @@ export default function PlantPhaseTimeline({ plant, history, speciesName, onLife
             key: sequence.key,
             species_key: sequence.species_key,
             cycle_type: sequence.cycle_type,
+            cultivation_cycle_type: null,
+            flowering_strategy: null,
             typical_lifespan_years: sequence.typical_lifespan_years,
             dormancy_required: sequence.dormancy_required,
             vernalization_required: sequence.vernalization_required,

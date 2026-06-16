@@ -125,7 +125,7 @@ $defs:
         type: array
         items:
           type: string
-          enum: [herb, shrub, tree, vine, groundcover]
+          enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
       common_pests:
         type: array
         items: { type: string }
@@ -164,7 +164,7 @@ $defs:
       genus: { type: string }
       growth_habit:
         type: string
-        enum: [herb, shrub, tree, vine, groundcover]
+        enum: [herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte]
       root_type:
         type: string
         enum: [fibrous, taproot, tuberous, bulbous, corm]
@@ -186,6 +186,19 @@ $defs:
         type: string
         enum: [sensitive, moderate, hardy, very_hardy]
       allows_harvest: { type: boolean }
+      # ── Ernteverhalten (REQ-007, Plan WP-6) ──
+      harvest_pattern:
+        type: [string, "null"]
+        enum: [single, continuous, perennial, null]
+        description: "Lifetime harvest pattern — distinct from the per-event HarvestType."
+      harvested_part:
+        type: [string, "null"]
+        enum: [fruit, seed, leaf, root, tuber, bulb, flower_bud, flower, stem, whole_plant, null]
+        description: "Harvested plant part. Orthogonal to harvest_pattern."
+      climacteric:
+        type: [string, "null"]
+        enum: [climacteric, non_climacteric, atypical, null]
+        description: "Post-harvest ripening behaviour of fruit (third value for genuine borderline cases)."
       sowing_indoor_weeks_before_last_frost:
         type: [integer, "null"]
       sowing_outdoor_after_last_frost_days:
@@ -223,6 +236,46 @@ $defs:
         enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
                succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
         description: "Broad category for UI grouping"
+      # ── Vermehrung (REQ-017) — preferred: structured per-method configs ──
+      propagation_configs:
+        type: array
+        description: "Structured per-method propagation (REQ-017). Preferred over the flat propagation_* fields; timing/notes attach to the method, not the species."
+        items:
+          type: object
+          properties:
+            method:
+              type: string
+              enum: [seed, cutting, leaf_cutting, division, rhizome_division, bulb, bulbil,
+                     tuber, offset, runner, grafting, layering, air_layering,
+                     water_propagation, tissue_culture, spore, self_seeding]
+            months:
+              type: array
+              items: { type: integer, minimum: 1, maximum: 12 }
+            wood_stage:
+              type: [string, "null"]
+              enum: [softwood, semi_hardwood, hardwood, herbaceous, null]
+            difficulty:
+              type: [string, "null"]
+              enum: [easy, moderate, difficult, null]
+            notes:
+              type: [string, "null"]
+          required: [method]
+      # ── Legacy flat propagation fields — still accepted, adapted on import ──
+      propagation_methods:
+        type: array
+        description: "DEPRECATED flat list — use propagation_configs. Adapted on import (one config per method)."
+        items:
+          type: string
+          enum: [seed, cutting, leaf_cutting, division, rhizome_division, bulb, bulbil,
+                 tuber, offset, runner, grafting, layering, air_layering,
+                 water_propagation, tissue_culture, spore, self_seeding]
+      propagation_months:
+        type: array
+        description: "DEPRECATED flat timing — use propagation_configs[].months. Months (1–12) shared across methods on import."
+        items: { type: integer, minimum: 1, maximum: 12 }
+      propagation_notes:
+        type: [string, "null"]
+        description: "DEPRECATED flat notes — use propagation_configs[].notes. Attached to the first method on import."
       # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
       photosynthesis_type:
         type: [string, "null"]
@@ -276,6 +329,44 @@ $defs:
     description: "Partial species update — scientific_name is the key, all other fields are optional overrides"
     properties:
       scientific_name: { type: string }
+      propagation_configs:
+        type: array
+        description: "Structured per-method propagation (REQ-017). Preferred over the flat propagation_* fields."
+        items:
+          type: object
+          properties:
+            method:
+              type: string
+              enum: [seed, cutting, leaf_cutting, division, rhizome_division, bulb, bulbil,
+                     tuber, offset, runner, grafting, layering, air_layering,
+                     water_propagation, tissue_culture, spore, self_seeding]
+            months:
+              type: array
+              items: { type: integer, minimum: 1, maximum: 12 }
+            wood_stage:
+              type: [string, "null"]
+              enum: [softwood, semi_hardwood, hardwood, herbaceous, null]
+            difficulty:
+              type: [string, "null"]
+              enum: [easy, moderate, difficult, null]
+            notes:
+              type: [string, "null"]
+          required: [method]
+      propagation_methods:
+        type: array
+        description: "DEPRECATED flat list — use propagation_configs. Adapted on import."
+        items:
+          type: string
+          enum: [seed, cutting, leaf_cutting, division, rhizome_division, bulb, bulbil,
+                 tuber, offset, runner, grafting, layering, air_layering,
+                 water_propagation, tissue_culture, spore, self_seeding]
+      propagation_months:
+        type: array
+        description: "DEPRECATED flat timing — use propagation_configs[].months."
+        items: { type: integer, minimum: 1, maximum: 12 }
+      propagation_notes:
+        type: [string, "null"]
+        description: "DEPRECATED flat notes — use propagation_configs[].notes."
     required: [scientific_name]
     additionalProperties: true
 

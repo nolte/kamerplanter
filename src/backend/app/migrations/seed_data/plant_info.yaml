@@ -41,10 +41,20 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Dahlia pinnata"
+    propagation_configs:
+      - method: tuber
+        months: [3, 4, 5]
+        notes: Knollen vortreiben und teilen, je Teil ein Auge
+      - method: cutting
+        months: [3, 4, 5]
+        wood_stage: herbaceous
+        notes: Triebstecklinge von vorgetriebenen Knollen
+      - method: seed
+        months: [3, 4]
     common_names: [Dahlie, Dahlia, Garden Dahlia]
     genus: Dahlia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: tuberous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
     native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
@@ -79,6 +89,16 @@ new_species:
   # Enrichment fields moved to species_enrichment section below.
 
   - scientific_name: "Tigridia pavonia"
+    propagation_configs:
+      - method: bulb
+        months: [3, 4]
+        notes: Knollen nach Frost auspflanzen
+      - method: offset
+        months: [3, 4]
+        notes: Brutknollen abtrennen
+      - method: seed
+        months: [3, 4]
+        notes: blüht erst nach Jahren
     common_names:
       - Pfauenblume
       - Tigerblume
@@ -87,7 +107,7 @@ new_species:
       - Peacock Flower
     genus: Tigridia
     plant_category: bulb_tuber
-    growth_habit: herb
+    growth_habit: bulb_geophyte
     root_type: corm
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
     native_habitat: "Mexiko, Guatemala, Kolumbien (2000-3000 m)"
@@ -121,6 +141,10 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Apium graveolens var. rapaceum"
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        notes: Voranzucht ab Februar, Lichtkeimer
     common_names:
       - Knollensellerie
       - Wurzelsellerie
@@ -131,6 +155,8 @@ new_species:
     plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: tuberous
+    harvest_pattern: single
+    harvested_part: root
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Mittelmeerraum, Vorderasien"
     allelopathy_score: 0.1
@@ -169,6 +195,12 @@ new_species:
 
 species_enrichment:
   "Chlorophytum comosum":
+    propagation_configs:
+      - method: offset
+        months: [3, 4, 5]
+        notes: Kindel an den Ausläufern bewurzeln
+      - method: division
+        months: [3, 4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -193,6 +225,13 @@ species_enrichment:
           volume_ml_max: 200
 
   "Guzmania lingulata":
+    propagation_configs:
+      - method: offset
+        months: [3, 4, 5]
+        notes: Kindel ab etwa halber Mutterhöhe
+      - method: seed
+        months: [3, 4, 5]
+        notes: langsam, sortenuntreu
     container_suitable: "yes"
     recommended_container_volume_l: "1-2"
     min_container_depth_cm: 10
@@ -216,6 +255,17 @@ species_enrichment:
           volume_ml_max: 100
 
   "Monstera deliciosa":
+    propagation_configs:
+      - method: cutting
+        months: [4, 5, 6]
+        wood_stage: herbaceous
+        notes: Knotensteckling mit Luftwurzel
+      - method: layering
+        months: [4, 5, 6]
+        notes: Abmoosen
+      - method: seed
+        months: [4, 5, 6]
+        notes: frisches Saatgut, kurz keimfähig
     container_suitable: "yes"
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -240,6 +290,13 @@ species_enrichment:
           volume_ml_max: 300
 
   "Petunia x hybrida":
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        notes: Lichtkeimer, Vorkultur warm
+      - method: cutting
+        months: [2, 3, 4, 5]
+        wood_stage: herbaceous
     # Enrichment fields from removed new_species entry (species exists in species.yaml)
     plant_category: balcony_plant
     allows_harvest: false
@@ -251,6 +308,10 @@ species_enrichment:
     native_habitat: "Suedamerika (Argentinien, Uruguay)"
 
   "Spathiphyllum wallisii":
+    propagation_configs:
+      - method: division
+        months: [3, 4, 5]
+        notes: beim Umtopfen teilen
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -275,6 +336,15 @@ species_enrichment:
           volume_ml_max: 200
 
   "Fragaria x ananassa":
+    propagation_configs:
+      - method: runner
+        months: [7, 8]
+        notes: Ableger bewurzeln
+      - method: division
+        months: [7, 8]
+      - method: seed
+        months: [2, 3, 4]
+        notes: Lichtkeimer, sortenuntreu
     container_suitable: "yes"
     recommended_container_volume_l: "3-5"
     min_container_depth_cm: 20
@@ -302,6 +372,10 @@ species_enrichment:
           volume_ml_max: 600
 
   "Helianthus annuus":
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        notes: Direktsaat nach Frostende
     container_suitable: limited
     recommended_container_volume_l: "10-20"
     min_container_depth_cm: 25
@@ -319,6 +393,10 @@ species_enrichment:
     support_required: true
 
   "Viola x wittrockiana":
+    propagation_configs:
+      - method: seed
+        months: [6, 7, 8]
+        notes: Aussaat Sommer für Frühjahrsblüte
     container_suitable: "yes"
     recommended_container_volume_l: "1-3"
     min_container_depth_cm: 15

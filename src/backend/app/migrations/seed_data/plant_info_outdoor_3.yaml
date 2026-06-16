@@ -45,9 +45,16 @@ new_species_family_map:
 # ==============================================================================
 new_species:
   - scientific_name: "Nymphaea alba"
+    propagation_configs:
+      - method: rhizome_division
+        months: [4, 5]
+        notes: Rhizom mit Auge teilen
+      - method: seed
+        months: [4, 5]
+        notes: frisches Saatgut, unter Wasser
     common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
     genus: Nymphaea
-    growth_habit: herb
+    growth_habit: aquatic
     root_type: fibrous  # rhizomatous -> fibrous
     hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
     native_habitat: "Europe, North Africa, temperate Asia"

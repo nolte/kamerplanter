@@ -7,7 +7,7 @@ Kategorie: Pflanzenvermehrung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.2 (Agrarbiologie-Review U+P-Findings)
+Version: 1.3 (Code-Reconciliation: PropagationMethod-Enum in common/enums.py auf das hier spezifizierte Vokabular angeglichen — air_layering/tissue_culture/bulbil/water_propagation; ADR-004)
 ```
 
 ## 1. Business Case

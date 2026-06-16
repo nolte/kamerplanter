@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.common.enums import CycleType, PhotoperiodType, StressTolerance
+from app.common.enums import CycleType, FloweringStrategy, PhotoperiodType, StressTolerance
 
 
 class GrowthPhase(BaseModel):
@@ -30,6 +30,19 @@ class LifecycleConfig(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     species_key: str = ""
     cycle_type: CycleType = CycleType.ANNUAL
+    # ── Lebensdauer in Kultur vs. botanisch (REQ-001/REQ-003, Plan WP-3) ──
+    # cycle_type is the BOTANICAL lifespan; cultivation_cycle_type is how the species is
+    # actually grown (e.g. tomato: botanically perennial, grown as an annual = "tender perennial").
+    cultivation_cycle_type: CycleType | None = Field(
+        default=None,
+        description="Practised lifespan in cultivation; overrides cycle_type for season/overwintering "
+        "hints. None = same as the botanical cycle_type.",
+    )
+    # ── Blüh-Strategie (REQ-003, Plan WP-4) — orthogonal to lifespan ──
+    flowering_strategy: FloweringStrategy | None = Field(
+        default=None,
+        description="monocarpic = flowers once then dies (agave, many bamboos); polycarpic = repeated.",
+    )
     typical_lifespan_years: int | None = None
     dormancy_required: bool = False
     vernalization_required: bool = False

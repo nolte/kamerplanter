@@ -7,6 +7,9 @@ species:
     genus: Solanum
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 10.0
     hardiness_zones: ["9a", "10a", "11a"]
     native_habitat: South America
@@ -27,7 +30,6 @@ species:
     greenhouse_recommended: true
     support_required: true
     nutrient_demand_level: heavy_feeder
-    nutrient_demand_level: heavy_feeder
     photosynthesis_type: c3
     light_compensation_point_ppfd_min: 16
     light_compensation_point_ppfd_max: 30
@@ -47,6 +49,9 @@ species:
     genus: Capsicum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 12.0
     hardiness_zones: ["9a", "10a", "11a"]
     native_habitat: Central America
@@ -80,11 +85,19 @@ species:
       max_ph: 7
 
   - scientific_name: Solanum melongena
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        difficulty: moderate
+        notes: "Vorkultur 8-10 Wochen vor den Eisheiligen bei 24-28 Grad. Keimung dauert 10-20 Tage; Pikieren nach dem Auflaufen. Sehr wärmebedürftig."
     common_names: [Eggplant, Aubergine]
     family: Solanaceae
     genus: Solanum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 12.0
     hardiness_zones: ["9a", "10a"]
     native_habitat: South Asia
@@ -123,6 +136,8 @@ species:
     genus: Solanum
     growth_habit: herb
     root_type: tuberous
+    harvest_pattern: single
+    harvested_part: tuber
     base_temp: 7.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: South America
@@ -152,11 +167,19 @@ species:
       max_ph: 6.5
 
   - scientific_name: Physalis peruviana
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        difficulty: moderate
+        notes: "Vorkultur 10 Wochen vor letztem Frost bei 20-25 Grad. Samen nicht abdecken (Lichtkeimer). Pikieren bei 2-3 echten Blättern, Auspflanzen nach Eisheiligen."
     common_names: [Cape Gooseberry, Physalis, Andenbeere]
     family: Solanaceae
     genus: Physalis
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 10.0
     hardiness_zones: ["8a", "11a"]
     native_habitat: South America
@@ -190,6 +213,11 @@ species:
       max_ph: 6.8
 
   - scientific_name: Nicotiana tabacum
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        difficulty: difficult
+        notes: "Lichtkeimer: Samen nur andrücken, nicht bedecken. Sehr feines Saatgut, ggf. mit Sand mischen. Keimtemperatur 24-28 Grad. Vorkultur 8 Wochen vor Auspflanzung; Pikieren bei 3-4 cm Wuchshöhe."
     common_names: [Tobacco, Tabak]
     family: Solanaceae
     genus: Nicotiana
@@ -225,11 +253,23 @@ species:
 
   # -- Cannabaceae (2) --
   - scientific_name: Cannabis sativa
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        difficulty: easy
+        notes: "Vorkultur indoor ab März bei 22-26 Grad, Auspflanzung nach letztem Frost. Indoor ganzjährig möglich bei 18/6- oder 12/12-Photoperiode. Samen leicht andrücken, nicht abdecken (Lichtkeimer bevorzugt)."
+      - method: cutting
+        months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        wood_stage: herbaceous
+        difficulty: moderate
+        notes: "Klone aus vegetativen Trieben der Mutterpflanze (mind. 4 Nodien, 8-15 cm). Schnittstelle schräg, sofort in Wasser, dann in Wurzelhormon tauchen. Bei 22-26 Grad und 18h Licht bewurzeln; erhält Genetik und Geschlecht der Mutterpflanze."
     common_names: [Hemp, Cannabis, Hanf]
     family: Cannabaceae
     genus: Cannabis
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 12.0
     hardiness_zones: ["6a", "10a"]
     native_habitat: Central Asia
@@ -262,11 +302,27 @@ species:
       max_ph: 7.0
 
   - scientific_name: Humulus lupulus
+    propagation_configs:
+      - method: rhizome_division
+        months: [3, 4]
+        difficulty: easy
+        notes: "Standardmethode: Im Frühjahr Rhizomstücke mit 2-3 Augen (10-15 cm) abstechen und 5-8 cm tief einpflanzen. Schnellste und zuverlässigste Vermehrung; erhält Sortenidentität."
+      - method: cutting
+        months: [5, 6]
+        wood_stage: softwood
+        difficulty: moderate
+        notes: "Weichholzstecklinge aus jungen Trieben (ca. 10 cm) im Frühsommer. Unter Folie oder Glocke bei hoher Luftfeuchtigkeit bewurzeln; bewurzelte Stecklinge nach 4-6 Wochen einpflanzen."
+      - method: seed
+        months: [3, 4]
+        difficulty: difficult
+        notes: "Direktsaat oder Vorkultur. Nur weibliche Pflanzen produzieren Hopfenzapfen; Geschlecht erst nach Vegetationsstart erkennbar. Samen 2-4 Wochen stratifizieren. Für Nutzanbau Rhizomvermehrung deutlich vorzuziehen."
     common_names: [Hops, Hopfen]
     family: Cannabaceae
     genus: Humulus
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: flower
     base_temp: 6.0
     hardiness_zones: ["3a", "8a"]
     native_habitat: Europe
@@ -300,6 +356,8 @@ species:
     genus: Ocimum
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 10.0
     hardiness_zones: ["10a", "11a"]
     native_habitat: South Asia
@@ -336,6 +394,8 @@ species:
     genus: Mentha
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -366,8 +426,10 @@ species:
     common_names: [Thyme, Thymian]
     family: Lamiaceae
     genus: Thymus
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -398,8 +460,10 @@ species:
     common_names: [Rosemary, Rosmarin]
     family: Lamiaceae
     genus: Salvia
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["7a", "10a"]
     native_habitat: Mediterranean
@@ -431,8 +495,10 @@ species:
     common_names: [Sage, Salbei]
     family: Lamiaceae
     genus: Salvia
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["4a", "9a"]
     native_habitat: Mediterranean
@@ -462,8 +528,10 @@ species:
     common_names: [Lavender, Lavendel]
     family: Lamiaceae
     genus: Lavandula
-    growth_habit: shrub
+    growth_habit: subshrub
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: flower
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -499,6 +567,8 @@ species:
     genus: Daucus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     base_temp: 4.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe
@@ -533,6 +603,8 @@ species:
     genus: Foeniculum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: bulb
     base_temp: 8.0
     hardiness_zones: ["6a", "10a"]
     native_habitat: Mediterranean
@@ -568,6 +640,8 @@ species:
     genus: Anethum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 7.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Mediterranean
@@ -601,6 +675,8 @@ species:
     genus: Coriandrum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 7.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -629,11 +705,18 @@ species:
       max_ph: 7
 
   - scientific_name: Apium graveolens
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        difficulty: moderate
+        notes: "Lichtkeimer: Samen nicht bedecken, andrücken. Vorkultur 10-12 Wochen vor Auspflanzung bei 15-18 Grad. Pikieren auf Einzelpflanzen. Auspflanzung ab Mitte Mai nach den Eisheiligen. Zweijährig, Ernte im Anpflanzjahr."
     common_names: [Celery, Sellerie]
     family: Apiaceae
     genus: Apium
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: stem
     base_temp: 7.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Mediterranean
@@ -669,6 +752,8 @@ species:
     genus: Petroselinum
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["5a", "9a"]
     native_habitat: Mediterranean
@@ -703,6 +788,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -738,6 +825,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: flower_bud
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -771,6 +860,8 @@ species:
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: stem
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe
@@ -799,11 +890,18 @@ species:
       max_ph: 7
 
   - scientific_name: Raphanus sativus
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6, 7, 8, 9]
+        difficulty: easy
+        notes: "Direktsaat in Reihen, 1-2 cm tief, Abstand 3-5 cm. Keimt bereits ab 5 Grad; geeignet für Sukzessionsanbau alle 2-3 Wochen. Schnellster Radieschen-Typ: Ernte nach 4-6 Wochen."
     common_names: [Radish, Rettich, Radieschen]
     family: Brassicaceae
     genus: Raphanus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: root
     base_temp: 4.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Asia
@@ -833,11 +931,18 @@ species:
       max_ph: 7
 
   - scientific_name: Eruca vesicaria
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5, 6, 7, 8, 9]
+        difficulty: easy
+        notes: "Direktsaat, 0,5-1 cm tief, dünn ausstreuen. Kühle Temperaturen bevorzugt, bei Hitze schiesst Pflanze schnell in Samen. Sukzessionsanbau alle 2-3 Wochen empfohlen für kontinuierliche Ernte."
     common_names: [Arugula, Rucola]
     family: Brassicaceae
     genus: Eruca
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -865,11 +970,18 @@ species:
       max_ph: 7
 
   - scientific_name: Brassica oleracea var. capitata
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        difficulty: easy
+        notes: "Vorkultur 6 Wochen vor Auspflanzung bei 15-18 Grad, oder Direktsaat April bis Juni. Pikieren auf Einzelpflanzen. Auspflanzung ab Mitte Mai, Abstand 40-50 cm. Frosthart nach Abhärtung."
     common_names: [Cabbage, "Weißkohl"]
     family: Brassicaceae
     genus: Brassica
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Europe
@@ -906,6 +1018,8 @@ species:
     genus: Phaseolus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
@@ -940,6 +1054,8 @@ species:
     genus: Pisum
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: continuous
+    harvested_part: seed
     base_temp: 4.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Mediterranean
@@ -971,11 +1087,18 @@ species:
       max_ph: 7.5
 
   - scientific_name: Vicia faba
+    propagation_configs:
+      - method: seed
+        months: [2, 3, 4]
+        difficulty: easy
+        notes: "Direktsaat ab Februar/März (ab 5 Grad Bodentemperatur), 5-6 cm tief, Abstand 20-25 cm. Frühaussaat erhöht den Ertrag. Sehr froststabil (bis -10 Grad). Keine Vorkultur empfohlen (Pfahlwurzel verträgt Verpflanzen schlecht)."
     common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
     family: Fabaceae
     genus: Vicia
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["2a", "9a"]
     native_habitat: Mediterranean
@@ -1006,11 +1129,18 @@ species:
       max_ph: 7.5
 
   - scientific_name: Glycine max
+    propagation_configs:
+      - method: seed
+        months: [5, 6]
+        difficulty: easy
+        notes: "Direktsaat nach letztem Frost bei Bodentemperaturen über 12 Grad, 2-3 cm tief, Abstand 10-15 cm. Impfung mit Rhizobium-Bakterien empfohlen für optimale Stickstoffixierung. Nicht verpflanzen (Pfahlwurzel)."
     common_names: [Soybean, Sojabohne]
     family: Fabaceae
     genus: Glycine
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 10.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: East Asia
@@ -1040,11 +1170,18 @@ species:
       max_ph: 6.5
 
   - scientific_name: Lens culinaris
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        difficulty: easy
+        notes: "Direktsaat ab April bei 8-10 Grad Bodentemperatur, 3-4 cm tief, Abstand 5-10 cm in Reihen. Kein Verpflanzen (Pfahlwurzel). Rhizobium-Impfung sinnvoll auf Erstanbauflächen. Ernte wenn Hülsen gelblich-braun."
     common_names: [Lentil, Linse]
     family: Fabaceae
     genus: Lens
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 5.0
     hardiness_zones: ["4a", "9a"]
     native_habitat: Near East
@@ -1075,6 +1212,8 @@ species:
     genus: Trifolium
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: perennial
+    harvested_part: whole_plant
     base_temp: 4.0
     hardiness_zones: ["3a", "8a"]
     native_habitat: Europe
@@ -1111,6 +1250,9 @@ species:
     genus: Cucumis
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 12.0
     hardiness_zones: ["4a", "11a"]
     native_habitat: South Asia
@@ -1143,11 +1285,19 @@ species:
       max_ph: 6.8
 
   - scientific_name: Cucumis melo
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        difficulty: moderate
+        notes: "Vorkultur 4 Wochen vor letztem Frost bei 22-26 Grad in Einzeltöpfen (keine Pikur wegen empfindlicher Wurzeln). Auspflanzung nach Eisheiligen. Wärmebedürftig; Folienabdeckung oder Gewächshaus in Mitteleuropa empfehlenswert."
     common_names: [Melon, Melone, Honigmelone]
     family: Cucurbitaceae
     genus: Cucumis
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: climacteric
     base_temp: 12.0
     hardiness_zones: ["4a", "11a"]
     native_habitat: Africa
@@ -1184,6 +1334,8 @@ species:
     genus: Cucurbita
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Americas
@@ -1219,6 +1371,8 @@ species:
     genus: Cucurbita
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: South America
@@ -1247,11 +1401,19 @@ species:
       max_ph: 6.8
 
   - scientific_name: Citrullus lanatus
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        difficulty: moderate
+        notes: "Vorkultur 4 Wochen vor letztem Frost in Einzeltöpfen (8-10 cm) bei 24-28 Grad. Empfindliche Wurzeln: kein Pikieren. Auspflanzung erst nach Eisheiligen. In Mitteleuropa Gewächshaus oder Folientunnel empfohlen für ausreichend Wärme."
     common_names: [Watermelon, Wassermelone]
     family: Cucurbitaceae
     genus: Citrullus
     growth_habit: vine
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 15.0
     hardiness_zones: ["5a", "11a"]
     native_habitat: Africa
@@ -1281,11 +1443,18 @@ species:
       max_ph: 7.2
 
   - scientific_name: Luffa aegyptiaca
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        difficulty: moderate
+        notes: "Vorkultur 6 Wochen vor letztem Frost bei 25-28 Grad in Einzeltöpfen. Samen vor der Aussaat 24h einweichen; Keimung kann 1-2 Wochen dauern. Sehr lange Vegetationszeit (120-150 Tage); in Mitteleuropa Gewächshaus oder Folientunnel nötig."
     common_names: [Luffa, Schwammgurke]
     family: Cucurbitaceae
     genus: Luffa
     growth_habit: vine
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
     base_temp: 15.0
     hardiness_zones: ["7a", "11a"]
     native_habitat: South Asia
@@ -1319,6 +1488,8 @@ species:
     genus: Lactuca
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 4.0
     hardiness_zones: ["2a", "10a"]
     native_habitat: Mediterranean
@@ -1356,6 +1527,8 @@ species:
     genus: Cichorium
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -1388,6 +1561,8 @@ species:
     genus: Helianthus
     growth_habit: herb
     root_type: taproot
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 8.0
     hardiness_zones: ["2a", "11a"]
     native_habitat: North America
@@ -1422,6 +1597,11 @@ species:
       max_ph: 7.5
 
   - scientific_name: Tagetes erecta
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        difficulty: easy
+        notes: "Vorkultur ab März bei 18-22 Grad, 0,5 cm tief. Direktsaat nach Eisheiligen ab Mai. Schnelle Keimung (5-7 Tage). Nach Auspflanzung buschig wachsen; erste Blütenknospen auskneipen fördert Verzweigung."
     common_names: [Marigold, Tagetes, Studentenblume]
     family: Asteraceae
     genus: Tagetes
@@ -1455,11 +1635,22 @@ species:
       max_ph: 7.5
 
   - scientific_name: Matricaria chamomilla
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 5]
+        difficulty: easy
+        notes: "Direktsaat, Samen nur andrücken (Lichtkeimer). Herbstaussaat September/Oktober für Frühjahrsentwicklung ebenfalls möglich. Keimtemperatur 15-20 Grad. Dünn aussäen, kaum vereinzeln nötig."
+      - method: self_seeding
+        months: [7, 8, 9]
+        difficulty: easy
+        notes: "Kamille sät sich nach der Reife der Blüten selbst reichlich aus. Standort mehrjährig halten, indem ausgereifte Blütenköpfe abwechselnd stehen bleiben. Keine Massnahmen nötig."
     common_names: [Chamomile, Kamille]
     family: Asteraceae
     genus: Matricaria
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: flower
     base_temp: 5.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Europe
@@ -1491,6 +1682,8 @@ species:
     genus: Artemisia
     growth_habit: herb
     root_type: fibrous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["4a", "8a"]
     native_habitat: Central Asia
@@ -1518,11 +1711,18 @@ species:
 
   # -- Poaceae (6) --
   - scientific_name: Zea mays
+    propagation_configs:
+      - method: seed
+        months: [4, 5, 6]
+        difficulty: easy
+        notes: "Direktsaat ab Mai nach Eisheiligen (mind. 12 Grad Bodentemperatur), 4-5 cm tief, Abstand 20-30 cm. Blockanbau (mind. 4 Reihen) für sichere Windbestäubung. Vorkultur ab April in Einzeltöpfen möglich, aber Direktsaat vorzuziehen."
     common_names: [Corn, Mais]
     family: Poaceae
     genus: Zea
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: fruit
     base_temp: 10.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Central America
@@ -1553,11 +1753,18 @@ species:
       max_ph: 6.8
 
   - scientific_name: Triticum aestivum
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 10, 11]
+        difficulty: easy
+        notes: "Direktsaat. Sommerweizen: März-April, 3-4 cm tief, Abstand 3-5 cm in Reihen. Winterweizen: Oktober-November; benötigt Vernalisation (Kältereiz) für Schossen und Ährenbildung. Ernte Sommerweizen Juli-August, Winterweizen Juni-Juli."
     common_names: [Wheat, Weizen]
     family: Poaceae
     genus: Triticum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 4.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1590,11 +1797,18 @@ species:
       max_ph: 7.5
 
   - scientific_name: Hordeum vulgare
+    propagation_configs:
+      - method: seed
+        months: [3, 4, 9, 10]
+        difficulty: easy
+        notes: "Direktsaat. Sommergerste: März-April, 3-4 cm tief. Wintergerste: September-Oktober; frosthart und benötigt Vernalisation. Sommergerste wird als Braugerste und Futtergerste angebaut. Breit streuen oder in Reihen mit 10-15 cm Abstand."
     common_names: [Barley, Gerste]
     family: Poaceae
     genus: Hordeum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1622,11 +1836,18 @@ species:
       max_ph: 7.5
 
   - scientific_name: Avena sativa
+    propagation_configs:
+      - method: seed
+        months: [3, 4]
+        difficulty: easy
+        notes: "Direktsaat Sommerhafer ab März bei abgetauter Erde, 3-4 cm tief. Hafer ist ein reines Sommergetreide; Winterformen spielen in Mitteleuropa kaum eine Rolle. Breit streuen oder in Reihen; benötigt ausreichend Feuchtigkeit beim Auflaufen."
     common_names: [Oat, Hafer]
     family: Poaceae
     genus: Avena
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 3.0
     hardiness_zones: ["3a", "9a"]
     native_habitat: Near East
@@ -1652,11 +1873,18 @@ species:
       max_ph: 8.6
 
   - scientific_name: Oryza sativa
+    propagation_configs:
+      - method: seed
+        months: [4, 5]
+        difficulty: difficult
+        notes: "Vorkultur 8 Wochen vor Auspflanzung bei 28-32 Grad. Keimung im Wasser (24-48h einweichen). In Mitteleuropa nur im Gewächshaus oder unter Folie realisierbar; benötigt Wasserstandhaltung oder ständig feuchte Erde. Auspflanzung als Setzlinge in flaches Wasser."
     common_names: [Rice, Reis]
     family: Poaceae
     genus: Oryza
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 12.0
     hardiness_zones: ["8a", "11a"]
     native_habitat: East Asia
@@ -1687,11 +1915,18 @@ species:
       max_ph: 7
 
   - scientific_name: Sorghum bicolor
+    propagation_configs:
+      - method: seed
+        months: [5, 6]
+        difficulty: easy
+        notes: "Direktsaat nach letztem Frost (Bodentemperatur mind. 15 Grad), 2-4 cm tief, Abstand 15-20 cm in Reihen. C4-Pflanze: extrem hitze- und trockenheitstolerant. In Mitteleuropa nur in warmen Lagen mit langer Vegetationsperiode anbaubar."
     common_names: [Sorghum, Hirse]
     family: Poaceae
     genus: Sorghum
-    growth_habit: herb
+    growth_habit: grass
     root_type: fibrous
+    harvest_pattern: single
+    harvested_part: seed
     base_temp: 10.0
     hardiness_zones: ["5a", "10a"]
     native_habitat: Africa
@@ -1815,7 +2050,7 @@ species:
     common_names: [Scarlet Star, Guzmania]
     family: Bromeliaceae
     genus: Guzmania
-    growth_habit: herb
+    growth_habit: epiphyte
     root_type: fibrous
     base_temp: 18.0
     hardiness_zones: ["10b", "11a"]
@@ -1848,6 +2083,9 @@ species:
     genus: Fragaria
     growth_habit: groundcover
     root_type: fibrous
+    harvest_pattern: continuous
+    harvested_part: fruit
+    climacteric: non_climacteric
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe (hybrid)
@@ -1945,7 +2183,7 @@ species:
     common_names: [Snake Plant, Bogenhanf, Sansevieria]
     family: Asparagaceae
     genus: Dracaena
-    growth_habit: herb
+    growth_habit: succulent
     root_type: tuberous
     base_temp: 10.0
     hardiness_zones: ["10a", "12a"]
@@ -1974,7 +2212,7 @@ species:
     common_names: [Corn Plant, Duftdracaena, Maispalme, Mass Cane, Happy Plant]
     family: Asparagaceae
     genus: Dracaena
-    growth_habit: tree
+    growth_habit: shrub
     root_type: fibrous
     base_temp: 15.0
     hardiness_zones: ["10b", "11a", "11b", "12a", "12b"]
@@ -2010,7 +2248,7 @@ species:
     common_names: [White Water Lily, Weisse Seerose, European White Waterlily]
     family: Nymphaeaceae
     genus: Nymphaea
-    growth_habit: herb
+    growth_habit: aquatic
     root_type: fibrous
     base_temp: 8.0
     hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
@@ -2081,6 +2319,8 @@ species:
     genus: Allium
     growth_habit: herb
     root_type: bulbous
+    harvest_pattern: perennial
+    harvested_part: leaf
     base_temp: 5.0
     hardiness_zones: ["3a", "9b"]
     native_habitat: Europe
@@ -2113,7 +2353,7 @@ species:
     common_names: [Zonal Geranium, Geranie]
     family: Geraniaceae
     genus: Pelargonium
-    growth_habit: herb
+    growth_habit: subshrub
     root_type: fibrous
     base_temp: 10.0
     hardiness_zones: ["10a", "11a"]
@@ -2177,6 +2417,16 @@ species:
 
   # -- Verbenaceae (1) --
   - scientific_name: Verbena x hybrida
+    propagation_configs:
+      - method: seed
+        months: [2, 3]
+        difficulty: moderate
+        notes: "Vorkultur 8-10 Wochen vor letztem Frost bei 18-22 Grad. Samen lichtempfindlich: dünn mit Erde bedecken oder Lichtkeimer-Variante (Sortenabhängig). Keimung ungleichmäßig (2-4 Wochen). Pikieren nach Auflaufen, Auspflanzung nach Eisheiligen."
+      - method: cutting
+        months: [8, 9]
+        wood_stage: softwood
+        difficulty: easy
+        notes: "Weichholzstecklinge aus nicht-blühenden Triebspitzen (8-10 cm) zur Überwinterung der Mutterpflanze. Bei 12-15 Grad hell und trocken überwintern. Im Frühjahr antreiben und als Stecklinge zur Nachzucht nutzen."
     common_names: [Garden Verbena, Verbene]
     family: Verbenaceae
     genus: Verbena
@@ -2343,6 +2593,30 @@ perennial_species:
   - Salvia rosmarinus
   - Salvia officinalis
   - Lavandula angustifolia
+
+# Per-species lifecycle overrides (Plan WP-3/WP-4): cultivation_cycle_type =
+# the practised lifespan when it differs from the botanical cycle_type
+# (tender perennials grown as annuals; vegetables grown as biennials for seed);
+# flowering_strategy = monocarpic/polycarpic where informative.
+lifecycle_overrides:
+  Solanum lycopersicum: { cultivation_cycle_type: annual }
+  Capsicum annuum: { cultivation_cycle_type: annual }
+  Solanum melongena: { cultivation_cycle_type: annual }
+  Physalis peruviana: { cultivation_cycle_type: annual }
+  Ocimum basilicum: { cultivation_cycle_type: annual }
+  Pelargonium zonale: { cultivation_cycle_type: annual }
+  Petunia x hybrida: { cultivation_cycle_type: annual }
+  Verbena x hybrida: { cultivation_cycle_type: annual }
+  Daucus carota: { cultivation_cycle_type: biennial }
+  Apium graveolens: { cultivation_cycle_type: biennial }
+  Petroselinum crispum: { cultivation_cycle_type: biennial }
+  Foeniculum vulgare: { cultivation_cycle_type: biennial }
+  Brassica oleracea var. capitata: { cultivation_cycle_type: biennial }
+  Salvia rosmarinus: { flowering_strategy: polycarpic }
+  Salvia officinalis: { flowering_strategy: polycarpic }
+  Lavandula angustifolia: { flowering_strategy: polycarpic }
+  Thymus vulgaris: { flowering_strategy: polycarpic }
+  Humulus lupulus: { flowering_strategy: polycarpic }
 
 default_phase_sequence: "indoor_default"
 

@@ -21,13 +21,29 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/botanicalFamilies';
 
-const growthHabitValues = ['herb', 'shrub', 'tree', 'vine', 'groundcover'] as const;
+const growthHabitValues = [
+  'herb',
+  'shrub',
+  'subshrub',
+  'tree',
+  'vine',
+  'groundcover',
+  'grass',
+  'succulent',
+  'bulb_geophyte',
+  'fern',
+  'aquatic',
+  'epiphyte',
+] as const;
 const pollinationValues = ['insect', 'wind', 'self'] as const;
 
 const schema = z.object({
-  name: z.string().min(1).refine((v) => v.endsWith('aceae'), {
-    message: "Muss auf '-aceae' enden",
-  }),
+  name: z
+    .string()
+    .min(1)
+    .refine((v) => v.endsWith('aceae'), {
+      message: "Muss auf '-aceae' enden",
+    }),
   common_name_de: z.string(),
   common_name_en: z.string(),
   order: z.string(),
@@ -131,13 +147,10 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
     { value: 'very_hardy', label: t('enums.frostTolerance.very_hardy') },
   ];
 
-  const growthFormOptions = [
-    { value: 'herb', label: t('enums.growthHabit.herb') },
-    { value: 'shrub', label: t('enums.growthHabit.shrub') },
-    { value: 'tree', label: t('enums.growthHabit.tree') },
-    { value: 'vine', label: t('enums.growthHabit.vine') },
-    { value: 'groundcover', label: t('enums.growthHabit.groundcover') },
-  ];
+  const growthFormOptions = growthHabitValues.map((v) => ({
+    value: v,
+    label: t(`enums.growthHabit.${v}`),
+  }));
 
   const pollinationOptions = [
     { value: 'insect', label: t('enums.pollinationType.insect') },
@@ -146,9 +159,18 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
   ];
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="botanical-family-create-dialog"
-      aria-labelledby="botanical-family-create-dialog-title">
-      <DialogTitle id="botanical-family-create-dialog-title">{t('pages.botanicalFamilies.create')}</DialogTitle>
+    <Dialog
+      fullScreen={fullScreen}
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      data-testid="botanical-family-create-dialog"
+      aria-labelledby="botanical-family-create-dialog-title"
+    >
+      <DialogTitle id="botanical-family-create-dialog-title">
+        {t('pages.botanicalFamilies.create')}
+      </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.botanicalFamilies.createIntro')}

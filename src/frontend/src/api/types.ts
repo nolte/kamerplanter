@@ -1,7 +1,54 @@
 // Enums (mirrors src/backend/app/common/enums.py)
 
-export type GrowthHabit = 'herb' | 'shrub' | 'tree' | 'vine' | 'groundcover';
+export type GrowthHabit =
+  | 'herb'
+  | 'shrub'
+  | 'subshrub'
+  | 'tree'
+  | 'vine'
+  | 'groundcover'
+  | 'grass'
+  | 'succulent'
+  | 'bulb_geophyte'
+  | 'fern'
+  | 'aquatic'
+  | 'epiphyte';
+export type HarvestPattern = 'single' | 'continuous' | 'perennial';
+export type HarvestedPart =
+  | 'fruit'
+  | 'seed'
+  | 'leaf'
+  | 'root'
+  | 'tuber'
+  | 'bulb'
+  | 'flower_bud'
+  | 'flower'
+  | 'stem'
+  | 'whole_plant';
+export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
+export type DtmReference = 'direct_seed' | 'transplant';
+export type FloweringStrategy = 'monocarpic' | 'polycarpic';
 export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous';
+export type PropagationMethod =
+  | 'seed'
+  | 'cutting'
+  | 'leaf_cutting'
+  | 'division'
+  | 'rhizome_division'
+  | 'bulb'
+  | 'bulbil'
+  | 'tuber'
+  | 'offset'
+  | 'runner'
+  | 'grafting'
+  | 'layering'
+  | 'air_layering'
+  | 'water_propagation'
+  | 'tissue_culture'
+  | 'spore'
+  | 'self_seeding';
+export type WoodStage = 'softwood' | 'semi_hardwood' | 'hardwood' | 'herbaceous';
+export type PropagationDifficulty = 'easy' | 'moderate' | 'difficult';
 export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral';
 export type CycleType = 'annual' | 'biennial' | 'perennial';
 export type StressTolerance = 'low' | 'medium' | 'high';
@@ -48,14 +95,42 @@ export type PlantTrait =
   | 'f1';
 export type PlantingRunType = 'monoculture' | 'clone';
 export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed' | 'cancelled';
-export type DiaryEntryType = 'observation' | 'problem' | 'milestone' | 'measurement' | 'photo' | 'note';
-export type FertilizerType = 'base' | 'supplement' | 'booster' | 'biological' | 'ph_adjuster' | 'organic' | 'silicate';
+export type DiaryEntryType =
+  | 'observation'
+  | 'problem'
+  | 'milestone'
+  | 'measurement'
+  | 'photo'
+  | 'note';
+export type FertilizerType =
+  | 'base'
+  | 'supplement'
+  | 'booster'
+  | 'biological'
+  | 'ph_adjuster'
+  | 'organic'
+  | 'silicate';
 export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
 export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
-export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'dormancy' | 'harvest';
-export type ActivityCategory = 'training_hst' | 'training_lst' | 'pruning' | 'ausgeizen' | 'transplant' | 'harvest_prep' | 'propagation' | 'general';
+export type PhaseName =
+  | 'germination'
+  | 'seedling'
+  | 'vegetative'
+  | 'flowering'
+  | 'flushing'
+  | 'dormancy'
+  | 'harvest';
+export type ActivityCategory =
+  | 'training_hst'
+  | 'training_lst'
+  | 'pruning'
+  | 'ausgeizen'
+  | 'transplant'
+  | 'harvest_prep'
+  | 'propagation'
+  | 'general';
 export type StressLevel = 'none' | 'low' | 'medium' | 'high';
 
 // Pagination
@@ -166,6 +241,14 @@ export interface GrowingPeriod {
   bloom_from_year: number | null;
 }
 
+export interface PropagationConfig {
+  method: PropagationMethod;
+  months: number[];
+  wood_stage?: WoodStage | null;
+  difficulty?: PropagationDifficulty | null;
+  notes?: string | null;
+}
+
 export interface Species {
   key: string;
   scientific_name: string;
@@ -192,6 +275,10 @@ export interface Species {
   bloom_from_year: number | null;
   frost_sensitivity: FrostTolerance | null;
   plant_category: string | null;
+  harvest_pattern: HarvestPattern | null;
+  harvested_part: HarvestedPart | null;
+  climacteric: ClimactericClass | null;
+  propagation_configs: PropagationConfig[];
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
   container_suitable: Suitability | null;
@@ -234,6 +321,10 @@ export interface SpeciesCreate {
   bloom_from_year?: number | null;
   frost_sensitivity?: FrostTolerance | null;
   plant_category?: string | null;
+  harvest_pattern?: HarvestPattern | null;
+  harvested_part?: HarvestedPart | null;
+  climacteric?: ClimactericClass | null;
+  propagation_configs?: PropagationConfig[];
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
   container_suitable?: Suitability | null;
@@ -261,6 +352,9 @@ export interface Cultivar {
   traits: PlantTrait[];
   patent_status: string;
   days_to_maturity: number | null;
+  dtm_reference: DtmReference | null;
+  bearing_start_year_min: number | null;
+  bearing_start_year_max: number | null;
   disease_resistances: string[];
   phase_watering_overrides: Record<string, number> | null;
   created_at: string | null;
@@ -275,6 +369,9 @@ export interface CultivarCreate {
   traits?: PlantTrait[];
   patent_status?: string;
   days_to_maturity?: number | null;
+  dtm_reference?: DtmReference | null;
+  bearing_start_year_min?: number | null;
+  bearing_start_year_max?: number | null;
   disease_resistances?: string[];
   phase_watering_overrides?: Record<string, number> | null;
 }
@@ -622,6 +719,8 @@ export interface LifecycleConfig {
   key: string;
   species_key: string;
   cycle_type: CycleType;
+  cultivation_cycle_type: CycleType | null;
+  flowering_strategy: FloweringStrategy | null;
   typical_lifespan_years: number | null;
   dormancy_required: boolean;
   vernalization_required: boolean;
@@ -636,6 +735,8 @@ export interface LifecycleConfig {
 export interface LifecycleConfigCreate {
   species_key: string;
   cycle_type?: CycleType;
+  cultivation_cycle_type?: CycleType | null;
+  flowering_strategy?: FloweringStrategy | null;
   typical_lifespan_years?: number | null;
   dormancy_required?: boolean;
   vernalization_required?: boolean;
@@ -3310,7 +3411,12 @@ export type CalendarEventCategory =
   | 'tank_maintenance'
   | 'watering_forecast'
   | 'custom';
-export type CalendarEventSource = 'task' | 'phase_transition' | 'maintenance_log' | 'watering' | 'watering_forecast';
+export type CalendarEventSource =
+  | 'task'
+  | 'phase_transition'
+  | 'maintenance_log'
+  | 'watering'
+  | 'watering_forecast';
 
 export interface CalendarEvent {
   id: string;
@@ -3354,8 +3460,16 @@ export interface CalendarFeed {
 // Sowing Calendar (REQ-015 §3.8)
 
 export type SowingPhase =
-  | 'indoor_sowing' | 'outdoor_planting' | 'growth' | 'harvest' | 'flowering'
-  | 'germination' | 'seedling' | 'vegetative' | 'flushing' | 'ripening';
+  | 'indoor_sowing'
+  | 'outdoor_planting'
+  | 'growth'
+  | 'harvest'
+  | 'flowering'
+  | 'germination'
+  | 'seedling'
+  | 'vegetative'
+  | 'flushing'
+  | 'ripening';
 
 export interface SowingBar {
   phase: SowingPhase;

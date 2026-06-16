@@ -12,7 +12,22 @@ export const speciesSchema = z.object({
   common_names: z.array(z.string()).default([]),
   family_key: z.string().nullable().default(null),
   genus: z.string().default(''),
-  growth_habit: z.enum(['herb', 'shrub', 'tree', 'vine', 'groundcover']).default('herb'),
+  growth_habit: z
+    .enum([
+      'herb',
+      'shrub',
+      'subshrub',
+      'tree',
+      'vine',
+      'groundcover',
+      'grass',
+      'succulent',
+      'bulb_geophyte',
+      'fern',
+      'aquatic',
+      'epiphyte',
+    ])
+    .default('herb'),
   root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']).default('fibrous'),
   hardiness_zones: z.array(z.string()).default([]),
   native_habitat: z.string().default(''),
@@ -32,7 +47,9 @@ export const cultivarSchema = z.object({
 
 export const siteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  type: z.enum(['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent']).default('indoor'),
+  type: z
+    .enum(['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent'])
+    .default('indoor'),
   climate_zone: z.string().default(''),
   total_area_m2: z.number().min(0).default(0),
 });
@@ -43,7 +60,9 @@ export const locationSchema = z.object({
   area_m2: z.number().min(0),
   orientation: z.enum(['north', 'south', 'east', 'west']).nullable().default(null),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']).default('natural'),
-  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']).default('manual'),
+  irrigation_system: z
+    .enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'])
+    .default('manual'),
 });
 
 export const slotSchema = z.object({
@@ -54,7 +73,22 @@ export const slotSchema = z.object({
 
 export const substrateSchema = z.object({
   type: z
-    .enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'])
+    .enum([
+      'soil',
+      'coco',
+      'clay_pebbles',
+      'perlite',
+      'living_soil',
+      'peat',
+      'rockwool_slab',
+      'rockwool_plug',
+      'vermiculite',
+      'none',
+      'orchid_bark',
+      'pon_mineral',
+      'sphagnum',
+      'hydro_solution',
+    ])
     .default('soil'),
   brand: z.string().nullable().default(null),
   ph_base: z.number().min(0).max(14).default(6.5),
