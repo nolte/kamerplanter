@@ -28,6 +28,19 @@ jobs:
             echo "::warning::skaffold.yaml not found — skipping Skaffold steps"
           fi
 
+      # The hiberbee/github-action-skaffold step below runs `skaffold build`,
+      # which builds the inference-service image. Its `model-export` stage
+      # installs torch + exports the DINOv2 ONNX model and exhausts the runner
+      # disk, causing intermittent "Docker build ran into internal error"
+      # (~25% of runs). Reclaim ~20 GB of preinstalled toolchains first.
+      - name: Free disk space
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h /
+
       - name: Setup Helm
         if: steps.check.outputs.exists == 'true'
         uses: azure/setup-helm@v5
