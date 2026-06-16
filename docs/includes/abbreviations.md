@@ -16,7 +16,10 @@
 *[DSGVO]: Datenschutz-Grundverordnung
 *[MQTT]: Message Queuing Telemetry Transport
 *[RFC]: Request for Comments
-*[EXIF]: Exchangeable Image File Format — Metadaten-Format für Bild- und Audiodateien
+*[ONNX]: Open Neural Network Exchange — Offenes Format für ML-Modelle
 *[RAG]: Retrieval-Augmented Generation — KI-Antwortgenerierung mit abgerufenen Kontextdaten
 *[LLM]: Large Language Model — Großes Sprachmodell
-*[ONNX]: Open Neural Network Exchange — Offenes Format für ML-Modelle
+*[EXIF]: Exchangeable Image File Format — Metadaten-Format für Bilder (enthält u.a. GPS-Koordinaten)
+*[HNSW]: Hierarchical Navigable Small World — effizienter Vektorindex-Algorithmus
+*[DINOv2]: Self-DIstillation with NO labels v2 — Bilderkennungs-Backbone von Meta (Apache-2.0)
+*[GBIF]: Global Biodiversity Information Facility — Globale Biodiversitätsdatenbank

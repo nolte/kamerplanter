@@ -121,6 +121,54 @@ All 183 species with populated propagation methods already have an expert notes 
 2. On the detail page you can edit all fields
 3. The detail page also shows associated cultivars, growth phases, and nutrient plans
 
+---
+
+## Reference Images in the Species View
+
+Kamerplanter displays reference images for each plant species. These images are automatically sourced from public image databases (GBIF, Wikimedia Commons) and help you quickly recognise a species — even without a botanical background.
+
+### Where do reference images appear?
+
+**In the species list (overview):** A small thumbnail appears in the left column for each species. If no reference image is available for a species yet, you will see a subtle plant icon as a placeholder — this is not an error; it simply means that the reference image acquisition run has not yet found a suitable licence-free image for this species.
+
+**On the species detail page (Overview tab):** A large hero image appears at the top. Below it, the **reference image gallery** shows all available images for the species, sorted by plant organ (leaf, flower, fruit, whole plant).
+
+!!! note "Images appear only after the acquisition run"
+    Immediately after installation, the gallery shows the message **"No reference images available yet"**. This disappears once an administrator has run the reference image acquisition job. See the [Sourcing Reference Images](#sourcing-reference-images) section below.
+
+### Image sources and licences
+
+Images are sourced exclusively from providers with publicly usable, licence-compliant photographs:
+
+| Source | Licence | Note |
+|--------|---------|------|
+| GBIF (Global Biodiversity Information Facility) | CC0 / CC-BY | Primary backbone for species photos |
+| Wikimedia Commons | CC0 / Public Domain | Curated, representative species images |
+
+!!! warning "Attribution for CC-BY images (legally required)"
+    Images under the **CC-BY** licence require visible attribution. Kamerplanter displays this attribution directly beneath each image in the gallery, for example:
+
+    > © Jane Doe, via GBIF/iNaturalist · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+    This is generated automatically from the stored metadata. No manual entry is required.
+
+    CC0 images (public domain) carry no attribution because the author has waived all rights.
+
+### Sourcing reference images
+
+Reference images are **not loaded automatically** when a species is created. They are produced by a one-time acquisition run triggered by an administrator. For normal operation this run is needed only once — it can be repeated as needed (for example, after importing new species).
+
+!!! tip "For administrators"
+    The acquisition run executes as a background process (Celery task) and may take several hours to complete. While it runs, images appear species by species in the UI. For technical details: [Setting Up Plant Identification](../deployment/inference-service.md#step-2-populate-the-reference-index).
+
+**Which species receive images?** The acquisition run searches the image databases for all species in the master data. Species for which no CC0/CC-BY images can be found (rare or exotic plants) receive no entry — this is transparent system behaviour, not a data error.
+
+### Connection to plant identification
+
+The same reference images displayed in the species view also form the basis for **plant identification** (REQ-029-A). The DINOv2 recognition system compares a captured photo against the stored reference embeddings to determine the most likely species.
+
+See also: [Plant Identification](plant-identification.md)
+
 ## Managing Cultivars
 
 Cultivars are breeding varieties within a species. They inherit base properties from the species and add cultivar-specific data.
@@ -197,6 +245,8 @@ flowchart LR
 ## See Also
 
 - [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md) — Detailed guide to the AI pipeline
+- [Plant Identification](plant-identification.md) — Identify a species from a photo
+- [Setting Up Plant Identification](../deployment/inference-service.md) — Start the reference image acquisition run (for administrators)
 - [Growth Phases](growth-phases.md) — Phase control per species
 - [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest
 - [Fertilization](fertilization.md) — Nutrient plans and feeding charts

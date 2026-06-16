@@ -138,6 +138,7 @@ plugins:
             Helm Charts: Helm Charts
             ArgoCD: ArgoCD
             CI/CD: CI/CD
+            Bilderkennung (Inferenz-Service): Setting Up Plant Identification
             Guides: Guides
             GDD-Berechnung: GDD Calculation
             VPD-Optimierung: VPD Optimization
@@ -302,6 +303,7 @@ nav:
       - Helm Charts: de/deployment/helm.md
       - ArgoCD: de/deployment/argocd.md
       - CI/CD: de/deployment/ci-cd.md
+      - Bilderkennung (Inferenz-Service): de/deployment/inference-service.md
   - Guides:
       - de/guides/index.md
       - GDD-Berechnung: de/guides/gdd-calculation.md

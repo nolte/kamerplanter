@@ -33,6 +33,7 @@ import PlantIdentificationDialog, {
 } from '@/components/identification/PlantIdentificationDialog';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
 import SpeciesCreateDialog from './SpeciesCreateDialog';
+import SpeciesThumbnail from './SpeciesThumbnail';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 type ToggleFilter =
@@ -82,7 +83,9 @@ export default function SpeciesListPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.species);
-  const tableState = useTableUrlState({ defaultSort: { column: 'scientificName', direction: 'asc' } });
+  const tableState = useTableUrlState({
+    defaultSort: { column: 'scientificName', direction: 'asc' },
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const familyFilter = searchParams.get('family') ?? '';
   const [createOpen, setCreateOpen] = useState(false);
@@ -189,15 +192,27 @@ export default function SpeciesListPage() {
           aria-label={t('pages.calendar.sowingCalendar.toggleFavorite')}
           sx={{ p: 0.25 }}
         >
-          {isFavorite(r.key) ? (
-            <StarIcon fontSize="small" />
-          ) : (
-            <StarBorderIcon fontSize="small" />
-          )}
+          {isFavorite(r.key) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
         </IconButton>
       ),
       sortable: false,
       width: 48,
+    },
+    {
+      id: 'image',
+      label: '',
+      render: (r) => (
+        <SpeciesThumbnail
+          imageUrl={r.representative_image_url}
+          attribution={r.representative_image_attribution}
+          license={r.representative_image_license}
+          alt={r.scientific_name}
+          size={40}
+        />
+      ),
+      sortable: false,
+      searchable: false,
+      width: 60,
     },
     {
       id: 'scientificName',
@@ -313,11 +328,7 @@ export default function SpeciesListPage() {
                 total: items.length,
               })}
             </Typography>
-            <Button
-              size="small"
-              onClick={clearAllFilters}
-              data-testid="clear-filters-button"
-            >
+            <Button size="small" onClick={clearAllFilters} data-testid="clear-filters-button">
               {t('pages.species.clearFilters')}
             </Button>
           </>
@@ -423,6 +434,15 @@ export default function SpeciesListPage() {
           <MobileCard
             title={r.scientific_name}
             subtitle={r.common_names.join(', ') || undefined}
+            trailing={
+              <SpeciesThumbnail
+                imageUrl={r.representative_image_url}
+                attribution={r.representative_image_attribution}
+                license={r.representative_image_license}
+                alt={r.scientific_name}
+                size={44}
+              />
+            }
             chips={
               <>
                 <Chip
@@ -430,11 +450,7 @@ export default function SpeciesListPage() {
                   size="small"
                   variant="outlined"
                 />
-                <Chip
-                  label={t(`enums.rootType.${r.root_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
+                <Chip label={t(`enums.rootType.${r.root_type}`)} size="small" variant="outlined" />
               </>
             }
             fields={[

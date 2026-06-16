@@ -1,0 +1,191 @@
+# -- Recognition (DINOv2 image recognition) dev overrides
+# Helm release: kamerplanter-recognition
+# Contains ONLY the inference-service. The pgvector store is SHARED with the
+# KI stack (kamerplanter-ki-vectordb) — start `-m ki` (or at least its vectordb)
+# alongside `-m recognition`.
+#
+# Service name (release kamerplanter-recognition):
+#   kamerplanter-recognition
+
+# -- Dev: relax readOnlyRootFilesystem for hot-reload (SEC-M-004)
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: false
+
+# -- Disable KP controllers from base values.yaml
+controllers:
+  backend:
+    enabled: false
+  frontend:
+    enabled: false
+  arangodb:
+    enabled: false
+  celery-worker:
+    enabled: false
+  celery-beat:
+    enabled: false
+
+  # REQ-029-A — DINOv2 inference service (embedding + pgvector match)
+  inference-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-inference-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          # Shared pgvector store, provided by the KI release.
+          VECTORDB_HOST: kamerplanter-ki-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
+          MODEL_PATH: /app/models/dinov2
+          MODEL_NAME: dinov2_vits14
+          MODEL_DIM: "384"
+          INPUT_SIZE: "224"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+
+# -- Disable KP services from base values.yaml
+service:
+  backend:
+    enabled: false
+  frontend:
+    enabled: false
+  arangodb:
+    enabled: false
+  inference-service:
+    controller: inference-service
+    ports:
+      http:
+        port: 8000
+
+# -- Disable KP persistence from base values.yaml
+persistence:
+  nginx-config:
+    enabled: false
+  nginx-cache:
+    enabled: false
+  nginx-run:
+    enabled: false
+  nginx-tmp:
+    enabled: false
+  nginx-runtime-config:
+    enabled: false
+  nginx-entrypoint:
+    enabled: false
+  backend-uploads:
+    enabled: false
+  backend-fontconfig:
+    enabled: false
+  backend-tmp:
+    enabled: false
+  celery-worker-tmp:
+    enabled: false
+  celery-beat-tmp:
+    enabled: false
+  arangodb-apps:
+    enabled: false
+
+# -- Disable KP networkpolicies from base values.yaml
+networkpolicies:
+  frontend:
+    enabled: false
+  backend:
+    enabled: false
+  celery-worker:
+    enabled: false
+  celery-beat:
+    enabled: false
+  arangodb:
+    enabled: false
+
+  inference-service:
+    controller: inference-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        # From KP backend / celery (cross-release, matched by controller label)
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # Shared pgvector store (KI release — cross-release, matched by label)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+# -- Disable KP configMaps and ingress from base values.yaml
+configMaps:
+  frontend-nginx:
+    enabled: false
+
+ingress: {}
+
+# -- Disable subcharts not needed by the recognition stack
+valkey:
+  enabled: false
+
+ollama:
+  enabled: false

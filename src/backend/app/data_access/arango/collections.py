@@ -122,6 +122,10 @@ PROCESSING_RESTRICTIONS = "processing_restrictions"
 ERASURE_REQUESTS = "erasure_requests"
 EMAIL_CHANGE_REQUESTS = "email_change_requests"
 
+# REQ-029-A DINOv2 — diagnosis (task B, backlog) + reference-image acquisition
+DIAGNOSIS_REQUESTS = "diagnosis_requests"
+REFERENCE_IMAGE_JOBS = "reference_image_jobs"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -204,6 +208,8 @@ DOCUMENT_COLLECTIONS = [
     ERASURE_REQUESTS,
     EMAIL_CHANGE_REQUESTS,
     IDENTIFICATION_REQUESTS,
+    DIAGNOSIS_REQUESTS,
+    REFERENCE_IMAGE_JOBS,
 ]
 
 # Edge collections
@@ -1298,10 +1304,20 @@ def ensure_collections(db: StandardDatabase) -> None:
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
 
-    # REQ-029 Plant identification indexes
+    # REQ-029 plant identification indexes
     identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
     identification_requests_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
     identification_requests_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # REQ-029-A DINOv2 diagnosis + reference-image acquisition indexes
+    diagnosis_requests_col = db.collection(DIAGNOSIS_REQUESTS)
+    diagnosis_requests_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    diagnosis_requests_col.add_persistent_index(fields=["plant_instance_key"], unique=False)
+    diagnosis_requests_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    reference_image_jobs_col = db.collection(REFERENCE_IMAGE_JOBS)
+    reference_image_jobs_col.add_persistent_index(fields=["species_key"], unique=True)
+    reference_image_jobs_col.add_persistent_index(fields=["status"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

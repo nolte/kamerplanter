@@ -279,6 +279,19 @@ class Species(BaseModel):
         description="Species-specific pH preference (min_ph, max_ph) — optional override of the "
         "BotanicalFamily default; gates pH-dependent micronutrient availability (REQ-004).",
     )
+    # ── Representative reference image (REQ-029-A §4) ──
+    # Set by the reference-image acquisition pipeline from the first accepted
+    # CC0/CC-BY image. Only the URL + attribution is stored (no image bytes).
+    # Attribution is mandatory for CC-BY display.
+    representative_image_url: str | None = Field(
+        default=None, description="Representative reference image URL (CC0/CC-BY)"
+    )
+    representative_image_attribution: str | None = Field(
+        default=None, description="Attribution for the representative image (CC-BY)"
+    )
+    representative_image_license: str | None = Field(
+        default=None, description="License of the representative image (CC0/CC-BY)"
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

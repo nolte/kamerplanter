@@ -1,4 +1,5 @@
 import client from '../client';
+import type { RecognitionStatus } from '../types';
 
 export interface HASettingsResponse {
   ha_url: string;
@@ -97,4 +98,32 @@ export async function testPlantIdentificationKey(
 
 export async function clearPlantIdentificationSettings(): Promise<void> {
   await client.delete(`${BASE}/plant-identification`);
+}
+
+/**
+ * GET /admin/recognition/status — platform-admin-only, global (no tenant slug).
+ *
+ * Returns the read-only status of the self-hosted DINOv2 image recognition
+ * (REQ-029-A): feature/adapter availability, inference-service health, species
+ * coverage and the effective configuration sourced from server env/settings.
+ */
+export async function getRecognitionStatus(): Promise<RecognitionStatus> {
+  const { data } = await client.get<RecognitionStatus>('/admin/recognition/status');
+  return data;
+}
+
+/** Result of starting a reference-image acquisition run from the UI. */
+export interface AcquisitionStartResponse {
+  status: string;
+  task_id: string | null;
+}
+
+/**
+ * POST /admin/recognition/acquire — dispatch a reference-image acquisition run
+ * for all species (GBIF + Wikimedia → pgvector index). Available in light + full
+ * mode for any signed-in user (like the recognition status + Pl@ntNet settings).
+ */
+export async function startRecognitionAcquisition(): Promise<AcquisitionStartResponse> {
+  const { data } = await client.post<AcquisitionStartResponse>('/admin/recognition/acquire');
+  return data;
 }

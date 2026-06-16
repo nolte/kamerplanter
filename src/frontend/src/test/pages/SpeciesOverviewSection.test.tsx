@@ -52,6 +52,9 @@ function makeSpecies(overrides: Partial<Species> = {}): Species {
     support_required: false,
     watering_guide: null,
     default_nutrient_plan_key: null,
+    representative_image_url: null,
+    representative_image_attribution: null,
+    representative_image_license: null,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: null,
     ...overrides,
@@ -98,25 +101,33 @@ describe('SpeciesOverviewSection', () => {
         water_quality_hint: 'Kalkarm gießen.',
         practical_tip: 'Morgens wässern.',
         seasonal_adjustments: [
-          { label: 'Sommer', months: [6, 7, 8], interval_days: 3, volume_ml_min: 300, volume_ml_max: 500 },
+          {
+            label: 'Sommer',
+            months: [6, 7, 8],
+            interval_days: 3,
+            volume_ml_min: 300,
+            volume_ml_max: 500,
+          },
         ],
       }),
     });
 
-    renderWithProviders(<SpeciesOverview species={species} phaseSequenceKey="ps-1" onEdit={() => {}} />);
+    renderWithProviders(
+      <SpeciesOverview species={species} phaseSequenceKey="ps-1" onEdit={() => {}} />,
+    );
 
     const chips = screen.getByTestId('overview-chips');
     expect(within(chips).getByText(i18n.t('pages.species.edible'))).toBeInTheDocument();
     expect(within(chips).getByText(i18n.t('enums.frostTolerance.sensitive'))).toBeInTheDocument();
     expect(within(chips).getByText(i18n.t('enums.growthHabit.herb'))).toBeInTheDocument();
-    expect(within(chips).getByText(i18n.t('enums.plantCategory.outdoor_vegetable'))).toBeInTheDocument();
+    expect(
+      within(chips).getByText(i18n.t('enums.plantCategory.outdoor_vegetable')),
+    ).toBeInTheDocument();
     expect(within(chips).getByText(i18n.t('enums.harvestPattern.continuous'))).toBeInTheDocument();
     expect(within(chips).getByText(i18n.t('enums.harvestedPart.fruit'))).toBeInTheDocument();
 
     // Phase-sequence chip (phaseSequenceKey truthy).
-    expect(
-      screen.getByText(i18n.t('pages.phaseSequences.viewPhaseSequence')),
-    ).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('pages.phaseSequences.viewPhaseSequence'))).toBeInTheDocument();
 
     // Description block.
     expect(screen.getByText('Eine wärmeliebende Fruchtgemüse-Art.')).toBeInTheDocument();
@@ -153,7 +164,9 @@ describe('SpeciesOverviewSection', () => {
       watering_guide: null,
     });
 
-    renderWithProviders(<SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />);
+    renderWithProviders(
+      <SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />,
+    );
 
     const chips = screen.getByTestId('overview-chips');
     expect(within(chips).getByText(i18n.t('pages.species.ornamental'))).toBeInTheDocument();
@@ -169,7 +182,9 @@ describe('SpeciesOverviewSection', () => {
 
   it('falls back to the generic family label when family_name is missing', () => {
     const species = makeSpecies({ family_key: 'fam-9', family_name: null });
-    renderWithProviders(<SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />);
+    renderWithProviders(
+      <SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />,
+    );
 
     const familyLink = screen.getByTestId('overview-family-link');
     expect(familyLink).toHaveTextContent(i18n.t('pages.species.viewFamily'));
@@ -183,7 +198,9 @@ describe('SpeciesOverviewSection', () => {
         seasonal_adjustments: [],
       }),
     });
-    renderWithProviders(<SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />);
+    renderWithProviders(
+      <SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />,
+    );
 
     expect(screen.getByText(i18n.t('pages.species.sectionWateringGuide'))).toBeInTheDocument();
     expect(screen.getByText(i18n.t('pages.species.wateringInterval') + ':')).toBeInTheDocument();
@@ -191,10 +208,38 @@ describe('SpeciesOverviewSection', () => {
     expect(screen.queryByText(i18n.t('pages.species.seasonalAdjustments') + ':')).toBeNull();
   });
 
+  it('renders the hero image with its attribution + license caption when set', () => {
+    const species = makeSpecies({
+      representative_image_url: 'https://example.org/hero.jpg',
+      representative_image_attribution: 'Jane Doe',
+      representative_image_license: 'CC-BY',
+    });
+    renderWithProviders(
+      <SpeciesOverview species={species} phaseSequenceKey={null} onEdit={() => {}} />,
+    );
+
+    const hero = screen.getByTestId('species-hero-image');
+    expect(hero).toBeInTheDocument();
+    const img = within(hero).getByRole('img', { name: 'Solanum lycopersicum' });
+    expect(img).toHaveAttribute('src', 'https://example.org/hero.jpg');
+    expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+    // Attribution is legally required for CC-BY and must be visible.
+    expect(screen.getByTestId('species-hero-attribution')).toHaveTextContent('© Jane Doe · CC-BY');
+  });
+
+  it('omits the hero image entirely when no representative image URL is set', () => {
+    renderWithProviders(
+      <SpeciesOverview species={makeSpecies()} phaseSequenceKey={null} onEdit={() => {}} />,
+    );
+    expect(screen.queryByTestId('species-hero-image')).toBeNull();
+  });
+
   it('invokes onEdit when the edit button is clicked', async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    renderWithProviders(<SpeciesOverview species={makeSpecies()} phaseSequenceKey={null} onEdit={onEdit} />);
+    renderWithProviders(
+      <SpeciesOverview species={makeSpecies()} phaseSequenceKey={null} onEdit={onEdit} />,
+    );
 
     await user.click(screen.getByTestId('overview-edit-button'));
     expect(onEdit).toHaveBeenCalledOnce();

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.activities.router import router as activities_router
 from app.api.v1.activity_plans.router import router as activity_plans_router
+from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
@@ -57,6 +58,9 @@ api_router.include_router(mode_router)
 
 # Admin settings — available in both modes
 api_router.include_router(admin_settings_router)
+# Recognition status is read-only + get_current_user-gated, like admin settings —
+# available in both light and full mode (the inference feature itself is optional).
+api_router.include_router(recognition_admin_router)
 
 # Privacy policy endpoint is public in both modes per REQ-025 §3.6
 # (DSGVO Art. 13/14 Hinweispflicht applies regardless of auth mode).
@@ -66,12 +70,14 @@ api_router.include_router(privacy_public_router)
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
     from app.api.v1.admin.platform.router import router as platform_admin_router
+    from app.api.v1.admin.reference_images.router import router as reference_images_router
     from app.api.v1.auth.router import router as auth_router
     from app.api.v1.privacy.router import router as privacy_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
     api_router.include_router(platform_admin_router)
+    api_router.include_router(reference_images_router)
     api_router.include_router(privacy_router)
 
 api_router.include_router(users_router)

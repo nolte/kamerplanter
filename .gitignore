@@ -61,3 +61,4 @@ docker/embedding-service/models/
 
 # Browser MCP debug artifacts (screenshots, a11y snapshots)
 .playwright-mcp/
+.venv-docs/

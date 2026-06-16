@@ -27,7 +27,12 @@ class SpeciesService:
         return self._repo.create(species)
 
     def update_species(self, key: SpeciesKey, species: Species) -> Species:
-        self.get_species(key)
+        existing = self.get_species(key)
+        # The representative reference image is owned by the acquisition
+        # pipeline (REQ-029-A §4), not the edit form — preserve it on update.
+        species.representative_image_url = existing.representative_image_url
+        species.representative_image_attribution = existing.representative_image_attribution
+        species.representative_image_license = existing.representative_image_license
         return self._repo.update(key, species)
 
     def delete_species(self, key: SpeciesKey) -> bool:

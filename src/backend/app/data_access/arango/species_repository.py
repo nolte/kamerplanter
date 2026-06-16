@@ -35,6 +35,27 @@ class ArangoSpeciesRepository(ISpeciesRepository, BaseArangoRepository):
         doc = BaseArangoRepository.update(self, key, species)
         return Species(**doc)
 
+    def set_representative_image(
+        self,
+        key: SpeciesKey,
+        *,
+        url: str | None,
+        attribution: str | None,
+        license: str | None,  # noqa: A002 — matches the model field name
+    ) -> None:
+        """Partial update of only the representative-image fields (REQ-029-A §4).
+
+        Used by the acquisition pipeline so it never clobbers other species data.
+        """
+        self.collection.update(
+            {
+                "_key": key,
+                "representative_image_url": url,
+                "representative_image_attribution": attribution,
+                "representative_image_license": license,
+            }
+        )
+
     def delete(self, key: SpeciesKey) -> bool:
         return BaseArangoRepository.delete(self, key)
 

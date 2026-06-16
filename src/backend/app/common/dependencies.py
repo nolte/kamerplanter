@@ -888,6 +888,36 @@ def get_dashboard_service():
     )
 
 
+# ── REQ-029 KI-Bilderkennung dependencies ────────────────────────
+
+
+def get_reference_image_repo():
+    from app.data_access.arango.reference_image_repository import (
+        ArangoReferenceImageRepository,
+    )
+
+    return ArangoReferenceImageRepository(get_db())
+
+
+def get_reference_image_service():
+    """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index)."""
+    from app.data_access.external.gbif_adapter import GBIFAdapter
+    from app.data_access.external.gbif_media_client import GBIFMediaClient
+    from app.data_access.external.inference_service_client import InferenceServiceClient
+    from app.data_access.external.wikimedia_media_client import WikimediaCommonsMediaClient
+    from app.domain.services.reference_image_service import ReferenceImageService
+
+    wikimedia = WikimediaCommonsMediaClient() if settings.reference_image_use_wikimedia else None
+    return ReferenceImageService(
+        gbif_adapter=GBIFAdapter(),
+        media_client=GBIFMediaClient(),
+        inference_client=InferenceServiceClient(settings.inference_service_url),
+        reference_repo=get_reference_image_repo(),
+        wikimedia_client=wikimedia,
+        species_repo=get_species_repo(),
+    )
+
+
 def close_timescale_connection() -> None:
     global _timescale_connection
     if _timescale_connection is not None:

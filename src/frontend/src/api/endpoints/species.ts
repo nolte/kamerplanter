@@ -2,6 +2,7 @@ import client from '../client';
 import type {
   Species,
   SpeciesCreate,
+  SpeciesReferenceImages,
   PaginatedResponse,
   Cultivar,
   CultivarCreate,
@@ -9,10 +10,7 @@ import type {
 
 const BASE = '/species';
 
-export async function listSpecies(
-  offset = 0,
-  limit = 50,
-): Promise<PaginatedResponse<Species>> {
+export async function listSpecies(offset = 0, limit = 50): Promise<PaginatedResponse<Species>> {
   const { data } = await client.get<PaginatedResponse<Species>>(BASE, {
     params: { offset, limit },
   });
@@ -36,6 +34,11 @@ export async function updateSpecies(key: string, payload: SpeciesCreate): Promis
 
 export async function deleteSpecies(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+}
+
+export async function getSpeciesReferenceImages(key: string): Promise<SpeciesReferenceImages> {
+  const { data } = await client.get<SpeciesReferenceImages>(`${BASE}/${key}/reference-images`);
+  return data;
 }
 
 // Cultivars (nested under species)

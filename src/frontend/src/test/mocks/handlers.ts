@@ -224,6 +224,10 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json({ key: 'sp-new', ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
   }),
+  // Reference-image gallery (REQ-029-A) — default empty; specific tests override.
+  http.get('/api/v1/species/:key/reference-images', ({ params }) => {
+    return HttpResponse.json({ species_key: params.key, count: 0, images: [] });
+  }),
   // Lifecycle config + growth phases (plant-instance create dialog)
   http.get('/api/v1/species/:key/lifecycle', ({ params }) => {
     return HttpResponse.json({

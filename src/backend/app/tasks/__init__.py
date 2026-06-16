@@ -15,6 +15,7 @@ celery_app.conf.update(
         "app.tasks.enrichment_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.phase_transitions",
+        "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.tank_maintenance_tasks",

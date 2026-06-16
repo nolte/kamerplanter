@@ -1,0 +1,60 @@
+"""VectorDB schema migration runner (adapted from knowledge-service)."""
+
+from pathlib import Path
+
+import psycopg
+import structlog
+from psycopg_pool import ConnectionPool
+
+logger = structlog.get_logger(__name__)
+
+_MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+
+# Dedicated tracking table for the inference-service so it does not collide
+# with the knowledge-service's own `schema_migrations` in the shared database.
+_TRACKING_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS inference_schema_migrations (
+    filename   VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+"""
+
+
+def ensure_vectordb_schema(pool: ConnectionPool) -> None:
+    """Run SQL migration files in order. Idempotent via tracking table."""
+    migration_files = sorted(_MIGRATIONS_DIR.glob("*.sql"))
+    if not migration_files:
+        logger.info("vectordb_schema_no_migrations")
+        return
+
+    with pool.connection() as conn:
+        conn.execute(_TRACKING_TABLE_SQL)
+        conn.commit()
+
+        applied = {row[0] for row in conn.execute("SELECT filename FROM inference_schema_migrations").fetchall()}
+        conn.commit()
+
+    conninfo = pool.conninfo
+    with psycopg.connect(conninfo, autocommit=True) as conn:
+        for migration_file in migration_files:
+            if migration_file.name in applied:
+                continue
+
+            sql = migration_file.read_text(encoding="utf-8")
+            logger.info("vectordb_migration_apply", filename=migration_file.name)
+
+            # Strip SQL comments before splitting to avoid executing comment text.
+            lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+            clean_sql = "\n".join(lines)
+            for statement in clean_sql.split(";"):
+                statement = statement.strip()
+                if statement:
+                    conn.execute(statement)
+
+            conn.execute(
+                "INSERT INTO inference_schema_migrations (filename) VALUES (%s)",
+                (migration_file.name,),
+            )
+            logger.info("vectordb_migration_applied", filename=migration_file.name)
+
+    logger.info("vectordb_schema_ready", total_migrations=len(migration_files))
