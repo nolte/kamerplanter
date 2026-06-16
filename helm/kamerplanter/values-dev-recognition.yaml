@@ -107,11 +107,21 @@ persistence:
     enabled: false
   nginx-tmp:
     enabled: false
+  nginx-runtime-config:
+    enabled: false
+  nginx-entrypoint:
+    enabled: false
+  backend-uploads:
+    enabled: false
+  backend-fontconfig:
+    enabled: false
   backend-tmp:
     enabled: false
   celery-worker-tmp:
     enabled: false
   celery-beat-tmp:
+    enabled: false
+  arangodb-apps:
     enabled: false
 
 # -- Disable KP networkpolicies from base values.yaml
