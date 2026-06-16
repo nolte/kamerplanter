@@ -46,7 +46,7 @@ controllers:
           # acquire_all_reference_images_task); otherwise the empty index would
           # shadow the Pl@ntNet fallback. Flip to "true" once the index is built.
           INFERENCE_SERVICE_ENABLED: "false"
-          INFERENCE_SERVICE_URL: "http://kamerplanter-ki-inference-service:8000"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
         probes:
           liveness:
             enabled: true
@@ -175,7 +175,7 @@ controllers:
           TIMESCALEDB_PASSWORD: devpassword
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
-          INFERENCE_SERVICE_URL: "http://kamerplanter-ki-inference-service:8000"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
         probes:
           liveness:
             enabled: true

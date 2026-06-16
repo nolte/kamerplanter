@@ -142,14 +142,6 @@ build:
       context: docker/reranker-service
       docker:
         dockerfile: Dockerfile.dev
-    - image: kamerplanter-inference-service
-      context: src/inference-service
-      docker:
-        dockerfile: Dockerfile.dev
-      sync:
-        manual:
-          - src: "app/**/*.py"
-            dest: /app
 
 deploy:
   statusCheckDeadlineSeconds: 1800
@@ -171,8 +163,6 @@ deploy:
           controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
           controllers.reranker-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_reranker_service}}"
           controllers.reranker-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_reranker_service}}"
-          controllers.inference-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_inference_service}}"
-          controllers.inference-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_inference_service}}"
 
 portForward:
   - resourceType: service
@@ -195,8 +185,47 @@ portForward:
     namespace: default
     port: 8081
     localPort: 8081
+---
+# ── Recognition (DINOv2 image recognition) ──────────────────────────
+# Inference-service only. Shares the KI stack's pgvector store
+# (kamerplanter-ki-vectordb), so run alongside `-m ki` (or at least its
+# vectordb). Optional: omit this module to run without image recognition.
+# Usage: skaffold dev -m ki -m recognition
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: recognition
+
+build:
+  local:
+    push: false
+    useBuildkit: true
+  artifacts:
+    - image: kamerplanter-inference-service
+      context: src/inference-service
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
+
+deploy:
+  statusCheckDeadlineSeconds: 1800
+  helm:
+    releases:
+      - name: kamerplanter-recognition
+        chartPath: helm/kamerplanter
+        valuesFiles:
+          - helm/kamerplanter/values-dev-recognition.yaml
+        namespace: default
+        setValueTemplates:
+          controllers.inference-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_inference_service}}"
+          controllers.inference-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_inference_service}}"
+
+portForward:
   - resourceType: service
-    resourceName: kamerplanter-ki-inference-service
+    resourceName: kamerplanter-recognition
     namespace: default
     port: 8000
     localPort: 8091

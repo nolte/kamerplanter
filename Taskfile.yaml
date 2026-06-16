@@ -31,6 +31,38 @@ tasks:
     cmds:
       - skaffold dev -m kp
 
+  dev:ki:
+    desc: Start Skaffold dev loop for the KI/AI module (knowledge-service, embedding-service, reranker, pgvector) — RAG stack without image recognition
+    cmds:
+      - skaffold dev -m ki
+
+  dev:recognition:
+    desc: Start Skaffold dev loop for image recognition (inference-service) plus the ki module that provides the shared pgvector store. Optional feature (REQ-029-A).
+    cmds:
+      - skaffold dev -m ki -m recognition
+
+  dev:recognition:only:
+    desc: Start only the recognition inference-service (no RAG stack). Requires the kamerplanter-ki pgvector DB to be running already (e.g. from 'task dev:ki').
+    cmds:
+      - skaffold dev -m recognition
+
+  dev:all:
+    desc: Start Skaffold dev loop for all modules (KP Core + KI/AI + recognition)
+    cmds:
+      - skaffold dev -m kp -m ki -m recognition
+
+  # ── Image Recognition (REQ-029-A) ───────────────────────────
+
+  recognition:acquire:
+    desc: Trigger reference-image acquisition for ALL species — populates the DINOv2 pgvector index and the species thumbnails/gallery. Requires the recognition + ki + backend stack running.
+    cmds:
+      - kubectl exec deploy/kamerplanter-celery-worker -n default -- celery -A app.tasks call app.tasks.reference_image_tasks.acquire_all_reference_images_task
+
+  recognition:coverage:
+    desc: Print the reference-image coverage report (how many species are recognizable). Port-forward the backend first (task dev:core) or run inside the cluster.
+    cmds:
+      - 'curl -s http://localhost:8000/api/v1/admin/reference-images/coverage -H "Authorization: Bearer ${ADMIN_TOKEN}"'
+
   # ── System Tuning ───────────────────────────────────────────
 
   fix:inotify:
