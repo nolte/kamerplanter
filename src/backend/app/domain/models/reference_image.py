@@ -5,6 +5,7 @@ separate from the Phase-1 ``identification`` models so the two concerns can
 evolve independently.
 """
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -57,3 +58,26 @@ class AcquisitionResult(BaseModel):
     representative_url: str | None = None
     representative_attribution: str | None = None
     representative_license: str | None = None
+
+
+class ReferenceImageJob(BaseModel):
+    """Coverage report for reference-image acquisition per species (REQ-029-A §5.2).
+
+    Stores only the per-species outcome (counts, license breakdown, usability),
+    never any image bytes. Keyed deterministically by species (see repository).
+    """
+
+    key: str | None = Field(default=None, alias="_key")
+    species_key: str
+    scientific_name: str | None = None
+    status: str = "pending"
+    candidates_found: int = 0
+    accepted: int = 0
+    rejected_license: int = 0
+    rejected_quality: int = 0
+    license_breakdown: dict[str, int] = Field(default_factory=dict)
+    usable_for_recognition: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}

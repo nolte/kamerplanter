@@ -1,6 +1,10 @@
 from app.config.settings import settings as env_settings
 from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
-from app.domain.models.system_settings import HomeAssistantSettings, SystemSettings
+from app.domain.models.system_settings import (
+    HomeAssistantSettings,
+    PlantIdentificationSettings,
+    SystemSettings,
+)
 
 
 class SystemSettingsService:
@@ -79,6 +83,55 @@ class SystemSettingsService:
             "ha_timeout": ha_timeout,
             "source_ha_timeout": timeout_source,
         }
+
+    # ── REQ-029 Pl@ntNet / plant identification ─────────────────────────
+
+    def update_plant_identification_settings(
+        self,
+        plantnet_api_key: str | None,
+    ) -> SystemSettings:
+        """Persist the instance-wide Pl@ntNet API key (DB overrides env)."""
+        stored = self._repo.get()
+        if stored is None:
+            stored = SystemSettings()
+
+        pi = stored.plant_identification
+        if plantnet_api_key is not None:
+            pi.plantnet_api_key = plantnet_api_key
+
+        stored.plant_identification = pi
+        return self._repo.upsert(stored)
+
+    def delete_plant_identification_settings(self) -> bool:
+        """Clear the DB Pl@ntNet key so resolution falls back to the env value."""
+        stored = self._repo.get()
+        if stored is None:
+            return False
+        stored.plant_identification = PlantIdentificationSettings()
+        self._repo.upsert(stored)
+        return True
+
+    def get_effective_plantnet_api_key(self) -> str:
+        """Return the effective Pl@ntNet key: DB value takes precedence over env."""
+        stored = self.get_settings()
+        db_key = stored.plant_identification.plantnet_api_key
+        if db_key:
+            return db_key
+        return env_settings.plantnet_api_key
+
+    def get_plantnet_settings_with_source(self) -> dict:
+        """Return effective Pl@ntNet key with its source (``db``/``env``/``none``)."""
+        stored = self.get_settings()
+        db_key = stored.plant_identification.plantnet_api_key
+
+        if db_key:
+            return {"plantnet_api_key": db_key, "source_plantnet_api_key": "db"}
+        if env_settings.plantnet_api_key:
+            return {
+                "plantnet_api_key": env_settings.plantnet_api_key,
+                "source_plantnet_api_key": "env",
+            }
+        return {"plantnet_api_key": "", "source_plantnet_api_key": "none"}
 
     @staticmethod
     def mask_token(token: str | None) -> str:

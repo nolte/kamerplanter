@@ -11,7 +11,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.domain.models.identification import ReferenceImageJob
+from app.domain.models.reference_image import ReferenceImageJob
 
 
 def _job_key(species_key: str) -> str:

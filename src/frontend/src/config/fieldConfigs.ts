@@ -163,6 +163,7 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/dashboard': 'beginner',
   '/pflege': 'beginner',
   '/pflanzen/plant-instances': 'beginner',
+  '/pflanzen/identifikation': 'beginner',
   '/aufgaben/queue': 'beginner',
   '/kalender': 'intermediate',
   // intermediate adds

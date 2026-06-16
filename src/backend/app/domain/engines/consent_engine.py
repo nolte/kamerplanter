@@ -2,9 +2,6 @@
 
 from app.domain.models.privacy import ConsentPurpose, ConsentRecord
 
-# Well-known consent purpose keys (REQ-025 / REQ-029).
-CONSENT_PURPOSE_PLANT_IDENTIFICATION = "plant_identification"
-
 
 class ConsentEngine:
     """Defines processing purposes and validates consent state changes.
@@ -52,16 +49,15 @@ class ConsentEngine:
         ),
         ConsentPurpose(
             key="plant_identification",
-            label_de="Foto-Pflanzenerkennung",
-            label_en="Photo plant identification",
+            label_de="KI-Pflanzenidentifikation (Bilderkennung)",
+            label_en="AI plant identification (image recognition)",
             description_de=(
-                "Pflanzenfotos werden zur Identifikation an externe Dienste (z.B. Pl@ntNet) "
-                "gesendet. Bilder werden dort nicht dauerhaft gespeichert; lokal wird kein "
-                "Originalbild persistiert."
+                "Senden hochgeladener Pflanzenfotos an Pl@ntNet zur Artbestimmung. "
+                "Das Foto wird vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert."
             ),
             description_en=(
-                "Plant photos are sent to external services (e.g. Pl@ntNet) for identification. "
-                "Images are not stored there permanently; no original image is persisted locally."
+                "Sending uploaded plant photos to Pl@ntNet for species identification. "
+                "The photo is stripped of EXIF metadata before sending and is not persisted."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,

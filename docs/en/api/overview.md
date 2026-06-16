@@ -171,7 +171,17 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 |-------|------------|-------------|-----|
 | Platform Admin | `/admin/platform` | Statistics, tenant and user management | REQ-024 |
 | OIDC Providers | `/admin/oidc-providers` | Federated authentication providers | REQ-023 |
-| Settings | `/admin/settings` | Home Assistant configuration | REQ-018 |
+| Settings | `/admin/settings` | Home Assistant configuration, plant identification (masked) | REQ-018 / REQ-029 |
+| Plant Identification Settings | `/admin/settings/plant-identification` | Manage Pl@ntNet API key (set, test, remove) | REQ-029 |
+
+The plant identification settings endpoints are exclusively accessible to users with the platform role **admin**. The key is never returned in plain text in any response.
+
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| `GET` | `/admin/settings` | Platform settings including `plant_identification` (key source + masked flag) |
+| `PUT` | `/admin/settings/plant-identification` | Save Pl@ntNet API key (replaces any existing database entry) |
+| `POST` | `/admin/settings/plant-identification/test` | Test the key against Pl@ntNet — returns validity status and remaining daily quota |
+| `DELETE` | `/admin/settings/plant-identification` | Remove the stored key from the database |
 
 ---
 

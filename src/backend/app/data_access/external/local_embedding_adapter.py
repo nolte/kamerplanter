@@ -1,51 +1,52 @@
 """REQ-029-A §3.4 — Self-hosted plant identification via DINOv2 embeddings.
 
-Priority-1 adapter (ahead of the Pl@ntNet fallback). Delegates the heavy
+Phase-2 priority adapter (ahead of the Pl@ntNet fallback). Delegates the heavy
 lifting to the inference-service: it embeds the query image with DINOv2 and
 matches it against the pgvector reference index, returning the top-k species.
 
-The adapter is deliberately I/O-only. It is instantiated with no arguments by
-``IdentificationAdapterRegistry`` on every request (``get_available``), so the
-constructor must stay cheap — it only builds an HTTP client (no connection is
-opened until a call is made). Species master-data enrichment (common names,
-matched species key) is performed by ``IdentificationService`` against the
-scientific name, so no ArangoDB access is needed here.
+Implements the REQ-029 ``PlantIdentificationAdapter`` interface (synchronous,
+same as ``PlantNetAdapter``). Registered with the shared
+``IdentificationAdapterRegistry``; the engine programs against the interface
+only, so switching Phase 1 → Phase 2 is just registration + flipping
+``IDENTIFICATION_PRIMARY_ADAPTER`` (REQ-029-A §0.1.1 point 5).
+
+``external_id`` is namespaced ``local:<species_key>`` per the interface contract.
 """
 
 import structlog
 
 from app.config.settings import settings
 from app.data_access.external.inference_service_client import InferenceServiceClient
-from app.domain.interfaces.plant_identification_adapter import PlantIdentificationAdapter
-from app.domain.models.identification import (
+from app.domain.interfaces.plant_identification_adapter import (
     HealthAssessment,
     IdentificationResult,
     IdentificationSuggestion,
+    PlantIdentificationAdapter,
     PlantOrgan,
 )
-from app.domain.services.identification_adapter_registry import IdentificationAdapterRegistry
+from app.domain.services.identification_registry import IdentificationAdapterRegistry
 
 logger = structlog.get_logger()
+
+ADAPTER_KEY = "local_embedding"
 
 
 @IdentificationAdapterRegistry.register
 class LocalEmbeddingAdapter(PlantIdentificationAdapter):
     """Self-hosted species identification via DINOv2 embedding matching."""
 
-    adapter_key = "local_embedding"
-    supports_health_assessment = False  # Aufgabe B is separate (REQ-029-A §6)
+    adapter_key = ADAPTER_KEY
+    supports_health_assessment = False  # task B is separate (REQ-029-A §6)
     rate_limit_per_day = None  # self-hosted → no external limit
 
     def __init__(self) -> None:
         self._client = InferenceServiceClient(settings.inference_service_url)
-        self._enabled = settings.inference_service_enabled
-        # Registry availability is key-based: a disabled adapter reports an
-        # empty "_api_key" and is therefore treated as unavailable. An enabled
-        # adapter has no key attribute → always available (self-hosted).
-        if not self._enabled:
-            self._api_key = ""
 
-    async def identify(
+    def is_configured(self) -> bool:
+        """Available when the self-hosted inference-service is enabled."""
+        return settings.inference_service_enabled
+
+    def identify(
         self,
         image_data: bytes,
         *,
@@ -54,7 +55,7 @@ class LocalEmbeddingAdapter(PlantIdentificationAdapter):
         include_health: bool = False,
         language: str = "de",
     ) -> IdentificationResult:
-        result = await self._client.match(image_data, k=max_results)
+        result = self._client.match(image_data, k=max_results)
 
         suggestions: list[IdentificationSuggestion] = []
         for rank, match in enumerate(result.get("suggestions", []), start=1):
@@ -75,7 +76,7 @@ class LocalEmbeddingAdapter(PlantIdentificationAdapter):
             is_plant=result.get("is_plant", bool(suggestions)),
         )
 
-    async def diagnose(
+    def diagnose(
         self,
         image_data: bytes,
         *,
@@ -85,5 +86,5 @@ class LocalEmbeddingAdapter(PlantIdentificationAdapter):
             "Health assessment is out of scope for the local adapter (REQ-029-A §6 DiseaseClassifier)."
         )
 
-    async def health_check(self) -> bool:
-        return self._enabled and await self._client.is_ready()
+    def health_check(self) -> bool:
+        return settings.inference_service_enabled and self._client.is_ready()

@@ -20,10 +20,10 @@ import structlog
 from PIL import Image, UnidentifiedImageError
 
 from app.config.settings import settings
-from app.domain.models.identification import ReferenceImageJob
 from app.domain.models.reference_image import (
     AcquisitionResult,
     MediaCandidate,
+    ReferenceImageJob,
 )
 from app.domain.services.image_processing import strip_exif
 from app.domain.services.reference_image_license import is_acceptable

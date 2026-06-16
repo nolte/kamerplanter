@@ -794,6 +794,39 @@ def get_consent_engine():
     return ConsentEngine()
 
 
+# ── REQ-029 Plant identification dependencies ────────────────────
+
+
+def get_identification_repo():
+    from app.data_access.arango.identification_repository import (
+        ArangoIdentificationRepository,
+    )
+
+    return ArangoIdentificationRepository(get_db())
+
+
+def get_identification_service():
+    from app.domain.engines.consent_engine import ConsentEngine
+    from app.domain.engines.identification_engine import IdentificationEngine
+    from app.domain.services.identification_rate_limiter import IdentificationRateLimiter
+    from app.domain.services.identification_registry import IdentificationAdapterRegistry
+    from app.domain.services.identification_service import IdentificationService
+
+    identification_repo = get_identification_repo()
+    engine = IdentificationEngine(
+        species_repo=get_species_repo(),
+        identification_repo=identification_repo,
+    )
+    return IdentificationService(
+        engine=engine,
+        identification_repo=identification_repo,
+        consent_repo=get_consent_repo(),
+        consent_engine=ConsentEngine(),
+        rate_limiter=IdentificationRateLimiter(_get_redis_client()),
+        registry=IdentificationAdapterRegistry,
+    )
+
+
 def get_retention_service():
     from app.domain.services.retention_service import RetentionService
 
@@ -856,30 +889,6 @@ def get_dashboard_service():
 
 
 # ── REQ-029 KI-Bilderkennung dependencies ────────────────────────
-
-
-def get_identification_repo():
-    from app.data_access.arango.identification_repository import (
-        ArangoIdentificationRepository,
-    )
-
-    return ArangoIdentificationRepository(get_db())
-
-
-def get_identification_service():
-    """REQ-029 plant-identification service."""
-    from app.domain.services.identification_adapter_registry import (
-        IdentificationAdapterRegistry,
-    )
-    from app.domain.services.identification_service import IdentificationService
-
-    return IdentificationService(
-        identification_repo=get_identification_repo(),
-        species_repo=get_species_repo(),
-        consent_repo=get_consent_repo(),
-        consent_engine=get_consent_engine(),
-        registry=IdentificationAdapterRegistry,
-    )
 
 
 def get_reference_image_repo():

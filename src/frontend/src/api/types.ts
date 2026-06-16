@@ -3939,3 +3939,87 @@ export interface TestNotificationResponse {
   success: boolean;
   error: string | null;
 }
+
+// REQ-025 — Privacy / consent (Art. 7 DSGVO)
+
+export interface ConsentRecord {
+  purpose: string;
+  label: string;
+  description: string;
+  legal_basis: string;
+  required: boolean;
+  granted: boolean;
+  granted_at: string | null;
+  revoked_at: string | null;
+}
+
+// REQ-029 / REQ-029-A — AI plant identification (Phase 1: Pl@ntNet-first)
+
+/** Plant organ shown in the photo — improves identification accuracy. */
+export type PlantOrgan = 'leaf' | 'flower' | 'fruit' | 'bark' | 'habit' | 'auto';
+
+/** Per-adapter configuration/health state from GET /recognition/status. */
+export interface IdentificationAdapterStatus {
+  configured: boolean;
+  supports_health: boolean;
+  rate_limit_per_day: number | null;
+}
+
+/** Feature availability payload used to toggle the camera UI. */
+export interface IdentificationStatus {
+  available: boolean;
+  primary_adapter: string;
+  active_adapter: string | null;
+  supports_health: boolean;
+  adapters: Record<string, IdentificationAdapterStatus>;
+}
+
+/** A single identification candidate returned by /identify. */
+export interface IdentificationSuggestion {
+  rank: number;
+  scientific_name: string;
+  common_names: string[];
+  family: string | null;
+  genus: string | null;
+  confidence: number;
+  external_id: string;
+  image_url: string | null;
+  gbif_id: number | null;
+  matched_species_key: string | null;
+  species_in_database: boolean;
+  auto_accept: boolean;
+}
+
+/** Result of an /identify call. */
+export interface IdentifyResult {
+  request_key: string | null;
+  is_plant: boolean;
+  suggestions: IdentificationSuggestion[];
+  message: string | null;
+}
+
+/** Result of a /{request_key}/select call — drives the "create plant" step. */
+export interface IdentificationSelection {
+  request_key: string;
+  selected_rank: number;
+  matched_species_key: string | null;
+  scientific_name: string;
+  common_names: string[];
+  family: string | null;
+  genus: string | null;
+  gbif_id: number | null;
+  confidence: number;
+  species_in_database: boolean;
+}
+
+/** A single entry in the identification history. */
+export interface IdentificationHistoryEntry {
+  key: string | null;
+  adapter_key: string;
+  request_type: string;
+  image_organ: string;
+  status: string;
+  results: IdentificationSuggestion[];
+  selected_result_rank: number | null;
+  created_at: string | null;
+}

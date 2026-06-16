@@ -217,6 +217,46 @@ GBIF settings can be passed using the double-underscore delimiter for nesting:
 
 ---
 
+## Photo Identification (REQ-029)
+
+These variables configure optional plant recognition by photo. If none of the API keys are set, the feature is completely disabled — all camera buttons are hidden and no consent dialog is shown.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `PLANTNET_API_KEY` | — | No | API key for Pl@ntNet (free tier: ≤ 500 identifications/day). Register at [my.plantnet.org](https://my.plantnet.org). |
+| `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | No | Pl@ntNet API base URL. Only change for self-hosting or test endpoints. |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`. Extensible through future adapters. |
+| `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | No | Confidence threshold (0–1) above which a suggestion is highlighted as "very certain". |
+| `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | No | Minimum confidence (0–1) required to show a suggestion. Results below this are filtered out. |
+| `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `10` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 400. |
+| `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `0` | No | Maximum requests per user per day. `0` uses the adapter default limit (500 for Pl@ntNet). |
+
+!!! warning "Pl@ntNet for non-commercial use only"
+    The Pl@ntNet free tier is licensed for non-commercial use. For commercial instances review the terms of use at [my.plantnet.org](https://my.plantnet.org).
+
+!!! tip "Kubernetes Secrets"
+    The `PLANTNET_API_KEY` should be stored as a Kubernetes Secret:
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kamerplanter-identification
+    type: Opaque
+    stringData:
+      PLANTNET_API_KEY: "your-api-key"
+    ```
+
+### Feature Toggle Logic
+
+```
+PLANTNET_API_KEY set?
+  ├── Yes  → Pl@ntNet active (species identification, ≤ 500 IDs/day)
+  └── No   → Feature completely disabled
+             (camera buttons hidden, no consent dialog)
+```
+
+---
+
 ## Complete .env Example
 
 ```bash
@@ -258,6 +298,10 @@ HA_ACCESS_TOKEN=
 RERANKER_URL=
 RERANKER_INITIAL_K=20
 RERANKER_TOP_K=5
+
+# Photo identification (empty = feature disabled)
+# PLANTNET_API_KEY=
+# IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
 ```
 
 ---

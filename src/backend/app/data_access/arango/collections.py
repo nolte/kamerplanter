@@ -112,6 +112,9 @@ PHASE_DEFINITIONS = "phase_definitions"
 PHASE_SEQUENCES = "phase_sequences"
 PHASE_SEQUENCE_ENTRIES = "phase_sequence_entries"
 
+# REQ-029 Plant identification (Phase 1 — Pl@ntNet-first)
+IDENTIFICATION_REQUESTS = "identification_requests"
+
 # REQ-025 Privacy & GDPR
 DATA_EXPORT_REQUESTS = "data_export_requests"
 CONSENT_RECORDS = "consent_records"
@@ -119,8 +122,7 @@ PROCESSING_RESTRICTIONS = "processing_restrictions"
 ERASURE_REQUESTS = "erasure_requests"
 EMAIL_CHANGE_REQUESTS = "email_change_requests"
 
-# REQ-029 KI-Bilderkennung
-IDENTIFICATION_REQUESTS = "identification_requests"
+# REQ-029-A DINOv2 — diagnosis (task B, backlog) + reference-image acquisition
 DIAGNOSIS_REQUESTS = "diagnosis_requests"
 REFERENCE_IMAGE_JOBS = "reference_image_jobs"
 
@@ -1302,11 +1304,12 @@ def ensure_collections(db: StandardDatabase) -> None:
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
 
-    # REQ-029 KI-Bilderkennung indexes
+    # REQ-029 plant identification indexes
     identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
     identification_requests_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
     identification_requests_col.add_persistent_index(fields=["created_at"], unique=False)
 
+    # REQ-029-A DINOv2 diagnosis + reference-image acquisition indexes
     diagnosis_requests_col = db.collection(DIAGNOSIS_REQUESTS)
     diagnosis_requests_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
     diagnosis_requests_col.add_persistent_index(fields=["plant_instance_key"], unique=False)

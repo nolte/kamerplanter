@@ -1,145 +1,209 @@
-"""Unit tests for REQ-029 §3.6 IdentificationService.
-
-Covers the core business logic that is not exercised by the adapter/registry
-tests: the consent gate, the confidence-based fallback chain (Szenario A4),
-species enrichment, image validation and the "no image persistence" invariant
-(REQ-029 §5 / REQ-029-A §8).
-"""
+"""REQ-029 §3.6 / §5 — identification service: consent gate, rate limit, status."""
 
 import io
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from PIL import Image
 
-from app.common.exceptions import ForbiddenError, UnsupportedMediaTypeError
-from app.domain.interfaces.plant_identification_adapter import PlantIdentificationAdapter
-from app.domain.models.identification import (
+from app.common.exceptions import ConsentRequiredError, FeatureNotConfiguredError, RateLimitError
+from app.config.settings import settings
+from app.domain.engines.consent_engine import ConsentEngine
+from app.domain.interfaces.plant_identification_adapter import (
+    HealthAssessment,
     IdentificationResult,
-    IdentificationSuggestion,
+    PlantIdentificationAdapter,
     PlantOrgan,
 )
+from app.domain.models.privacy import ConsentRecord
 from app.domain.services.identification_service import IdentificationService
 
 
-def _png_bytes() -> bytes:
-    """A minimal real PNG so strip_exif / is_supported_image accept it."""
-    buf = io.BytesIO()
-    Image.new("RGB", (8, 8), (0, 128, 0)).save(buf, format="PNG")
-    return buf.getvalue()
-
-
-def _suggestion(name: str, confidence: float, rank: int = 1) -> IdentificationSuggestion:
-    return IdentificationSuggestion(
-        rank=rank,
-        scientific_name=name,
-        common_names=[name.split()[0]],
-        confidence=confidence,
-        external_id=f"ext:{name}",
-    )
+def _real_jpeg() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (48, 48), color=(0, 100, 0)).save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 class _StubAdapter(PlantIdentificationAdapter):
-    """Adapter stub returning a preconfigured result."""
-
-    adapter_key = "stub"  # class-level default satisfies the ABC; overridden per instance
+    adapter_key = "plantnet"
     supports_health_assessment = False
-    rate_limit_per_day = None
+    rate_limit_per_day = 500
 
-    def __init__(self, adapter_key: str, result: IdentificationResult) -> None:
-        self.adapter_key = adapter_key
-        self._result = result
-        self.calls = 0
+    def __init__(self, configured: bool = True) -> None:
+        self._configured = configured
 
-    async def identify(self, image_data, **kwargs):  # noqa: ANN001, ANN003
-        self.calls += 1
-        return self._result
+    def is_configured(self) -> bool:
+        return self._configured
 
-    async def diagnose(self, image_data, *, language="de"):  # noqa: ANN001
+    def identify(self, image_data, *, organ=PlantOrgan.AUTO, max_results=5, include_health=False, language="de"):
+        return IdentificationResult(suggestions=[], is_plant=True)
+
+    def diagnose(self, image_data, *, language="de") -> HealthAssessment:
         raise NotImplementedError
 
-    async def health_check(self) -> bool:
-        return True
+
+class _FakeRegistry:
+    """Stand-in for IdentificationAdapterRegistry with a fixed adapter set."""
+
+    def __init__(self, adapters: dict[str, _StubAdapter], preferred_key: str | None) -> None:
+        self._adapters = adapters
+        self._preferred_key = preferred_key
+
+    def get(self, key):
+        adapter = self._adapters.get(key)
+        if adapter is None:
+            raise KeyError(key)
+        return adapter
+
+    def get_preferred(self):
+        if self._preferred_key is None:
+            return None
+        return self._adapters.get(self._preferred_key)
+
+    def all_keys(self):
+        return list(self._adapters.keys())
 
 
-def _make_service(chain, *, consent_allowed: bool, species_known: bool):
-    consent_engine = MagicMock()
-    consent_engine.is_processing_allowed.return_value = consent_allowed
-    consent_repo = MagicMock()
-    consent_repo.get_by_user_and_purpose.return_value = None
+class _FakeConsentRepo:
+    def __init__(self, granted: bool | None) -> None:
+        self._granted = granted
 
-    species_repo = MagicMock()
-    species_repo.get_by_scientific_name.return_value = SimpleNamespace(key="species_x") if species_known else None
+    def get_by_user_and_purpose(self, user_key, purpose):
+        if self._granted is None:
+            return None
+        return ConsentRecord(user_key=user_key, purpose=purpose, granted=self._granted)
 
-    identification_repo = MagicMock()
-    identification_repo.create.side_effect = lambda req: SimpleNamespace(key="req_1")
 
-    registry = MagicMock()
-    registry.get_fallback_chain.return_value = chain
-
-    service = IdentificationService(
-        identification_repo=identification_repo,
-        species_repo=species_repo,
-        consent_repo=consent_repo,
-        consent_engine=consent_engine,
+def _service(*, consent_granted, registry, rate_limiter=None, engine=None) -> IdentificationService:
+    return IdentificationService(
+        engine=engine or MagicMock(),
+        identification_repo=MagicMock(),
+        consent_repo=_FakeConsentRepo(consent_granted),
+        consent_engine=ConsentEngine(),
+        rate_limiter=rate_limiter or MagicMock(),
         registry=registry,
     )
-    return service, identification_repo
 
 
-@pytest.mark.asyncio
-async def test_identify_requires_consent():
-    result = IdentificationResult(suggestions=[_suggestion("Monstera deliciosa", 0.9)])
-    adapter = _StubAdapter("local_embedding", result)
-    service, _ = _make_service([adapter], consent_allowed=False, species_known=True)
-
-    with pytest.raises(ForbiddenError):
-        await service.identify_plant(_png_bytes(), tenant_key="t1", user_key="u1")
-    assert adapter.calls == 0  # consent gate blocks before any adapter call
+def _registry_with_plantnet(configured=True, preferred="plantnet"):
+    adapter = _StubAdapter(configured=configured)
+    return _FakeRegistry({"plantnet": adapter}, preferred if configured else None), adapter
 
 
-@pytest.mark.asyncio
-async def test_identify_rejects_non_image():
-    adapter = _StubAdapter("local_embedding", IdentificationResult())
-    service, _ = _make_service([adapter], consent_allowed=True, species_known=True)
+@pytest.fixture(autouse=True)
+def _full_mode(monkeypatch):
+    """Default every test to the full mode so the consent gate is active.
 
-    with pytest.raises(UnsupportedMediaTypeError):
-        await service.identify_plant(b"this is not an image", tenant_key="t1", user_key="u1")
-
-
-@pytest.mark.asyncio
-async def test_identify_success_enriches_and_persists_no_image():
-    adapter = _StubAdapter(
-        "local_embedding",
-        IdentificationResult(suggestions=[_suggestion("Monstera deliciosa", 0.92)]),
-    )
-    service, repo = _make_service([adapter], consent_allowed=True, species_known=True)
-
-    out = await service.identify_plant(_png_bytes(), organ=PlantOrgan.LEAF, tenant_key="t1", user_key="u1")
-
-    assert out["is_plant"] is True
-    assert out["adapter_key"] == "local_embedding"
-    assert out["suggestions"][0]["scientific_name"] == "Monstera deliciosa"
-    assert out["suggestions"][0]["species_in_database"] is True
-    assert out["suggestions"][0]["matched_species_key"] == "species_x"
-
-    # No-image-persistence invariant: only a hash is stored, image_deleted_at set.
-    persisted = repo.create.call_args.args[0]
-    assert persisted.image_hash.startswith("sha256:")
-    assert persisted.image_deleted_at is not None
-    assert not hasattr(persisted, "image_bytes")
+    The Light-mode behaviour (consent bypass) is exercised explicitly below by
+    overriding ``settings.kamerplanter_mode`` to ``"light"``.
+    """
+    monkeypatch.setattr(settings, "kamerplanter_mode", "full")
 
 
-@pytest.mark.asyncio
-async def test_identify_falls_back_on_low_confidence():
-    weak = _StubAdapter("local_embedding", IdentificationResult(suggestions=[_suggestion("Ficus", 0.30)]))
-    strong = _StubAdapter("plantnet", IdentificationResult(suggestions=[_suggestion("Monstera deliciosa", 0.95)]))
-    service, _ = _make_service([weak, strong], consent_allowed=True, species_known=True)
+def test_identify_blocked_without_consent():
+    registry, _ = _registry_with_plantnet()
+    service = _service(consent_granted=None, registry=registry)
 
-    out = await service.identify_plant(_png_bytes(), tenant_key="t1", user_key="u1")
+    with pytest.raises(ConsentRequiredError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
 
-    assert weak.calls == 1
-    assert strong.calls == 1  # chain advanced to the fallback adapter
-    assert out["adapter_key"] == "plantnet"
-    assert out["suggestions"][0]["scientific_name"] == "Monstera deliciosa"
+
+def test_identify_blocked_with_revoked_consent():
+    registry, _ = _registry_with_plantnet()
+    service = _service(consent_granted=False, registry=registry)
+
+    with pytest.raises(ConsentRequiredError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+
+def test_identify_in_light_mode_skips_backend_consent(monkeypatch):
+    """REQ-027 — Light mode has no consent subsystem; identify must run anyway.
+
+    With no consent record present the full mode would raise ConsentRequiredError;
+    in Light mode the backend gate is skipped and the engine is invoked.
+    """
+    monkeypatch.setattr(settings, "kamerplanter_mode", "light")
+    registry, _ = _registry_with_plantnet()
+    engine = MagicMock()
+    engine.identify.return_value = {"is_plant": True, "suggestions": [], "request_key": "ident_light"}
+    service = _service(consent_granted=None, registry=registry, engine=engine)
+
+    out = service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+    assert out["request_key"] == "ident_light"
+    engine.identify.assert_called_once()
+
+
+def test_identify_full_mode_still_enforces_consent(monkeypatch):
+    """Counterpart: in full mode the consent gate stays a hard precondition."""
+    monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+    registry, _ = _registry_with_plantnet()
+    service = _service(consent_granted=None, registry=registry)
+
+    with pytest.raises(ConsentRequiredError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+
+def test_identify_with_consent_calls_engine():
+    registry, adapter = _registry_with_plantnet()
+    engine = MagicMock()
+    engine.identify.return_value = {"is_plant": True, "suggestions": [], "request_key": "ident_1"}
+    rate_limiter = MagicMock()
+    service = _service(consent_granted=True, registry=registry, rate_limiter=rate_limiter, engine=engine)
+
+    out = service.identify_plant(_real_jpeg(), organ=PlantOrgan.LEAF, tenant_key="t1", user_key="u1")
+
+    assert out["request_key"] == "ident_1"
+    engine.identify.assert_called_once()
+    # Rate limiter uses the adapter's free-tier default (500/day) keyed per user.
+    rate_limiter.check_and_increment.assert_called_once()
+    _, kwargs = rate_limiter.check_and_increment.call_args
+    assert kwargs["key"] == "identify:plantnet:u1"
+    assert kwargs["limit"] == 500
+
+
+def test_identify_feature_not_configured():
+    registry, _ = _registry_with_plantnet(configured=False)
+    service = _service(consent_granted=True, registry=registry)
+
+    with pytest.raises(FeatureNotConfiguredError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+
+def test_identify_propagates_rate_limit():
+    registry, _ = _registry_with_plantnet()
+    rate_limiter = MagicMock()
+    rate_limiter.check_and_increment.side_effect = RateLimitError("plantnet", retry_after=3600)
+    service = _service(consent_granted=True, registry=registry, rate_limiter=rate_limiter)
+
+    with pytest.raises(RateLimitError):
+        service.identify_plant(_real_jpeg(), tenant_key="t1", user_key="u1")
+
+
+def test_status_reports_availability():
+    registry, _ = _registry_with_plantnet()
+    service = _service(consent_granted=True, registry=registry)
+
+    status = service.get_status()
+    assert status["available"] is True
+    assert status["active_adapter"] == "plantnet"
+    assert status["adapters"]["plantnet"]["configured"] is True
+    assert status["adapters"]["plantnet"]["rate_limit_per_day"] == 500
+
+
+def test_status_unavailable_when_unconfigured():
+    registry, _ = _registry_with_plantnet(configured=False)
+    service = _service(consent_granted=True, registry=registry)
+
+    status = service.get_status()
+    assert status["available"] is False
+    assert status["active_adapter"] is None
+
+
+def test_is_available():
+    registry, _ = _registry_with_plantnet()
+    assert _service(consent_granted=True, registry=registry).is_available() is True
+
+    registry_off, _ = _registry_with_plantnet(configured=False)
+    assert _service(consent_granted=True, registry=registry_off).is_available() is False

@@ -1,11 +1,15 @@
-"""Unit tests for REQ-029-A §3.4 LocalEmbeddingAdapter (WS-3)."""
+"""Unit tests for REQ-029-A §3.4 LocalEmbeddingAdapter.
 
-from unittest.mock import AsyncMock
+Synchronous adapter against the REQ-029 PlantIdentificationAdapter interface,
+registered with the shared IdentificationAdapterRegistry.
+"""
+
+from unittest.mock import MagicMock
 
 import pytest
 
 from app.data_access.external.local_embedding_adapter import LocalEmbeddingAdapter
-from app.domain.models.identification import PlantOrgan
+from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 
 
 @pytest.fixture
@@ -30,22 +34,17 @@ def test_metadata():
     assert LocalEmbeddingAdapter.rate_limit_per_day is None
 
 
-def test_disabled_reports_unavailable(_disabled):
+def test_is_configured_follows_enabled_flag(_enabled):
+    assert LocalEmbeddingAdapter().is_configured() is True
+
+
+def test_is_configured_false_when_disabled(_disabled):
+    assert LocalEmbeddingAdapter().is_configured() is False
+
+
+def test_identify_maps_match_response(_enabled):
     adapter = LocalEmbeddingAdapter()
-    # Registry availability convention: disabled → empty _api_key.
-    assert adapter._api_key == ""
-
-
-def test_enabled_has_no_key_attribute(_enabled):
-    adapter = LocalEmbeddingAdapter()
-    # No _api_key attribute → always available (self-hosted).
-    assert not hasattr(adapter, "_api_key")
-
-
-@pytest.mark.asyncio
-async def test_identify_maps_match_response(_enabled):
-    adapter = LocalEmbeddingAdapter()
-    adapter._client.match = AsyncMock(
+    adapter._client.match = MagicMock(
         return_value={
             "suggestions": [
                 {
@@ -68,9 +67,9 @@ async def test_identify_maps_match_response(_enabled):
         }
     )
 
-    result = await adapter.identify(b"img", organ=PlantOrgan.LEAF, max_results=5)
+    result = adapter.identify(b"img", organ=PlantOrgan.LEAF, max_results=5)
 
-    adapter._client.match.assert_awaited_once()
+    adapter._client.match.assert_called_once()
     assert result.is_plant is True
     assert len(result.suggestions) == 2
     top = result.suggestions[0]
@@ -79,36 +78,32 @@ async def test_identify_maps_match_response(_enabled):
     assert top.external_id == "local:species_monstera"
 
 
-@pytest.mark.asyncio
-async def test_identify_empty_match_is_not_plant(_enabled):
+def test_identify_empty_match_is_not_plant(_enabled):
     adapter = LocalEmbeddingAdapter()
-    adapter._client.match = AsyncMock(return_value={"suggestions": [], "is_plant": False})
+    adapter._client.match = MagicMock(return_value={"suggestions": [], "is_plant": False})
 
-    result = await adapter.identify(b"img")
+    result = adapter.identify(b"img")
 
     assert result.suggestions == []
     assert result.is_plant is False
 
 
-@pytest.mark.asyncio
-async def test_diagnose_not_implemented(_enabled):
+def test_diagnose_not_implemented(_enabled):
     adapter = LocalEmbeddingAdapter()
     with pytest.raises(NotImplementedError):
-        await adapter.diagnose(b"img")
+        adapter.diagnose(b"img")
 
 
-@pytest.mark.asyncio
-async def test_health_check_false_when_disabled(_disabled):
+def test_health_check_false_when_disabled(_disabled):
     adapter = LocalEmbeddingAdapter()
-    adapter._client.is_ready = AsyncMock(return_value=True)
+    adapter._client.is_ready = MagicMock(return_value=True)
     # Disabled short-circuits before the HTTP call.
-    assert await adapter.health_check() is False
-    adapter._client.is_ready.assert_not_awaited()
+    assert adapter.health_check() is False
+    adapter._client.is_ready.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_health_check_delegates_to_service_when_enabled(_enabled):
+def test_health_check_delegates_when_enabled(_enabled):
     adapter = LocalEmbeddingAdapter()
-    adapter._client.is_ready = AsyncMock(return_value=True)
-    assert await adapter.health_check() is True
-    adapter._client.is_ready.assert_awaited_once()
+    adapter._client.is_ready = MagicMock(return_value=True)
+    assert adapter.health_check() is True
+    adapter._client.is_ready.assert_called_once()

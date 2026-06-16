@@ -1,29 +1,33 @@
-"""REQ-029 §3.7 — API response schemas for plant identification."""
+"""REQ-029 — API request/response schemas for plant identification.
 
-from typing import Any
+These schemas define the adapter-neutral API contract (REQ-029-A §0.1.1 point 5):
+``external_id`` is namespaced (``plantnet:<id>`` now, ``local:<species_key>``
+later) and the response shape is independent of the active adapter.
+"""
 
 from pydantic import BaseModel, Field
 
 
 class AdapterStatus(BaseModel):
-    """Status of a single identification adapter."""
+    """Per-adapter configuration/health state."""
 
     configured: bool
-    healthy: bool = False
-    supports_health: bool = False
+    supports_health: bool
     rate_limit_per_day: int | None = None
 
 
 class IdentificationStatusResponse(BaseModel):
-    """Status of all identification adapters (feature toggle for the frontend)."""
+    """Status payload used by the frontend to toggle the camera UI."""
 
     available: bool
+    primary_adapter: str
+    active_adapter: str | None = None
     supports_health: bool = False
     adapters: dict[str, AdapterStatus] = Field(default_factory=dict)
 
 
 class SuggestionResponse(BaseModel):
-    """A single enriched identification suggestion."""
+    """A single identification candidate in the response."""
 
     rank: int
     scientific_name: str
@@ -39,36 +43,38 @@ class SuggestionResponse(BaseModel):
     auto_accept: bool = False
 
 
-class IdentificationResponse(BaseModel):
-    """Result of an identification request."""
+class IdentifyResponse(BaseModel):
+    """Result of an ``/identify`` call."""
 
     request_key: str | None = None
-    is_plant: bool = True
-    adapter_key: str | None = None
+    is_plant: bool
     suggestions: list[SuggestionResponse] = Field(default_factory=list)
-    health_assessment: dict[str, Any] | None = None
     message: str | None = None
 
 
-class ConfirmResponse(BaseModel):
-    """Result of confirming an identification suggestion."""
+class SelectResultResponse(BaseModel):
+    """Result of a ``/select`` call — drives the 'create plant' step."""
 
     request_key: str
+    selected_rank: int
     matched_species_key: str | None = None
-    scientific_name: str | None = None
+    scientific_name: str
     common_names: list[str] = Field(default_factory=list)
-    confidence: float | None = None
-    species_in_database: bool = False
+    family: str | None = None
+    genus: str | None = None
+    gbif_id: int | None = None
+    confidence: float
+    species_in_database: bool
 
 
-class HistoryEntry(BaseModel):
-    """A single identification-history entry."""
+class HistoryEntryResponse(BaseModel):
+    """A single entry in the identification history."""
 
-    request_key: str
-    created_at: str | None = None
-    adapter_key: str | None = None
-    request_type: str | None = None
-    image_organ: str | None = None
-    status: str | None = None
-    results: list[dict[str, Any]] = Field(default_factory=list)
+    key: str | None = None
+    adapter_key: str
+    request_type: str
+    image_organ: str
+    status: str
+    results: list[SuggestionResponse] = Field(default_factory=list)
     selected_result_rank: int | None = None
+    created_at: str | None = None

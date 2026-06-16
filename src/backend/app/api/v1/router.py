@@ -23,6 +23,7 @@ from app.api.v1.phase_sequences.router import router as phase_sequences_router
 from app.api.v1.phases.router import router as phase_control_router
 from app.api.v1.privacy.router import public_router as privacy_public_router
 from app.api.v1.profiles.router import router as profiles_router
+from app.api.v1.recognition.router import router as recognition_router
 from app.api.v1.species.router import router as species_router
 from app.api.v1.starter_kits.router import router as starter_kits_router
 from app.api.v1.substrates.router import router as substrates_router
@@ -102,6 +103,7 @@ api_router.include_router(activities_router)
 api_router.include_router(activity_plans_router)
 api_router.include_router(observations_router)
 api_router.include_router(phase_sequences_router)
+api_router.include_router(recognition_router)
 
 # ── Knowledge / RAG (conditional on knowledge service) ────────────
 if settings.knowledge_service_enabled:

@@ -1,171 +1,214 @@
-# Plant Identification
+# Identify a Plant by Photo
 
-The plant identification feature in Kamerplanter lets you identify an unknown plant from a photo — entirely on your own hardware, at no cost, and without your photo ever leaving the instance.
+With photo identification you can photograph an unknown plant and immediately find out what species it is — no botanical knowledge required. The system analyses your photo and suggests the most likely species with a confidence score. You select the matching result and add the plant directly to the system.
+
+!!! note "Optional feature — operator activation required"
+    Photo identification is only available if the operator of your Kamerplanter instance has configured a Pl@ntNet API key. If the feature is not set up, the camera buttons are hidden — all other features continue to work without restriction. **Operators** can find the setup instructions in the [Enabling Plant Photo Identification](admin.md#enabling-plant-photo-identification) section.
+
+!!! note "Available in both deployment modes"
+    Photo identification works in both **Full mode** (with user accounts) and **[Light mode](light-mode.md)** (anonymous access without login). The only difference is in how consent is handled: in Full mode your consent is stored as a consent record in the backend and can be revoked in the privacy settings. In Light mode consent is obtained and stored **client-side in the browser**. The transparency notice (photo is sent to Pl@ntNet/France, EXIF metadata is removed, no permanent storage) is shown in both modes before the first upload.
 
 ---
 
 ## Prerequisites
 
-- A Kamerplanter instance with the inference service enabled (see [Setting Up Plant Identification](../deployment/inference-service.md))
-- At least one [species master record](plant-management.md) with indexed reference images
-- Camera, smartphone upload, or image file (JPEG, PNG; max. 10 MB)
-
-!!! tip "Works offline"
-    The primary path runs entirely locally. No external API key, no data transfer — even on an isolated home network.
+- Access to a Kamerplanter instance where the operator has enabled photo identification
+- Consent to image transfer (a consent dialog is shown the first time you use the feature)
+- A photo of the plant: webcam, smartphone rear camera, or an image file on your device (JPEG or PNG, maximum 10 MB)
 
 ---
 
-## How to Identify a Plant
+## Adding a Plant by Photo
 
-### Step 1: Open Plant Identification
+You can start photo identification in two ways:
 
-Click **Identify Plant** in the navigation or open the dialog via the **"Identify Plant"** button on the master data page.
+**Way 1 — Plant master data overview:**
+Open the master data section from the side menu. Next to the "New Plant" button you will find the **Add by Photo** button.
 
-!!! info "Screenshot pending"
-    This screenshot will be added in a future version.
-
-### Step 2: Take or Upload a Photo
-
-Choose one of three input methods:
-
-=== "Webcam"
-
-    Click **Use Camera**. The browser will ask for camera permission.
-    Point the camera at the plant and click **Capture**.
-
-=== "Smartphone"
-
-    Tap **Take Photo**. Your smartphone opens the camera app directly.
-    Photograph the plant and confirm the image.
-
-=== "Upload File"
-
-    Drag an image file into the highlighted area or click **Select File**.
-    Supported formats: JPEG, PNG (max. 10 MB).
-
-!!! tip "Better identification quality"
-    Photograph a single, well-lit organ (leaf, flower, fruit) against a clean background if possible. The clearer the subject, the more accurate the result.
-
-### Step 3: Select the Plant Organ
-
-Specify which part of the plant you photographed. This improves matching accuracy.
-
-| Organ | Choose when photographing... |
-|-------|------------------------------|
-| Leaf | Leaf blade, petiole, leaf veins |
-| Flower | Flower, bud |
-| Fruit | Fruit, berry, seed |
-| Bark / Stem | Stem, branch, bark texture |
-| Root | Root, rhizome |
-| Whole plant | Entire plant, multiple organs visible |
-
-### Step 4: Start Identification and Review the Result
-
-Click **Identify Plant**. Depending on your hardware, identification takes a few seconds.
-
-The system displays a suggestion list with the most similar species and a confidence score (0–100 %).
-
-!!! info "Screenshot pending"
-    This screenshot will be added in a future version.
-
-**What the confidence scores mean:**
-
-| Confidence range | Meaning | Recommendation |
-|:----------------:|---------|---------------|
-| 85 % and above | High match | Accept directly |
-| 50–84 % | Moderate match | Review and confirm |
-| 10–49 % | Uncertain match | Seek a second opinion |
-| Below 10 % | No reliable result | Retake photo or search manually |
-
-### Step 5: Confirm the Result
-
-Click the suggestion that best matches your plant. The system does **not** create a plant record automatically — you decide explicitly whether to link the plant to this species.
-
-Click **Create with this species** to start a new planting run with the identified species directly.
+**Way 2 — Onboarding Wizard:**
+When setting up your first plant, the Onboarding Wizard optionally offers a "Photograph your plant" step. You can skip this step and add the plant manually.
 
 ---
 
-## When Identification is Uncertain
+## Taking or Uploading a Photo
 
-Not all species are equally well represented in the reference index. The system communicates gaps transparently:
+Once the identification dialog is open, you have three options:
 
-!!! warning "Species with insufficient reference images"
-    If fewer than 5 reference images have been indexed for a species, it will **not** appear in the suggestion list — even if the species exists in the system. In this case, the system offers:
+=== "Camera (smartphone)"
 
-    - **Retake the photo** from a different angle or with a different organ
-    - **Manual search** in the master data
-    - **Second opinion via Pl@ntNet** (only with your consent — see the "Pl@ntNet Fallback" section below)
+    1. Tap **Take photo**
+    2. Your device opens the camera app
+    3. Photograph the plant — a clear leaf or the whole plant works best
+    4. Confirm the photo
 
-### What you can do
+=== "Camera (webcam, desktop)"
 
-1. Try photographing a different plant organ (e.g., flower instead of leaf).
-2. Ensure good lighting and a neutral background.
-3. Search for the species manually via **Master Data > Search** using the scientific or common name.
-4. Enable the Pl@ntNet fallback for a second opinion (see below).
+    1. Click **Take photo**
+    2. Your browser asks for permission to use the camera — confirm this
+    3. A live preview of your webcam opens
+    4. Position the plant in the frame and click **Capture**
 
----
+=== "File upload"
 
-## Pl@ntNet Fallback
+    1. Click **Upload photo** or drag and drop an image file into the highlighted area
+    2. Select a JPEG or PNG file (maximum 10 MB)
 
-When local identification does not yield reliable results (confidence below threshold), the system can optionally query **Pl@ntNet** as an external second opinion.
-
-!!! warning "Your photo leaves the instance"
-    When using the Pl@ntNet fallback, your photo is transmitted to the external Pl@ntNet service (France). Pl@ntNet is free of charge (up to 500 requests/day), but your image leaves your network.
-
-    **Kamerplanter asks for your explicit consent before the first use.** You can revoke this consent at any time under **Settings > Privacy**.
-
-### Granting Pl@ntNet consent
-
-1. Open **Settings > Privacy**.
-2. Enable **"Pl@ntNet fallback for plant identification"**.
-3. Read the privacy notice and confirm.
-
-Once consent has been granted, the option **"Ask Pl@ntNet"** appears automatically in the identification dialog when local confidence is too low.
+!!! tip "Tips for a good photo"
+    - Photograph in good light — natural daylight is ideal
+    - Hold the camera steady so the image is sharp
+    - Show a single clearly visible leaf or the overall shape of the plant where possible
+    - Avoid backgrounds with many other plants
 
 ---
 
-## Privacy at a Glance
+## Specifying the Plant Part (optional)
 
-| Aspect | Primary path (local) | Pl@ntNet fallback |
-|--------|:--------------------:|:-----------------:|
-| Photo leaves the instance | No | Yes |
-| Photo is stored | No | No |
-| Third-country transfer | No | Yes (France, EU) |
-| Cost | €0 | €0 (up to 500/day) |
-| Consent required | No | Yes |
-| EXIF data (GPS, camera data) | Removed | Removed before transfer |
+If you know what is visible in the photo, you can give the system a hint. This improves recognition accuracy:
 
-!!! note "No photo is stored"
-    Kamerplanter never stores your photo permanently. The image is held in memory only during processing and discarded afterwards. The identification log records only which species was identified — no image.
+| Selection | Description |
+|-----------|-------------|
+| **Automatic** | The system detects what is in the image itself (default) |
+| **Leaf** | A single leaf |
+| **Flower** | A flower or blossom |
+| **Fruit** | A fruit or berry |
+| **Bark** | Tree bark |
+| **Whole plant** | The whole plant in overview |
+
+!!! note "Beginner mode"
+    In beginner mode (the default for new users) this selection is hidden. The system works automatically. Experienced users can enable the selection in their account settings.
+
+---
+
+## Reviewing the Analysis Result
+
+After uploading, the system analyses your photo — this usually takes 2–5 seconds. You then see a list of up to five suggestions:
+
+Each suggestion shows:
+
+- **Scientific name** of the species (e.g. *Monstera deliciosa*)
+- **Common name** (e.g. Swiss Cheese Plant)
+- **Confidence percentage** — how certain the system is
+- **Reference image** — a comparison photo of the suggested species
+
+!!! tip "How reliable is the recognition?"
+    A confidence of 85 % or more means the system is very certain. Between 50 % and 85 % you should compare the reference image carefully. Below 50 % the recognition is uncertain — use the manual search in that case.
+
+### If no plant material was detected
+
+If the system displays "No plant material could be detected in the image", either the photo contains no visible plant or the image is too blurry. Click **Take new photo** and try again with a clearer image.
+
+### If the recognition is uncertain
+
+If all suggestions show less than 50 % confidence, the system displays an uncertainty notice. Click **Search manually** to find the species directly by name.
+
+---
+
+## Selecting a Suggestion and Adding a Plant
+
+### Species already in the database
+
+If the recognised species is known to the system, the **Add this plant** button appears:
+
+1. Compare the reference image with your plant
+2. Click **Add this plant**
+3. A form opens with the species pre-filled — give your plant a name (e.g. "Monstera living room")
+4. Optionally set location and substrate
+5. Click **Save**
+
+The plant is now in the system and automatically receives care suggestions based on the recognised species.
+
+### Species not yet in the database
+
+If the recognised species is unknown to the system, you see the notice "This species is not yet in the system". The button then reads **Add species and plant**:
+
+1. Click **Add species and plant**
+2. The system automatically creates the new species (scientific name, family, genus)
+3. Then add your plant as described above
+
+!!! note "New species"
+    Newly created species initially only have basic data (name, family, genus). You can add care data and additional information later in the master data management section or by fetching it via external data enrichment.
+
+---
+
+## Identification History
+
+You can view all your previous photo identifications:
+
+1. Open the side menu and click **Master Data**
+2. Click the **Identification History** tab at the top
+
+The history shows the date, identified species and confidence score for each request. Photos are not stored — only the result and an anonymous checksum of the image (which cannot be used to reconstruct the original).
+
+!!! note "Retention period"
+    History entries are automatically deleted after 90 days.
+
+---
+
+## Daily Limit Reached
+
+Pl@ntNet (free tier) allows a maximum of 500 identifications per day across the entire instance. When this limit is reached, the following message appears:
+
+> "Daily identification limit reached. Available again tomorrow."
+
+The limit applies to all users of the instance combined and resets daily at midnight (UTC). In the meantime you can add plants as usual using the manual species search.
+
+---
+
+## Revoking or Resetting Consent
+
+If you revoke your consent to image transfer, all camera buttons are immediately hidden. Your identification history (without photos) is retained.
+
+=== "Full mode"
+
+    1. Click your profile picture in the top right
+    2. Choose **Account Settings** > **Privacy**
+    3. Under **Consents**, click **Revoke** next to **Photo Identification**
+
+    The revocation is saved with a timestamp in the backend and takes effect immediately. You can grant consent again at any time.
+
+=== "Light mode"
+
+    Light mode has no server-side privacy settings. Your consent is stored in the **local browser storage**.
+
+    1. Open **Account Settings** (top right)
+    2. Click **Photo Identification** > **Reset Consent**
+    3. The consent dialog will appear again the next time you try to upload a photo
+
+    Alternatively: clearing your browser cache or website data will also reset the consent.
+
+---
+
+## Outlook: Offline Recognition (Phase 2)
+
+A future phase plans to run image recognition entirely on your own server (without a third-party service). Photos would then never leave the instance. This feature is still under development and is not yet available.
 
 ---
 
 ## Frequently Asked Questions
 
-??? question "Why does identification return no results for my plant?"
-    Possible reasons: (1) The species is not in the master data — so no reference index can exist. (2) Fewer than 5 reference images are indexed for the species (coverage gap). (3) The photo quality is too low. Try a sharper photo of a different organ.
+??? question "Why don't I see a camera button?"
+    Photo identification is only available if the operator of your Kamerplanter instance has configured a Pl@ntNet API key. Contact the administrator of your instance if you would like to use this feature.
 
-??? question "How accurate is the identification?"
-    Accuracy depends on the quality and number of reference images. For common houseplants, vegetables, and herbs, coverage is high (80–90 %). For exotic or rare species, results may be less certain. The system always shows the confidence score transparently.
+??? question "Are my photos stored?"
+    No. The photo is only sent to Pl@ntNet for analysis and discarded immediately after the response. It is not stored permanently on the Kamerplanter server or at Pl@ntNet. Only the recognition result and an anonymous image checksum are kept in the system.
 
-??? question "Can the identification distinguish cultivars (varieties)?"
-    No. Identification works at species level, not cultivar level. The reason: license-free, cultivar-specific reference images do not exist in sufficient quantity. To identify a specific cultivar, use the manual search in master data.
+??? question "What is Pl@ntNet?"
+    Pl@ntNet is a plant identification service operated by French research institutions (CIRAD, INRAE, INRIA). Identification is performed via an API to which your photo is sent for analysis. Pl@ntNet does not store the image permanently. Your explicit consent is required because the photo briefly reaches the provider's servers in France (EU).
 
-??? question "Are my photos used to train AI models?"
-    No. Kamerplanter uses your photos exclusively for the current identification request. They are neither stored nor used for training or any other purpose.
+??? question "What happens to the GPS location in my photo?"
+    All EXIF metadata is removed before transmission — this includes GPS coordinates, camera model and capture time. Pl@ntNet only receives the raw pixel data.
 
-??? question "Can I use identification without an internet connection?"
-    Yes — the primary path (local DINOv2 inference) works entirely offline. Only the Pl@ntNet fallback requires an internet connection, and only if you have manually activated it.
+??? question "Can I identify a plant disease by photo?"
+    Disease diagnosis by photo is not yet available in this phase. For diagnosing pests and diseases please use the [Pest Management (IPM)](pest-management.md) features with manual inspection.
 
-??? question "I accidentally uploaded a photo with GPS data — was my location saved?"
-    No. Kamerplanter automatically removes all EXIF metadata (including GPS coordinates) before any processing. Location data is never read or stored.
+??? question "I identified the wrong plant — what now?"
+    Open the plant in the master data overview and change the assigned species manually. Click **Edit** and select a different species from the search.
 
 ---
 
 ## See Also
 
-- [Plant Master Data — Adding Species](plant-management.md)
-- [Starting a Planting Run](planting-runs.md)
-- [Privacy (GDPR)](privacy.md)
-- [Setting Up Plant Identification (Deployment)](../deployment/inference-service.md)
-- [Image Recognition Architecture](../architecture/ai-architecture.md#image-recognition-dinov2)
+- [Plant Master Data](plant-management.md)
+- [Onboarding Wizard](onboarding.md)
+- [Privacy & GDPR](privacy.md)
+- [Pest Management (IPM)](pest-management.md)

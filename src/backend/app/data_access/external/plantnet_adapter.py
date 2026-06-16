@@ -1,75 +1,71 @@
-"""REQ-029 §3.3 — Pl@ntNet API v2 adapter (Phase-1 fallback).
+"""REQ-029 §3.3 / REQ-029-A Phase 1 — Pl@ntNet API v2 adapter.
+
+Pl@ntNet is the Phase-1 **primary** identification adapter: free tier
+(<=500 requests/day, non-commercial), API key passed as a query parameter.
+It performs species identification only — health/disease assessment is not
+supported and ``diagnose`` raises ``NotImplementedError`` (REQ-029 §3.3).
 
 Documentation: https://my.plantnet.org/doc/openapi
-Account: https://my.plantnet.org
-Constraints: species identification only (no health assessment).
-Free tier: 500 requests/day (non-commercial).
+Account:       https://my.plantnet.org
 
-The adapter is registered as a fallback. A future ``LocalEmbeddingAdapter``
-(WS-3) registers ahead of it as priority 1; the registry's
-``identification_primary_adapter`` setting decides precedence.
+The adapter follows the established sync-``httpx.Client`` pattern of the
+REQ-011 external adapters (``GBIFAdapter``, ``PerenualAdapter``).
 """
 
 import time
-from datetime import date
-from typing import Any
 
-import httpx
 import structlog
+from httpx import Client, HTTPStatusError, RequestError
 
+from app.common.exceptions import ExternalSourceError, RateLimitError
 from app.config.settings import settings
-from app.domain.interfaces.plant_identification_adapter import PlantIdentificationAdapter
-from app.domain.models.identification import (
+from app.domain.interfaces.plant_identification_adapter import (
     HealthAssessment,
     IdentificationResult,
     IdentificationSuggestion,
+    PlantIdentificationAdapter,
     PlantOrgan,
 )
-from app.domain.services.identification_adapter_registry import IdentificationAdapterRegistry
+from app.domain.services.identification_registry import IdentificationAdapterRegistry
 
 logger = structlog.get_logger()
+
+ADAPTER_KEY = "plantnet"
 
 
 @IdentificationAdapterRegistry.register
 class PlantNetAdapter(PlantIdentificationAdapter):
-    """Adapter for the Pl@ntNet v2 identification API."""
+    """Adapter for the Pl@ntNet v2 identification API (species only)."""
 
-    adapter_key = "plantnet"
+    adapter_key = ADAPTER_KEY
     supports_health_assessment = False
-    rate_limit_per_day = 500
-
-    # Class-level daily counter shared across instances (per process).
-    _request_date: date | None = None
-    _request_count: int = 0
+    rate_limit_per_day = 500  # free, non-commercial tier
 
     def __init__(self) -> None:
         self._base_url = settings.plantnet_base_url
-        # An explicitly disabled adapter reports no key and is thus unavailable.
-        self._api_key = settings.plantnet_api_key if settings.plantnet_enabled else ""
         self._timeout = settings.identification_http_timeout
 
-    # ── Rate-limit tracking ────────────────────────────────────────────
+    def _resolve_api_key(self) -> str:
+        """Resolve the effective Pl@ntNet key at call time (DB overrides env).
 
-    @classmethod
-    def _reset_if_new_day(cls) -> None:
-        today = date.today()  # noqa: DTZ011 — local calendar day for daily quota
-        if cls._request_date != today:
-            cls._request_date = today
-            cls._request_count = 0
+        A key set via the admin UI is stored in ``system_settings`` and must
+        take effect immediately, without a pod restart. This mirrors the
+        ``get_ha_client()`` resolution pattern: query the DB-backed settings
+        service and fall back to the environment variable if the collection
+        does not exist yet (fresh install / migration not yet run).
+        """
+        try:
+            from app.common.dependencies import get_system_settings_service
 
-    @classmethod
-    def _remaining_today(cls) -> int:
-        cls._reset_if_new_day()
-        return max(0, cls.rate_limit_per_day - cls._request_count)
+            return get_system_settings_service().get_effective_plantnet_api_key()
+        except Exception:
+            # Collection may not exist yet — fall back to env.
+            return settings.plantnet_api_key
 
-    @classmethod
-    def _increment(cls) -> None:
-        cls._reset_if_new_day()
-        cls._request_count += 1
+    def is_configured(self) -> bool:
+        return bool(self._resolve_api_key())
 
-    # ── Identification ─────────────────────────────────────────────────
-
-    async def identify(
+    def identify(
         self,
         image_data: bytes,
         *,
@@ -78,45 +74,61 @@ class PlantNetAdapter(PlantIdentificationAdapter):
         include_health: bool = False,
         language: str = "de",
     ) -> IdentificationResult:
+        api_key = self._resolve_api_key()
+        if not api_key:
+            raise ExternalSourceError(ADAPTER_KEY, "Pl@ntNet API key is not configured.")
+
+        organ_param = "auto" if organ == PlantOrgan.AUTO else organ.value
         start = time.monotonic()
-        organ_param = organ.value if organ != PlantOrgan.AUTO else "auto"
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/identify/all",
-                params={
-                    "api-key": self._api_key,
-                    "include-related-images": "true",
-                    "nb-results": max_results,
-                    "lang": language,
-                },
-                files={"images": ("plant.jpg", image_data, "image/jpeg")},
-                data={"organs": organ_param},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-        self._increment()
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-
-        suggestions: list[IdentificationSuggestion] = []
-        for i, result in enumerate(data.get("results", [])[:max_results], start=1):
-            species = result.get("species", {})
-            gbif = species.get("gbif") or {}
-            suggestions.append(
-                IdentificationSuggestion(
-                    rank=i,
-                    scientific_name=species.get("scientificNameWithoutAuthor", ""),
-                    common_names=species.get("commonNames", []),
-                    family=(species.get("family") or {}).get("scientificNameWithoutAuthor"),
-                    genus=(species.get("genus") or {}).get("scientificNameWithoutAuthor"),
-                    confidence=result.get("score", 0.0),
-                    external_id=str(gbif.get("id", "")),
-                    image_url=self._first_image_url(result.get("images")),
-                    gbif_id=gbif.get("id"),
-                    raw_data=result,
+        try:
+            with Client(base_url=self._base_url, timeout=self._timeout) as client:
+                response = client.post(
+                    "/identify/all",
+                    params={
+                        "api-key": api_key,
+                        "include-related-images": "true",
+                        "nb-results": max_results,
+                        "lang": language,
+                    },
+                    files={"images": ("plant.jpg", image_data, "image/jpeg")},
+                    data={"organs": organ_param},
                 )
+                if response.status_code == 429:
+                    raise RateLimitError(ADAPTER_KEY, retry_after=86400)
+                if response.status_code in (401, 403):
+                    raise ExternalSourceError(ADAPTER_KEY, "Pl@ntNet rejected the API key.")
+                if response.status_code == 404:
+                    # Pl@ntNet returns 404 when nothing could be matched.
+                    elapsed_ms = int((time.monotonic() - start) * 1000)
+                    return IdentificationResult(
+                        suggestions=[],
+                        health_assessment=None,
+                        is_plant=False,
+                        api_response_time_ms=elapsed_ms,
+                    )
+                response.raise_for_status()
+                data = response.json()
+        except RateLimitError:
+            raise
+        except (HTTPStatusError, RequestError) as exc:
+            # NEVER log str(exc): an httpx exception message typically embeds the
+            # full request URL, which includes the ``api-key`` query parameter
+            # (a secret). Log only the exception class and, for HTTP status
+            # errors, the response status code.
+            status_code = exc.response.status_code if isinstance(exc, HTTPStatusError) else None
+            logger.warning(
+                "plantnet_identify_failed",
+                error_type=exc.__class__.__name__,
+                status_code=status_code,
             )
+            raise ExternalSourceError(
+                ADAPTER_KEY,
+                "Pl@ntNet request failed: " + exc.__class__.__name__,
+            ) from exc
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        suggestions = self._map_suggestions(data, max_results)
 
         return IdentificationResult(
             suggestions=suggestions,
@@ -125,24 +137,58 @@ class PlantNetAdapter(PlantIdentificationAdapter):
             api_response_time_ms=elapsed_ms,
         )
 
-    async def diagnose(
+    def diagnose(
         self,
         image_data: bytes,
         *,
         language: str = "de",
     ) -> HealthAssessment:
         raise NotImplementedError(
-            "Pl@ntNet does not support health assessment. Use a health-capable adapter for diagnosis."
+            "Pl@ntNet does not support health assessment. Use a health-capable adapter (e.g. Plant.id) for diagnosis."
         )
 
-    async def health_check(self) -> bool:
-        return bool(self._api_key)
+    def health_check(self) -> bool:
+        return self.is_configured()
 
     @staticmethod
-    def _first_image_url(images: list[dict[str, Any]] | None) -> str | None:
-        if not images:
-            return None
-        url = images[0].get("url")
-        if isinstance(url, dict):
-            return url.get("m") or url.get("o") or url.get("s")
-        return url
+    def _map_suggestions(data: dict, max_results: int) -> list[IdentificationSuggestion]:
+        """Map a Pl@ntNet response onto rank-sorted ``IdentificationSuggestion``s.
+
+        ``external_id`` is namespaced ``plantnet:<gbifId>`` to keep the contract
+        adapter-neutral (REQ-029-A §0.1.1 point 5). When no GBIF id is present a
+        slugged scientific name is used as a stable fallback.
+        """
+        suggestions: list[IdentificationSuggestion] = []
+        for index, result in enumerate(data.get("results", [])[:max_results], start=1):
+            species = result.get("species", {})
+            scientific_name = species.get("scientificNameWithoutAuthor", "")
+            gbif = species.get("gbif") or {}
+            gbif_id_raw = gbif.get("id")
+            gbif_id = int(gbif_id_raw) if gbif_id_raw not in (None, "") else None
+
+            if gbif_id is not None:
+                external_id = f"plantnet:{gbif_id}"
+            else:
+                slug = scientific_name.strip().lower().replace(" ", "_") or f"rank{index}"
+                external_id = f"plantnet:{slug}"
+
+            family = (species.get("family") or {}).get("scientificNameWithoutAuthor")
+            genus = (species.get("genus") or {}).get("scientificNameWithoutAuthor")
+            images = result.get("images") or []
+            image_url = (images[0].get("url") or {}).get("m") if images else None
+
+            suggestions.append(
+                IdentificationSuggestion(
+                    rank=index,
+                    scientific_name=scientific_name,
+                    common_names=species.get("commonNames", []) or [],
+                    family=family,
+                    genus=genus,
+                    confidence=float(result.get("score", 0.0)),
+                    external_id=external_id,
+                    image_url=image_url,
+                    gbif_id=gbif_id,
+                    raw_data=result,
+                )
+            )
+        return suggestions

@@ -40,6 +40,14 @@ controllers:
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
           MDNS_ENABLED: "false"  # mDNS is LAN-only, disable in K8s
+          # REQ-029 Plant identification (Phase 1 — Pl@ntNet-first). All optional:
+          # without an API key the feature is disabled and all camera UI is hidden.
+          # PLANTNET_API_KEY must be supplied via a Secret (never hard-coded here),
+          # e.g. through envFrom/secret injection — see §6.2 of REQ-029.
+          IDENTIFICATION_PRIMARY_ADAPTER: "plantnet"
+          IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT: "0.85"
+          IDENTIFICATION_CONFIDENCE_MIN_SHOW: "0.10"
+          IDENTIFICATION_MAX_IMAGE_SIZE_MB: "5"
         probes:
           liveness:
             enabled: true
@@ -797,7 +805,7 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 11434
-        # External APIs (GBIF, Perenual, weather, SMTP, Home Assistant, OIDC)
+        # External APIs (GBIF, Perenual, Pl@ntNet, weather, SMTP, Home Assistant, OIDC)
         - to:
             - ipBlock:
                 cidr: 0.0.0.0/0

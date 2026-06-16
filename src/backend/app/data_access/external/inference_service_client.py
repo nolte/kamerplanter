@@ -30,25 +30,27 @@ class InferenceServiceClient:
     def __init__(self, base_url: str) -> None:
         self._base_url = base_url.rstrip("/")
 
-    # ── Identification path (async) ────────────────────────────────────
+    # ── Identification path ────────────────────────────────────────────
+    # Synchronous to match the REQ-029 PlantIdentificationAdapter interface
+    # (the engine/service/adapters are all sync).
 
-    async def match(self, image_data: bytes, *, k: int = 5) -> dict[str, Any]:
+    def match(self, image_data: bytes, *, k: int = 5) -> dict[str, Any]:
         """Embed an image and return the top-k matching species.
 
         Response shape (REQ-029-A §3.3):
             ``{"suggestions": [{"rank", "species_key", "scientific_name",
             "score", "confidence"}], "is_plant": bool, "model": str}``
         """
-        async with httpx.AsyncClient(timeout=_MATCH_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                f"{self._base_url}/match",
-                params={"k": k},
-                files={"image": ("query.jpg", image_data, "image/jpeg")},
-            )
-            response.raise_for_status()
-            return response.json()
+        response = httpx.post(
+            f"{self._base_url}/match",
+            params={"k": k},
+            files={"image": ("query.jpg", image_data, "image/jpeg")},
+            timeout=_MATCH_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
 
-    async def is_ready(self) -> bool:
+    def is_ready(self) -> bool:
         """Check whether the model is loaded and the index is reachable."""
         try:
             response = httpx.get(f"{self._base_url}/ready", timeout=_READY_TIMEOUT_SECONDS)

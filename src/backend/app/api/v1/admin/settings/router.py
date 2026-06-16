@@ -6,10 +6,15 @@ from app.api.v1.admin.settings.schemas import (
     HASettingsUpdate,
     HATestRequest,
     HATestResponse,
+    PlantIdentificationSettingsResponse,
+    PlantIdentificationSettingsUpdate,
+    PlantIdentificationTestRequest,
+    PlantIdentificationTestResponse,
     SystemSettingsResponse,
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_ha_client, get_system_settings_service
+from app.config.settings import settings
 from app.domain.models.user import User
 from app.domain.services.system_settings_service import SystemSettingsService
 
@@ -18,6 +23,7 @@ router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
 def _build_response(service: SystemSettingsService) -> SystemSettingsResponse:
     info = service.get_ha_settings_with_source()
+    plantnet = service.get_plantnet_settings_with_source()
     return SystemSettingsResponse(
         home_assistant=HASettingsResponse(
             ha_url=info["ha_url"] or "",
@@ -26,6 +32,10 @@ def _build_response(service: SystemSettingsService) -> SystemSettingsResponse:
             source_ha_url=info["source_ha_url"],
             source_ha_access_token=info["source_ha_access_token"],
             source_ha_timeout=info["source_ha_timeout"],
+        ),
+        plant_identification=PlantIdentificationSettingsResponse(
+            plantnet_api_key_masked=service.mask_token(plantnet["plantnet_api_key"]),
+            source_plantnet_api_key=plantnet["source_plantnet_api_key"],
         ),
     )
 
@@ -99,6 +109,81 @@ def delete_ha_settings(
 ):
     service.delete_ha_settings()
     _sync_ha_notification_channel()
+
+
+# ── REQ-029 Pl@ntNet / plant identification ─────────────────────────
+#
+# The Pl@ntNet key is instance-wide (free-tier key for the whole instance,
+# not tenant-scoped), so write/test/delete require platform-admin rights —
+# consistent with the ``admin/platform`` endpoints.
+
+
+@router.put("/plant-identification", response_model=SystemSettingsResponse)
+def update_plant_identification_settings(
+    body: PlantIdentificationSettingsUpdate,
+    _current_user: User = Depends(get_current_user),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Set the instance-wide Pl@ntNet API key (DB overrides the env value)."""
+    service.update_plant_identification_settings(plantnet_api_key=body.plantnet_api_key)
+    return _build_response(service)
+
+
+@router.post("/plant-identification/test", response_model=PlantIdentificationTestResponse)
+def test_plant_identification(
+    body: PlantIdentificationTestRequest,
+    _current_user: User = Depends(get_current_user),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Validate a Pl@ntNet key against the API (provided value or effective key)."""
+    api_key = body.plantnet_api_key or service.get_effective_plantnet_api_key()
+    if not api_key:
+        return PlantIdentificationTestResponse(
+            success=False,
+            message="No Pl@ntNet API key configured.",
+        )
+
+    try:
+        resp = httpx.get(
+            f"{settings.plantnet_base_url.rstrip('/')}/projects",
+            params={"api-key": api_key, "lang": "en"},
+            timeout=settings.identification_http_timeout,
+        )
+        if resp.status_code in (401, 403):
+            return PlantIdentificationTestResponse(
+                success=False,
+                message="Pl@ntNet rejected the API key.",
+            )
+        resp.raise_for_status()
+        return PlantIdentificationTestResponse(
+            success=True,
+            message="Pl@ntNet API key is valid.",
+        )
+    except httpx.ConnectError:
+        return PlantIdentificationTestResponse(success=False, message="Cannot connect to Pl@ntNet.")
+    except httpx.TimeoutException:
+        return PlantIdentificationTestResponse(success=False, message="Connection to Pl@ntNet timed out.")
+    except httpx.HTTPStatusError as exc:
+        # NEVER include str(exc): an httpx message embeds the request URL,
+        # which carries the ``api-key`` query parameter (a secret).
+        return PlantIdentificationTestResponse(
+            success=False,
+            message=f"HTTP {exc.response.status_code}: Pl@ntNet returned an error.",
+        )
+    except Exception:
+        return PlantIdentificationTestResponse(
+            success=False,
+            message="An unexpected error occurred while testing the key.",
+        )
+
+
+@router.delete("/plant-identification", status_code=204)
+def delete_plant_identification_settings(
+    _current_user: User = Depends(get_current_user),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Remove the DB Pl@ntNet key so resolution falls back to the env value."""
+    service.delete_plant_identification_settings()
 
 
 def _sync_ha_notification_channel() -> None:

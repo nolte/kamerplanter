@@ -23,6 +23,7 @@ import userPreferencesReducer from './slices/userPreferencesSlice';
 import importReducer from './slices/importSlice';
 import calendarReducer from './slices/calendarSlice';
 import wateringLogsReducer from './slices/wateringLogsSlice';
+import identificationReducer from './slices/identificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -50,6 +51,7 @@ export const store = configureStore({
     import: importReducer,
     calendar: calendarReducer,
     wateringLogs: wateringLogsReducer,
+    identification: identificationReducer,
   },
 });
 

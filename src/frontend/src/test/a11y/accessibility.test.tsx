@@ -26,7 +26,11 @@ describe('Accessibility (axe)', () => {
 
   it('NotFoundPage has no critical a11y violations', async () => {
     const { container } = renderWithProviders(<NotFoundPage />);
-    await waitFor(() => expectNoCritical(container));
+    // axe() is a heavy DOM scan; under full-suite + coverage load it can exceed
+    // waitFor's 1s default (independent of vitest's testTimeout), causing flaky
+    // CI failures. Give it generous headroom — load, not correctness, should
+    // never decide the run.
+    await waitFor(() => expectNoCritical(container), { timeout: 15000 });
   });
 
   it('LoginPage has no critical a11y violations', async () => {
@@ -43,16 +47,28 @@ describe('Accessibility (axe)', () => {
       },
     });
     const { container } = renderWithProviders(<LoginPage />, { store });
-    await waitFor(() => expectNoCritical(container));
+    // axe() is a heavy DOM scan; under full-suite + coverage load it can exceed
+    // waitFor's 1s default (independent of vitest's testTimeout), causing flaky
+    // CI failures. Give it generous headroom — load, not correctness, should
+    // never decide the run.
+    await waitFor(() => expectNoCritical(container), { timeout: 15000 });
   });
 
   it('EmptyState has no critical a11y violations', async () => {
     const { container } = renderWithProviders(<EmptyState />);
-    await waitFor(() => expectNoCritical(container));
+    // axe() is a heavy DOM scan; under full-suite + coverage load it can exceed
+    // waitFor's 1s default (independent of vitest's testTimeout), causing flaky
+    // CI failures. Give it generous headroom — load, not correctness, should
+    // never decide the run.
+    await waitFor(() => expectNoCritical(container), { timeout: 15000 });
   });
 
   it('ErrorDisplay has no critical a11y violations', async () => {
     const { container } = renderWithProviders(<ErrorDisplay error="Test error" />);
-    await waitFor(() => expectNoCritical(container));
+    // axe() is a heavy DOM scan; under full-suite + coverage load it can exceed
+    // waitFor's 1s default (independent of vitest's testTimeout), causing flaky
+    // CI failures. Give it generous headroom — load, not correctness, should
+    // never decide the run.
+    await waitFor(() => expectNoCritical(container), { timeout: 15000 });
   });
 });

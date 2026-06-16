@@ -16,8 +16,16 @@ class HASettingsResponse(BaseModel):
     source_ha_timeout: str
 
 
+class PlantIdentificationSettingsResponse(BaseModel):
+    """Masked Pl@ntNet key plus its source (``db``/``env``/``none``)."""
+
+    plantnet_api_key_masked: str
+    source_plantnet_api_key: str
+
+
 class SystemSettingsResponse(BaseModel):
     home_assistant: HASettingsResponse
+    plant_identification: PlantIdentificationSettingsResponse
 
 
 class HATestRequest(BaseModel):
@@ -30,3 +38,16 @@ class HATestResponse(BaseModel):
     success: bool
     message: str
     ha_version: str | None = None
+
+
+class PlantIdentificationSettingsUpdate(BaseModel):
+    plantnet_api_key: str | None = None
+
+
+class PlantIdentificationTestRequest(BaseModel):
+    plantnet_api_key: str | None = None
+
+
+class PlantIdentificationTestResponse(BaseModel):
+    success: bool
+    message: str

@@ -1,171 +1,214 @@
-# Pflanzen-Bilderkennung
+# Pflanze per Foto identifizieren
 
-Die Pflanzen-Bilderkennung in Kamerplanter ermöglicht es dir, eine unbekannte Pflanze anhand eines Fotos zu identifizieren — vollständig auf deiner eigenen Hardware, ohne Kosten und ohne dass dein Foto die Instanz verlässt.
+Mit der Foto-Identifikation kannst du eine unbekannte Pflanze fotografieren und sofort erfahren, um welche Art es sich handelt — ohne botanische Vorkenntnisse. Das System analysiert dein Foto und schlägt die wahrscheinlichsten Arten mit Übereinstimmungswert vor. Du wählst den passenden Vorschlag aus und legst die Pflanze direkt im System an.
+
+!!! note "Optionales Feature — Betreiber-Aktivierung erforderlich"
+    Die Foto-Identifikation ist nur verfügbar, wenn der Betreiber deiner Kamerplanter-Instanz einen Pl@ntNet-API-Schlüssel konfiguriert hat. Ist das Feature nicht eingerichtet, sind die Kamera-Schaltflächen ausgeblendet — alle anderen Funktionen laufen uneingeschränkt weiter. **Betreiber** finden die Einrichtungsanleitung im Abschnitt [Pflanzenerkennung per Foto aktivieren](admin.md#pflanzenerkennung-per-foto-aktivieren).
+
+!!! note "Verfügbar in beiden Deployment-Modi"
+    Die Foto-Identifikation funktioniert sowohl im **Full-Modus** (mit Benutzerkonten) als auch im **[Light-Modus](light-mode.md)** (anonymer Zugang ohne Login). Der einzige Unterschied liegt im Datenschutz-Consent: Im Full-Modus wird deine Einwilligung als Consent-Record im Backend gespeichert und ist in den Datenschutzeinstellungen widerrufbar. Im Light-Modus wird die Einwilligung **clientseitig im Browser** eingeholt und gespeichert. Die Transparenzinformation (Foto geht an Pl@ntNet/Frankreich, EXIF-Metadaten werden entfernt, keine dauerhafte Speicherung) erscheint in beiden Modi vor dem ersten Upload.
 
 ---
 
 ## Voraussetzungen
 
-- Kamerplanter-Instanz mit aktiviertem Inferenz-Service (siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md))
-- Mindestens ein angelegtes [Stammdaten-Artprofil](plant-management.md) mit indexierten Referenzbildern
-- Kamera, Smartphone-Upload oder Bilddatei (JPEG, PNG; max. 10 MB)
-
-!!! tip "Funktioniert auch ohne Internet"
-    Im Primärpfad läuft die Erkennung vollständig lokal. Kein externer API-Key, kein Datentransfer — auch in einem abgeschotteten Heimnetz.
+- Zugang zu einer Kamerplanter-Instanz, auf der die Foto-Identifikation vom Betreiber eingerichtet wurde
+- Einwilligung zur Bildübertragung (beim ersten Aufruf wird ein Einwilligungs-Dialog angezeigt)
+- Ein Foto der Pflanze: Webcam, Smartphone-Rückkamera oder eine Bilddatei auf deinem Gerät (JPEG oder PNG, maximal 10 MB)
 
 ---
 
-## So erkennst du eine Pflanze
+## Pflanze per Foto hinzufügen
 
-### Schritt 1: Bilderkennung öffnen
+Du kannst die Foto-Identifikation auf zwei Wegen starten:
 
-Klicke in der Navigation auf **Pflanze erkennen** oder öffne den Dialog über die Schaltfläche **"Pflanze identifizieren"** auf der Stammdaten-Seite.
+**Weg 1 — Stammdaten-Übersicht:**
+Öffne die Stammdaten-Übersicht über das Seitenmenü. Neben der Schaltfläche „Neue Pflanze" findest du die Schaltfläche **Per Foto hinzufügen**.
 
-!!! info "Screenshot folgt"
-    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
+**Weg 2 — Onboarding-Wizard:**
+Beim Einrichten deiner ersten Pflanze bietet der Onboarding-Wizard optional den Schritt „Pflanze fotografieren" an. Du kannst diesen Schritt überspringen und die Pflanze manuell anlegen.
 
-### Schritt 2: Foto aufnehmen oder hochladen
+---
 
-Wähle eine der drei Eingabemethoden:
+## Foto aufnehmen oder hochladen
 
-=== "Webcam"
+Sobald der Identifikations-Dialog geöffnet ist, hast du drei Möglichkeiten:
 
-    Klicke auf **Kamera verwenden**. Der Browser fragt nach der Kamera-Berechtigung.
-    Richte die Kamera auf die Pflanze und klicke auf **Aufnehmen**.
+=== "Kamera (Smartphone)"
 
-=== "Smartphone"
+    1. Tippe auf **Foto aufnehmen**
+    2. Dein Gerät öffnet die Kamera-App
+    3. Fotografiere die Pflanze — am besten ein deutliches Blatt oder die gesamte Pflanze
+    4. Bestätige das Foto
 
-    Tippe auf **Foto aufnehmen**. Dein Smartphone öffnet die Kamera-App direkt.
-    Fotografiere die Pflanze und bestätige das Bild.
+=== "Kamera (Webcam, Desktop)"
+
+    1. Klicke auf **Foto aufnehmen**
+    2. Dein Browser fragt nach der Erlaubnis, die Kamera zu verwenden — bestätige diese
+    3. Es öffnet sich eine Live-Vorschau deiner Webcam
+    4. Positioniere die Pflanze im Bild und klicke auf **Aufnehmen**
 
 === "Datei hochladen"
 
-    Ziehe eine Bilddatei in den markierten Bereich oder klicke auf **Datei auswählen**.
-    Unterstützte Formate: JPEG, PNG (max. 10 MB).
+    1. Klicke auf **Foto hochladen** oder ziehe eine Bilddatei per Drag & Drop in den markierten Bereich
+    2. Wähle eine JPEG- oder PNG-Datei (maximal 10 MB)
 
-!!! tip "Bessere Erkennungsqualität"
-    Fotografiere ein einzelnes, gut beleuchtetes Organ (Blatt, Blüte, Frucht) möglichst ohne ablenkenden Hintergrund. Je klarer das Motiv, desto treffsicherer das Ergebnis.
-
-### Schritt 3: Pflanzenorgan auswählen
-
-Gib an, welchen Pflanzenteil du abgelichtet hast. Das verbessert die Treffsicherheit des Matchings.
-
-| Organ | Wählen wenn... |
-|-------|---------------|
-| Blatt | Blatt, Blattstiel, Blattnerven |
-| Blüte | Blüte, Knospe |
-| Frucht | Frucht, Beere, Samen |
-| Rinde / Stamm | Stamm, Ast, Borke |
-| Wurzel | Wurzel, Rhizom |
-| Gesamt | Gesamte Pflanze, mehrere Organe sichtbar |
-
-### Schritt 4: Erkennung starten und Ergebnis auswerten
-
-Klicke auf **Pflanze erkennen**. Die Erkennung dauert je nach Hardware wenige Sekunden.
-
-Das System zeigt dir eine Vorschlagsliste mit den ähnlichsten Arten und einem Konfidenzwert (0–100 %).
-
-!!! info "Screenshot folgt"
-    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
-
-**Was die Konfidenzwerte bedeuten:**
-
-| Konfidenzbereich | Bedeutung | Empfehlung |
-|:----------------:|-----------|-----------|
-| 85 % und höher | Hohe Übereinstimmung | Art direkt übernehmen |
-| 50–84 % | Mäßige Übereinstimmung | Ergebnis prüfen und bestätigen |
-| 10–49 % | Unsichere Übereinstimmung | Zweitmeinung einholen |
-| Unter 10 % | Keine verlässliche Erkennung | Neue Aufnahme versuchen oder manuell suchen |
-
-### Schritt 5: Ergebnis bestätigen
-
-Klicke auf den Vorschlag, der am besten passt. Das System legt die Art **nicht automatisch an** — du entscheidest explizit, ob du die Pflanze mit dieser Art verknüpfst.
-
-Klicke auf **Diese Art anlegen**, um direkt einen neuen Pflanzdurchlauf mit der erkannten Art zu starten.
+!!! tip "Tipps für ein gutes Foto"
+    - Fotografiere bei gutem Licht — Tageslicht ist ideal
+    - Halte die Kamera ruhig, damit das Bild scharf ist
+    - Zeige möglichst ein einzelnes, gut sichtbares Blatt oder die Gesamtform der Pflanze
+    - Vermeide Hintergründe mit vielen anderen Pflanzen
 
 ---
 
-## Wenn die Erkennung unsicher ist
+## Pflanzenteil angeben (optional)
 
-Nicht alle Arten sind gleich gut im Referenz-Index vertreten. Das System kommuniziert Lücken offen:
+Wenn du weißt, was auf dem Foto zu sehen ist, kannst du dem System einen Hinweis geben. Das verbessert die Erkennungsgenauigkeit:
 
-!!! warning "Art ohne ausreichende Referenzbilder"
-    Wenn für eine Art weniger als 5 Referenzbilder indexiert sind, erscheint sie **nicht** in der Vorschlagsliste — auch wenn sie vorhanden ist. In diesem Fall bietet das System an:
+| Auswahl | Beschreibung |
+|---------|-------------|
+| **Automatisch** | Das System erkennt selbst, was im Bild zu sehen ist (Standard) |
+| **Blatt** | Ein einzelnes Blatt |
+| **Blüte** | Eine Blume oder Blüte |
+| **Frucht** | Eine Frucht oder Beere |
+| **Rinde** | Baumrinde |
+| **Ganze Pflanze** | Die gesamte Pflanze im Überblick |
 
-    - **Erneute Aufnahme** aus einem anderen Winkel oder mit anderem Organ
-    - **Manuelle Suche** in den Stammdaten
-    - **Zweitmeinung per Pl@ntNet** (nur mit deiner Einwilligung — sieh Abschnitt "Pl@ntNet-Fallback" weiter unten)
-
-### Was du tun kannst
-
-1. Versuche ein Foto eines anderen Pflanzenorgans (z.B. Blüte statt Blatt).
-2. Achte auf gute Beleuchtung und einen neutralen Hintergrund.
-3. Suche die Art manuell über **Stammdaten > Suche** nach wissenschaftlichem oder deutschem Namen.
-4. Aktiviere den Pl@ntNet-Fallback für eine Zweitmeinung (siehe unten).
+!!! note "Anfängermodus"
+    Im Anfänger-Modus (Standard für neue Nutzer) ist diese Auswahl ausgeblendet. Das System arbeitet automatisch. Erfahrene Nutzer können die Auswahl in den Kontoeinstellungen einblenden.
 
 ---
 
-## Pl@ntNet-Fallback
+## Analyseergebnis auswerten
 
-Wenn die lokale Erkennung keine verlässlichen Ergebnisse liefert (Konfidenz unter dem Schwellenwert), kann das System optional **Pl@ntNet** als externe Zweitmeinung anfragen.
+Nach dem Hochladen analysiert das System dein Foto — das dauert in der Regel 2–5 Sekunden. Anschließend siehst du eine Liste mit bis zu fünf Vorschlägen:
 
-!!! warning "Dein Foto verlässt die Instanz"
-    Bei Nutzung des Pl@ntNet-Fallbacks wird dein Foto an den externen Pl@ntNet-Dienst (Frankreich) übertragen. Pl@ntNet ist kostenlos (bis 500 Anfragen/Tag), aber dein Bild verlässt dabei dein Netzwerk.
+Jeder Vorschlag zeigt:
 
-    **Kamerplanter fragt vor der ersten Nutzung nach deiner ausdrücklichen Einwilligung.** Du kannst diese Einwilligung jederzeit unter **Einstellungen > Datenschutz** widerrufen.
+- **Wissenschaftlichen Namen** der Art (z. B. *Monstera deliciosa*)
+- **Deutschen Allgemeinnamen** (z. B. Fensterblatt)
+- **Übereinstimmung in Prozent** — wie sicher das System ist
+- **Referenzbild** — ein Vergleichsfoto der vorgeschlagenen Art
 
-### Pl@ntNet-Einwilligung erteilen
+!!! tip "Wie zuverlässig ist die Erkennung?"
+    Eine Übereinstimmung von 85 % oder mehr bedeutet, dass das System sehr sicher ist. Zwischen 50 % und 85 % solltest du das Referenzbild sorgfältig vergleichen. Unter 50 % ist die Erkennung unsicher — nutze in diesem Fall die manuelle Suche.
 
-1. Öffne **Einstellungen > Datenschutz**.
-2. Aktiviere **"Pl@ntNet-Fallback für Bilderkennung"**.
-3. Lies den Datenschutzhinweis und bestätige.
+### Wenn kein Pflanzenmaterial erkannt wurde
 
-Nach erteilter Einwilligung erscheint im Erkennungsdialog automatisch die Option **"Pl@ntNet befragen"**, wenn die lokale Konfidenz zu niedrig ist.
+Zeigt das System die Meldung „Es konnte kein Pflanzenmaterial im Bild erkannt werden", liegt entweder kein Pflanzenanteil im Foto vor oder das Bild ist zu unscharf. Klicke auf **Neues Foto aufnehmen** und versuche es mit einem klareren Bild.
+
+### Wenn die Erkennung unsicher ist
+
+Sind alle Vorschläge mit weniger als 50 % Übereinstimmung angegeben, zeigt das System einen Hinweis auf die Unsicherheit. Klicke auf **Manuell suchen**, um die Art direkt über den Namen zu finden.
 
 ---
 
-## Datenschutz auf einen Blick
+## Vorschlag auswählen und Pflanze anlegen
 
-| Aspekt | Primärpfad (lokal) | Pl@ntNet-Fallback |
-|--------|:-----------------:|:-----------------:|
-| Foto verlässt die Instanz | Nein | Ja |
-| Foto wird gespeichert | Nein | Nein |
-| Drittland-Transfer | Nein | Ja (Frankreich, EU) |
-| Kosten | 0 € | 0 € (bis 500/Tag) |
-| Einwilligung erforderlich | Nein | Ja |
-| EXIF-Daten (GPS, Kameradaten) | Werden entfernt | Werden vor Transfer entfernt |
+### Art ist bereits in der Datenbank vorhanden
 
-!!! note "Kein Bild wird gespeichert"
-    Kamerplanter speichert dein Foto in keinem Fall dauerhaft. Das Bild wird nur während der Verarbeitung im Arbeitsspeicher gehalten und danach verworfen. Im Erkennungsprotokoll erscheint nur, welche Art erkannt wurde — kein Bild.
+Wenn die erkannte Art im System bekannt ist, erscheint die Schaltfläche **Diese Pflanze anlegen**:
+
+1. Vergleiche das Referenzbild mit deiner Pflanze
+2. Klicke auf **Diese Pflanze anlegen**
+3. Ein Formular öffnet sich mit der vorausgefüllten Art — gib deiner Pflanze einen Namen (z. B. „Monstera Wohnzimmer")
+4. Lege optional Standort und Substrat fest
+5. Klicke auf **Anlegen**
+
+Die Pflanze ist jetzt im System und bekommt automatisch passende Pflegevorschläge auf Basis der erkannten Art.
+
+### Art ist noch nicht in der Datenbank
+
+Falls die erkannte Art dem System unbekannt ist, siehst du den Hinweis „Diese Art ist noch nicht im System". Die Schaltfläche lautet dann **Art hinzufügen und Pflanze anlegen**:
+
+1. Klicke auf **Art hinzufügen und Pflanze anlegen**
+2. Das System legt die neue Art automatisch an (wissenschaftlicher Name, Familie, Gattung)
+3. Lege anschließend deine Pflanze an wie oben beschrieben
+
+!!! note "Neue Arten"
+    Neu angelegte Arten haben zunächst nur die Grunddaten (Name, Familie, Gattung). Pflegedaten und weitere Informationen kannst du später in der Stammdaten-Verwaltung ergänzen oder über die externe Datenanreicherung abrufen.
+
+---
+
+## Identifikations-Verlauf
+
+Du kannst alle deine bisherigen Foto-Identifikationen einsehen:
+
+1. Öffne das Seitenmenü und klicke auf **Stammdaten**
+2. Klicke oben auf den Tab **Identifikations-Verlauf**
+
+Der Verlauf zeigt Datum, erkannte Art und Übereinstimmungswert jeder Anfrage. Fotos selbst werden nicht gespeichert — nur das Ergebnis und ein Prüfwert des Bildes (kein Rückschluss auf das Original möglich).
+
+!!! note "Aufbewahrungsdauer"
+    Verlaufseinträge werden nach 90 Tagen automatisch gelöscht.
+
+---
+
+## Tages-Limit erreicht
+
+Pl@ntNet (Free-Tier) erlaubt maximal 500 Identifikationen pro Tag über die gesamte Instanz. Wenn dieses Limit erreicht ist, erscheint die Meldung:
+
+> „Tages-Limit für Bilderkennung erreicht. Morgen wieder verfügbar."
+
+Das Limit gilt für alle Nutzer der Instanz zusammen und erneuert sich täglich um Mitternacht (UTC). In der Zwischenzeit kannst du Pflanzen wie gewohnt manuell über die Artsuche anlegen.
+
+---
+
+## Einwilligung widerrufen oder zurücksetzen
+
+Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schaltflächen sofort ausgeblendet. Dein Identifikations-Verlauf (ohne Fotos) bleibt erhalten.
+
+=== "Full-Modus"
+
+    1. Klicke oben rechts auf dein Profilbild
+    2. Wähle **Konto-Einstellungen** > **Datenschutz**
+    3. Klicke unter **Einwilligungen** neben **Foto-Identifikation** auf **Widerrufen**
+
+    Der Widerruf wird mit Zeitstempel im Backend gespeichert und gilt sofort. Du kannst die Einwilligung jederzeit erneut erteilen.
+
+=== "Light-Modus"
+
+    Im Light-Modus gibt es keine serverseitigen Datenschutz-Einstellungen. Die Einwilligung ist im **lokalen Browserspeicher** hinterlegt.
+
+    1. Öffne die **Kontoeinstellungen** (oben rechts)
+    2. Klicke auf **Foto-Identifikation** > **Einwilligung zurücksetzen**
+    3. Beim nächsten Foto-Upload wird der Einwilligungs-Dialog erneut angezeigt
+
+    Alternativ: Wenn du den Browser-Cache oder die Website-Daten löschst, wird die Einwilligung ebenfalls zurückgesetzt.
+
+---
+
+## Ausblick: Offline-Erkennung (Phase 2)
+
+In einer zukünftigen Phase ist geplant, die Bilderkennung vollständig auf dem eigenen Server zu betreiben (ohne Drittanbieter). Fotos würden dann die Instanz nicht verlassen. Diese Funktion befindet sich noch in der Entwicklung und ist noch nicht verfügbar.
 
 ---
 
 ## Häufige Fragen
 
-??? question "Warum liefert die Erkennung keine Ergebnisse für meine Pflanze?"
-    Mögliche Ursachen: (1) Die Art ist in den Stammdaten nicht angelegt — dann kann auch kein Referenz-Index existieren. (2) Für die Art existieren weniger als 5 Referenzbilder (Abdeckungslücke). (3) Das Foto hat zu geringe Qualität. Versuche es mit einem schärferen Bild eines anderen Pflanzenorgans.
+??? question "Warum sehe ich keine Kamera-Schaltfläche?"
+    Die Foto-Identifikation ist nur verfügbar, wenn der Betreiber deiner Kamerplanter-Instanz einen Pl@ntNet-API-Schlüssel konfiguriert hat. Wende dich an den Administrator deiner Instanz, wenn du diese Funktion nutzen möchtest.
 
-??? question "Wie genau ist die Erkennung?"
-    Die Treffsicherheit hängt von der Qualität und Anzahl der Referenzbilder ab. Für gängige Zimmerpflanzen, Gemüse und Kräuter ist die Abdeckung hoch (80–90 %). Für exotische oder seltene Arten kann die Erkennung unsicherer sein. Das System zeigt dir den Konfidenzwert immer transparent an.
+??? question "Werden meine Fotos gespeichert?"
+    Nein. Das Foto wird nur zur Analyse an Pl@ntNet übertragen und sofort nach der Antwort verworfen. Es wird weder auf dem Kamerplanter-Server noch bei Pl@ntNet dauerhaft gespeichert. Im System bleibt nur das Ergebnis der Erkennung und ein anonymer Prüfwert des Bildes.
 
-??? question "Kann die Erkennung Sorten (Cultivare) unterscheiden?"
-    Nein. Die Erkennung arbeitet auf Artebene (Species), nicht auf Sortenebene. Der Grund: Lizenzfreie, sortengenaue Referenzbilder existieren nicht in ausreichender Menge. Wenn du eine bestimmte Sorte identifizieren möchtest, nutze die manuelle Suche in den Stammdaten.
+??? question "Was ist Pl@ntNet?"
+    Pl@ntNet ist ein von französischen Forschungseinrichtungen (CIRAD, INRAE, INRIA) betriebener Pflanzendienst. Die Identifikation erfolgt über eine API, an die dein Foto zur Analyse gesendet wird. Pl@ntNet speichert das Bild nicht dauerhaft. Die Nutzung erfordert deine ausdrückliche Einwilligung, weil das Foto kurzzeitig die Server des Anbieters in Frankreich (EU) erreicht.
 
-??? question "Werden meine Fotos für das Training von KI-Modellen verwendet?"
-    Nein. Kamerplanter verwendet deine Fotos ausschließlich für die aktuelle Erkennungsanfrage. Sie werden weder gespeichert noch für Training oder andere Zwecke genutzt.
+??? question "Was passiert mit dem GPS-Standort in meinem Foto?"
+    Vor der Übertragung werden alle EXIF-Metadaten entfernt — dazu gehören GPS-Koordinaten, Kameramodell und Aufnahmezeitpunkt. Pl@ntNet erhält nur die reinen Bilddaten.
 
-??? question "Kann ich die Erkennung ohne Internetverbindung verwenden?"
-    Ja — der Primärpfad (lokale DINOv2-Inferenz) funktioniert vollständig offline. Nur der Pl@ntNet-Fallback erfordert eine Internetverbindung, und nur wenn du ihn manuell aktiviert hast.
+??? question "Kann ich eine Pflanzenkrankheit per Foto erkennen?"
+    Die Krankheitsdiagnose per Foto ist noch nicht in dieser Phase verfügbar. Für die Diagnose von Schädlingen und Krankheiten nutze bitte die [Pflanzenschutz (IPM)](pest-management.md)-Funktionen mit manueller Inspektion.
 
-??? question "Ich habe versehentlich ein Foto mit GPS-Daten hochgeladen — wurde der Standort gespeichert?"
-    Nein. Kamerplanter entfernt alle EXIF-Metadaten (einschließlich GPS-Koordinaten) automatisch vor jeder Verarbeitung. Standortdaten werden niemals ausgelesen oder gespeichert.
+??? question "Ich habe die Pflanze falsch identifiziert — was jetzt?"
+    Öffne die Pflanze in der Stammdaten-Übersicht und ändere die zugeordnete Art manuell. Gehe auf **Bearbeiten** und wähle eine andere Art aus der Suche.
 
 ---
 
 ## Siehe auch
 
-- [Stammdaten — Pflanzenarten anlegen](plant-management.md)
-- [Pflanzdurchlauf starten](planting-runs.md)
-- [Datenschutz (DSGVO)](privacy.md)
-- [Bilderkennung in Betrieb nehmen (Deployment)](../deployment/inference-service.md)
-- [Architektur der Bilderkennung](../architecture/ai-architecture.md#bilderkennung-dinov2)
+- [Stammdaten verwalten](plant-management.md)
+- [Onboarding-Wizard](onboarding.md)
+- [Datenschutz & DSGVO](privacy.md)
+- [Pflanzenschutz (IPM)](pest-management.md)
