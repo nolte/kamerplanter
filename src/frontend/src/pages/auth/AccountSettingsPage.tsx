@@ -35,7 +35,13 @@ import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip';
+import Link from '@mui/material/Link';
 import ErrorIcon from '@mui/icons-material/Error';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import EmojiNatureIcon from '@mui/icons-material/EmojiNature';
 import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
@@ -78,8 +84,14 @@ import {
   updateHaSettings,
   testHaConnection,
   clearHaSettings,
+  updatePlantIdentificationSettings,
+  testPlantIdentificationKey,
+  clearPlantIdentificationSettings,
 } from '@/api/endpoints/adminSettings';
-import type { HATestResponse } from '@/api/endpoints/adminSettings';
+import type {
+  HATestResponse,
+  PlantIdentificationTestResponse,
+} from '@/api/endpoints/adminSettings';
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
@@ -186,6 +198,17 @@ export default function AccountSettingsPage() {
   const [haSaveSuccess, setHaSaveSuccess] = useState(false);
   const [haResetDone, setHaResetDone] = useState(false);
   const [haLoaded, setHaLoaded] = useState(false);
+  // Pl@ntNet (plant identification) settings state
+  const [plantnetKey, setPlantnetKey] = useState('');
+  const [plantnetMaskedKey, setPlantnetMaskedKey] = useState('');
+  const [plantnetSource, setPlantnetSource] = useState('');
+  const [plantnetTestResult, setPlantnetTestResult] = useState<PlantIdentificationTestResponse | null>(null);
+  const [plantnetSaving, setPlantnetSaving] = useState(false);
+  const [plantnetTesting, setPlantnetTesting] = useState(false);
+  const [plantnetResetOpen, setPlantnetResetOpen] = useState(false);
+  const [plantnetSaveSuccess, setPlantnetSaveSuccess] = useState(false);
+  const [plantnetResetDone, setPlantnetResetDone] = useState(false);
+  const [plantnetKeyVisible, setPlantnetKeyVisible] = useState(false);
 
   const hasLocalProvider = providers.some((p) => p.provider === 'local');
 
@@ -258,9 +281,13 @@ export default function AccountSettingsPage() {
       setSourceToken(ha.source_ha_access_token);
       setSourceTimeout(ha.source_ha_timeout);
       setHaAccessToken('');
+      const pi = resp.plant_identification;
+      setPlantnetMaskedKey(pi.plantnet_api_key_masked);
+      setPlantnetSource(pi.source_plantnet_api_key);
+      setPlantnetKey('');
       setHaLoaded(true);
     } catch {
-      /* ignore — HA settings optional */
+      /* ignore — settings optional */
     }
   }, []);
 
@@ -317,12 +344,68 @@ export default function AccountSettingsPage() {
     }
   };
 
+  const handlePlantnetSave = async () => {
+    setPlantnetSaving(true);
+    setPlantnetSaveSuccess(false);
+    setPlantnetTestResult(null);
+    try {
+      await updatePlantIdentificationSettings({ plantnet_api_key: plantnetKey });
+      setPlantnetSaveSuccess(true);
+      await loadHaSettings();
+    } catch {
+      setError(t('errors.server'));
+    } finally {
+      setPlantnetSaving(false);
+    }
+  };
+
+  const handlePlantnetTest = async () => {
+    setPlantnetTesting(true);
+    setPlantnetTestResult(null);
+    try {
+      const result = await testPlantIdentificationKey({
+        plantnet_api_key: plantnetKey || null,
+      });
+      setPlantnetTestResult(result);
+    } catch {
+      setPlantnetTestResult({ success: false, message: t('errors.network') });
+    } finally {
+      setPlantnetTesting(false);
+    }
+  };
+
+  const handlePlantnetReset = async () => {
+    setPlantnetResetOpen(false);
+    setPlantnetResetDone(false);
+    try {
+      await clearPlantIdentificationSettings();
+      setPlantnetResetDone(true);
+      await loadHaSettings();
+    } catch {
+      setError(t('errors.server'));
+    }
+  };
+
   const haSourceLabel = (source: string) => {
     switch (source) {
       case 'db': return t('pages.admin.sourceDb');
       case 'env': return t('pages.admin.sourceEnv');
       default: return t('pages.admin.sourceDefault');
     }
+  };
+
+  const plantnetSourceLabel = (source: string) => {
+    switch (source) {
+      case 'db': return t('pages.admin.sourceDb');
+      case 'env': return t('pages.admin.sourceEnv');
+      default: return t('pages.admin.plantnetSourceNone');
+    }
+  };
+
+  const plantnetSourceColor = (source: string): 'primary' | 'default' | 'secondary' => {
+    if (source === 'db') return 'primary';
+    if (source === 'env') return 'secondary';
+    return 'default';
   };
 
   const haSourceColor = (source: string): 'primary' | 'default' | 'secondary' => {
@@ -986,6 +1069,172 @@ export default function AccountSettingsPage() {
             </CardContent>
           </Card>
           )}
+
+          {/* Plant identification (Pl@ntNet) — instance-wide, REQ-029 Phase 1 */}
+          <Card
+            variant="outlined"
+            sx={{
+              gridColumn: preferences?.smart_home_enabled
+                ? { xs: '1 / -1', md: '2 / 3' }
+                : '1 / -1',
+            }}
+          >
+            <CardContent
+              component="fieldset"
+              sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
+            >
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.admin.plantnetSection')}
+              </Typography>
+
+              {/* Intro text with clickable link to registration page */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {t('pages.admin.plantnetSectionHelperPre')}{' '}
+                <Link
+                  href="https://my.plantnet.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  underline="always"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
+                >
+                  my.plantnet.org
+                  <OpenInNewIcon sx={{ fontSize: 13 }} aria-hidden="true" />
+                </Link>
+                {', '}
+                {t('pages.admin.plantnetSectionHelperPost')}
+              </Typography>
+              <Alert severity="info" icon={false} sx={{ mb: 2.5, py: 0.5 }}>
+                <Typography variant="body2">
+                  {t('pages.admin.plantnetSectionEffect')}
+                </Typography>
+              </Alert>
+
+              <Box>
+                <TextField
+                  fullWidth
+                  type={plantnetKeyVisible ? 'text' : 'password'}
+                  label={t('pages.admin.plantnetApiKey')}
+                  value={plantnetKey}
+                  onChange={(e) => {
+                    setPlantnetKey(e.target.value);
+                    setPlantnetSaveSuccess(false);
+                    setPlantnetTestResult(null);
+                  }}
+                  placeholder={t('pages.admin.plantnetApiKeyPlaceholder')}
+                  autoComplete="new-password"
+                  helperText={
+                    plantnetMaskedKey
+                      ? `${t('pages.admin.plantnetApiKeyHelper')}: ${plantnetMaskedKey}`
+                      : t('pages.admin.notConfigured')
+                  }
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={
+                              plantnetKeyVisible
+                                ? t('pages.admin.plantnetHideKey')
+                                : t('pages.admin.plantnetShowKey')
+                            }
+                            onClick={() => setPlantnetKeyVisible((v) => !v)}
+                            edge="end"
+                            size="small"
+                            data-testid="plantnet-key-visibility-toggle"
+                          >
+                            {plantnetKeyVisible ? (
+                              <VisibilityOffIcon fontSize="small" />
+                            ) : (
+                              <VisibilityIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  data-testid="plantnet-key-field"
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.75 }}>
+                  <Tooltip
+                    title={t(`pages.admin.plantnetSourceTooltip.${plantnetSource || 'none'}`)}
+                    arrow
+                  >
+                    <Chip
+                      size="small"
+                      label={plantnetSourceLabel(plantnetSource)}
+                      color={plantnetSourceColor(plantnetSource)}
+                      icon={<InfoOutlinedIcon />}
+                      aria-label={`${t('pages.admin.plantnetSourceAriaPrefix')}: ${plantnetSourceLabel(plantnetSource)}`}
+                      data-testid="plantnet-source-chip"
+                    />
+                  </Tooltip>
+                </Box>
+              </Box>
+
+              {plantnetTestResult && (
+                <Alert
+                  severity={plantnetTestResult.success ? 'success' : 'error'}
+                  icon={plantnetTestResult.success ? <CheckCircleIcon /> : <ErrorIcon />}
+                  sx={{ mt: 2 }}
+                  data-testid="plantnet-test-result-alert"
+                >
+                  {plantnetTestResult.message}
+                </Alert>
+              )}
+              {plantnetSaveSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }} data-testid="plantnet-save-success-alert">
+                  {t('pages.admin.plantnetSaved')}
+                </Alert>
+              )}
+              {plantnetResetDone && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  {t('pages.admin.plantnetResetDone')}
+                </Alert>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 1, mt: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Tooltip
+                  title={
+                    !plantnetKey && !plantnetMaskedKey
+                      ? t('pages.admin.plantnetTestDisabledHint')
+                      : ''
+                  }
+                  disableHoverListener={!!(plantnetKey || plantnetMaskedKey)}
+                >
+                  <span>
+                    <Button
+                      variant="outlined"
+                      onClick={handlePlantnetTest}
+                      disabled={plantnetTesting || (!plantnetKey && !plantnetMaskedKey)}
+                      startIcon={plantnetTesting ? <CircularProgress size={16} /> : undefined}
+                      data-testid="plantnet-test-btn"
+                    >
+                      {t('pages.admin.plantnetTest')}
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  onClick={handlePlantnetSave}
+                  disabled={plantnetSaving || !plantnetKey.trim()}
+                  startIcon={plantnetSaving ? <CircularProgress size={16} /> : undefined}
+                  data-testid="plantnet-save-btn"
+                >
+                  {t('common.save')}
+                </Button>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Button
+                  variant="text"
+                  color="warning"
+                  onClick={() => setPlantnetResetOpen(true)}
+                  disabled={plantnetSource !== 'db'}
+                  data-testid="plantnet-reset-btn"
+                >
+                  {t('pages.admin.plantnetReset')}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
         </Box>
       )}
 
@@ -1327,6 +1576,33 @@ export default function AccountSettingsPage() {
         <DialogActions>
           <Button onClick={() => setHaResetOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleHaReset} color="warning">
+            {t('common.confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Pl@ntNet Reset Dialog */}
+      <Dialog
+        fullScreen={fullScreen}
+        open={plantnetResetOpen}
+        onClose={() => setPlantnetResetOpen(false)}
+        aria-labelledby="plantnet-reset-dialog-title"
+        aria-describedby="plantnet-reset-dialog-desc"
+      >
+        <DialogTitle id="plantnet-reset-dialog-title">
+          {t('pages.admin.plantnetResetDialogTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="plantnet-reset-dialog-desc">
+            {t('pages.admin.plantnetResetConfirm')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          {/* Abbrechen hat Fokus-Priorität bei destruktiven Dialogen */}
+          <Button onClick={() => setPlantnetResetOpen(false)} autoFocus data-testid="plantnet-reset-cancel-btn">
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handlePlantnetReset} color="warning" data-testid="plantnet-reset-confirm-btn">
             {t('common.confirm')}
           </Button>
         </DialogActions>

@@ -171,7 +171,17 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 |--------|------------|--------------|-----|
 | Plattform-Admin | `/admin/platform` | Statistiken, Mandanten-, Nutzerverwaltung | REQ-024 |
 | OIDC-Provider | `/admin/oidc-providers` | Föderierte Authentifizierungs-Provider | REQ-023 |
-| Einstellungen | `/admin/settings` | Home-Assistant-Konfiguration | REQ-018 |
+| Einstellungen | `/admin/settings` | Home-Assistant-Konfiguration, Pflanzenerkennung (maskiert) | REQ-018 / REQ-029 |
+| Pflanzenerkennung-Einstellungen | `/admin/settings/plant-identification` | Pl@ntNet-API-Key verwalten (setzen, prüfen, entfernen) | REQ-029 |
+
+Die Pflanzenerkennung-Einstellungsendpunkte sind ausschließlich für Nutzer mit der Plattform-Rolle **admin** zugänglich. Der Key erscheint in keiner Response im Klartext.
+
+| Methode | Endpunkt | Beschreibung |
+|---------|---------|--------------|
+| `GET` | `/admin/settings` | Plattformeinstellungen inkl. `plant_identification` (Key-Quelle + masked flag) |
+| `PUT` | `/admin/settings/plant-identification` | Pl@ntNet-API-Key speichern (ersetzt vorhandenen DB-Eintrag) |
+| `POST` | `/admin/settings/plant-identification/test` | Key gegen Pl@ntNet prüfen — gibt Gültigkeitsstatus und verbleibende Tageskontingent zurück |
+| `DELETE` | `/admin/settings/plant-identification` | Gespeicherten Key aus der Datenbank entfernen |
 
 ---
 

@@ -7,9 +7,10 @@ Kategorie: Integration / KI
 Fokus: Backend (Inferenz-Microservice), Datenbeschaffung, Architektur
 Technologie: Python 3.14+, ONNX Runtime, FastAPI, ArangoDB (Vektor-Index), Celery, React/TypeScript
 Status: Entwurf
-Version: 1.0
+Version: 1.1
 Quelle: spec/analysis/n-001-pflanzenerkennung-bilderkennung-research.md (Deep-Research, 2026-06-15)
 Korrigiert: REQ-029 v1.0 (primärer Dienst Plant.id ist kostenpflichtig → disqualifiziert; siehe §0)
+Geändert (v1.1): Roll-out in zwei Phasen — Pl@ntNet-Free-Tier-Adapter als sofort lauffähiger Phase-1-Primäradapter, DINOv2-Embedding-Matching als Phase-2-Zielarchitektur (siehe §0.1)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten/Species), REQ-010 v1.0 (IPM), REQ-011 v1.0 (Adapter-Pattern), REQ-025 (Datenschutz), REQ-029 v1.0 (Adapter-Interface, Consent, EXIF, Frontend — wiederverwendet)
 ```
 
@@ -32,6 +33,32 @@ REQ-029 v1.0 spezifiziert Bilderkennung mit **Plant.id (Kindwise) als primärem 
 3. **Plant.id:** wird vom Default zum **rein optionalen Operator-Opt-in** herabgestuft („nur wenn Betreiber die Pro-Request-Kosten bewusst akzeptiert" — kein Standardpfad). Krankheitsdiagnose über Plant.id ist damit **nicht** der vorgesehene Weg für Aufgabe B (siehe §6).
 
 **Wiederverwendet aus REQ-029 v1.0** (nicht erneut spezifiziert): `PlantIdentificationAdapter`-Interface (§3.1), `IdentificationAdapterRegistry` (§3.4), Consent-Mechanismus `plant_identification` (§5), EXIF-Stripping (§5.4), `PlantIdentificationDialog`-Frontend + Onboarding-/IPM-Integration (§4), `identification_requests`/`diagnosis_requests`-Collections (§2). REQ-029-A ergänzt einen **lokalen Adapter** in genau dieser Registry und ersetzt die Default-Priorisierung.
+
+---
+
+## 0.1 Roll-out in zwei Phasen (Pl@ntNet-first) — verbindlich ab v1.1
+
+Die **Ziel-Architektur** (§0, §2) bleibt unverändert: langfristig ist der self-hosted `LocalEmbeddingAdapter` (DINOv2) der primäre, kosten- und datenschutzoptimale Erkennungspfad. Davon zu **unterscheiden** ist die **Roll-out-Reihenfolge**: Der DINOv2-Pfad erfordert einen neuen Inferenz-Microservice (§3), einen ONNX-Modell-Build (§2.3) und eine vollständig durchlaufene Referenzbild-Beschaffung (§4) — bis dahin gibt es keinen Referenz-Index, gegen den gematcht werden könnte. Um sofort ein **lauffähiges, kostenfreies** Erkennungsfeature auszuliefern, erfolgt die Umsetzung in zwei Phasen.
+
+| | **Phase 1 — Pl@ntNet-first (MVP-Auslieferung)** | **Phase 2 — DINOv2-Zielarchitektur** |
+|---|---|---|
+| **Primäradapter (Prio 1)** | `PlantNetAdapter` (REQ-029 §3.3, Free-Tier ≤500/Tag) | `LocalEmbeddingAdapter` (REQ-029-A §3.4) |
+| **Fallback (Prio 2)** | — (optional: Plant.id nur bei Operator-Opt-in) | `PlantNetAdapter` (rückt auf Prio 2) |
+| **Neue Infrastruktur** | keine — nur App-Adapter + Frontend-Capture + Consent | Inferenz-Microservice, ONNX-Build, GBIF-Beschaffung, Vektor-Index |
+| **Foto verlässt Instanz?** | ja → Pl@ntNet (Consent **Pflicht**, EXIF-Strip, opt-in) | nein im Primärpfad (lokal); Pl@ntNet nur als Consent-Fallback |
+| **Scope** | Aufgabe A (Artbestimmung) | Aufgabe A lokal; B/C als Stufe 3/4 (§6) |
+
+### 0.1.1 Verbindliche Festlegungen für Phase 1
+
+1. **Adapter-Priorität ist konfigurierbar**, nicht hartkodiert. Die `IdentificationAdapterRegistry` (REQ-029 §3.4) liefert den bevorzugten Adapter über eine **Konfiguration** (`IDENTIFICATION_PRIMARY_ADAPTER`, Default in Phase 1 = `"plantnet"`). Der Wechsel auf `"local_embedding"` in Phase 2 ist eine reine Konfigurations-/Registrierungsänderung — **kein** Eingriff in Engine, Service, API oder Frontend.
+2. **Pl@ntNet ist in Phase 1 kein Fallback, sondern Primärpfad.** Da das Nutzerfoto damit zwingend an einen Dritten geht, ist der Consent `plant_identification` (REQ-029 §5) in Phase 1 **harte Voraussetzung** für jede Identifikation (nicht nur für einen optionalen Fallback). Ohne Consent ist das Feature nicht nutzbar; der Datenschutzhinweis nennt Pl@ntNet als Empfänger und die Query-Metadaten-Speicherung. Das EXIF-Stripping (REQ-029 §5.4) gilt unverändert.
+3. **Kandidaten-Auswahl ist Pflichtbestandteil von Phase 1** (Nutzer-Anforderung „zwischen verschiedenen Arten wählen"): Die `PlantNetAdapter`-Antwort liefert eine **Vorschlagsliste** (`IdentificationSuggestion[]`, nach `rank` sortiert). Das Frontend zeigt die Top-k zur **expliziten Auswahl** durch den Nutzer; die Auswahl wird über `select_result(selected_rank)` (REQ-029 §3.5) persistiert und mündet erst danach in „Pflanze anlegen". Es erfolgt **kein stilles Auto-Anlegen** der Top-1, auch nicht oberhalb `CONFIDENCE_AUTO_ACCEPT`.
+4. **Bildquelle Webcam und Smartphone** (Nutzer-Anforderung): Das `PlantIdentificationDialog` (REQ-029 §4.1) bietet beide Erfassungswege an — `navigator.mediaDevices.getUserMedia()` für die Live-Webcam (Desktop/Kiosk) und `<input type="file" accept="image/*" capture="environment">` für die Smartphone-Rückkamera; zusätzlich Datei-Upload/Drag&Drop. Erfasste Bilder werden vor dem Versand auf das Pl@ntNet-Limit (Auflösung/Format) normalisiert und EXIF-gestript.
+5. **Phase 1 darf keine Phase-2-Brücken verbauen:** API-Vertrag (`/identify`, Request/Response-Schemas), `identification_requests`-Collection und Frontend-Dialog werden so umgesetzt, dass Phase 2 ausschließlich einen weiteren Adapter registriert und die Default-Priorität umschaltet. Insbesondere bleibt das `external_id`-Schema adapterneutral (`plantnet:<gbifId>` bzw. später `local:<species_key>`), und die Engine bleibt gegen das `PlantIdentificationAdapter`-Interface programmiert.
+
+### 0.1.2 Auswirkung auf die Definition of Done
+
+Die DoD in §10 beschreibt den **Phase-2-Endzustand** (DINOv2). Für die **Phase-1-Auslieferung** gilt die reduzierte DoD in §10.1 (NEU). Die Phase-2-DoD bleibt der Zielzustand und wird nicht abgeschwächt.
 
 ---
 
@@ -383,7 +410,22 @@ FOR e IN species_embeddings
 
 ## 10. Akzeptanzkriterien
 
-### Definition of Done (MVP — Aufgabe A):
+### 10.1 Definition of Done — Phase 1 (Pl@ntNet-first, sofortige MVP-Auslieferung) — NEU v1.1
+
+- [ ] **PlantNetAdapter** (REQ-029 §3.3) implementiert, in der `IdentificationAdapterRegistry` registriert und über `IDENTIFICATION_PRIMARY_ADAPTER="plantnet"` als **Prio 1** gesetzt
+- [ ] **Pl@ntNet-API-Client:** Free-Tier (≤500/Tag), freier API-Key per Konfiguration; Rate-Limit-Handling + verständlicher Fehlerzustand bei Limit/Key-Fehlern
+- [ ] **Consent als harte Voraussetzung:** ohne `plant_identification`-Consent (REQ-029 §5) keine Identifikation; Datenschutzhinweis nennt Pl@ntNet als Empfänger; **EXIF-Strip** vor jedem Versand
+- [ ] **Frontend-Capture:** `PlantIdentificationDialog` mit (a) Webcam via `getUserMedia()`, (b) Smartphone-Rückkamera via `<input capture="environment">`, (c) Datei-Upload/Drag&Drop; Bildnormalisierung vor Versand
+- [ ] **Kandidaten-Auswahl:** Top-k `IdentificationSuggestion` werden zur **expliziten Nutzerauswahl** angezeigt; `select_result(rank)` persistiert die Wahl; kein stilles Auto-Anlegen der Top-1
+- [ ] **„Pflanze anlegen":** aus dem gewählten Vorschlag → PlantInstance/Species-Verknüpfung (Onboarding REQ-020 + jederzeit, REQ-029 §4.2)
+- [ ] **identification_requests**-Collection (REQ-029 §2) schreibt Request + Ergebnisse + `selected_result_rank`; **kein** Nutzerfoto persistiert
+- [ ] **Phase-2-Brücke intakt:** API-Vertrag, Response-Schema und `external_id` adapterneutral; Engine gegen `PlantIdentificationAdapter`-Interface; Umstieg auf Phase 2 = Adapter-Registrierung + Default-Priorität umschalten
+- [ ] **Tests:** PlantNetAdapter (gemockte API, Mapping `IdentificationSuggestion`, Rate-Limit/Fehler), Consent-Gate, Capture-Komponente, Select-Result-Flow
+- [ ] **i18n** (DE/EN) für Dialog, Kandidatenliste, Consent-Hinweis, Fehlerzustände
+
+> Phase 1 enthält **keinen** Inferenz-Microservice, **keinen** ONNX-Build und **keine** Referenzbild-Beschaffung — diese sind ausschließlich Phase-2-Scope (§10.2).
+
+### 10.2 Definition of Done — Phase 2 (DINOv2-Zielarchitektur, Aufgabe A):
 
 - [ ] **Inference-Service:** `src/inference-service/` mit ONNX-DINOv2 (Apache-2.0), `/embed`, `/embed/batch`, `/healthz`, `/readyz`, `/modelinfo`
 - [ ] **Preprocessing-Contract** zentral implementiert und index-/query-identisch verwendet

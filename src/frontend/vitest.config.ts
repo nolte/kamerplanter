@@ -18,8 +18,8 @@ export default defineConfig({
     // past the 5s default under full-suite parallelism — especially with v8
     // coverage instrumentation, which roughly doubles wall-clock. Give every
     // test and hook enough headroom that load, not correctness, decides the run.
-    testTimeout: 20000,
-    hookTimeout: 20000,
+    testTimeout: 30000,
+    hookTimeout: 30000,
     server: {
       deps: {
         // @mui/material's Transition.mjs (MUI 9.1.1+) does an extensionless

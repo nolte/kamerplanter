@@ -40,6 +40,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
@@ -109,6 +110,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.plantInstances'),
           path: '/pflanzen/plant-instances',
           icon: <LocalFloristIcon />,
+        },
+        {
+          label: t('nav.plantIdentification'),
+          path: '/pflanzen/identifikation',
+          icon: <PhotoCameraIcon />,
         },
         {
           label: t('nav.calculations'),

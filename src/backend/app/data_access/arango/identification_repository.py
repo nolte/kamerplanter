@@ -1,0 +1,75 @@
+"""REQ-029 §2 — ArangoDB repository for identification requests."""
+
+from arango.database import StandardDatabase
+
+from app.data_access.arango import collections as col
+from app.data_access.arango.base_repository import BaseArangoRepository
+from app.domain.interfaces.identification_repository import IIdentificationRepository
+from app.domain.models.identification import IdentificationRequest
+
+
+class ArangoIdentificationRepository(IIdentificationRepository, BaseArangoRepository):
+    """ArangoDB-backed repository for ``identification_requests``."""
+
+    def __init__(self, db: StandardDatabase) -> None:
+        BaseArangoRepository.__init__(self, db, col.IDENTIFICATION_REQUESTS)
+
+    def create(self, request: IdentificationRequest) -> IdentificationRequest:
+        doc = BaseArangoRepository.create(self, request)
+        return IdentificationRequest(**doc)
+
+    def get(self, key: str, tenant_key: str) -> IdentificationRequest | None:
+        doc = BaseArangoRepository.get_by_key(self, key)
+        if doc is None or doc.get("tenant_key") != tenant_key:
+            return None
+        return IdentificationRequest(**doc)
+
+    def set_selected_rank(
+        self,
+        key: str,
+        tenant_key: str,
+        selected_rank: int,
+    ) -> IdentificationRequest | None:
+        query = """
+        FOR req IN @@collection
+          FILTER req._key == @key AND req.tenant_key == @tenant_key
+          UPDATE req WITH {
+            selected_result_rank: @rank,
+            updated_at: @now
+          } IN @@collection
+          RETURN NEW
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "key": key,
+            "tenant_key": tenant_key,
+            "rank": selected_rank,
+            "now": self._now(),
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        updated = next(cursor, None)
+        if updated is None:
+            return None
+        return IdentificationRequest(**self._from_doc(updated))
+
+    def list_for_user(
+        self,
+        tenant_key: str,
+        user_key: str,
+        limit: int = 20,
+    ) -> list[IdentificationRequest]:
+        query = """
+        FOR req IN @@collection
+          FILTER req.tenant_key == @tenant_key AND req.user_key == @user_key
+          SORT req.created_at DESC
+          LIMIT @limit
+          RETURN req
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "user_key": user_key,
+            "limit": limit,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [IdentificationRequest(**self._from_doc(doc)) for doc in cursor]

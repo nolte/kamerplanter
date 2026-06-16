@@ -47,6 +47,21 @@ class ConsentEngine:
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
         ),
+        ConsentPurpose(
+            key="plant_identification",
+            label_de="KI-Pflanzenidentifikation (Bilderkennung)",
+            label_en="AI plant identification (image recognition)",
+            description_de=(
+                "Senden hochgeladener Pflanzenfotos an Pl@ntNet zur Artbestimmung. "
+                "Das Foto wird vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert."
+            ),
+            description_en=(
+                "Sending uploaded plant photos to Pl@ntNet for species identification. "
+                "The photo is stripped of EXIF metadata before sending and is not persisted."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
     ]
 
     def get_all_purposes(self) -> list[ConsentPurpose]:

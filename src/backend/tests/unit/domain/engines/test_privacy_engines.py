@@ -30,6 +30,19 @@ class TestDataExportEngine:
         errors = engine.validate_export_request("u1", [])
         assert errors == []
 
+    def test_manifest_includes_identification_requests(self):
+        """GDPR-002: Art. 15/20 export must cover plant identification requests."""
+        engine = DataExportEngine()
+        manifest = engine.build_export_manifest("u1")
+        entry = next((e for e in manifest if e.collection == "identification_requests"), None)
+        assert entry is not None
+        assert entry.filter_field == "user_key"
+        assert {"adapter_key", "image_organ", "status", "results", "selected_result_rank", "created_at"} <= set(
+            entry.fields
+        )
+        # image_hash is an internal dedup/audit value and must NOT be exported.
+        assert "image_hash" not in entry.fields
+
 
 class TestErasureEngine:
     def test_build_plan_contains_all_phases(self):
@@ -58,6 +71,22 @@ class TestErasureEngine:
     def test_tombstone_hash_distinct_users(self):
         salt = "x" * 32
         assert ErasureEngine.compute_tombstone_hash("u1", salt) != ErasureEngine.compute_tombstone_hash("u2", salt)
+
+    def test_delete_order_includes_identification_requests(self):
+        """GDPR-001: Art. 17 erasure must hard-delete plant identification requests.
+
+        identification_requests carries user_key/tenant_key but has no legal
+        retention basis, so it must be hard-deleted (in DELETE_ORDER), not
+        anonymised.
+        """
+        engine = ErasureEngine()
+        plan = engine.build_erasure_plan("u1")
+        assert "identification_requests" in plan.delete
+        # Must be deleted before the user document is removed (no orphan refs).
+        assert plan.delete.index("identification_requests") < plan.delete.index("users")
+        # Must NOT be anonymised — there is no retention obligation.
+        anonymized = {rule.collection for rule in plan.anonymize}
+        assert "identification_requests" not in anonymized
 
 
 class TestConsentEngine:

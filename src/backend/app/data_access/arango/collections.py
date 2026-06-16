@@ -112,6 +112,9 @@ PHASE_DEFINITIONS = "phase_definitions"
 PHASE_SEQUENCES = "phase_sequences"
 PHASE_SEQUENCE_ENTRIES = "phase_sequence_entries"
 
+# REQ-029 Plant identification (Phase 1 — Pl@ntNet-first)
+IDENTIFICATION_REQUESTS = "identification_requests"
+
 # REQ-025 Privacy & GDPR
 DATA_EXPORT_REQUESTS = "data_export_requests"
 CONSENT_RECORDS = "consent_records"
@@ -200,6 +203,7 @@ DOCUMENT_COLLECTIONS = [
     PROCESSING_RESTRICTIONS,
     ERASURE_REQUESTS,
     EMAIL_CHANGE_REQUESTS,
+    IDENTIFICATION_REQUESTS,
 ]
 
 # Edge collections
@@ -1293,6 +1297,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
+
+    # REQ-029 Plant identification indexes
+    identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
+    identification_requests_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    identification_requests_col.add_persistent_index(fields=["created_at"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

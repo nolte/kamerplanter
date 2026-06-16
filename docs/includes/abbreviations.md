@@ -16,3 +16,7 @@
 *[DSGVO]: Datenschutz-Grundverordnung
 *[MQTT]: Message Queuing Telemetry Transport
 *[RFC]: Request for Comments
+*[EXIF]: Exchangeable Image File Format — Metadaten-Format für Bild- und Audiodateien
+*[RAG]: Retrieval-Augmented Generation — KI-Antwortgenerierung mit abgerufenen Kontextdaten
+*[LLM]: Large Language Model — Großes Sprachmodell
+*[ONNX]: Open Neural Network Exchange — Offenes Format für ML-Modelle

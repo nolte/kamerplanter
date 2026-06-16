@@ -13,6 +13,8 @@ import substratesReducer from '@/store/slices/substratesSlice';
 import plantInstancesReducer from '@/store/slices/plantInstancesSlice';
 import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 import authReducer from '@/store/slices/authSlice';
+import identificationReducer from '@/store/slices/identificationSlice';
+import tenantsReducer from '@/store/slices/tenantSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -23,6 +25,8 @@ const rootReducer = combineReducers({
   plantInstances: plantInstancesReducer,
   userPreferences: userPreferencesReducer,
   auth: authReducer,
+  identification: identificationReducer,
+  tenants: tenantsReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

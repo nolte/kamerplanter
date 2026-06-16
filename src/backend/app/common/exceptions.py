@@ -265,3 +265,38 @@ class InvalidTokenError(KamerplanterError):
             error_code="INVALID_TOKEN",
             status_code=401,
         )
+
+
+# ── REQ-029 Plant identification ──
+
+
+class ConsentRequiredError(KamerplanterError):
+    """REQ-029 §5 — processing blocked because a required consent is missing."""
+
+    def __init__(self, purpose: str) -> None:
+        super().__init__(
+            message=f"Consent for '{purpose}' is required for this action.",
+            error_code="CONSENT_REQUIRED",
+            status_code=403,
+            details=[
+                {
+                    "field": "consent",
+                    "reason": f"Grant consent for '{purpose}' to use this feature.",
+                    "code": "CONSENT_REQUIRED",
+                }
+            ],
+        )
+
+
+class FeatureNotConfiguredError(KamerplanterError):
+    """REQ-029 §6.3 — an optional feature is not configured on this instance."""
+
+    def __init__(self, feature: str, hint: str | None = None) -> None:
+        message = f"Feature '{feature}' is not configured."
+        if hint:
+            message = f"{message} {hint}"
+        super().__init__(
+            message=message,
+            error_code="FEATURE_NOT_CONFIGURED",
+            status_code=503,
+        )

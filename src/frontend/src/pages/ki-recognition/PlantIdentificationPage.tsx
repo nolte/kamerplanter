@@ -1,21 +1,195 @@
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
+import Chip from '@mui/material/Chip';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import PageTitle from '@/components/layout/PageTitle';
+import EmptyState from '@/components/common/EmptyState';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import PlantIdentificationDialog, {
+  type IdentifiedSpecies,
+} from '@/components/identification/PlantIdentificationDialog';
+import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  fetchIdentificationHistory,
+  fetchIdentificationStatus,
+} from '@/store/slices/identificationSlice';
 
-/** REQ-029 KI-Pflanzenidentifikation page scaffold. */
+/** REQ-029 / REQ-029-A — AI plant identification page (Phase 1, Pl@ntNet-first).
+ *
+ * Usability improvements over v1:
+ * - Page intro text moved above the feature-gate card (UI-NFR-008 R-038)
+ * - History section has intro text explaining what the list shows (UI-NFR-008 R-038)
+ * - History items show date + top-result name + "selected" chip — previously the
+ *   chip only appeared for selected items; now a "no result" caption is shown for
+ *   failed identifications so the row is never empty
+ * - History list items use Divider between entries for visual separation on dense lists
+ * - Start button has sufficient touch target height (UI-NFR-001 R-011)
+ */
 export default function PlantIdentificationPage() {
   const { t } = useTranslation();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
+  const status = useAppSelector((s) => s.identification.status);
+  const statusLoading = useAppSelector((s) => s.identification.statusLoading);
+  const history = useAppSelector((s) => s.identification.history);
+  const historyLoading = useAppSelector((s) => s.identification.historyLoading);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [resolvedSpecies, setResolvedSpecies] = useState<IdentifiedSpecies | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchIdentificationStatus());
+    dispatch(fetchIdentificationHistory(20));
+  }, [dispatch]);
+
+  const available = status?.available ?? false;
+
+  const handleSpeciesResolved = useCallback((result: IdentifiedSpecies) => {
+    // Hand the identified/created species to the plant-creation flow.
+    setResolvedSpecies(result);
+  }, []);
+
+  const handlePlantCreated = useCallback(
+    (key: string) => {
+      setResolvedSpecies(null);
+      dispatch(fetchIdentificationHistory(20));
+      navigate(`/pflanzen/plant-instances/${key}`);
+    },
+    [dispatch, navigate],
+  );
+
   return (
-    <Box sx={{ p: 3 }} data-testid="plant-identification-page">
-      <Typography variant="h4" gutterBottom>
-        {t('pages.plantIdentification.title', 'KI-Pflanzenerkennung')}
+    <Box sx={{ p: { xs: 2, sm: 3 } }} data-testid="plant-identification-page">
+      <PageTitle
+        title={t('pages.plantIdentification.title')}
+        action={
+          available ? (
+            <Button
+              variant="contained"
+              startIcon={<PhotoCameraIcon />}
+              onClick={() => setDialogOpen(true)}
+              data-testid="open-identification-dialog"
+              sx={{ minHeight: { xs: 48, sm: 40 } }}
+            >
+              {t('pages.plantIdentification.startButton')}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/* Page intro — explains what this feature does before any gating (UI-NFR-008 R-038) */}
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: '72ch' }}>
+        {t('pages.plantIdentification.pageIntro')}
       </Typography>
-      <Typography color="text.secondary">
-        {t(
-          'pages.plantIdentification.scaffoldNotice',
-          'Diese Funktion ist noch in Vorbereitung (REQ-029).'
-        )}
-      </Typography>
+
+      {statusLoading ? (
+        <LoadingSkeleton variant="card" />
+      ) : !available ? (
+        <Alert severity="info" data-testid="page-feature-unavailable">
+          {t('pages.plantIdentification.notConfigured')}
+        </Alert>
+      ) : (
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              {t('pages.plantIdentification.historyTitle')}
+            </Typography>
+
+            {/* History section intro — explains what the list represents (UI-NFR-008 R-038) */}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.plantIdentification.historyIntro')}
+            </Typography>
+
+            {historyLoading ? (
+              <LoadingSkeleton variant="card" />
+            ) : history.length === 0 ? (
+              <EmptyState message={t('pages.plantIdentification.historyEmpty')} />
+            ) : (
+              <List disablePadding data-testid="identification-history-list">
+                {history.map((entry, index) => {
+                  const selected =
+                    entry.selected_result_rank != null
+                      ? entry.results.find((r) => r.rank === entry.selected_result_rank)
+                      : undefined;
+                  const top = entry.results[0];
+                  const shown = selected ?? top;
+                  const isLast = index === history.length - 1;
+                  return (
+                    <Box key={entry.key ?? `${entry.adapter_key}-${entry.created_at}`}>
+                      <ListItem
+                        disableGutters
+                        data-testid="identification-history-item"
+                        secondaryAction={
+                          selected ? (
+                            <Chip
+                              label={t('pages.plantIdentification.historySelected')}
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                            />
+                          ) : undefined
+                        }
+                        sx={{ pr: selected ? 14 : 0 }}
+                      >
+                        <ListItemText
+                          primary={
+                            shown ? (
+                              <Typography sx={{ fontStyle: 'italic' }}>
+                                {shown.scientific_name}
+                              </Typography>
+                            ) : (
+                              <Typography color="text.secondary">
+                                {t('pages.plantIdentification.historyNoResult')}
+                              </Typography>
+                            )
+                          }
+                          secondary={
+                            entry.created_at
+                              ? new Date(entry.created_at).toLocaleString()
+                              : undefined
+                          }
+                        />
+                      </ListItem>
+                      {!isLast && <Divider />}
+                    </Box>
+                  );
+                })}
+              </List>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <PlantIdentificationDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSpeciesResolved={handleSpeciesResolved}
+        onManualSearch={() => {
+          setDialogOpen(false);
+          navigate('/stammdaten/species');
+        }}
+      />
+
+      {/* Create-plant step after a candidate was selected/created */}
+      <PlantInstanceCreateDialog
+        open={resolvedSpecies != null}
+        onClose={() => setResolvedSpecies(null)}
+        onCreated={handlePlantCreated}
+        initialSpeciesKey={resolvedSpecies?.speciesKey}
+      />
     </Box>
   );
 }

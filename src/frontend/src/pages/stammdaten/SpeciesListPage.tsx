@@ -11,6 +11,7 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import Link from '@mui/material/Link';
 import StarIcon from '@mui/icons-material/Star';
@@ -26,6 +27,11 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import type { Species, GrowthHabit } from '@/api/types';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
+import { fetchIdentificationStatus } from '@/store/slices/identificationSlice';
+import PlantIdentificationDialog, {
+  type IdentifiedSpecies,
+} from '@/components/identification/PlantIdentificationDialog';
+import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
 import SpeciesCreateDialog from './SpeciesCreateDialog';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
@@ -85,11 +91,19 @@ export default function SpeciesListPage() {
   const [growthHabitFilter, setGrowthHabitFilter] = useState<GrowthHabit | ''>('');
   const { favorites, toggleFavorite, isFavorite } = useSowingFavorites();
 
+  // REQ-029 §4.2 — "add plant via photo" entry point on the species overview.
+  const [identifyOpen, setIdentifyOpen] = useState(false);
+  const [resolvedSpecies, setResolvedSpecies] = useState<IdentifiedSpecies | null>(null);
+  const identificationAvailable = useAppSelector(
+    (s) => s.identification.status?.available ?? false,
+  );
+
   const plantInstances = useAppSelector((s) => s.plantInstances.items);
 
   useEffect(() => {
     dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
     dispatch(fetchPlantInstances({ offset: 0, limit: 200 }));
+    dispatch(fetchIdentificationStatus());
   }, [dispatch]);
 
   const activeCountMap = useMemo(() => {
@@ -311,6 +325,17 @@ export default function SpeciesListPage() {
 
         <Box sx={{ flex: 1 }} />
 
+        {identificationAvailable && (
+          <Button
+            variant="outlined"
+            startIcon={<PhotoCameraIcon />}
+            onClick={() => setIdentifyOpen(true)}
+            data-testid="identify-by-photo-button"
+          >
+            {t('pages.plantIdentification.addByPhoto')}
+          </Button>
+        )}
+
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -427,6 +452,26 @@ export default function SpeciesListPage() {
           setCreateOpen(false);
           dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
         }}
+      />
+
+      {/* REQ-029 §4.2 — identify by photo → create plant flow */}
+      <PlantIdentificationDialog
+        open={identifyOpen}
+        onClose={() => setIdentifyOpen(false)}
+        onSpeciesResolved={(result) => {
+          dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
+          setResolvedSpecies(result);
+        }}
+        onManualSearch={() => setIdentifyOpen(false)}
+      />
+      <PlantInstanceCreateDialog
+        open={resolvedSpecies != null}
+        onClose={() => setResolvedSpecies(null)}
+        onCreated={(key) => {
+          setResolvedSpecies(null);
+          navigate(`/pflanzen/plant-instances/${key}`);
+        }}
+        initialSpeciesKey={resolvedSpecies?.speciesKey}
       />
     </Box>
   );

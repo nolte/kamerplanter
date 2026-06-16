@@ -112,6 +112,7 @@ plugins:
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
             Druckansichten & Export: Print & Export
+            Pflanze per Foto identifizieren: Identify Plant by Photo
             Gießprotokoll: Watering Log
             Plattform-Admin: Platform Admin
             Architektur: Architecture
@@ -267,6 +268,7 @@ nav:
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
+      - Pflanze per Foto identifizieren: de/user-guide/plant-identification.md
       - Plattform-Admin: de/user-guide/admin.md
   - Architektur:
       - de/architecture/index.md
