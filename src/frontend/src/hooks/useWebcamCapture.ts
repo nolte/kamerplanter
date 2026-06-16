@@ -73,10 +73,10 @@ export function useWebcamCapture(
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => undefined);
-      }
+      // The <video> renders only while isActive is true, so its ref is null
+      // here on first start. Flip isActive and let the effect below bind the
+      // stream once the element is mounted — binding inline would race and
+      // leave a black preview.
       setIsActive(true);
     } catch (err) {
       stop();
@@ -84,7 +84,7 @@ export function useWebcamCapture(
     } finally {
       setIsStarting(false);
     }
-  }, [isSupported, stop, videoRef]);
+  }, [isSupported, stop]);
 
   const capture = useCallback(async (): Promise<File | null> => {
     const video = videoRef.current;
@@ -106,6 +106,19 @@ export function useWebcamCapture(
     if (!blob) return null;
     return new File([blob], `webcam-${Date.now()}.jpg`, { type: 'image/jpeg' });
   }, [videoRef]);
+
+  // Bind the live stream to the <video> once it is mounted. The element is
+  // conditionally rendered on isActive, so videoRef is null during start();
+  // this effect runs after the element commits to the DOM and attaches the
+  // stream, then plays it.
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (isActive && video && stream && video.srcObject !== stream) {
+      video.srcObject = stream;
+      void video.play().catch(() => undefined);
+    }
+  }, [isActive, videoRef]);
 
   // Release the camera when the consuming component unmounts.
   useEffect(() => stop, [stop]);

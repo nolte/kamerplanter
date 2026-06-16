@@ -110,11 +110,19 @@ export default function ImageCapturePanel({
 
   return (
     <Box data-testid="image-capture-panel">
-      {/* aria-live region: announces processing state to screen readers (UI-NFR-002 R-011) */}
+      {/* aria-live region: announces processing state to screen readers (UI-NFR-002 R-011).
+          clipPath replaces the deprecated clip property. */}
       <Box
         aria-live="polite"
         aria-atomic="true"
-        sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clipPath: 'inset(50%)',
+          whiteSpace: 'nowrap',
+        }}
       >
         {processing ? t('pages.plantIdentification.processingImage') : ''}
       </Box>
@@ -122,12 +130,30 @@ export default function ImageCapturePanel({
       {/* Live webcam preview when active */}
       {webcam.isActive && (
         <Box sx={{ mb: 2 }}>
+          {/* webcam-preview-hint is the visually hidden description for the video
+              element — screen readers announce it via aria-describedby so the user
+              understands what the live feed is showing (UI-NFR-002 R-012). */}
+          <span
+            id="webcam-preview-hint"
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              overflow: 'hidden',
+              clipPath: 'inset(50%)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('pages.plantIdentification.webcam.livePreviewHint')}
+          </span>
           <Box
             component="video"
             ref={videoRef}
+            autoPlay
             playsInline
             muted
             aria-label={t('pages.plantIdentification.webcam.livePreview')}
+            aria-describedby="webcam-preview-hint"
             sx={{
               width: '100%',
               maxHeight: 360,

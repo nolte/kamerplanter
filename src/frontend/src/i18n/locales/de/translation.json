@@ -241,7 +241,8 @@
         "permission_denied": "Kein Zugriff auf die Kamera. Bitte erlaube den Kamerazugriff in deinem Browser.",
         "not_found": "Es wurde keine Kamera gefunden.",
         "unsupported": "Dein Browser unterstützt keinen direkten Kamerazugriff. Nutze stattdessen das Hochladen oder die Smartphone-Kamera.",
-        "unknown": "Die Kamera konnte nicht gestartet werden. Bitte versuche es erneut."
+        "unknown": "Die Kamera konnte nicht gestartet werden. Bitte versuche es erneut.",
+        "livePreviewHint": "Live-Bild der Kamera. Drücke „Aufnehmen\", um ein Foto zu machen."
       },
       "organHint": "Wähle aus, welcher Pflanzenteil auf dem Foto zu sehen ist. Das verbessert die Erkennungsgenauigkeit.",
       "organHintAuto": "Automatisch erkennen — lasse Pl@ntNet selbst entscheiden, welcher Pflanzenteil sichtbar ist.",
@@ -252,6 +253,7 @@
       "consentBullet4": "Pl@ntNet speichert Anfrage-Metadaten gemäß seinen Nutzungsbedingungen",
       "consentPrivacyLink": "Datenschutzerklärung ansehen",
       "consentRevoke": "Diese Einwilligung kannst du jederzeit in den Datenschutzeinstellungen widerrufen.",
+      "consentRevokeLocal": "Diese Einwilligung wird nur lokal auf diesem Gerät gespeichert und gilt nicht für jeden Upload erneut.",
       "familyLabel": "Familie",
       "familyHelp": "Pflanzenfamilie: botanische Gruppierung verwandter Arten (z.B. Rosengewächse, Korbblütler)",
       "confidenceHelp": "Wie sicher ist die KI bei diesem Vorschlag? 90 %+ = sehr sicher, unter 50 % = unsicher.",
@@ -270,7 +272,8 @@
       "photoTip2": "Scharfes Foto mit gutem Licht",
       "photoTip3": "Objekt füllt mindestens die Hälfte des Bildes aus",
       "notAPlantRetry": "Neues Foto aufnehmen",
-      "webcamHint": "Verwende die Webcam nur für Desktop/Kiosk. Für Smartphones ist die direkte Kamera besser."
+      "webcamHint": "Verwende die Webcam nur für Desktop/Kiosk. Für Smartphones ist die direkte Kamera besser.",
+      "consentDeclineAria": "Ablehnen und Dialog schließen"
     },
     "admin": {
       "title": "Administration",
@@ -293,7 +296,32 @@
       "resetDone": "Einstellungen zurückgesetzt auf Umgebungsvariablen",
       "notConfigured": "Nicht konfiguriert",
       "haSectionHelper": "Verbinden Sie Kamerplanter mit Ihrer Home Assistant Instanz für Sensor- und Automatisierungsdaten.",
-      "haTimeoutHelper": "Verbindungs-Timeout in Sekunden (1–120)"
+      "haTimeoutHelper": "Verbindungs-Timeout in Sekunden (1–120)",
+      "plantnetSection": "Pflanzenerkennung (Pl@ntNet)",
+      "plantnetSectionHelper": "Hinterlegen Sie einen Pl@ntNet-API-Schlüssel (kostenlos von my.plantnet.org, 500 Anfragen/Tag), um die foto-basierte Pflanzenerkennung zu aktivieren. Der Schlüssel gilt instanzweit für alle Nutzer. Nach dem Speichern erscheint die Foto-Identifikation in der Oberfläche.",
+      "plantnetSectionHelperPre": "Tragen Sie hier Ihren kostenlosen API-Schlüssel von",
+      "plantnetSectionHelperPost": "500 kostenlose Anfragen pro Tag im Free-Tier.",
+      "plantnetSectionEffect": "Nach dem Speichern wird die Foto-Identifikation instanzweit für alle Nutzer aktiviert.",
+      "plantnetApiKey": "API-Schlüssel",
+      "plantnetApiKeyPlaceholder": "Neuen Schlüssel eingeben (ersetzt den aktuellen)",
+      "plantnetApiKeyHelper": "Aktuell hinterlegt",
+      "plantnetSourceNone": "Nicht gesetzt",
+      "plantnetShowKey": "Schlüssel anzeigen",
+      "plantnetHideKey": "Schlüssel verbergen",
+      "plantnetSourceAriaPrefix": "Schlüsselquelle",
+      "plantnetSourceTooltip": {
+        "db": "Der Schlüssel wurde manuell in der Datenbank gespeichert und überschreibt eine ggf. gesetzte Umgebungsvariable.",
+        "env": "Der Schlüssel stammt aus einer Umgebungsvariable (PLANTNET_API_KEY) und kann nicht über die Oberfläche gelöscht werden. Ein hier gespeicherter Schlüssel würde Vorrang haben.",
+        "none": "Es ist kein API-Schlüssel konfiguriert. Die Foto-Identifikation ist deaktiviert.",
+        "default": "Es ist kein API-Schlüssel konfiguriert. Die Foto-Identifikation ist deaktiviert."
+      },
+      "plantnetTest": "Schlüssel prüfen",
+      "plantnetTestDisabledHint": "Kein Schlüssel vorhanden oder eingegeben. Geben Sie zuerst einen Schlüssel ein oder speichern Sie einen.",
+      "plantnetReset": "Schlüssel entfernen",
+      "plantnetResetDialogTitle": "Gespeicherten Schlüssel entfernen?",
+      "plantnetResetConfirm": "Der in der Datenbank gespeicherte Pl@ntNet-Schlüssel wird gelöscht. Falls eine Umgebungsvariable gesetzt ist, wird wieder dieser Wert verwendet.",
+      "plantnetSaved": "Pl@ntNet-Schlüssel gespeichert",
+      "plantnetResetDone": "Pl@ntNet-Schlüssel entfernt"
     },
     "privacy": {
       "title": "Datenschutz & Betroffenenrechte",

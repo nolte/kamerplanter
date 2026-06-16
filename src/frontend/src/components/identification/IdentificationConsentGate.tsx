@@ -24,6 +24,14 @@ interface IdentificationConsentGateProps {
   error: string | null;
   onGrant: () => void;
   onDecline: () => void;
+  /**
+   * Whether to render the revocation hint with the link to the privacy
+   * settings. In the Light mode (REQ-027) there is no backend consent record
+   * and no privacy settings tab, so the link would be dead — the parent passes
+   * `false` there to avoid a broken link while keeping the transparency notice.
+   * Defaults to `true` (full mode behaviour).
+   */
+  showPrivacyLink?: boolean;
 }
 
 /**
@@ -50,6 +58,7 @@ export default function IdentificationConsentGate({
   error,
   onGrant,
   onDecline,
+  showPrivacyLink = true,
 }: IdentificationConsentGateProps) {
   const { t } = useTranslation();
 
@@ -71,7 +80,12 @@ export default function IdentificationConsentGate({
   ];
 
   return (
-    <Box data-testid="identification-consent-gate" sx={{ py: 1 }}>
+    <Box
+      role="region"
+      aria-label={t('pages.plantIdentification.consentTitle')}
+      data-testid="identification-consent-gate"
+      sx={{ py: 1 }}
+    >
       {/* Header */}
       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1.5 }}>
         <PrivacyTipIcon color="primary" aria-hidden fontSize="medium" />
@@ -102,12 +116,18 @@ export default function IdentificationConsentGate({
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Revocation hint */}
+      {/* Revocation hint — the privacy-settings link only exists in full mode. */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-        {t('pages.plantIdentification.consentRevoke')}{' '}
-        <Link href="/settings#privacy" variant="caption">
-          {t('pages.plantIdentification.consentPrivacyLink')}
-        </Link>
+        {showPrivacyLink ? (
+          <>
+            {t('pages.plantIdentification.consentRevoke')}{' '}
+            <Link href="/settings#privacy" variant="caption">
+              {t('pages.plantIdentification.consentPrivacyLink')}
+            </Link>
+          </>
+        ) : (
+          t('pages.plantIdentification.consentRevokeLocal')
+        )}
       </Typography>
 
       {error && (
@@ -127,8 +147,10 @@ export default function IdentificationConsentGate({
         }}
       >
         <Button
+          variant="text"
           onClick={onDecline}
           data-testid="consent-decline"
+          aria-label={t('pages.plantIdentification.consentDeclineAria')}
           sx={{ minHeight: 44 }}
         >
           {t('pages.plantIdentification.consentDecline')}

@@ -103,4 +103,90 @@ describe('SuggestionList', () => {
     await userEvent.click(screen.getByTestId('suggestion-select-2'));
     expect(onSelect).toHaveBeenCalledWith(2);
   });
+
+  it('leads with the common name for beginners and shows the scientific name as subtitle', () => {
+    renderWithProviders(
+      <SuggestionList
+        suggestions={SUGGESTIONS}
+        selectedRank={null}
+        onSelect={vi.fn()}
+        level="beginner"
+      />,
+    );
+    // Beginner card #1 has a common name → both names rendered, common one first.
+    expect(screen.getByText('Fensterblatt')).toBeInTheDocument();
+    expect(screen.getByText('Monstera deliciosa')).toBeInTheDocument();
+    // Card #2 has no common name → falls back to the scientific-name-first branch.
+    expect(screen.getByText('Monstera adansonii')).toBeInTheDocument();
+  });
+
+  it('marks the selected card with the selected-state styling', () => {
+    renderWithProviders(
+      <SuggestionList
+        suggestions={SUGGESTIONS}
+        selectedRank={1}
+        onSelect={vi.fn()}
+        level="intermediate"
+      />,
+    );
+    expect(screen.getByTestId('suggestion-select-1')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('suggestion-select-2')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('marks the selected card for beginners (common-name branch)', () => {
+    renderWithProviders(
+      <SuggestionList
+        suggestions={SUGGESTIONS}
+        selectedRank={1}
+        onSelect={vi.fn()}
+        level="beginner"
+      />,
+    );
+    expect(screen.getByTestId('suggestion-select-1')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('renders a reference image when image_url is present', () => {
+    const withImage: IdentificationSuggestion[] = [
+      { ...SUGGESTIONS[0], image_url: 'https://example.org/monstera.jpg' },
+    ];
+    renderWithProviders(
+      <SuggestionList
+        suggestions={withImage}
+        selectedRank={null}
+        onSelect={vi.fn()}
+        level="beginner"
+      />,
+    );
+    const img = screen.getByTestId('suggestion-image-1');
+    expect(img).toHaveAttribute('src', 'https://example.org/monstera.jpg');
+  });
+
+  it('appends the raw confidence score for experts', () => {
+    renderWithProviders(
+      <SuggestionList
+        suggestions={SUGGESTIONS}
+        selectedRank={null}
+        onSelect={vi.fn()}
+        level="expert"
+      />,
+    );
+    // Expert view shows the 4-decimal raw score next to the percentage.
+    expect(screen.getByText(/0\.9300/)).toBeInTheDocument();
+  });
+
+  it('disables the action areas when the list is disabled', () => {
+    const onSelect = vi.fn();
+    renderWithProviders(
+      <SuggestionList
+        suggestions={SUGGESTIONS}
+        selectedRank={null}
+        onSelect={onSelect}
+        level="intermediate"
+        disabled
+      />,
+    );
+    // A disabled CardActionArea reflects the Mui-disabled state and swallows clicks.
+    expect(screen.getByTestId('suggestion-select-1')).toHaveClass('Mui-disabled');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });

@@ -51,4 +51,24 @@ describe('adminSettings endpoints', () => {
     await adminSettings.clearHaSettings();
     expect(client.delete).toHaveBeenCalledWith('/admin/settings/home-assistant');
   });
+
+  it('updatePlantIdentificationSettings puts to plant-identification subpath', async () => {
+    client.put.mockResolvedValue({ data: {} });
+    const body = { plantnet_api_key: 'my-key' };
+    await adminSettings.updatePlantIdentificationSettings(body);
+    expect(client.put).toHaveBeenCalledWith('/admin/settings/plant-identification', body);
+  });
+
+  it('testPlantIdentificationKey posts to plant-identification test', async () => {
+    client.post.mockResolvedValue({ data: { success: true, message: 'ok' } });
+    const body = { plantnet_api_key: 'my-key' };
+    await adminSettings.testPlantIdentificationKey(body);
+    expect(client.post).toHaveBeenCalledWith('/admin/settings/plant-identification/test', body);
+  });
+
+  it('clearPlantIdentificationSettings deletes plant-identification settings', async () => {
+    client.delete.mockResolvedValue({ data: undefined });
+    await adminSettings.clearPlantIdentificationSettings();
+    expect(client.delete).toHaveBeenCalledWith('/admin/settings/plant-identification');
+  });
 });

@@ -30,6 +30,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { listConsents, grantConsent } from '@/api/endpoints/privacy';
 import { parseApiError } from '@/api/errors';
+import { isLightMode } from '@/config/mode';
 import * as speciesApi from '@/api/endpoints/species';
 import ImageCapturePanel from './ImageCapturePanel';
 import SuggestionList from './SuggestionList';
@@ -37,6 +38,33 @@ import IdentificationConsentGate from './IdentificationConsentGate';
 import type { PlantOrgan } from '@/api/types';
 
 const CONSENT_PURPOSE = 'plant_identification';
+
+/**
+ * REQ-027 — Light-mode consent flag.
+ *
+ * In the Light mode there is no backend consent subsystem (the `privacy_router`
+ * is not registered, so `GET /api/v1/privacy/consents` returns 404). The opt-in
+ * for the Pl@ntNet third-country transfer is therefore kept client-side under
+ * this localStorage key. The transparency notice still appears before the first
+ * upload; only the persistence of the decision differs from the full mode.
+ */
+const LIGHT_CONSENT_STORAGE_KEY = 'plant_identification_consent';
+
+function readLightConsent(): boolean {
+  try {
+    return window.localStorage.getItem(LIGHT_CONSENT_STORAGE_KEY) === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+function writeLightConsent(): void {
+  try {
+    window.localStorage.setItem(LIGHT_CONSENT_STORAGE_KEY, 'granted');
+  } catch {
+    /* localStorage unavailable (private mode, etc.) — silent no-op. */
+  }
+}
 
 const ORGAN_OPTIONS: PlantOrgan[] = ['auto', 'leaf', 'flower', 'fruit', 'bark', 'habit'];
 
@@ -125,6 +153,15 @@ export default function PlantIdentificationDialog({
   }, []);
 
   const loadConsent = useCallback(async () => {
+    // Light mode: no backend consent endpoint exists — read the local flag and
+    // never touch /privacy/consents (which would 404). Full mode: load the
+    // backend consent record as before.
+    if (isLightMode) {
+      setConsentError(null);
+      setConsentGranted(readLightConsent());
+      setConsentLoading(false);
+      return;
+    }
     setConsentLoading(true);
     setConsentError(null);
     try {
@@ -156,6 +193,12 @@ export default function PlantIdentificationDialog({
   }, [open, dispatch, loadConsent, revokePreview]);
 
   const handleGrantConsent = useCallback(async () => {
+    // Light mode: persist the opt-in client-side only — no backend call.
+    if (isLightMode) {
+      writeLightConsent();
+      setConsentGranted(true);
+      return;
+    }
     setConsentGranting(true);
     setConsentError(null);
     try {
@@ -271,13 +314,21 @@ export default function PlantIdentificationDialog({
         </IconButton>
       </DialogTitle>
 
-      {/* aria-live region: announces state changes to screen readers (UI-NFR-002 R-011) */}
+      {/* aria-live region: announces state changes to screen readers (UI-NFR-002 R-011).
+          Uses clipPath instead of the deprecated clip property (WCAG 1.4.4). */}
       <Box
         component="span"
         ref={liveStatusRef}
         aria-live="polite"
         aria-atomic="true"
-        sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clipPath: 'inset(50%)',
+          whiteSpace: 'nowrap',
+        }}
       >
         {liveMessage}
       </Box>
@@ -300,6 +351,8 @@ export default function PlantIdentificationDialog({
             error={consentError}
             onGrant={handleGrantConsent}
             onDecline={onClose}
+            // Light mode has no privacy settings tab → hide the dead link.
+            showPrivacyLink={!isLightMode}
           />
         ) : (
           <>
@@ -330,7 +383,15 @@ export default function PlantIdentificationDialog({
                     />
                   </Tooltip>
                 </Box>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {/* role="radiogroup" + role="radio" per chip: screen readers announce
+                    selection state correctly instead of just "chip" (UI-NFR-002 R-009). */}
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  role="radiogroup"
+                  aria-label={t('pages.plantIdentification.organLabel')}
+                  sx={{ flexWrap: 'wrap', gap: 1 }}
+                >
                   {ORGAN_OPTIONS.map((o) => (
                     <Chip
                       key={o}
@@ -339,6 +400,8 @@ export default function PlantIdentificationDialog({
                       variant={organ === o ? 'filled' : 'outlined'}
                       onClick={() => setOrgan(o)}
                       data-testid={`organ-chip-${o}`}
+                      role="radio"
+                      aria-checked={organ === o}
                       // Ensure adequate touch target height
                       sx={{ height: { xs: 40, sm: 32 } }}
                     />
@@ -472,13 +535,13 @@ export default function PlantIdentificationDialog({
               </Box>
             )}
 
-            {/* Manual fallback link */}
+            {/* Manual fallback link — minHeight 44px ensures tap target on mobile
+                (UI-NFR-001 R-011). Not `size="small"` because that caps height at ~36px. */}
             {onManualSearch && (
               <Button
                 variant="text"
-                size="small"
                 onClick={onManualSearch}
-                sx={{ mt: 2, py: 1 }}
+                sx={{ mt: 2, minHeight: 44, px: 1 }}
                 data-testid="manual-search-link"
               >
                 {t('pages.plantIdentification.manualSearch')}

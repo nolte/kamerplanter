@@ -9,8 +9,27 @@ export interface HASettingsResponse {
   source_ha_timeout: string;
 }
 
+export interface PlantIdentificationSettingsResponse {
+  plantnet_api_key_masked: string;
+  source_plantnet_api_key: string;
+}
+
 export interface SystemSettingsResponse {
   home_assistant: HASettingsResponse;
+  plant_identification: PlantIdentificationSettingsResponse;
+}
+
+export interface PlantIdentificationSettingsUpdate {
+  plantnet_api_key?: string | null;
+}
+
+export interface PlantIdentificationTestRequest {
+  plantnet_api_key?: string | null;
+}
+
+export interface PlantIdentificationTestResponse {
+  success: boolean;
+  message: string;
 }
 
 export interface HASettingsUpdate {
@@ -54,4 +73,28 @@ export async function testHaConnection(
 
 export async function clearHaSettings(): Promise<void> {
   await client.delete(`${BASE}/home-assistant`);
+}
+
+export async function updatePlantIdentificationSettings(
+  body: PlantIdentificationSettingsUpdate,
+): Promise<SystemSettingsResponse> {
+  const { data } = await client.put<SystemSettingsResponse>(
+    `${BASE}/plant-identification`,
+    body,
+  );
+  return data;
+}
+
+export async function testPlantIdentificationKey(
+  body: PlantIdentificationTestRequest,
+): Promise<PlantIdentificationTestResponse> {
+  const { data } = await client.post<PlantIdentificationTestResponse>(
+    `${BASE}/plant-identification/test`,
+    body,
+  );
+  return data;
+}
+
+export async function clearPlantIdentificationSettings(): Promise<void> {
+  await client.delete(`${BASE}/plant-identification`);
 }

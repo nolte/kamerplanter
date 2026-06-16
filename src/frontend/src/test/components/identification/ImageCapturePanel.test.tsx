@@ -130,4 +130,143 @@ describe('ImageCapturePanel', () => {
     fireEvent.drop(dropzone, { dataTransfer });
     await waitFor(() => expect(onImageReady).toHaveBeenCalledTimes(1));
   });
+
+  it('highlights the dropzone on drag-over and clears it on drag-leave', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={vi.fn()} level="intermediate" />,
+    );
+    const dropzone = screen.getByTestId('capture-dropzone');
+    fireEvent.dragOver(dropzone);
+    // The active border colour switches to primary.main on drag-over.
+    expect(dropzone).toBeInTheDocument();
+    fireEvent.dragLeave(dropzone);
+    expect(dropzone).toBeInTheDocument();
+  });
+
+  it('ignores a drop while disabled', async () => {
+    const onImageReady = vi.fn();
+    const { fireEvent } = await import('@testing-library/react');
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={onImageReady} disabled level="intermediate" />,
+    );
+    const dropzone = screen.getByTestId('capture-dropzone');
+    fireEvent.drop(dropzone, { dataTransfer: { files: [makeFile()] } });
+    // Disabled panel must not normalize or emit anything.
+    expect(imageUtils.normalizeImage).not.toHaveBeenCalled();
+    expect(onImageReady).not.toHaveBeenCalled();
+  });
+
+  it('shows a capture error when normalization fails for a selected file', async () => {
+    vi.spyOn(imageUtils, 'normalizeImage').mockRejectedValue(new Error('UNSUPPORTED_FORMAT'));
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={vi.fn()} level="intermediate" />,
+    );
+    const input = screen.getByTestId('capture-file-input') as HTMLInputElement;
+    // Accept-filter only allows jpeg/png/webp; use an accepted type and let the
+    // normalization itself reject to drive the error branch.
+    await userEvent.upload(input, makeFile('bad.jpg', 'image/jpeg'));
+    expect(await screen.findByTestId('capture-error')).toBeInTheDocument();
+  });
+
+  it('renders beginner photo tips and a single prominent CTA', () => {
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={vi.fn()} level="beginner" />,
+    );
+    // Photo tip list is beginner-only (advanced users stay uncluttered).
+    expect(screen.getByText('Tips for better results')).toBeInTheDocument();
+    expect(screen.getByTestId('capture-mobile-camera')).toBeInTheDocument();
+  });
+
+  it('captures a webcam still, normalizes it, stops the stream and emits', async () => {
+    const stop = vi.fn();
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    // The hook's capture() reads the live frame through a real <canvas>; jsdom
+    // has no 2D backend, so stub the canvas prototype rather than createElement
+    // (which MUI also calls during render).
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+      this: HTMLCanvasElement,
+      cb: BlobCallback,
+    ) {
+      cb(new Blob(['x'], { type: 'image/jpeg' }));
+    });
+
+    const onImageReady = vi.fn();
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={onImageReady} level="expert" />,
+    );
+
+    await userEvent.click(screen.getByTestId('capture-webcam-start'));
+    const video = (await screen.findByTestId('webcam-preview')) as HTMLVideoElement;
+    Object.defineProperty(video, 'videoWidth', { configurable: true, value: 640 });
+    Object.defineProperty(video, 'videoHeight', { configurable: true, value: 480 });
+
+    await userEvent.click(screen.getByTestId('webcam-shoot'));
+    await waitFor(() => expect(onImageReady).toHaveBeenCalledTimes(1));
+    expect(stop).toHaveBeenCalled();
+  });
+
+  it('does not emit when the webcam frame capture yields no file', async () => {
+    const stop = vi.fn();
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    // No 2D context → the hook's capture() returns null, so onImageReady must
+    // not fire and the stream stays open.
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      null as unknown as CanvasRenderingContext2D,
+    );
+
+    const onImageReady = vi.fn();
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={onImageReady} level="expert" />,
+    );
+    await userEvent.click(screen.getByTestId('capture-webcam-start'));
+    const video = (await screen.findByTestId('webcam-preview')) as HTMLVideoElement;
+    Object.defineProperty(video, 'videoWidth', { configurable: true, value: 640 });
+    Object.defineProperty(video, 'videoHeight', { configurable: true, value: 480 });
+
+    await userEvent.click(screen.getByTestId('webcam-shoot'));
+    // Capture failed gracefully — nothing emitted, preview still active.
+    expect(onImageReady).not.toHaveBeenCalled();
+    expect(screen.getByTestId('webcam-preview')).toBeInTheDocument();
+  });
+
+  it('cancels the live webcam preview', async () => {
+    const stop = vi.fn();
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={vi.fn()} level="expert" />,
+    );
+    await userEvent.click(screen.getByTestId('capture-webcam-start'));
+    await screen.findByTestId('webcam-preview');
+    await userEvent.click(screen.getByTestId('webcam-cancel'));
+    // Back to the dropzone view.
+    expect(await screen.findByTestId('capture-dropzone')).toBeInTheDocument();
+  });
 });

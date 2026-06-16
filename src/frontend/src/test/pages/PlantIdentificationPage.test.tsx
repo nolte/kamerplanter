@@ -1,17 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 import { renderWithProviders, createStoreWithExpertise } from '@/test/helpers';
 import PlantIdentificationPage from '@/pages/ki-recognition/PlantIdentificationPage';
+import type { IdentifiedSpecies } from '@/components/identification/PlantIdentificationDialog';
 
-// The dialog is exercised separately; stub it to a marker here.
+const navigateSpy = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => navigateSpy };
+});
+
+// The dialog is exercised separately; stub it so we can drive the resolve and
+// manual-search callbacks the page wires up.
+const dialogProps = vi.hoisted(() => ({
+  current: null as {
+    onSpeciesResolved?: (s: IdentifiedSpecies) => void;
+    onManualSearch?: () => void;
+  } | null,
+}));
 vi.mock('@/components/identification/PlantIdentificationDialog', () => ({
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="mock-dialog-open" /> : null,
+  default: ({
+    open,
+    onSpeciesResolved,
+    onManualSearch,
+  }: {
+    open: boolean;
+    onSpeciesResolved?: (s: IdentifiedSpecies) => void;
+    onManualSearch?: () => void;
+  }) => {
+    dialogProps.current = { onSpeciesResolved, onManualSearch };
+    return open ? <div data-testid="mock-dialog-open" /> : null;
+  },
+}));
+const createDialogProps = vi.hoisted(() => ({
+  current: null as { open: boolean; onCreated?: (key: string) => void } | null,
 }));
 vi.mock('@/pages/pflanzen/PlantInstanceCreateDialog', () => ({
-  default: () => null,
+  default: ({ open, onCreated }: { open: boolean; onCreated?: (key: string) => void }) => {
+    createDialogProps.current = { open, onCreated };
+    return open ? <div data-testid="mock-create-dialog-open" /> : null;
+  },
 }));
 
 const AVAILABLE = {
@@ -30,8 +61,40 @@ const UNAVAILABLE = {
   adapters: {},
 };
 
+function historyEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    key: 'ident_1',
+    adapter_key: 'plantnet',
+    request_type: 'identification',
+    image_organ: 'auto',
+    status: 'completed',
+    selected_result_rank: 1,
+    created_at: '2026-06-15T10:00:00Z',
+    results: [
+      {
+        rank: 1,
+        scientific_name: 'Monstera deliciosa',
+        common_names: [],
+        family: null,
+        genus: null,
+        confidence: 0.9,
+        external_id: 'plantnet:1',
+        image_url: null,
+        gbif_id: null,
+        matched_species_key: 'species_monstera',
+        species_in_database: true,
+        auto_accept: true,
+      },
+    ],
+    ...overrides,
+  };
+}
+
 describe('PlantIdentificationPage', () => {
   beforeEach(() => {
+    navigateSpy.mockClear();
+    dialogProps.current = null;
+    createDialogProps.current = null;
     server.use(http.get('/api/v1/recognition/status', () => HttpResponse.json(AVAILABLE)));
     server.use(
       http.get('/api/v1/t/:tenant/identification/history', () => HttpResponse.json([])),
@@ -92,5 +155,80 @@ describe('PlantIdentificationPage', () => {
     });
     expect(await screen.findByText('Monstera deliciosa')).toBeInTheDocument();
     expect(screen.getByTestId('identification-history-item')).toBeInTheDocument();
+  });
+
+  it('shows the top result (no chip) when nothing was explicitly selected', async () => {
+    server.use(
+      http.get('/api/v1/t/:tenant/identification/history', () =>
+        HttpResponse.json([historyEntry({ selected_result_rank: null })]),
+      ),
+    );
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('beginner'),
+    });
+    expect(await screen.findByText('Monstera deliciosa')).toBeInTheDocument();
+    // No "selected" success chip when nothing was picked.
+    expect(screen.queryByText('Selected')).not.toBeInTheDocument();
+  });
+
+  it('renders a "no result" caption for a failed identification with no candidates', async () => {
+    server.use(
+      http.get('/api/v1/t/:tenant/identification/history', () =>
+        HttpResponse.json([
+          historyEntry({ selected_result_rank: null, results: [], status: 'failed' }),
+        ]),
+      ),
+    );
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('beginner'),
+    });
+    expect(await screen.findByTestId('identification-history-item')).toBeInTheDocument();
+    expect(screen.getByText('No result')).toBeInTheDocument();
+  });
+
+  it('opens the identification dialog from the start button', async () => {
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await userEvent.click(await screen.findByTestId('open-identification-dialog'));
+    expect(await screen.findByTestId('mock-dialog-open')).toBeInTheDocument();
+  });
+
+  it('hands a resolved species to the create-plant dialog', async () => {
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+    });
+    expect(await screen.findByTestId('mock-create-dialog-open')).toBeInTheDocument();
+  });
+
+  it('navigates to manual species search from the dialog callback', async () => {
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onManualSearch).toBeDefined());
+    dialogProps.current!.onManualSearch!();
+    expect(navigateSpy).toHaveBeenCalledWith('/stammdaten/species');
+  });
+
+  it('navigates to the new plant after creation and refreshes history', async () => {
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+    });
+    await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
+    createDialogProps.current!.onCreated!('plant_42');
+    expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
   });
 });
