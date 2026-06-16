@@ -5,6 +5,9 @@ Mit der Foto-Identifikation kannst du eine unbekannte Pflanze fotografieren und 
 !!! note "Optionales Feature — Betreiber-Aktivierung erforderlich"
     Die Foto-Identifikation ist nur verfügbar, wenn der Betreiber deiner Kamerplanter-Instanz einen Pl@ntNet-API-Schlüssel konfiguriert hat. Ist das Feature nicht eingerichtet, sind die Kamera-Schaltflächen ausgeblendet — alle anderen Funktionen laufen uneingeschränkt weiter. **Betreiber** finden die Einrichtungsanleitung im Abschnitt [Pflanzenerkennung per Foto aktivieren](admin.md#pflanzenerkennung-per-foto-aktivieren).
 
+!!! note "Verfügbar in beiden Deployment-Modi"
+    Die Foto-Identifikation funktioniert sowohl im **Full-Modus** (mit Benutzerkonten) als auch im **[Light-Modus](light-mode.md)** (anonymer Zugang ohne Login). Der einzige Unterschied liegt im Datenschutz-Consent: Im Full-Modus wird deine Einwilligung als Consent-Record im Backend gespeichert und ist in den Datenschutzeinstellungen widerrufbar. Im Light-Modus wird die Einwilligung **clientseitig im Browser** eingeholt und gespeichert. Die Transparenzinformation (Foto geht an Pl@ntNet/Frankreich, EXIF-Metadaten werden entfernt, keine dauerhafte Speicherung) erscheint in beiden Modi vor dem ersten Upload.
+
 ---
 
 ## Voraussetzungen
@@ -151,17 +154,27 @@ Das Limit gilt für alle Nutzer der Instanz zusammen und erneuert sich täglich 
 
 ---
 
-## Einwilligung widerrufen
+## Einwilligung widerrufen oder zurücksetzen
 
 Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schaltflächen sofort ausgeblendet. Dein Identifikations-Verlauf (ohne Fotos) bleibt erhalten.
 
-So widerrufst du die Einwilligung:
+=== "Full-Modus"
 
-1. Klicke oben rechts auf dein Profilbild
-2. Wähle **Konto-Einstellungen** > **Datenschutz**
-3. Klicke unter **Einwilligungen** neben **Foto-Identifikation** auf **Widerrufen**
+    1. Klicke oben rechts auf dein Profilbild
+    2. Wähle **Konto-Einstellungen** > **Datenschutz**
+    3. Klicke unter **Einwilligungen** neben **Foto-Identifikation** auf **Widerrufen**
 
-Du kannst die Einwilligung jederzeit erneut erteilen.
+    Der Widerruf wird mit Zeitstempel im Backend gespeichert und gilt sofort. Du kannst die Einwilligung jederzeit erneut erteilen.
+
+=== "Light-Modus"
+
+    Im Light-Modus gibt es keine serverseitigen Datenschutz-Einstellungen. Die Einwilligung ist im **lokalen Browserspeicher** hinterlegt.
+
+    1. Öffne die **Kontoeinstellungen** (oben rechts)
+    2. Klicke auf **Foto-Identifikation** > **Einwilligung zurücksetzen**
+    3. Beim nächsten Foto-Upload wird der Einwilligungs-Dialog erneut angezeigt
+
+    Alternativ: Wenn du den Browser-Cache oder die Website-Daten löschst, wird die Einwilligung ebenfalls zurückgesetzt.
 
 ---
 

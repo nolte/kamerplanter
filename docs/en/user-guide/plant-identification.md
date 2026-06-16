@@ -5,6 +5,9 @@ With photo identification you can photograph an unknown plant and immediately fi
 !!! note "Optional feature — operator activation required"
     Photo identification is only available if the operator of your Kamerplanter instance has configured a Pl@ntNet API key. If the feature is not set up, the camera buttons are hidden — all other features continue to work without restriction. **Operators** can find the setup instructions in the [Enabling Plant Photo Identification](admin.md#enabling-plant-photo-identification) section.
 
+!!! note "Available in both deployment modes"
+    Photo identification works in both **Full mode** (with user accounts) and **[Light mode](light-mode.md)** (anonymous access without login). The only difference is in how consent is handled: in Full mode your consent is stored as a consent record in the backend and can be revoked in the privacy settings. In Light mode consent is obtained and stored **client-side in the browser**. The transparency notice (photo is sent to Pl@ntNet/France, EXIF metadata is removed, no permanent storage) is shown in both modes before the first upload.
+
 ---
 
 ## Prerequisites
@@ -151,17 +154,27 @@ The limit applies to all users of the instance combined and resets daily at midn
 
 ---
 
-## Revoking Consent
+## Revoking or Resetting Consent
 
 If you revoke your consent to image transfer, all camera buttons are immediately hidden. Your identification history (without photos) is retained.
 
-To revoke consent:
+=== "Full mode"
 
-1. Click your profile picture in the top right
-2. Choose **Account Settings** > **Privacy**
-3. Under **Consents**, click **Revoke** next to **Photo Identification**
+    1. Click your profile picture in the top right
+    2. Choose **Account Settings** > **Privacy**
+    3. Under **Consents**, click **Revoke** next to **Photo Identification**
 
-You can grant consent again at any time.
+    The revocation is saved with a timestamp in the backend and takes effect immediately. You can grant consent again at any time.
+
+=== "Light mode"
+
+    Light mode has no server-side privacy settings. Your consent is stored in the **local browser storage**.
+
+    1. Open **Account Settings** (top right)
+    2. Click **Photo Identification** > **Reset Consent**
+    3. The consent dialog will appear again the next time you try to upload a photo
+
+    Alternatively: clearing your browser cache or website data will also reset the consent.
 
 ---
 

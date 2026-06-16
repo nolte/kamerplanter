@@ -96,10 +96,15 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 
 Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur Analyse an Pl@ntNet (CIRAD/INRIA, Frankreich/EU). Die Einwilligung ist erforderlich, weil das Foto die Kamerplanter-Instanz kurzzeitig verlässt.
 
+!!! note "Einwilligungs-Verhalten je Modus"
+    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten), ist hier in den Datenschutzeinstellungen widerrufbar und bleibt über Browser und Geräte hinweg erhalten.
+
+    **Light-Modus:** Das Consent-Subsystem steht im [Light-Modus](light-mode.md) nicht zur Verfügung. Die Einwilligung wird stattdessen **clientseitig im Browser** (localStorage) eingeholt und gespeichert. Der Einwilligungs-Dialog erscheint beim ersten Upload in der jeweiligen Browser-Sitzung. Dieselben Transparenzinformationen (Foto geht an Pl@ntNet/Frankreich, EXIF-Daten werden entfernt, keine dauerhafte Speicherung) werden in beiden Modi angezeigt.
+
 **Was beim Widerruf passiert:**
 
 - Alle Kamera-Schaltflächen werden sofort ausgeblendet
-- Neue Foto-Anfragen werden mit HTTP 403 abgelehnt
+- Neue Foto-Anfragen werden mit HTTP 403 abgelehnt (Full-Modus) bzw. im Browser blockiert (Light-Modus)
 - Dein Identifikations-Verlauf bleibt erhalten (er enthält keine Fotos, nur Ergebnisse)
 - Die Einwilligung kann jederzeit erneut erteilt werden
 

@@ -77,11 +77,12 @@ See [Authentication](../api/authentication.md) for details.
 
 ## Enabling Plant Photo Identification
 
-[Photo identification](plant-identification.md) is an optional feature that requires API credentials from a third-party service. There is no UI form for the key — the key is an instance-wide operator setting that is configured once at deployment time. As long as no key is configured, the backend reports `available: false` and the entire camera/upload UI remains hidden for all users.
+[Photo identification](plant-identification.md) is an optional feature that requires API credentials from a third-party service. As long as no key is configured, the backend reports `available: false` and the entire camera/upload UI remains hidden for all users.
 
-### Why is there no UI form?
+The Pl@ntNet API key is an **instance-wide setting** — a single key applies to all users of the instance. The free tier allows 500 identifications per day across the entire instance.
 
-The Pl@ntNet free-tier key allows 500 identifications per day — for the **entire instance**. If every user could enter their own key, there would be no shared daily limit and no centralised cost control. The key is therefore set once by the operator and applies platform-wide.
+!!! note "Platform admin required"
+    Only users with the platform role **admin** can manage the API key. The setting applies platform-wide.
 
 ### Step 1: Obtain a free Pl@ntNet key
 
@@ -93,9 +94,37 @@ The Pl@ntNet free-tier key allows 500 identifications per day — for the **enti
 !!! warning "Non-commercial use only"
     The Pl@ntNet free tier is explicitly licensed for non-commercial use. For commercial instances review the terms of use at [my.plantnet.org](https://my.plantnet.org).
 
-### Step 2: Set the key
+### Step 2: Enter the key via the Admin UI (recommended)
 
-=== "Production / Kubernetes (recommended)"
+This is the **preferred method** — no pod restart required, no file changes, takes effect immediately.
+
+1. Sign in as a platform admin
+2. Open **Account Settings** (click your profile picture in the top right)
+3. Select the **Integrations** tab
+4. Scroll to the **Plant Identification** section
+5. Enter the copied API key in the **Pl@ntNet API Key** field
+6. Click **Save**
+
+The key is stored in masked form — it is never visible in plain text in API responses or logs. The field indicates whether the key is sourced from the database (UI entry), from an environment variable, or is not set at all.
+
+**Optional: Test the key immediately**
+
+After saving, click **Test Connection**. The backend sends a test request to Pl@ntNet and reports whether the key is valid and how many requests remain for today.
+
+**Optional: Remove the key**
+
+Click **Remove** to delete the database-stored key. If no environment variable is set either, photo identification is deactivated immediately.
+
+---
+
+### Alternative: Set the key as an environment variable
+
+The environment variable `PLANTNET_API_KEY` remains fully supported — it is suitable for automated deployments, GitOps workflows, or when UI access is not used.
+
+!!! warning "Priority: UI value takes precedence"
+    If a key is stored in the database via the Admin UI, it **overrides the `PLANTNET_API_KEY` environment variable**. A key set via the UI takes effect immediately without a pod restart. The environment variable is only used when no database entry exists.
+
+=== "Production / Kubernetes"
 
     Create a Kubernetes Secret and load it into the backend via `envFrom`. **Never** commit the key in plain text in `values.yaml`.
 
@@ -145,7 +174,7 @@ The Pl@ntNet free-tier key allows 500 identifications per day — for the **enti
     docker compose up -d
     ```
 
-### Step 3: Verify activation
+### Step 3: Verify activation via API
 
 Call the status endpoint:
 
@@ -195,8 +224,11 @@ Photos are **not** stored on the Kamerplanter server — they are transmitted to
 ??? question "Is there a viewer role for the admin area?"
     Yes. The platform role `viewer` grants read access to all admin statistics and tenant overviews, but no write permissions.
 
-??? question "Why is there no input field for the Pl@ntNet key in the UI?"
-    The key applies to the entire instance — it controls a shared daily limit of 500 identifications. A user-side input field would remove this central limit. The operator sets the key once as an environment variable; all users automatically benefit from the enabled feature.
+??? question "Where exactly in the UI do I find the Pl@ntNet key setting?"
+    Open **Account Settings** (click your profile picture in the top right) → **Integrations** tab → **Plant Identification** section. There you can enter, test, and remove the key. The setting is only visible to users with the platform role **admin**.
+
+??? question "Can I also set the key as an environment variable instead of using the UI?"
+    Yes. The environment variable `PLANTNET_API_KEY` remains fully supported and is suitable for GitOps workflows or automated deployments. Important: a key stored in the database via the Admin UI takes **precedence** over the environment variable and takes effect immediately without a pod restart.
 
 ??? question "What happens when the daily limit is exhausted?"
     The backend reports `remaining_today: 0`. The UI shows the message "Daily identification limit reached. Available again tomorrow." The limit resets daily at midnight UTC. All other features remain fully available.

@@ -77,11 +77,12 @@ Mehr dazu: [Authentifizierung](../api/authentication.md).
 
 ## Pflanzenerkennung per Foto aktivieren
 
-Die [Foto-Identifikation](plant-identification.md) ist ein optionales Feature, das ein API-Zugangsdaten eines Drittanbieters erfordert. Es gibt keine UI-Eingabemaske für den Schlüssel — der Key ist eine instanzweite Betreiber-Einstellung, die einmalig beim Deployment gesetzt wird. Solange kein Key konfiguriert ist, meldet das Backend `available: false` und die gesamte Kamera-/Upload-UI bleibt für alle Nutzer ausgeblendet.
+Die [Foto-Identifikation](plant-identification.md) ist ein optionales Feature, das API-Zugangsdaten eines Drittanbieters erfordert. Solange kein Key konfiguriert ist, meldet das Backend `available: false` und die gesamte Kamera-/Upload-UI bleibt für alle Nutzer ausgeblendet.
 
-### Warum keine UI-Eingabemaske?
+Der Pl@ntNet-API-Key ist eine **instanzweite Einstellung** — ein einziger Key gilt für alle Nutzer der Instanz. Der Free-Tier erlaubt 500 Identifikationen pro Tag für die gesamte Instanz.
 
-Der Free-Tier-Key von Pl@ntNet erlaubt 500 Identifikationen pro Tag — für die **gesamte Instanz**. Würde jeder Nutzer seinen eigenen Key eintragen, gäbe es kein gemeinsames Tageslimit und keine zentrale Kostenkontrolle. Der Key wird deshalb einmalig vom Betreiber hinterlegt und gilt plattformweit.
+!!! note "Plattform-Admin erforderlich"
+    Nur Nutzer mit der Plattform-Rolle **admin** können den API-Key verwalten. Die Einstellung gilt plattformweit.
 
 ### Schritt 1: Kostenlosen Pl@ntNet-Key besorgen
 
@@ -93,9 +94,37 @@ Der Free-Tier-Key von Pl@ntNet erlaubt 500 Identifikationen pro Tag — für die
 !!! warning "Nur für nicht-kommerzielle Nutzung"
     Der Pl@ntNet Free-Tier ist ausdrücklich für nicht-kommerzielle Nutzung lizenziert. Für kommerzielle Instanzen die Nutzungsbedingungen auf [my.plantnet.org](https://my.plantnet.org) prüfen.
 
-### Schritt 2: Key setzen
+### Schritt 2: Key über die Admin-UI eintragen (empfohlen)
 
-=== "Produktion / Kubernetes (empfohlen)"
+Dies ist der **bevorzugte Weg** — kein Pod-Neustart, keine Datei-Änderung, wirkt sofort.
+
+1. Melde dich als Plattform-Admin an
+2. Öffne **Konto-Einstellungen** (oben rechts auf dein Profilbild klicken)
+3. Wähle den Tab **Integrationen**
+4. Scrolle zum Abschnitt **Pflanzenerkennung**
+5. Gib den kopierten API-Key in das Feld **Pl@ntNet API-Key** ein
+6. Klicke auf **Speichern**
+
+Der Key wird maskiert gespeichert (nie im Klartext in Antworten oder Logs sichtbar). Das Feld zeigt an, ob der Key aus der Datenbank (UI-Eintrag), aus einer Umgebungsvariable oder gar nicht gesetzt ist.
+
+**Optional: Key sofort prüfen**
+
+Nach dem Speichern kannst du auf **Verbindung prüfen** klicken. Das Backend sendet eine Testanfrage an Pl@ntNet und meldet, ob der Key gültig ist und wie viele Anfragen heute noch verfügbar sind.
+
+**Optional: Key entfernen**
+
+Klicke auf **Entfernen**, um den in der Datenbank gespeicherten Key zu löschen. Ist keine Umgebungsvariable gesetzt, wird die Foto-Identifikation damit deaktiviert.
+
+---
+
+### Alternative: Key als Umgebungsvariable setzen
+
+Die Umgebungsvariable `PLANTNET_API_KEY` bleibt weiterhin gültig — sie eignet sich für automatisierte Deployments, GitOps-Workflows oder wenn kein UI-Zugang genutzt werden soll.
+
+!!! warning "Priorität: UI-Wert hat Vorrang"
+    Ist in der Datenbank ein Key über die Admin-UI gespeichert, **überschreibt dieser den Wert der Umgebungsvariable** `PLANTNET_API_KEY`. Ein per UI gesetzter Key wirkt sofort ohne Pod-Neustart. Die Umgebungsvariable greift nur, wenn kein DB-Eintrag vorhanden ist.
+
+=== "Produktion / Kubernetes"
 
     Lege einen Kubernetes-Secret an und lade ihn per `envFrom` ins Backend. **Niemals** den Key im Klartext in `values.yaml` committen.
 
@@ -145,7 +174,7 @@ Der Free-Tier-Key von Pl@ntNet erlaubt 500 Identifikationen pro Tag — für die
     docker compose up -d
     ```
 
-### Schritt 3: Aktivierung prüfen
+### Schritt 3: Aktivierung per API prüfen
 
 Rufe den Status-Endpunkt auf:
 
@@ -195,8 +224,11 @@ Fotos werden **nicht** auf dem Kamerplanter-Server gespeichert — sie werden au
 ??? question "Gibt es eine Viewer-Rolle für den Admin-Bereich?"
     Ja. Die Plattform-Rolle `viewer` bietet Lesezugriff auf alle Admin-Statistiken und Mandanten-Übersichten, jedoch keine Schreibberechtigungen.
 
-??? question "Warum gibt es keine Eingabemaske für den Pl@ntNet-Key in der UI?"
-    Der Key gilt für die gesamte Instanz — er steuert ein gemeinsames Tageslimit von 500 Identifikationen. Eine Nutzer-seitige Eingabe würde dieses zentrale Limit aufheben. Der Betreiber setzt den Key einmalig als Umgebungsvariable; alle Nutzer profitieren automatisch von der aktivierten Funktion.
+??? question "Wo genau in der UI finde ich die Einstellung für den Pl@ntNet-Key?"
+    Öffne **Konto-Einstellungen** (Klick auf dein Profilbild oben rechts) → Tab **Integrationen** → Abschnitt **Pflanzenerkennung**. Dort kannst du den Key eintragen, prüfen und entfernen. Die Einstellung ist nur für Nutzer mit der Plattform-Rolle **admin** sichtbar.
+
+??? question "Kann ich den Key auch ohne UI als Umgebungsvariable setzen?"
+    Ja. Die Umgebungsvariable `PLANTNET_API_KEY` ist weiterhin gültig und eignet sich für GitOps-Workflows oder automatisierte Deployments. Wichtig: Ein über die UI in der Datenbank gespeicherter Key hat **Vorrang** vor der Umgebungsvariable und wirkt sofort ohne Pod-Neustart.
 
 ??? question "Was passiert, wenn das Tages-Limit erschöpft ist?"
     Das Backend meldet `remaining_today: 0`. In der UI erscheint die Meldung „Tages-Limit für Bilderkennung erreicht. Morgen wieder verfügbar." Das Limit erneuert sich täglich um Mitternacht UTC. Alle anderen Funktionen bleiben uneingeschränkt verfügbar.

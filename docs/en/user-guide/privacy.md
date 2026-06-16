@@ -96,10 +96,15 @@ No optional consent is needed for the core functions of the system. However, som
 
 [Plant recognition by photo](plant-identification.md) sends your image to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis. Consent is required because the photo briefly leaves the Kamerplanter instance.
 
+!!! note "Consent behaviour per deployment mode"
+    **Full mode:** Consent is stored as a consent record in the backend (see table below), can be revoked here in the privacy settings, and persists across browsers and devices.
+
+    **Light mode:** The consent subsystem is not available in [Light mode](light-mode.md). Consent is instead obtained and stored **client-side in the browser** (localStorage). The consent dialog appears on the first upload in the respective browser session. The same transparency information (photo is sent to Pl@ntNet/France, EXIF data is removed, no permanent storage) is shown in both modes.
+
 **What happens when you revoke:**
 
 - All camera buttons are immediately hidden
-- New photo requests are rejected with HTTP 403
+- New photo requests are rejected with HTTP 403 (Full mode) or blocked in the browser (Light mode)
 - Your identification history is retained (it contains no photos, only results)
 - You can grant consent again at any time
 
