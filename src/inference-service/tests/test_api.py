@@ -196,3 +196,27 @@ def test_delete_reference(client, fake_repo):
     assert body["deleted"] == 2
     assert body["species_key"] == "species_a"
     assert fake_repo.count() == 1
+
+
+def test_list_references_returns_provenance(client, fake_repo):
+    fake_repo.rows = [
+        {"species_key": "species_a", "source_url": "http://x/1.jpg", "license": "CC-BY",
+         "attribution": "Jane Doe", "organ": "leaf", "source": "gbif"},
+        {"species_key": "species_a", "source_url": "http://x/2.jpg", "license": "CC0", "source": "wikimedia"},
+        {"species_key": "species_a"},  # no source_url → excluded
+        {"species_key": "species_b", "source_url": "http://y/9.jpg", "license": "CC0"},
+    ]
+    resp = client.get("/reference/species_a")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["species_key"] == "species_a"
+    assert body["count"] == 2
+    urls = {img["source_url"] for img in body["images"]}
+    assert urls == {"http://x/1.jpg", "http://x/2.jpg"}
+    assert body["images"][0]["attribution"] == "Jane Doe"
+
+
+def test_list_references_empty_for_unknown_species(client, fake_repo):
+    resp = client.get("/reference/nope")
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 0

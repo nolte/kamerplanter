@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     # Disabled by default until the service is deployed (WS-6); when disabled
     # the local adapter is unavailable and the registry falls back to Pl@ntNet.
     inference_service_enabled: bool = False
-    inference_service_url: str = "http://kamerplanter-ki-inference-service:8000"
+    inference_service_url: str = "http://kamerplanter-recognition:8000"
     # Preferred adapter key. Local embedding wins when available; if the
     # inference-service is disabled, get_preferred() falls back to Pl@ntNet.
     identification_primary_adapter: str = "local_embedding"
@@ -127,6 +127,8 @@ class Settings(BaseSettings):
     reference_image_min_usable: int = 5  # below this a species is "not recognizable"
     reference_image_min_dimension: int = 224  # px on the shorter edge (model input)
     reference_image_max_aspect_ratio: float = 3.0  # reject extreme crops/banners
+    reference_image_use_wikimedia: bool = True  # query Wikimedia Commons as a 2nd source
+    wikimedia_commons_api_url: str = "https://commons.wikimedia.org/w/api.php"
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

@@ -23,6 +23,8 @@ from app.schemas import (
     MatchResponse,
     MatchSuggestion,
     ModelInfoResponse,
+    ReferenceImageItem,
+    ReferenceListResponse,
     ReferenceResponse,
 )
 from app.vectordb.connection import VectorDbConnection
@@ -289,6 +291,18 @@ async def upsert_reference(
         dim=len(vector),
         model=settings.model_name,
     )
+
+
+@app.get("/reference/{species_key}", response_model=ReferenceListResponse)
+def list_references(species_key: str, limit: int = Query(50, ge=1, le=200)) -> ReferenceListResponse:
+    """List stored reference image provenance for a species (gallery source).
+
+    Returns only URL + license/attribution metadata — never embeddings.
+    """
+    repo = _require_repo()
+    rows = repo.list_by_species(species_key, limit=limit)
+    images = [ReferenceImageItem(**row) for row in rows]
+    return ReferenceListResponse(species_key=species_key, count=len(images), images=images)
 
 
 @app.delete("/reference/{species_key}", response_model=DeleteReferenceResponse)

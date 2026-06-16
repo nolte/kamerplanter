@@ -53,3 +53,7 @@ class AcquisitionResult(BaseModel):
     rejected_error: int = 0
     license_breakdown: dict[str, int] = Field(default_factory=dict)
     usable_for_recognition: bool = False
+    # First accepted image, promoted to the species' representative thumbnail.
+    representative_url: str | None = None
+    representative_attribution: str | None = None
+    representative_license: str | None = None

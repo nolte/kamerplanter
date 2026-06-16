@@ -34,11 +34,21 @@ logger = structlog.get_logger()
 class ReferenceImageService:
     """Acquires and indexes license-clean reference embeddings per species."""
 
-    def __init__(self, gbif_adapter, media_client, inference_client, reference_repo) -> None:  # noqa: ANN001
+    def __init__(  # noqa: ANN001
+        self,
+        gbif_adapter,
+        media_client,
+        inference_client,
+        reference_repo,
+        wikimedia_client=None,
+        species_repo=None,
+    ) -> None:
         self._gbif = gbif_adapter
         self._media = media_client
         self._inference = inference_client
         self._repo = reference_repo
+        self._wikimedia = wikimedia_client
+        self._species_repo = species_repo
 
     def acquire_for_species(
         self,
@@ -48,21 +58,68 @@ class ReferenceImageService:
         """Acquire, filter, embed and index reference images for one species."""
         result = AcquisitionResult(species_key=species_key, scientific_name=scientific_name)
 
-        match = self._gbif.match_species(scientific_name)
-        if match is None:
-            logger.info("reference_acquire_no_taxon", scientific_name=scientific_name)
-            return self._persist(result)
-
-        candidates = self._media.list_media(match.usage_key, limit=settings.reference_image_max_candidates)
+        candidates = self._collect_candidates(scientific_name)
         result.candidates_found = len(candidates)
 
         for candidate in candidates:
             self._process_candidate(candidate, species_key, scientific_name, result)
 
         result.usable_for_recognition = result.accepted >= settings.reference_image_min_usable
+
+        if self._species_repo is not None and result.representative_url:
+            try:
+                self._species_repo.set_representative_image(
+                    species_key,
+                    url=result.representative_url,
+                    attribution=result.representative_attribution,
+                    license=result.representative_license,
+                )
+            except Exception as exc:  # noqa: BLE001 — indexing succeeded; thumbnail is best-effort
+                logger.info("reference_set_representative_failed", species_key=species_key, error=str(exc))
+
         return self._persist(result)
 
     # ── Internal ───────────────────────────────────────────────────────
+
+    def _collect_candidates(self, scientific_name: str) -> list[MediaCandidate]:
+        """Gather candidates from GBIF (+ Wikimedia), deduplicated by URL.
+
+        Either source failing or returning nothing must not abort the run; the
+        other source still contributes. Wikimedia only needs the scientific
+        name, so it runs even when GBIF has no taxon match.
+        """
+        limit = settings.reference_image_max_candidates
+        candidates: list[MediaCandidate] = []
+
+        try:
+            match = self._gbif.match_species(scientific_name)
+            if match is not None:
+                candidates.extend(self._media.list_media(match.usage_key, limit=limit))
+            else:
+                logger.info("reference_acquire_no_taxon", scientific_name=scientific_name)
+        except Exception as exc:  # noqa: BLE001 — one source must not abort the run
+            logger.info("reference_gbif_failed", scientific_name=scientific_name, error=str(exc))
+
+        if self._wikimedia is not None:
+            try:
+                candidates.extend(self._wikimedia.list_media(scientific_name, limit=limit))
+            except Exception as exc:  # noqa: BLE001
+                logger.info("reference_wikimedia_failed", scientific_name=scientific_name, error=str(exc))
+
+        seen: set[str] = set()
+        deduped: list[MediaCandidate] = []
+        for candidate in candidates:
+            if candidate.url in seen:
+                continue
+            seen.add(candidate.url)
+            deduped.append(candidate)
+        return deduped
+
+    def _download(self, candidate: MediaCandidate) -> bytes:
+        """Download via the source-appropriate client (Wikimedia needs its UA)."""
+        if candidate.source == "wikimedia" and self._wikimedia is not None:
+            return self._wikimedia.download(candidate.url)
+        return self._media.download(candidate.url)
 
     def _process_candidate(
         self,
@@ -76,7 +133,7 @@ class ReferenceImageService:
             return
 
         try:
-            image_data = self._media.download(candidate.url)
+            image_data = self._download(candidate)
         except Exception as exc:  # noqa: BLE001 — one bad image must not abort the run
             logger.info("reference_download_failed", url=candidate.url, error=str(exc))
             result.rejected_error += 1
@@ -108,6 +165,11 @@ class ReferenceImageService:
         result.accepted += 1
         key = candidate.license.value
         result.license_breakdown[key] = result.license_breakdown.get(key, 0) + 1
+        # Promote the first accepted image to the species' representative thumbnail.
+        if result.representative_url is None:
+            result.representative_url = candidate.url
+            result.representative_attribution = candidate.attribution
+            result.representative_license = candidate.license.value
 
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""

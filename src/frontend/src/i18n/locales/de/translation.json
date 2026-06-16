@@ -764,7 +764,29 @@
       "propagationEditModeOff": "Vermehrungs-Bearbeitung geschlossen",
       "periodExpandLabel": "Details einblenden",
       "periodCollapseLabel": "Details ausblenden",
-      "deletePeriodLabel": "Anbauzeitraum \"{{label}}\" löschen"
+      "deletePeriodLabel": "Anbauzeitraum \"{{label}}\" löschen",
+      "referenceImages": {
+        "title": "Referenzbilder",
+        "galleryIntro": "Fotos aus öffentlichen Bildarchiven (GBIF, Wikimedia). CC-BY-Bilder enthalten eine Urhebernennung.",
+        "empty": "Noch keine Referenzbilder verfügbar.",
+        "emptyHint": "Bilder werden automatisch nach dem nächsten Beschaffungslauf hinzugefügt.",
+        "imageAlt": "Referenzbild der Pflanzenart",
+        "attributionTooltip": "© {{attribution}} · {{license}}",
+        "attributionIconLabel": "Bildnachweis anzeigen",
+        "galleryAriaLabel": "Referenzbilder von {{name}}",
+        "galleryLoadingLabel": "Referenzbilder werden geladen",
+        "organ": {
+          "leaf": "Blatt",
+          "flower": "Blüte",
+          "fruit": "Frucht",
+          "bark": "Rinde",
+          "habit": "Habitus",
+          "branch": "Zweig",
+          "seed": "Samen",
+          "root": "Wurzel",
+          "stem": "Stängel"
+        }
+      }
     },
     "cultivars": {
       "title": "Sorten",

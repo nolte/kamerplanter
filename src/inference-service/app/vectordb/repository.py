@@ -130,6 +130,34 @@ class SpeciesEmbeddingRepository:
             for row in rows
         ]
 
+    def list_by_species(self, species_key: str, limit: int = 50) -> list[dict]:
+        """Return the stored reference image provenance for a species.
+
+        Only rows that actually carry a ``source_url`` are returned (manually
+        upserted embeddings without provenance are not displayable). Used by the
+        UI gallery; embeddings themselves are never returned.
+        """
+        sql = """
+            SELECT source_url, license, attribution, organ, source, source_record_id
+            FROM species_embeddings
+            WHERE species_key = %s AND source_url IS NOT NULL AND source_url <> ''
+            ORDER BY indexed_at DESC
+            LIMIT %s
+        """
+        with self._pool.connection() as conn:
+            rows = conn.execute(sql, (species_key, limit)).fetchall()
+        return [
+            {
+                "source_url": row[0],
+                "license": row[1],
+                "attribution": row[2],
+                "organ": row[3],
+                "source": row[4],
+                "source_record_id": row[5],
+            }
+            for row in rows
+        ]
+
     def delete_by_species(self, species_key: str) -> int:
         """Delete all reference embeddings for a species. Returns rows deleted."""
         with self._pool.connection() as conn:

@@ -53,6 +53,9 @@ function makeSpecies(): Species {
     support_required: false,
     watering_guide: null,
     default_nutrient_plan_key: null,
+    representative_image_url: null,
+    representative_image_attribution: null,
+    representative_image_license: null,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: null,
   };

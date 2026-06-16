@@ -293,8 +293,27 @@ export interface Species {
   support_required: boolean;
   watering_guide: WateringGuide | null;
   default_nutrient_plan_key: string | null;
+  representative_image_url: string | null;
+  representative_image_attribution: string | null;
+  representative_image_license: string | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** A single reference image for a species (REQ-029-A). External CC0/CC-BY URL. */
+export interface ReferenceImage {
+  source_url: string;
+  license?: string | null;
+  attribution?: string | null;
+  organ?: string | null;
+  source?: string | null;
+}
+
+/** Reference-image gallery response for a species (REQ-029-A). */
+export interface SpeciesReferenceImages {
+  species_key: string;
+  count: number;
+  images: ReferenceImage[];
 }
 
 export interface SpeciesCreate {

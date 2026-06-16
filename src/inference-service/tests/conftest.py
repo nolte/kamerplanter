@@ -77,6 +77,20 @@ class FakeRepo:
     def match(self, query_vector, k=5, model=None):
         return self.matches[:k]
 
+    def list_by_species(self, species_key: str, limit: int = 50) -> list[dict]:
+        return [
+            {
+                "source_url": r.get("source_url"),
+                "license": r.get("license"),
+                "attribution": r.get("attribution"),
+                "organ": r.get("organ"),
+                "source": r.get("source"),
+                "source_record_id": r.get("source_record_id"),
+            }
+            for r in self.rows
+            if r.get("species_key") == species_key and r.get("source_url")
+        ][:limit]
+
     def delete_by_species(self, species_key: str) -> int:
         before = len(self.rows)
         self.rows = [r for r in self.rows if r.get("species_key") != species_key]

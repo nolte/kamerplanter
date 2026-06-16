@@ -764,7 +764,29 @@
       "propagationEditModeOff": "Propagation editor closed",
       "periodExpandLabel": "Show details",
       "periodCollapseLabel": "Hide details",
-      "deletePeriodLabel": "Delete growing period \"{{label}}\""
+      "deletePeriodLabel": "Delete growing period \"{{label}}\"",
+      "referenceImages": {
+        "title": "Reference images",
+        "galleryIntro": "Photos sourced from public image archives (GBIF, Wikimedia). CC-BY images include an attribution notice.",
+        "empty": "No reference images available yet.",
+        "emptyHint": "Images are added automatically after the next acquisition run.",
+        "imageAlt": "Species reference image",
+        "attributionTooltip": "© {{attribution}} · {{license}}",
+        "attributionIconLabel": "Show image credit",
+        "galleryAriaLabel": "Reference images of {{name}}",
+        "galleryLoadingLabel": "Loading reference images",
+        "organ": {
+          "leaf": "Leaf",
+          "flower": "Flower",
+          "fruit": "Fruit",
+          "bark": "Bark",
+          "habit": "Habit",
+          "branch": "Branch",
+          "seed": "Seed",
+          "root": "Root",
+          "stem": "Stem"
+        }
+      }
     },
     "cultivars": {
       "title": "Cultivars",

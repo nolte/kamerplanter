@@ -66,7 +66,7 @@ def _candidates(n_cc0: int, n_ccby: int, n_ccbync: int) -> list[MediaCandidate]:
     return out
 
 
-def _make_service(candidates, *, image_bytes=None, min_usable=5):
+def _make_service(candidates, *, image_bytes=None, wikimedia_candidates=None):
     gbif = MagicMock()
     gbif.match_species.return_value = SimpleNamespace(usage_key=4711)
 
@@ -81,14 +81,20 @@ def _make_service(candidates, *, image_bytes=None, min_usable=5):
     repo = MagicMock()
     repo.upsert.side_effect = lambda job: job
 
-    service = ReferenceImageService(gbif, media, inference, repo)
-    return service, inference, repo
+    wikimedia = None
+    if wikimedia_candidates is not None:
+        wikimedia = MagicMock()
+        wikimedia.list_media.return_value = wikimedia_candidates
+        wikimedia.download.return_value = image_bytes if image_bytes is not None else _image()
+
+    service = ReferenceImageService(gbif, media, inference, repo, wikimedia_client=wikimedia)
+    return service, inference, repo, wikimedia
 
 
 def test_szenario_a3_license_filter(monkeypatch):
     # 10 CC0 + 12 CC-BY accepted, 8 CC-BY-NC rejected.
     candidates = _candidates(10, 12, 8)
-    service, inference, repo = _make_service(candidates)
+    service, inference, repo, _ = _make_service(candidates)
 
     result = service.acquire_for_species("species_monstera", "Monstera deliciosa")
 
@@ -106,7 +112,7 @@ def test_szenario_a3_license_filter(monkeypatch):
 
 def test_low_resolution_rejected_as_quality():
     candidates = _candidates(0, 6, 0)
-    service, inference, _ = _make_service(candidates, image_bytes=_image(100, 100))
+    service, inference, _, _ = _make_service(candidates, image_bytes=_image(100, 100))
 
     result = service.acquire_for_species("species_x", "Ficus lyrata")
 
@@ -118,7 +124,7 @@ def test_low_resolution_rejected_as_quality():
 def test_below_minimum_marked_not_usable():
     # 3 accepted < min_usable (5) → not recognizable.
     candidates = _candidates(3, 0, 0)
-    service, _, _ = _make_service(candidates)
+    service, _, _, _ = _make_service(candidates)
 
     result = service.acquire_for_species("species_rare", "Alocasia zebrina")
 
@@ -127,13 +133,92 @@ def test_below_minimum_marked_not_usable():
 
 
 def test_no_taxon_match_yields_empty_job():
-    service, inference, repo = _make_service(_candidates(5, 5, 0))
+    service, inference, repo, _ = _make_service(_candidates(5, 5, 0))
     service._gbif.match_species.return_value = None
 
     result = service.acquire_for_species("species_unknown", "Nonexistent plantus")
 
+    # GBIF has no taxon, but with no Wikimedia client there are no candidates.
     assert result.candidates_found == 0
     assert result.accepted == 0
     assert result.usable_for_recognition is False
     inference.embed.assert_not_called()
     repo.upsert.assert_called_once()
+
+
+# ── Wikimedia Commons as a second source ────────────────────────────────
+
+
+def _wikimedia_candidates(n: int) -> list[MediaCandidate]:
+    return [
+        MediaCandidate(url=f"http://commons/wiki_{i}.jpg", license=ReferenceLicense.CC0, source="wikimedia")
+        for i in range(n)
+    ]
+
+
+def test_wikimedia_augments_gbif():
+    # GBIF: 4 CC-BY, Wikimedia: 3 CC0 → 7 accepted from both sources.
+    service, inference, _, wikimedia = _make_service(
+        _candidates(0, 4, 0), wikimedia_candidates=_wikimedia_candidates(3)
+    )
+
+    result = service.acquire_for_species("species_monstera", "Monstera deliciosa")
+
+    assert result.candidates_found == 7
+    assert result.accepted == 7
+    assert result.license_breakdown == {"CC-BY": 4, "CC0": 3}
+    wikimedia.list_media.assert_called_once()
+    # Wikimedia images are downloaded via the Wikimedia client (its User-Agent).
+    assert wikimedia.download.call_count == 3
+
+
+def test_dedupe_across_sources():
+    shared = [MediaCandidate(url="http://shared/img.jpg", license=ReferenceLicense.CC0, source="gbif")]
+    wiki_shared = [MediaCandidate(url="http://shared/img.jpg", license=ReferenceLicense.CC0, source="wikimedia")]
+    service, inference, _, _ = _make_service(shared, wikimedia_candidates=wiki_shared)
+
+    result = service.acquire_for_species("species_x", "Ficus lyrata")
+
+    # Same URL from both sources is processed only once.
+    assert result.candidates_found == 1
+    assert result.accepted == 1
+
+
+def test_sets_representative_image_on_species():
+    # The first accepted image is promoted to the species' representative thumbnail.
+    service, _, _, _ = _make_service(_candidates(0, 3, 0))
+    species_repo = MagicMock()
+    service._species_repo = species_repo
+
+    result = service.acquire_for_species("species_monstera", "Monstera deliciosa")
+
+    assert result.representative_url is not None
+    species_repo.set_representative_image.assert_called_once()
+    kwargs = species_repo.set_representative_image.call_args.kwargs
+    assert kwargs["url"] == result.representative_url
+    assert kwargs["license"] == "CC-BY"
+
+
+def test_no_representative_image_when_nothing_accepted():
+    service, _, _, _ = _make_service(_candidates(0, 0, 4))  # all CC-BY-NC → rejected
+    species_repo = MagicMock()
+    service._species_repo = species_repo
+
+    service.acquire_for_species("species_x", "Ficus lyrata")
+
+    species_repo.set_representative_image.assert_not_called()
+
+
+def test_wikimedia_runs_without_gbif_taxon():
+    service, inference, _, wikimedia = _make_service(
+        _candidates(0, 0, 0), wikimedia_candidates=_wikimedia_candidates(6)
+    )
+    service._gbif.match_species.return_value = None  # GBIF finds nothing
+
+    result = service.acquire_for_species("species_rare", "Alocasia zebrina")
+
+    # Wikimedia only needs the scientific name, so it still contributes.
+    assert result.candidates_found == 6
+    assert result.accepted == 6
+    assert result.usable_for_recognition is True
+    wikimedia.list_media.assert_called_once()

@@ -1,9 +1,17 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.species.schemas import SpeciesCreate, SpeciesListResponse, SpeciesResponse
+from app.api.v1.species.schemas import (
+    ReferenceImageEntry,
+    SpeciesCreate,
+    SpeciesListResponse,
+    SpeciesReferenceImagesResponse,
+    SpeciesResponse,
+)
 from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
+from app.config.settings import settings
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
 
@@ -57,6 +65,33 @@ def get_species(
 ):
     s = service.get_species(key)
     return _species_response(s, family_repo)
+
+
+@router.get("/{key}/reference-images", response_model=SpeciesReferenceImagesResponse)
+def get_species_reference_images(
+    key: str,
+    service: SpeciesService = Depends(get_species_service),
+):
+    """Reference-image gallery for a species (REQ-029-A §4).
+
+    Proxies the inference-service; returns an empty gallery when the service is
+    disabled/unreachable or the index has no images for this species yet.
+    """
+    service.get_species(key)  # 404 if the species does not exist
+    client = InferenceServiceClient(settings.inference_service_url)
+    rows = client.list_references(key)
+    images = [
+        ReferenceImageEntry(
+            source_url=r.get("source_url", ""),
+            license=r.get("license"),
+            attribution=r.get("attribution"),
+            organ=r.get("organ"),
+            source=r.get("source"),
+        )
+        for r in rows
+        if r.get("source_url")
+    ]
+    return SpeciesReferenceImagesResponse(species_key=key, count=len(images), images=images)
 
 
 @router.post("", response_model=SpeciesResponse, status_code=201)

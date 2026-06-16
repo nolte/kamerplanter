@@ -65,12 +65,14 @@ api_router.include_router(privacy_public_router)
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
     from app.api.v1.admin.platform.router import router as platform_admin_router
+    from app.api.v1.admin.reference_images.router import router as reference_images_router
     from app.api.v1.auth.router import router as auth_router
     from app.api.v1.privacy.router import router as privacy_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
     api_router.include_router(platform_admin_router)
+    api_router.include_router(reference_images_router)
     api_router.include_router(privacy_router)
 
 api_router.include_router(users_router)

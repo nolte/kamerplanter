@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import Alert from '@mui/material/Alert';
@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import CardMedia from '@mui/material/CardMedia';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
@@ -19,11 +20,74 @@ import SpaIcon from '@mui/icons-material/Spa';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import type { Species } from '@/api/types';
+import ReferenceImageGallery from './ReferenceImageGallery';
 
 interface Props {
   species: Species;
   phaseSequenceKey: string | null;
   onEdit: () => void;
+}
+
+interface HeroImageProps {
+  url: string;
+  attribution: string | null;
+  license: string | null;
+  alt: string;
+}
+
+/**
+ * Detail-page hero image (REQ-029-A). Renders the external representative image
+ * with a legally-required attribution/license caption. A failed external load
+ * removes the whole hero rather than showing a broken-image box.
+ */
+function HeroImage({ url, attribution, license, alt }: HeroImageProps) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+
+  const captionParts: string[] = [];
+  if (attribution) captionParts.push(`© ${attribution}`);
+  if (license) captionParts.push(license);
+  const caption = captionParts.join(' · ');
+
+  return (
+    <Card
+      component="figure"
+      variant="outlined"
+      data-testid="species-hero-image"
+      sx={{ m: 0 }}
+    >
+      <CardMedia
+        component="img"
+        image={url}
+        alt={alt}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        sx={{
+          // Taller on large screens where side-by-side context makes a bigger
+          // hero worthwhile; compact on mobile where vertical space is scarce.
+          maxHeight: { xs: 220, sm: 280, md: 360 },
+          objectFit: 'cover',
+          width: '100%',
+          display: 'block',
+        }}
+      />
+      {caption && (
+        <CardContent
+          component="figcaption"
+          sx={{ py: 1, '&:last-child': { pb: 1 } }}
+        >
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            data-testid="species-hero-attribution"
+          >
+            {caption}
+          </Typography>
+        </CardContent>
+      )}
+    </Card>
+  );
 }
 
 /** Human-readable month range(s) for a config's months, e.g. "März–April, Sep". */
@@ -122,7 +186,17 @@ export default function SpeciesOverview({ species, phaseSequenceKey, onEdit }: P
   }
 
   return (
-    <Box sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Representative image hero (REQ-029-A) — only when a real URL is set. */}
+      {species.representative_image_url && (
+        <HeroImage
+          url={species.representative_image_url}
+          attribution={species.representative_image_attribution}
+          license={species.representative_image_license}
+          alt={species.scientific_name}
+        />
+      )}
+
       {/* Primary edit affordance (U-2). */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
         <Button
@@ -334,6 +408,9 @@ export default function SpeciesOverview({ species, phaseSequenceKey, onEdit }: P
           </CardContent>
         </Card>
       )}
+
+      {/* Reference-image gallery (REQ-029-A) — lazily loaded, empty = discreet hint. */}
+      <ReferenceImageGallery speciesKey={species.key} scientificName={species.scientific_name} />
     </Box>
   );
 }

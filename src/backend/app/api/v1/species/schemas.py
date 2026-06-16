@@ -103,6 +103,9 @@ class SpeciesResponse(BaseModel):
     support_required: bool = False
     watering_guide: WateringGuide | None = None
     default_nutrient_plan_key: str | None = None
+    representative_image_url: str | None = None
+    representative_image_attribution: str | None = None
+    representative_image_license: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -112,3 +115,21 @@ class SpeciesListResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class ReferenceImageEntry(BaseModel):
+    """One reference image (URL + license/attribution) for the gallery."""
+
+    source_url: str
+    license: str | None = None
+    attribution: str | None = None
+    organ: str | None = None
+    source: str | None = None
+
+
+class SpeciesReferenceImagesResponse(BaseModel):
+    """Reference-image gallery for a species (REQ-029-A §4)."""
+
+    species_key: str
+    count: int
+    images: list[ReferenceImageEntry]

@@ -56,6 +56,24 @@ class InferenceServiceClient:
         except Exception:  # noqa: BLE001 — readiness must never raise
             return False
 
+    def list_references(self, species_key: str, *, limit: int = 50) -> list[dict[str, Any]]:
+        """List stored reference image provenance for a species (gallery source).
+
+        Returns ``[]`` (never raises) when the service is unreachable or has no
+        index yet, so the UI degrades to "no images" instead of erroring.
+        """
+        try:
+            response = httpx.get(
+                f"{self._base_url}/reference/{species_key}",
+                params={"limit": limit},
+                timeout=_MATCH_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            return response.json().get("images", [])
+        except Exception:  # noqa: BLE001 — a missing gallery must not break the page
+            logger.info("inference_list_references_failed", species_key=species_key)
+            return []
+
     # ── Acquisition path (sync, WS-4) ──────────────────────────────────
 
     def embed(self, image_data: bytes) -> list[float]:

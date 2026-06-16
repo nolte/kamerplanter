@@ -55,6 +55,25 @@ class DeleteReferenceResponse(BaseModel):
     deleted: int
 
 
+class ReferenceImageItem(BaseModel):
+    """Provenance of one stored reference image (no embedding)."""
+
+    source_url: str
+    license: str | None = None
+    attribution: str | None = None
+    organ: str | None = None
+    source: str | None = None
+    source_record_id: str | None = None
+
+
+class ReferenceListResponse(BaseModel):
+    """Reference image provenance for a species (gallery source)."""
+
+    species_key: str
+    count: int
+    images: list[ReferenceImageItem]
+
+
 class ModelInfoResponse(BaseModel):
     """Static model metadata."""
 
