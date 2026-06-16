@@ -1,3 +1,5 @@
+name: Release Deliver to Master
+
 on:
   release:
     types: [published]
