@@ -7,7 +7,12 @@ FROM python:3.14-slim AS model-export
 
 WORKDIR /export
 # hadolint ignore=DL3013
-RUN pip install --no-cache-dir --root-user-action=ignore torch torchvision onnx
+# CPU-only torch: the GPU build pulls multi-GB nvidia/CUDA wheels that are
+# unnecessary for a CPU ONNX export and exhaust the CI runner disk. onnx is not
+# hosted on the PyTorch index, so install it separately from PyPI.
+RUN pip install --no-cache-dir --root-user-action=ignore \
+        torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --no-cache-dir --root-user-action=ignore onnx onnxscript
 
 COPY scripts/export_dinov2_onnx.py ./export_dinov2_onnx.py
 RUN python export_dinov2_onnx.py --arch dinov2_vits14 --input-size 224 --output /model

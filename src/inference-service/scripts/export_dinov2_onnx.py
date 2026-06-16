@@ -78,6 +78,9 @@ def export(arch: str, input_size: int, output_dir: Path, opset: int) -> None:
         },
         opset_version=opset,
         do_constant_folding=True,
+        # Use the legacy TorchScript exporter: torch>=2.9 defaults to the
+        # dynamo exporter, which rejects the dict-style dynamic_axes used here.
+        dynamo=False,
     )
 
     checksum = _sha256(onnx_path)
