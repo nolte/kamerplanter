@@ -121,6 +121,54 @@ Alle 183 Arten mit gepflegten Vermehrungsmethoden haben bereits einen fachlichen
 2. Auf der Detailseite kannst du alle Felder bearbeiten
 3. Die Detailseite zeigt auch zugehörige Sorten, Wachstumsphasen und Nährstoffpläne
 
+---
+
+## Referenzbilder in der Artenansicht
+
+Kamerplanter zeigt für jede Pflanzenart Referenzbilder an, die aus öffentlichen Bilddatenbanken (GBIF, Wikimedia Commons) automatisch beschafft wurden. Diese Bilder helfen dir, eine Art schnell wiederzuerkennen — auch dann, wenn du keinen botanischen Hintergrund hast.
+
+### Wo erscheinen Referenzbilder?
+
+**In der Artenliste (Übersicht):** Pro Art erscheint ein kleines Thumbnail in der linken Spalte. Ist für eine Art noch kein Referenzbild verfügbar, siehst du dort ein dezentes Pflanzen-Icon als Platzhalter — das ist kein Fehler, sondern bedeutet schlicht, dass der Referenzbild-Beschaffungslauf für diese Art noch kein geeignetes lizenzfreies Bild gefunden hat.
+
+**Auf der Artdetailseite (Tab „Übersicht"):** Im oberen Bereich erscheint ein großes Hero-Bild. Darunter befindet sich die **Referenzbild-Galerie** mit allen verfügbaren Bildern der Art, sortiert nach Bildorgan (Blatt, Blüte, Frucht, Gesamt).
+
+!!! note "Bilder erscheinen erst nach dem Beschaffungslauf"
+    Direkt nach der Installation zeigt die Galerie den Hinweis **„Noch keine Referenzbilder verfügbar"**. Dieser verschwindet, sobald ein Administrator den Referenzbild-Beschaffungslauf ausgeführt hat. Mehr dazu im Abschnitt [Referenzbilder beschaffen](#referenzbilder-beschaffen) weiter unten.
+
+### Bildquellen und Lizenzen
+
+Die Bilder stammen ausschließlich aus Quellen mit lizenzsauberen, öffentlich nutzbaren Fotografien:
+
+| Quelle | Lizenz | Hinweis |
+|--------|--------|---------|
+| GBIF (Global Biodiversity Information Facility) | CC0 / CC-BY | Größter Backbone für Artfotos |
+| Wikimedia Commons | CC0 / Public Domain | Kuratierte, typische Artbilder |
+
+!!! warning "Urhebernennung bei CC-BY-Bildern (rechtlich erforderlich)"
+    Bilder unter der Lizenz **CC-BY** erfordern eine sichtbare Urhebernennung. Kamerplanter zeigt diese direkt unter dem jeweiligen Bild in der Galerie an, zum Beispiel:
+
+    > © Jane Doe, via GBIF/iNaturalist · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+    Diese Angabe wird automatisch aus den gespeicherten Metadaten generiert. Du musst nichts manuell eintragen.
+
+    CC0-Bilder (gemeinfrei) tragen keine Urhebernennung, weil der Urheber alle Rechte freigegeben hat.
+
+### Referenzbilder beschaffen
+
+Referenzbilder werden **nicht automatisch** beim Anlegen einer Art geladen. Sie entstehen durch einen einmaligen Beschaffungslauf, den ein Administrator auslöst. Für den laufenden Betrieb ist dieser Lauf nur einmalig nötig — er kann bei Bedarf (z.B. nach dem Import neuer Arten) wiederholt werden.
+
+!!! tip "Für Administratoren"
+    Der Beschaffungslauf läuft als Hintergrundprozess (Celery-Task) und kann mehrere Stunden dauern. Während er läuft, tauchen die Bilder Art für Art in der UI auf. Mehr zur technischen Ausführung: [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md#schritt-2-referenz-index-befullen).
+
+**Welche Arten bekommen Bilder?** Der Beschaffungslauf durchsucht für alle angelegten Arten die Bilddatenbanken. Arten, für die keine CC0/CC-BY-Bilder gefunden werden (seltene oder exotische Pflanzen), erhalten keinen Eintrag — das ist transparentes Systemverhalten, kein Datenfehler.
+
+### Zusammenhang mit der Pflanzen-Bilderkennung
+
+Dieselben Referenzbilder, die in der Artenansicht erscheinen, bilden auch die Grundlage für die **Pflanzen-Bilderkennung** (REQ-029-A). Das DINOv2-Erkennungssystem vergleicht ein aufgenommenes Foto mit den gespeicherten Referenz-Embeddings, um die wahrscheinlichste Art zu bestimmen.
+
+Mehr dazu: [Pflanzen-Bilderkennung verwenden](plant-identification.md)
+
 ## Sorten verwalten
 
 Sorten (Cultivars) sind Zuchtformen innerhalb einer Art. Sie erben die Grundeigenschaften der Art und ergänzen sortenspezifische Daten.
@@ -196,6 +244,8 @@ flowchart LR
 ## Siehe auch
 
 - [Pflanzendaten per KI aufbereiten](../guides/ai-plant-data-pipeline.md) — Ausführliche Anleitung zur KI-Pipeline
+- [Pflanzen-Bilderkennung verwenden](plant-identification.md) — Art per Foto identifizieren
+- [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md) — Referenzbild-Beschaffungslauf starten (für Administratoren)
 - [Wachstumsphasen](growth-phases.md) — Phasensteuerung pro Art
 - [Pflanzdurchläufe](planting-runs.md) — Pflanzen von der Aussaat bis zur Ernte begleiten
 - [Dünge-Logik](fertilization.md) — Nährstoffpläne und Feeding-Charts

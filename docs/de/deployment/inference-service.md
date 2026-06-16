@@ -12,7 +12,7 @@ Der Inferenz-Service (`src/inference-service/`) ist ein eigenständiger FastAPI-
 - Bilder vorverarbeitet und in Embedding-Vektoren (384 Dimensionen) umrechnet,
 - diese Vektoren gegen einen **Referenz-Index** in pgvector abgleicht und die ähnlichsten Pflanzenarten zurückgibt.
 
-Der Service läuft als separater Pod im `kamerplanter-ki`-Helm-Release und ist nur intern erreichbar (ClusterIP). Er kommuniziert mit derselben pgvector-Datenbank, die auch der Knowledge-Service nutzt (`kamerplanter_vectors`), aber in einer eigenen Tabelle (`species_embeddings`).
+Der Service ist ein **optionales, eigenständiges** Modul: Er läuft im eigenen Helm-Release `kamerplanter-recognition` (Skaffold-Profil `recognition`) und ist nur intern erreichbar (ClusterIP). Die Bilderkennung lässt sich damit unabhängig vom RAG-Stack betreiben oder ganz weglassen. Den pgvector-Speicher teilt er sich mit dem Knowledge-Service (`kamerplanter_vectors`, bereitgestellt vom `kamerplanter-ki`-Release), nutzt darin aber eine eigene Tabelle (`species_embeddings`). Deshalb muss die `kamerplanter-ki`-vectordb laufen, wenn das `recognition`-Profil gestartet wird.
 
 ---
 
@@ -25,10 +25,12 @@ Der Service läuft als separater Pod im `kamerplanter-ki`-Helm-Release und ist n
 
 ```bash
 # Im Projektverzeichnis (Entwicklung):
-skaffold dev -m ki
+# Das recognition-Profil teilt sich die pgvector-DB mit dem ki-Stack,
+# daher beide Module zusammen starten:
+skaffold dev -m ki -m recognition
 ```
 
-Das `ki`-Profil startet den `inference-service` zusammen mit dem Knowledge-Service und dem Reranker-Service. Beim ersten Start wird das ONNX-Modell im Build-Schritt exportiert — das dauert je nach Hardware 5–15 Minuten.
+Das `recognition`-Profil startet ausschließlich den `inference-service` (eigenes Release `kamerplanter-recognition`); das `ki`-Profil stellt die gemeinsam genutzte pgvector-DB bereit. Beim ersten Start wird das ONNX-Modell im Build-Schritt exportiert — das dauert je nach Hardware 5–15 Minuten.
 
 !!! tip "Modell-Export wird gecacht"
     Nach dem ersten Build liegt das Modell im Layer-Cache. Folgestarts sind in wenigen Sekunden abgeschlossen.
@@ -37,7 +39,7 @@ Das `ki`-Profil startet den `inference-service` zusammen mit dem Knowledge-Servi
 
 ```bash
 # Port-Forward (lokale Entwicklung):
-kubectl port-forward svc/kamerplanter-ki-inference-service 8090:8000 -n default
+kubectl port-forward svc/kamerplanter-recognition 8090:8000 -n default
 
 # Readiness prüfen:
 curl http://localhost:8090/ready
@@ -49,16 +51,19 @@ curl http://localhost:8090/modelinfo
 
 ### Schritt 2: Referenz-Index befüllen
 
-Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
+Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
+
+!!! info "Dieser Schritt befüllt auch die UI-Bilder in der Artenansicht"
+    Nach Abschluss dieses Tasks erscheinen in der **Artenliste** Thumbnails und auf der **Artdetailseite** eine vollständige Referenzbild-Galerie. Beide Ansichten zeigen vor dem ersten Beschaffungslauf einen Platzhalter-Hinweis. Lizenz-Attribution (CC-BY) wird automatisch in den Metadaten mitgeführt und im UI angezeigt. Weitere Informationen: [Referenzbilder in der Artenansicht](../user-guide/plant-management.md#referenzbilder-in-der-artenansicht).
 
 ```bash
 # Celery-Task für alle Arten starten (einmalig, dauert je nach Artenzahl mehrere Stunden):
 kubectl exec -it deploy/kamerplanter-backend -n default -- \
-  python -m celery -A app.celery_app call \
+  celery -A app.tasks call \
   app.tasks.reference_image_tasks.acquire_all_reference_images_task
 
 # Alternativ: über die Backend-API (Admin-Endpoint):
-curl -X POST http://localhost:8000/api/v1/admin/reference-images/acquire-all \
+curl -X POST http://localhost:8000/api/v1/admin/reference-images/acquire \
   -H "Authorization: Bearer <admin-token>"
 ```
 
@@ -87,12 +92,22 @@ Die Antwort zeigt pro Art, wie viele Referenzbilder indexiert wurden und ob die 
 !!! note "Abdeckungslücken"
     Arten mit weniger als 5 Referenzbildern erscheinen nicht in Erkennungsergebnissen. Das System kommuniziert dies ehrlich im UI. Häufige Ursachen für Lücken: seltene Arten, exotische Zimmerpflanzen oder Arten ohne CC0/CC-BY-Fotos in GBIF.
 
+**Admin-API-Endpunkte für die Referenzbild-Beschaffung (Übersicht):**
+
+| Methode | Endpunkt | Beschreibung |
+|---------|----------|-------------|
+| `POST` | `/api/v1/admin/reference-images/acquire` | Beschaffungslauf für alle Arten starten |
+| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Beschaffungslauf für eine einzelne Art starten oder wiederholen |
+| `GET` | `/api/v1/admin/reference-images/coverage` | Abdeckungs-Report: erkennbare Arten, Arten unter Schwellenwert |
+
+Alle drei Endpunkte erfordern einen gültigen Admin-Token (`Authorization: Bearer <admin-token>`). Die Endpunkte sind über den regulären Backend-Ingress erreichbar — es ist kein separater Port-Forward nötig.
+
 ### Schritt 3: Lokalen Pfad aktivieren
 
 Setze die Umgebungsvariable im Backend:
 
 ```bash
-# values-dev-ki.yaml oder Umgebungsvariable:
+# Backend-Env (values-dev.yaml) oder Umgebungsvariable:
 INFERENCE_SERVICE_ENABLED=true
 ```
 
@@ -103,10 +118,10 @@ INFERENCE_SERVICE_ENABLED=true
 
 ## Helm-Konfiguration (Produktion)
 
-Der Inferenz-Service ist Teil des `kamerplanter-ki` Helm-Release. Die Konfiguration erfolgt in `values-ki.yaml`:
+Der Inferenz-Service hat ein eigenes Helm-Release `kamerplanter-recognition`. Die Konfiguration erfolgt in `values-dev-recognition.yaml`:
 
 ```yaml
-# helm/kamerplanter-ki/values-ki.yaml
+# helm/kamerplanter/values-dev-recognition.yaml
 
 inference-service:
   controllers:
@@ -144,7 +159,7 @@ inference-service:
 backend:
   env:
     INFERENCE_SERVICE_ENABLED: "true"
-    INFERENCE_SERVICE_URL: "http://kamerplanter-ki-inference-service:8000"
+    INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
 ```
 
 ### Ressourcenbedarf
@@ -177,7 +192,7 @@ backend:
 | Variable (Backend) | Pflicht | Standard | Beschreibung |
 |--------------------|:-------:|----------|-------------|
 | `INFERENCE_SERVICE_ENABLED` | Nein | `false` | Lokalen Inferenz-Pfad aktivieren |
-| `INFERENCE_SERVICE_URL` | Nein | `http://kamerplanter-ki-inference-service:8000` | Interne URL des Inferenz-Service |
+| `INFERENCE_SERVICE_URL` | Nein | `http://kamerplanter-recognition:8000` | Interne URL des Inferenz-Service |
 | `PLANTNET_API_KEY` | Nein | — | Pl@ntNet API-Key für Fallback (optional) |
 
 ---
@@ -217,7 +232,7 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 ## Fehlerbehebung
 
 ??? question "Der Inferenz-Service startet nicht — Fehler: Modell nicht gefunden"
-    Das ONNX-Artefakt wurde möglicherweise nicht exportiert. Prüfe den Build-Log des `inference-service`-Images auf den Schritt `export_dinov2_onnx.py`. Führe `skaffold build -m ki` erneut aus.
+    Das ONNX-Artefakt wurde möglicherweise nicht exportiert. Prüfe den Build-Log des `inference-service`-Images auf den Schritt `export_dinov2_onnx.py`. Führe `skaffold build -m recognition` erneut aus.
 
 ??? question "Erkennung liefert immer 'keine Ergebnisse' obwohl der Service läuft"
     Prüfe ob der Referenz-Index befüllt ist (`/api/v1/admin/reference-images/coverage`). Ein leerer Index liefert keine Treffer. Führe `acquire_all_reference_images_task` aus (Schritt 2).
