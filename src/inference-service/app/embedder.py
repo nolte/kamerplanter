@@ -42,6 +42,11 @@ class Embedder:
         self._expected_dim = expected_dim
         self._session = None
         self._input_name: str | None = None
+        # Auxiliary inputs the graph requires besides pixel_values, with a
+        # neutral feed value each (see _neutral_input). Some DINOv2 ONNX exports
+        # carry a scalar boolean ``masks`` input (an artifact of the traced
+        # forward signature); feeding False reproduces the masks=None path.
+        self._aux_inputs: list[tuple[str, np.ndarray]] = []
         self._ready = False
         self._load_error: str | None = None
         self._lock = threading.Lock()
@@ -72,14 +77,42 @@ class Embedder:
             logger.error("model_load_failed", reason=self._load_error)
             return
 
+        inputs = session.get_inputs()
+        primary = inputs[0].name
+        aux = [(inp.name, self._neutral_input(inp)) for inp in inputs[1:]]
+
         with self._lock:
             self._session = session
-            self._input_name = session.get_inputs()[0].name
+            self._input_name = primary
+            self._aux_inputs = aux
             self._ready = True
             self._load_error = None
 
+        if aux:
+            logger.info("model_aux_inputs", names=[name for name, _ in aux])
+
         elapsed = time.monotonic() - start
         logger.info("model_loaded", file=str(onnx_file), seconds=round(elapsed, 2))
+
+    @staticmethod
+    def _neutral_input(inp) -> np.ndarray:  # noqa: ANN001 -- ort NodeArg
+        """Build a neutral feed value for a non-primary model input.
+
+        Symbolic dimensions (str / None) collapse to 1; the value is all-zero
+        (False for bool), which for DINOv2's ``masks`` input leaves the
+        embedding unchanged (equivalent to masks=None).
+        """
+        dtype_map = {
+            "tensor(bool)": np.bool_,
+            "tensor(float)": np.float32,
+            "tensor(float16)": np.float16,
+            "tensor(double)": np.float64,
+            "tensor(int64)": np.int64,
+            "tensor(int32)": np.int32,
+        }
+        np_dtype = dtype_map.get(inp.type, np.float32)
+        shape = [d if isinstance(d, int) else 1 for d in inp.shape]
+        return np.zeros(shape, dtype=np_dtype)
 
     def is_ready(self) -> bool:
         """True once the ONNX session is loaded and usable."""
@@ -107,7 +140,9 @@ class Embedder:
         tensors = [preprocess(img, self._input_size) for img in images]
         batch = np.concatenate(tensors, axis=0)  # (N, 3, H, W)
 
-        outputs = self._session.run(None, {self._input_name: batch})
+        feed: dict[str, np.ndarray] = {self._input_name: batch}
+        feed.update(dict(self._aux_inputs))
+        outputs = self._session.run(None, feed)
         embeddings = np.asarray(outputs[0], dtype=np.float32)
         # DINOv2 backbone may emit (N, dim) directly or (N, tokens, dim); reduce
         # token dimension by mean pooling if present.

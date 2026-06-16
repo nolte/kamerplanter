@@ -321,7 +321,59 @@
       "plantnetResetDialogTitle": "Remove stored key?",
       "plantnetResetConfirm": "The Pl@ntNet key stored in the database will be deleted. If an environment variable is set, that value will be used again.",
       "plantnetSaved": "Pl@ntNet key saved",
-      "plantnetResetDone": "Pl@ntNet key removed"
+      "plantnetResetDone": "Pl@ntNet key removed",
+      "recognition": {
+        "section": "Self-hosted recognition (DINOv2)",
+        "sectionHelper": "Shows whether the locally operated plant recognition is running and how many species it can identify. All values come from the server configuration and are read-only here.",
+        "statusUnavailable": "The self-hosted recognition status could not be retrieved.",
+        "disabledTitle": "Self-hosted recognition (DINOv2) is not enabled",
+        "disabledHint": "Self-hosted image recognition is enabled via the INFERENCE_SERVICE_ENABLED environment variable.",
+        "loading": "Loading status...",
+        "chipActive": "Active",
+        "chipActiveAriaLabel": "Self-hosted recognition: active",
+        "chipServiceReady": "Service ready",
+        "chipServiceReadyAriaLabel": "Inference service: ready",
+        "chipServiceUnreachable": "Service unreachable",
+        "chipServiceUnreachableAriaLabel": "Inference service: unreachable",
+        "chipModel": "Model: {{model}}",
+        "chipModelAriaLabel": "Recognition model: {{model}}",
+        "serviceWarning": "The inference service is unreachable or the model is not loaded. Please check that the recognition service is running.",
+        "coverageTitle": "Species coverage",
+        "coverageIntro": "The bar shows the progress of the acquisition run (how many species have been searched). The result below shows how many species are actually recognizable — only those with enough reference photos count.",
+        "coverageText": "{{usable}} of {{total}} species recognizable",
+        "coverageBarAriaLabel": "{{percent}} % of species are recognizable ({{usable}} of {{total}})",
+        "jobNotStarted": "Not started",
+        "jobNotStartedAriaLabel": "Reference image acquisition: not started yet",
+        "jobNotStartedHint": "No acquisition run has been executed yet. Start a run with the button below. Once reference images are acquired, species become recognizable.",
+        "acquireStart": "Start acquisition",
+        "acquireRunning": "Acquisition running …",
+        "acquireStarting": "Starting acquisition …",
+        "acquireHint": "Downloads license-free reference photos (GBIF, Wikimedia) for all species and builds the recognition index. The run executes in the background; progress updates here automatically.",
+        "acquireError": "Could not start the acquisition run. Please try again.",
+        "jobQueued": "Starting",
+        "jobQueuedAriaLabel": "Reference image acquisition: started, first results coming shortly",
+        "jobQueuedHint": "The acquisition run has started and is executing in the background. The first results may take a few minutes — progress updates here automatically once the first species have been processed.",
+        "jobRunning": "Running",
+        "jobRunningAriaLabel": "Reference image acquisition: running",
+        "jobComplete": "Completed",
+        "jobCompleteAriaLabel": "Reference image acquisition: completed",
+        "processedText": "{{processed}} of {{total}} species processed",
+        "processedBarAriaLabel": "Acquisition progress: {{percent}} % ({{processed}} of {{total}} species processed)",
+        "configTitle": "Configuration (read-only)",
+        "configPrimaryAdapter": "Recognition adapter",
+        "configPrimaryAdapterHelp": "Which method is used for image comparison (locally stored features or an external service).",
+        "configAutoAccept": "Confidence: auto-accept",
+        "configAutoAcceptHelp": "Match probability above which a recognition result is automatically accepted without user confirmation.",
+        "configMinShow": "Confidence: minimum display",
+        "configMinShowHelp": "Match probability below which suggestions are not shown at all.",
+        "configMinReferenceImages": "Min. reference images",
+        "configMinReferenceImagesHelp": "Minimum number of quality reference photos a species must have to be recognizable.",
+        "configWikimedia": "Wikimedia source",
+        "configWikimediaHelp": "When enabled, Wikimedia photos can be used as reference images for recognition.",
+        "enabledValue": "On",
+        "disabledValue": "Off",
+        "readOnlyNote": "Read-only — these values come from the server configuration."
+      }
     },
     "privacy": {
       "title": "Privacy & Data Subject Rights",
@@ -3935,6 +3987,26 @@
       "beginnerTip": "Sunny windowsill in summer ≈ 10–15 mol/m²/d. In winter only 3–5.",
       "unit": "mol/m²/d",
       "typicalRange": "5–40 mol/m²/d"
+    },
+    "dinov2": {
+      "short": "AI image recognition model by Meta — identifies plants from visual features",
+      "long": "DINOv2 is a self-supervised AI model by Meta that converts images into numerical feature vectors (embeddings). Kamerplanter compares photos with stored reference features of all plant species to identify plants — without any cloud connection.",
+      "beginnerTip": "No configuration needed — DINOv2 runs locally on your server and never sends photos externally.",
+      "category": "allgemein"
+    },
+    "confidence_score": {
+      "short": "Match probability — how certain is the identification?",
+      "long": "The confidence score shows how similar the photo is to the stored reference images of a species. 90% means the system is 90% certain. Results below the minimum threshold are not shown at all; results above the auto-accept threshold are accepted automatically.",
+      "beginnerTip": "If no result is shown, the photo may be blurry or not showing the right plant parts.",
+      "unit": "% (percent)",
+      "typicalRange": "10–100 %",
+      "category": "allgemein"
+    },
+    "embedding_adapter": {
+      "short": "Recognition method — which algorithm processes your plant photo",
+      "long": "An adapter is the software layer that converts a plant photo into comparable numerical values (features). 'local_embedding' means: this happens on your own server using the DINOv2 model, without any external services.",
+      "beginnerTip": "For most installations 'local_embedding' is the right choice.",
+      "category": "allgemein"
     }
   }
 }

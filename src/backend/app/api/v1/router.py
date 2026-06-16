@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.activities.router import router as activities_router
 from app.api.v1.activity_plans.router import router as activity_plans_router
+from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
@@ -57,6 +58,9 @@ api_router.include_router(mode_router)
 
 # Admin settings — available in both modes
 api_router.include_router(admin_settings_router)
+# Recognition status is read-only + get_current_user-gated, like admin settings —
+# available in both light and full mode (the inference feature itself is optional).
+api_router.include_router(recognition_admin_router)
 
 # Privacy policy endpoint is public in both modes per REQ-025 §3.6
 # (DSGVO Art. 13/14 Hinweispflicht applies regardless of auth mode).

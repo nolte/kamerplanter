@@ -321,7 +321,59 @@
       "plantnetResetDialogTitle": "Gespeicherten Schlüssel entfernen?",
       "plantnetResetConfirm": "Der in der Datenbank gespeicherte Pl@ntNet-Schlüssel wird gelöscht. Falls eine Umgebungsvariable gesetzt ist, wird wieder dieser Wert verwendet.",
       "plantnetSaved": "Pl@ntNet-Schlüssel gespeichert",
-      "plantnetResetDone": "Pl@ntNet-Schlüssel entfernt"
+      "plantnetResetDone": "Pl@ntNet-Schlüssel entfernt",
+      "recognition": {
+        "section": "Self-Hosted-Erkennung (DINOv2)",
+        "sectionHelper": "Zeigt, ob die lokal betriebene Pflanzenerkennung läuft und wie viele Pflanzenarten sie erkennen kann. Alle Werte stammen aus der Server-Konfiguration und sind hier nur zur Ansicht.",
+        "statusUnavailable": "Der Status der Self-Hosted-Erkennung konnte nicht abgerufen werden.",
+        "disabledTitle": "Self-Hosted-Erkennung (DINOv2) ist nicht aktiviert",
+        "disabledHint": "Die selbst gehostete Bilderkennung wird über die Umgebungsvariable INFERENCE_SERVICE_ENABLED aktiviert.",
+        "loading": "Status wird geladen...",
+        "chipActive": "Aktiv",
+        "chipActiveAriaLabel": "Self-Hosted-Erkennung: aktiv",
+        "chipServiceReady": "Dienst bereit",
+        "chipServiceReadyAriaLabel": "Inferenz-Dienst: bereit",
+        "chipServiceUnreachable": "Dienst nicht erreichbar",
+        "chipServiceUnreachableAriaLabel": "Inferenz-Dienst: nicht erreichbar",
+        "chipModel": "Modell: {{model}}",
+        "chipModelAriaLabel": "Erkennungsmodell: {{model}}",
+        "serviceWarning": "Der Inferenz-Dienst ist nicht erreichbar oder das Modell ist nicht geladen. Bitte prüfen Sie, ob der Erkennungs-Dienst läuft.",
+        "coverageTitle": "Arten-Abdeckung",
+        "coverageIntro": "Der Balken zeigt den Fortschritt des Beschaffungslaufs (wie viele Arten bereits durchsucht wurden). Das Ergebnis darunter zeigt, wie viele Arten tatsächlich erkennbar sind – das sind nur jene mit ausreichend vielen Referenzfotos.",
+        "coverageText": "{{usable}} von {{total}} Arten erkennbar",
+        "coverageBarAriaLabel": "{{percent}} % der Arten sind erkennbar ({{usable}} von {{total}})",
+        "jobNotStarted": "Nicht gestartet",
+        "jobNotStartedAriaLabel": "Beschaffung der Referenzbilder: noch nicht gestartet",
+        "jobNotStartedHint": "Es wurde noch kein Beschaffungslauf durchgeführt. Starten Sie den Lauf über die Schaltfläche unten. Sobald Referenzbilder beschafft wurden, steigt die Anzahl erkennbarer Arten.",
+        "acquireStart": "Beschaffung starten",
+        "acquireRunning": "Beschaffung läuft …",
+        "acquireStarting": "Beschaffung wird gestartet …",
+        "acquireHint": "Lädt lizenzfreie Referenzfotos (GBIF, Wikimedia) für alle Arten herunter und baut den Erkennungs-Index auf. Der Lauf läuft im Hintergrund; der Fortschritt wird hier laufend aktualisiert.",
+        "acquireError": "Der Beschaffungslauf konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
+        "jobQueued": "Wird gestartet",
+        "jobQueuedAriaLabel": "Beschaffung der Referenzbilder: wurde gestartet, erste Ergebnisse folgen in Kürze",
+        "jobQueuedHint": "Die Beschaffung wurde gestartet und läuft im Hintergrund. Die ersten Ergebnisse können einige Minuten dauern – der Fortschritt aktualisiert sich hier automatisch, sobald die ersten Arten verarbeitet wurden.",
+        "jobRunning": "Läuft",
+        "jobRunningAriaLabel": "Beschaffung der Referenzbilder: läuft",
+        "jobComplete": "Abgeschlossen",
+        "jobCompleteAriaLabel": "Beschaffung der Referenzbilder: abgeschlossen",
+        "processedText": "{{processed}} von {{total}} Arten verarbeitet",
+        "processedBarAriaLabel": "Beschaffungsfortschritt: {{percent}} % ({{processed}} von {{total}} Arten verarbeitet)",
+        "configTitle": "Konfiguration (schreibgeschützt)",
+        "configPrimaryAdapter": "Erkennungs-Adapter",
+        "configPrimaryAdapterHelp": "Welches Verfahren für den Bild-Vergleich eingesetzt wird (lokal gespeicherte Merkmale oder ein externer Dienst).",
+        "configAutoAccept": "Konfidenz: Auto-Übernahme",
+        "configAutoAcceptHelp": "Trefferwahrscheinlichkeit ab der ein Erkennungsergebnis automatisch übernommen wird, ohne Nutzer-Bestätigung.",
+        "configMinShow": "Konfidenz: Mindestanzeige",
+        "configMinShowHelp": "Trefferwahrscheinlichkeit unterhalb derer Vorschläge gar nicht erst angezeigt werden.",
+        "configMinReferenceImages": "Min. Referenzbilder",
+        "configMinReferenceImagesHelp": "Mindestanzahl hochwertiger Referenzfotos, die eine Art haben muss, um erkannt werden zu können.",
+        "configWikimedia": "Wikimedia-Quelle",
+        "configWikimediaHelp": "Wenn aktiv, können Wikimedia-Fotos als Referenzbilder für die Erkennung herangezogen werden.",
+        "enabledValue": "An",
+        "disabledValue": "Aus",
+        "readOnlyNote": "Schreibgeschützt — diese Werte stammen aus der Server-Konfiguration."
+      }
     },
     "privacy": {
       "title": "Datenschutz & Betroffenenrechte",
@@ -3936,6 +3988,26 @@
       "beginnerTip": "Sonnige Fensterbank im Sommer ≈ 10–15 mol/m²/d. Im Winter nur 3–5.",
       "unit": "mol/m²/d",
       "typicalRange": "5–40 mol/m²/d"
+    },
+    "dinov2": {
+      "short": "KI-Bilderkennungsmodell von Meta — erkennt Pflanzen anhand visueller Merkmale",
+      "long": "DINOv2 ist ein selbstlernend trainiertes KI-Modell von Meta, das Bilder in numerische Merkmalsvektoren (Embeddings) umwandelt. Kamerplanter vergleicht Fotos mit gespeicherten Referenzmerkmalen aller Pflanzenarten, um Pflanzen zu erkennen — ohne Cloud-Anbindung.",
+      "beginnerTip": "Sie müssen nichts konfigurieren — DINOv2 läuft lokal auf Ihrem Server und sendet keine Fotos nach außen.",
+      "category": "allgemein"
+    },
+    "confidence_score": {
+      "short": "Trefferwahrscheinlichkeit — wie sicher ist die Erkennung?",
+      "long": "Die Konfidenz gibt an, wie ähnlich das Foto den gespeicherten Referenzbildern einer Art ist. 90% bedeutet: Das System ist zu 90% sicher. Ergebnisse unter dem eingestellten Mindestwert werden gar nicht angezeigt; Ergebnisse über dem Auto-Übernahme-Wert werden automatisch übernommen.",
+      "beginnerTip": "Wenn kein Ergebnis angezeigt wird, ist das Foto möglicherweise unscharf oder zeigt nicht die richtigen Pflanzenteile.",
+      "unit": "% (Prozent)",
+      "typicalRange": "10–100 %",
+      "category": "allgemein"
+    },
+    "embedding_adapter": {
+      "short": "Erkennungs-Verfahren — welcher Algorithmus Ihr Pflanzenfoto verarbeitet",
+      "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf Ihrem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
+      "beginnerTip": "Für die meisten Installationen ist 'local_embedding' die richtige Wahl.",
+      "category": "allgemein"
     }
   }
 }

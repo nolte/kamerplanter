@@ -45,7 +45,7 @@ controllers:
           # Keep "false" until the reference index is populated (run the WS-4
           # acquire_all_reference_images_task); otherwise the empty index would
           # shadow the Pl@ntNet fallback. Flip to "true" once the index is built.
-          INFERENCE_SERVICE_ENABLED: "false"
+          INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
         probes:
           liveness:
@@ -192,10 +192,13 @@ controllers:
         resources:
           requests:
             cpu: 50m
-            memory: 128Mi
+            # REQ-029-A: reference-image acquisition downloads many candidate
+            # images per species into memory before embedding; 512Mi was
+            # OOMKilled (exit 137) mid-run, aborting the acquisition task.
+            memory: 256Mi
           limits:
             cpu: "1"
-            memory: 512Mi
+            memory: 1Gi
 
   celery-beat:
     replicas: 1

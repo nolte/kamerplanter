@@ -95,6 +95,7 @@ import type {
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
+import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -296,6 +297,14 @@ export default function AccountSettingsPage() {
       loadHaSettings();
     }
   }, [activeTab, haLoaded, loadHaSettings]);
+
+  // Determine platform-admin status when the integrations tab opens so the
+  // self-hosted recognition status card (REQ-029-A) is gated correctly.
+  useEffect(() => {
+    if (activeTab === 'ha' && !isPlatformAdmin && !adminLoading) {
+      loadAdminData();
+    }
+  }, [activeTab, isPlatformAdmin, adminLoading, loadAdminData]);
 
   const handleHaTest = async () => {
     setHaTesting(true);
@@ -1235,6 +1244,11 @@ export default function AccountSettingsPage() {
               </Box>
             </CardContent>
           </Card>
+
+          {/* Self-hosted DINOv2 recognition status — REQ-029-A. Visible to any
+              signed-in user like the Pl@ntNet section above; the card itself is
+              read-only and degrades to a discreet hint when the feature is off. */}
+          <RecognitionStatusCard gridColumn="1 / -1" />
         </Box>
       )}
 

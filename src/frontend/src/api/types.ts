@@ -3974,6 +3974,44 @@ export interface IdentificationStatus {
   adapters: Record<string, IdentificationAdapterStatus>;
 }
 
+// REQ-029-A — self-hosted DINOv2 recognition (admin status view)
+
+/** Inference-service health/model info from GET /admin/recognition/status. */
+export interface RecognitionInferenceService {
+  enabled: boolean;
+  url: string | null;
+  ready: boolean;
+  model: string | null;
+  dim: number | null;
+  license: string | null;
+}
+
+/** Reference-image coverage across the species catalogue. */
+export interface RecognitionCoverage {
+  total_species: number;
+  /** Species already handled by an acquisition run (one job each) — grows during a run. */
+  processed_species: number;
+  usable_species: number;
+}
+
+/** Read-only recognition configuration sourced from server env/settings. */
+export interface RecognitionConfig {
+  primary_adapter: string;
+  confidence_auto_accept: number;
+  confidence_min_show: number;
+  reference_image_min_usable: number;
+  use_wikimedia: boolean;
+}
+
+/** Platform-admin status payload from GET /admin/recognition/status. */
+export interface RecognitionStatus {
+  feature_enabled: boolean;
+  local_adapter_available: boolean;
+  inference_service: RecognitionInferenceService;
+  coverage: RecognitionCoverage;
+  config: RecognitionConfig;
+}
+
 /** A single identification candidate returned by /identify. */
 export interface IdentificationSuggestion {
   rank: number;

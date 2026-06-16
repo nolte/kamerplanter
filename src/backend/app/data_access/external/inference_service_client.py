@@ -58,6 +58,19 @@ class InferenceServiceClient:
         except Exception:  # noqa: BLE001 — readiness must never raise
             return False
 
+    def modelinfo(self) -> dict[str, Any] | None:
+        """Return the model metadata ({model, dim, input_size, license, checksum}).
+
+        Returns ``None`` (never raises) when the service is unreachable, so a
+        status view degrades gracefully.
+        """
+        try:
+            response = httpx.get(f"{self._base_url}/modelinfo", timeout=_READY_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            return response.json()
+        except Exception:  # noqa: BLE001 — status must never raise
+            return None
+
     def list_references(self, species_key: str, *, limit: int = 50) -> list[dict[str, Any]]:
         """List stored reference image provenance for a species (gallery source).
 
