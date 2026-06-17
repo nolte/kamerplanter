@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domain.models.notification import (
     BatchingPreference,
@@ -135,6 +135,23 @@ class TestNotificationResponse(BaseModel):
 
 # ── Web Push (PWA) ───────────────────────────────────────────────────
 
+# SEC-004 — input-validation bounds for Web Push subscription fields.
+_MAX_ENDPOINT_LENGTH = 2048
+_MAX_KEY_LENGTH = 256
+# base64url alphabet with optional trailing padding.
+_BASE64URL_PATTERN = r"^[A-Za-z0-9_-]+=*$"
+
+
+def _require_https_url(value: str) -> str:
+    """Reject any endpoint that is not a syntactically valid https URL.
+
+    A defence-in-depth check at the schema boundary; the SSRF check
+    (DNS resolution + IP-range rejection) runs additionally in the service.
+    """
+    if not value.startswith("https://"):
+        raise ValueError("Push endpoint must be an https URL.")
+    return value
+
 
 class VapidPublicKeyResponse(BaseModel):
     """VAPID public key for client-side Web Push subscription."""
@@ -145,14 +162,36 @@ class VapidPublicKeyResponse(BaseModel):
 class PwaSubscribeRequest(BaseModel):
     """Request body to register a Web Push subscription."""
 
-    endpoint: str = Field(..., min_length=1, description="Push service endpoint URL.")
-    p256dh: str = Field(..., min_length=1, description="Client public key (base64url).")
-    auth: str = Field(..., min_length=1, description="Client auth secret (base64url).")
+    endpoint: str = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_ENDPOINT_LENGTH,
+        description="Push service endpoint URL (https).",
+    )
+    p256dh: str = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_KEY_LENGTH,
+        pattern=_BASE64URL_PATTERN,
+        description="Client public key (base64url).",
+    )
+    auth: str = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_KEY_LENGTH,
+        pattern=_BASE64URL_PATTERN,
+        description="Client auth secret (base64url).",
+    )
     user_agent: str | None = Field(
         default=None,
         max_length=512,
         description="Originating user agent, for display only.",
     )
+
+    @field_validator("endpoint")
+    @classmethod
+    def _validate_endpoint(cls, value: str) -> str:
+        return _require_https_url(value)
 
 
 class PwaSubscribeResponse(BaseModel):
@@ -164,7 +203,17 @@ class PwaSubscribeResponse(BaseModel):
 class PwaUnsubscribeRequest(BaseModel):
     """Request body to remove a Web Push subscription."""
 
-    endpoint: str = Field(..., min_length=1, description="Push service endpoint URL.")
+    endpoint: str = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_ENDPOINT_LENGTH,
+        description="Push service endpoint URL (https).",
+    )
+
+    @field_validator("endpoint")
+    @classmethod
+    def _validate_endpoint(cls, value: str) -> str:
+        return _require_https_url(value)
 
 
 class PwaUnsubscribeResponse(BaseModel):

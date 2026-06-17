@@ -1,0 +1,174 @@
+"""SSRF-hardening helpers for user-supplied URLs that are dialed server-side.
+
+The Web Push (PWA) channel POSTs encrypted payloads to a push ``endpoint`` that
+the *client* supplies at subscription time. Without validation an attacker could
+register an endpoint pointing at an internal address (cloud metadata service,
+loopback, RFC1918) and have the server make a request to it on every push —
+a classic Server-Side Request Forgery (SSRF) vector.
+
+``validate_push_endpoint`` enforces:
+
+* an ``https://`` scheme (``http``/``file``/anything else is rejected),
+* that *every* address the host resolves to is a public, routable IP — any
+  private, loopback, link-local, reserved, multicast or unspecified address
+  causes rejection (blocks ``169.254.169.254``, ``127.0.0.0/8``, RFC1918,
+  ``::1``, ``fc00::/7`` …),
+* an optional operator allowlist (host-suffix match) via settings.
+
+The helper is reused both when a subscription is stored (raising
+:class:`~app.common.exceptions.ValidationError`) and defensively at send time
+(returning a boolean so the caller can skip + log invalid stored endpoints).
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import socket
+from urllib.parse import urlsplit
+
+import structlog
+
+from app.common.exceptions import ValidationError
+from app.config.settings import settings
+
+logger = structlog.get_logger(__name__)
+
+# Maximum accepted endpoint length (mirrors the schema bound) — a cheap guard
+# against absurdly long hostnames before any DNS resolution is attempted.
+_MAX_ENDPOINT_LENGTH = 2048
+
+
+def _resolved_addresses(host: str) -> list[ipaddress._BaseAddress]:
+    """Resolve ``host`` to every A/AAAA address as ``ipaddress`` objects.
+
+    Raises:
+        OSError: if the hostname cannot be resolved.
+    """
+    infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    addresses: list[ipaddress._BaseAddress] = []
+    for info in infos:
+        sockaddr = info[4]
+        ip_str = sockaddr[0]
+        # IPv6 scoped addresses (fe80::1%eth0) — strip the zone id before parsing.
+        ip_str = ip_str.split("%", 1)[0]
+        addresses.append(ipaddress.ip_address(ip_str))
+    return addresses
+
+
+def _is_blocked_address(address: ipaddress._BaseAddress) -> bool:
+    """True if ``address`` is in a non-routable / internal range."""
+    return (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+        or address.is_unspecified
+    )
+
+
+def _allowed_hosts() -> list[str]:
+    """Parse the operator allowlist from settings (comma-separated, lowercased)."""
+    raw = settings.pwa_push_endpoint_allowed_hosts or ""
+    return [h.strip().lower() for h in raw.split(",") if h.strip()]
+
+
+def _host_matches_allowlist(host: str, allowed_hosts: list[str]) -> bool:
+    """True if ``host`` equals or is a sub-domain of any allowlist entry."""
+    host = host.lower()
+    return any(host == entry or host.endswith(f".{entry}") for entry in allowed_hosts)
+
+
+def is_safe_push_endpoint(endpoint: str) -> bool:
+    """Return True if ``endpoint`` is a safe, dial-able Web Push endpoint.
+
+    Pure predicate variant for the send loop — never raises, so a single bad
+    stored subscription cannot abort a delivery batch. Resolution failures and
+    malformed URLs are treated as unsafe.
+
+    Args:
+        endpoint: The push service endpoint URL to check.
+
+    Returns:
+        True if the endpoint is https and resolves only to public addresses
+        (and, if an allowlist is configured, matches it); False otherwise.
+    """
+    try:
+        validate_push_endpoint(endpoint)
+    except ValidationError:
+        return False
+    return True
+
+
+def validate_push_endpoint(endpoint: str) -> str:
+    """Validate a user-supplied Web Push endpoint against SSRF.
+
+    Args:
+        endpoint: The push service endpoint URL.
+
+    Returns:
+        The (unchanged) endpoint when it passes all checks.
+
+    Raises:
+        ValidationError: if the endpoint is not https, is malformed, cannot be
+            resolved, resolves to an internal/non-routable address, or — when an
+            allowlist is configured — does not match the allowlist.
+    """
+    if not endpoint or len(endpoint) > _MAX_ENDPOINT_LENGTH:
+        raise ValidationError(
+            "Invalid push endpoint URL.",
+            details=[{"field": "endpoint", "reason": "Endpoint is empty or too long.", "code": "INVALID_ENDPOINT"}],
+        )
+
+    parts = urlsplit(endpoint)
+    if parts.scheme != "https":
+        raise ValidationError(
+            "Push endpoint must use https.",
+            details=[
+                {"field": "endpoint", "reason": "Only https endpoints are accepted.", "code": "INVALID_ENDPOINT_SCHEME"}
+            ],
+        )
+
+    host = parts.hostname
+    if not host:
+        raise ValidationError(
+            "Push endpoint has no host.",
+            details=[{"field": "endpoint", "reason": "Endpoint URL has no host.", "code": "INVALID_ENDPOINT"}],
+        )
+
+    allowed_hosts = _allowed_hosts()
+    if allowed_hosts and not _host_matches_allowlist(host, allowed_hosts):
+        raise ValidationError(
+            "Push endpoint host is not allowed.",
+            details=[
+                {
+                    "field": "endpoint",
+                    "reason": "Host is not on the operator allowlist.",
+                    "code": "ENDPOINT_NOT_ALLOWED",
+                }
+            ],
+        )
+
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            "Push endpoint host could not be resolved.",
+            details=[{"field": "endpoint", "reason": "Host does not resolve.", "code": "ENDPOINT_UNRESOLVABLE"}],
+        ) from None
+
+    for address in addresses:
+        if _is_blocked_address(address):
+            logger.warning("pwa_endpoint_rejected_ssrf", host=host, address=str(address))
+            raise ValidationError(
+                "Push endpoint resolves to a non-routable address.",
+                details=[
+                    {
+                        "field": "endpoint",
+                        "reason": "Host resolves to an internal or reserved IP range.",
+                        "code": "ENDPOINT_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+
+    return endpoint

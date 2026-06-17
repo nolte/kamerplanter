@@ -29,6 +29,7 @@ from functools import partial
 
 import structlog
 
+from app.common.url_safety import is_safe_push_endpoint
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import ChannelResult, Notification
 
@@ -120,6 +121,12 @@ class PwaNotificationChannel(INotificationChannel):
         loop = asyncio.get_running_loop()
         for subscription in subscriptions:
             endpoint = subscription.get("endpoint", "")
+            # SEC-001 — defence in depth: stored subscriptions may predate the
+            # subscribe-time SSRF validation. Never dial an unsafe endpoint.
+            if not is_safe_push_endpoint(endpoint):
+                errors.append(f"{endpoint}: rejected (unsafe endpoint)")
+                logger.warning("pwa_endpoint_skipped_unsafe", endpoint=endpoint)
+                continue
             subscription_info = {
                 "endpoint": endpoint,
                 "keys": {

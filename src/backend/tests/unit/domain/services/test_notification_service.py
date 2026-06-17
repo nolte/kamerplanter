@@ -1,9 +1,10 @@
 """Unit tests for NotificationService (REQ-030)."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.common.exceptions import ValidationError
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.models.notification import (
     ChannelPreference,
@@ -11,7 +12,10 @@ from app.domain.models.notification import (
     NotificationPreferences,
     NotificationStatus,
 )
-from app.domain.services.notification_service import NotificationService
+from app.domain.services.notification_service import (
+    MAX_PWA_SUBSCRIPTIONS_PER_USER,
+    NotificationService,
+)
 
 
 @pytest.fixture
@@ -263,6 +267,19 @@ class TestSendTestNotification:
 
 
 class TestPwaSubscriptions:
+    @pytest.fixture(autouse=True)
+    def _bypass_ssrf_validation(self):
+        """Treat synthetic ``https://push/...`` endpoints as safe.
+
+        The real validator does DNS resolution + IP-range rejection; the
+        dedicated SSRF tests below exercise it instead of stubbing it.
+        """
+        with patch(
+            "app.domain.services.notification_service.validate_push_endpoint",
+            side_effect=lambda endpoint: endpoint,
+        ):
+            yield
+
     @pytest.fixture
     def echo_preference_repo(self):
         """Preference repo that starts empty and echoes upserted prefs back."""
@@ -364,3 +381,64 @@ class TestPwaSubscriptions:
         removed = echo_service.unsubscribe_pwa(user_key="user_1", endpoint="https://push/x")
         assert removed is False
         echo_service._preference_repo.upsert.assert_not_called()
+
+    def test_subscribe_rejects_ssrf_endpoint(self, echo_service):
+        """SEC-001 — an SSRF-unsafe endpoint surfaces as a validation error,
+        is never stored, and never reaches the preference repo."""
+        # Re-stub the validator to reject this specific endpoint (overrides the
+        # autouse bypass for this call).
+        with (
+            patch(
+                "app.domain.services.notification_service.validate_push_endpoint",
+                side_effect=ValidationError("Push endpoint resolves to a non-routable address."),
+            ),
+            pytest.raises(ValidationError),
+        ):
+            echo_service.subscribe_pwa(
+                user_key="user_1",
+                endpoint="https://169.254.169.254/x",
+                p256dh="pub",
+                auth="auth",
+            )
+
+        echo_service._preference_repo.upsert.assert_not_called()
+
+    def test_subscribe_caps_subscriptions_keeping_newest(self, mock_engine, mock_notification_repo):
+        """SEC-003 — adding more than the cap of distinct endpoints retains only
+        the newest MAX, evicting the oldest (FIFO)."""
+        # Stateful repo — persist upserted prefs so subscriptions accumulate
+        # across calls (mirrors real persistence).
+        store: dict[str, object] = {}
+
+        repo = MagicMock()
+        repo.get_by_user.side_effect = lambda user_key: store.get(user_key)
+
+        def _upsert(prefs):
+            store[prefs.user_key] = prefs
+            return prefs
+
+        repo.upsert.side_effect = _upsert
+        service = NotificationService(
+            engine=mock_engine,
+            notification_repo=mock_notification_repo,
+            preference_repo=repo,
+        )
+
+        total = MAX_PWA_SUBSCRIPTIONS_PER_USER + 5
+        for i in range(total):
+            service.subscribe_pwa(
+                user_key="user_1",
+                endpoint=f"https://push/{i}",
+                p256dh="pub",
+                auth="auth",
+            )
+
+        stored = repo.upsert.call_args.args[0]
+        subs = stored.channels["pwa"].config["subscriptions"]
+        endpoints = [s["endpoint"] for s in subs]
+
+        assert len(subs) == MAX_PWA_SUBSCRIPTIONS_PER_USER
+        # Oldest evicted, newest retained.
+        assert endpoints[-1] == f"https://push/{total - 1}"
+        assert "https://push/0" not in endpoints
+        assert endpoints[0] == f"https://push/{total - MAX_PWA_SUBSCRIPTIONS_PER_USER}"

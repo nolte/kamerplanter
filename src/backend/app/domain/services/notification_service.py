@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.url_safety import validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -19,6 +20,11 @@ from app.domain.models.notification import (
 )
 
 logger = structlog.get_logger()
+
+# SEC-003 — per-user cap on stored Web Push subscriptions. When exceeded by a
+# new endpoint, the oldest subscription is evicted (FIFO) so the newest device
+# always works.
+MAX_PWA_SUBSCRIPTIONS_PER_USER = 20
 
 
 class NotificationService:
@@ -243,6 +249,12 @@ class NotificationService:
         deduplicates subscriptions by ``endpoint``. Persists via the existing
         preferences update path.
 
+        The endpoint is validated against SSRF before being stored (SEC-001):
+        it must be https and must not resolve to an internal/non-routable
+        address. The number of stored subscriptions is capped per user
+        (SEC-003): when a new endpoint exceeds the cap, the oldest subscription
+        is evicted (FIFO) so the newest device always works.
+
         Args:
             user_key: Owning user.
             endpoint: Push service endpoint URL (the subscription identity).
@@ -252,7 +264,13 @@ class NotificationService:
 
         Returns:
             The stored subscription endpoint.
+
+        Raises:
+            ValidationError: if the endpoint fails SSRF validation (HTTP 422).
         """
+        # SEC-001 — reject SSRF-unsafe endpoints before they are ever dialed.
+        validate_push_endpoint(endpoint)
+
         prefs = self.get_preferences(user_key)
         channel_pref = prefs.channels.get("pwa")
         if channel_pref is None:
@@ -266,6 +284,18 @@ class NotificationService:
         if user_agent:
             subscription["user_agent"] = user_agent
         subscriptions.append(subscription)
+
+        # SEC-003 — enforce the per-user cap, evicting oldest first (FIFO).
+        if len(subscriptions) > MAX_PWA_SUBSCRIPTIONS_PER_USER:
+            evicted = subscriptions[:-MAX_PWA_SUBSCRIPTIONS_PER_USER]
+            subscriptions = subscriptions[-MAX_PWA_SUBSCRIPTIONS_PER_USER:]
+            logger.info(
+                "pwa_subscriptions_evicted",
+                user_key=user_key,
+                evicted=len(evicted),
+                cap=MAX_PWA_SUBSCRIPTIONS_PER_USER,
+            )
+
         channel_pref.config["subscriptions"] = subscriptions
         channel_pref.enabled = True
 

@@ -57,16 +57,38 @@ self.addEventListener('push', (event) => {
 });
 
 /**
+ * Constrain a notification-supplied URL to a safe same-origin path. The push
+ * payload is built server-side but may carry data derived from user content, so
+ * the service worker must never navigate cross-origin (open-redirect / phishing
+ * from the trusted app origin). Any cross-origin, non-parseable, or unexpected
+ * scheme falls back to the app root.
+ */
+function toSafeSameOriginPath(candidate) {
+  if (!candidate || typeof candidate !== 'string') {
+    return '/';
+  }
+  try {
+    const url = new URL(candidate, self.location.origin);
+    if (url.origin !== self.location.origin) {
+      return '/';
+    }
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return '/';
+  }
+}
+
+/**
  * Resolve the URL to open/focus for a notification click. Action buttons may
  * carry their own URL via data.action_urls[actionId]; otherwise fall back to
- * data.url or the app root.
+ * data.url or the app root. The result is always a safe same-origin path.
  */
 function resolveTargetUrl(notification, action) {
   const data = notification.data || {};
   if (action && data.action_urls && data.action_urls[action]) {
-    return data.action_urls[action];
+    return toSafeSameOriginPath(data.action_urls[action]);
   }
-  return data.url || '/';
+  return toSafeSameOriginPath(data.url);
 }
 
 self.addEventListener('notificationclick', (event) => {

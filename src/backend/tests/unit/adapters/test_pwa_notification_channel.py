@@ -41,6 +41,21 @@ def _subscription(endpoint: str) -> dict:
     return {"endpoint": endpoint, "p256dh": "pub-key", "auth": "auth-secret"}
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_endpoints():
+    """Treat the synthetic ``https://push/...`` test endpoints as safe.
+
+    The SSRF guard performs real DNS resolution, which would (a) require network
+    access and (b) reject the non-resolvable hostnames used across these tests.
+    Tests that specifically exercise the SSRF skip patch this themselves.
+    """
+    with patch(
+        "app.data_access.external.pwa_notification_channel.is_safe_push_endpoint",
+        return_value=True,
+    ):
+        yield
+
+
 @pytest.fixture
 def channel() -> PwaNotificationChannel:
     return PwaNotificationChannel(
@@ -209,3 +224,55 @@ class TestSend:
         result = await ch.send(_make_notification(), {"subscriptions": [_subscription("https://p/a")]})
         assert result.success is False
         assert "VAPID private key" in (result.error or "")
+
+
+class TestSendSsrfDefense:
+    """SEC-001 — the send loop must skip SSRF-unsafe stored endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_unsafe_endpoint_is_skipped_not_dialed(self, channel: PwaNotificationChannel) -> None:
+        webpush_mock = MagicMock(return_value=None)
+        config = {
+            "subscriptions": [
+                _subscription("https://169.254.169.254/x"),  # cloud metadata — unsafe
+                _subscription("https://push/ok"),  # treated as safe (autouse patch)
+            ]
+        }
+
+        # Only the metadata endpoint is unsafe; the synthetic one is allowed.
+        def is_safe(endpoint: str) -> bool:
+            return "169.254.169.254" not in endpoint
+
+        with (
+            _patch_pywebpush(channel, webpush_mock),
+            patch(
+                "app.data_access.external.pwa_notification_channel.is_safe_push_endpoint",
+                side_effect=is_safe,
+            ),
+        ):
+            result = await channel.send(_make_notification(), config)
+
+        # webpush was called exactly once — never for the unsafe endpoint.
+        assert webpush_mock.call_count == 1
+        _, kwargs = webpush_mock.call_args
+        assert kwargs["subscription_info"]["endpoint"] == "https://push/ok"
+        # The safe one delivered → overall success, unsafe one reported as error.
+        assert result.success is True
+        assert "169.254.169.254" in (result.error or "")
+
+    @pytest.mark.asyncio
+    async def test_all_unsafe_endpoints_yields_failure_without_dialing(self, channel: PwaNotificationChannel) -> None:
+        webpush_mock = MagicMock(return_value=None)
+        config = {"subscriptions": [_subscription("https://127.0.0.1/x")]}
+
+        with (
+            _patch_pywebpush(channel, webpush_mock),
+            patch(
+                "app.data_access.external.pwa_notification_channel.is_safe_push_endpoint",
+                return_value=False,
+            ),
+        ):
+            result = await channel.send(_make_notification(), config)
+
+        webpush_mock.assert_not_called()
+        assert result.success is False
