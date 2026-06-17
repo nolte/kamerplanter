@@ -5,6 +5,11 @@
 # Each source declares a directory containing `skills/` and `agents/` subdirectories
 # (overridable via `skills_path` / `agents_path`) plus the public repo URL used to
 # link back to each artifact's source file.
+#
+# Only in-repo sources are listed: the catalog is generated in CI from a
+# fresh single-repo checkout, so sibling repos (e.g. ../claude-shared) are
+# not present and would be silently skipped. Keeping just `.claude` makes
+# the generated catalog deterministic between local and CI builds.
 sources:
   - name: kamerplanter
     local: .claude
@@ -12,9 +17,3 @@ sources:
     agents_path: agents
     repo_url: https://github.com/nolte/kamerplanter
     branch: develop
-  - name: nolte-shared
-    local: ../claude-shared
-    skills_path: skills
-    agents_path: agents
-    repo_url: https://github.com/nolte/claude-shared
-    branch: main

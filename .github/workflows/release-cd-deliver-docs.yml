@@ -6,9 +6,13 @@ on:
 
 jobs:
   publish_docs:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@v1.1.22
+    uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@v1.1.23
     with:
       requirements: docs/requirements.txt
+      # Regenerate the gitignored Claude skill/agent catalog before the
+      # build. Without this the deployed nav links to de/skills, de/agents
+      # and de/tags, which never exist in a fresh CI checkout -> 404.
+      pre-build-command: python scripts/docs/gen_catalog.py
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
     permissions:

@@ -287,12 +287,12 @@ nav:
       - Debugging: de/development/debugging.md
       - MCP-Werkzeuge: de/development/mcp-tools.md
       - Workflows: de/development/workflows.md
-  - API:
-      - de/api/index.md
-      - Überblick: de/api/overview.md
-      - Authentifizierung: de/api/authentication.md
-      - Fehlerbehandlung: de/api/error-handling.md
-      - Service Accounts: de/api/service-accounts.md
+      - API:
+          - de/api/index.md
+          - Überblick: de/api/overview.md
+          - Authentifizierung: de/api/authentication.md
+          - Fehlerbehandlung: de/api/error-handling.md
+          - Service Accounts: de/api/service-accounts.md
   - Deployment:
       - de/deployment/index.md
       - Docker installieren: de/deployment/docker-installation.md
@@ -321,11 +321,12 @@ nav:
       - API-Referenz: de/reference/api-reference.md
       - Datenbankschema: de/reference/database-schema.md
       - Umgebungsvariablen: de/reference/environment-variables.md
-  - ADR:
-      - de/adr/index.md
-  - Changelog:
-      - de/changelog/index.md
-      - Unveröffentlicht: de/changelog/unreleased.md
-  - Claude Skills: de/skills/
-  - Claude Agents: de/agents/
-  - Claude Tags: de/tags.md
+      - ADR:
+          - de/adr/index.md
+      - Changelog:
+          - de/changelog/index.md
+          - Unveröffentlicht: de/changelog/unreleased.md
+      - Claude Code:
+          - Claude Skills: de/skills/
+          - Claude Agents: de/agents/
+          - Claude Tags: de/tags.md
