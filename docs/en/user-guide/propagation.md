@@ -95,6 +95,7 @@ Grafting is used to place a valuable variety (scion) onto a robust rootstock.
 
 The system automatically checks genus and family compatibility:
 
+<!-- diagram-source: user-described — graft compatibility check decision tree (genus, then family) -->
 ```mermaid
 flowchart TD
     A[Create graft] --> B{Same genus?}
@@ -128,13 +129,14 @@ The lineage view shows all parent, sibling and descendant plants in an interacti
 1. Navigate to **Plants** > desired plant
 2. Click the **Lineage** tab
 
+<!-- diagram-source: user-described — plant lineage graph: mother plant with F1 clones and an F2 clone via descended_from edges -->
 ```mermaid
-graph TB
-    M["Mother plant\n(origin)"]
+flowchart TB
+    M["Mother plant<br/>(origin)"]
     K1["Clone F1-1"]
     K2["Clone F1-2"]
     K3["Clone F1-3"]
-    K2_1["Clone F2-1\n(from F1-2)"]
+    K2_1["Clone F2-1<br/>(from F1-2)"]
     M -->|descended_from| K1
     M -->|descended_from| K2
     M -->|descended_from| K3

@@ -426,6 +426,7 @@ For a complete list of all environment variables, see [Environment Variables](..
 
 The following flowchart helps you find a suitable profile:
 
+<!-- diagram-source: user-described — decision tree selecting a deployment profile by user count and feature needs -->
 ```mermaid
 flowchart TD
     A[How many users?] -->|Just me| B{Do you need AI tips?}
@@ -435,10 +436,10 @@ flowchart TD
     B -->|No| C[Minimal]
     B -->|Yes| E[Hobby]
 
-    D -->|No| F[Standard\nDocker Compose]
+    D -->|No| F[Standard<br/>Docker Compose]
     D -->|Yes| H{Sensors / HA?}
 
-    H -->|No| F2[Standard\nKubernetes]
+    H -->|No| F2[Standard<br/>Kubernetes]
     H -->|Yes| I[Professional]
 ```
 

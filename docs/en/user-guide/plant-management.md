@@ -203,6 +203,7 @@ Families group related species and form the basis for crop rotation planning. Ka
 
 For initial setup or batch updates, master data can be imported via CSV files. The import follows a secure **two-phase process**:
 
+<!-- diagram-source: user-described — two-phase CSV master-data import flow with a validation-and-fix loop before confirmation -->
 ```mermaid
 flowchart LR
     A["Upload CSV"] --> B["Preview & Validation"]

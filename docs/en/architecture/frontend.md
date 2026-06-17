@@ -70,8 +70,9 @@ src/frontend/src/
 
 The Redux store contains 24 slices, one per domain area:
 
+<!-- diagram-source: user-described — Redux store with 24 slices, one per domain area (auth, species, sites, ...) -->
 ```mermaid
-graph LR
+flowchart LR
     subgraph "Redux Store"
         A[auth]
         B[species]

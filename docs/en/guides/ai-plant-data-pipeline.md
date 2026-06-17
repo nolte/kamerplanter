@@ -4,14 +4,15 @@ Kamerplanter manages 80+ structured fields per plant species — from taxonomy a
 
 ## Overview: The AI Pipeline
 
+<!-- diagram-source: user-described — AI plant-data pipeline from plant name through document generation and review to seed import -->
 ```mermaid
 flowchart LR
-    A["Plant name\n(e.g. 'Basil')"] --> B["plant-info-document-generator"]
-    B --> C["Plant document\nspec/knowledge/plants/*.md"]
+    A["Plant name<br/>(e.g. 'Basil')"] --> B["plant-info-document-generator"]
+    B --> C["Plant document<br/>spec/knowledge/plants/*.md"]
     C --> D["agrobiology-requirements-reviewer"]
-    D --> E["Review report\nspec/analysis/"]
+    D --> E["Review report<br/>spec/analysis/"]
     E -->|Corrections| C
-    C --> F["Seed data / CSV import\n(REQ-012)"]
+    C --> F["Seed data / CSV import<br/>(REQ-012)"]
 ```
 
 The workflow consists of three steps:

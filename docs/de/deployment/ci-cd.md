@@ -279,21 +279,22 @@ Der `update-release-assets`-Job im `docker-publish`-Workflow hängt am Release f
 
 ### Zusammenfassung Release-Ablauf
 
+<!-- diagram-source: user-described — release publish sequence from git tag push to docs deploy and main branch update -->
 ```mermaid
 sequenceDiagram
-    participant Dev as Entwickler
+    participant Dev as Developer
     participant GH as GitHub
     participant GHCR as ghcr.io
 
     Dev->>GH: git push origin v1.2.0
-    GH->>GH: docker-publish.yml startet
-    GH->>GHCR: backend-Image :1.2.0 pushen
-    GH->>GHCR: frontend-Image :1.2.0 pushen
-    GH->>GHCR: Helm-Chart :1.2.0 pushen
-    GH->>GH: Release-Assets anhängen
-    Dev->>GH: Release als "published" markieren
-    GH->>GH: MkDocs-Docs deployen
-    GH->>GH: main-Branch aktualisieren
+    GH->>GH: docker-publish.yml starts
+    GH->>GHCR: push backend image :1.2.0
+    GH->>GHCR: push frontend image :1.2.0
+    GH->>GHCR: push Helm chart :1.2.0
+    GH->>GH: attach release assets
+    Dev->>GH: mark release as "published"
+    GH->>GH: deploy MkDocs docs
+    GH->>GH: update main branch
 ```
 
 ---

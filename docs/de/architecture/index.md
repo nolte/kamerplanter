@@ -4,8 +4,9 @@ Kamerplanter folgt einer strikten 5-Schichten-Architektur und nutzt polyglotte P
 
 ## Architekturüberblick
 
+<!-- diagram-source: user-described — high-level 5-layer architecture: client -> API -> business logic -> polyglot persistence -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Client Layer"
         Web["Web App (React 19)"]
     end
@@ -21,9 +22,9 @@ graph TB
     end
 
     subgraph "Data Layer"
-        ArangoDB[("ArangoDB\n(Dokumente + Graph)")]
-        Redis[("Redis\n(Cache + Queue)")]
-        TimescaleDB[("TimescaleDB\n(Zeitreihen)")]
+        ArangoDB[("ArangoDB<br/>Documents + Graph")]
+        Valkey[("Valkey<br/>Cache + Broker")]
+        TimescaleDB[("TimescaleDB<br/>Time-series")]
     end
 
     Web --> Traefik
@@ -31,7 +32,7 @@ graph TB
     FastAPI --> Services
     Services --> Engines
     Services --> ArangoDB
-    Services --> Redis
+    Services --> Valkey
     Services --> TimescaleDB
 ```
 

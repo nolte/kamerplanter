@@ -34,13 +34,14 @@ Qualität, Aroma und Haltbarkeit.
 
 ## Ernte-Workflow in Kamerplanter
 
+<!-- diagram-source: user-described — post-harvest state machine from harvest through drying, curing, and storage -->
 ```mermaid
 stateDiagram-v2
-    [*] --> Ernte: Karenzzeit abgelaufen
-    Ernte --> Trocknung: Ernte bestätigt
-    Trocknung --> Curing: Ziel-Restfeuchte erreicht
-    Curing --> Lagerung: Curing-Protokoll abgeschlossen
-    Lagerung --> [*]: Verbrauch oder Verkauf
+    [*] --> Harvest: PHI elapsed
+    Harvest --> Drying: Harvest confirmed
+    Drying --> Curing: Target moisture reached
+    Curing --> Storage: Curing protocol complete
+    Storage --> [*]: Consumption or sale
 ```
 
 1. Navigiere zum Pflanzdurchlauf und öffne den **Erntebereich**.

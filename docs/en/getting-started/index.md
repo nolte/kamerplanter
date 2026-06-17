@@ -28,8 +28,9 @@ Welcome to Kamerplanter! Whether you want to keep a few houseplants alive, grow 
 
 ## How to get started
 
+<!-- diagram-source: user-described — onboarding flow from opening Kamerplanter to first dashboard -->
 ```mermaid
-graph LR
+flowchart LR
     A["Open<br>Kamerplanter"] --> B["Onboarding<br>Wizard"]
     B --> C["Choose a<br>Starter Kit"]
     C --> D["Plants &<br>Tasks<br>are ready"]

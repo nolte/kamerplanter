@@ -28,12 +28,13 @@ Willkommen bei Kamerplanter! Egal ob du ein paar Zimmerpflanzen am Leben halten,
 
 ## So funktioniert der Einstieg
 
+<!-- diagram-source: user-described — onboarding flow from opening Kamerplanter to first dashboard -->
 ```mermaid
-graph LR
-    A["Kamerplanter<br>öffnen"] --> B["Onboarding-<br>Wizard"]
-    B --> C["Starter-Kit<br>wählen"]
-    C --> D["Pflanzen &<br>Aufgaben<br>sind da"]
-    D --> E["Loslegen!"]
+flowchart LR
+    A["Open<br>Kamerplanter"] --> B["Onboarding<br>Wizard"]
+    B --> C["Choose a<br>Starter Kit"]
+    C --> D["Plants &<br>Tasks<br>are ready"]
+    D --> E["Let's go!"]
 
     style A fill:#4CAF50,color:#fff
     style B fill:#66BB6A,color:#fff

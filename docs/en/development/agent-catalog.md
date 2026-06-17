@@ -803,8 +803,9 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 
 ## Agent Dependencies and Workflow Suggestions
 
+<!-- diagram-source: user-described — agent dependency graph mapping the spec-to-CI workflow across reviewer, developer, test, and docs agents -->
 ```mermaid
-graph LR
+flowchart LR
     A["Specification<br/>(REQ/NFR)"] --> B["tech-stack-architect<br/>requirements-contradiction-analyzer"]
     B --> C["agrobiology-requirements-reviewer<br/>cannabis-indoor-grower-reviewer<br/>casual-houseplant-user-reviewer<br/>it-security-requirements-reviewer"]
     C --> D["e2e-testcase-extractor"]

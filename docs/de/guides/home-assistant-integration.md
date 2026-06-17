@@ -4,12 +4,13 @@ Kamerplanter lässt sich über eine **Custom Integration** in Home Assistant ein
 
 ## Überblick
 
+<!-- diagram-source: user-described — Kamerplanter backend feeds the HA custom integration, which drives dashboards, automations, and notifications -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter\nBackend"] -->|REST API\nPolling| HA["Home Assistant\nCustom Integration"]
-    HA --> D["Dashboard\nLovelace Cards"]
-    HA --> A["Automationen\nBlueprints"]
-    HA --> N["Benachrichtigungen\nMobile Push"]
+    KP["Kamerplanter<br/>Backend"] -->|REST API<br/>Polling| HA["Home Assistant<br/>Custom Integration"]
+    HA --> D["Dashboard<br/>Lovelace Cards"]
+    HA --> A["Automations<br/>Blueprints"]
+    HA --> N["Notifications<br/>Mobile Push"]
 ```
 
 | Aspekt | Details |
@@ -50,10 +51,11 @@ flowchart LR
 
 Für eine vollständige Integration müssen **beide Systeme gegenseitig API-Zugriff** haben. Das erfordert einen Token-Austausch:
 
+<!-- diagram-source: user-described — bidirectional token exchange: Kamerplanter holds an HA access token, HA holds a Kamerplanter API key -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter"] -- "HA Long-Lived\nAccess Token" --> HA["Home Assistant"]
-    HA -- "Kamerplanter\nAPI-Key (kp_...)" --> KP
+    KP["Kamerplanter"] -- "HA Long-Lived<br/>Access Token" --> HA["Home Assistant"]
+    HA -- "Kamerplanter<br/>API Key (kp_...)" --> KP
 ```
 
 | Richtung | Token | Wozu | Wo erstellen |
@@ -85,12 +87,13 @@ flowchart LR
 
 Mit aktivierter mDNS-Ankündigung erkennt Home Assistant das Kamerplanter-Backend automatisch im lokalen Netzwerk — die URL muss nicht mehr manuell eingegeben werden. Der Config Flow startet direkt beim Authentifizierungs-Schritt.
 
+<!-- diagram-source: user-described — mDNS advertisement lets HA discover the backend and pre-fill the config flow URL, leaving only the API key -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter Backend\nMDNS_ENABLED=true"]
+    KP["Kamerplanter backend<br/>MDNS_ENABLED=true"]
     KP -->|_kamerplanter._tcp.local.| HA["Home Assistant"]
-    HA --> D["Discovery-Benachrichtigung\nKonfigurieren"]
-    D --> CF["Config Flow\nURL vorausgefüllt\nnur API-Key eingeben"]
+    HA --> D["Discovery notification<br/>Configure"]
+    D --> CF["Config flow<br/>URL pre-filled<br/>API key only"]
 ```
 
 ### Voraussetzungen

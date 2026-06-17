@@ -18,17 +18,18 @@ Kamerplanter wird über ein einzelnes Helm-Chart deployt, das alle Komponenten e
 
 ## Überblick: Was wird deployt?
 
+<!-- diagram-source: user-described — Kubernetes deployment topology: ingress routing to frontend/backend, backend to ArangoDB and Valkey -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Kubernetes Cluster"
         direction TB
-        ING["Ingress\n(Traefik / nginx)"]
+        ING["Ingress<br/>(Traefik / nginx)"]
 
         subgraph "Kamerplanter Namespace"
-            FE["Frontend\n(Deployment, 2 Replicas)"]
-            BE["Backend\n(Deployment, 2 Replicas)"]
-            DB["ArangoDB\n(StatefulSet, 1 Replica)"]
-            VK["Valkey\n(StatefulSet, 1 Replica)"]
+            FE["Frontend<br/>(Deployment, 2 Replicas)"]
+            BE["Backend<br/>(Deployment, 2 Replicas)"]
+            DB["ArangoDB<br/>(StatefulSet, 1 Replica)"]
+            VK["Valkey<br/>(StatefulSet, 1 Replica)"]
         end
     end
 

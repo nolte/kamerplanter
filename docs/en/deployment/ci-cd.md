@@ -279,6 +279,7 @@ The `update-release-assets` job in the `docker-publish` workflow attaches the fo
 
 ### Release flow summary
 
+<!-- diagram-source: user-described — release publish sequence from git tag push to docs deploy and main branch update -->
 ```mermaid
 sequenceDiagram
     participant Dev as Developer

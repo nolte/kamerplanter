@@ -22,33 +22,34 @@ RAG löst beide Probleme: Das System sucht vor jeder Antwort relevante Informati
 
 Die Wissensbasis von Kamerplanter besteht aus vier Ebenen, die bei jeder Anfrage kombiniert werden.
 
+<!-- diagram-source: user-described — 4-level RAG knowledge base feeding the retriever, context builder, and prompt assembler -->
 ```mermaid
-graph TB
-    subgraph "Ebene 1: Globale Stammdaten"
-        E1[Pflanzenarten, Sorten, Wachstumsphasen,<br/>Nährstoffprofile, Schädlinge, Krankheiten]
+flowchart TB
+    subgraph "Level 1: Global Master Data"
+        E1[Plant species, cultivars, growth phases,<br/>nutrient profiles, pests, diseases]
     end
 
-    subgraph "Ebene 2: Thematische Guides"
-        E2[31 kuratierte Expertenwissen-Dateien:<br/>Diagnostik, Düngung, Bewässerung,<br/>Umwelt, Phasen, Outdoor, Allgemein]
+    subgraph "Level 2: Thematic Guides"
+        E2[31 curated expert knowledge files:<br/>Diagnostics, fertilization, irrigation,<br/>environment, phases, outdoor, general]
     end
 
-    subgraph "Ebene 3: Tenant-Kontext"
-        E3[Aktiver Pflanzdurchlauf, Phase,<br/>Messwerte EC/pH/VPD,<br/>aktive IPM-Ereignisse, letzte Dünge-Ereignisse]
+    subgraph "Level 3: Tenant Context"
+        E3[Active planting run, phase,<br/>measurements EC/pH/VPD,<br/>active IPM events, recent feeding events]
     end
 
-    subgraph "Ebene 4: Deine Pflanzdaten"
-        E4[Pflegehistorie, Ernteergebnisse,<br/>Pflanztagebuch, Bestätigungen]
+    subgraph "Level 4: Your Plant Data"
+        E4[Care history, harvest results,<br/>plant diary entries, confirmations]
     end
 
-    E1 --> RAG[RAG-Retriever<br/>pgvector]
+    E1 --> RAG[RAG Retriever<br/>pgvector]
     E2 --> RAG
-    E3 --> CB[Context-Builder<br/>ArangoDB]
+    E3 --> CB[Context Builder<br/>ArangoDB]
     E4 --> CB
 
-    RAG --> PA[Prompt-Assembler]
+    RAG --> PA[Prompt Assembler]
     CB --> PA
-    PA --> LLM[Sprachmodell]
-    LLM --> Antwort
+    PA --> LLM[Language Model]
+    LLM --> Response
 ```
 
 **Ebenen 1 und 2** werden als Vektoren gespeichert und per Ähnlichkeitssuche abgerufen.
