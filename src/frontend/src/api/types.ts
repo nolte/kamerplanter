@@ -3940,6 +3940,27 @@ export interface TestNotificationResponse {
   error: string | null;
 }
 
+// Web Push (PWA notification channel)
+
+export interface PwaVapidPublicKeyResponse {
+  vapid_public_key: string;
+}
+
+export interface PwaSubscribeRequest {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string;
+}
+
+export interface PwaSubscribeResponse {
+  endpoint: string;
+}
+
+export interface PwaUnsubscribeRequest {
+  endpoint: string;
+}
+
 // REQ-025 — Privacy / consent (Art. 7 DSGVO)
 
 export interface ConsentRecord {

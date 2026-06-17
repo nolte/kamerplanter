@@ -186,6 +186,37 @@ The system knows the care requirements of 10 plant families and automatically as
 
 ---
 
+## Notification Channels
+
+Kamerplanter delivers care reminders via configurable channels. Settings are located under **Settings** > **Notifications**.
+
+| Channel | `channel_key` | Description | Configuration required |
+|---------|---------------|-------------|------------------------|
+| **Email** | `email` | Daily summary and urgent reminders by email | None (always active as long as an email address is stored) |
+| **Browser Push (PWA)** | `pwa` | Web Push notifications directly in the browser or as an installed PWA | Per-device — see below |
+
+### Enabling Browser Push (PWA)
+
+The browser push channel is **per device**. Each device (smartphone, tablet, desktop browser) must be subscribed individually.
+
+1. Open **Settings** > **Notifications**
+2. Click **Enable on this device** next to "Browser Push"
+3. The browser asks for notification permission — click **Allow**
+4. The device is now subscribed and will receive reminders
+5. Click **Send test** to verify the connection
+
+!!! note "Browser compatibility"
+    Browser Push works with current Chromium-based browsers (Chrome, Edge, Brave) and Firefox. Safari on iOS requires iOS 16.4+ and the app added to the home screen as a PWA. The site must be served over **HTTPS** — on `http://localhost`, Push is only available for development purposes.
+
+!!! warning "“Not configured” after enabling"
+    If the channel still shows **Not configured** after enabling it, the VAPID keys have not been set by the instance operator. Please contact your administrator. For self-hosted instances: see [Environment Variables — Browser Push (VAPID)](../reference/environment-variables.md#browser-push-pwa-vapid).
+
+### Daily Summary and Quiet Hours
+
+The **Daily summary** time setting and **Quiet hours** (e.g. 22:00–07:00) apply to all channels equally — including Browser Push. Critical reminders (e.g. dig up tubers before frost) bypass quiet hours.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "The reminder appears too late — can I adjust this?"

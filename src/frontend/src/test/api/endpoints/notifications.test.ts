@@ -90,6 +90,50 @@ describe('notifications endpoints — preferences & channels', () => {
   });
 });
 
+describe('notifications endpoints — Web Push (PWA)', () => {
+  it('getPwaVapidPublicKey gets the vapid public key', async () => {
+    client.get.mockResolvedValue({ data: { vapid_public_key: 'BKEY' } });
+    const result = await notifications.getPwaVapidPublicKey();
+    expect(client.get).toHaveBeenCalledWith('/notifications/pwa/vapid-public-key');
+    expect(result).toEqual({ vapid_public_key: 'BKEY' });
+  });
+
+  it('subscribePwa flattens a PushSubscriptionJSON into endpoint/keys/user_agent', async () => {
+    client.post.mockResolvedValue({ data: { endpoint: 'https://push.example/abc' } });
+    const subscription = {
+      endpoint: 'https://push.example/abc',
+      expirationTime: null,
+      keys: { p256dh: 'P256DH_KEY', auth: 'AUTH_KEY' },
+    };
+    await notifications.subscribePwa(subscription);
+    expect(client.post).toHaveBeenCalledWith('/notifications/pwa/subscribe', {
+      endpoint: 'https://push.example/abc',
+      p256dh: 'P256DH_KEY',
+      auth: 'AUTH_KEY',
+      user_agent: navigator.userAgent,
+    });
+  });
+
+  it('subscribePwa tolerates a subscription without keys', async () => {
+    client.post.mockResolvedValue({ data: { endpoint: 'https://push.example/abc' } });
+    await notifications.subscribePwa({ endpoint: 'https://push.example/abc' });
+    expect(client.post).toHaveBeenCalledWith('/notifications/pwa/subscribe', {
+      endpoint: 'https://push.example/abc',
+      p256dh: '',
+      auth: '',
+      user_agent: navigator.userAgent,
+    });
+  });
+
+  it('unsubscribePwa posts the endpoint', async () => {
+    client.post.mockResolvedValue({ data: undefined });
+    await notifications.unsubscribePwa('https://push.example/abc');
+    expect(client.post).toHaveBeenCalledWith('/notifications/pwa/unsubscribe', {
+      endpoint: 'https://push.example/abc',
+    });
+  });
+});
+
 describe('notifications endpoints — markAllRead orchestration', () => {
   it('fetches unread notifications and marks each unread one as read', async () => {
     client.get.mockResolvedValue({

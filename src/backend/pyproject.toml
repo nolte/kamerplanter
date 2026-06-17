@@ -29,6 +29,7 @@ dependencies = [
     "weasyprint>=62.0",
     "qrcode[pil]>=8.0",
     "zeroconf>=0.131.0",
+    "pywebpush>=2.0.0",
 ]
 
 [project.optional-dependencies]

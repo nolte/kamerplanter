@@ -186,6 +186,37 @@ Das System kennt die Pflegeanforderungen von 10 Pflanzenfamilien und ordnet neue
 
 ---
 
+## Benachrichtigungskanäle
+
+Kamerplanter stellt Pflegeerinnerungen über konfigurierbare Kanäle zu. Die Einstellungen befinden sich unter **Einstellungen** > **Benachrichtigungen**.
+
+| Kanal | `channel_key` | Beschreibung | Konfiguration erforderlich |
+|-------|---------------|--------------|---------------------------|
+| **E-Mail** | `email` | Tägliche Zusammenfassung und dringende Erinnerungen per E-Mail | Keine (immer aktiv, sofern eine E-Mail-Adresse hinterlegt ist) |
+| **Browser Push (PWA)** | `pwa` | Web-Push-Benachrichtigungen direkt im Browser oder als installierte PWA | Gerätespezifisch — siehe unten |
+
+### Browser Push (PWA) aktivieren
+
+Der Browser-Push-Kanal ist **pro Gerät** aktiviert. Jedes Gerät (Smartphone, Tablet, Desktop-Browser) muss einzeln abonniert werden.
+
+1. Öffne **Einstellungen** > **Benachrichtigungen**
+2. Klicke auf **Auf diesem Gerät aktivieren** neben "Browser Push"
+3. Der Browser fragt nach der Berechtigung für Benachrichtigungen — klicke **Zulassen**
+4. Das Gerät ist jetzt abonniert und empfängt Erinnerungen
+5. Klicke auf **Test senden**, um die Verbindung zu überprüfen
+
+!!! note "Browser-Kompatibilität"
+    Browser Push funktioniert mit aktuellen Chromium-basierten Browsern (Chrome, Edge, Brave) und Firefox. Safari unter iOS erfordert iOS 16.4+ und dass die App als PWA zum Startbildschirm hinzugefügt wurde. Die Seite muss über **HTTPS** ausgeliefert werden — auf `http://localhost` ist Push nur zu Entwicklungszwecken verfügbar.
+
+!!! warning "„Nicht konfiguriert“ nach dem Aktivieren"
+    Zeigt der Kanal trotz Aktivierung den Status **Nicht konfiguriert**, wurden die VAPID-Schlüssel vom Betreiber der Instanz noch nicht gesetzt. Bitte wende dich an den Administrator. Für selbst gehostete Instanzen: siehe [Umgebungsvariablen — Browser Push (VAPID)](../reference/environment-variables.md#browser-push-pwa-vapid).
+
+### Tägliche Zusammenfassung und Ruhezeiten
+
+Die Einstellung **Tägliche Zusammenfassung** (Uhrzeit) und **Ruhezeiten** (z.B. 22:00–07:00) gelten für alle Kanäle gleichermaßen — also auch für Browser Push. Dringende Erinnerungen (Kritisch, z.B. Knollen ausgraben vor Frost) ignorieren die Ruhezeiten.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Die Erinnerung erscheint zu spät — kann ich das anpassen?"

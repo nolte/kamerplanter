@@ -151,6 +151,10 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_public_key: str = ""
     vapid_contact_email: str = ""
+    # SEC-001 — optional operator allowlist for Web Push endpoints (SSRF hardening).
+    # Comma-separated host suffixes (e.g. "fcm.googleapis.com,updates.push.services.mozilla.com").
+    # Empty (default) → fall back to https + private-IP rejection so self-hosted push works.
+    pwa_push_endpoint_allowed_hosts: str = ""
     notification_quiet_hours_default: str = "22:00-07:00"
     notification_batch_window_minutes: int = 30
     notification_escalation_days: str = "2,4,7"

@@ -257,6 +257,57 @@ PLANTNET_API_KEY set?
 
 ---
 
+## Browser Push / PWA (VAPID)
+
+These variables enable the browser push notification channel (`channel_key: "pwa"`). When all three variables are empty, the channel is disabled — the application remains fully functional and users see "Not configured" in their notification settings.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `VAPID_PUBLIC_KEY` | — | No* | VAPID public key (Base64url, 87 characters). Sent to the browser and used in the PWA subscription. |
+| `VAPID_PRIVATE_KEY` | — | No* | VAPID private key (Base64url or PEM). **Server-side only** — never expose in the frontend or logs. |
+| `VAPID_CONTACT_EMAIL` | — | No* | Contact email for the push service (format: `mailto:admin@example.com`). Used by push services (FCM, APNS, Mozilla) to report issues. |
+
+*All three variables must be set for the browser push channel to become active. If any variable is missing, the channel remains disabled.
+
+### Generating a Key Pair
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Output:
+```
+Public Key:
+BNm...
+
+Private Key:
+8Kv...
+```
+
+Alternatively with `pywebpush` (Python), which also accepts PEM-formatted private keys:
+```bash
+pip install pywebpush
+python -c "from py_vapid import Vapid; v = Vapid(); v.generate_keys(); print('Public:', v.public_key); print('Private:', v.private_key)"
+```
+
+!!! danger "Keep the private key server-side"
+    The `VAPID_PRIVATE_KEY` must **never** appear in the frontend, in logs, or in public configuration files. Store it as a Kubernetes Secret or Docker Secret — analogous to `JWT_SECRET_KEY`.
+
+!!! tip "Kubernetes Secret for VAPID"
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kamerplanter-vapid
+    type: Opaque
+    stringData:
+      VAPID_PUBLIC_KEY: "BNm..."
+      VAPID_PRIVATE_KEY: "8Kv..."
+      VAPID_CONTACT_EMAIL: "mailto:admin@example.com"
+    ```
+
+---
+
 ## Complete .env Example
 
 ```bash
@@ -302,6 +353,11 @@ RERANKER_TOP_K=5
 # Photo identification (empty = feature disabled)
 # PLANTNET_API_KEY=
 # IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
+
+# Browser Push / PWA (empty = channel disabled)
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=
+# VAPID_CONTACT_EMAIL=mailto:admin@example.com
 ```
 
 ---
