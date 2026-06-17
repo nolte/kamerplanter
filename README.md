@@ -13,7 +13,7 @@
 
 Kamerplanter is a self-hosted plant lifecycle management system for indoor and outdoor growing — covering everything from seed to harvest.
 
-Whether you're a **home grower** managing a grow tent, a **houseplant owner** trying to keep your plants alive, a **hobby gardener** planning raised beds and crop rotations, or running a **community garden** with shared responsibilities — Kamerplanter adapts to your experience level and scale. It supports vegetables, herbs, houseplants, and ornamentals with nutrient planning, growth phase tracking, adaptive care reminders, a knowledge assistant, and Home Assistant integration.
+Whether you're a **home grower** managing a grow tent, a **houseplant owner** trying to keep your plants alive, a **hobby gardener** planning raised beds and crop rotations, or running a **community garden** with shared responsibilities — Kamerplanter adapts to your experience level and scale. It supports vegetables, herbs, houseplants, and ornamentals with nutrient planning, growth phase tracking, adaptive care reminders, photo-based plant identification, a knowledge assistant, and Home Assistant integration.
 
 ## Why Kamerplanter?
 
@@ -26,6 +26,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 - **Answers your questions** — RAG-based knowledge assistant with pluggable LLM backends (Anthropic, Ollama, OpenAI-compatible) for plant care advice grounded in your data
 - **Scales from windowsill to community garden** — multi-tenancy with role-based access (admin/grower/viewer), personal and shared gardens, invitation system
 - **Adapts to your skill level** — beginner/intermediate/expert modes control UI complexity, navigation depth, and form field visibility
+- **Identifies plants from a photo** — snap a picture and Kamerplanter names the species (and diagnoses leaf diseases) in seconds, then links it to your master data. Built right into onboarding, so you go from photo to full care setup in under 30 seconds. Privacy-first and optional: a self-hosted recognition engine is the goal, with the Pl@ntNet free tier as a fallback — no cloud account required.
 - **Enriches your data automatically** — GBIF and Perenual adapters fill in botanical details, CSV import for bulk data, iCal export for your calendar app
 - **Self-hosted and private** — runs on your own hardware, no cloud dependency, GDPR-aware design with retention policies
 
@@ -36,6 +37,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 | Backend | Python 3.14+, FastAPI, Celery, Authlib |
 | Frontend | React 19, TypeScript 5.9, MUI 7, Redux Toolkit, Vite 6 |
 | Knowledge Service | FastAPI, pgvector, ONNX embeddings, cross-encoder reranking |
+| Plant Recognition | Pl@ntNet API, self-hosted DINOv2 image matching |
 | Primary DB | ArangoDB 3.11+ (documents + graph) |
 | Vector DB | PostgreSQL 18 + pgvector |
 | Time-Series DB | TimescaleDB 2.13+ |
@@ -74,33 +76,6 @@ task lint:backend       # ruff
 task lint:frontend      # ESLint
 task ha:deploy          # deploy HA integration to pod
 task docs:serve         # MkDocs local preview
-```
-
-## Project Structure
-
-```
-spec/                     # Specifications (German)
-  req/                    #   Functional requirements (REQ-001 – REQ-032)
-  nfr/                    #   Non-functional requirements (NFR-001 – NFR-012)
-  ui-nfr/                 #   UI non-functional requirements
-  style-guides/           #   Code style guides (Backend, Frontend, Helm)
-  knowledge/              #   Plant & domain knowledge base
-    rag/                  #     RAG-optimized YAML chunks (8 categories)
-    plants/               #     Plant info documents (210 species)
-    products/             #     Fertilizer product data
-    nutrient-plans/       #     Nutrient plan documents
-  rag-eval/               #   RAG benchmark questions & topic synonyms
-  design/                 #   KAMI graphic prompts
-  analysis/               #   Review & analysis reports
-src/
-  backend/                # Python/FastAPI backend (5-layer architecture)
-  frontend/               # React/TypeScript frontend
-  knowledge-service/      # RAG/AI microservice (vector search + LLM)
-custom_components/        # Home Assistant custom integration (HACS-compatible)
-helm/                     # Helm charts (bjw-s/common)
-tests/e2e/                # Selenium E2E test suite
-test-reports/             # Generated test results (rag-eval, e2e)
-docs/                     # MkDocs documentation (de/en)
 ```
 
 ## Documentation
