@@ -138,17 +138,26 @@ def _parse_frontmatter_block(block: str, path: Path) -> dict:
             continue
         items: list[str] = []
         j = i + 1
+        consumed_block = False
         while j < len(lines) and (not lines[j].strip() or lines[j].startswith((" ", "\t"))):
+            consumed_block = True
             stripped = lines[j].strip()
             if stripped.startswith("- "):
                 items.append(stripped[2:].strip().strip("\"'"))
-            elif stripped == "":
-                pass
-            else:
-                break
+            # Deeper mapping continuation lines (e.g. `alternative: x` under a
+            # `- situation: ...` item) and blank lines belong to the same
+            # indented block; skip them instead of failing. The catalog only
+            # consumes scalar keys plus `tags`, so nested structure is ignored.
             j += 1
         if items:
             result[key] = items
+            i = j
+            continue
+        if consumed_block:
+            # Key introduced an indented block with no top-level list items
+            # (e.g. a nested mapping). Record the inline value and skip past
+            # the block so its lines are not re-parsed as top-level keys.
+            result[key] = value
             i = j
             continue
         if value.startswith("[") and value.endswith("]"):
