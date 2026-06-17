@@ -4,12 +4,13 @@ Kamerplanter integrates with Home Assistant via a **Custom Integration**. All pl
 
 ## Overview
 
+<!-- diagram-source: user-described — Kamerplanter backend feeds the HA custom integration, which drives dashboards, automations, and notifications -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter\nBackend"] -->|REST API\nPolling| HA["Home Assistant\nCustom Integration"]
-    HA --> D["Dashboard\nLovelace Cards"]
-    HA --> A["Automations\nBlueprints"]
-    HA --> N["Notifications\nMobile Push"]
+    KP["Kamerplanter<br/>Backend"] -->|REST API<br/>Polling| HA["Home Assistant<br/>Custom Integration"]
+    HA --> D["Dashboard<br/>Lovelace Cards"]
+    HA --> A["Automations<br/>Blueprints"]
+    HA --> N["Notifications<br/>Mobile Push"]
 ```
 
 | Aspect | Details |
@@ -47,10 +48,11 @@ flowchart LR
 
 For a full integration, **both systems need mutual API access**. This requires a token exchange:
 
+<!-- diagram-source: user-described — bidirectional token exchange: Kamerplanter holds an HA access token, HA holds a Kamerplanter API key -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter"] -- "HA Long-Lived\nAccess Token" --> HA["Home Assistant"]
-    HA -- "Kamerplanter\nAPI Key (kp_...)" --> KP
+    KP["Kamerplanter"] -- "HA Long-Lived<br/>Access Token" --> HA["Home Assistant"]
+    HA -- "Kamerplanter<br/>API Key (kp_...)" --> KP
 ```
 
 | Direction | Token | Purpose | Where to create |
@@ -82,12 +84,13 @@ flowchart LR
 
 With multicast DNS (mDNS) announcement enabled, Home Assistant automatically detects the Kamerplanter backend on the local network — no manual URL entry required. The config flow starts directly at the authentication step.
 
+<!-- diagram-source: user-described — mDNS advertisement lets HA discover the backend and pre-fill the config flow URL, leaving only the API key -->
 ```mermaid
 flowchart LR
-    KP["Kamerplanter backend\nMDNS_ENABLED=true"]
+    KP["Kamerplanter backend<br/>MDNS_ENABLED=true"]
     KP -->|_kamerplanter._tcp.local.| HA["Home Assistant"]
-    HA --> D["Discovery notification\nConfigure"]
-    D --> CF["Config flow\nURL pre-filled\nAPI key only"]
+    HA --> D["Discovery notification<br/>Configure"]
+    D --> CF["Config flow<br/>URL pre-filled<br/>API key only"]
 ```
 
 ### Requirements

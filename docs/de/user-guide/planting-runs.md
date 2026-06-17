@@ -78,14 +78,15 @@ Klicke auf **Pflanzen erstellen**. Kamerplanter legt automatisch alle Einzelpfla
 
 Ein Pflanzdurchlauf durchläuft folgende Zustände:
 
+<!-- diagram-source: user-described — planting run status lifecycle from planned through harvesting to completed or cancelled -->
 ```mermaid
 stateDiagram-v2
-    [*] --> Geplant
-    Geplant --> Aktiv : Pflanzen eingezogen
-    Aktiv --> Ernte : Erste Ernte eingeleitet
-    Ernte --> Abgeschlossen : Alle Pflanzen geerntet
-    Aktiv --> Abgebrochen : Durchlauf abbrechen
-    Geplant --> Abgebrochen : Durchlauf abbrechen
+    [*] --> Planned
+    Planned --> Active : Plants moved in
+    Active --> Harvesting : First harvest initiated
+    Harvesting --> Completed : All plants harvested
+    Active --> Cancelled : Cancel run
+    Planned --> Cancelled : Cancel run
 ```
 
 | Status | Beschreibung |

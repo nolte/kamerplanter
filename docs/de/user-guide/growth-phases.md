@@ -15,16 +15,17 @@ Jede Pflanze in Kamerplanter durchläuft eine Abfolge von Wachstumsphasen. Das S
 
 Kamerplanter führt jede Pflanze entlang einer festen Phasen-Abfolge. Rückwärts-Übergänge sind nicht möglich — eine Pflanze, die die Blütephase erreicht hat, kann nicht zur vegetativen Phase zurückgehen.
 
+<!-- diagram-source: user-described — plant growth phase state machine from germination to harvest with perennial dormancy loop -->
 ```mermaid
 stateDiagram-v2
-    [*] --> Keimung
-    Keimung --> Sämling : Keimblatt sichtbar
-    Sämling --> Vegetativ : Erstes echtes Blatt
-    Vegetativ --> Blüte : Photoperiode-Wechsel oder manuell
-    Blüte --> Ernte : Reife erreicht
-    Ernte --> [*]
-    Vegetativ --> Dormanz : Winterruhe (perennial)
-    Dormanz --> Vegetativ : Frühlingswachstum
+    [*] --> Germination
+    Germination --> Seedling : Cotyledon visible
+    Seedling --> Vegetative : First true leaf
+    Vegetative --> Flowering : Photoperiod change or manual
+    Flowering --> Harvest : Maturity reached
+    Harvest --> [*]
+    Vegetative --> Dormancy : Winter rest (perennial)
+    Dormancy --> Vegetative : Spring growth
 ```
 
 **Erklärung der Phasen:**

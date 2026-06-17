@@ -29,12 +29,13 @@ Kamerplanter liefert neun Starter-Kits mit:
 
 ## Die fünf Schritte im Überblick
 
+<!-- diagram-source: user-described — five-step onboarding wizard flow ending at the dashboard -->
 ```mermaid
 flowchart LR
-    A["Schritt 1\nErfahrungsstufe"] --> B["Schritt 2\nUmgebung & Ziele"]
-    B --> C["Schritt 3\nStarter-Kit wählen"]
-    C --> D["Schritt 4\nPflanzen & Favoriten"]
-    D --> E["Schritt 5\nZusammenfassung"]
+    A["Step 1<br/>Experience Level"] --> B["Step 2<br/>Environment & Goals"]
+    B --> C["Step 3<br/>Choose Starter Kit"]
+    C --> D["Step 4<br/>Plants & Favourites"]
+    D --> E["Step 5<br/>Summary"]
     E --> F["Dashboard"]
 
     style A fill:#4CAF50,color:#fff

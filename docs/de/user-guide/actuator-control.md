@@ -19,15 +19,16 @@ Kamerplanter schließt den Regelkreis zwischen Sensorik und Aktorik: Das System 
 
 Jede automatische Steuerungsaktion folgt demselben Kreislauf:
 
+<!-- diagram-source: user-described — automatic control loop: sensor reading, rule evaluation, priority check, actuator command, hysteresis timer -->
 ```mermaid
 flowchart LR
-    S[Sensor misst\nTemperatur / rH / CO₂ / VPD] --> E{Regel-Engine\nwertet aus}
-    E -->|Schwellwert überschritten| P{Prioritäts-\nprüfung}
-    E -->|Alles im Bereich| W[Warten\nbis nächste Messung]
-    P -->|Kein Konflikt| A[Aktor-Befehl\nwird gesendet]
-    P -->|Konflikt erkannt| K[Konflikt-\nauflösung]
+    S[Sensor measures<br/>Temperature / rH / CO₂ / VPD] --> E{Rule engine<br/>evaluates}
+    E -->|Threshold exceeded| P{Priority<br/>check}
+    E -->|All within range| W[Wait<br/>until next measurement]
+    P -->|No conflict| A[Actuator command<br/>is sent]
+    P -->|Conflict detected| K[Conflict<br/>resolution]
     K --> A
-    A --> H[Hysterese-Timer\nstartet]
+    A --> H[Hysteresis timer<br/>starts]
     H --> S
 ```
 
@@ -182,12 +183,13 @@ Graduelle Übergänge sind möglich: Das System kann die Photoperiode über 7 Ta
 
 Wenn mehrere Regeln denselben Aktor gleichzeitig ansprechen, gilt folgende Reihenfolge:
 
+<!-- diagram-source: user-described — actuator priority order from manual override down through safety rules, rule-based control, and schedule -->
 ```mermaid
 flowchart TB
-    M[1. Manueller Override\nhöchste Priorität, zeitlich begrenzt]
-    S[2. Sicherheitsregeln\nz.B. Übertemperatur-Abluft]
-    R[3. Regelbasierte Steuerung\nSensor-Schwellwerte]
-    Z[4. Zeitplan\nniedrigste Priorität]
+    M[1. Manual Override<br/>highest priority, time-limited]
+    S[2. Safety rules<br/>e.g. overtemperature exhaust]
+    R[3. Rule-based control<br/>sensor thresholds]
+    Z[4. Schedule<br/>lowest priority]
     M --> S --> R --> Z
 ```
 

@@ -15,6 +15,7 @@ Every plant in Kamerplanter passes through a sequence of growth phases. The syst
 
 Kamerplanter guides each plant along a fixed phase sequence. Backward transitions are not possible — a plant that has reached the flowering phase cannot return to the vegetative phase.
 
+<!-- diagram-source: user-described — plant growth phase state machine from germination to harvest with perennial dormancy loop -->
 ```mermaid
 stateDiagram-v2
     [*] --> Germination

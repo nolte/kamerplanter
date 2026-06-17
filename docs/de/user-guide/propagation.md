@@ -95,13 +95,14 @@ Veredelung wird eingesetzt, um eine wertvolle Sorte (Edelreis) auf eine robuste 
 
 Das System prüft automatisch die Gattungs- und Familienkompatibilität:
 
+<!-- diagram-source: user-described — graft compatibility check decision tree (genus, then family) -->
 ```mermaid
 flowchart TD
-    A[Veredelung anlegen] --> B{Gleiche Gattung?}
-    B -->|Ja| OK[Kompatibel]
-    B -->|Nein| C{Gleiche Familie?}
-    C -->|Ja| W[Warnung: Kompatibilität möglich, prüfen]
-    C -->|Nein| E[Fehler: Inkompatibel]
+    A[Create graft] --> B{Same genus?}
+    B -->|Yes| OK[Compatible]
+    B -->|No| C{Same family?}
+    C -->|Yes| W[Warning: Compatibility possible, check]
+    C -->|No| E[Error: Incompatible]
 ```
 
 !!! warning "Kompatibilitätsregeln"
@@ -128,13 +129,14 @@ Die Abstammungsansicht zeigt alle Eltern-, Geschwister- und Nachkommenpflanzen i
 1. Navigiere zu **Pflanzen** > gewünschte Pflanze
 2. Klicke auf den Tab **Abstammung**
 
+<!-- diagram-source: user-described — plant lineage graph: mother plant with F1 clones and an F2 clone via descended_from edges -->
 ```mermaid
-graph TB
-    M["Mutterpflanze\n(Ursprung)"]
-    K1["Klon F1-1"]
-    K2["Klon F1-2"]
-    K3["Klon F1-3"]
-    K2_1["Klon F2-1\n(von F1-2)"]
+flowchart TB
+    M["Mother plant<br/>(origin)"]
+    K1["Clone F1-1"]
+    K2["Clone F1-2"]
+    K3["Clone F1-3"]
+    K2_1["Clone F2-1<br/>(from F1-2)"]
     M -->|descended_from| K1
     M -->|descended_from| K2
     M -->|descended_from| K3

@@ -50,12 +50,13 @@ src/backend/app/
 
 ## Schichtenmodell
 
+<!-- diagram-source: user-described — 5-layer request flow from HTTP through Router, Service, Engine/Repository to ArangoDB -->
 ```mermaid
-graph TD
-    A["HTTP Request"] --> B["FastAPI Router\napi/v1/*/router.py"]
-    B --> C["Service\ndomain/services/"]
-    C --> D1["Engine\ndomain/engines/"]
-    C --> D2["Repository\ndata_access/arango/"]
+flowchart TD
+    A["HTTP Request"] --> B["FastAPI Router<br/>api/v1/*/router.py"]
+    B --> C["Service<br/>domain/services/"]
+    C --> D1["Engine<br/>domain/engines/"]
+    C --> D2["Repository<br/>data_access/arango/"]
     D1 --> C
     D2 --> E[("ArangoDB")]
 

@@ -40,8 +40,9 @@ Sensor data can indirectly allow inferences about the presence and behavior of p
 (CO2 curves, motion sensors, manual overrides). They are therefore subject to a tiered
 retention policy in TimescaleDB:
 
+<!-- diagram-source: user-described — tiered TimescaleDB sensor-data downsampling pipeline from raw to deletion -->
 ```mermaid
-graph LR
+flowchart LR
     A["Raw data<br/>(full resolution)"]
     B["Hourly averages<br/>(avg, min, max)"]
     C["Daily averages<br/>(avg, min, max)"]
@@ -131,8 +132,9 @@ but not deleted (Art. 17(3)(b)):
 The Celery task `enforce_retention_policy` runs **daily at 02:00 UTC** and orchestrates
 all retention sub-tasks:
 
+<!-- diagram-source: user-described — enforce_retention_policy Celery master task fanning out to retention sub-tasks -->
 ```mermaid
-graph TD
+flowchart TD
     Master["enforce_retention_policy<br/>(Celery Beat, 02:00 UTC)"]
 
     Master --> T1["hard_delete_soft_deleted_accounts<br/>(R-01: 90 days)"]
@@ -210,6 +212,7 @@ RETENTION_ACTOR_LOG_AGGREGATED_RETENTION_YEARS=1  # R-15 Stage 2
 When a data subject submits an erasure request under GDPR Art. 17, the following
 procedure applies:
 
+<!-- diagram-source: user-described — decision flow for a GDPR Art. 17 erasure request under statutory retention -->
 ```mermaid
 flowchart TD
     A["Erasure request Art. 17"] --> B{"Statutory retention<br/>obligation?"}

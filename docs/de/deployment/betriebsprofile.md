@@ -426,20 +426,21 @@ Eine vollständige Liste aller Umgebungsvariablen findest du unter [Umgebungsvar
 
 Das folgende Flussdiagramm hilft dir, ein passendes Profil zu finden:
 
+<!-- diagram-source: user-described — decision tree selecting a deployment profile by user count and feature needs -->
 ```mermaid
 flowchart TD
-    A[Wie viele Nutzer?] -->|Nur ich| B{Brauchst du KI-Tipps?}
-    A -->|2-10 Personen| D{Kubernetes vorhanden?}
-    A -->|10+ / Mandanten| G[SaaS / Multi-Tenant]
+    A[How many users?] -->|Just me| B{Do you need AI tips?}
+    A -->|2-10 people| D{Kubernetes available?}
+    A -->|10+ / tenants| G[SaaS / Multi-Tenant]
 
-    B -->|Nein| C[Minimal]
-    B -->|Ja| E[Hobby]
+    B -->|No| C[Minimal]
+    B -->|Yes| E[Hobby]
 
-    D -->|Nein| F[Standard\nDocker Compose]
-    D -->|Ja| H{Sensoren / HA?}
+    D -->|No| F[Standard<br/>Docker Compose]
+    D -->|Yes| H{Sensors / HA?}
 
-    H -->|Nein| F2[Standard\nKubernetes]
-    H -->|Ja| I[Profi]
+    H -->|No| F2[Standard<br/>Kubernetes]
+    H -->|Yes| I[Professional]
 ```
 
 ---

@@ -22,8 +22,9 @@ RAG solves both problems: before generating every response, the system searches 
 
 Kamerplanter's knowledge base consists of four levels that are combined for every request.
 
+<!-- diagram-source: user-described — 4-level RAG knowledge base feeding the retriever, context builder, and prompt assembler -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Level 1: Global Master Data"
         E1[Plant species, cultivars, growth phases,<br/>nutrient profiles, pests, diseases]
     end

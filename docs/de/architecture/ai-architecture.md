@@ -6,15 +6,16 @@ Diese Seite beschreibt die technische Architektur des KI-Assistenten (REQ-031). 
 
 ## Systemarchitektur
 
+<!-- diagram-source: user-described — AI assistant system architecture across Frontend, API, Business Logic, Provider Adapters, Data Layer, and Celery background tasks -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Frontend (React/MUI)"
         TC[TipCardsPanel]
         CD[AiChatDrawer]
         DM[DiagnosisModePanel]
     end
 
-    subgraph "API-Layer (FastAPI)"
+    subgraph "API Layer (FastAPI)"
         AR["/api/v1/t/slug/ai/tips"]
         AC["/api/v1/t/slug/ai/chat"]
         AD["/api/v1/t/slug/ai/diagnose"]
@@ -29,7 +30,7 @@ graph TB
         TG[TipGeneratorService]
     end
 
-    subgraph "Provider-Adapter"
+    subgraph "Provider Adapters"
         OA[OllamaAdapter]
         OAI[OpenAiAdapter]
         ANT[AnthropicAdapter]
@@ -38,13 +39,13 @@ graph TB
         FB[RuleBasedFallback]
     end
 
-    subgraph "Datenschicht"
-        ARD[(ArangoDB<br/>Stammdaten + Kontext)]
+    subgraph "Data Layer"
+        ARD[(ArangoDB<br/>Master Data + Context)]
         TS[(TimescaleDB<br/>pgvector)]
         RD[(Redis<br/>Cache 4h TTL)]
     end
 
-    subgraph "Hintergrundaufgaben (Celery)"
+    subgraph "Background Tasks (Celery)"
         GDT[generate_daily_tips]
         RVC[reindex_vector_chunks]
     end
@@ -254,17 +255,18 @@ Der Re-Ranker läuft als eigenständiger `reranker-service` — analog zum Embed
 - **Port 8081**, FastAPI mit zwei Endpunkten: `/rerank` (POST) und `/health` (GET)
 - **Modell:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M Parameter, Apache-2.0-Lizenz
 
+<!-- diagram-source: user-described — sequence of the cross-encoder re-ranking call between Knowledge Service and Reranker Service -->
 ```mermaid
 sequenceDiagram
     participant KS as Knowledge Service
     participant RE as Reranker Service<br/>(Port 8081)
 
-    KS->>KS: Hybrid Search → 20 Kandidaten
+    KS->>KS: Hybrid Search → 20 candidates
     KS->>RE: POST /rerank<br/>{query, documents[20], top_k: 5}
-    RE->>RE: Cross-Encoder Inferenz<br/>ONNX Runtime, ~500ms
+    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, ~500ms
     RE-->>KS: {results: [{index, score, text}×5]}
-    KS->>KS: Chunks nach Score sortieren
-    KS->>KS: Kontext für LLM aufbauen
+    KS->>KS: Sort chunks by score
+    KS->>KS: Build context for LLM
 ```
 
 ### Graceful Degradation
@@ -523,13 +525,14 @@ Dieses Nearest-Neighbor-Matching ist **few-shot-tauglich**: Wenige Referenzbilde
 
 ### Systemarchitektur
 
+<!-- diagram-source: user-described — plant identification flow from Frontend through API and Business Logic to local/PlantNet adapters, inference microservice, and the pgvector/ArangoDB data layer plus the GBIF acquisition pipeline -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Frontend (React/MUI)"
         PID[PlantIdentificationDialog]
     end
 
-    subgraph "API-Layer (FastAPI)"
+    subgraph "API Layer (FastAPI)"
         RI["/api/v1/t/slug/identification/identify"]
         RC["/api/v1/t/slug/identification/confirm"]
         RS["/api/v1/t/slug/identification/status"]
@@ -538,47 +541,47 @@ graph TB
 
     subgraph "Business Logic"
         IS[IdentificationService]
-        EXIF[EXIF-Strip]
-        CGATE[Consent-Gate]
+        EXIF[EXIF Strip]
+        CGATE[Consent Gate]
     end
 
-    subgraph "Adapter-Registry"
-        LEA["LocalEmbeddingAdapter<br/>(Prio 1)"]
-        PNA["PlantNetAdapter<br/>(Prio 2, Fallback)"]
+    subgraph "Adapter Registry"
+        LEA["LocalEmbeddingAdapter<br/>(Priority 1)"]
+        PNA["PlantNetAdapter<br/>(Priority 2, Fallback)"]
     end
 
-    subgraph "Inferenz-Microservice (inference-service)"
+    subgraph "Inference Microservice (inference-service)"
         ONNX["ONNX Runtime<br/>DINOv2 ViT-S/14"]
-        PRE["Preprocessing<br/>RGB → 224×224 → ImageNet-Norm"]
-        MATCH["POST /match<br/>Embedding → Top-k Arten"]
-        EMBED["POST /embed(batch)<br/>Referenzbilder → Vektoren"]
+        PRE["Preprocessing<br/>RGB → 224×224 → ImageNet Norm"]
+        MATCH["POST /match<br/>Embedding → Top-k species"]
+        EMBED["POST /embed(batch)<br/>Reference images → vectors"]
     end
 
-    subgraph "Datenschicht"
+    subgraph "Data Layer"
         PGV[("pgvector<br/>species_embeddings<br/>HNSW, Cosine")]
         ARD[("ArangoDB<br/>reference_image_jobs<br/>identification_requests")]
     end
 
-    subgraph "Beschaffungs-Pipeline (Celery)"
-        GBIF["GBIF Media-API<br/>CC0/CC-BY-Filter"]
+    subgraph "Acquisition Pipeline (Celery)"
+        GBIF["GBIF Media API<br/>CC0/CC-BY filter"]
         ACQ["acquire_reference_images_task"]
     end
 
-    PID -->|"multipart Foto + organ"| RI
+    PID -->|"multipart photo + organ"| RI
     RI --> IS
     IS --> EXIF
     IS --> CGATE
     IS --> LEA
     CGATE --> PNA
 
-    LEA -->|"HTTP intern"| MATCH
+    LEA -->|"HTTP internal"| MATCH
     MATCH --> PRE
     PRE --> ONNX
-    ONNX -->|"Vektor 384-dim"| PGV
-    PGV -->|"Top-k species_key + Score"| MATCH
+    ONNX -->|"Vector 384-dim"| PGV
+    PGV -->|"Top-k species_key + score"| MATCH
 
     ACQ --> GBIF
-    GBIF -->|"lizenzgeprüfte Bilder"| EMBED
+    GBIF -->|"licence-filtered images"| EMBED
     EMBED --> PRE
     ONNX --> PGV
     ACQ --> ARD
