@@ -84,15 +84,16 @@ Ein Neustart der Dienste ist nach jeder Änderung erforderlich. Bestehende Daten
 
 Du möchtest Kamerplanter mit anderen teilen oder mehrere Konten verwenden? Du kannst jederzeit auf den Full-Modus upgraden.
 
+<!-- diagram-source: user-described — upgrade flow from Light Mode to Full Mode with optional takeover of existing data -->
 ```mermaid
 flowchart TD
-    A["KAMERPLANTER_MODE=light\nApp läuft, Daten vorhanden"] --> B["Variable auf 'full' setzen\nDienste neu starten"]
-    B --> C["Login-Screen erscheint"]
-    C --> D["Ersten Account registrieren"]
-    D --> E{"Bestehende Daten\nübernehmen?"}
-    E -- "Ja, übernehmen" --> F["Dein Konto übernimmt\nden System-Garten mit\nallen bestehenden Daten"]
-    E -- "Nein, neu starten" --> G["Leerer persönlicher\nGarten wird erstellt"]
-    F --> H["Dashboard mit\nbestehenden Daten"]
+    A["KAMERPLANTER_MODE=light<br/>App running, data present"] --> B["Set variable to 'full'<br/>Restart services"]
+    B --> C["Login screen appears"]
+    C --> D["Register first account"]
+    D --> E{"Take over<br/>existing data?"}
+    E -- "Yes, take over" --> F["Your account takes ownership<br/>of the system garden with<br/>all existing data"]
+    E -- "No, start fresh" --> G["Empty personal<br/>garden is created"]
+    F --> H["Dashboard with<br/>existing data"]
     G --> H
 ```
 

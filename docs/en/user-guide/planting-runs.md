@@ -78,6 +78,7 @@ Click **Create Plants**. Kamerplanter automatically creates all individual plant
 
 A planting run passes through the following states:
 
+<!-- diagram-source: user-described — planting run status lifecycle from planned through harvesting to completed or cancelled -->
 ```mermaid
 stateDiagram-v2
     [*] --> Planned

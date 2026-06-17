@@ -4,14 +4,15 @@ Kamerplanter verwaltet pro Pflanzenart bis zu 80+ strukturierte Felder -- von Ta
 
 ## Übersicht: Die AI-Pipeline
 
+<!-- diagram-source: user-described — AI plant-data pipeline from plant name through document generation and review to seed import -->
 ```mermaid
 flowchart LR
-    A["Pflanzenname\n(z.B. 'Basilikum')"] --> B["plant-info-document-generator"]
-    B --> C["Pflanzendokument\nspec/knowledge/plants/*.md"]
+    A["Plant name<br/>(e.g. 'Basil')"] --> B["plant-info-document-generator"]
+    B --> C["Plant document<br/>spec/knowledge/plants/*.md"]
     C --> D["agrobiology-requirements-reviewer"]
-    D --> E["Review-Report\nspec/analysis/"]
-    E -->|Korrekturen| C
-    C --> F["Seed-Data / CSV-Import\n(REQ-012)"]
+    D --> E["Review report<br/>spec/analysis/"]
+    E -->|Corrections| C
+    C --> F["Seed data / CSV import<br/>(REQ-012)"]
 ```
 
 Der Workflow besteht aus drei Schritten:

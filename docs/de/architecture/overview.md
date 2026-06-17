@@ -8,32 +8,33 @@ Kamerplanter ist eine agrotech-orientierte Plattform für das Pflanzenwachstums-
 
 Das System folgt einer strikten 5-Schichten-Architektur. Jede Schicht kennt nur die direkt darunter liegende — überspringende Aufrufe sind nicht erlaubt. Das Frontend greift **niemals** direkt auf die Datenbank zu.
 
+<!-- diagram-source: user-described — strict 5-layer architecture (NFR-001): presentation -> API -> business logic -> data access -> persistence -->
 ```mermaid
-graph TB
-    subgraph "Schicht 1 — Präsentation"
+flowchart TB
+    subgraph "Layer 1 — Presentation"
         Web["Web App (React 19 + MUI 7)"]
-        Mobile["Mobile App (Flutter — geplant)"]
+        Mobile["Mobile App (Flutter — planned)"]
     end
 
-    subgraph "Schicht 2 — API"
+    subgraph "Layer 2 — API"
         GW["Traefik Ingress"]
-        API["FastAPI Backend\n/api/v1/..."]
+        API["FastAPI Backend<br/>/api/v1/..."]
     end
 
-    subgraph "Schicht 3 — Business Logic"
-        SVC["Services\n(Orchestrierung)"]
-        ENG["Engines\n(reine Domänenlogik)"]
+    subgraph "Layer 3 — Business Logic"
+        SVC["Services<br/>(orchestration)"]
+        ENG["Engines<br/>(pure domain logic)"]
     end
 
-    subgraph "Schicht 4 — Data Access"
-        REPO["Repositories\n(python-arango)"]
-        EXT["External Adapters\n(GBIF, Perenual)"]
+    subgraph "Layer 4 — Data Access"
+        REPO["Repositories<br/>(python-arango)"]
+        EXT["External Adapters<br/>(GBIF, Perenual)"]
     end
 
-    subgraph "Schicht 5 — Persistenz"
-        ARANGO[("ArangoDB\nDokumente + Graph")]
-        TSDB[("TimescaleDB\nZeitreihendaten")]
-        VALKEY[("Valkey\nCache + Broker")]
+    subgraph "Layer 5 — Persistence"
+        ARANGO[("ArangoDB<br/>Documents + Graph")]
+        TSDB[("TimescaleDB<br/>Time-series data")]
+        VALKEY[("Valkey<br/>Cache + Broker")]
     end
 
     Web -- HTTPS --> GW
@@ -93,18 +94,19 @@ KAMERPLANTER_MODE=full    # Vollständige Auth (Standard)
 
 ## Externe Integrationen
 
+<!-- diagram-source: user-described — external integrations: enrichment (GBIF, Perenual) and Home Assistant (sensors, weather) -->
 ```mermaid
-graph LR
+flowchart LR
     subgraph "Kamerplanter"
         ENR["Enrichment Engine"]
-        HA["HA-Integration\n(Custom Component)"]
+        HA["HA Integration<br/>(custom component)"]
     end
 
-    subgraph "Externe Dienste"
-        GBIF["GBIF API\nPflanzentaxonomie"]
-        PER["Perenual API\nPflegedaten"]
-        HASS["Home Assistant\nSensorik / Aktoren"]
-        DWD["DWD / Open-Meteo\nWetterdaten"]
+    subgraph "External services"
+        GBIF["GBIF API<br/>Plant taxonomy"]
+        PER["Perenual API<br/>Care data"]
+        HASS["Home Assistant<br/>Sensors / actuators"]
+        DWD["DWD / Open-Meteo<br/>Weather data"]
     end
 
     ENR --> GBIF

@@ -257,6 +257,57 @@ PLANTNET_API_KEY gesetzt?
 
 ---
 
+## Browser Push / PWA (VAPID)
+
+Diese Variablen aktivieren den Browser-Push-Benachrichtigungskanal (`channel_key: "pwa"`). Sind alle drei Variablen leer, ist der Kanal deaktiviert — die Anwendung bleibt vollständig funktionsfähig, Nutzer sehen dann die Meldung "Nicht konfiguriert" in den Benachrichtigungseinstellungen.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `VAPID_PUBLIC_KEY` | — | Nein* | VAPID-Public-Key (Base64url, 87 Zeichen). Wird an den Browser übermittelt und in der PWA-Subscription verwendet. |
+| `VAPID_PRIVATE_KEY` | — | Nein* | VAPID-Private-Key (Base64url oder PEM). **Nur serverseitig** — niemals im Frontend oder in Logs ausgeben. |
+| `VAPID_CONTACT_EMAIL` | — | Nein* | Kontakt-E-Mail für den Push-Service (Format: `mailto:admin@example.com`). Von den Push-Diensten (FCM, APNS, Mozilla) bei Problemen genutzt. |
+
+*Alle drei Variablen müssen gesetzt sein, damit der Browser-Push-Kanal aktiv wird. Fehlt eine Variable, bleibt der Kanal deaktiviert.
+
+### Schlüsselpaar generieren
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Ausgabe:
+```
+Public Key:
+BNm...
+
+Private Key:
+8Kv...
+```
+
+Alternativ mit `pywebpush` (Python), das auch PEM-formatierte Private Keys akzeptiert:
+```bash
+pip install pywebpush
+python -c "from py_vapid import Vapid; v = Vapid(); v.generate_keys(); print('Public:', v.public_key); print('Private:', v.private_key)"
+```
+
+!!! danger "Private Key serverseitig halten"
+    Der `VAPID_PRIVATE_KEY` darf **niemals** im Frontend, in Logs oder in öffentlichen Konfigurationsdateien erscheinen. Speichere ihn als Kubernetes Secret oder Docker-Secret — analog zu `JWT_SECRET_KEY`.
+
+!!! tip "Kubernetes Secret für VAPID"
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kamerplanter-vapid
+    type: Opaque
+    stringData:
+      VAPID_PUBLIC_KEY: "BNm..."
+      VAPID_PRIVATE_KEY: "8Kv..."
+      VAPID_CONTACT_EMAIL: "mailto:admin@example.com"
+    ```
+
+---
+
 ## Vollständiges .env-Beispiel
 
 ```bash
@@ -302,6 +353,11 @@ RERANKER_TOP_K=5
 # Foto-Identifikation (leer = Feature deaktiviert)
 # PLANTNET_API_KEY=
 # IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
+
+# Browser Push / PWA (leer = Kanal deaktiviert)
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=
+# VAPID_CONTACT_EMAIL=mailto:admin@example.com
 ```
 
 ---

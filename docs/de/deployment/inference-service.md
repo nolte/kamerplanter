@@ -1,6 +1,6 @@
 # Bilderkennung in Betrieb nehmen (Inferenz-Service)
 
-Diese Seite beschreibt die Inbetriebnahme des `inference-service` für die self-hosted Pflanzen-Bilderkennung (REQ-029-A). Der Inferenz-Service ist eine optionale Komponente — Kamerplanter funktioniert vollständig ohne sie; die Bilderkennung ist dann nicht verfügbar.
+Diese Seite beschreibt die Inbetriebnahme des `inference-service` für die selbst gehostete Pflanzen-Bilderkennung (interne Anforderungsreferenz REQ-029-A). Der Inferenz-Service ist eine optionale Komponente — Kamerplanter funktioniert vollständig ohne sie; die Bilderkennung ist dann nicht verfügbar.
 
 ---
 
@@ -8,18 +8,18 @@ Diese Seite beschreibt die Inbetriebnahme des `inference-service` für die self-
 
 Der Inferenz-Service (`src/inference-service/`) ist ein eigenständiger FastAPI-Microservice, der:
 
-- das DINOv2-Modell (ViT-S/14, Apache-2.0, ~21 M Parameter) als ONNX-Artefakt lädt,
+- das DINOv2-Modell (ViT-S/14, Apache-2.0, ~21 M Parameter) als ONNX-Artefakt (Open Neural Network Exchange) lädt,
 - Bilder vorverarbeitet und in Embedding-Vektoren (384 Dimensionen) umrechnet,
 - diese Vektoren gegen einen **Referenz-Index** in pgvector abgleicht und die ähnlichsten Pflanzenarten zurückgibt.
 
-Der Service ist ein **optionales, eigenständiges** Modul: Er läuft im eigenen Helm-Release `kamerplanter-recognition` (Skaffold-Profil `recognition`) und ist nur intern erreichbar (ClusterIP). Die Bilderkennung lässt sich damit unabhängig vom RAG-Stack betreiben oder ganz weglassen. Den pgvector-Speicher teilt er sich mit dem Knowledge-Service (`kamerplanter_vectors`, bereitgestellt vom `kamerplanter-ki`-Release), nutzt darin aber eine eigene Tabelle (`species_embeddings`). Deshalb muss die `kamerplanter-ki`-vectordb laufen, wenn das `recognition`-Profil gestartet wird.
+Der Service ist ein **optionales, eigenständiges** Modul. Er läuft im eigenen Helm-Release `kamerplanter-recognition` (Skaffold-Profil `recognition`) und ist nur clusterintern erreichbar (ClusterIP). Damit lässt sich die Bilderkennung unabhängig vom RAG-Stack (dem Retrieval-Augmented-Generation-Stack des Knowledge-Service) betreiben oder ganz weglassen. Den pgvector-Speicher teilt er sich mit dem Knowledge-Service: die Datenbank `kamerplanter_vectors` aus dem `kamerplanter-ki`-Release, darin aber eine eigene Tabelle (`species_embeddings`). Die `kamerplanter-ki`-vectordb muss daher laufen, wenn das `recognition`-Profil startet.
 
 ---
 
 ## Aktivierungsreihenfolge
 
 !!! warning "Reihenfolge einhalten"
-    Die drei Schritte müssen in der angegebenen Reihenfolge ausgeführt werden. Wenn du `INFERENCE_SERVICE_ENABLED=true` setzt, bevor der Referenz-Index befüllt ist, ist die lokale Erkennung nicht verfügbar — das Backend fällt dann direkt auf Pl@ntNet zurück (sofern konfiguriert).
+    Die drei Schritte müssen in der angegebenen Reihenfolge ausgeführt werden. Wird `INFERENCE_SERVICE_ENABLED=true` gesetzt, bevor der Referenz-Index befüllt ist, ist die lokale Erkennung nicht verfügbar — das Backend fällt dann direkt auf Pl@ntNet zurück (sofern konfiguriert).
 
 ### Schritt 1: Inferenz-Service starten (Skaffold)
 
@@ -41,17 +41,18 @@ Das `recognition`-Profil startet ausschließlich den `inference-service` (eigene
 # Port-Forward (lokale Entwicklung):
 kubectl port-forward svc/kamerplanter-recognition 8090:8000 -n default
 
-# Readiness prüfen:
+# Readiness prüfen (ist das Modell geladen?):
 curl http://localhost:8090/ready
-# Erwartete Antwort: {"status": "ready", "model": "dinov2_vits14", "dim": 384}
+# Erwartete Antwort: {"status": "ok"}
 
 # Modellinformationen abrufen:
 curl http://localhost:8090/modelinfo
+# Antwort enthält: model, dim, input_size, license, checksum
 ```
 
 ### Schritt 2: Referenz-Index befüllen
 
-Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
+Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF (Global Biodiversity Information Facility) und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
 
 !!! info "Dieser Schritt befüllt auch die UI-Bilder in der Artenansicht"
     Nach Abschluss dieses Tasks erscheinen in der **Artenliste** Thumbnails und auf der **Artdetailseite** eine vollständige Referenzbild-Galerie. Beide Ansichten zeigen vor dem ersten Beschaffungslauf einen Platzhalter-Hinweis. Lizenz-Attribution (CC-BY) wird automatisch in den Metadaten mitgeführt und im UI angezeigt. Weitere Informationen: [Referenzbilder in der Artenansicht](../user-guide/plant-management.md#referenzbilder-in-der-artenansicht).
@@ -75,22 +76,27 @@ curl http://localhost:8000/api/v1/admin/reference-images/coverage \
   -H "Authorization: Bearer <admin-token>"
 ```
 
-Die Antwort zeigt pro Art, wie viele Referenzbilder indexiert wurden und ob die Art als "erkennbar" gilt (mindestens 5 Referenzen):
+Die Antwort zeigt pro Art, wie viele Referenzbilder akzeptiert wurden und ob die Art als "erkennbar" gilt (`usable_for_recognition`, mindestens 5 akzeptierte Referenzen):
 
 ```json
 {
-  "total_species": 210,
-  "usable_for_recognition": 187,
-  "not_usable": 23,
-  "species_below_threshold": [
-    {"species_key": "species_alocasia_zebrina", "references": 2},
-    ...
+  "total_species": 66,
+  "usable_species": 48,
+  "entries": [
+    {
+      "species_key": "species_alocasia_zebrina",
+      "scientific_name": "Alocasia zebrina",
+      "accepted": 2,
+      "candidates_found": 7,
+      "usable_for_recognition": false,
+      "license_breakdown": {"CC0": 1, "CC_BY": 1}
+    }
   ]
 }
 ```
 
 !!! note "Abdeckungslücken"
-    Arten mit weniger als 5 Referenzbildern erscheinen nicht in Erkennungsergebnissen. Das System kommuniziert dies ehrlich im UI. Häufige Ursachen für Lücken: seltene Arten, exotische Zimmerpflanzen oder Arten ohne CC0/CC-BY-Fotos in GBIF.
+    Arten mit weniger als 5 akzeptierten Referenzbildern erscheinen nicht in Erkennungsergebnissen. Das System kommuniziert dies ehrlich im UI. Häufige Ursachen für Lücken: seltene Arten, exotische Zimmerpflanzen oder Arten ohne CC0/CC-BY-Fotos in GBIF.
 
 **Admin-API-Endpunkte für die Referenzbild-Beschaffung (Übersicht):**
 
@@ -112,7 +118,7 @@ INFERENCE_SERVICE_ENABLED=true
 ```
 
 !!! danger "Nur aktivieren wenn Index befüllt ist"
-    Wenn `INFERENCE_SERVICE_ENABLED=true` gesetzt ist und der Referenz-Index leer ist, fällt das System auf Pl@ntNet zurück — aber **nur wenn ein Pl@ntNet-Key konfiguriert und Consent erteilt ist**. Ist beides nicht der Fall, liefert die Erkennung keine Ergebnisse.
+    Wenn `INFERENCE_SERVICE_ENABLED=true` gesetzt ist und der Referenz-Index leer ist, fällt das System auf Pl@ntNet zurück — aber **nur, wenn ein Pl@ntNet-Key konfiguriert und die Einwilligung erteilt ist**. Ist beides nicht der Fall, liefert die Erkennung keine Ergebnisse.
 
 ---
 
@@ -132,10 +138,10 @@ inference-service:
             repository: ghcr.io/nolte/kamerplanter-inference-service
             tag: latest              # In Produktion: feste Version verwenden
           env:
-            VECTORDB_HOST: "kamerplanter-timescaledb"
+            VECTORDB_HOST: "kamerplanter-ki-vectordb"
             VECTORDB_PORT: "5432"
             VECTORDB_DATABASE: "kamerplanter_vectors"
-            VECTORDB_USER: "..."
+            VECTORDB_USERNAME: "..."
             VECTORDB_PASSWORD: "..."
             MODEL_NAME: "dinov2_vits14"
             CONFIDENCE_AUTO_ACCEPT: "0.85"
@@ -166,8 +172,7 @@ backend:
 
 | Szenario | RAM | CPU | Latenz/Anfrage |
 |----------|-----|-----|---------------|
-| DINOv2 ViT-S/14 (MVP) | 512 MB – 1 GB | 0,5–2 Kerne | 500ms–2s (CPU) |
-| DINOv2 ViT-B/14 (genauer) | 1–2 GB | 1–4 Kerne | 1–4s (CPU) |
+| DINOv2 ViT-S/14 | 512 MB – 1 GB | 0,5–2 Kerne | 500ms–2s (CPU) |
 
 !!! tip "Raspberry Pi / ARM"
     DINOv2 ViT-S/14 läuft auf ARM64 (Raspberry Pi 4/5, Apple Silicon). Die Latenz ist höher (~3–8s), aber für Batch-Indexierung und interaktive Erkennung ausreichend.
@@ -178,16 +183,15 @@ backend:
 
 | Variable | Pflicht | Standard | Beschreibung |
 |----------|:-------:|----------|-------------|
-| `VECTORDB_HOST` | Ja | — | Hostname der pgvector-Datenbank |
+| `VECTORDB_HOST` | Nein | `localhost` | Hostname der pgvector-Datenbank (im Cluster: `kamerplanter-ki-vectordb`) |
 | `VECTORDB_PORT` | Nein | `5432` | Port der pgvector-Datenbank |
-| `VECTORDB_DATABASE` | Ja | `kamerplanter_vectors` | Datenbankname |
-| `VECTORDB_USER` | Ja | — | Datenbankbenutzer |
-| `VECTORDB_PASSWORD` | Ja | — | Datenbankpasswort |
-| `MODEL_NAME` | Nein | `dinov2_vits14` | ONNX-Modellname (`dinov2_vits14` oder `dinov2_vitb14`) |
-| `MODEL_PATH` | Nein | `/app/models/model.onnx` | Pfad zum ONNX-Modellartefakt |
+| `VECTORDB_DATABASE` | Nein | `kamerplanter_vectors` | Datenbankname |
+| `VECTORDB_USERNAME` | Nein | `postgres` | Datenbankbenutzer |
+| `VECTORDB_PASSWORD` | Nein | `changeme` | Datenbankpasswort (in Produktion zwingend überschreiben) |
+| `MODEL_NAME` | Nein | `dinov2_vits14` | ONNX-Modellname |
+| `MODEL_PATH` | Nein | `/app/models/dinov2` | Verzeichnis mit dem ONNX-Modellartefakt (`model.onnx`) |
 | `CONFIDENCE_AUTO_ACCEPT` | Nein | `0.85` | Konfidenz-Schwelle für direkte Übernahme |
 | `CONFIDENCE_SHOW_RESULTS` | Nein | `0.10` | Minimale Konfidenz für Anzeige in der Liste |
-| `MAX_RESULTS` | Nein | `5` | Maximale Anzahl Vorschläge pro Anfrage |
 
 | Variable (Backend) | Pflicht | Standard | Beschreibung |
 |--------------------|:-------:|----------|-------------|
@@ -205,12 +209,13 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 |---------|------|-------------|
 | `POST` | `/embed` | Einzelbild → Embedding-Vektor |
 | `POST` | `/embed/batch` | Mehrere Bilder → Embedding-Vektoren (Beschaffung) |
-| `POST` | `/match` | Bild → Top-k ähnlichste Arten mit Konfidenz |
+| `POST` | `/match` | Bild → Top-k ähnlichste Arten mit Konfidenz (Query-Param `k`, Standard `5`, max. `50`) |
 | `POST` | `/reference` | Embedding + Provenienz in pgvector speichern |
+| `GET` | `/reference/{species_key}` | Indexierte Referenzen einer Art abrufen |
 | `DELETE` | `/reference/{species_key}` | Referenzen einer Art löschen (Re-Index) |
 | `GET` | `/health` | Liveness-Probe |
 | `GET` | `/ready` | Readiness-Probe (Modell geladen?) |
-| `GET` | `/modelinfo` | Modellname, Dimension, Lizenz, Prüfsumme |
+| `GET` | `/modelinfo` | Modellname, Dimension, Eingabegröße, Lizenz, Prüfsumme |
 
 ---
 
@@ -225,7 +230,7 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 | Pl@ntNet API (Fallback) | ToS, frei ≤500/Tag | Nur mit Nutzer-Consent, nur als Fallback |
 
 !!! danger "PlantCLEF-Gewichte nicht verwenden"
-    Die auf dem PlantCLEF-2024-Datensatz feinabgestimmten DINOv2-Gewichte stehen unter CC-BY-NC-Lizenz (nicht-kommerziell). Diese Gewichte werden **nicht** verwendet. Kamerplanter nutzt ausschließlich das Apache-2.0-lizenzierte Basis-Backbone von `facebookresearch/dinov2`.
+    Die auf dem PlantCLEF-2024-Datensatz fein abgestimmten DINOv2-Gewichte stehen unter CC-BY-NC-Lizenz (nicht-kommerziell). Diese Gewichte werden **nicht** verwendet. Kamerplanter nutzt ausschließlich das Apache-2.0-lizenzierte Basis-Backbone von `facebookresearch/dinov2`.
 
 ---
 
@@ -235,13 +240,13 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
     Das ONNX-Artefakt wurde möglicherweise nicht exportiert. Prüfe den Build-Log des `inference-service`-Images auf den Schritt `export_dinov2_onnx.py`. Führe `skaffold build -m recognition` erneut aus.
 
 ??? question "Erkennung liefert immer 'keine Ergebnisse' obwohl der Service läuft"
-    Prüfe ob der Referenz-Index befüllt ist (`/api/v1/admin/reference-images/coverage`). Ein leerer Index liefert keine Treffer. Führe `acquire_all_reference_images_task` aus (Schritt 2).
+    Prüfe, ob der Referenz-Index befüllt ist (`/api/v1/admin/reference-images/coverage`). Ein leerer Index liefert keine Treffer. Führe `acquire_all_reference_images_task` aus (Schritt 2).
 
 ??? question "Die Celery-Task läuft sehr lange — ist das normal?"
-    Ja. Der GBIF-Abruf für ~210 Arten mit je bis zu 40 Bild-Kandidaten, anschließender Embedding-Berechnung und HNSW-Indexierung dauert 2–8 Stunden, abhängig von Hardware und Netzwerkgeschwindigkeit. Der Task ist idempotent — du kannst ihn bei Abbruch erneut starten.
+    Ja. Der GBIF-Abruf für alle angelegten Arten — mit je bis zu 40 Bild-Kandidaten, anschließender Embedding-Berechnung und Indexierung — kann je nach Artenzahl, Hardware und Netzwerkgeschwindigkeit mehrere Stunden dauern. Der Task ist idempotent — bei Abbruch lässt er sich erneut starten.
 
 ??? question "Wie aktualisiere ich den Referenz-Index für eine einzelne Art?"
-    Rufe `acquire_reference_images_task` mit dem `species_key` der Art auf oder nutze den Admin-Endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}`.
+    Nutze den Admin-Endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — er löst intern den Celery-Task `acquire_reference_images_task` für die Art aus.
 
 ---
 

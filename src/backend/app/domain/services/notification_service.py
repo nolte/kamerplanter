@@ -5,12 +5,14 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.url_safety import validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
 )
 from app.domain.interfaces.notification_repository import INotificationRepository
 from app.domain.models.notification import (
+    ChannelPreference,
     Notification,
     NotificationPreferences,
     NotificationStatus,
@@ -18,6 +20,11 @@ from app.domain.models.notification import (
 )
 
 logger = structlog.get_logger()
+
+# SEC-003 — per-user cap on stored Web Push subscriptions. When exceeded by a
+# new endpoint, the oldest subscription is evicted (FIFO) so the newest device
+# always works.
+MAX_PWA_SUBSCRIPTIONS_PER_USER = 20
 
 
 class NotificationService:
@@ -225,6 +232,101 @@ class NotificationService:
         preferences.user_key = user_key
         preferences.updated_at = datetime.now(UTC)
         return self._preference_repo.upsert(preferences)
+
+    # ── Web Push (PWA) subscriptions ──────────────────────────────────
+
+    def subscribe_pwa(
+        self,
+        user_key: str,
+        endpoint: str,
+        p256dh: str,
+        auth: str,
+        user_agent: str | None = None,
+    ) -> str:
+        """Register a Web Push subscription for the user's ``pwa`` channel.
+
+        Creates the ``pwa`` channel preference if missing, enables it and
+        deduplicates subscriptions by ``endpoint``. Persists via the existing
+        preferences update path.
+
+        The endpoint is validated against SSRF before being stored (SEC-001):
+        it must be https and must not resolve to an internal/non-routable
+        address. The number of stored subscriptions is capped per user
+        (SEC-003): when a new endpoint exceeds the cap, the oldest subscription
+        is evicted (FIFO) so the newest device always works.
+
+        Args:
+            user_key: Owning user.
+            endpoint: Push service endpoint URL (the subscription identity).
+            p256dh: Client public key (base64url).
+            auth: Client auth secret (base64url).
+            user_agent: Optional originating user agent (stored for display).
+
+        Returns:
+            The stored subscription endpoint.
+
+        Raises:
+            ValidationError: if the endpoint fails SSRF validation (HTTP 422).
+        """
+        # SEC-001 — reject SSRF-unsafe endpoints before they are ever dialed.
+        validate_push_endpoint(endpoint)
+
+        prefs = self.get_preferences(user_key)
+        channel_pref = prefs.channels.get("pwa")
+        if channel_pref is None:
+            channel_pref = ChannelPreference()
+            prefs.channels["pwa"] = channel_pref
+
+        subscriptions = channel_pref.config.setdefault("subscriptions", [])
+        # Dedupe by endpoint — replace any existing entry for the same endpoint.
+        subscriptions = [s for s in subscriptions if s.get("endpoint") != endpoint]
+        subscription: dict = {"endpoint": endpoint, "p256dh": p256dh, "auth": auth}
+        if user_agent:
+            subscription["user_agent"] = user_agent
+        subscriptions.append(subscription)
+
+        # SEC-003 — enforce the per-user cap, evicting oldest first (FIFO).
+        if len(subscriptions) > MAX_PWA_SUBSCRIPTIONS_PER_USER:
+            evicted = subscriptions[:-MAX_PWA_SUBSCRIPTIONS_PER_USER]
+            subscriptions = subscriptions[-MAX_PWA_SUBSCRIPTIONS_PER_USER:]
+            logger.info(
+                "pwa_subscriptions_evicted",
+                user_key=user_key,
+                evicted=len(evicted),
+                cap=MAX_PWA_SUBSCRIPTIONS_PER_USER,
+            )
+
+        channel_pref.config["subscriptions"] = subscriptions
+        channel_pref.enabled = True
+
+        self.update_preferences(user_key, prefs)
+        logger.info("pwa_subscription_added", user_key=user_key, endpoint=endpoint)
+        return endpoint
+
+    def unsubscribe_pwa(self, user_key: str, endpoint: str) -> bool:
+        """Remove a Web Push subscription identified by ``endpoint``.
+
+        Args:
+            user_key: Owning user.
+            endpoint: Push service endpoint URL to remove.
+
+        Returns:
+            True if a matching subscription was removed, else False.
+        """
+        prefs = self.get_preferences(user_key)
+        channel_pref = prefs.channels.get("pwa")
+        if channel_pref is None:
+            return False
+
+        subscriptions = channel_pref.config.get("subscriptions", [])
+        remaining = [s for s in subscriptions if s.get("endpoint") != endpoint]
+        if len(remaining) == len(subscriptions):
+            return False
+
+        channel_pref.config["subscriptions"] = remaining
+        self.update_preferences(user_key, prefs)
+        logger.info("pwa_subscription_removed", user_key=user_key, endpoint=endpoint)
+        return True
 
     # ── Channel status ────────────────────────────────────────────────
 

@@ -7,6 +7,8 @@ import type {
   UnreadCountResponse,
   ChannelStatusResponse,
   TestNotificationResponse,
+  PwaVapidPublicKeyResponse,
+  PwaSubscribeResponse,
 } from '../types';
 
 const BASE = '/notifications';
@@ -88,6 +90,37 @@ export async function sendTest(
     { channel_key: channelKey },
   );
   return data;
+}
+
+// ── Web Push (PWA) subscription management ──────────────────────────────
+
+export async function getPwaVapidPublicKey(): Promise<PwaVapidPublicKeyResponse> {
+  const { data } = await client.get<PwaVapidPublicKeyResponse>(
+    `${BASE}/pwa/vapid-public-key`,
+  );
+  return data;
+}
+
+/**
+ * Register a browser push subscription with the backend. Accepts the plain
+ * object produced by `PushSubscription.toJSON()` and forwards the endpoint plus
+ * the p256dh/auth keys together with the current user agent.
+ */
+export async function subscribePwa(
+  subscription: PushSubscriptionJSON,
+): Promise<PwaSubscribeResponse> {
+  const { data } = await client.post<PwaSubscribeResponse>(`${BASE}/pwa/subscribe`, {
+    endpoint: subscription.endpoint ?? '',
+    p256dh: subscription.keys?.p256dh ?? '',
+    auth: subscription.keys?.auth ?? '',
+    user_agent:
+      typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  });
+  return data;
+}
+
+export async function unsubscribePwa(endpoint: string): Promise<void> {
+  await client.post(`${BASE}/pwa/unsubscribe`, { endpoint });
 }
 
 export async function markAllRead(): Promise<void> {

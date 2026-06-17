@@ -29,12 +29,13 @@ Kamerplanter ships with nine starter kits:
 
 ## The Five Steps at a Glance
 
+<!-- diagram-source: user-described — five-step onboarding wizard flow ending at the dashboard -->
 ```mermaid
 flowchart LR
-    A["Step 1\nExperience Level"] --> B["Step 2\nEnvironment & Goals"]
-    B --> C["Step 3\nChoose Starter Kit"]
-    C --> D["Step 4\nPlants & Favourites"]
-    D --> E["Step 5\nSummary"]
+    A["Step 1<br/>Experience Level"] --> B["Step 2<br/>Environment & Goals"]
+    B --> C["Step 3<br/>Choose Starter Kit"]
+    C --> D["Step 4<br/>Plants & Favourites"]
+    D --> E["Step 5<br/>Summary"]
     E --> F["Dashboard"]
 
     style A fill:#4CAF50,color:#fff

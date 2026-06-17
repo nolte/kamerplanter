@@ -6,8 +6,9 @@ This page describes the technical architecture of the AI Assistant (REQ-031). Th
 
 ## System Architecture
 
+<!-- diagram-source: user-described — AI assistant system architecture across Frontend, API, Business Logic, Provider Adapters, Data Layer, and Celery background tasks -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Frontend (React/MUI)"
         TC[TipCardsPanel]
         CD[AiChatDrawer]
@@ -254,6 +255,7 @@ The re-ranker runs as a standalone `reranker-service` — analogous to the embed
 - **Port 8081**, FastAPI with two endpoints: `/rerank` (POST) and `/health` (GET)
 - **Model:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M parameters, Apache-2.0 licence
 
+<!-- diagram-source: user-described — sequence of the cross-encoder re-ranking call between Knowledge Service and Reranker Service -->
 ```mermaid
 sequenceDiagram
     participant KS as Knowledge Service
@@ -523,8 +525,9 @@ This nearest-neighbor matching is **few-shot capable**: only a few reference ima
 
 ### System Architecture
 
+<!-- diagram-source: user-described — plant identification flow from Frontend through API and Business Logic to local/PlantNet adapters, inference microservice, and the pgvector/ArangoDB data layer plus the GBIF acquisition pipeline -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Frontend (React/MUI)"
         PID[PlantIdentificationDialog]
     end

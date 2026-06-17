@@ -41,16 +41,17 @@ Sensordaten können indirekt Rückschlüsse auf Anwesenheit und Verhalten von Pe
 erlauben (CO2-Kurven, Bewegungssensoren, manuelle Overrides). Sie unterliegen daher
 einer gestuften Retention-Policy in TimescaleDB:
 
+<!-- diagram-source: user-described — tiered TimescaleDB sensor-data downsampling pipeline from raw to deletion -->
 ```mermaid
-graph LR
-    A["Rohdaten<br/>(volle Auflösung)"]
-    B["Stundenmittelwerte<br/>(avg, min, max)"]
-    C["Tagesmittelwerte<br/>(avg, min, max)"]
-    D["Gelöscht"]
+flowchart LR
+    A["Raw data<br/>(full resolution)"]
+    B["Hourly averages<br/>(avg, min, max)"]
+    C["Daily averages<br/>(avg, min, max)"]
+    D["Deleted"]
 
-    A -- "nach 90 Tagen" --> B
-    B -- "nach 2 Jahren" --> C
-    C -- "nach 5 Jahren" --> D
+    A -- "after 90 days" --> B
+    B -- "after 2 years" --> C
+    C -- "after 5 years" --> D
 ```
 
 | Stufe | Zeitraum | Auflösung | TimescaleDB View |
@@ -132,16 +133,17 @@ aber nicht gelöscht (Art. 17 Abs. 3 lit. b):
 Der Celery-Task `enforce_retention_policy` läuft **täglich um 02:00 UTC** und
 orchestriert alle Retention-Sub-Tasks:
 
+<!-- diagram-source: user-described — enforce_retention_policy Celery master task fanning out to retention sub-tasks -->
 ```mermaid
-graph TD
+flowchart TD
     Master["enforce_retention_policy<br/>(Celery Beat, 02:00 UTC)"]
 
-    Master --> T1["hard_delete_soft_deleted_accounts<br/>(R-01: 90 Tage)"]
-    Master --> T2["hard_delete_unverified_accounts<br/>(R-02: 7 Tage)"]
-    Master --> T3["anonymize_session_ips<br/>(R-03: 7 Tage)"]
-    Master --> T4["cleanup_expired_consents<br/>(R-04: 3 Jahre)"]
-    Master --> T5["cleanup_expired_exports<br/>(R-05: 72 Stunden)"]
-    Master --> T6["cleanup_erasure_audits<br/>(R-06: 1 Jahr)"]
+    Master --> T1["hard_delete_soft_deleted_accounts<br/>(R-01: 90 days)"]
+    Master --> T2["hard_delete_unverified_accounts<br/>(R-02: 7 days)"]
+    Master --> T3["anonymize_session_ips<br/>(R-03: 7 days)"]
+    Master --> T4["cleanup_expired_consents<br/>(R-04: 3 years)"]
+    Master --> T5["cleanup_expired_exports<br/>(R-05: 72 hours)"]
+    Master --> T6["cleanup_erasure_audits<br/>(R-06: 1 year)"]
     Master --> T7["cleanup_expired_tokens<br/>(R-11, R-12)"]
 ```
 
@@ -213,12 +215,13 @@ RETENTION_ACTOR_LOG_AGGREGATED_RETENTION_YEARS=1  # R-15 Stufe 2
 Wenn ein Betroffener eine Löschanfrage nach Art. 17 DSGVO stellt, greift folgendes
 Verfahren:
 
+<!-- diagram-source: user-described — decision flow for a GDPR Art. 17 erasure request under statutory retention -->
 ```mermaid
 flowchart TD
-    A["Löschanfrage Art. 17"] --> B{"Gesetzliche<br/>Aufbewahrungspflicht?"}
-    B -- "Nein" --> C["Sofort: Hard-Delete<br/>oder Soft-Delete + 90d"]
-    B -- "Ja (CanG, PflSchG)" --> D["Anonymisierung:<br/>user_key = null<br/>Datensatz bleibt"]
-    D --> E["Nach Fristablauf:<br/>Automatischer Hard-Delete<br/>durch Celery-Task"]
+    A["Erasure request Art. 17"] --> B{"Statutory retention<br/>obligation?"}
+    B -- "No" --> C["Immediately: Hard-delete<br/>or Soft-delete + 90d"]
+    B -- "Yes (CanG, PflSchG)" --> D["Anonymization:<br/>user_key = null<br/>Record remains"]
+    D --> E["After period elapses:<br/>Automatic hard-delete<br/>via Celery task"]
 ```
 
 | Datenkategorie | Verfahren |

@@ -205,12 +205,13 @@ Familien gruppieren verwandte Arten und sind die Basis für die Fruchtfolge-Plan
 
 Für die Erstbefüllung oder Batch-Aktualisierungen können Stammdaten per CSV-Datei importiert werden. Der Import folgt einem sicheren **Zwei-Phasen-Prozess**:
 
+<!-- diagram-source: user-described — two-phase CSV master-data import flow with a validation-and-fix loop before confirmation -->
 ```mermaid
 flowchart LR
-    A["CSV hochladen"] --> B["Vorschau & Validierung"]
-    B --> C["Fehlerbehebung"]
+    A["Upload CSV"] --> B["Preview & Validation"]
+    B --> C["Fix errors"]
     C --> B
-    B --> D["Import bestätigen"]
+    B --> D["Confirm import"]
 ```
 
 ### Unterstützte Entitäten

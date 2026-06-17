@@ -161,11 +161,12 @@ Gesamtkompatibilitäts-Check:
 Mischkultur und Fruchtfolge ergänzen sich. Kamerplanter verfolgt einen 4-Jahres-Zyklus
 pro Beet:
 
+<!-- diagram-source: user-described — 4-year crop-rotation cycle per bed by nutrient-demand category -->
 ```mermaid
-graph LR
-    A["Jahr 1<br/>Starkzehrer<br/>Tomate, Kürbis, Mais"] --> B["Jahr 2<br/>Mittelzehrer<br/>Karotte, Zwiebel, Salat"]
-    B --> C["Jahr 3<br/>Schwachzehrer<br/>Kräuter, Erbsen"]
-    C --> D["Jahr 4<br/>Gründüngung<br/>Phacelia, Klee, Lupine"]
+flowchart LR
+    A["Year 1<br/>Heavy feeders<br/>Tomato, squash, corn"] --> B["Year 2<br/>Medium feeders<br/>Carrot, onion, lettuce"]
+    B --> C["Year 3<br/>Light feeders<br/>Herbs, peas"]
+    C --> D["Year 4<br/>Green manure<br/>Phacelia, clover, lupine"]
     D --> A
 ```
 

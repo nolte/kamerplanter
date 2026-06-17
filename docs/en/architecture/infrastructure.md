@@ -6,20 +6,21 @@ Kamerplanter runs on Kubernetes and can alternatively be operated with Docker Co
 
 ## Deployment Variants at a Glance
 
+<!-- diagram-source: user-described — deployment variants: production/staging (Helm on Kubernetes), local instance (Docker Compose), development (Skaffold + Kind) -->
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Production / Staging"
-        K8S["Kubernetes 1.28+\n(any provider)"]
-        HELM["Helm Chart\nhelm/kamerplanter/"]
+        K8S["Kubernetes 1.28+<br/>(any provider)"]
+        HELM["Helm Chart<br/>helm/kamerplanter/"]
     end
 
     subgraph "Local Instance"
-        DC["Docker Compose\ndocker-compose.yml"]
+        DC["Docker Compose<br/>docker-compose.yml"]
     end
 
     subgraph "Development"
         SKAFFOLD["Skaffold + Kind"]
-        KIND["Kind cluster\nkind-config.yaml"]
+        KIND["Kind cluster<br/>kind-config.yaml"]
     end
 
     HELM --> K8S
@@ -247,31 +248,34 @@ kubectl exec homeassistant-0 -n default -- kill 1
 
 ### Backend Pipeline
 
+<!-- diagram-source: user-described — backend CI pipeline: PR -> ruff -> pytest -> Docker build -> image push on main branch -->
 ```mermaid
-graph LR
+flowchart LR
     PR["Pull Request"] --> LINT["ruff check + format"]
-    LINT --> TEST["pytest\n821 tests"]
-    TEST --> BUILD["Docker build\n(ghcr.io)"]
-    BUILD -->|"main branch"| PUSH["Image push\nghcr.io/nolte/kamerplanter-backend"]
+    LINT --> TEST["pytest<br/>821 tests"]
+    TEST --> BUILD["Docker build<br/>(ghcr.io)"]
+    BUILD -->|"main branch"| PUSH["Image push<br/>ghcr.io/nolte/kamerplanter-backend"]
 ```
 
 ### Frontend Pipeline
 
+<!-- diagram-source: user-described — frontend CI pipeline: PR -> ESLint + TypeScript -> vitest -> Docker build -> image push on main branch -->
 ```mermaid
-graph LR
-    PR["Pull Request"] --> ESLINT["ESLint\n+ TypeScript check"]
-    ESLINT --> TEST["vitest\n198 tests"]
-    TEST --> BUILD["Docker build\n(ghcr.io)"]
-    BUILD -->|"main branch"| PUSH["Image push\nghcr.io/nolte/kamerplanter-frontend"]
+flowchart LR
+    PR["Pull Request"] --> ESLINT["ESLint<br/>+ TypeScript check"]
+    ESLINT --> TEST["vitest<br/>198 tests"]
+    TEST --> BUILD["Docker build<br/>(ghcr.io)"]
+    BUILD -->|"main branch"| PUSH["Image push<br/>ghcr.io/nolte/kamerplanter-frontend"]
 ```
 
 ### Documentation Pipeline
 
+<!-- diagram-source: user-described — documentation CI pipeline: push to main with docs changes -> mkdocs build --strict -> link check -> mike deploy to GitHub Pages -->
 ```mermaid
-graph LR
-    PUSH["Push to main\n(docs/** changed)"] --> BUILD["mkdocs build --strict"]
+flowchart LR
+    PUSH["Push to main<br/>(docs/** changed)"] --> BUILD["mkdocs build --strict"]
     BUILD --> CHECK["Link check"]
-    CHECK --> DEPLOY["mike deploy\n(GitHub Pages)"]
+    CHECK --> DEPLOY["mike deploy<br/>(GitHub Pages)"]
 ```
 
 ---

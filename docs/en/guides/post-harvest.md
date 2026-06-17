@@ -33,6 +33,7 @@ and shelf life.
 
 ## Harvest Workflow in Kamerplanter
 
+<!-- diagram-source: user-described — post-harvest state machine from harvest through drying, curing, and storage -->
 ```mermaid
 stateDiagram-v2
     [*] --> Harvest: PHI elapsed

@@ -11,13 +11,19 @@ from app.api.v1.notifications.schemas import (
     NotificationPreferencesRequest,
     NotificationPreferencesResponse,
     NotificationResponse,
+    PwaSubscribeRequest,
+    PwaSubscribeResponse,
+    PwaUnsubscribeRequest,
+    PwaUnsubscribeResponse,
     TestNotificationRequest,
     TestNotificationResponse,
     UnreadCountResponse,
+    VapidPublicKeyResponse,
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_notification_service
 from app.common.exceptions import NotFoundError
+from app.config.settings import settings
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.notification_service import NotificationService
@@ -245,3 +251,42 @@ async def send_test_notification(
         success=result.get("success", False),
         error=result.get("error"),
     )
+
+
+# ── Web Push (PWA) ───────────────────────────────────────────────────
+
+
+@router.get("/pwa/vapid-public-key", response_model=VapidPublicKeyResponse)
+def get_vapid_public_key(
+    ctx: TenantContext = Depends(get_current_tenant),
+) -> VapidPublicKeyResponse:
+    """Return the VAPID public key for client-side Web Push subscription."""
+    return VapidPublicKeyResponse(vapid_public_key=settings.vapid_public_key)
+
+
+@router.post("/pwa/subscribe", response_model=PwaSubscribeResponse)
+def subscribe_pwa(
+    body: PwaSubscribeRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: NotificationService = Depends(get_notification_service),
+) -> PwaSubscribeResponse:
+    """Register a Web Push subscription for the current user."""
+    endpoint = service.subscribe_pwa(
+        user_key=ctx.user_key,
+        endpoint=body.endpoint,
+        p256dh=body.p256dh,
+        auth=body.auth,
+        user_agent=body.user_agent,
+    )
+    return PwaSubscribeResponse(endpoint=endpoint)
+
+
+@router.post("/pwa/unsubscribe", response_model=PwaUnsubscribeResponse)
+def unsubscribe_pwa(
+    body: PwaUnsubscribeRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: NotificationService = Depends(get_notification_service),
+) -> PwaUnsubscribeResponse:
+    """Remove a Web Push subscription for the current user."""
+    removed = service.unsubscribe_pwa(user_key=ctx.user_key, endpoint=body.endpoint)
+    return PwaUnsubscribeResponse(removed=removed)

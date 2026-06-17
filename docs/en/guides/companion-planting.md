@@ -160,8 +160,9 @@ Once you have assembled a plant combination, check the overall compatibility:
 Companion planting and crop rotation complement each other. Kamerplanter tracks a
 4-year cycle per bed:
 
+<!-- diagram-source: user-described — 4-year crop-rotation cycle per bed by nutrient-demand category -->
 ```mermaid
-graph LR
+flowchart LR
     A["Year 1<br/>Heavy feeders<br/>Tomato, squash, corn"] --> B["Year 2<br/>Medium feeders<br/>Carrot, onion, lettuce"]
     B --> C["Year 3<br/>Light feeders<br/>Herbs, peas"]
     C --> D["Year 4<br/>Green manure<br/>Phacelia, clover, lupine"]

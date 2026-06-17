@@ -6,17 +6,18 @@ Kamerplanter nutzt polyglotte Persistenz: drei Datenbanktypen mit klar getrennte
 
 ## Persistenz-Übersicht
 
+<!-- diagram-source: user-described — polyglot persistence: FastAPI and Celery Worker access ArangoDB (primary) and Valkey, with optional TimescaleDB for sensor data -->
 ```mermaid
-graph LR
+flowchart LR
     subgraph "Kamerplanter Backend"
         API["FastAPI"]
         WRK["Celery Worker"]
     end
 
-    subgraph "Persistenz"
-        ARANGO[("ArangoDB 3.11+\nDokumente + Graph\nPrimärdatenbank")]
-        TSDB[("TimescaleDB 2.13+\nZeitreihendaten\nSensordaten — optional")]
-        VK[("Valkey 8\nRedis-kompatibel\nBroker + Cache")]
+    subgraph "Persistence"
+        ARANGO[("ArangoDB 3.11+<br/>Documents + Graph<br/>Primary database")]
+        TSDB[("TimescaleDB 2.13+<br/>Time-series data<br/>Sensor data — optional")]
+        VK[("Valkey 8<br/>Redis-compatible<br/>Broker + Cache")]
     end
 
     API --> ARANGO
@@ -201,14 +202,15 @@ TimescaleDB ist eine PostgreSQL-Erweiterung, die automatisches Partitionieren un
 
 Sensordaten werden in drei Stufen komprimiert, um Speicherplatz zu sparen ohne Langzeittrends zu verlieren:
 
+<!-- diagram-source: user-described — three-stage sensor data downsampling: raw (90 days) -> hourly aggregates (2 years) -> daily aggregates (5 years) -->
 ```mermaid
-graph LR
-    RAW["Rohdaten\n90 Tage\n(alle Messwerte)"]
-    H1["Stündliche Aggregate\n2 Jahre"]
-    D1["Tägliche Aggregate\n5 Jahre"]
+flowchart LR
+    RAW["Raw data<br/>90 days<br/>(all measurements)"]
+    H1["Hourly aggregates<br/>2 years"]
+    D1["Daily aggregates<br/>5 years"]
 
-    RAW -->|"nach 90 Tagen"| H1
-    H1 -->|"nach 2 Jahren"| D1
+    RAW -->|"after 90 days"| H1
+    H1 -->|"after 2 years"| D1
 ```
 
 ### Geplante Hypertabellen

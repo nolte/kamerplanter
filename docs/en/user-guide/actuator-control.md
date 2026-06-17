@@ -19,15 +19,16 @@ Kamerplanter closes the control loop between sensors and actuators: the system m
 
 Every automatic control action follows the same cycle:
 
+<!-- diagram-source: user-described — automatic control loop: sensor reading, rule evaluation, priority check, actuator command, hysteresis timer -->
 ```mermaid
 flowchart LR
-    S[Sensor measures\nTemperature / rH / CO₂ / VPD] --> E{Rule engine\nevaluates}
-    E -->|Threshold exceeded| P{Priority\ncheck}
-    E -->|All within range| W[Wait\nuntil next measurement]
-    P -->|No conflict| A[Actuator command\nis sent]
-    P -->|Conflict detected| K[Conflict\nresolution]
+    S[Sensor measures<br/>Temperature / rH / CO₂ / VPD] --> E{Rule engine<br/>evaluates}
+    E -->|Threshold exceeded| P{Priority<br/>check}
+    E -->|All within range| W[Wait<br/>until next measurement]
+    P -->|No conflict| A[Actuator command<br/>is sent]
+    P -->|Conflict detected| K[Conflict<br/>resolution]
     K --> A
-    A --> H[Hysteresis timer\nstarts]
+    A --> H[Hysteresis timer<br/>starts]
     H --> S
 ```
 
@@ -182,12 +183,13 @@ Gradual transitions are possible: the system can reduce the photoperiod from 18h
 
 When multiple rules address the same actuator simultaneously, the following order applies:
 
+<!-- diagram-source: user-described — actuator priority order from manual override down through safety rules, rule-based control, and schedule -->
 ```mermaid
 flowchart TB
-    M[1. Manual Override\nhighest priority, time-limited]
-    S[2. Safety rules\ne.g. overtemperature exhaust]
-    R[3. Rule-based control\nsensor thresholds]
-    Z[4. Schedule\nlowest priority]
+    M[1. Manual Override<br/>highest priority, time-limited]
+    S[2. Safety rules<br/>e.g. overtemperature exhaust]
+    R[3. Rule-based control<br/>sensor thresholds]
+    Z[4. Schedule<br/>lowest priority]
     M --> S --> R --> Z
 ```
 

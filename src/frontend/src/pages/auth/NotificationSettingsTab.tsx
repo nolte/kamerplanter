@@ -19,6 +19,7 @@ import Divider from '@mui/material/Divider';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { useSnackbar } from 'notistack';
 import {
   getPreferences,
@@ -26,6 +27,7 @@ import {
   getChannelStatus,
   sendTest,
 } from '@/api/endpoints/notifications';
+import { usePwaPush } from '@/hooks/usePwaPush';
 import { parseApiError } from '@/api/errors';
 import type {
   NotificationPreferencesResponse,
@@ -43,7 +45,11 @@ const GRID_2COL = {
   gap: 2,
 } as const;
 
-const CHANNEL_KEYS = ['home_assistant', 'email', 'pwa', 'apprise'] as const;
+// The user-facing notification channels offered in the UI. Every key here is
+// sent verbatim as `channel_key` to the backend (test, subscribe, …), so the
+// set MUST stay in sync with the backend's registered channels — guarded by
+// the shared contract in src/contracts/notification-channels.json.
+export const CHANNEL_KEYS = ['home_assistant', 'email', 'pwa', 'apprise'] as const;
 
 const CHANNEL_LABEL_KEYS: Record<string, string> = {
   home_assistant: 'pages.notifications.settings.channelHomeAssistant',
@@ -68,6 +74,7 @@ function getChannelPref(
 export default function NotificationSettingsTab() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
+  const pwaPush = usePwaPush();
 
   const [prefs, setPrefs] = useState<NotificationPreferencesResponse | null>(null);
   const [channelStatuses, setChannelStatuses] = useState<ChannelStatusResponse[]>([]);
@@ -163,6 +170,30 @@ export default function NotificationSettingsTab() {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
     } finally {
       setTestingChannel(null);
+    }
+  };
+
+  const handlePwaEnable = async () => {
+    try {
+      const nextState = await pwaPush.enable();
+      if (nextState === 'active') {
+        enqueueSnackbar(t('pages.notifications.settings.pwaEnabled'), {
+          variant: 'success',
+        });
+      }
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+    }
+  };
+
+  const handlePwaDisable = async () => {
+    try {
+      await pwaPush.disable();
+      enqueueSnackbar(t('pages.notifications.settings.pwaDisabled'), {
+        variant: 'info',
+      });
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
     }
   };
 
@@ -417,6 +448,87 @@ export default function NotificationSettingsTab() {
                       data-testid="apprise-urls"
                       sx={{ maxWidth: 500, width: '100%' }}
                     />
+                  </Box>
+                )}
+
+                {pref.enabled && channelKey === 'pwa' && (
+                  <Box sx={{ pl: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {!pwaPush.supported ? (
+                      <Alert
+                        severity="info"
+                        sx={{ maxWidth: 500 }}
+                        data-testid="pwa-unsupported"
+                      >
+                        {t('pages.notifications.settings.pwaUnsupported')}
+                      </Alert>
+                    ) : pwaPush.state === 'denied' ? (
+                      <Alert
+                        severity="warning"
+                        sx={{ maxWidth: 500 }}
+                        data-testid="pwa-permission-denied"
+                      >
+                        {t('pages.notifications.settings.pwaPermissionDenied')}
+                      </Alert>
+                    ) : pwaPush.state === 'active' ? (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Chip
+                          size="small"
+                          color="success"
+                          icon={<CheckCircleIcon fontSize="small" />}
+                          label={t('pages.notifications.settings.pwaActive')}
+                        />
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
+                          disabled={pwaPush.busy}
+                          aria-busy={pwaPush.busy}
+                          startIcon={
+                            pwaPush.busy ? (
+                              <CircularProgress size={16} aria-hidden="true" />
+                            ) : undefined
+                          }
+                          onClick={handlePwaDisable}
+                          data-testid="pwa-disable"
+                        >
+                          {t('pages.notifications.settings.pwaDisable')}
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          disabled={pwaPush.busy || pwaPush.state === 'checking'}
+                          aria-busy={pwaPush.busy || pwaPush.state === 'checking'}
+                          startIcon={
+                            pwaPush.busy || pwaPush.state === 'checking' ? (
+                              <CircularProgress size={16} aria-hidden="true" />
+                            ) : (
+                              <NotificationsActiveIcon />
+                            )
+                          }
+                          onClick={handlePwaEnable}
+                          data-testid="pwa-enable"
+                        >
+                          {t('pages.notifications.settings.pwaEnable')}
+                        </Button>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: 'block', mt: 0.5 }}
+                        >
+                          {t('pages.notifications.settings.pwaHint')}
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 )}
 
