@@ -208,7 +208,7 @@ The browser push channel is **per device**. Each device (smartphone, tablet, des
 !!! note "Browser compatibility"
     Browser Push works with current Chromium-based browsers (Chrome, Edge, Brave) and Firefox. Safari on iOS requires iOS 16.4+ and the app added to the home screen as a PWA. The site must be served over **HTTPS** — on `http://localhost`, Push is only available for development purposes.
 
-!!! warning "\"Not configured\" after enabling"
+!!! warning "“Not configured” after enabling"
     If the channel still shows **Not configured** after enabling it, the VAPID keys have not been set by the instance operator. Please contact your administrator. For self-hosted instances: see [Environment Variables — Browser Push (VAPID)](../reference/environment-variables.md#browser-push-pwa-vapid).
 
 ### Daily Summary and Quiet Hours

@@ -208,7 +208,7 @@ Der Browser-Push-Kanal ist **pro Gerät** aktiviert. Jedes Gerät (Smartphone, T
 !!! note "Browser-Kompatibilität"
     Browser Push funktioniert mit aktuellen Chromium-basierten Browsern (Chrome, Edge, Brave) und Firefox. Safari unter iOS erfordert iOS 16.4+ und dass die App als PWA zum Startbildschirm hinzugefügt wurde. Die Seite muss über **HTTPS** ausgeliefert werden — auf `http://localhost` ist Push nur zu Entwicklungszwecken verfügbar.
 
-!!! warning "\"Nicht konfiguriert\" nach dem Aktivieren"
+!!! warning "„Nicht konfiguriert“ nach dem Aktivieren"
     Zeigt der Kanal trotz Aktivierung den Status **Nicht konfiguriert**, wurden die VAPID-Schlüssel vom Betreiber der Instanz noch nicht gesetzt. Bitte wende dich an den Administrator. Für selbst gehostete Instanzen: siehe [Umgebungsvariablen — Browser Push (VAPID)](../reference/environment-variables.md#browser-push-pwa-vapid).
 
 ### Tägliche Zusammenfassung und Ruhezeiten
