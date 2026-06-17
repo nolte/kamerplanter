@@ -21,9 +21,21 @@ on:
 
 jobs:
   automerge:
+    # When `vars.PORTFOLIO_APP_ID` is set, the reusable mints a short-lived
+    # GitHub-App installation token from `secrets.PORTFOLIO_APP_PRIVATE_KEY`
+    # and merges with it instead of GITHUB_TOKEN. This is load-bearing: a
+    # squash-merge authored by GITHUB_TOKEN does NOT trigger downstream
+    # workflows (GitHub's loop guard), so release-drafter never (re)generates
+    # the draft after a bot merge. An App-token-authored push is not subject
+    # to that guard and triggers release-drafter normally.
+    # Backwards compatibility: when `vars.PORTFOLIO_APP_ID` is unset, the
+    # reusable falls back to `secrets.token` (GITHUB_TOKEN).
     uses: nolte/gh-plumbing/.github/workflows/reusable-automerge.yaml@v1.1.22
+    with:
+      app-id: ${{ vars.PORTFOLIO_APP_ID }}
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
+      app-private-key: ${{ secrets.PORTFOLIO_APP_PRIVATE_KEY }}
     permissions:
       contents: write
       pull-requests: write
