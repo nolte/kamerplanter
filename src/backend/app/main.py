@@ -149,6 +149,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     NotificationChannelRegistry.register(AppriseNotificationChannel())
     logger.info("notification_channel_registered", channel="apprise")
 
+    # Email channel (unconditional, best-effort — must not break startup)
+    try:
+        from app.common.dependencies import get_email_service
+        from app.data_access.external.email_notification_channel import EmailNotificationChannel
+
+        NotificationChannelRegistry.register(EmailNotificationChannel(get_email_service()))
+        logger.info("notification_channel_registered", channel="email")
+    except Exception:
+        logger.warning("notification_channel_registration_failed", channel="email", exc_info=True)
+
+    # Web Push (PWA / browser) channel — only if VAPID keys are configured
+    if settings.vapid_public_key and settings.vapid_private_key:
+        from app.data_access.external.pwa_notification_channel import PwaNotificationChannel
+
+        NotificationChannelRegistry.register(
+            PwaNotificationChannel(settings.vapid_private_key, settings.vapid_contact_email)
+        )
+        logger.info("notification_channel_registered", channel="pwa")
+
     # mDNS / Zeroconf Discovery (optional)
     mdns_announcer = None
     if settings.mdns_enabled:

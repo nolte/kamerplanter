@@ -167,8 +167,79 @@ Dieser Endpunkt ist nicht mandantenspezifisch und erfordert lediglich eine gült
 
 ---
 
+---
+
+## Browser Push / PWA-Benachrichtigungen
+
+Alle drei Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/notifications/pwa/` und erfordern ein gültiges JWT-Token.
+
+### VAPID-Public-Key abrufen
+
+Gibt den VAPID-Public-Key der Instanz zurück. Der Browser benötigt diesen Schlüssel, um eine Push-Subscription zu erstellen.
+
+```
+GET /api/v1/t/{tenant_slug}/notifications/pwa/vapid-public-key
+```
+
+**Response (200):**
+
+```json
+{
+  "vapid_public_key": "BNm..."
+}
+```
+
+Ist kein VAPID-Schlüsselpaar konfiguriert, antwortet der Endpunkt mit `503 Service Unavailable`.
+
+---
+
+### Push-Subscription registrieren
+
+Registriert das aktuelle Gerät für Browser-Push-Benachrichtigungen. Die Subscription-Daten werden vom Browser nach dem Aufruf von `PushManager.subscribe()` bereitgestellt.
+
+```
+POST /api/v1/t/{tenant_slug}/notifications/pwa/subscribe
+```
+
+**Request-Body:**
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+```
+
+**Response:** `201 Created` bei Erfolg, `409 Conflict` wenn die Subscription für dieses Gerät bereits registriert ist.
+
+---
+
+### Push-Subscription deregistrieren
+
+Entfernt die Subscription des aktuellen Geräts. Danach werden keine Browser-Push-Benachrichtigungen mehr an dieses Gerät gesendet.
+
+```
+POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
+```
+
+**Request-Body:**
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+}
+```
+
+**Response:** `204 No Content` bei Erfolg, `404 Not Found` wenn die Subscription nicht gefunden wurde.
+
+---
+
 ### Siehe auch
 
 - [Druckansichten & Export — Benutzerhandbuch](../user-guide/print-export.md)
 - [Dünge-Logik](../user-guide/fertilization.md)
 - [Pflegeerinnerungen](../user-guide/care-reminders.md)
+- [Umgebungsvariablen — Browser Push (VAPID)](environment-variables.md#browser-push-pwa-vapid)

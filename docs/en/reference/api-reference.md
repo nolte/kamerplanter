@@ -167,8 +167,79 @@ This endpoint is not tenant-scoped and only requires a valid authentication toke
 
 ---
 
+---
+
+## Browser Push / PWA Notifications
+
+All three endpoints are located under the tenant-scoped path `/api/v1/t/{tenant_slug}/notifications/pwa/` and require a valid JWT token.
+
+### Retrieve the VAPID Public Key
+
+Returns the instance's VAPID public key. The browser requires this key to create a push subscription.
+
+```
+GET /api/v1/t/{tenant_slug}/notifications/pwa/vapid-public-key
+```
+
+**Response (200):**
+
+```json
+{
+  "vapid_public_key": "BNm..."
+}
+```
+
+If no VAPID key pair is configured, the endpoint responds with `503 Service Unavailable`.
+
+---
+
+### Register a Push Subscription
+
+Registers the current device for browser push notifications. The subscription data is provided by the browser after calling `PushManager.subscribe()`.
+
+```
+POST /api/v1/t/{tenant_slug}/notifications/pwa/subscribe
+```
+
+**Request body:**
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+```
+
+**Response:** `201 Created` on success, `409 Conflict` if the subscription for this device is already registered.
+
+---
+
+### Deregister a Push Subscription
+
+Removes the subscription for the current device. After this, no browser push notifications will be sent to that device.
+
+```
+POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
+```
+
+**Request body:**
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+}
+```
+
+**Response:** `204 No Content` on success, `404 Not Found` if the subscription was not found.
+
+---
+
 ### See Also
 
 - [Print Views & Export — User Guide](../user-guide/print-export.md)
 - [Fertilization Logic](../user-guide/fertilization.md)
 - [Care Reminders](../user-guide/care-reminders.md)
+- [Environment Variables — Browser Push (VAPID)](environment-variables.md#browser-push-pwa-vapid)

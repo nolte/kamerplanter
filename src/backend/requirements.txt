@@ -1,3 +1,9 @@
+aiohappyeyeballs==2.6.1
+    # via aiohttp
+aiohttp==3.13.3
+    # via pywebpush
+aiosignal==1.4.0
+    # via aiohttp
 amqp==5.3.1
     # via kombu
 annotated-doc==0.0.4
@@ -11,6 +17,8 @@ anyio==4.14.0
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
+attrs==25.4.0
+    # via aiohttp
 authlib==1.7.2
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
@@ -48,7 +56,10 @@ croniter==6.2.2
 cryptography==49.0.0
     # via
     #   authlib
+    #   http-ece
     #   kamerplanter-backend (pyproject.toml)
+    #   py-vapid
+    #   pywebpush
 deprecated==1.3.1
     # via limits
 dnspython==2.8.0
@@ -57,12 +68,18 @@ email-validator==2.3.0
     # via pydantic
 fastapi==0.137.1
     # via kamerplanter-backend (pyproject.toml)
+frozenlist==1.8.0
+    # via
+    #   aiohttp
+    #   aiosignal
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
 httpcore==1.0.9
     # via httpx
+http-ece==1.2.1
+    # via pywebpush
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
@@ -73,6 +90,7 @@ idna==3.18
     #   email-validator
     #   httpx
     #   requests
+    #   yarl
 jinja2>=3.1
     # via kamerplanter-backend (pyproject.toml)
 kombu==5.6.2
@@ -81,6 +99,10 @@ limits==5.8.0
     # via slowapi
 markdownify==1.2.2
     # via kamerplanter-backend (pyproject.toml)
+multidict==6.7.1
+    # via
+    #   aiohttp
+    #   yarl
 packaging==26.2
     # via
     #   kombu
@@ -88,6 +110,10 @@ packaging==26.2
     #   python-arango
 prompt-toolkit==3.0.52
     # via click-repl
+propcache==0.4.1
+    # via
+    #   aiohttp
+    #   yarl
 pycparser==3.0
     # via cffi
 pydantic==2.13.4
@@ -101,6 +127,8 @@ pydantic-settings==2.14.1
     # via kamerplanter-backend (pyproject.toml)
 pyjwt==2.13.0
     # via python-arango
+py-vapid==1.9.4
+    # via pywebpush
 python-arango==8.3.3
     # via kamerplanter-backend (pyproject.toml)
 python-dateutil==2.9.0.post0
@@ -113,10 +141,13 @@ python-multipart==0.0.32
     # via kamerplanter-backend (pyproject.toml)
 pyyaml==6.0.3
     # via uvicorn
+pywebpush==2.3.0
+    # via kamerplanter-backend (pyproject.toml)
 redis==8.0.0
     # via kamerplanter-backend (pyproject.toml)
 requests==2.34.2
     # via
+    #   pywebpush
     #   python-arango
     #   requests-toolbelt
 requests-toolbelt==1.0.0
@@ -175,3 +206,5 @@ websockets==16.0
     # via uvicorn
 wrapt==2.2.1
     # via deprecated
+yarl==1.22.0
+    # via aiohttp

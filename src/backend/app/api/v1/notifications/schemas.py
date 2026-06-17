@@ -131,3 +131,43 @@ class TestNotificationResponse(BaseModel):
     channel_key: str
     success: bool
     error: str | None = None
+
+
+# ── Web Push (PWA) ───────────────────────────────────────────────────
+
+
+class VapidPublicKeyResponse(BaseModel):
+    """VAPID public key for client-side Web Push subscription."""
+
+    vapid_public_key: str
+
+
+class PwaSubscribeRequest(BaseModel):
+    """Request body to register a Web Push subscription."""
+
+    endpoint: str = Field(..., min_length=1, description="Push service endpoint URL.")
+    p256dh: str = Field(..., min_length=1, description="Client public key (base64url).")
+    auth: str = Field(..., min_length=1, description="Client auth secret (base64url).")
+    user_agent: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Originating user agent, for display only.",
+    )
+
+
+class PwaSubscribeResponse(BaseModel):
+    """Result of registering a Web Push subscription."""
+
+    endpoint: str
+
+
+class PwaUnsubscribeRequest(BaseModel):
+    """Request body to remove a Web Push subscription."""
+
+    endpoint: str = Field(..., min_length=1, description="Push service endpoint URL.")
+
+
+class PwaUnsubscribeResponse(BaseModel):
+    """Result of removing a Web Push subscription."""
+
+    removed: bool

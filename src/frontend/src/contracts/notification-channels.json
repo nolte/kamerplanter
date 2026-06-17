@@ -1,0 +1,9 @@
+{
+  "description": "Consumer-driven contract for the notification-channel vocabulary. The frontend (consumer) renders one toggle/test/subscribe action per key below and sends each verbatim as `channel_key` to the backend. The backend (provider) MUST register a channel for every key here, otherwise actions like POST /notifications/test fail at runtime with 'Channel <key> not found'. Verified by: src/frontend/src/test/contracts/notificationChannels.contract.test.ts (consumer) and src/backend/tests/contracts/test_notification_channels_contract.py (provider).",
+  "user_facing_channels": [
+    "apprise",
+    "email",
+    "home_assistant",
+    "pwa"
+  ]
+}

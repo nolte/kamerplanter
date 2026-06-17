@@ -11,6 +11,7 @@ from app.domain.interfaces.notification_preference_repository import (
 )
 from app.domain.interfaces.notification_repository import INotificationRepository
 from app.domain.models.notification import (
+    ChannelPreference,
     Notification,
     NotificationPreferences,
     NotificationStatus,
@@ -225,6 +226,77 @@ class NotificationService:
         preferences.user_key = user_key
         preferences.updated_at = datetime.now(UTC)
         return self._preference_repo.upsert(preferences)
+
+    # ── Web Push (PWA) subscriptions ──────────────────────────────────
+
+    def subscribe_pwa(
+        self,
+        user_key: str,
+        endpoint: str,
+        p256dh: str,
+        auth: str,
+        user_agent: str | None = None,
+    ) -> str:
+        """Register a Web Push subscription for the user's ``pwa`` channel.
+
+        Creates the ``pwa`` channel preference if missing, enables it and
+        deduplicates subscriptions by ``endpoint``. Persists via the existing
+        preferences update path.
+
+        Args:
+            user_key: Owning user.
+            endpoint: Push service endpoint URL (the subscription identity).
+            p256dh: Client public key (base64url).
+            auth: Client auth secret (base64url).
+            user_agent: Optional originating user agent (stored for display).
+
+        Returns:
+            The stored subscription endpoint.
+        """
+        prefs = self.get_preferences(user_key)
+        channel_pref = prefs.channels.get("pwa")
+        if channel_pref is None:
+            channel_pref = ChannelPreference()
+            prefs.channels["pwa"] = channel_pref
+
+        subscriptions = channel_pref.config.setdefault("subscriptions", [])
+        # Dedupe by endpoint — replace any existing entry for the same endpoint.
+        subscriptions = [s for s in subscriptions if s.get("endpoint") != endpoint]
+        subscription: dict = {"endpoint": endpoint, "p256dh": p256dh, "auth": auth}
+        if user_agent:
+            subscription["user_agent"] = user_agent
+        subscriptions.append(subscription)
+        channel_pref.config["subscriptions"] = subscriptions
+        channel_pref.enabled = True
+
+        self.update_preferences(user_key, prefs)
+        logger.info("pwa_subscription_added", user_key=user_key, endpoint=endpoint)
+        return endpoint
+
+    def unsubscribe_pwa(self, user_key: str, endpoint: str) -> bool:
+        """Remove a Web Push subscription identified by ``endpoint``.
+
+        Args:
+            user_key: Owning user.
+            endpoint: Push service endpoint URL to remove.
+
+        Returns:
+            True if a matching subscription was removed, else False.
+        """
+        prefs = self.get_preferences(user_key)
+        channel_pref = prefs.channels.get("pwa")
+        if channel_pref is None:
+            return False
+
+        subscriptions = channel_pref.config.get("subscriptions", [])
+        remaining = [s for s in subscriptions if s.get("endpoint") != endpoint]
+        if len(remaining) == len(subscriptions):
+            return False
+
+        channel_pref.config["subscriptions"] = remaining
+        self.update_preferences(user_key, prefs)
+        logger.info("pwa_subscription_removed", user_key=user_key, endpoint=endpoint)
+        return True
 
     # ── Channel status ────────────────────────────────────────────────
 

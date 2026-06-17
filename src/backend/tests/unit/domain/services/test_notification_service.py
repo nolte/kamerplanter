@@ -260,3 +260,107 @@ class TestSendTestNotification:
 
         assert result["status"] == "error"
         assert "not found" in result["error"]
+
+
+class TestPwaSubscriptions:
+    @pytest.fixture
+    def echo_preference_repo(self):
+        """Preference repo that starts empty and echoes upserted prefs back."""
+        repo = MagicMock()
+        repo.get_by_user.return_value = None
+        repo.upsert.side_effect = lambda prefs: prefs
+        return repo
+
+    @pytest.fixture
+    def echo_service(self, mock_engine, mock_notification_repo, echo_preference_repo):
+        return NotificationService(
+            engine=mock_engine,
+            notification_repo=mock_notification_repo,
+            preference_repo=echo_preference_repo,
+        )
+
+    def test_subscribe_creates_channel_and_enables(self, echo_service):
+        endpoint = echo_service.subscribe_pwa(
+            user_key="user_1",
+            endpoint="https://push/a",
+            p256dh="pub",
+            auth="auth",
+            user_agent="Firefox",
+        )
+
+        assert endpoint == "https://push/a"
+        stored = echo_service._preference_repo.upsert.call_args.args[0]
+        pwa = stored.channels["pwa"]
+        assert pwa.enabled is True
+        subs = pwa.config["subscriptions"]
+        assert len(subs) == 1
+        assert subs[0]["endpoint"] == "https://push/a"
+        assert subs[0]["user_agent"] == "Firefox"
+
+    def test_subscribe_dedupes_by_endpoint(self, mock_engine, mock_notification_repo):
+        existing = NotificationPreferences(
+            user_key="user_1",
+            channels={
+                "pwa": ChannelPreference(
+                    enabled=True,
+                    config={"subscriptions": [{"endpoint": "https://push/a", "p256dh": "old", "auth": "old"}]},
+                )
+            },
+        )
+        repo = MagicMock()
+        repo.get_by_user.return_value = existing
+        repo.upsert.side_effect = lambda prefs: prefs
+        service = NotificationService(
+            engine=mock_engine,
+            notification_repo=mock_notification_repo,
+            preference_repo=repo,
+        )
+
+        service.subscribe_pwa(
+            user_key="user_1",
+            endpoint="https://push/a",
+            p256dh="new",
+            auth="new",
+        )
+
+        stored = repo.upsert.call_args.args[0]
+        subs = stored.channels["pwa"].config["subscriptions"]
+        # Still exactly one entry for the endpoint, with the new keys.
+        assert len(subs) == 1
+        assert subs[0]["p256dh"] == "new"
+
+    def test_unsubscribe_removes_endpoint(self, mock_engine, mock_notification_repo):
+        existing = NotificationPreferences(
+            user_key="user_1",
+            channels={
+                "pwa": ChannelPreference(
+                    enabled=True,
+                    config={
+                        "subscriptions": [
+                            {"endpoint": "https://push/a", "p256dh": "x", "auth": "y"},
+                            {"endpoint": "https://push/b", "p256dh": "x", "auth": "y"},
+                        ]
+                    },
+                )
+            },
+        )
+        repo = MagicMock()
+        repo.get_by_user.return_value = existing
+        repo.upsert.side_effect = lambda prefs: prefs
+        service = NotificationService(
+            engine=mock_engine,
+            notification_repo=mock_notification_repo,
+            preference_repo=repo,
+        )
+
+        removed = service.unsubscribe_pwa(user_key="user_1", endpoint="https://push/a")
+
+        assert removed is True
+        stored = repo.upsert.call_args.args[0]
+        subs = stored.channels["pwa"].config["subscriptions"]
+        assert [s["endpoint"] for s in subs] == ["https://push/b"]
+
+    def test_unsubscribe_missing_channel_returns_false(self, echo_service):
+        removed = echo_service.unsubscribe_pwa(user_key="user_1", endpoint="https://push/x")
+        assert removed is False
+        echo_service._preference_repo.upsert.assert_not_called()
