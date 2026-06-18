@@ -33,6 +33,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ClearIcon from '@mui/icons-material/Clear';
 import EditIcon from '@mui/icons-material/Edit';
+import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import CloseIcon from '@mui/icons-material/Close';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
@@ -588,6 +589,13 @@ export default function TaskQueuePage() {
                   onChange={() => toggleSelection(task.key)}
                   size="small"
                   data-testid={`bulk-select-${task.key}`}
+                  slotProps={{
+                    input: {
+                      'aria-label': t('pages.tasks.bulkSelectTask', {
+                        name: (i18n.language === 'de' && task.name_de) ? task.name_de : task.name,
+                      }),
+                    },
+                  }}
                 />
               </Box>
             )}
@@ -917,7 +925,7 @@ export default function TaskQueuePage() {
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<EditIcon />}
+                    startIcon={<LibraryAddCheckIcon />}
                     onClick={() => setBulkMode(true)}
                     data-testid="bulk-mode-button"
                     sx={{ minHeight: 48 }}
@@ -956,30 +964,72 @@ export default function TaskQueuePage() {
       {/* Bulk action bar */}
       {bulkMode && (
         <Paper
+          role="toolbar"
+          aria-label={t('pages.tasks.bulkActionBarLabel')}
           variant="outlined"
           sx={{ px: 2, py: 1, mb: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', bgcolor: 'action.hover' }}
           data-testid="bulk-action-bar"
         >
           <Button
             size="small"
+            aria-pressed={allSelected}
             startIcon={allSelected ? <CheckBoxIcon /> : <CheckBoxOutlineBlankIcon />}
             onClick={handleSelectAll}
             data-testid="select-all-button"
+            sx={{ minHeight: 44 }}
           >
             {allSelected ? t('pages.tasks.deselectAll') : t('pages.tasks.selectAll')}
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
             {t('pages.tasks.selectedCount', { count: selectedKeys.size })}
           </Typography>
-          <Button size="small" variant="contained" color="success" startIcon={bulkLoading ? <CircularProgress size={14} /> : <CheckIcon />} onClick={handleBulkComplete} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-complete-button">
-            {t('pages.tasks.bulkComplete')}
-          </Button>
-          <Button size="small" variant="outlined" startIcon={bulkLoading ? <CircularProgress size={14} /> : <SkipNextIcon />} onClick={handleBulkSkip} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-skip-button">
-            {t('pages.tasks.bulkSkip')}
-          </Button>
-          <Button size="small" variant="outlined" color="error" startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />} onClick={handleBulkDelete} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-delete-button">
-            {t('pages.tasks.bulkDelete')}
-          </Button>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <CheckIcon />}
+                onClick={handleBulkComplete}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-complete-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkComplete')}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <SkipNextIcon />}
+                onClick={handleBulkSkip}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-skip-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkSkip')}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
+                onClick={handleBulkDelete}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-delete-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkDelete')}
+              </Button>
+            </span>
+          </Tooltip>
         </Paper>
       )}
 

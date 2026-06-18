@@ -154,6 +154,7 @@ def get_plant_instance_service() -> PlantInstanceService:
         companion_engine,
         phase_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        task_repo=get_task_repo(),
     )
 
 
