@@ -96,51 +96,13 @@ kamerplanter-frontend-1        running (healthy)
 
 **:point_right: [http://localhost:8080](http://localhost:8080)**
 
-Da Kamerplanter standardmäßig im **Light-Modus** startet, gibt es keinen Login-Bildschirm. Du landest direkt im Onboarding-Wizard.
+Da Kamerplanter standardmäßig im **Light-Modus** startet, gibt es keinen Login-Bildschirm — du landest direkt im Onboarding-Wizard.
 
 ---
 
-## 5. Onboarding-Wizard durchlaufen
+## 5. Erste Einrichtung
 
-Der Wizard führt dich in fünf Schritten durch die Ersteinrichtung:
-
-### Schritt 1: Erfahrungsstufe
-
-Wähle, wie viel Erfahrung du mit Pflanzenpflege hast:
-
-- **Einsteiger** — Zeigt dir nur die wichtigsten Funktionen. Gut zum Kennenlernen.
-- **Mittelstufe** — Zusätzlich Düngung, Tanks und Sensorik.
-- **Experte** — Alle Funktionen sichtbar.
-
-Du kannst die Stufe jederzeit später ändern.
-
-### Schritt 2: Umgebung & Standort
-
-Beschreibe, wo deine Pflanzen stehen — z.B. "Küchenfenster" oder "Südbalkon". Kamerplanter nutzt diese Information, um passende Starter-Kits vorzuschlagen.
-
-### Schritt 3: Starter-Kit wählen
-
-Wähle ein vorkonfiguriertes Szenario. Das Starter-Kit legt automatisch passende Pflanzenarten, Wachstumsphasen und Düngepläne an.
-
-| Starter-Kit | Für wen? |
-|-------------|----------|
-| Fensterbrett-Kräuter | Basilikum, Petersilie & Co. auf der Fensterbank |
-| Zimmerpflanzen-Starter | Die beliebtesten Zimmerpflanzen |
-| Haustierfreundliche Zimmerpflanzen | Ungiftige Pflanzen für Haushalte mit Tieren |
-| Balkon-Tomaten | Tomaten auf dem Balkon ziehen |
-| Sukkulenten & Kakteen | Pflegeleichte Sukkulenten |
-| Mediterrane Kräuter | Rosmarin, Thymian, Oregano |
-| Balkon-Chillis | Chili-Anbau auf dem Balkon |
-| Gemüsebeet | Gemüse im Außenbeet |
-| Indoor Growzelt | Kontrollierter Indoor-Anbau |
-
-### Schritt 4: Pflanzen & Favoriten
-
-Lege fest, wie viele Pflanzen du von jeder Art anlegen möchtest, und markiere deine Lieblingspflanzen als Favoriten.
-
-### Schritt 5: Zusammenfassung
-
-Prüfe die Zusammenfassung und klicke auf **Abschließen**. Kamerplanter erstellt alles automatisch und leitet dich zum Dashboard weiter.
+Beim ersten Öffnen startet Kamerplanter automatisch den Onboarding-Wizard. Er führt dich in wenigen Minuten durch Erfahrungsstufe, Standort und die Wahl eines Starter-Kits (z. B. "Fensterbrett-Kräuter" oder "Zimmerpflanzen-Starter"). Alles ist selbsterklärend und im Detail beschrieben auf der Seite [Onboarding-Wizard](../user-guide/onboarding.md).
 
 ---
 
@@ -155,11 +117,90 @@ Dein Kamerplanter läuft. Von hier aus kannst du:
 
 ---
 
+## Optionale Profile (KI, Sensordaten)
+
+Der Basis-Start mit `docker compose up -d` reicht für den vollständigen Pflanzen-, Aufgaben- und Pflegebetrieb. Zusätzliche Funktionen — KI-Wissensassistent und Sensordaten-Historie — können über optionale **Docker Compose Profile** zugeschaltet werden.
+
+!!! note "Profile sind additiv und kombinierbar"
+    Jedes Profil erweitert die Basis um zusätzliche Dienste. Du kannst mehrere Profile gleichzeitig aktivieren.
+
+### Übersicht der Profile
+
+| Profil | Was es startet | Wofür | Nötiger `.env`-Schalter |
+|--------|---------------|-------|------------------------|
+| `vectordb` | PostgreSQL + pgvector (Port 5433) + Reranker-Service (Port 8081) | KI-/RAG-Wissensassistent — semantische Suche in der Wissensdatenbank | `VECTORDB_ENABLED=true` |
+| `ollama` | Ollama LLM-Server (Port 11434) | Lokale LLM-Inferenz für den Wissensassistenten, als Alternative zu einer Cloud-API | `LLM_PROVIDER=ollama` und `LLM_API_URL=http://ollama:11434` |
+| `timescaledb` | TimescaleDB (Port 5432) | Zeitreihen-Speicherung von Sensordaten (Messwert-Historie, automatisches Downsampling) | `TIMESCALEDB_ENABLED=true` |
+
+### Beispiel-Befehle
+
+**Nur Basis (Standard — kein Profil nötig):**
+
+```bash
+docker compose up -d
+```
+
+**KI-Wissensassistent mit lokalem LLM (Ollama):**
+
+```bash
+docker compose --profile vectordb --profile ollama up -d
+```
+
+Aktiviere anschließend die Dienste in der `.env`:
+
+```ini title=".env"
+VECTORDB_ENABLED=true
+LLM_PROVIDER=ollama
+LLM_API_URL=http://ollama:11434
+LLM_MODEL=llama3.2          # Beliebiges auf Ollama verfügbares Modell
+```
+
+!!! tip "Modell beim ersten Start herunterladen"
+    Ollama lädt das Modell beim ersten Aufruf herunter. Abhängig vom Modell sind das **4–15 GB** — plane entsprechend Disk-Speicher ein.
+
+**KI-Wissensassistent mit Cloud-LLM (z. B. Anthropic):**
+
+```bash
+docker compose --profile vectordb up -d
+```
+
+```ini title=".env"
+VECTORDB_ENABLED=true
+LLM_PROVIDER=anthropic
+LLM_API_KEY=sk-ant-...
+LLM_MODEL=claude-sonnet-4-20250514
+```
+
+**Sensordaten-Historie:**
+
+```bash
+docker compose --profile timescaledb up -d
+```
+
+```ini title=".env"
+TIMESCALEDB_ENABLED=true
+```
+
+### Ressourcenbedarf der Profile
+
+!!! warning "Ollama braucht deutlich mehr Ressourcen"
+    LLM-Modelle sind groß. Rechne für ein kleineres Modell (z. B. `llama3.2`) mit mindestens **8 GB RAM** und **5 GB freiem Speicherplatz**. Größere Modelle benötigen entsprechend mehr. Ohne dedizierte GPU läuft die Inferenz auf der CPU — das ist langsamer, aber funktioniert.
+
+| Profil | Zusätzlicher RAM (typisch) | Zusätzlicher Speicher |
+|--------|--------------------------|----------------------|
+| `vectordb` | ~512 MB | ~500 MB |
+| `ollama` | 8–16 GB (je nach Modell) | 5–30 GB (je nach Modell) |
+| `timescaledb` | ~256 MB | wächst mit Sensordaten |
+
+---
+
 ## Nützliche Befehle
 
 | Befehl | Was er tut |
 |--------|-----------|
-| `docker compose up -d` | Alle Dienste starten |
+| `docker compose up -d` | Alle Basisdienste starten |
+| `docker compose --profile vectordb --profile ollama up -d` | Basis + KI-Profile starten |
+| `docker compose --profile timescaledb up -d` | Basis + Sensordaten-Profil starten |
 | `docker compose stop` | Alle Dienste anhalten (Daten bleiben erhalten) |
 | `docker compose down` | Alle Dienste stoppen und Container entfernen (Daten bleiben erhalten) |
 | `docker compose down -v` | Alles stoppen **und Daten löschen** (Neuanfang) |
@@ -173,11 +214,20 @@ Dein Kamerplanter läuft. Von hier aus kannst du:
 
 ## Zugangspunkte
 
+### Standard (immer verfügbar)
+
 | Dienst | URL | Beschreibung |
 |--------|-----|-------------|
 | Benutzeroberfläche | [http://localhost:8080](http://localhost:8080) | Die Kamerplanter-App |
 | API-Dokumentation | [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs) | Interaktive API-Referenz (Swagger UI) |
 | Datenbank-UI | [http://localhost:8529](http://localhost:8529) | ArangoDB Web-Interface (für Fortgeschrittene) |
+
+### Optional (nur mit aktiviertem Profil)
+
+| Dienst | URL | Profil | Beschreibung |
+|--------|-----|--------|-------------|
+| Reranker-Service | [http://localhost:8081](http://localhost:8081) | `vectordb` | Cross-Encoder für RAG-Qualität |
+| Ollama | [http://localhost:11434](http://localhost:11434) | `ollama` | Lokaler LLM-Server (API) |
 
 ---
 
