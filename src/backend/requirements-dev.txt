@@ -157,7 +157,7 @@ requests==2.34.2
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.17
+ruff==0.15.18
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
