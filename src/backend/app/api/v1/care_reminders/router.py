@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.care_reminders.schemas import (
     CareConfirmationResponse,
-    CareDashboardEntryResponse,
     CareProfileResponse,
     CareProfileUpdate,
     ConfirmRequest,
@@ -22,17 +21,6 @@ def _profile_to_response(p) -> CareProfileResponse:
 
 def _confirmation_to_response(c) -> CareConfirmationResponse:
     return CareConfirmationResponse(key=c.key or "", **c.model_dump(exclude={"key"}))
-
-
-@router.get("/dashboard", response_model=list[CareDashboardEntryResponse])
-def get_care_dashboard(
-    hemisphere: str = Query("north", pattern="^(north|south)$"),
-    service: CareReminderService = Depends(get_care_reminder_service),
-):
-    # In a full implementation this would query plant instances with their species/family data.
-    # For now, return entries based on existing profiles.
-    entries = service.get_care_dashboard([], hemisphere)
-    return [CareDashboardEntryResponse(**e.model_dump()) for e in entries]
 
 
 @router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)
