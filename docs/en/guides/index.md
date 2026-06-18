@@ -9,3 +9,4 @@ In-depth guides on specific topics of plant production and system usage.
 - [Nutrient Mixing](nutrient-mixing.md) — Step-by-step EC budget and mixing order
 - [Troubleshooting](troubleshooting.md) — Common problems and solutions
 - [Plant Data via AI](ai-plant-data-pipeline.md) — Prepare and review new plants using Claude Code Agents
+- [Set Up Browser Push](browser-push-setup.md) — Generate VAPID keys and configure them for web push notifications
