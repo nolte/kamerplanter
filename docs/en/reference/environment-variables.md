@@ -261,6 +261,9 @@ PLANTNET_API_KEY set?
 
 These variables enable the browser push notification channel (`channel_key: "pwa"`). When all three variables are empty, the channel is disabled — the application remains fully functional and users see "Not configured" in their notification settings.
 
+!!! tip "Step-by-step guide"
+    The [Set Up Browser Push](../guides/browser-push-setup.md) guide walks through generating the key pair, storing it in Docker Compose or Kubernetes, and verifying the setup.
+
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `VAPID_PUBLIC_KEY` | — | No* | VAPID public key (Base64url, 87 characters). Sent to the browser and used in the PWA subscription. |
@@ -284,10 +287,27 @@ Private Key:
 8Kv...
 ```
 
-Alternatively with `pywebpush` (Python), which also accepts PEM-formatted private keys:
+Alternatively with `pywebpush` (Python) — the `b64urlencode` step is required because `v.public_key`/`v.private_key` are key objects and only serialization yields the Base64url strings:
 ```bash
 pip install pywebpush
-python -c "from py_vapid import Vapid; v = Vapid(); v.generate_keys(); print('Public:', v.public_key); print('Private:', v.private_key)"
+python3 - <<'PY'
+from py_vapid import Vapid
+from py_vapid.utils import b64urlencode
+from cryptography.hazmat.primitives import serialization
+
+v = Vapid()
+v.generate_keys()
+pub_raw = v.public_key.public_bytes(
+    serialization.Encoding.X962,
+    serialization.PublicFormat.UncompressedPoint,
+)
+priv_raw = v.private_key.private_numbers().private_value.to_bytes(32, "big")
+pub, priv = b64urlencode(pub_raw), b64urlencode(priv_raw)
+assert pub_raw[0] == 0x04 and len(pub_raw) == 65 and len(pub) == 87, "invalid public key"
+assert len(priv_raw) == 32 and len(priv) == 43, "invalid private key"
+print("VAPID_PUBLIC_KEY =", pub)
+print("VAPID_PRIVATE_KEY=", priv)
+PY
 ```
 
 !!! danger "Keep the private key server-side"
