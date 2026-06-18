@@ -214,7 +214,7 @@ Klicke auf den Filter-Button oben in der Liste, um die Filter-Leiste ein- oder a
     Ja. Du kannst jede Aufgabe unabhängig von ihrer Herkunft löschen. Wenn du eine Aufgabe eines laufenden Pflegeplans löschst, erstellt Kamerplanter beim nächsten Planungsdurchlauf (täglich) eine neue Aufgabe — sofern das Pflegeprofil noch aktiv ist.
 
 ??? question "Was passiert mit den Aufgaben, wenn ich eine Pflanze entferne?"
-    Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (offen, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt — sie sind nach dem Entfernen der Pflanze nicht mehr relevant. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten.
+    Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (offen, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt — sie sind nach dem Entfernen der Pflanze nicht mehr relevant. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten. Für entfernte Pflanzen werden außerdem keine neuen automatischen Aufgaben (z. B. Pflegeerinnerungen oder Spül-Hinweise) mehr erzeugt.
 
 ??? question "Was bedeutet die rote Markierung bei überfälligen Aufgaben?"
     Eine rote Markierung bedeutet, dass eine Aufgabe ihr Fälligkeitsdatum überschritten hat. Das ist ein Hinweis, keine automatische Eskalation. Kamerplanter eskaliert überfällige Aufgaben nach 48 Stunden in der Priorität auf "Kritisch".

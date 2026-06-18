@@ -274,6 +274,21 @@ class TestCheckRunoffTrends:
 
         assert result == {"plants_checked": 0, "created": 0, "skipped": 0}
 
+    def test_query_excludes_removed_plants(self, _mock_dependencies):
+        """The plant lookup must filter out removed plants in AQL."""
+        db = MagicMock()
+        db.aql.execute.return_value = iter([])
+        _mock_dependencies.get_db.return_value = db
+        _mock_dependencies.get_feeding_repo.return_value = MagicMock()
+        _mock_dependencies.get_task_repo.return_value = MagicMock()
+
+        from app.tasks.tank_maintenance_tasks import check_runoff_trends
+
+        check_runoff_trends()
+
+        query = db.aql.execute.call_args.args[0]
+        assert "removed_on == null" in query
+
     def test_creates_flush_task_when_trend_detected(self, _mock_dependencies):
         db = MagicMock()
         db.aql.execute.return_value = iter(["plant_1"])

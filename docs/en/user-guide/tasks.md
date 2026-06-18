@@ -214,7 +214,7 @@ Click the filter button at the top of the list to show or hide the filter bar.
     Yes. You can delete any task regardless of its origin. If you delete a task from a running care plan, Kamerplanter creates a new task on the next planning run (daily) — provided the care profile is still active.
 
 ??? question "What happens to the tasks when I remove a plant?"
-    When you remove a plant, its still-open tasks (pending, in progress, dormant) are automatically removed from the queue — they are no longer relevant once the plant is gone. Tasks that were already completed, skipped, or failed are kept as history.
+    When you remove a plant, its still-open tasks (pending, in progress, dormant) are automatically removed from the queue — they are no longer relevant once the plant is gone. Tasks that were already completed, skipped, or failed are kept as history. Removed plants also no longer generate new automatic tasks (such as care reminders or flush hints).
 
 ??? question "What does the red marking on overdue tasks mean?"
     A red marking means a task has passed its due date. It is a notice, not an automatic escalation. Kamerplanter escalates overdue tasks to "Critical" priority after 48 hours.
