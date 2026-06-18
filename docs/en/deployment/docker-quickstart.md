@@ -96,51 +96,13 @@ Open your browser and go to:
 
 **:point_right: [http://localhost:8080](http://localhost:8080)**
 
-Since Kamerplanter starts in **Light Mode** by default, there is no login screen. You'll go straight to the Onboarding Wizard.
+Since Kamerplanter starts in **Light Mode** by default, there is no login screen — you'll go straight to the Onboarding Wizard.
 
 ---
 
-## 5. Walk through the Onboarding Wizard
+## 5. First-time setup
 
-The wizard guides you through setup in five steps:
-
-### Step 1: Experience level
-
-Choose how much experience you have with plant care:
-
-- **Beginner** — Shows only the core features. Great for getting started.
-- **Intermediate** — Adds fertilization, tanks, and sensors.
-- **Expert** — All features visible.
-
-You can change the level at any time later.
-
-### Step 2: Environment & location
-
-Describe where your plants are — e.g. "Kitchen window" or "South balcony". Kamerplanter uses this information to suggest suitable starter kits.
-
-### Step 3: Choose a starter kit
-
-Select a pre-configured scenario. The starter kit automatically creates matching plant species, growth phases, and fertilization plans.
-
-| Starter Kit | For whom? |
-|-------------|-----------|
-| Windowsill Herbs | Basil, parsley & co. on the windowsill |
-| Houseplant Starter | The most popular houseplants |
-| Pet-Friendly Houseplants | Non-toxic plants for homes with pets |
-| Balcony Tomatoes | Growing tomatoes on the balcony |
-| Succulents & Cacti | Low-maintenance succulents |
-| Mediterranean Herbs | Rosemary, thyme, oregano |
-| Balcony Chillies | Chilli growing on the balcony |
-| Vegetable Bed | Vegetables in an outdoor bed |
-| Indoor Grow Tent | Controlled indoor growing |
-
-### Step 4: Plants & favorites
-
-Specify how many plants of each type you want to create, and mark your favorite plants.
-
-### Step 5: Summary
-
-Review the summary and click **Finish**. Kamerplanter creates everything automatically and takes you to the dashboard.
+When you open Kamerplanter for the first time, it automatically starts the Onboarding Wizard. It guides you through experience level, location, and starter kit selection (e.g. "Windowsill Herbs" or "Houseplant Starter") in just a few minutes. Everything is self-explanatory and described in full on the [Onboarding Wizard](../user-guide/onboarding.md) page.
 
 ---
 
@@ -155,11 +117,90 @@ Your Kamerplanter is running. From here you can:
 
 ---
 
+## Optional profiles (AI, sensor data)
+
+The base start with `docker compose up -d` covers the full plant, task, and care workflow. Additional features — the AI knowledge assistant and sensor data history — can be enabled via optional **Docker Compose profiles**.
+
+!!! note "Profiles are additive and combinable"
+    Each profile extends the base setup with additional services. You can activate multiple profiles at the same time.
+
+### Profile overview
+
+| Profile | What it starts | Purpose | Required `.env` setting |
+|---------|---------------|---------|------------------------|
+| `vectordb` | PostgreSQL + pgvector (port 5433) + Reranker Service (port 8081) | AI/RAG knowledge assistant — semantic search in the knowledge base | `VECTORDB_ENABLED=true` |
+| `ollama` | Ollama LLM server (port 11434) | Local LLM inference for the knowledge assistant, as an alternative to a cloud LLM API | `LLM_PROVIDER=ollama` and `LLM_API_URL=http://ollama:11434` |
+| `timescaledb` | TimescaleDB (port 5432) | Time-series storage of sensor data (measurement history, automatic downsampling) | `TIMESCALEDB_ENABLED=true` |
+
+### Example commands
+
+**Base only (default — no profile needed):**
+
+```bash
+docker compose up -d
+```
+
+**AI knowledge assistant with local LLM (Ollama):**
+
+```bash
+docker compose --profile vectordb --profile ollama up -d
+```
+
+Then enable the services in your `.env`:
+
+```ini title=".env"
+VECTORDB_ENABLED=true
+LLM_PROVIDER=ollama
+LLM_API_URL=http://ollama:11434
+LLM_MODEL=llama3.2          # Any model available in Ollama
+```
+
+!!! tip "Model download on first start"
+    Ollama downloads the model on first use. Depending on the model, that is **4–15 GB** — plan your disk space accordingly.
+
+**AI knowledge assistant with cloud LLM (e.g. Anthropic):**
+
+```bash
+docker compose --profile vectordb up -d
+```
+
+```ini title=".env"
+VECTORDB_ENABLED=true
+LLM_PROVIDER=anthropic
+LLM_API_KEY=sk-ant-...
+LLM_MODEL=claude-sonnet-4-20250514
+```
+
+**Sensor data history:**
+
+```bash
+docker compose --profile timescaledb up -d
+```
+
+```ini title=".env"
+TIMESCALEDB_ENABLED=true
+```
+
+### Resource requirements per profile
+
+!!! warning "Ollama requires significantly more resources"
+    LLM models are large. For a smaller model (e.g. `llama3.2`) expect at least **8 GB of RAM** and **5 GB of free disk space**. Larger models need more. Without a dedicated GPU, inference runs on the CPU — slower, but functional.
+
+| Profile | Additional RAM (typical) | Additional disk |
+|---------|------------------------|-----------------|
+| `vectordb` | ~512 MB | ~500 MB |
+| `ollama` | 8–16 GB (depending on model) | 5–30 GB (depending on model) |
+| `timescaledb` | ~256 MB | grows with sensor data |
+
+---
+
 ## Useful commands
 
 | Command | What it does |
 |---------|-------------|
-| `docker compose up -d` | Start all services |
+| `docker compose up -d` | Start all base services |
+| `docker compose --profile vectordb --profile ollama up -d` | Start base + AI profiles |
+| `docker compose --profile timescaledb up -d` | Start base + sensor data profile |
 | `docker compose stop` | Stop all services (data is preserved) |
 | `docker compose down` | Stop and remove containers (data is preserved) |
 | `docker compose down -v` | Stop everything **and delete all data** (fresh start) |
@@ -173,11 +214,20 @@ Your Kamerplanter is running. From here you can:
 
 ## Access points
 
+### Standard (always available)
+
 | Service | URL | Description |
 |---------|-----|-------------|
 | User interface | [http://localhost:8080](http://localhost:8080) | The Kamerplanter app |
 | API documentation | [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs) | Interactive API reference (Swagger UI) |
 | Database UI | [http://localhost:8529](http://localhost:8529) | ArangoDB web interface (for advanced users) |
+
+### Optional (only with active profile)
+
+| Service | URL | Profile | Description |
+|---------|-----|---------|-------------|
+| Reranker Service | [http://localhost:8081](http://localhost:8081) | `vectordb` | Cross-encoder for RAG quality |
+| Ollama | [http://localhost:11434](http://localhost:11434) | `ollama` | Local LLM server (API) |
 
 ---
 
