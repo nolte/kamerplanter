@@ -4,9 +4,11 @@ from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, Tas
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
@@ -24,6 +26,8 @@ class CareReminderService:
         plant_repo: IPlantInstanceRepository | None = None,
         lifecycle_repo: IPhaseRepository | None = None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
+        nutrient_plan_repo: INutrientPlanRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -32,6 +36,8 @@ class CareReminderService:
         self._plant_repo = plant_repo
         self._lifecycle_repo = lifecycle_repo
         self._phase_seq_repo = phase_seq_repo
+        self._species_repo = species_repo
+        self._nutrient_plan_repo = nutrient_plan_repo
 
     def get_or_create_profile(
         self,
@@ -316,6 +322,80 @@ class CareReminderService:
         urgency_order = {"overdue": 0, "due_today": 1, "upcoming": 2}
         entries.sort(key=lambda e: urgency_order.get(e.urgency, 3))
         return entries
+
+    def get_care_dashboard_for_tenant(
+        self,
+        tenant_key: str,
+        hemisphere: str = "north",
+    ) -> list[CareDashboardEntry]:
+        """Build the care dashboard for all active plants of a tenant.
+
+        Loads the tenant's plant instances (excluding removed plants), resolves
+        the contextual data each plant needs (species name, current growth phase,
+        nutrient-plan assignment) and delegates to :meth:`get_care_dashboard`.
+
+        Tenant isolation is enforced by passing ``tenant_key`` to the plant
+        repository; plants of other tenants are never loaded.
+        """
+        plant_data = self._build_plant_data_for_tenant(tenant_key)
+        return self.get_care_dashboard(plant_data, hemisphere)
+
+    def _build_plant_data_for_tenant(self, tenant_key: str) -> list[dict]:
+        """Assemble ``plant_data`` dicts for the tenant's active plants.
+
+        Each dict carries the fields :meth:`get_care_dashboard` consumes:
+        ``plant_key``, ``plant_name``, ``species_name``, ``botanical_family``,
+        ``current_phase`` and ``has_nutrient_plan``. Missing context resolves to
+        ``None``/``False`` so a single broken record never aborts the dashboard.
+        """
+        if self._plant_repo is None:
+            return []
+
+        plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
+        active_plants = [p for p in plants if p.removed_on is None]
+
+        species_name_cache: dict[str, str | None] = {}
+        plant_data: list[dict] = []
+
+        for plant in active_plants:
+            plant_key = plant.key or ""
+            if not plant_key:
+                continue
+
+            plant_data.append(
+                {
+                    "plant_key": plant_key,
+                    "plant_name": plant.plant_name or plant.instance_id or "",
+                    "species_name": self._resolve_species_name(plant.species_key, species_name_cache),
+                    "botanical_family": None,
+                    "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
+                    "has_nutrient_plan": self._has_nutrient_plan(plant_key),
+                }
+            )
+
+        return plant_data
+
+    def _resolve_species_name(self, species_key: str | None, cache: dict[str, str | None]) -> str | None:
+        """Resolve a species' display name (first common name), cached per call."""
+        if not species_key or self._species_repo is None:
+            return None
+        if species_key not in cache:
+            species = self._species_repo.get_by_key(species_key)
+            cache[species_key] = species.common_names[0] if species and species.common_names else None
+        return cache[species_key]
+
+    def _resolve_current_phase_name(self, phase_key: str | None) -> str | None:
+        """Resolve a plant's current growth-phase name (used for dormancy detection)."""
+        if not phase_key or self._lifecycle_repo is None:
+            return None
+        phase = self._lifecycle_repo.get_phase_by_key(phase_key)
+        return phase.name if phase else None
+
+    def _has_nutrient_plan(self, plant_key: str) -> bool:
+        """Return whether the plant has a nutrient plan assigned."""
+        if self._nutrient_plan_repo is None:
+            return False
+        return self._nutrient_plan_repo.get_plant_plan(plant_key) is not None
 
     def reset_profile(
         self,

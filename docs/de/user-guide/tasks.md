@@ -93,6 +93,20 @@ Klicke auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wir
 
 ---
 
+## Mehrere Aufgaben auf einmal bearbeiten
+
+Wenn viele Aufgaben gleichzeitig anfallen, kannst du sie gebündelt bearbeiten, statt jede einzeln anzufassen.
+
+1. Klicke in der Aufgaben-Übersicht oben rechts auf **Mehrere auswählen**. (Der Button erscheint, sobald mindestens eine Aufgabe vorhanden ist.)
+2. Neben jeder Aufgabe erscheint eine Auswahl-Checkbox. Hake die gewünschten Aufgaben an — oder nutze **Alle auswählen** in der Aktionsleiste.
+3. Wähle in der Aktionsleiste die gewünschte Sammelaktion:
+    - **Abschließen** — alle markierten Aufgaben werden als erledigt markiert.
+    - **Überspringen** — alle markierten Aufgaben werden übersprungen.
+    - **Löschen** — alle markierten Aufgaben werden entfernt.
+4. Über **Abbrechen** verlässt du den Auswahlmodus wieder, ohne etwas zu ändern.
+
+---
+
 ## Workflow-Templates nutzen
 
 Workflow-Templates sind vordefinierte Aufgaben-Pakete für häufige Pflegeszenarien. Ein Template instantiieren bedeutet: Das System erstellt aus dem Template eine Reihe konkreter Aufgaben für deine Pflanze oder deinen Durchlauf.
@@ -198,6 +212,9 @@ Klicke auf den Filter-Button oben in der Liste, um die Filter-Leiste ein- oder a
 
 ??? question "Kann ich eine automatisch erstellte Aufgabe löschen?"
     Ja. Du kannst jede Aufgabe unabhängig von ihrer Herkunft löschen. Wenn du eine Aufgabe eines laufenden Pflegeplans löschst, erstellt Kamerplanter beim nächsten Planungsdurchlauf (täglich) eine neue Aufgabe — sofern das Pflegeprofil noch aktiv ist.
+
+??? question "Was passiert mit den Aufgaben, wenn ich eine Pflanze entferne?"
+    Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (offen, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt — sie sind nach dem Entfernen der Pflanze nicht mehr relevant. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten. Für entfernte Pflanzen werden außerdem keine neuen automatischen Aufgaben (z. B. Pflegeerinnerungen oder Spül-Hinweise) mehr erzeugt.
 
 ??? question "Was bedeutet die rote Markierung bei überfälligen Aufgaben?"
     Eine rote Markierung bedeutet, dass eine Aufgabe ihr Fälligkeitsdatum überschritten hat. Das ist ein Hinweis, keine automatische Eskalation. Kamerplanter eskaliert überfällige Aufgaben nach 48 Stunden in der Priorität auf "Kritisch".

@@ -54,6 +54,7 @@ def _wire(deps, *, profiles, plants_with_schedule=None):
         plant_name="Monstera",
         instance_id="m1",
         tenant_key="tenant_1",
+        removed_on=None,
     )
     deps.get_plant_repo.return_value = plant_repo
 
@@ -88,6 +89,39 @@ class TestGenerateDueCareReminders:
         assert result == {"created": 0, "skipped": 0}
         service.ensure_next_watering_task.assert_not_called()
 
+    def test_skips_removed_plant(self, _mock_dependencies):
+        """A removed plant's care profile must not spawn any tasks."""
+        from datetime import date
+
+        service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
+        _mock_dependencies.get_plant_repo.return_value.get_by_key.return_value = SimpleNamespace(
+            current_phase_key=None,
+            plant_name="Monstera",
+            instance_id="m1",
+            tenant_key="tenant_1",
+            removed_on=date(2026, 6, 1),
+        )
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        result = generate_due_care_reminders()
+
+        assert result == {"created": 0, "skipped": 1}
+        service.ensure_next_watering_task.assert_not_called()
+        service._engine.should_generate_reminder.assert_not_called()
+
+    def test_skips_when_plant_missing(self, _mock_dependencies):
+        """A care profile pointing at a non-existent plant is skipped."""
+        service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="ghost")])
+        _mock_dependencies.get_plant_repo.return_value.get_by_key.return_value = None
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        result = generate_due_care_reminders()
+
+        assert result == {"created": 0, "skipped": 1}
+        service.ensure_next_watering_task.assert_not_called()
+
     def test_creates_auto_watering_task_when_no_active_plan(self, _mock_dependencies):
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
         created_task = SimpleNamespace(due_date="2026-06-15")
@@ -113,6 +147,7 @@ class TestGenerateDueCareReminders:
             plant_name="Monstera",
             instance_id="m1",
             tenant_key="tenant_1",
+            removed_on=None,
         )
         phase_seq_repo = MagicMock()
         phase_seq_repo.get_entry_by_key.return_value = SimpleNamespace(phase_definition_key="def_1")
@@ -135,6 +170,7 @@ class TestGenerateDueCareReminders:
             plant_name="Monstera",
             instance_id="m1",
             tenant_key="tenant_1",
+            removed_on=None,
         )
         # No PhaseSequence repo -> fall back to LifecycleConfig.
         _mock_dependencies.get_phase_sequence_repo.return_value = None

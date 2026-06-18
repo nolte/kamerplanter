@@ -33,6 +33,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ClearIcon from '@mui/icons-material/Clear';
 import EditIcon from '@mui/icons-material/Edit';
+import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import CloseIcon from '@mui/icons-material/Close';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
@@ -44,6 +45,9 @@ import SwapVertIcon from '@mui/icons-material/SwapVert';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import TodayIcon from '@mui/icons-material/Today';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
@@ -140,6 +144,14 @@ const urgencySectionColor: Record<UrgencyGroup, string> = {
   today: 'warning.main',
   thisWeek: 'info.main',
   future: 'text.secondary',
+};
+
+// Icon per urgency group (accessibility: colour + icon, not colour alone)
+const urgencySectionIcon: Record<UrgencyGroup, React.ReactNode> = {
+  overdue: <WarningAmberIcon sx={{ fontSize: 18 }} />,
+  today: <TodayIcon sx={{ fontSize: 18 }} />,
+  thisWeek: <AccessTimeIcon sx={{ fontSize: 18 }} />,
+  future: null,
 };
 
 function formatRelativeDate(dateStr: string, t: (key: string) => string): string {
@@ -461,14 +473,14 @@ export default function TaskQueuePage() {
     const taskPlantTypes = new Set<string>();
     // Also build a name-based dedup set for tasks missing entity_key (legacy data)
     const taskNameTypes = new Set<string>();
-    for (const t of taskQueue) {
-      if (t.category !== 'care_reminder') continue;
-      const parts = t.name?.split('—');
+    for (const taskItem of taskQueue) {
+      if (taskItem.category !== 'care_reminder') continue;
+      const parts = taskItem.name?.split('—');
       const reminderType = parts && parts.length > 1 ? parts[1].trim() : undefined;
       if (!reminderType) continue;
 
-      if (t.entity_type === 'plant_instance' && t.entity_key) {
-        taskPlantTypes.add(`${t.entity_key}-${reminderType}`);
+      if (taskItem.entity_type === 'plant_instance' && taskItem.entity_key) {
+        taskPlantTypes.add(`${taskItem.entity_key}-${reminderType}`);
       }
       // Fallback: use the plant name prefix for matching (handles entity_key=null tasks)
       const namePrefix = parts[0].trim();
@@ -542,6 +554,8 @@ export default function TaskQueuePage() {
     });
   }, [allTaskKeys]);
 
+  const hasActiveFilters = filterCategory !== '' || filterPlantKey !== null;
+
   // ── Render helpers ───────────────────────────────────────────────────
 
   const renderTaskCard = useCallback(
@@ -552,6 +566,7 @@ export default function TaskQueuePage() {
       const isPending = task.status === 'pending';
       const isInProgress = task.status === 'in_progress';
       const isActionable = isPending || isInProgress;
+      const displayName = (i18n.language === 'de' && task.name_de) ? task.name_de : task.name;
 
       return (
         <Card
@@ -569,9 +584,11 @@ export default function TaskQueuePage() {
           data-testid="task-card"
         >
           <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+            {/* Urgency accent bar — colour + width convey urgency, not colour alone */}
             <Box
+              aria-hidden="true"
               sx={{
-                width: 4,
+                width: urgency === 'overdue' ? 6 : 4,
                 flexShrink: 0,
                 bgcolor: urgencyBorderColor[urgency],
                 borderRadius: '4px 0 0 4px',
@@ -588,6 +605,11 @@ export default function TaskQueuePage() {
                   onChange={() => toggleSelection(task.key)}
                   size="small"
                   data-testid={`bulk-select-${task.key}`}
+                  slotProps={{
+                    input: {
+                      'aria-label': t('pages.tasks.bulkSelectTask', { name: displayName }),
+                    },
+                  }}
                 />
               </Box>
             )}
@@ -596,12 +618,24 @@ export default function TaskQueuePage() {
               <CardActionArea
                 onClick={bulkMode ? () => toggleSelection(task.key) : () => navigate(`/aufgaben/tasks/${task.key}`)}
                 data-testid={`task-card-${task.key}`}
+                sx={{ minHeight: 56 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1.5, gap: 2 }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                      <Typography variant="subtitle2" noWrap sx={{ fontWeight: isInProgress ? 700 : 600 }}>
-                        {(i18n.language === 'de' && task.name_de) ? task.name_de : task.name}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: isInProgress ? 700 : 600,
+                          // Only truncate task name on very narrow screens; prefer wrapping
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: { xs: 140, sm: 'none' },
+                        }}
+                        title={displayName}
+                      >
+                        {displayName}
                       </Typography>
                       {isInProgress && (
                         <Chip
@@ -649,7 +683,7 @@ export default function TaskQueuePage() {
                       )}
                     </Box>
                   </Box>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
                     {task.priority !== 'medium' && (
                       <Chip
                         label={t(`enums.taskPriority.${task.priority}`)}
@@ -680,8 +714,8 @@ export default function TaskQueuePage() {
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 0.25,
-                  pr: 1,
+                  gap: 0,
+                  pr: 0.5,
                   borderLeft: '1px solid',
                   borderColor: 'divider',
                 }}
@@ -689,18 +723,40 @@ export default function TaskQueuePage() {
               >
                 {isPending && (
                   <Tooltip title={t('pages.tasks.startTask')}>
-                    <IconButton size="small" onClick={() => handleStart(task.key)} disabled={isLoading} data-testid={`start-task-${task.key}`}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleStart(task.key)}
+                      disabled={isLoading}
+                      data-testid={`start-task-${task.key}`}
+                      aria-label={t('pages.tasks.startTask')}
+                      sx={{ minWidth: 40, minHeight: 40 }}
+                    >
                       {isLoading ? <CircularProgress size={18} /> : <PlayArrowIcon fontSize="small" />}
                     </IconButton>
                   </Tooltip>
                 )}
                 <Tooltip title={t('pages.tasks.completeTask')}>
-                  <IconButton size="small" color="success" onClick={() => handleComplete(task.key)} disabled={isLoading} data-testid={`complete-task-${task.key}`}>
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={() => handleComplete(task.key)}
+                    disabled={isLoading}
+                    data-testid={`complete-task-${task.key}`}
+                    aria-label={t('pages.tasks.completeTask')}
+                    sx={{ minWidth: 40, minHeight: 40 }}
+                  >
                     {isLoading ? <CircularProgress size={18} /> : <CheckIcon fontSize="small" />}
                   </IconButton>
                 </Tooltip>
                 <Tooltip title={t('pages.tasks.skipTask')}>
-                  <IconButton size="small" onClick={() => handleSkip(task.key)} disabled={isLoading} data-testid={`skip-task-${task.key}`}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleSkip(task.key)}
+                    disabled={isLoading}
+                    data-testid={`skip-task-${task.key}`}
+                    aria-label={t('pages.tasks.skipTask')}
+                    sx={{ minWidth: 40, minHeight: 40 }}
+                  >
                     {isLoading ? <CircularProgress size={18} /> : <SkipNextIcon fontSize="small" />}
                   </IconButton>
                 </Tooltip>
@@ -731,40 +787,44 @@ export default function TaskQueuePage() {
           data-testid={`care-card-${id}`}
         >
           <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+            {/* Urgency accent bar — colour + width convey urgency, not colour alone */}
             <Box
+              aria-hidden="true"
               sx={{
-                width: 4,
+                width: urgency === 'overdue' ? 6 : 4,
                 flexShrink: 0,
                 bgcolor: urgencyBorderColor[urgency],
                 borderRadius: '4px 0 0 4px',
               }}
             />
 
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', px: 2, py: 1.5, gap: 2 }}>
-              {/* Reminder type icon */}
+            {/* Reminder type icon — tappable area links to plant detail */}
+            <CardActionArea
+              component={RouterLink}
+              to={`/pflanzen/plant-instances/${entry.plant_key}`}
+              aria-label={t('pages.tasks.careCardPlantLink', { plant: entry.plant_name })}
+              sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', px: 2, py: 1.5, gap: 2, minHeight: 56 }}
+            >
               <Box sx={{ color: urgencySectionColor[urgency], flexShrink: 0 }}>
                 {getReminderIcon(entry.reminder_type)}
               </Box>
 
               {/* Content */}
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                  <Typography variant="subtitle2" noWrap sx={{ fontWeight: 600 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     {t(`enums.reminderType.${entry.reminder_type}`)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                  <Link
-                    component={RouterLink}
-                    to={`/pflanzen/plant-instances/${entry.plant_key}`}
+                  <Typography
                     variant="caption"
                     color="text.secondary"
-                    underline="hover"
                     sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
                   >
                     <LocalFloristIcon sx={{ fontSize: 14 }} />
                     {entry.plant_name}
-                  </Link>
+                  </Typography>
                   {entry.species_name && (
                     <Typography variant="caption" color="text.disabled">
                       {entry.species_name}
@@ -787,34 +847,53 @@ export default function TaskQueuePage() {
                   {formatRelativeDate(entry.due_date, t)}
                 </Typography>
               )}
-            </Box>
+            </CardActionArea>
 
             {/* Actions */}
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.25,
-                pr: 1,
+                gap: 0,
+                pr: 0.5,
                 borderLeft: '1px solid',
                 borderColor: 'divider',
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               <Tooltip title={t('pages.pflege.editProfile')}>
-                <IconButton size="small" onClick={() => handleEditProfile(entry.plant_key)}>
+                <IconButton
+                  size="small"
+                  onClick={() => handleEditProfile(entry.plant_key)}
+                  aria-label={t('pages.pflege.editProfile')}
+                  sx={{ minWidth: 40, minHeight: 40 }}
+                >
                   <EditIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title={t('pages.pflege.confirmAction')}>
                 <span>
-                  <IconButton size="small" color="success" onClick={() => handleConfirmClick(entry)} disabled={isLoading}>
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={() => handleConfirmClick(entry)}
+                    disabled={isLoading}
+                    aria-label={t('pages.pflege.confirmAction')}
+                    sx={{ minWidth: 40, minHeight: 40 }}
+                  >
                     {isLoading ? <CircularProgress size={18} /> : <CheckCircleIcon fontSize="small" />}
                   </IconButton>
                 </span>
               </Tooltip>
               <Tooltip title={t('pages.pflege.snoozeAction')}>
                 <span>
-                  <IconButton size="small" onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)} disabled={isLoading}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
+                    disabled={isLoading}
+                    aria-label={t('pages.pflege.snoozeAction')}
+                    sx={{ minWidth: 40, minHeight: 40 }}
+                  >
                     {isLoading ? <CircularProgress size={18} /> : <SnoozeIcon fontSize="small" />}
                   </IconButton>
                 </span>
@@ -851,19 +930,55 @@ export default function TaskQueuePage() {
         future: 'pages.tasks.future',
       };
 
+      const icon = urgencySectionIcon[group];
+      const sectionColor = urgencySectionColor[group];
+
       return (
-        <Box key={group} sx={{ mb: 3 }} data-testid={`task-section-${group}`}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, pl: 0.5 }}>
-            {group === 'overdue' && (
-              <WarningAmberIcon sx={{ color: urgencySectionColor[group], fontSize: 20 }} />
+        <Box
+          key={group}
+          component="section"
+          aria-label={t(sectionKeys[group])}
+          sx={{ mb: 3 }}
+          data-testid={`task-section-${group}`}
+        >
+          {/* Section header: icon + label + count badge */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 1.5,
+              // Subtle left accent for the section heading matches urgency colour
+              borderLeft: '3px solid',
+              borderColor: sectionColor,
+              ml: -0.75,
+              pl: 1,
+            }}
+          >
+            {icon && (
+              <Box sx={{ color: sectionColor, display: 'flex', alignItems: 'center' }} aria-hidden="true">
+                {icon}
+              </Box>
             )}
             <Typography
               variant="overline"
-              sx={{ color: urgencySectionColor[group], fontWeight: 700, letterSpacing: 1.2 }}
+              component="h2"
+              sx={{ color: sectionColor, fontWeight: 700, letterSpacing: 1.2, lineHeight: 1 }}
             >
               {t(sectionKeys[group])}
             </Typography>
-            <Chip label={items.length} size="small" sx={{ height: 20, fontSize: '0.7rem', minWidth: 24 }} />
+            <Chip
+              label={items.length}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.7rem',
+                minWidth: 24,
+                // For overdue: red badge so count is also visually prominent
+                ...(group === 'overdue' ? { bgcolor: 'error.main', color: 'error.contrastText' } : {}),
+              }}
+              aria-label={t('pages.tasks.sectionCount', { count: items.length })}
+            />
           </Box>
           {items.map(renderItem)}
         </Box>
@@ -902,22 +1017,24 @@ export default function TaskQueuePage() {
                   variant="button"
                   sx={{ minHeight: 48 }}
                 />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                  onClick={handleGenerateCareReminders}
-                  disabled={generateLoading}
-                  data-testid="generate-reminders-button"
-                  sx={{ minHeight: 48 }}
-                >
-                  {t('pages.tasks.generateReminders')}
-                </Button>
+                <Tooltip title={t('pages.tasks.generateRemindersHelp')}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                    onClick={handleGenerateCareReminders}
+                    disabled={generateLoading}
+                    data-testid="generate-reminders-button"
+                    sx={{ minHeight: 48 }}
+                  >
+                    {t('pages.tasks.generateReminders')}
+                  </Button>
+                </Tooltip>
                 {taskCount > 0 && (
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<EditIcon />}
+                    startIcon={<LibraryAddCheckIcon />}
                     onClick={() => setBulkMode(true)}
                     data-testid="bulk-mode-button"
                     sx={{ minHeight: 48 }}
@@ -953,102 +1070,204 @@ export default function TaskQueuePage() {
         }
       />
 
+      {/* Page intro text — UI-NFR-017 / UI-NFR-008 R-038 */}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: -1 }}>
+        {t('pages.tasks.queueIntro')}
+      </Typography>
+
       {/* Bulk action bar */}
       {bulkMode && (
         <Paper
+          role="toolbar"
+          aria-label={t('pages.tasks.bulkActionBarLabel')}
           variant="outlined"
           sx={{ px: 2, py: 1, mb: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', bgcolor: 'action.hover' }}
           data-testid="bulk-action-bar"
         >
           <Button
             size="small"
+            aria-pressed={allSelected}
             startIcon={allSelected ? <CheckBoxIcon /> : <CheckBoxOutlineBlankIcon />}
             onClick={handleSelectAll}
             data-testid="select-all-button"
+            sx={{ minHeight: 44 }}
           >
             {allSelected ? t('pages.tasks.deselectAll') : t('pages.tasks.selectAll')}
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
             {t('pages.tasks.selectedCount', { count: selectedKeys.size })}
           </Typography>
-          <Button size="small" variant="contained" color="success" startIcon={bulkLoading ? <CircularProgress size={14} /> : <CheckIcon />} onClick={handleBulkComplete} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-complete-button">
-            {t('pages.tasks.bulkComplete')}
-          </Button>
-          <Button size="small" variant="outlined" startIcon={bulkLoading ? <CircularProgress size={14} /> : <SkipNextIcon />} onClick={handleBulkSkip} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-skip-button">
-            {t('pages.tasks.bulkSkip')}
-          </Button>
-          <Button size="small" variant="outlined" color="error" startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />} onClick={handleBulkDelete} disabled={selectedKeys.size === 0 || bulkLoading} data-testid="bulk-delete-button">
-            {t('pages.tasks.bulkDelete')}
-          </Button>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <CheckIcon />}
+                onClick={handleBulkComplete}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-complete-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkComplete')}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <SkipNextIcon />}
+                onClick={handleBulkSkip}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-skip-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkSkip')}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
+                onClick={handleBulkDelete}
+                disabled={selectedKeys.size === 0 || bulkLoading}
+                data-testid="bulk-delete-button"
+                sx={{ minHeight: 44 }}
+              >
+                {t('pages.tasks.bulkDelete')}
+              </Button>
+            </span>
+          </Tooltip>
         </Paper>
       )}
 
-      {/* Source filter + category/plant filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <ToggleButtonGroup
-          value={sourceFilter}
-          exclusive
-          onChange={(_, val) => val && setSourceFilter(val as SourceFilter)}
-          size="small"
-        >
-          <ToggleButton value="all" data-testid="filter-all">
-            {t('common.all')}
-          </ToggleButton>
-          <ToggleButton value="tasks" data-testid="filter-tasks">
-            {t('pages.tasks.title')}
-          </ToggleButton>
-          <ToggleButton value="care" data-testid="filter-care">
-            {t('nav.pflege')}
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        {sourceFilter !== 'care' && (
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>{t('pages.tasks.filterByCategory')}</InputLabel>
-            <Select
-              value={filterCategory}
-              label={t('pages.tasks.filterByCategory')}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              data-testid="filter-category"
+      {/* Filter bar */}
+      <Paper
+        variant="outlined"
+        aria-label={t('pages.tasks.filterBarLabel')}
+        sx={{ px: { xs: 1.5, sm: 2 }, py: 1.5, mb: 3 }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Source filter toggle */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FilterListIcon sx={{ fontSize: 18, color: 'text.secondary' }} aria-hidden="true" />
+            <ToggleButtonGroup
+              value={sourceFilter}
+              exclusive
+              onChange={(_, val) => val && setSourceFilter(val as SourceFilter)}
+              size="small"
+              aria-label={t('pages.tasks.filterSourceLabel')}
             >
-              <MenuItem value="">{t('common.all')}</MenuItem>
-              {taskCategories.map((c) => (
-                <MenuItem key={c} value={c}>{t(`enums.taskCategory.${c}`)}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-        <Autocomplete
-          size="small"
-          sx={{ minWidth: 220 }}
-          options={plants}
-          getOptionLabel={(p) =>
-            p.plant_name ? `${p.instance_id} - ${p.plant_name}` : p.instance_id
-          }
-          value={plants.find((p) => p.key === filterPlantKey) ?? null}
-          onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
-          renderInput={(params) => (
-            <TextField {...params} label={t('pages.tasks.filterByPlant')} data-testid="filter-plant" />
-          )}
-        />
-        {(filterCategory || filterPlantKey) && (
-          <Button
-            size="small"
-            startIcon={<ClearIcon />}
-            onClick={() => { setFilterCategory(''); setFilterPlantKey(null); }}
-          >
-            {t('common.clearFilters')}
-          </Button>
-        )}
-      </Box>
+              <ToggleButton value="all" data-testid="filter-all" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('common.all')}
+              </ToggleButton>
+              <ToggleButton value="tasks" data-testid="filter-tasks" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('pages.tasks.title')}
+              </ToggleButton>
+              <ToggleButton value="care" data-testid="filter-care" sx={{ minHeight: 36, px: { xs: 1, sm: 1.5 } }}>
+                {t('nav.pflege')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
 
+          {sourceFilter !== 'care' && (
+            <FormControl size="small" sx={{ minWidth: 160, flex: '1 1 160px', maxWidth: 240 }}>
+              <InputLabel>{t('pages.tasks.filterByCategory')}</InputLabel>
+              <Select
+                value={filterCategory}
+                label={t('pages.tasks.filterByCategory')}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                data-testid="filter-category"
+              >
+                <MenuItem value="">{t('common.all')}</MenuItem>
+                {taskCategories.map((c) => (
+                  <MenuItem key={c} value={c}>{t(`enums.taskCategory.${c}`)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <Autocomplete
+            size="small"
+            sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
+            options={plants}
+            getOptionLabel={(p) =>
+              p.plant_name ? `${p.instance_id} - ${p.plant_name}` : p.instance_id
+            }
+            value={plants.find((p) => p.key === filterPlantKey) ?? null}
+            onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
+            renderInput={(params) => (
+              <TextField {...params} label={t('pages.tasks.filterByPlant')} data-testid="filter-plant" />
+            )}
+          />
+
+          {hasActiveFilters && (
+            <Button
+              size="small"
+              startIcon={<ClearIcon />}
+              onClick={() => { setFilterCategory(''); setFilterPlantKey(null); }}
+              data-testid="clear-filters-button"
+              sx={{ minHeight: 36, whiteSpace: 'nowrap' }}
+            >
+              {t('common.clearFilters')}
+            </Button>
+          )}
+        </Box>
+
+        {/* Active filter summary chips — makes it obvious which filters are applied */}
+        {hasActiveFilters && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            {filterCategory && (
+              <Chip
+                label={t(`enums.taskCategory.${filterCategory}`)}
+                size="small"
+                onDelete={() => setFilterCategory('')}
+                color="primary"
+                variant="outlined"
+                data-testid="active-filter-category"
+              />
+            )}
+            {filterPlantKey && (
+              <Chip
+                label={plantNameMap.get(filterPlantKey) ?? filterPlantKey}
+                size="small"
+                onDelete={() => setFilterPlantKey(null)}
+                color="primary"
+                variant="outlined"
+                icon={<LocalFloristIcon />}
+                data-testid="active-filter-plant"
+              />
+            )}
+          </Box>
+        )}
+      </Paper>
+
+      {/* Content area */}
       {totalItems === 0 ? (
-        <EmptyState
-          illustration={kamiTasks}
-          message={t('pages.tasks.noTasks')}
-          actionLabel={t('pages.tasks.createTask')}
-          onAction={() => setCreateOpen(true)}
-        />
+        hasActiveFilters ? (
+          // Contextual empty state when filters are active
+          <EmptyState
+            illustration={kamiTasks}
+            message={t('pages.tasks.noTasksFiltered')}
+            description={t('pages.tasks.noTasksFilteredDesc')}
+            actionLabel={t('common.clearFilters')}
+            onAction={() => { setFilterCategory(''); setFilterPlantKey(null); }}
+          />
+        ) : (
+          <EmptyState
+            illustration={kamiTasks}
+            message={t('pages.tasks.noTasks')}
+            description={t('pages.tasks.noTasksDesc')}
+            actionLabel={t('pages.tasks.createTask')}
+            onAction={() => setCreateOpen(true)}
+          />
+        )
       ) : (
         <>
           {renderSection('overdue', grouped.overdue)}

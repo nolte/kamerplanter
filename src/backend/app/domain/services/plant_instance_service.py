@@ -9,6 +9,7 @@ from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 
@@ -22,6 +23,7 @@ class PlantInstanceService:
         companion_engine: CompanionPlantingEngine,
         phase_repo: IPhaseRepository | None = None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        task_repo: ITaskRepository | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
@@ -29,6 +31,7 @@ class PlantInstanceService:
         self._companion = companion_engine
         self._phase_repo = phase_repo
         self._phase_seq_repo = phase_seq_repo
+        self._task_repo = task_repo
 
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
@@ -91,6 +94,10 @@ class PlantInstanceService:
         plant.removed_on = date.today()
         updated = self._repo.update(key, plant)
 
+        # Remove the now-obsolete open tasks of this plant from the queue.
+        # Completed/skipped/failed tasks are kept as history.
+        self._delete_open_tasks_for_plant(key)
+
         if plant.slot_key:
             slot = self._site_repo.get_slot_by_key(plant.slot_key)
             if slot:
@@ -100,6 +107,24 @@ class PlantInstanceService:
                     self._site_repo.update_slot(plant.slot_key, slot)
 
         return updated
+
+    # Tasks that are still actionable when a plant is removed.
+    _OPEN_TASK_STATUSES = ("pending", "in_progress", "dormant")
+
+    def _delete_open_tasks_for_plant(self, key: PlantID) -> int:
+        """Delete all open tasks attached to the given plant.
+
+        Returns the number of deleted tasks. No-op when no task repository
+        is wired (keeps the service usable in contexts without tasks).
+        """
+        if self._task_repo is None:
+            return 0
+        deleted = 0
+        for task in self._task_repo.get_tasks_for_plant(key):
+            if task.key and task.status in self._OPEN_TASK_STATUSES:
+                self._task_repo.delete_task(task.key)
+                deleted += 1
+        return deleted
 
     def get_plants_in_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
         return self._repo.get_active_by_slot(slot_key)

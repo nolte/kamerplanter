@@ -1,4 +1,4 @@
-import client from '../client';
+import client, { tenantClient } from '../client';
 import type {
   CareProfile,
   CareConfirmation,
@@ -22,7 +22,9 @@ export interface ConfirmReminderOptions {
 }
 
 export async function getDashboard(hemisphere = 'north'): Promise<CareDashboardEntry[]> {
-  const { data } = await client.get<CareDashboardEntry[]>(`${BASE}/dashboard`, {
+  // Tenant-scoped: tenantClient prepends /t/{slug} so only the active tenant's
+  // plants are aggregated (cross-tenant isolation enforced server-side).
+  const { data } = await tenantClient.get<CareDashboardEntry[]>(`${BASE}/dashboard`, {
     params: { hemisphere },
   });
   return data;

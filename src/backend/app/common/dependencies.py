@@ -154,6 +154,7 @@ def get_plant_instance_service() -> PlantInstanceService:
         companion_engine,
         phase_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        task_repo=get_task_repo(),
     )
 
 
@@ -509,6 +510,8 @@ def get_care_reminder_service() -> CareReminderService:
         plant_repo=get_plant_repo(),
         lifecycle_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        species_repo=get_species_repo(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
     )
 
 

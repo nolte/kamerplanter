@@ -52,6 +52,12 @@ def generate_due_care_reminders() -> dict:
         if not plant_key:
             continue
 
+        # Skip removed plants: their care profiles must not keep spawning tasks.
+        plant = plant_repo.get_by_key(plant_key)
+        if plant is None or plant.removed_on is not None:
+            skipped_count += 1
+            continue
+
         has_plan = plant_key in plants_with_schedule
         has_nutrient_plan = nutrient_plan_repo.get_plant_plan(plant_key) is not None
 
@@ -59,8 +65,7 @@ def generate_due_care_reminders() -> dict:
         if not has_plan:
             # Resolve phase-specific watering interval — prefer PhaseSequence, fallback to LifecycleConfig
             phase_interval = None
-            plant = plant_repo.get_by_key(plant_key)
-            if plant and plant.current_phase_key:
+            if plant.current_phase_key:
                 # Try PhaseSequence first
                 resolved = False
                 if phase_seq_repo:
@@ -125,12 +130,8 @@ def generate_due_care_reminders() -> dict:
                 continue
 
             # Resolve plant name and tenant for user-friendly display
-            plant_label = plant_key
-            plant_tenant_key = ""
-            plant = plant_repo.get_by_key(plant_key)
-            if plant is not None:
-                plant_label = plant.plant_name or plant.instance_id or plant_key
-                plant_tenant_key = plant.tenant_key
+            plant_label = plant.plant_name or plant.instance_id or plant_key
+            plant_tenant_key = plant.tenant_key
 
             rt_instructions = {
                 ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",

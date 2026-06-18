@@ -250,9 +250,11 @@ def check_runoff_trends() -> dict:
     feeding_repo = get_feeding_repo()
     task_repo = get_task_repo()
 
-    # Get all plant instances in vegetative or flowering phase
+    # Get all active plant instances in vegetative or flowering phase.
+    # Removed plants must not spawn flush tasks.
     query = """
     FOR doc IN plant_instances
+      FILTER doc.removed_on == null
       LET gp = DOCUMENT(CONCAT('growth_phases/', doc.current_phase_key))
       FILTER gp != null AND gp.name IN @phases
       RETURN doc._key
