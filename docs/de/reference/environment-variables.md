@@ -261,6 +261,9 @@ PLANTNET_API_KEY gesetzt?
 
 Diese Variablen aktivieren den Browser-Push-Benachrichtigungskanal (`channel_key: "pwa"`). Sind alle drei Variablen leer, ist der Kanal deaktiviert — die Anwendung bleibt vollständig funktionsfähig, Nutzer sehen dann die Meldung "Nicht konfiguriert" in den Benachrichtigungseinstellungen.
 
+!!! tip "Schritt-für-Schritt-Anleitung"
+    Der Guide [Browser-Push einrichten](../guides/browser-push-setup.md) führt durch das Erzeugen des Schlüsselpaars, das Eintragen in Docker Compose bzw. Kubernetes und die Verifikation der Einrichtung.
+
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `VAPID_PUBLIC_KEY` | — | Nein* | VAPID-Public-Key (Base64url, 87 Zeichen). Wird an den Browser übermittelt und in der PWA-Subscription verwendet. |
@@ -284,10 +287,27 @@ Private Key:
 8Kv...
 ```
 
-Alternativ mit `pywebpush` (Python), das auch PEM-formatierte Private Keys akzeptiert:
+Alternativ mit `pywebpush` (Python) — `b64urlencode` ist nötig, da `v.public_key`/`v.private_key` Schlüsselobjekte sind und erst die Serialisierung die Base64url-Strings liefert:
 ```bash
 pip install pywebpush
-python -c "from py_vapid import Vapid; v = Vapid(); v.generate_keys(); print('Public:', v.public_key); print('Private:', v.private_key)"
+python3 - <<'PY'
+from py_vapid import Vapid
+from py_vapid.utils import b64urlencode
+from cryptography.hazmat.primitives import serialization
+
+v = Vapid()
+v.generate_keys()
+pub_raw = v.public_key.public_bytes(
+    serialization.Encoding.X962,
+    serialization.PublicFormat.UncompressedPoint,
+)
+priv_raw = v.private_key.private_numbers().private_value.to_bytes(32, "big")
+pub, priv = b64urlencode(pub_raw), b64urlencode(priv_raw)
+assert pub_raw[0] == 0x04 and len(pub_raw) == 65 and len(pub) == 87, "invalid public key"
+assert len(priv_raw) == 32 and len(priv) == 43, "invalid private key"
+print("VAPID_PUBLIC_KEY =", pub)
+print("VAPID_PRIVATE_KEY=", priv)
+PY
 ```
 
 !!! danger "Private Key serverseitig halten"
