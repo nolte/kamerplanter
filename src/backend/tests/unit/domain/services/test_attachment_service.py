@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 from unittest.mock import patch
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -19,6 +20,7 @@ from app.common.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
     StorageQuotaExceededError,
+    VirusScanRejectedError,
 )
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
@@ -286,6 +288,122 @@ class TestDedup:
         assert first.key == second.key
         # Only one catalog record was written.
         assert repo.create_calls == 1
+
+
+class TestVirusScan:
+    """SEC-006 — SSRF-validated, fail-closed virus scanning."""
+
+    async def test_ssrf_endpoint_rejected(self, adapter, repo):
+        # A non-https / metadata endpoint must be rejected (upload fails closed).
+        settings = Settings(
+            storage_virus_scan_enabled=True,
+            storage_virus_scan_endpoint="http://169.254.169.254/scan",
+        )
+        svc = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+        with pytest.raises(VirusScanRejectedError):
+            await svc.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="x.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+
+    async def test_missing_endpoint_fails_closed(self, adapter, repo):
+        settings = Settings(storage_virus_scan_enabled=True, storage_virus_scan_endpoint="")
+        svc = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+        with pytest.raises(VirusScanRejectedError):
+            await svc.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="x.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+
+    async def test_scanner_unreachable_fails_closed(self, adapter, repo):
+        settings = Settings(
+            storage_virus_scan_enabled=True,
+            storage_virus_scan_endpoint="https://scanner.example.test/scan",
+        )
+        svc = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+
+        # Pass SSRF validation but make the HTTP call fail → upload rejected.
+        with (
+            patch("app.domain.services.attachment_service.validate_server_side_url", return_value="ok"),
+            patch(
+                "app.domain.services.attachment_service.httpx.AsyncClient.post",
+                side_effect=httpx.ConnectError("refused"),
+            ),
+            pytest.raises(VirusScanRejectedError),
+        ):
+            await svc.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="x.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+
+    async def test_clean_verdict_allows_upload(self, adapter, repo):
+        settings = Settings(
+            storage_virus_scan_enabled=True,
+            storage_virus_scan_endpoint="https://scanner.example.test/scan",
+        )
+        svc = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+
+        clean_response = httpx.Response(
+            200, json={"clean": True}, request=httpx.Request("POST", "https://scanner.example.test/scan")
+        )
+        with (
+            patch("app.domain.services.attachment_service.validate_server_side_url", return_value="ok"),
+            patch(
+                "app.domain.services.attachment_service.httpx.AsyncClient.post",
+                return_value=clean_response,
+            ),
+            patch("app.tasks.storage_tasks.generate_thumbnails.delay"),
+        ):
+            attachment = await svc.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="ok.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        assert attachment.key is not None
+
+    async def test_malware_verdict_rejected(self, adapter, repo):
+        settings = Settings(
+            storage_virus_scan_enabled=True,
+            storage_virus_scan_endpoint="https://scanner.example.test/scan",
+        )
+        svc = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+
+        infected = httpx.Response(
+            200,
+            json={"clean": False, "finding": "EICAR"},
+            request=httpx.Request("POST", "https://scanner.example.test/scan"),
+        )
+        with (
+            patch("app.domain.services.attachment_service.validate_server_side_url", return_value="ok"),
+            patch(
+                "app.domain.services.attachment_service.httpx.AsyncClient.post",
+                return_value=infected,
+            ),
+            pytest.raises(VirusScanRejectedError),
+        ):
+            await svc.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="bad.jpg",
+                category=AttachmentCategory.DIARY,
+            )
 
 
 class TestDelete:

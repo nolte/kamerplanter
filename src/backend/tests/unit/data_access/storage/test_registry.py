@@ -50,3 +50,58 @@ class TestStorageAdapterRegistry:
         monkeypatch.setattr(settings_module.settings, "storage_localfs_signing_secret", "secret")
         adapter = registry.get_for_backend()
         assert isinstance(adapter, LocalFsStorageAdapter)
+
+
+class TestSigningSecretResolution:
+    """SEC-004 — the known jwt_secret_key default must never sign tokens."""
+
+    def _resolve(self):
+        import app.data_access.storage.registry as registry_module
+
+        return registry_module._resolve_localfs_signing_secret()
+
+    def test_explicit_signing_secret_is_used(self, monkeypatch):
+        from app.config import settings as settings_module
+
+        monkeypatch.setattr(settings_module.settings, "storage_localfs_signing_secret", "strong-explicit-secret")
+        assert self._resolve() == "strong-explicit-secret"
+
+    def test_known_default_jwt_secret_is_rejected_and_ephemeral_generated(self, monkeypatch):
+        import app.data_access.storage.registry as registry_module
+        from app.config import settings as settings_module
+
+        known_default = "change-me-in-production-use-openssl-rand-hex-32"
+        monkeypatch.setattr(settings_module.settings, "storage_localfs_signing_secret", "")
+        monkeypatch.setattr(settings_module.settings, "jwt_secret_key", known_default)
+        monkeypatch.setattr(settings_module.settings, "fernet_key", "")
+
+        warnings: list[tuple] = []
+        monkeypatch.setattr(
+            registry_module.logger,
+            "warning",
+            lambda *a, **k: warnings.append((a, k)),
+        )
+
+        secret = self._resolve()
+        # An ephemeral hex secret is generated, never the known default string.
+        assert secret != known_default
+        assert len(secret) == 64  # secrets.token_hex(32)
+        # A warning was emitted, and it never contains the secret value.
+        assert warnings
+        assert all(known_default not in str(w) and secret not in str(w) for w in warnings)
+
+    def test_empty_chain_generates_ephemeral_secret(self, monkeypatch):
+        from app.config import settings as settings_module
+
+        monkeypatch.setattr(settings_module.settings, "storage_localfs_signing_secret", "")
+        monkeypatch.setattr(settings_module.settings, "jwt_secret_key", "")
+        monkeypatch.setattr(settings_module.settings, "fernet_key", "")
+        secret = self._resolve()
+        assert len(secret) == 64
+
+    def test_strong_jwt_secret_is_accepted(self, monkeypatch):
+        from app.config import settings as settings_module
+
+        monkeypatch.setattr(settings_module.settings, "storage_localfs_signing_secret", "")
+        monkeypatch.setattr(settings_module.settings, "jwt_secret_key", "a-strong-non-default-jwt-secret")
+        assert self._resolve() == "a-strong-non-default-jwt-secret"

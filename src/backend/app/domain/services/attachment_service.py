@@ -25,6 +25,7 @@ written, so a rejected upload never leaves orphan objects:
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -37,11 +38,13 @@ from app.common.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
     StorageQuotaExceededError,
+    ValidationError,
     VirusScanRejectedError,
 )
+from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
 from app.domain.engines.storage.exif_stripper import ExifStripper
-from app.domain.engines.storage.magic_byte_validator import MagicByteValidator
+from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
@@ -97,6 +100,10 @@ class AttachmentService:
 
     # --- Upload ------------------------------------------------------
 
+    def max_upload_bytes(self) -> int:
+        """Configured maximum upload size in bytes (NFR-013 §5.2)."""
+        return self._settings.storage_max_file_size_mb * 1024 * 1024
+
     async def upload(
         self,
         *,
@@ -119,8 +126,10 @@ class AttachmentService:
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 
-        # 3. Magic-byte validation (content must match declared MIME).
-        if not self._magic.is_valid(data, mime_type):
+        # 3. Magic-byte validation (content must match declared MIME). Only the
+        #    leading prefix is needed — passing a slice avoids decoding the whole
+        #    body for text/csv sniffing (SEC-008).
+        if not self._magic.is_valid(data[:_SNIFF_LEN], mime_type):
             raise InvalidFileTypeError(mime_type, allowed)
 
         # 4. Size limit.
@@ -204,19 +213,51 @@ class AttachmentService:
             raise StorageQuotaExceededError(tenant_key, float(quota_mb))
 
     async def _virus_scan(self, data: bytes) -> None:
+        """Scan ``data`` via the configured scanner — fail-closed (SEC-006).
+
+        The endpoint is validated against SSRF (https + public address only,
+        blocking the cloud metadata IP and private ranges) on every use. When
+        scanning is enabled and the scanner is unreachable, errors out, or
+        returns an oversized/malformed response, the upload is **rejected**
+        rather than silently let through.
+        """
         endpoint = self._settings.storage_virus_scan_endpoint
         if not endpoint:
-            return
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                endpoint,
-                content=data,
-                headers={"Content-Type": "application/octet-stream"},
-            )
-        response.raise_for_status()
-        payload = response.json()
-        if not payload.get("clean", True):
-            raise VirusScanRejectedError(str(payload.get("finding", "malware detected")))
+            # Scanning is enabled (caller checked) but no endpoint is configured:
+            # fail-closed — do not let unscanned bytes through.
+            raise VirusScanRejectedError("virus scanner endpoint not configured")
+
+        # SSRF guard — reject internal/metadata targets before dialing.
+        try:
+            validate_server_side_url(endpoint, field="storage_virus_scan_endpoint")
+        except ValidationError as exc:
+            logger.warning("virus_scan_endpoint_rejected", reason="ssrf_validation_failed")
+            raise VirusScanRejectedError("virus scanner endpoint is not a safe URL") from exc
+
+        # Cap the response body so a hostile/misbehaving scanner cannot exhaust
+        # memory (1 MiB is ample for a JSON verdict).
+        max_response_bytes = 1024 * 1024
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint,
+                    content=data,
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+                response.raise_for_status()
+                body = response.content[: max_response_bytes + 1]
+            if len(body) > max_response_bytes:
+                raise VirusScanRejectedError("virus scanner response too large")
+            payload = json.loads(body.decode("utf-8"))
+        except VirusScanRejectedError:
+            raise
+        except (httpx.HTTPError, ValueError, UnicodeDecodeError) as exc:
+            logger.warning("virus_scan_unavailable", reason=type(exc).__name__)
+            raise VirusScanRejectedError("virus scan could not be completed") from exc
+
+        if not isinstance(payload, dict) or not payload.get("clean", False):
+            finding = payload.get("finding", "malware detected") if isinstance(payload, dict) else "malware detected"
+            raise VirusScanRejectedError(str(finding))
 
     def _dispatch_thumbnails(self, attachment_id: str | None, tenant_key: str) -> None:
         if not attachment_id:
@@ -250,6 +291,8 @@ class AttachmentService:
                 attachment.storage_key,
                 ttl_seconds=self._settings.storage_presign_ttl_seconds,
                 response_disposition=f'inline; filename="{attachment_id}"',
+                tenant_key=tenant_key,
+                attachment_id=attachment_id,
             )
             return DownloadTarget(attachment=attachment, redirect_url=url)
         return DownloadTarget(attachment=attachment, redirect_url=None)
@@ -258,11 +301,14 @@ class AttachmentService:
         """Return an explicit presign/token download URL, or ``None`` if unsupported."""
         attachment = self.get_attachment(attachment_id, tenant_key)
         # local-fs reports supports_presigned_download=False but still emits a
-        # usable signed token URL — surface it so the FE has a direct link.
+        # usable signed token URL — surface it so the FE has a direct link. The
+        # token is bound to its tenant + attachment (SEC-001).
         return self._storage.presign_download_url(
             attachment.storage_key,
             ttl_seconds=self._settings.storage_presign_ttl_seconds,
             response_disposition=f'inline; filename="{attachment_id}"',
+            tenant_key=tenant_key,
+            attachment_id=attachment_id,
         )
 
     def presign_upload(self, tenant_key: str, category: AttachmentCategory, mime_type: str) -> str | None:

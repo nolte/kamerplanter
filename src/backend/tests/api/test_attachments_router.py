@@ -250,6 +250,133 @@ class TestTokenRedemption:
         resp = client.get("/api/v1/attachments/token/not-a-valid-token")
         assert resp.status_code == 401
 
+    def test_token_for_other_tenant_key_is_rejected(self, tmp_path):
+        # SEC-001 — a validly-signed token whose key prefix does not match the
+        # bound tenant_key must be rejected (cross-tenant replay).
+        app, _service, adapter = _build(tmp_path)
+        client = TestClient(app)
+
+        # Forge a properly-signed token (same secret) whose key belongs to a
+        # different tenant than the embedded tenant_key claim.
+        token = adapter._make_token(
+            {
+                "op": "download",
+                "key": "t/tenant_bob/diary/2026/06/x.jpg",
+                "tenant_key": "tenant_anna",
+                "exp": 2_000_000_000,
+                "disposition": None,
+            }
+        )
+        resp = client.get(f"/api/v1/attachments/token/{token}")
+        assert resp.status_code == 401
+
+    def test_token_without_tenant_claim_is_rejected(self, tmp_path):
+        # A legacy/unbound token (no tenant_key) is no longer accepted.
+        app, _service, adapter = _build(tmp_path)
+        client = TestClient(app)
+        token = adapter._make_token(
+            {"op": "download", "key": "t/tenant_anna/diary/x.jpg", "exp": 2_000_000_000, "disposition": None}
+        )
+        resp = client.get(f"/api/v1/attachments/token/{token}")
+        assert resp.status_code == 401
+
+
+class TestPresignUploadDisabled:
+    def test_presign_upload_returns_409(self, tmp_path):
+        # SEC-003 — presigned upload is disabled for ALL backends.
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        resp = client.post(
+            _base("/presign-upload"),
+            json={"category": "diary", "mime_type": "image/jpeg"},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["error_code"] == "PRESIGN_UPLOAD_UNSUPPORTED"
+
+
+class TestUploadSizeGuard:
+    def test_oversized_content_length_rejected_without_reading(self, tmp_path):
+        # SEC-005 — an oversized Content-Length is rejected with 413 up front.
+        app, service, _adapter = _build(tmp_path)
+        max_bytes = service.max_upload_bytes()
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _make_jpeg(), "image/jpeg")},
+            data={"category": "diary"},
+            headers={"Content-Length": str(max_bytes + 1)},
+        )
+        assert resp.status_code == 413
+        assert resp.json()["error_code"] == "FILE_TOO_LARGE"
+
+    def test_oversized_body_rejected_chunked(self, tmp_path):
+        # SEC-005 — even with a small/zero size limit the chunked read caps RAM
+        # and rejects with 413 (the Content-Length path may not trip for a tiny
+        # multipart, so this exercises the streaming guard).
+        repo = _FakeRepo()
+        adapter = LocalFsStorageAdapter(
+            root=str(tmp_path),
+            public_base_url="http://testserver/api/v1/attachments/token",
+            signing_secret="api-test-secret",
+            max_object_size_bytes=25 * 1024 * 1024,
+        )
+        settings = Settings(storage_max_file_size_mb=0)
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+
+        app = FastAPI()
+        app.include_router(tenant_attachments_router, prefix="/api/v1/t/{tenant_slug}")
+        app.add_exception_handler(KamerplanterError, _error_handler)
+        app.dependency_overrides[get_current_tenant] = lambda: _ctx(TenantRole.ADMIN)
+        app.dependency_overrides[get_attachment_service] = lambda: service
+        client = TestClient(app)
+
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _make_jpeg(), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        assert resp.status_code == 413
+
+
+class TestDownloadHeaders:
+    def test_image_download_has_nosniff(self, tmp_path):
+        # SEC-009 — every download carries X-Content-Type-Options: nosniff.
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _make_jpeg(), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        attachment_id = resp.json()["attachment_id"]
+        resp = client.get(_base(f"/{attachment_id}"))
+        assert resp.status_code == 200
+        assert resp.headers["x-content-type-options"] == "nosniff"
+        # image/* may render inline → no forced attachment disposition.
+        assert resp.headers.get("content-disposition", "") != "attachment"
+
+    def test_non_image_download_forces_attachment(self, tmp_path):
+        # SEC-009 — a non-image MIME type is forced to download. A CSV upload in
+        # the ``import`` category goes through the normal proxy pipeline (no
+        # manual event-loop juggling), then the download must carry
+        # Content-Disposition: attachment.
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+
+        csv_bytes = b"name,scientific_name\nTomato,Solanum lycopersicum\n"
+        resp = client.post(
+            _base(),
+            files={"file": ("plants.csv", csv_bytes, "text/csv")},
+            data={"category": "import"},
+        )
+        assert resp.status_code == 201, resp.text
+        attachment_id = resp.json()["attachment_id"]
+
+        resp = client.get(_base(f"/{attachment_id}"))
+        assert resp.status_code == 200
+        assert resp.headers["x-content-type-options"] == "nosniff"
+        assert resp.headers["content-disposition"] == "attachment"
+
 
 @pytest.fixture(autouse=True)
 def _restore_delay():

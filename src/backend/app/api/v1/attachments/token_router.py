@@ -16,12 +16,16 @@ rejected as an invalid token.
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from app.api.v1.attachments.response_headers import harden_download_headers
 from app.common.dependencies import get_object_storage
 from app.common.exceptions import InvalidTokenError, NotFoundError
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/attachments/token", tags=["attachments"])
 
@@ -45,13 +49,26 @@ async def redeem_token(
     if not key:
         raise InvalidTokenError("download token")
 
+    # SEC-001 — the token must be bound to a tenant whose prefix the storage key
+    # actually lives under. A token forged/replayed for another tenant's key is
+    # rejected even though the HMAC is valid for that tenant's secret.
+    tenant_key = payload.get("tenant_key")
+    if not tenant_key or not str(key).startswith(f"t/{tenant_key}/"):
+        raise InvalidTokenError("download token")
+
     try:
         stream = await storage.get_object(key)
     except NotFoundError as exc:
         raise InvalidTokenError("download token") from exc
 
+    # Audit the redemption with the tenant binding — never log the token itself.
+    logger.info("attachment_token_download", tenant_key=tenant_key, attachment_id=payload.get("aid"))
+
     headers = {"Cache-Control": "private, max-age=86400"}
     disposition = payload.get("disposition")
-    if disposition:
-        headers["Content-Disposition"] = disposition
+    # Harden against content-sniffing / drive-by: force ``attachment`` for
+    # non-image MIME types, always set ``X-Content-Type-Options: nosniff``
+    # (SEC-009). ``mime_type`` is unknown here (no catalog lookup), so derive
+    # safety from the requested disposition.
+    headers = harden_download_headers(headers, mime_type=None, requested_disposition=disposition)
     return StreamingResponse(stream, headers=headers)

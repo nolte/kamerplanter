@@ -15,8 +15,10 @@ import structlog
 
 logger = structlog.get_logger()
 
-# Number of leading bytes we need to inspect for the longest signature/offset.
-_SNIFF_LEN = 16
+# Number of leading bytes inspected. Binary signatures need only ~16 bytes;
+# the larger window bounds the text/CSV UTF-8 decode to a cheap prefix so a
+# multi-megabyte upload is never fully decoded just to sniff its type (SEC-008).
+_SNIFF_LEN = 512
 
 
 class MagicByteValidator:
@@ -25,15 +27,16 @@ class MagicByteValidator:
     def is_valid(self, data: bytes, mime_type: str) -> bool:
         """Return ``True`` when ``data`` plausibly matches ``mime_type``.
 
-        ``data`` only needs to contain the leading bytes of the object; the
-        service passes the first chunk. Unknown MIME types return ``False``
-        (deny by default) — the caller has already whitelisted the type, so a
-        validator miss means an unexpected type slipped through.
+        Only the first ``_SNIFF_LEN`` bytes are inspected; the service already
+        passes a sliced prefix, but the slice here makes the bound hold for any
+        caller. Unknown MIME types return ``False`` (deny by default) — the
+        caller has already whitelisted the type, so a validator miss means an
+        unexpected type slipped through.
         """
         checker = _SIGNATURE_CHECKS.get(mime_type)
         if checker is None:
             return False
-        return checker(data)
+        return checker(data[:_SNIFF_LEN])
 
 
 # --- Per-type signature predicates --------------------------------------
@@ -116,4 +119,4 @@ _SIGNATURE_CHECKS = {
     "text/plain": _check_text_csv,
 }
 
-__all__ = ["MagicByteValidator"]
+__all__ = ["MagicByteValidator", "_SNIFF_LEN"]

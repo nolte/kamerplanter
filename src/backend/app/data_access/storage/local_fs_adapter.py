@@ -266,17 +266,26 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         key: str,
         ttl_seconds: int = 900,
         response_disposition: str | None = None,
+        *,
+        tenant_key: str | None = None,
+        attachment_id: str | None = None,
     ) -> str:
         # Validate the key so we never sign an unsafe path.
         _sanitize_key(key)
-        token = self._make_token(
-            {
-                "op": "download",
-                "key": key,
-                "exp": int(time.time()) + ttl_seconds,
-                "disposition": response_disposition,
-            }
-        )
+        payload: dict[str, Any] = {
+            "op": "download",
+            "key": key,
+            "exp": int(time.time()) + ttl_seconds,
+            "disposition": response_disposition,
+        }
+        # Bind the token to its tenant + attachment so a self-contained token URL
+        # cannot be replayed against another tenant's object (SEC-001). The
+        # redemption endpoint cross-checks the key prefix against this claim.
+        if tenant_key is not None:
+            payload["tenant_key"] = tenant_key
+        if attachment_id is not None:
+            payload["aid"] = attachment_id
+        token = self._make_token(payload)
         return f"{self._public_base_url}/{token}"
 
     def presign_upload_url(self, key: str, mime_type: str, ttl_seconds: int = 900) -> str:

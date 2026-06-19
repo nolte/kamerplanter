@@ -1,6 +1,6 @@
 """NFR-013 §5.1 step 3 — MagicByteValidator unit tests."""
 
-from app.domain.engines.storage.magic_byte_validator import MagicByteValidator
+from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"
 PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
@@ -59,3 +59,14 @@ class TestMagicByteValidator:
     def test_csv_blocks_binary_with_nul(self) -> None:
         binary = b"name,sci\x00\x01\x02"
         assert self.validator.is_valid(binary, "text/csv") is False
+
+    def test_only_inspects_sniff_prefix_for_csv(self) -> None:
+        # SEC-008 — a NUL byte beyond the sniff window must NOT cause a false
+        # negative; only the first _SNIFF_LEN bytes are decoded/inspected.
+        data = (b"a," * 300)[:_SNIFF_LEN] + b"\x00" * 10_000
+        assert self.validator.is_valid(data, "text/csv") is True
+
+    def test_signature_check_ignores_bytes_past_prefix(self) -> None:
+        # Valid JPEG header followed by garbage well past the prefix still valid.
+        data = JPEG + b"\xff" * (_SNIFF_LEN * 4)
+        assert self.validator.is_valid(data, "image/jpeg") is True

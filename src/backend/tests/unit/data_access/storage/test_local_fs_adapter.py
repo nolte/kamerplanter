@@ -72,6 +72,21 @@ class TestSignedTokenUrls:
         assert payload["key"] == "t-1/diary/a.jpg"
         assert payload["disposition"] == "inline"
 
+    def test_presign_download_binds_tenant_and_attachment(self, tmp_path):
+        # SEC-001 — tenant_key + aid are embedded in the signed payload.
+        adapter = _adapter(tmp_path)
+        url = adapter.presign_download_url(
+            "t/tenant_anna/diary/a.jpg",
+            ttl_seconds=300,
+            tenant_key="tenant_anna",
+            attachment_id="att42",
+        )
+        token = url.rsplit("/", 1)[1]
+        payload = adapter.verify_token(token)
+        assert payload is not None
+        assert payload["tenant_key"] == "tenant_anna"
+        assert payload["aid"] == "att42"
+
     def test_presign_upload_url_embeds_constraints(self, tmp_path):
         adapter = _adapter(tmp_path)
         url = adapter.presign_upload_url("t-1/diary/b.jpg", "image/jpeg", ttl_seconds=300)

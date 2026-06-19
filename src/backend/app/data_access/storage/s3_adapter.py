@@ -260,7 +260,13 @@ class S3StorageAdapter(IObjectStorageAdapter):
         key: str,
         ttl_seconds: int = 900,
         response_disposition: str | None = None,
+        *,
+        tenant_key: str | None = None,
+        attachment_id: str | None = None,
     ) -> str:
+        # ``tenant_key`` / ``attachment_id`` are local-fs token claims; S3 native
+        # presign signs the bucket key (which already carries the tenant prefix)
+        # server-side, so the extra claims are intentionally ignored here.
         client = self._get_client()
         params: dict[str, Any] = {"Bucket": self._bucket, "Key": key}
         if response_disposition:

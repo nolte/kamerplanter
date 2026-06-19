@@ -17,11 +17,21 @@ change is required to switch.
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Callable
 from typing import Any
 
+import structlog
+
 from app.config.settings import settings
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+
+logger = structlog.get_logger()
+
+#: The publicly-known placeholder default for ``jwt_secret_key`` (settings.py).
+#: It must never be promoted to a token-signing secret — anyone could forge
+#: download tokens with it.
+_KNOWN_DEFAULT_JWT_SECRET = "change-me-in-production-use-openssl-rand-hex-32"
 
 #: A factory takes an optional attachment repo and returns a configured adapter.
 StorageAdapterFactory = Callable[[Any], IObjectStorageAdapter]
@@ -66,8 +76,32 @@ class StorageAdapterRegistry:
 
 
 def _resolve_localfs_signing_secret() -> str:
-    """local-fs signing secret with fallback chain (NFR-013 §4.1)."""
-    return settings.storage_localfs_signing_secret or settings.jwt_secret_key or settings.fernet_key
+    """Resolve the local-fs token-signing secret (NFR-013 §4.1, SEC-004).
+
+    Fallback chain: ``STORAGE_LOCALFS_SIGNING_SECRET`` → ``jwt_secret_key`` →
+    ``fernet_key``. The resolved value is rejected when it is empty **or** equal
+    to the publicly-known ``jwt_secret_key`` placeholder default — signing
+    download tokens with a known string would let anyone forge them.
+
+    When no strong secret is configured we fall back to an **ephemeral
+    process-local** secret (``secrets.token_hex(32)``) and warn the operator.
+    Such tokens are unforgeable but do not survive a restart and are not shared
+    across replicas, so ``STORAGE_LOCALFS_SIGNING_SECRET`` MUST be set for
+    multi-replica / persistent token URLs. The secret value is never logged.
+    """
+    candidate = settings.storage_localfs_signing_secret or settings.jwt_secret_key or settings.fernet_key
+    if not candidate or candidate == _KNOWN_DEFAULT_JWT_SECRET:
+        logger.warning(
+            "storage_localfs_signing_secret_ephemeral",
+            reason="no_strong_signing_secret_configured",
+            detail=(
+                "Generated an ephemeral process-local local-fs token signing secret. "
+                "Set STORAGE_LOCALFS_SIGNING_SECRET to a strong random value, otherwise "
+                "download token URLs become invalid after a restart and across replicas."
+            ),
+        )
+        return secrets.token_hex(32)
+    return candidate
 
 
 @StorageAdapterRegistry.register("local-fs")

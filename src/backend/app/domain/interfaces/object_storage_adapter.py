@@ -71,8 +71,18 @@ class IObjectStorageAdapter(ABC):
         key: str,
         ttl_seconds: int = 900,
         response_disposition: str | None = None,
+        *,
+        tenant_key: str | None = None,
+        attachment_id: str | None = None,
     ) -> str:
-        """Return a URL the client can ``GET`` directly (or a signed proxy URL)."""
+        """Return a URL the client can ``GET`` directly (or a signed proxy URL).
+
+        ``tenant_key`` / ``attachment_id`` bind a backend-signed token to a
+        tenant + attachment so a self-contained token URL cannot be replayed to
+        stream another tenant's object (SEC-001). Native-presign backends (S3)
+        ignore these extra claims — the bucket path itself already carries the
+        tenant prefix and the URL is server-side signed.
+        """
 
     @abstractmethod
     async def copy_object(self, src_key: str, dst_key: str) -> None:
