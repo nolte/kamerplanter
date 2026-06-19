@@ -100,6 +100,71 @@ def is_safe_push_endpoint(endpoint: str) -> bool:
     return True
 
 
+def validate_server_side_url(url: str, *, field: str = "url") -> str:
+    """Validate any server-side-dialed URL against SSRF (generic variant).
+
+    Enforces ``https`` and that every resolved address is public/routable —
+    blocking loopback, RFC1918, link-local (incl. the cloud metadata endpoint
+    ``169.254.169.254``), reserved, multicast and unspecified addresses. Unlike
+    :func:`validate_push_endpoint` this carries no push-specific allowlist, so it
+    suits internal integrations such as the virus-scan endpoint (SEC-006).
+
+    Args:
+        url: The URL the server will dial.
+        field: Field name surfaced in the raised ``ValidationError`` details.
+
+    Returns:
+        The (unchanged) URL when it passes all checks.
+
+    Raises:
+        ValidationError: if the URL is empty/too long, not https, malformed,
+            unresolvable, or resolves to an internal/non-routable address.
+    """
+    if not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        raise ValidationError(
+            "Invalid URL.",
+            details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
+        )
+
+    parts = urlsplit(url)
+    if parts.scheme != "https":
+        raise ValidationError(
+            "URL must use https.",
+            details=[{"field": field, "reason": "Only https URLs are accepted.", "code": "INVALID_URL_SCHEME"}],
+        )
+
+    host = parts.hostname
+    if not host:
+        raise ValidationError(
+            "URL has no host.",
+            details=[{"field": field, "reason": "URL has no host.", "code": "INVALID_URL"}],
+        )
+
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            "URL host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+
+    for address in addresses:
+        if _is_blocked_address(address):
+            logger.warning("server_side_url_rejected_ssrf", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "URL resolves to a non-routable address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to an internal or reserved IP range.",
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+
+    return url
+
+
 def validate_push_endpoint(endpoint: str) -> str:
     """Validate a user-supplied Web Push endpoint against SSRF.
 

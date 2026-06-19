@@ -57,6 +57,7 @@ from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -80,6 +81,7 @@ from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
+_object_storage = None
 
 
 def get_connection() -> ArangoConnection:
@@ -932,6 +934,44 @@ def get_reference_image_service():
         wikimedia_client=wikimedia,
         species_repo=get_species_repo(),
     )
+
+
+# ── NFR-013 Object storage dependencies ───────────────────────────
+
+
+def get_attachment_repo():
+    from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
+
+    return ArangoAttachmentRepository(get_db())
+
+
+def get_attachment_service():
+    from app.domain.services.attachment_service import AttachmentService
+
+    return AttachmentService(
+        storage=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        settings=settings,
+    )
+
+
+def get_object_storage() -> IObjectStorageAdapter:
+    """Return the configured object-storage adapter (cached singleton).
+
+    Builds the adapter from ``settings.storage_backend`` via the
+    ``StorageAdapterRegistry`` and wires the attachments repository so the
+    REQ-025 erasure hooks (``delete_for_user`` / ``strip_exif_for_user``) can
+    look up a user's objects.
+    """
+    from app.data_access.storage.registry import StorageAdapterRegistry
+
+    global _object_storage
+    if _object_storage is None:
+        _object_storage = StorageAdapterRegistry.get_for_backend(
+            settings.storage_backend,
+            attachment_repo=get_attachment_repo(),
+        )
+    return _object_storage
 
 
 def close_timescale_connection() -> None:

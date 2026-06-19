@@ -1,16 +1,12 @@
-"""NFR-013 S3StorageAdapter scaffolding tests.
+"""NFR-013 §4.2 — S3 adapter constructor, capabilities and pre-sign specifics.
 
-The adapter is a stub today — methods raise ``NotImplementedError`` but
-the constructor, capabilities and the W-007 hooks already behave like
-contract-conformant code.
+Migrated from ``tests/unit/data_access/external/test_s3_storage_adapter.py``.
 """
 
 import pytest
 
-from app.data_access.external.s3_storage_adapter import (
-    S3_DEFAULT_CAPABILITIES,
-    S3StorageAdapter,
-)
+from app.data_access.storage.s3_adapter import S3StorageAdapter
+from app.domain.models.storage import S3_DEFAULT_CAPABILITIES
 
 
 class TestS3StorageAdapterConstructor:
@@ -62,9 +58,27 @@ class TestCapabilities:
         assert caps.requires_per_user_oauth is False
 
 
-class TestEraserHooks:
-    """REQ-025 W-007 hooks — stubbed but contract-conformant."""
+class TestPresignUrls:
+    def _adapter(self) -> S3StorageAdapter:
+        return S3StorageAdapter(
+            endpoint_url="",
+            region="eu-central-1",
+            bucket="bk",
+            access_key_id="testing",
+            secret_access_key="testing",
+        )
 
+    def test_presign_download_url_is_signed(self):
+        url = self._adapter().presign_download_url("t-1/diary/a.jpg", ttl_seconds=300)
+        assert "t-1/diary/a.jpg" in url
+        assert "X-Amz-Signature" in url or "Signature" in url
+
+    def test_presign_upload_url_is_signed(self):
+        url = self._adapter().presign_upload_url("t-1/diary/b.jpg", "image/jpeg", ttl_seconds=300)
+        assert "t-1/diary/b.jpg" in url
+
+
+class TestEraserHooks:
     def _adapter(self) -> S3StorageAdapter:
         return S3StorageAdapter(
             endpoint_url="https://s3.eu-central-1.amazonaws.com",
@@ -75,28 +89,34 @@ class TestEraserHooks:
         )
 
     @pytest.mark.asyncio
-    async def test_delete_for_user_returns_zero_until_repo_wired(self):
-        adapter = self._adapter()
-        assert await adapter.delete_for_user("t-1", "u-1", "user_personal") == 0
+    async def test_delete_for_user_returns_zero_without_repo(self):
+        assert await self._adapter().delete_for_user("t-1", "u-1", "all") == 0
 
     @pytest.mark.asyncio
-    async def test_strip_exif_for_user_returns_zero_until_repo_wired(self):
-        adapter = self._adapter()
-        assert await adapter.strip_exif_for_user("t-1", "u-1", "user_personal") == 0
+    async def test_strip_exif_for_user_returns_zero_without_repo(self):
+        assert await self._adapter().strip_exif_for_user("t-1", "u-1", "all") == 0
 
 
-class TestHealthCheck:
-    @pytest.mark.asyncio
-    async def test_health_check_returns_scaffold_status(self):
+class TestKmsEncryption:
+    def test_encryption_args_set_when_kms_key_present(self):
         adapter = S3StorageAdapter(
-            endpoint_url="https://s3.eu-central-1.amazonaws.com",
+            endpoint_url="",
+            region="eu-central-1",
+            bucket="bk",
+            access_key_id="x",
+            secret_access_key="y",
+            kms_key_id="arn:aws:kms:eu-central-1:123:key/abc",
+        )
+        args = adapter._encryption_args()
+        assert args["ServerSideEncryption"] == "aws:kms"
+        assert args["SSEKMSKeyId"].endswith("abc")
+
+    def test_no_encryption_args_without_kms_key(self):
+        adapter = S3StorageAdapter(
+            endpoint_url="",
             region="eu-central-1",
             bucket="bk",
             access_key_id="x",
             secret_access_key="y",
         )
-        result = await adapter.health_check()
-        assert result["backend"] == "s3"
-        assert result["bucket"] == "bk"
-        assert result["ready"] is False
-        assert "scaffolding" in result["reason"]
+        assert adapter._encryption_args() == {}

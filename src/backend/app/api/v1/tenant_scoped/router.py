@@ -10,6 +10,7 @@ remain at /api/v1/ without tenant scoping.
 
 from fastapi import APIRouter
 
+from app.api.v1.attachments.tenant_router import router as tenant_attachments_router
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
@@ -70,3 +71,4 @@ tenant_scoped_router.include_router(tenant_observations_router)
 tenant_scoped_router.include_router(tenant_ha_publish_router)
 tenant_scoped_router.include_router(tenant_print_router)
 tenant_scoped_router.include_router(tenant_recognition_router)
+tenant_scoped_router.include_router(tenant_attachments_router)

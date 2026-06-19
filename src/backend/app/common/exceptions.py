@@ -267,6 +267,76 @@ class InvalidTokenError(KamerplanterError):
         )
 
 
+# ── NFR-013 Object storage / attachments ──
+
+
+class StorageQuotaExceededError(KamerplanterError):
+    """NFR-013 §5.1 step 1 — tenant attachment quota exceeded."""
+
+    def __init__(self, tenant_key: str, limit_mb: float) -> None:
+        super().__init__(
+            message=f"Storage quota of {limit_mb:.0f} MB exceeded for this tenant.",
+            error_code="STORAGE_QUOTA_EXCEEDED",
+            status_code=409,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"Tenant '{tenant_key}' has reached its {limit_mb:.0f} MB attachment quota.",
+                    "code": "STORAGE_QUOTA_EXCEEDED",
+                }
+            ],
+        )
+
+
+class InvalidFileTypeError(KamerplanterError):
+    """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
+
+    def __init__(self, declared_mime: str, allowed: list[str]) -> None:
+        super().__init__(
+            message=f"File type '{declared_mime}' is not allowed. Allowed types: {', '.join(allowed)}.",
+            error_code="INVALID_FILE_TYPE",
+            status_code=415,
+            details=[
+                {
+                    "field": "file",
+                    "reason": f"'{declared_mime}' rejected (not allowed or content does not match declared type).",
+                    "code": "INVALID_FILE_TYPE",
+                }
+            ],
+        )
+
+
+class FileTooLargeError(KamerplanterError):
+    """NFR-013 §5.1 step 4 — upload exceeds the per-file size limit."""
+
+    def __init__(self, max_bytes: int) -> None:
+        max_mb = max_bytes / (1024 * 1024)
+        super().__init__(
+            message=f"File exceeds maximum allowed size of {max_mb:.0f} MB.",
+            error_code="FILE_TOO_LARGE",
+            status_code=413,
+        )
+
+
+class VirusScanRejectedError(KamerplanterError):
+    """NFR-013 §5.1 step 5 — the optional virus scan reported a finding."""
+
+    def __init__(self, finding: str = "malware detected") -> None:
+        super().__init__(
+            message="The uploaded file was rejected by the virus scanner.",
+            error_code="VIRUS_SCAN_REJECTED",
+            status_code=422,
+            details=[{"field": "file", "reason": finding, "code": "VIRUS_SCAN_REJECTED"}],
+        )
+
+
+class AttachmentNotFoundError(NotFoundError):
+    """NFR-013 — attachment record not found in the current tenant."""
+
+    def __init__(self, attachment_id: str) -> None:
+        super().__init__("attachment", attachment_id)
+
+
 # ── REQ-029 Plant identification ──
 
 

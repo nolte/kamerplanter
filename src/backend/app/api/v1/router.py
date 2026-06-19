@@ -5,6 +5,7 @@ from app.api.v1.activity_plans.router import router as activity_plans_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.reference_images.router import router as reference_images_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
+from app.api.v1.attachments.token_router import router as attachment_token_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
 from app.api.v1.care_reminders.router import router as care_reminders_router
@@ -102,6 +103,10 @@ api_router.include_router(enrichment_router)
 api_router.include_router(family_relationships_router)
 api_router.include_router(ipm_router)
 api_router.include_router(tenants_router)
+# NFR-013 §4.2 — local-fs signed-token download redemption (global, not
+# tenant-scoped; the token is the authorization). Mounted before the
+# tenant-scoped router so /attachments/token/{token} is matched specifically.
+api_router.include_router(attachment_token_router)
 api_router.include_router(tenant_scoped_router)
 api_router.include_router(care_reminders_router)
 api_router.include_router(dashboard_router)
