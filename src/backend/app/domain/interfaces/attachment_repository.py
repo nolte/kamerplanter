@@ -36,3 +36,21 @@ class IAttachmentRepository(ABC):
     @abstractmethod
     def count_by_tenant(self, tenant_key: str) -> int:
         """Return the number of attachments belonging to a tenant."""
+
+    @abstractmethod
+    def sum_bytes_by_tenant(self, tenant_key: str) -> int:
+        """Return the total stored byte size of a tenant's attachments (quota)."""
+
+    @abstractmethod
+    def list_by_tenant(
+        self,
+        tenant_key: str,
+        category: AttachmentCategory | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[Attachment], int]:
+        """Return a paginated, newest-first attachment listing for a tenant.
+
+        When ``category`` is given the listing is restricted to that category.
+        Returns ``(items, total)`` where ``total`` ignores pagination.
+        """

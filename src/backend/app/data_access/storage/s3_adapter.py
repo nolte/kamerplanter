@@ -24,6 +24,7 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.domain.engines.storage.exif_stripper import strip_exif
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     S3_DEFAULT_CAPABILITIES,
@@ -315,8 +316,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
             if not (att.mime_type or "").startswith("image/"):
                 continue
             data = await asyncio.to_thread(self._get_sync, att.storage_key)
-            # TODO(Lauf 2): replace with Pillow EXIF/GPS strip (NFR-013 §4.2).
-            stripped = data
+            stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
             await asyncio.to_thread(self._put_sync, att.storage_key, stripped, att.mime_type, {})
             rewritten += 1
         logger.info(

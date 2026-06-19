@@ -86,3 +86,61 @@ class ArangoAttachmentRepository(IAttachmentRepository, BaseArangoRepository):
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return next(cursor, 0)
+
+    def sum_bytes_by_tenant(self, tenant_key: str) -> int:
+        query = """
+        RETURN SUM(
+          FOR att IN @@collection
+            FILTER att.tenant_key == @tenant_key
+            RETURN att.byte_size
+        )
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
+    def list_by_tenant(
+        self,
+        tenant_key: str,
+        category: AttachmentCategory | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[Attachment], int]:
+        category_value = category.value if category else None
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key
+          FILTER @category == null OR att.category == @category
+          SORT att.created_at DESC
+          LIMIT @offset, @limit
+          RETURN att
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "category": category_value,
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [Attachment(**self._from_doc(doc)) for doc in cursor]
+
+        count_query = """
+        RETURN LENGTH(
+          FOR att IN @@collection
+            FILTER att.tenant_key == @tenant_key
+            FILTER @category == null OR att.category == @category
+            RETURN 1
+        )
+        """
+        count_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "category": category_value,
+        }
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+        total = int(next(count_cursor, 0) or 0)
+        return items, total

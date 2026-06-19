@@ -165,6 +165,25 @@ class Settings(BaseSettings):
     storage_presign_ttl_seconds: int = 900
     storage_virus_scan_enabled: bool = False
     storage_virus_scan_endpoint: str = ""
+    # NFR-013 §5.1 step 1 — per-tenant attachment quota (0 = unlimited).
+    storage_tenant_quota_mb: int = 2048
+    # NFR-013 §5.1 step 7 — strip image EXIF/GPS on upload by default.
+    storage_strip_exif: bool = True
+    # NFR-013 §5.2 — global MIME whitelist (CSV string). Per-category overrides
+    # are read from ``storage_allowed_mime_types_<category>`` (empty = default).
+    storage_allowed_mime_types: str = (
+        "image/jpeg,image/png,image/webp,image/heic,application/pdf,text/csv,application/zip"
+    )
+    storage_allowed_mime_types_diary: str = ""
+    storage_allowed_mime_types_ipm: str = ""
+    storage_allowed_mime_types_harvest: str = ""
+    storage_allowed_mime_types_post_harvest: str = ""
+    storage_allowed_mime_types_plant: str = ""
+    storage_allowed_mime_types_id_recognition: str = ""
+    storage_allowed_mime_types_task: str = ""
+    storage_allowed_mime_types_import: str = "text/csv,application/zip"
+    storage_allowed_mime_types_export: str = "application/pdf,text/csv,application/zip"
+    storage_allowed_mime_types_tenant_export: str = "application/pdf,text/csv,application/zip"
     # local-fs backend
     storage_local_fs_root: str = "/data/attachments"
     storage_local_fs_public_base_url: str = ""
@@ -182,6 +201,39 @@ class Settings(BaseSettings):
     storage_s3_force_tls: bool = True
 
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
+
+    def allowed_mime_types_for_category(self, category: str) -> list[str]:
+        """Resolve the allowed-MIME whitelist for an attachment category (NFR-013 §5.2).
+
+        Resolution order:
+          1. An explicit ``storage_allowed_mime_types_<category>`` override, if set.
+          2. For photo categories without an override, an image-only subset of
+             the global whitelist (``image/jpeg,png,webp,heic``).
+          3. The global ``storage_allowed_mime_types`` list.
+        """
+        global_types = _split_csv(self.storage_allowed_mime_types)
+
+        override = _split_csv(getattr(self, f"storage_allowed_mime_types_{category}", ""))
+        if override:
+            return override
+
+        if category in _PHOTO_CATEGORIES:
+            image_types = [m for m in global_types if m in _PHOTO_MIME_TYPES]
+            return image_types or global_types
+
+        return global_types
+
+
+# Categories that semantically only accept images (NFR-013 §5.2). Without an
+# explicit override these fall back to the image-only subset of the whitelist.
+_PHOTO_CATEGORIES: frozenset[str] = frozenset(
+    {"diary", "ipm", "harvest", "post_harvest", "plant", "id_recognition", "task"}
+)
+_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"})
+
+
+def _split_csv(value: str) -> list[str]:
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
 settings = Settings()

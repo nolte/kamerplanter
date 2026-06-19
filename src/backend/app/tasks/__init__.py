@@ -18,6 +18,7 @@ celery_app.conf.update(
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
         "app.tasks.sensor_ingestion_tasks",
+        "app.tasks.storage_tasks",
         "app.tasks.tank_maintenance_tasks",
         "app.tasks.tenant_tasks",
         "app.tasks.vernalization_updates",

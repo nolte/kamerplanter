@@ -94,6 +94,35 @@ class TestCountByTenant:
         assert repo.count_by_tenant("t-1") == 0
 
 
+class TestSumBytesByTenant:
+    def test_returns_sum(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([4096])
+        assert repo.sum_bytes_by_tenant("t-1") == 4096
+
+    def test_returns_zero_when_null(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([None])
+        assert repo.sum_bytes_by_tenant("t-1") == 0
+
+
+class TestListByTenant:
+    def test_lists_and_counts(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [
+            iter([_attachment_doc(), _attachment_doc(_key="att2")]),
+            iter([2]),
+        ]
+        items, total = repo.list_by_tenant("t-1")
+        assert len(items) == 2
+        assert total == 2
+
+    def test_filters_by_category(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([0])]
+        repo.list_by_tenant("t-1", AttachmentCategory.IPM, offset=10, limit=5)
+        first_call_vars = mock_db.aql.execute.call_args_list[0].kwargs["bind_vars"]
+        assert first_call_vars["category"] == "ipm"
+        assert first_call_vars["offset"] == 10
+        assert first_call_vars["limit"] == 5
+
+
 class TestDelete:
     def test_deletes_when_owned(self, repo, mock_db):
         mock_db.collection.return_value.get.return_value = _attachment_doc()

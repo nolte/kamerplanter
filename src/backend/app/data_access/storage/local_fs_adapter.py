@@ -36,6 +36,7 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.domain.engines.storage.exif_stripper import strip_exif
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     ObjectMetadata,
@@ -139,7 +140,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             return {}
         try:
             return json.loads(meta_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):  # fmt: skip
             return {}
 
     def _delete_sync(self, path: Path) -> bool:
@@ -364,8 +365,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             if not await asyncio.to_thread(path.exists):
                 continue
             data = await asyncio.to_thread(self._read_sync, path)
-            # TODO(Lauf 2): replace with Pillow EXIF/GPS strip (NFR-013 §4.2).
-            stripped = data
+            stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
             await asyncio.to_thread(self._write_sync, path, stripped, att.mime_type, {})
             rewritten += 1
         logger.info(
@@ -432,14 +432,14 @@ def verify_token(token: str, signing_secret: bytes | str) -> dict[str, Any] | No
     expected = hmac.new(secret, body, hashlib.sha256).digest()
     try:
         provided = base64.urlsafe_b64decode(sig_str + "=" * (-len(sig_str) % 4))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):  # fmt: skip
         return None
     if not hmac.compare_digest(expected, provided):
         return None
     try:
         payload_bytes = base64.urlsafe_b64decode(body_str + "=" * (-len(body_str) % 4))
         payload = json.loads(payload_bytes.decode("utf-8"))
-    except ValueError, TypeError, json.JSONDecodeError:
+    except (ValueError, TypeError, json.JSONDecodeError):  # fmt: skip
         return None
     exp = payload.get("exp")
     if not isinstance(exp, int) or exp < int(time.time()):

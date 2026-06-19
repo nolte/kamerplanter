@@ -945,6 +945,16 @@ def get_attachment_repo():
     return ArangoAttachmentRepository(get_db())
 
 
+def get_attachment_service():
+    from app.domain.services.attachment_service import AttachmentService
+
+    return AttachmentService(
+        storage=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        settings=settings,
+    )
+
+
 def get_object_storage() -> IObjectStorageAdapter:
     """Return the configured object-storage adapter (cached singleton).
 
