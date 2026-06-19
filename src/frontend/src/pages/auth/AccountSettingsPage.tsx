@@ -95,6 +95,8 @@ import type {
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
+import HaPublishSettingsTab from './HaPublishSettingsTab';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import type {
   AuthProviderInfo,
@@ -140,14 +142,21 @@ export default function AccountSettingsPage() {
   const user = useAppSelector((s) => s.auth.user);
   const preferences = useAppSelector((s) => s.userPreferences.preferences);
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
 
   const tabs: TabDef[] = useMemo(() => {
+    // The HA publish-selection tab is only relevant once the user has enabled
+    // smart-home / Home Assistant features.
+    const haPublishTab: TabDef[] = isSmartHomeEnabled
+      ? [{ key: 'ha-publish', label: t('pages.auth.tabHaPublish') }]
+      : [];
     if (isLightMode) {
       return [
         { key: 'profile', label: t('pages.auth.tabProfile') },
         { key: 'notifications', label: t('pages.auth.tabNotifications') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
+        ...haPublishTab,
       ];
     }
     return [
@@ -158,10 +167,11 @@ export default function AccountSettingsPage() {
       { key: 'sessions', label: t('pages.auth.tabSessions') },
       { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
       { key: 'ha', label: t('pages.auth.tabIntegrations') },
+      ...haPublishTab,
       { key: 'platform', label: t('pages.auth.tabPlatform') },
       { key: 'account', label: t('pages.auth.tabAccount') },
     ];
-  }, [t]);
+  }, [t, isSmartHomeEnabled]);
 
   const [tabIndex, setTabIndex] = useTabUrl(tabs.map((t) => t.key));
   const activeTab = tabs[tabIndex]?.key ?? 'profile';
@@ -933,6 +943,9 @@ export default function AccountSettingsPage() {
 
       {/* ── Notifications Tab ── */}
       {activeTab === 'notifications' && <NotificationSettingsTab />}
+
+      {/* ── HA Publish-Selection Tab ── */}
+      {activeTab === 'ha-publish' && <HaPublishSettingsTab />}
 
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (

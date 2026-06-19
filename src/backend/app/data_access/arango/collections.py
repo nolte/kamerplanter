@@ -94,6 +94,9 @@ LOCATION_TYPES = "location_types"
 # System Settings (singleton)
 SYSTEM_SETTINGS = "system_settings"
 
+# Home Assistant publish selection (per-tenant, per-entity opt-in)
+HA_PUBLISH_SETTINGS = "ha_publish_settings"
+
 # Unified Watering Log (replaces WateringEvents + FeedingEvents)
 WATERING_LOGS = "watering_logs"
 
@@ -193,6 +196,7 @@ DOCUMENT_COLLECTIONS = [
     TANK_FILL_EVENTS,
     SENSORS,
     SYSTEM_SETTINGS,
+    HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,
     WATERING_LOGS,
     ACTIVITIES,
@@ -1244,6 +1248,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     sensors_col.add_persistent_index(fields=["tank_key"], unique=False)
     sensors_col.add_persistent_index(fields=["site_key"], unique=False)
     sensors_col.add_persistent_index(fields=["location_key"], unique=False)
+
+    # Home Assistant publish selection indexes
+    ha_publish_settings_col = db.collection(HA_PUBLISH_SETTINGS)
+    ha_publish_settings_col.add_persistent_index(fields=["tenant_key", "entity_type", "entity_key"], unique=True)
+    ha_publish_settings_col.add_persistent_index(fields=["tenant_key", "entity_type", "enabled"], unique=False)
 
     # Watering Log indexes
     watering_logs_col = db.collection(WATERING_LOGS)

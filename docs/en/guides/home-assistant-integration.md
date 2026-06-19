@@ -212,6 +212,90 @@ The integration automatically creates entities for all selected plants, location
 
 ---
 
+## Selecting Published Entities
+
+By default, **no** element is transmitted to Home Assistant. A plant, tank, or location only appears as a HA entity once it is explicitly enabled in Kamerplanter. This **opt-in principle** prevents every record in a garden from automatically appearing in Home Assistant.
+
+!!! note "Prerequisite: Enable Smart Home features"
+    The "Publish as Home Assistant sensor" toggle is only visible when the Smart Home integration is enabled for your account. Enable it under **Account Settings** > **Smart Home** > turn on HA Integration.
+
+### Toggle on the Detail Page
+
+Open the detail page of the desired plant, tank, or location. In the **Smart Home** section you will find the toggle **"Publish as Home Assistant sensor"**.
+
+| Element | Where to find it |
+|---------|-----------------|
+| Plant | Plant detail page > "Smart Home" section |
+| Tank | Tank detail page > "Smart Home" section |
+| Location | Location detail page > "Smart Home" section |
+
+- Toggle **on** — The element is transmitted to Home Assistant; the corresponding entities are created on the next coordinator update.
+- Toggle **off** (default) — The element is not transmitted; any previously created entities are removed from Home Assistant.
+
+!!! tip "Publish selectively"
+    Only enable the plants and tanks you actively use in automations or dashboards. Fewer entities mean lower polling load and a cleaner HA interface.
+
+### Central Management Tab
+
+To manage multiple elements at once, use the dedicated central tab: **Settings → "HA Publishing"**.
+
+!!! note "Prerequisite: Enable Smart Home features"
+    The **"HA Publishing"** tab only appears when the Smart Home integration is enabled for your account. Enable it under **Account Settings** > **Smart Home** > turn on HA Integration.
+
+The tab is divided into three sections — one each for plants, tanks, and locations. Each section lists all existing elements of the current tenant in a tabular view. Individual elements can be enabled or disabled directly with a toggle, without having to open the respective detail page.
+
+| Section | Content |
+|---------|---------|
+| **Plants** | All plants of the current tenant with publish toggle |
+| **Tanks** | All tanks of the current tenant with publish toggle |
+| **Locations** | All locations of the current tenant with publish toggle |
+
+!!! tip "Recommended method for initial setup and bulk changes"
+    Use the **Settings → "HA Publishing"** tab to quickly configure your selection during first-time setup or after adding multiple new elements. The toggle on the individual detail page remains available as a quick alternative for single elements.
+
+### Tenant Scope
+
+The selection is per tenant (garden). In a community garden with multiple tenants, the publish setting is separate for each tenant — the same user can publish a tank in tenant A but not in tenant B.
+
+### Technical Background (for HA integration developers)
+
+The Kamerplanter backend exposes the enabled keys per entity type via a tenant-scoped endpoint. The `kamerplanter-ha` custom integration should consider only these keys when building entities.
+
+**Retrieve enabled keys:**
+
+```
+GET /api/v1/t/{tenant_slug}/ha-publish/enabled-keys/{entity_type}
+```
+
+`entity_type` is one of: `plant`, `tank`, `location`
+
+Example response for `entity_type=plant`:
+
+```json
+{
+  "entity_type": "plant",
+  "enabled_keys": ["345249", "a1b2c3", "f9e8d7"]
+}
+```
+
+**Read or set individual status:**
+
+```
+GET  /api/v1/t/{tenant_slug}/ha-publish/{entity_type}/{entity_key}
+PUT  /api/v1/t/{tenant_slug}/ha-publish/{entity_type}/{entity_key}
+```
+
+PUT body:
+
+```json
+{ "enabled": true }
+```
+
+!!! warning "Remove deselected entities"
+    When an element is deselected (PUT `enabled: false`), the HA integration should actively remove the corresponding entities from Home Assistant (delete entity registry entry). Otherwise stale "unavailable" entities remain in the system.
+
+---
+
 ## Polling Intervals
 
 The integration uses multiple coordinators with different polling intervals:

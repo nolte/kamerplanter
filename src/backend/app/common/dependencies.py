@@ -610,6 +610,18 @@ def get_system_settings_service():
     return SystemSettingsService(get_system_settings_repo())
 
 
+def get_ha_publish_repo():
+    from app.data_access.arango.ha_publish_repository import ArangoHaPublishRepository
+
+    return ArangoHaPublishRepository(get_db())
+
+
+def get_ha_publish_service():
+    from app.domain.services.ha_publish_service import HaPublishService
+
+    return HaPublishService(get_ha_publish_repo())
+
+
 def get_ha_client():
     from app.data_access.external.ha_client import HomeAssistantClient
 
