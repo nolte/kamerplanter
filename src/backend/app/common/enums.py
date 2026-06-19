@@ -759,6 +759,24 @@ class CalendarEventSource(StrEnum):
     WATERING_FORECAST = "watering_forecast"
 
 
+class AttachmentCategory(StrEnum):
+    """NFR-013 §2.2 — logical category an attachment belongs to.
+
+    Drives the storage key prefix and the DSGVO erasure scope mapping.
+    """
+
+    DIARY = "diary"
+    IPM = "ipm"
+    HARVEST = "harvest"
+    POST_HARVEST = "post_harvest"
+    TASK = "task"
+    IMPORT = "import"
+    EXPORT = "export"
+    ID_RECOGNITION = "id_recognition"
+    TENANT_EXPORT = "tenant_export"
+    PLANT = "plant"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

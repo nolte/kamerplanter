@@ -159,6 +159,28 @@ class Settings(BaseSettings):
     notification_batch_window_minutes: int = 30
     notification_escalation_days: str = "2,4,7"
 
+    # NFR-013 Object storage (§4.1) — defaults target the local-fs backend.
+    storage_backend: str = "local-fs"  # local-fs | s3
+    storage_max_file_size_mb: int = 25
+    storage_presign_ttl_seconds: int = 900
+    storage_virus_scan_enabled: bool = False
+    storage_virus_scan_endpoint: str = ""
+    # local-fs backend
+    storage_local_fs_root: str = "/data/attachments"
+    storage_local_fs_public_base_url: str = ""
+    # Signing secret for local-fs token URLs; falls back to jwt_secret_key /
+    # fernet_key when left empty (resolved at adapter construction).
+    storage_localfs_signing_secret: str = ""
+    # s3 backend
+    storage_s3_endpoint_url: str = ""
+    storage_s3_region: str = ""
+    storage_s3_bucket: str = ""
+    storage_s3_access_key_id: str = ""
+    storage_s3_secret_access_key: str = ""
+    storage_s3_use_path_style: bool = False
+    storage_s3_kms_key_id: str = ""
+    storage_s3_force_tls: bool = True
+
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
 
 

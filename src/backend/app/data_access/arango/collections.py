@@ -129,6 +129,9 @@ EMAIL_CHANGE_REQUESTS = "email_change_requests"
 DIAGNOSIS_REQUESTS = "diagnosis_requests"
 REFERENCE_IMAGE_JOBS = "reference_image_jobs"
 
+# NFR-013 Object storage — attachment catalog
+ATTACHMENTS = "attachments"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -214,6 +217,7 @@ DOCUMENT_COLLECTIONS = [
     IDENTIFICATION_REQUESTS,
     DIAGNOSIS_REQUESTS,
     REFERENCE_IMAGE_JOBS,
+    ATTACHMENTS,
 ]
 
 # Edge collections
@@ -1327,6 +1331,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     reference_image_jobs_col = db.collection(REFERENCE_IMAGE_JOBS)
     reference_image_jobs_col.add_persistent_index(fields=["species_key"], unique=True)
     reference_image_jobs_col.add_persistent_index(fields=["status"], unique=False)
+
+    # NFR-013 Object storage — attachment catalog indexes
+    attachments_col = db.collection(ATTACHMENTS)
+    attachments_col.add_persistent_index(fields=["tenant_key", "created_by"], unique=False)
+    attachments_col.add_persistent_index(fields=["tenant_key", "sha256"], unique=False)
+    attachments_col.add_persistent_index(fields=["tenant_key", "category"], unique=False)
+    attachments_col.add_persistent_index(fields=["storage_key"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
