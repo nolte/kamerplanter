@@ -83,6 +83,7 @@ import * as substrateApi from '@/api/endpoints/substrates';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, Substrate, SubstrateType, TaskItem } from '@/api/types';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
+import HaPublishToggle from '@/components/ha/HaPublishToggle';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -1524,6 +1525,13 @@ export default function PlantInstanceDetailPage() {
               </Card>
             )}
           </Box>
+          {plant && key && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <HaPublishToggle entityType="plant" entityKey={key} />
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 

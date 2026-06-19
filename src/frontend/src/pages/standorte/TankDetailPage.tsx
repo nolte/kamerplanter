@@ -38,6 +38,7 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
+import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -654,6 +655,14 @@ export default function TankDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {key && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <HaPublishToggle entityType="tank" entityKey={key} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Current State — color-coded value cards */}
           {latestState && (

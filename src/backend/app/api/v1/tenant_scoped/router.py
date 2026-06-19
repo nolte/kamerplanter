@@ -15,6 +15,7 @@ from app.api.v1.care_reminders.tenant_router import router as tenant_care_remind
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
@@ -66,5 +67,6 @@ tenant_scoped_router.include_router(tenant_favorites_router)
 tenant_scoped_router.include_router(tenant_notifications_router)
 tenant_scoped_router.include_router(tenant_user_preferences_router)
 tenant_scoped_router.include_router(tenant_observations_router)
+tenant_scoped_router.include_router(tenant_ha_publish_router)
 tenant_scoped_router.include_router(tenant_print_router)
 tenant_scoped_router.include_router(tenant_recognition_router)

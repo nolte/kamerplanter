@@ -215,6 +215,90 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 
 ---
 
+## Auswahl der veröffentlichten Elemente
+
+Standardmäßig wird **kein** Element an Home Assistant übertragen. Erst wenn eine Pflanze, ein Tank oder ein Standort in Kamerplanter explizit aktiviert wird, erscheint sie als Entity in Home Assistant. Dieses **Opt-in-Prinzip** verhindert, dass alle Datensätze eines Gartens automatisch in Home Assistant landen.
+
+!!! note "Voraussetzung: Smart-Home-Funktion aktivieren"
+    Der Schalter „Als Home-Assistant-Sensor veröffentlichen" ist nur sichtbar, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Kontoeinstellungen** > **Smart Home** > HA-Integration einschalten.
+
+### Schalter auf der Detailseite
+
+Öffne die Detailseite der gewünschten Pflanze, des Tanks oder des Standorts. Im Abschnitt **Smart Home** findest du den Schalter **„Als Home-Assistant-Sensor veröffentlichen"**.
+
+| Element | Wo zu finden |
+|---------|-------------|
+| Pflanze | Pflanzen-Detailseite > Abschnitt „Smart Home" |
+| Tank | Tank-Detailseite > Abschnitt „Smart Home" |
+| Standort | Standort-Detailseite > Abschnitt „Smart Home" |
+
+- Schalter **ein** — Das Element wird an Home Assistant übertragen; die zugehörigen Entities werden beim nächsten Coordinator-Update angelegt.
+- Schalter **aus** (Standard) — Das Element wird nicht übertragen; bereits vorhandene Entities werden aus Home Assistant entfernt.
+
+!!! tip "Selektiv publizieren"
+    Aktiviere nur die Pflanzen und Tanks, die du aktiv in Automationen oder Dashboards nutzen möchtest. Weniger Entities bedeuten weniger Polling-Last und ein übersichtlicheres HA-Interface.
+
+### Zentraler Verwaltungs-Tab
+
+Für die Verwaltung mehrerer Elemente auf einmal steht ein zentraler Tab bereit: **Einstellungen → „HA-Veröffentlichung"**.
+
+!!! note "Voraussetzung: Smart-Home-Funktion aktivieren"
+    Der Tab **„HA-Veröffentlichung"** erscheint nur, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Kontoeinstellungen** > **Smart Home** > HA-Integration einschalten.
+
+Der Tab gliedert sich in drei Bereiche — je einen für Pflanzen, Tanks und Standorte. Jeder Bereich zeigt alle vorhandenen Elemente in einer tabellarischen Ansicht. Einzelne Elemente lassen sich dort direkt per Schalter aktivieren oder deaktivieren, ohne die jeweilige Detailseite öffnen zu müssen.
+
+| Bereich | Inhalt |
+|---------|--------|
+| **Pflanzen** | Alle Pflanzen des aktuellen Tenants mit Publikations-Schalter |
+| **Tanks** | Alle Tanks des aktuellen Tenants mit Publikations-Schalter |
+| **Standorte** | Alle Standorte des aktuellen Tenants mit Publikations-Schalter |
+
+!!! tip "Empfohlene Methode für Erst-Setup und Massenänderungen"
+    Nutze den Tab **Einstellungen → „HA-Veröffentlichung"** um beim ersten Einrichten oder nach dem Anlegen mehrerer neuer Elemente rasch die gewünschte Auswahl zu treffen. Der Schalter auf der jeweiligen Detailseite bleibt als schnelle Alternative für einzelne Elemente bestehen.
+
+### Mandantenbezug
+
+Die Auswahl gilt pro Tenant (Garten). In einem Gemeinschaftsgarten mit mehreren Tenants ist die Publikations-Einstellung je Tenant getrennt — derselbe Nutzer kann in Tenant A einen Tank veröffentlichen, in Tenant B nicht.
+
+### Technischer Hintergrund (für HA-Integrations-Entwickler)
+
+Das Kamerplanter-Backend stellt die aktivierten Schlüssel pro Elementtyp über einen tenant-skoped Endpunkt bereit. Die `kamerplanter-ha`-Custom-Integration soll beim Aufbau der Entities ausschließlich diese Schlüssel berücksichtigen.
+
+**Aktivierte Schlüssel abrufen:**
+
+```
+GET /api/v1/t/{tenant_slug}/ha-publish/enabled-keys/{entity_type}
+```
+
+`entity_type` ist einer von: `plant`, `tank`, `location`
+
+Beispielantwort für `entity_type=plant`:
+
+```json
+{
+  "entity_type": "plant",
+  "enabled_keys": ["345249", "a1b2c3", "f9e8d7"]
+}
+```
+
+**Einzelstatus lesen oder setzen:**
+
+```
+GET  /api/v1/t/{tenant_slug}/ha-publish/{entity_type}/{entity_key}
+PUT  /api/v1/t/{tenant_slug}/ha-publish/{entity_type}/{entity_key}
+```
+
+PUT-Body:
+
+```json
+{ "enabled": true }
+```
+
+!!! warning "Abgewählte Elemente entfernen"
+    Wenn ein Element abgewählt wird (PUT `enabled: false`), sollte die HA-Integration die zugehörigen Entities aktiv aus Home Assistant entfernen (Entity-Registry-Eintrag löschen). Andernfalls bleiben veraltete „unavailable"-Entities im System.
+
+---
+
 ## Polling-Intervalle
 
 Die Integration nutzt mehrere Coordinators mit unterschiedlichen Polling-Intervallen:

@@ -46,6 +46,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import * as wateringApi from '@/api/endpoints/watering-events';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import { listPlantInstances } from '@/api/endpoints/plantInstances';
+import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
 
@@ -422,6 +423,14 @@ export default function LocationDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {key && (
+          <Card variant="outlined" sx={{ mt: 2 }}>
+            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+              <HaPublishToggle entityType="location" entityKey={key} />
+            </CardContent>
+          </Card>
+        )}
       </Box>
 
       {/* Plants & Runs at this location */}
