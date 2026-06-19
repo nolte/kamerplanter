@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.4 (RBAC Permission-Matrix, Platform-Rollen-Differenzierung)
+Version: 1.5 (Permission-Matrix-Zeile für Pflanzenfotos, REQ-034)
 Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-06-19 | **Pflanzenfoto-Galerie (REQ-034 Security-Review SR-002):** Permission-Matrix (§1a.1) um die Ressourcen-Zeile **Plant Instance Photos** (`category=plant`) erweitert. Upload/Cover/Löschen laufen über die generischen `CREATE_/UPDATE_/DELETE_RESOURCE`-Permissions mit Zuweisungs-Write-Kontrolle (§1a.5); Viewer nur lesend; DINOv2-Referenz-Freigabe bleibt Platform-Admin (REQ-029-A §4.5). Klärt die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung gegen den realen `Permission`-Enum-Vertrag. |
 | 1.4 | 2026-03-17 | **RBAC Permission-Matrix, Platform-Rollen & Tenant-Notfallverwaltung:** (1) Granulare Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle (admin/grower/viewer). Spezialaktionen (Phasen-Transition, Task-Zuweisung, Pinnwand-Pinnen). Zuweisungsbasierte Write-Kontrolle formalisiert. (2) Platform-Rollen erweitert: `admin` (KA-Admin) + `viewer` (Read-Only Admin-Panel). (3) Tenant-Notfallverwaltung: `orphaned_since` + `suspended_reason` auf Tenant-Modell. Platform-Admin-Permissions für Emergency-Admin, Tenant-/User-Suspendierung. (4) `Permission` Enum + `require_permission()` Dependency. Service Account Integration (REQ-023 v1.7). |
 | 1.3 | 2026-03-16 | **Platform-Tenant & Stammdaten-Scoping:** Neues `is_platform: bool`-Feld auf Tenant. Platform-Tenant als Träger der KA-Admin-Berechtigung. Edge Collection `tenant_has_access` (Species→Tenant) für Sichtbarkeitssteuerung globaler Stammdaten. Auto-Assign-Logik für Tier 1+2 (alle globalen Species automatisch zugewiesen). Kuratierte Zuweisung für Tier 3 (Enterprise). Seed-Daten für Platform-Tenant. Neue User Stories, AQL-Queries, Abnahmekriterien. |
 | 1.2 | 2026-03 | Gemeinschaftsgarten-Kollaboration (DutyRotation, BulletinPost, SharedShoppingList) |
@@ -128,6 +129,7 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 | **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Admin |
 | **Substrate Types** | CRUD all | R all, ❌CUD | R all | — |
 | **Import Jobs** | CRUD all | CR all, R own, ❌UD | R all | **Confirm Import:** admin, grower (own) |
+| **Plant Instance Photos** (Attachment, `category=plant`, REQ-034) | CRUD all | CR all, U own+community (Cover setzen), D own+community | R all | **Upload/Cover/Löschen:** generische Ressourcen-Permissions (`CREATE_/UPDATE_/DELETE_RESOURCE`) mit Zuweisungs-Write-Kontrolle (§1a.5). Viewer: nur Galerie ansehen. **DINOv2-Referenz-Freigabe (`is_active=true`):** 🔒 Platform-Admin (REQ-029-A §4.5) |
 
 #### 1a.2 Tenant-Verwaltungs-Permissions
 

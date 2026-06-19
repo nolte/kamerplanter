@@ -7,8 +7,8 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.3 (Tenant-Species-Snapshot im Export, ADR-002)
-Abhängigkeit: REQ-023 v1.9 (Benutzerverwaltung), REQ-024 v1.1 (Mandantenverwaltung), NFR-011 v1.1 (Retention Policy), NFR-013 v1.1 (Object Storage)
+Version: 1.4 (REQ-034 Foto-Galerie: reference_contribution-Consent + Referenz-Index-Erasure Phase 0.5)
+Abhängigkeit: REQ-023 v1.9 (Benutzerverwaltung), REQ-024 v1.1 (Mandantenverwaltung), NFR-011 v1.1 (Retention Policy), NFR-013 v1.2 (Object Storage), REQ-029-A v1.1 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-06-19 | **REQ-034 Pflanzenfoto-Galerie (Security-Review SR-001/SR-003):** Neuer Consent-Purpose `reference_contribution` in `ConsentEngine.PURPOSES` (opt-in Foto-Beitrag zum DINOv2-Index, Art. 6(1)(a), global pro Nutzer). `user_diary_attachments`-Cleanup-Regel um `category 'plant'` erweitert. Neue Erasure-**Phase 0.5** `_reference_index_cleanup` (pgvector): entfernt vom Nutzer beigesteuerte `user_contributed`-Embeddings via Provenienz `contributed_by`/`tenant_key` VOR der ArangoDB-Löschung. Neues Abnahmekriterium AK-OS-05. |
 | 1.3 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im Export):** `SpeciesReferenceResolver` + `species_ref`-Wrapper-Struktur ergänzt. Tenant-eigene Species werden inline als Snapshot exportiert (DSGVO Art. 20 Datenübertragbarkeit). Globale Species bleiben als Referenz mit `scope='global'`. Neue `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config`. |
 | 1.2 | 2026-04-27 | **W-007 Fix (Object-Storage-Cleanup Phase 0):** Erasure-Pipeline um Phase 0 erweitert, die VOR allen ArangoDB-Operationen den Object Storage bereinigt. Zwei Scopes: `user_personal` (Hard-Delete von Profilfoto/persönlichen Notiz-Fotos) und `user_diary_attachments` (Anonymisierung der `created_by`-Metadaten + EXIF-Strip-Pass für Tenant-Datensätze mit `STORAGE_KEEP_EXIF=true`). Erasure-Reihenfolge: Phase 0 → Phase 1 (Edges) → Phase 2 (Documents) → Phase 2.5 (Audit-Pseudonymisierung) → Phase 3 (User). Drei neue Abnahmekriterien (AK-OS-01 bis AK-OS-03). |
 | 1.1 | 2026-04-27 | **W-002 Fix (Audit-Pseudonymisierung):** Phase 2.5 (Audit-Log-Pseudonymisierung) im `ErasureEngine` ergänzt. Generischer Mechanismus über `PSEUDONYMIZE_AUDIT_COLLECTIONS`-Liste — aktuell ein Eintrag (`erasure_requests.user_key`). Tombstone-Hash via SHA-256 + 64 Bit Truncation + Per-Instanz-Salt (`ERASURE_TOMBSTONE_SALT`, NFR-011 §4 Pflicht-Setting). Zwei neue Abnahmekriterien (AK-PD-01, AK-PD-02). |
@@ -331,6 +332,13 @@ class ErasureEngine:
         # Phase 1 laufen, weil danach die attachments-Metadaten weg sind
         # und der created_by-Filter nicht mehr funktioniert.
         "_storage_cleanup",
+        # Phase 0.5: Referenz-Index-Cleanup (REQ-034 §5 / SR-003) — MUSS
+        # ebenfalls vor Phase 1 laufen. Entfernt vom Nutzer beigesteuerte
+        # DINOv2-Embeddings (source='user_contributed') aus dem pgvector-
+        # Referenz-Index (REQ-029-A species_embeddings) anhand der Provenienz-
+        # Felder contributed_by/tenant_key. Der Index liegt NICHT in ArangoDB,
+        # daher ein eigener Cleanup-Pfad (siehe REFERENCE_INDEX_CLEANUP_RULES).
+        "_reference_index_cleanup",
         # Phase 1: Edges
         "requested_export", "has_consent", "has_restriction",
         "requested_erasure", "requested_email_change",
@@ -367,7 +375,9 @@ class ErasureEngine:
             scope="user_diary_attachments",
             description=(
                 "Anonymisierung: alle Anhaenge mit created_by == user_key UND "
-                "category in {'diary', 'inspection', 'treatment', 'harvest'}. "
+                "category in {'diary', 'inspection', 'treatment', 'harvest', 'plant'}. "
+                "('plant' = Pflanzenfoto-Galerie, REQ-034 §5 — gehört zum "
+                "Pflanzen-Datensatz der Instanz.) "
                 "Datei bleibt erhalten (gehört zum Tenant-Datensatz, evtl. "
                 "Aufbewahrungspflicht via NFR-011 R-16/R-17/R-18). "
                 "ArangoDB-Metadatum created_by wird auf '_anonymized' gesetzt. "
@@ -424,6 +434,39 @@ class StorageCleanupRule:
     action: Literal["hard_delete", "anonymize_metadata_and_strip_exif"]
     ref: str  # Referenz auf NFR-013-Sektion
 # <!-- /Quelle: Widerspruchsanalyse W-007 -->
+
+
+# <!-- Quelle: REQ-034 Security-Review SR-003 -->
+# Referenz-Index-Cleanup (Phase 0.5): Der DINOv2-Referenz-Index
+# (REQ-029-A species_embeddings) liegt physisch in pgvector, NICHT in
+# ArangoDB. Die generische Erasure-Pipeline (Phasen 1–3) erfasst ihn daher
+# nicht. Vom Nutzer beigesteuerte Embeddings (source='user_contributed')
+# tragen seit REQ-029-A §5.1 die Provenienz-Felder contributed_by / tenant_key /
+# contributed_at und werden über diese Regel entfernt. Kuratiert übernommene
+# Referenzen (source != 'user_contributed') bleiben unberührt — sie sind
+# nicht personenbezogen.
+REFERENCE_INDEX_CLEANUP_RULES: list[ReferenceIndexCleanupRule] = [
+    ReferenceIndexCleanupRule(
+        store="pgvector",
+        collection="species_embeddings",
+        filter="source == 'user_contributed' AND contributed_by == user_key",
+        action="hard_delete",
+        ref="REQ-029-A §5.1, REQ-034 §5",
+    ),
+]
+# Bei Tenant-Löschung (REQ-024) greift dieselbe Regel mit Filter
+# `source == 'user_contributed' AND tenant_key == X`.
+
+
+@dataclass
+class ReferenceIndexCleanupRule:
+    """Regel für die pgvector-Referenz-Index-Bereinigung (Phase 0.5)."""
+    store: Literal["pgvector"]
+    collection: str
+    filter: str
+    action: Literal["hard_delete"]
+    ref: str
+# <!-- /Quelle: REQ-034 Security-Review SR-003 -->
 ```
 
 <!-- Quelle: Widerspruchsanalyse W-002 -->
@@ -512,6 +555,26 @@ class ConsentEngine:
             label_de="Externe Stammdatenanreicherung",
             label_en="External Master Data Enrichment",
             description_de="Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten",
+            legal_basis="Art. 6(1)(a) Einwilligung",
+            required=False,
+        ),
+        # REQ-034 §4.4 — opt-in Foto-Beitrag zum DINOv2-Referenz-Index (REQ-029-A).
+        # Granularität: global pro Nutzer (die UNIQUE(user_key, purpose)-Constraint
+        # auf consent_records erlaubt genau einen Datensatz pro Zweck → O-04 in
+        # REQ-034 ist damit auf "global pro Nutzer" entschieden).
+        ConsentPurpose(
+            key="reference_contribution",
+            label_de="Beitrag eigener Fotos zur Pflanzenerkennung",
+            label_en="Contribution of own photos to plant recognition",
+            description_de=(
+                "Aus deinen Galerie-Fotos einer korrekt bestimmten Pflanze wird "
+                "ein Embedding-Vektor berechnet und — nach Admin-Prüfung — als "
+                "zusätzliche Referenz für die self-hosted Bilderkennung genutzt. "
+                "Es wird ausschließlich der Vektor gespeichert, das Originalbild "
+                "verlässt die Instanz nicht und geht an keinen Dritten. Jederzeit "
+                "widerrufbar; bei Widerruf/Kontolöschung werden beigesteuerte "
+                "Vektoren entfernt."
+            ),
             legal_basis="Art. 6(1)(a) Einwilligung",
             required=False,
         ),
@@ -883,6 +946,27 @@ async def execute_scheduled_erasures():
                         exif_stripped=stripped,
                     )
             # <!-- /Quelle: Widerspruchsanalyse W-007 -->
+            # <!-- Quelle: REQ-034 Security-Review SR-003 -->
+            # Phase 0.5: Referenz-Index-Cleanup (pgvector, REQ-034 §5)
+            # MUSS ebenfalls vor Phase 1 laufen. Der DINOv2-Referenz-Index
+            # liegt außerhalb von ArangoDB; ohne diesen Pfad blieben vom
+            # Nutzer beigesteuerte Embeddings (source='user_contributed')
+            # nach der Löschung dauerhaft im Index (Verstoß gegen Art. 17).
+            reference_index = get_reference_index_store()  # pgvector
+            for rule in erasure_engine.REFERENCE_INDEX_CLEANUP_RULES:
+                removed = await reference_index.delete_user_contributions(
+                    tenant_key=erasure.tenant_key,
+                    user_key=erasure.user_key,
+                )
+                logger.info(
+                    "reference_index_cleanup",
+                    store=rule.store,
+                    collection=rule.collection,
+                    user_key=erasure.user_key,
+                    tenant_key=erasure.tenant_key,
+                    removed=removed,
+                )
+            # <!-- /Quelle: REQ-034 Security-Review SR-003 -->
             # Phase 1: Edges löschen
             for edge_collection in plan.edge_deletions:
                 await delete_user_edges(edge_collection, erasure.user_key)
@@ -1135,6 +1219,9 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-OS-03 | **EXIF-Strip-Pass:** Wenn der Tenant für eine Kategorie `STORAGE_KEEP_EXIF_<category>=true` gesetzt hat, MUSS bei der Erasure ein `storage_adapter.strip_exif_for_user()`-Aufruf alle EXIF-Daten (GPS, Kamera-Seriennummer, Aufnahmezeit) aus den verbleibenden Diary-Fotos des Users entfernen. Bilder ohne EXIF und Tenants ohne Keep-EXIF werden nicht modifiziert. | 17, NFR-013 §6.4 | Integration |
 | AK-OS-04 | **Phase-Reihenfolge:** Im Celery-Task `execute_scheduled_erasures` läuft Phase 0 (Storage-Cleanup) VOR Phase 1 (Edges). Wenn Phase 0 fehlschlägt, MUSS der Erasure-Status auf `partially_completed` gesetzt werden — kein Phase-1-Aufruf. | — | Unit |
 <!-- /Quelle: Widerspruchsanalyse W-007 -->
+<!-- Quelle: REQ-034 Security-Review SR-003 -->
+| AK-OS-05 | **Referenz-Index-Cleanup (Phase 0.5):** Nach Abschluss eines Erasure-Requests sind alle DINOv2-Embeddings im pgvector-`species_embeddings`-Index mit `source == 'user_contributed'` UND `contributed_by == user_key` gelöscht. Bei Tenant-Löschung gilt derselbe Filter mit `tenant_key == X`. Phase 0.5 läuft VOR Phase 1; Fehlschlag ⇒ `partially_completed` (kein ArangoDB-Delete). Kuratiert übernommene Referenzen (`source != 'user_contributed'`) bleiben unberührt. | REQ-029-A §5.1, REQ-034 §5 | Integration |
+<!-- /Quelle: REQ-034 Security-Review SR-003 -->
 
 ### Frontend-Kriterien:
 

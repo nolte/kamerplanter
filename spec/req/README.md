@@ -299,6 +299,20 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
+### 📷 REQ-034: Pflanzenfoto-Galerie
+**Fokus:** Eigene Fotos pro Pflanzeninstanz, Galerie-Ansicht, optionaler DINOv2-Datenbeitrag
+- Foto-Upload via Webcam / Smartphone-Kamera / Datei-Upload (Wiederverwendung der Bilderkennungs-UX, REQ-029)
+- Galerie-Tab auf der Pflanzeninstanz-Detailseite: Thumbnail-Grid, Lightbox, Titelbild, Loeschen
+- Aufbauend auf dem Storage-Fundament NFR-013 (neue `category = plant`); Frontend kennt nur `attachment_id` + Stable URI
+- Optionaler, einwilligungs- und kuratierungs-gesteuerter Rueckfluss eigener Fotos in den DINOv2-Referenz-Index (REQ-029-A, `source = user_contributed`, no-op bis Bilderkennung-Phase 2)
+
+**Highlights:**
+- DSGVO-Klassifizierung als `user_diary_attachments` (Anonymisierung statt Hard-Delete), EXIF-Strip beim Upload
+- `PlantInstance.photo_refs` + `cover_photo_ref` (attachment_id-Listen statt roher Storage-URLs)
+- Verankert auf NFR-013 v1.2, REQ-013, REQ-025 v1.2, REQ-024
+
+---
+
 ## Technologie-Stack
 
 ### Backend
@@ -372,6 +386,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - ✅ REQ-017: Vermehrungsmanagement
 - ✅ REQ-018: Umgebungssteuerung & Aktorik
 - ✅ REQ-028: Mischkultur & Companion Planting
+- ✅ REQ-034: Pflanzenfoto-Galerie
 
 ---
 
