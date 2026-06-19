@@ -30,6 +30,31 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def anonymize_user_metadata(
+        self,
+        tenant_key: str,
+        user_key: str,
+        categories: list[AttachmentCategory] | None = None,
+    ) -> int:
+        """REQ-025 Phase 0 — anonymise ``created_by`` on a user's attachments.
+
+        Sets ``created_by = '_anonymized'`` for every attachment owned by
+        ``user_key`` within ``tenant_key`` (optionally restricted to
+        ``categories``). The file itself is left in place — it belongs to the
+        tenant record (NFR-013 §6.2 item 3). Returns the number of metadata
+        documents updated. Idempotent: already-anonymised documents are skipped.
+        """
+
+    @abstractmethod
+    def delete_all_for_tenant(self, tenant_key: str) -> int:
+        """REQ-024/-025 — delete every attachment metadata document of a tenant.
+
+        Removes only the ArangoDB metadata; the binary objects are purged
+        separately via ``storage_adapter.delete_prefix`` (NFR-013 §6.1).
+        Returns the number of documents deleted.
+        """
+
+    @abstractmethod
     def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
         """Return an existing attachment with a matching content hash (dedup)."""
 

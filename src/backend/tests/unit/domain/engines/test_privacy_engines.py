@@ -53,9 +53,26 @@ class TestErasureEngine:
         assert plan.soft_delete_immediate is True
         assert plan.hard_delete_after_days == 90
         assert plan.storage_cleanup
+        assert plan.reference_index_cleanup
         assert plan.anonymize
         assert plan.pseudonymize_audit
         assert "users" in plan.delete
+
+    def test_reference_index_cleanup_runs_before_arango_delete(self):
+        """REQ-034 SR-003: Phase 0.5 must precede edge/document/user deletion."""
+        engine = ErasureEngine()
+        plan = engine.build_erasure_plan("u1")
+
+        order = plan.delete
+        assert "_reference_index_cleanup" in order
+        # Phase 0.5 sits right after Phase 0 storage cleanup and before users.
+        assert order.index("_storage_cleanup") < order.index("_reference_index_cleanup")
+        assert order.index("_reference_index_cleanup") < order.index("users")
+
+        rule = plan.reference_index_cleanup[0]
+        assert rule.store == "pgvector"
+        assert rule.collection == "species_embeddings"
+        assert "user_contributed" in rule.filter
 
     def test_tombstone_hash_deterministic(self):
         salt = "x" * 32

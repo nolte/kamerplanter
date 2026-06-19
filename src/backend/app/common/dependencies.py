@@ -467,6 +467,9 @@ def get_tenant_service() -> TenantService:
         tenant_engine=TenantEngine(),
         membership_engine=MembershipEngine(),
         invitation_engine=InvitationEngine(),
+        storage_adapter=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        reference_index_store=get_reference_index_store(),
     )
 
 
@@ -877,6 +880,10 @@ def get_privacy_service():
         frontend_url=settings.frontend_url,
         data_controller_name=settings.privacy_data_controller_name,
         data_controller_email=settings.privacy_data_controller_email,
+        storage_adapter=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        membership_repo=get_membership_repo(),
+        reference_index_store=get_reference_index_store(),
     )
 
 
@@ -953,6 +960,20 @@ def get_attachment_service():
         attachment_repo=get_attachment_repo(),
         settings=settings,
     )
+
+
+def get_reference_index_store():
+    """REQ-025 Phase 0.5 / REQ-029-A — DINOv2 reference-index store.
+
+    Returns the no-op store until the physical pgvector ``species_embeddings``
+    index ships (DINOv2 Phase 2). Swap the binding here once the real store
+    exists — the erasure pipeline and engine rules need no change.
+    """
+    from app.data_access.vectordb.noop_reference_index_store import (
+        NoopReferenceIndexStore,
+    )
+
+    return NoopReferenceIndexStore()
 
 
 def get_object_storage() -> IObjectStorageAdapter:

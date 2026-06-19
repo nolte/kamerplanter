@@ -290,6 +290,8 @@ class S3StorageAdapter(IObjectStorageAdapter):
         from app.data_access.storage.local_fs_adapter import _scope_to_categories
 
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         deleted = 0
         for att in attachments:
@@ -316,6 +318,8 @@ class S3StorageAdapter(IObjectStorageAdapter):
         from app.data_access.storage.local_fs_adapter import _scope_to_categories
 
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
         for att in attachments:

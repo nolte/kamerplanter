@@ -8,6 +8,11 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.models.attachment import Attachment
 
+# REQ-025 §3.1 — value written to ``created_by`` when a user is erased but the
+# attachment must stay attached to the tenant record (Scope
+# ``user_diary_attachments``). Must match the spec marker exactly (AK-OS-02).
+ANONYMIZED_MARKER = "_anonymized"
+
 
 class ArangoAttachmentRepository(IAttachmentRepository, BaseArangoRepository):
     """ArangoDB-backed repository for ``attachments``."""
@@ -53,6 +58,53 @@ class ArangoAttachmentRepository(IAttachmentRepository, BaseArangoRepository):
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Attachment(**self._from_doc(doc)) for doc in cursor]
+
+    def anonymize_user_metadata(
+        self,
+        tenant_key: str,
+        user_key: str,
+        categories: list[AttachmentCategory] | None = None,
+    ) -> int:
+        """REQ-025 Phase 0 — set ``created_by = '_anonymized'`` (tenant-scoped, AQL).
+
+        Only touches documents that still carry the user's ``created_by`` (so a
+        re-run after a partial failure is idempotent and stays a no-op once
+        everything is anonymised). Returns the number of documents updated.
+        """
+        category_values = [c.value for c in categories] if categories else None
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.created_by == @user_key
+          FILTER @categories == null OR att.category IN @categories
+          UPDATE att WITH { created_by: @marker } IN @@collection
+          COLLECT WITH COUNT INTO updated
+          RETURN updated
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "user_key": user_key,
+            "categories": category_values,
+            "marker": ANONYMIZED_MARKER,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
+    def delete_all_for_tenant(self, tenant_key: str) -> int:
+        """REQ-024/-025 — delete every attachment metadata document of a tenant."""
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key
+          REMOVE att IN @@collection
+          COLLECT WITH COUNT INTO removed
+          RETURN removed
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
 
     def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
         query = """

@@ -187,11 +187,29 @@ class StorageCleanupRule(BaseModel):
     ref: str
 
 
+class ReferenceIndexCleanupRule(BaseModel):
+    """pgvector reference-index cleanup rule (Phase 0.5 of the erasure pipeline).
+
+    REQ-034 §5 / REQ-025 §3.1 (SR-003). Removes user-contributed DINOv2
+    embeddings (``source == 'user_contributed'``) from the reference index by
+    provenance (``contributed_by`` for user erasure, ``tenant_key`` for tenant
+    erasure). The index lives in pgvector, outside ArangoDB, so it needs its
+    own cleanup path that runs before the generic ArangoDB deletion (Phase 1).
+    """
+
+    store: Literal["pgvector"] = "pgvector"
+    collection: str
+    filter: str
+    action: Literal["hard_delete"] = "hard_delete"
+    ref: str
+
+
 class ErasurePlan(BaseModel):
     """Aggregated plan that the erasure executor processes step by step."""
 
     user_key: str
     storage_cleanup: list[StorageCleanupRule] = Field(default_factory=list)
+    reference_index_cleanup: list[ReferenceIndexCleanupRule] = Field(default_factory=list)
     anonymize: list[AnonymizationRule] = Field(default_factory=list)
     pseudonymize_audit: list[PseudonymizationRule] = Field(default_factory=list)
     delete: list[str] = Field(default_factory=list)

@@ -339,6 +339,10 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         if self._attachment_repo is None:
             return 0
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            # Empty category set ⇒ scope matches no category (e.g. user_personal
+            # before profile/user_notes categories exist). Touch nothing.
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         deleted = 0
         for att in attachments:
@@ -365,6 +369,8 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         if self._attachment_repo is None:
             return 0
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
         for att in attachments:
@@ -404,17 +410,76 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         return verify_token(token, self._signing_secret)
 
 
+def _erasure_scope_categories():  # type: ignore[no-untyped-def]
+    """Return the REQ-025 §3.1 erasure-scope → category-set mapping.
+
+    Built lazily so importing this module does not pull the enum eagerly
+    (avoids any import-order coupling). The single source of truth for which
+    attachment categories each erasure scope covers — extend here, never in the
+    adapters or the erasure task.
+    """
+    from app.common.enums import AttachmentCategory
+
+    return {
+        # Hard-delete scope. No personal categories exist in the enum yet, so
+        # this is intentionally empty (touch nothing) rather than ``None``
+        # (touch everything) — a non-empty mapping would silently hard-delete
+        # the user's documentation photos.
+        "user_personal": (),
+        # Anonymise scope: every documentation category that belongs to the
+        # tenant record. ``plant`` = REQ-034 gallery (REQ-034 §5).
+        "user_diary_attachments": (
+            AttachmentCategory.DIARY,
+            AttachmentCategory.IPM,
+            AttachmentCategory.HARVEST,
+            AttachmentCategory.POST_HARVEST,
+            AttachmentCategory.TASK,
+            AttachmentCategory.PLANT,
+        ),
+    }
+
+
 def _scope_to_categories(scope: str):  # type: ignore[no-untyped-def]
     """Map a REQ-025 erasure scope string to attachment categories.
 
-    ``"all"`` (or empty) means every category. Otherwise the scope is treated
-    as a comma-separated list of ``AttachmentCategory`` values; unknown values
-    are ignored.
+    Return-value contract (consumed by ``delete_for_user`` /
+    ``strip_exif_for_user``):
+
+    - ``None`` means *every* category — used by the ``"all"`` legacy scope.
+    - An empty list ``[]`` means *no category matches* — the caller MUST treat
+      this as "touch nothing", never as "touch everything". This is the safe
+      default for the ``user_personal`` hard-delete scope as long as no
+      personal categories (``profile`` / ``user_notes``) exist in the
+      ``AttachmentCategory`` enum.
+    - A non-empty list restricts the lookup to those categories.
+
+    Recognised REQ-025 §3.1 erasure scopes (``STORAGE_CLEANUP_RULES``):
+
+    - ``user_personal`` → personal attachments that are hard-deleted. The
+      ``AttachmentCategory`` enum currently has no ``profile`` / ``user_notes``
+      members, so this resolves to ``[]`` (nothing). The mapping below is the
+      single place to extend once those categories ship — no adapter change.
+    - ``user_diary_attachments`` → documentation photos that stay attached to
+      the tenant record and are only anonymised (``diary``, ``ipm``,
+      ``harvest``, ``post_harvest``, ``task``, ``plant`` — ``plant`` is the
+      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5).
+
+    For backward compatibility the legacy ``"all"`` scope and a comma-separated
+    list of raw ``AttachmentCategory`` values are still accepted; unknown
+    values are ignored.
     """
     from app.common.enums import AttachmentCategory
 
     if not scope or scope == "all":
         return None
+
+    erasure_scopes = _erasure_scope_categories()
+    if scope in erasure_scopes:
+        # Known REQ-025 scope — resolve to its concrete category set (possibly
+        # empty for ``user_personal`` until personal categories exist).
+        return list(erasure_scopes[scope])
+
+    # Legacy / explicit comma-separated category list.
     categories = []
     for raw in scope.split(","):
         value = raw.strip()
