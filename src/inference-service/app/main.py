@@ -26,6 +26,8 @@ from app.schemas import (
     ReferenceImageItem,
     ReferenceListResponse,
     ReferenceResponse,
+    SetReferenceActiveRequest,
+    SetReferenceActiveResponse,
 )
 from app.vectordb.connection import VectorDbConnection
 from app.vectordb.repository import SpeciesEmbeddingRepository
@@ -294,15 +296,52 @@ async def upsert_reference(
 
 
 @app.get("/reference/{species_key}", response_model=ReferenceListResponse)
-def list_references(species_key: str, limit: int = Query(50, ge=1, le=200)) -> ReferenceListResponse:
+def list_references(
+    species_key: str,
+    limit: int = Query(50, ge=1, le=200),
+    active_only: bool = Query(False),
+) -> ReferenceListResponse:
     """List stored reference image provenance for a species (gallery source).
 
-    Returns only URL + license/attribution metadata — never embeddings.
+    Returns only id + URL + license/attribution/curation metadata — never
+    embeddings. With ``active_only`` the deselected images are omitted (public
+    gallery); without it all images are returned with their ``is_active`` flag
+    so the admin curation view can offer re-inclusion.
     """
     repo = _require_repo()
-    rows = repo.list_by_species(species_key, limit=limit)
+    rows = repo.list_by_species(species_key, limit=limit, active_only=active_only)
     images = [ReferenceImageItem(**row) for row in rows]
     return ReferenceListResponse(species_key=species_key, count=len(images), images=images)
+
+
+@app.patch(
+    "/reference/{species_key}/{embedding_id}",
+    response_model=SetReferenceActiveResponse,
+)
+def set_reference_active(
+    species_key: str,
+    embedding_id: int,
+    body: SetReferenceActiveRequest,
+) -> SetReferenceActiveResponse:
+    """Activate/deactivate one reference image (manual curation, REQ-029-A).
+
+    Deactivated images are kept (audit trail) but filtered out of /match.
+    """
+    repo = _require_repo()
+    updated = repo.set_active(
+        species_key,
+        embedding_id,
+        is_active=body.is_active,
+        reason=body.reason,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Reference image not found.")
+    return SetReferenceActiveResponse(
+        status="ok",
+        species_key=species_key,
+        id=embedding_id,
+        is_active=body.is_active,
+    )
 
 
 @app.delete("/reference/{species_key}", response_model=DeleteReferenceResponse)

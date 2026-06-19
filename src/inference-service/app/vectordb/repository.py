@@ -92,18 +92,22 @@ class SpeciesEmbeddingRepository:
         Aggregates per species (a species has many reference embeddings) and
         keeps the single closest reference as that species' score -- equivalent
         to the MAX(score) COLLECT pattern in REQ-029-A 5.3.
+
+        Manually excluded reference images (``is_active = FALSE``) are never
+        considered, so a deselected bad image can no longer skew the result.
         """
         embedding_str = _to_vector_literal(query_vector)
 
         # Inner query computes per-row cosine similarity (1 - cosine distance);
-        # outer query reduces to the best score per species.
+        # outer query reduces to the best score per species. ``is_active`` is
+        # always enforced so curated-out images drop out of every match.
         sql = """
             SELECT species_key, scientific_name, MAX(score) AS best_score
             FROM (
                 SELECT species_key, scientific_name,
                        1 - (embedding <=> %s::vector) AS score
                 FROM species_embeddings
-                {model_filter}
+                WHERE is_active = TRUE {model_filter}
             ) AS scored
             GROUP BY species_key, scientific_name
             ORDER BY best_score DESC
@@ -112,7 +116,7 @@ class SpeciesEmbeddingRepository:
 
         params: list = [embedding_str]
         if model:
-            sql = sql.format(model_filter="WHERE model = %s")
+            sql = sql.format(model_filter="AND model = %s")
             params.append(model)
         else:
             sql = sql.format(model_filter="")
@@ -130,17 +134,31 @@ class SpeciesEmbeddingRepository:
             for row in rows
         ]
 
-    def list_by_species(self, species_key: str, limit: int = 50) -> list[dict]:
+    def list_by_species(
+        self,
+        species_key: str,
+        limit: int = 50,
+        *,
+        active_only: bool = False,
+    ) -> list[dict]:
         """Return the stored reference image provenance for a species.
 
         Only rows that actually carry a ``source_url`` are returned (manually
         upserted embeddings without provenance are not displayable). Used by the
-        UI gallery; embeddings themselves are never returned.
+        UI gallery; embeddings themselves are never returned. ``id`` and the
+        curation flags (``is_active``, ``exclusion_reason``) are returned so the
+        admin gallery can drive per-image deselection.
+
+        When ``active_only`` is set, excluded images are omitted entirely -- used
+        for the public gallery so end users never see deselected images.
         """
-        sql = """
-            SELECT source_url, license, attribution, organ, source, source_record_id
+        active_filter = "AND is_active = TRUE" if active_only else ""
+        sql = f"""
+            SELECT id, source_url, license, attribution, organ, source,
+                   source_record_id, is_active, exclusion_reason
             FROM species_embeddings
             WHERE species_key = %s AND source_url IS NOT NULL AND source_url <> ''
+                  {active_filter}
             ORDER BY indexed_at DESC
             LIMIT %s
         """
@@ -148,15 +166,47 @@ class SpeciesEmbeddingRepository:
             rows = conn.execute(sql, (species_key, limit)).fetchall()
         return [
             {
-                "source_url": row[0],
-                "license": row[1],
-                "attribution": row[2],
-                "organ": row[3],
-                "source": row[4],
-                "source_record_id": row[5],
+                "id": row[0],
+                "source_url": row[1],
+                "license": row[2],
+                "attribution": row[3],
+                "organ": row[4],
+                "source": row[5],
+                "source_record_id": row[6],
+                "is_active": row[7],
+                "exclusion_reason": row[8],
             }
             for row in rows
         ]
+
+    def set_active(
+        self,
+        species_key: str,
+        embedding_id: int,
+        *,
+        is_active: bool,
+        reason: str | None = None,
+    ) -> bool:
+        """Activate/deactivate one reference embedding (manual curation).
+
+        Deactivating (``is_active=False``) stores ``reason`` so the audit trail
+        records why the image was deselected; reactivating clears it. Returns
+        ``True`` when a matching row was updated, ``False`` otherwise (unknown
+        id / species mismatch).
+        """
+        sql = """
+            UPDATE species_embeddings
+            SET is_active        = %s,
+                exclusion_reason = %s,
+                marked_at        = NOW()
+            WHERE id = %s AND species_key = %s
+        """
+        stored_reason = reason if not is_active else None
+        with self._pool.connection() as conn:
+            result = conn.execute(
+                sql, (is_active, stored_reason, embedding_id, species_key)
+            )
+            return (result.rowcount or 0) > 0
 
     def delete_by_species(self, species_key: str) -> int:
         """Delete all reference embeddings for a species. Returns rows deleted."""

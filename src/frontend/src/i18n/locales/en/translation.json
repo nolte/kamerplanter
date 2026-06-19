@@ -983,6 +983,33 @@
           "seed": "Seed",
           "root": "Root",
           "stem": "Stem"
+        },
+        "curation": {
+          "intro": "You can deselect images that fail the visual test. Deselected images are removed from recognition but kept for the history and can be re-included.",
+          "hideDeselected": "Hide deselected images",
+          "allHidden": "All deselected images are hidden.",
+          "openSource": "Open image source",
+          "openSourceAria": "Open the source of {{name}}'s reference image in a new tab",
+          "excludedBadge": "Deselected",
+          "deselect": "Deselect",
+          "deselectAria": "Deselect reference image of {{name}}",
+          "reinclude": "Re-include",
+          "reincludeAria": "Re-include reference image of {{name}}",
+          "deselectDialogTitle": "Deselect reference image",
+          "deselectDialogText": "This image will be removed from recognition so it can no longer skew the result. You can re-include it later.",
+          "reasonLabel": "Reason",
+          "reason": {
+            "blurry": "Blurry / poor quality",
+            "wrong_organ": "Wrong plant organ",
+            "wrong_species": "Wrong species",
+            "duplicate": "Duplicate",
+            "irrelevant": "Not relevant",
+            "manual": "Manually deselected"
+          },
+          "deselectSuccess": "Image deselected and removed from recognition.",
+          "reincludeSuccess": "Image re-included in recognition.",
+          "actionError": "Action failed. Please try again.",
+          "lowCoverageWarning": "Only {{count}} active reference images left (minimum {{min}}). Below this threshold the species may no longer be recognizable."
         }
       }
     },

@@ -59,6 +59,10 @@ class UserProfileResponse(BaseModel):
     timezone: str = "Europe/Berlin"
     last_login_at: datetime | None
     created_at: datetime | None
+    # Global platform-admin flag (admin membership in the "platform" tenant).
+    # Gates admin-only UI such as reference-image curation. Defaults to False so
+    # other construction sites need not supply it.
+    is_platform_admin: bool = False
 
 
 class TokenResponse(BaseModel):

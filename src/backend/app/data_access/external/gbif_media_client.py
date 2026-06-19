@@ -10,6 +10,7 @@ import structlog
 from httpx import Client, HTTPStatusError, RequestError
 
 from app.common.exceptions import ExternalSourceError, RateLimitError
+from app.common.text import strip_html
 from app.config.settings import settings
 from app.domain.models.reference_image import MediaCandidate
 from app.domain.services.reference_image_license import normalize_license
@@ -70,7 +71,9 @@ class GBIFMediaClient:
                         license=license_value,
                         source="gbif",
                         source_record_id=record_id,
-                        attribution=media.get("rightsHolder") or media.get("creator"),
+                        # Defensive: GBIF rightsHolder/creator are normally plain
+                        # text, but strip any stray markup to keep captions clean.
+                        attribution=strip_html(media.get("rightsHolder") or media.get("creator")),
                         format=media.get("format"),
                     )
                 )

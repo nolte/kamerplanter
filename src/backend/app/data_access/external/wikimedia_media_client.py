@@ -14,6 +14,7 @@ import structlog
 from httpx import Client, HTTPStatusError, RequestError
 
 from app.common.exceptions import ExternalSourceError
+from app.common.text import strip_html
 from app.config.settings import settings
 from app.domain.models.reference_image import MediaCandidate
 from app.domain.services.reference_image_license import normalize_license
@@ -80,7 +81,8 @@ class WikimediaCommonsMediaClient:
                     license=normalize_license(raw_license),
                     source="wikimedia",
                     source_record_id=str(page.get("pageid", "")) or None,
-                    attribution=meta.get("Artist", {}).get("value"),
+                    # Wikimedia's Artist value is HTML — store plain text only.
+                    attribution=strip_html(meta.get("Artist", {}).get("value")),
                 )
             )
         return candidates

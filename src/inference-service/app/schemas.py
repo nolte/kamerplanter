@@ -58,12 +58,15 @@ class DeleteReferenceResponse(BaseModel):
 class ReferenceImageItem(BaseModel):
     """Provenance of one stored reference image (no embedding)."""
 
+    id: int | None = None
     source_url: str
     license: str | None = None
     attribution: str | None = None
     organ: str | None = None
     source: str | None = None
     source_record_id: str | None = None
+    is_active: bool = True
+    exclusion_reason: str | None = None
 
 
 class ReferenceListResponse(BaseModel):
@@ -72,6 +75,22 @@ class ReferenceListResponse(BaseModel):
     species_key: str
     count: int
     images: list[ReferenceImageItem]
+
+
+class SetReferenceActiveRequest(BaseModel):
+    """Activate/deactivate one reference image (manual curation, REQ-029-A)."""
+
+    is_active: bool
+    reason: str | None = None
+
+
+class SetReferenceActiveResponse(BaseModel):
+    """Result of toggling a reference image's active flag."""
+
+    status: str
+    species_key: str
+    id: int
+    is_active: bool
 
 
 class ModelInfoResponse(BaseModel):

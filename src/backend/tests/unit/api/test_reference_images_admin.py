@@ -8,9 +8,11 @@ patched out.
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from app.api.v1.admin.reference_images import router as mod
+from app.api.v1.admin.reference_images.schemas import SetImageActiveRequest
 from app.common.exceptions import NotFoundError
 
 
@@ -65,3 +67,67 @@ def test_coverage_aggregates(monkeypatch):
     assert report.total_species == 2
     assert report.usable_species == 1
     assert report.entries[0].species_key == "a"
+
+
+# -- curation (deselect / re-include) --------------------------------------
+
+
+def _patch_species_exists(monkeypatch, exists: bool = True) -> None:
+    species_repo = MagicMock()
+    species_repo.get_by_key.return_value = SimpleNamespace(key="species_a") if exists else None
+    monkeypatch.setattr(mod, "get_species_repo", lambda: species_repo)
+
+
+def test_list_curation_images_includes_excluded(monkeypatch):
+    _patch_species_exists(monkeypatch)
+    client = MagicMock()
+    client.list_references.return_value = [
+        {"id": 1, "source_url": "http://x/1.jpg", "is_active": True, "source": "gbif"},
+        {"id": 2, "source_url": "http://x/2.jpg", "is_active": False, "exclusion_reason": "blurry"},
+        {"id": 3, "source_url": ""},  # no URL → dropped
+    ]
+    monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: client)
+
+    result = mod.list_curation_images("species_a", _user=None)
+
+    assert result.count == 2
+    assert result.active_count == 1
+    by_id = {img.id: img for img in result.images}
+    assert by_id[2].is_active is False
+    assert by_id[2].exclusion_reason == "blurry"
+    # The admin view must request ALL images (not active_only).
+    assert client.list_references.call_args.kwargs.get("active_only", False) is False
+
+
+def test_list_curation_images_404_when_species_unknown(monkeypatch):
+    _patch_species_exists(monkeypatch, exists=False)
+    monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: MagicMock())
+
+    with pytest.raises(NotFoundError):
+        mod.list_curation_images("nope", _user=None)
+
+
+def test_set_image_active_deselects(monkeypatch):
+    client = MagicMock()
+    monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: client)
+
+    body = SetImageActiveRequest(is_active=False, reason="blurry")
+    resp = mod.set_image_active("species_a", 7, body=body, _user=None)
+
+    client.set_reference_active.assert_called_once_with("species_a", 7, is_active=False, reason="blurry")
+    assert resp.is_active is False
+    assert resp.id == 7
+    assert resp.species_key == "species_a"
+
+
+def test_set_image_active_404_when_image_unknown(monkeypatch):
+    client = MagicMock()
+    client.set_reference_active.side_effect = httpx.HTTPStatusError(
+        "not found",
+        request=httpx.Request("PATCH", "http://inference/reference/species_a/999"),
+        response=httpx.Response(404),
+    )
+    monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: client)
+
+    with pytest.raises(NotFoundError):
+        mod.set_image_active("species_a", 999, body=SetImageActiveRequest(is_active=False), _user=None)

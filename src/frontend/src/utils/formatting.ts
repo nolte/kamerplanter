@@ -1,5 +1,23 @@
 import i18n from '@/i18n/i18n';
 
+/**
+ * Strip HTML markup from a string and return its plain text.
+ *
+ * Reference-image attributions sourced from Wikimedia Commons (`extmetadata`
+ * `Artist`) can contain HTML (e.g. `<a href="...">Name</a> from France`).
+ * Rendered as text that markup would leak into the caption, so we reduce it to
+ * its text content and collapse whitespace. Returns an empty string for nullish
+ * input.
+ */
+export function stripHtml(value: string | null | undefined): string {
+  if (!value) return '';
+  // Fast path: no tags and no entities → just collapse whitespace.
+  if (!value.includes('<') && !value.includes('&')) return value.replace(/\s+/g, ' ').trim();
+  // DOMParser strips tags AND decodes entities (e.g. "&amp;" → "&").
+  const doc = new DOMParser().parseFromString(value, 'text/html');
+  return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
 /** Return the active BCP-47 locale (e.g. "de-DE", "en-US"). */
 function activeLocale(): string {
   const lang = i18n.language ?? 'de';

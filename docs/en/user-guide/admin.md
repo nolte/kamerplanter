@@ -213,6 +213,16 @@ Photos are **not** stored on the Kamerplanter server — they are transmitted to
 
 ---
 
+## Curating Reference Images for Plant Identification
+
+The self-hosted plant identification (DINOv2) compares user photos against a stored **reference index**. If that index contains blurry, misidentified, or otherwise unsuitable images, recognition accuracy for the affected species deteriorates.
+
+As a platform admin you can **deselect individual reference images** after a visual inspection — they are then excluded from recognition but remain in the system (soft delete, reactivatable at any time). The full guide including the coverage threshold (< 5 active images), API endpoints, and FAQ is available at:
+
+**[Curating Reference Images](reference-image-curation.md)**
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Who can assign the platform-admin role?"
