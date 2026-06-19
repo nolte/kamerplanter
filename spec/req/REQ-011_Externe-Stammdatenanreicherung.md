@@ -30,10 +30,12 @@ Das System synchronisiert Pflanzenstammdaten periodisch mit externen APIs und re
 | Prio | Quelle | Basis-URL | Datentyp | Lizenz | Rate-Limit |
 |------|--------|-----------|----------|--------|------------|
 | 1 | **Perenual** | `https://perenual.com/api/v2/` | Pflegedaten (Bewässerung, Licht, pH, Temperatur) | Freemium | 100 req/Tag (Free) |
-| 2 | **OpenFarm** | `https://openfarm.cc/api/v1/` | Growing Guides, Companion Planting | CC-BY-4.0 | Kein hartes Limit |
+| 2 | **OpenFarm** | `https://openfarm.cc/api/v1/` | Growing Guides, Companion Planting | **CC0 (Public Domain)** ¹ | API offline seit 04/2025 ¹ |
 | 3 | **GBIF** | `https://api.gbif.org/v1/` | Taxonomie, wissenschaftliche Namen, Synonyme | Frei | Kein Auth nötig |
 | 4 | **Trefle** | `https://trefle.io/api/v1/` | Botanische Merkmale, Wuchshöhe, Temperaturbereich | Open Source | 120 req/Min |
 | 5 | **Otreeba** | `https://api.otreeba.com/` | Cannabis-Sorten, Genetik, Effekte | Frei | Kein Auth nötig |
+
+> ¹ **Lizenzkorrektur (2026-06-20, verifiziert):** OpenFarm-Daten stehen unter **CC0 (Public Domain)**, nicht CC-BY-4.0. Der OpenFarm-Server ist seit **April 2025 abgeschaltet/archiviert** (API antwortet nur noch mit 301-Redirect) → ein Live-Abruf ist nicht realisierbar; die Daten sind nur noch als einmaliger statischer CC0-Dump nutzbar. Details und Folgeentscheidung siehe `REQ-040` (G3) und `spec/analysis/awesome-agriculture-lizenz-und-nutzungsanalyse.md`.
 
 **Zukünftig vorgesehen (API noch nicht aktiv):**
 
