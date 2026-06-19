@@ -79,7 +79,8 @@ def get_species_reference_images(
     """
     service.get_species(key)  # 404 if the species does not exist
     client = InferenceServiceClient(settings.inference_service_url)
-    rows = client.list_references(key)
+    # Public gallery: never show images an admin has deselected.
+    rows = client.list_references(key, active_only=True)
     images = [
         ReferenceImageEntry(
             source_url=r.get("source_url", ""),

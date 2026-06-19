@@ -195,6 +195,17 @@ Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem 
 
 ---
 
+## Referenzbilder und Erkennungsqualität
+
+Das System zeigt dir bei jedem Vorschlag ein **Referenzbild** der erkannten Art zum Vergleich. Diese Referenzbilder stammen aus lizenzierten Botanik-Datenbanken (GBIF, Wikimedia Commons) und werden automatisch beschafft.
+
+!!! note "Erkennbarkeit einzelner Arten"
+    Für manche seltenen Arten stehen nur wenige Referenzbilder zur Verfügung. Ist die Erkennbarkeitsschwelle unterschritten, weist das System dich in der Ergebnisliste darauf hin. In diesem Fall liefert die manuelle Suche zuverlässigere Ergebnisse.
+
+Platform-Admins können die Qualität des Referenz-Index verbessern, indem sie ungeeignete Bilder nach einem Sichttest abwählen. Mehr dazu: [Referenzbilder kuratieren](reference-image-curation.md).
+
+---
+
 ## Häufige Fragen
 
 ??? question "Warum sehe ich keine Kamera-Schaltfläche?"

@@ -983,6 +983,33 @@
           "seed": "Samen",
           "root": "Wurzel",
           "stem": "Stängel"
+        },
+        "curation": {
+          "intro": "Bilder, die den Sichttest nicht bestehen, kannst du abwählen. Abgewählte Bilder werden aus der Bilderkennung entfernt, bleiben aber für den Verlauf erhalten und sind wieder aufnehmbar.",
+          "hideDeselected": "Abgewählte Bilder ausblenden",
+          "allHidden": "Alle abgewählten Bilder sind ausgeblendet.",
+          "openSource": "Bildquelle öffnen",
+          "openSourceAria": "Quelle des Referenzbilds von {{name}} in neuem Tab öffnen",
+          "excludedBadge": "Abgewählt",
+          "deselect": "Abwählen",
+          "deselectAria": "Referenzbild von {{name}} abwählen",
+          "reinclude": "Wieder aufnehmen",
+          "reincludeAria": "Referenzbild von {{name}} wieder aufnehmen",
+          "deselectDialogTitle": "Referenzbild abwählen",
+          "deselectDialogText": "Dieses Bild wird aus der Bilderkennung entfernt, damit es das Ergebnis nicht mehr verfälscht. Du kannst es später wieder aufnehmen.",
+          "reasonLabel": "Grund",
+          "reason": {
+            "blurry": "Unscharf / schlechte Qualität",
+            "wrong_organ": "Falsches Pflanzenorgan",
+            "wrong_species": "Falsche Art",
+            "duplicate": "Duplikat",
+            "irrelevant": "Nicht relevant",
+            "manual": "Manuell abgewählt"
+          },
+          "deselectSuccess": "Bild abgewählt und aus der Erkennung entfernt.",
+          "reincludeSuccess": "Bild wieder in die Erkennung aufgenommen.",
+          "actionError": "Aktion fehlgeschlagen. Bitte erneut versuchen.",
+          "lowCoverageWarning": "Nur noch {{count}} aktive Referenzbilder (Minimum {{min}}). Unterhalb dieser Schwelle ist die Art möglicherweise nicht mehr erkennbar."
         }
       }
     },

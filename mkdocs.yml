@@ -113,6 +113,7 @@ plugins:
             Datenschutz (DSGVO): Privacy (GDPR)
             Druckansichten & Export: Print & Export
             Pflanze per Foto identifizieren: Identify Plant by Photo
+            Referenzbilder kuratieren: Curate Reference Images
             Gießprotokoll: Watering Log
             Plattform-Admin: Platform Admin
             Architektur: Architecture
@@ -271,6 +272,7 @@ nav:
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
       - Pflanze per Foto identifizieren: de/user-guide/plant-identification.md
+      - Referenzbilder kuratieren: de/user-guide/reference-image-curation.md
       - Plattform-Admin: de/user-guide/admin.md
   - Architektur:
       - de/architecture/index.md

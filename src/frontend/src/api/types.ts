@@ -316,6 +316,43 @@ export interface SpeciesReferenceImages {
   images: ReferenceImage[];
 }
 
+/** Reason an admin can give when deselecting a reference image (REQ-029-A). */
+export type ReferenceExclusionReason =
+  | 'blurry'
+  | 'wrong_organ'
+  | 'wrong_species'
+  | 'duplicate'
+  | 'irrelevant'
+  | 'manual';
+
+/** One reference image in the admin curation view (includes deselected ones). */
+export interface CurationImage extends ReferenceImage {
+  id: number;
+  is_active: boolean;
+  exclusion_reason?: string | null;
+}
+
+/** Admin curation listing for a species (all images, incl. deselected). */
+export interface CurationImageList {
+  species_key: string;
+  count: number;
+  active_count: number;
+  images: CurationImage[];
+}
+
+/** Payload to deselect or re-include a reference image. */
+export interface SetImageActiveRequest {
+  is_active: boolean;
+  reason?: ReferenceExclusionReason | null;
+}
+
+/** Result of toggling a reference image's active flag. */
+export interface SetImageActiveResponse {
+  species_key: string;
+  id: number;
+  is_active: boolean;
+}
+
 export interface SpeciesCreate {
   scientific_name: string;
   common_names?: string[];
@@ -3081,6 +3118,8 @@ export interface UserProfile {
   timezone: string;
   last_login_at: string | null;
   created_at: string | null;
+  /** Global platform-admin flag — gates admin-only UI (e.g. reference-image curation). */
+  is_platform_admin: boolean;
 }
 
 export interface UserProfileUpdate {

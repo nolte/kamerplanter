@@ -71,8 +71,18 @@ class InferenceServiceClient:
         except Exception:  # noqa: BLE001 — status must never raise
             return None
 
-    def list_references(self, species_key: str, *, limit: int = 50) -> list[dict[str, Any]]:
+    def list_references(
+        self,
+        species_key: str,
+        *,
+        limit: int = 50,
+        active_only: bool = False,
+    ) -> list[dict[str, Any]]:
         """List stored reference image provenance for a species (gallery source).
+
+        With ``active_only`` the deselected images are omitted (public gallery);
+        without it every image is returned with its ``is_active`` flag so the
+        admin curation view can offer re-inclusion.
 
         Returns ``[]`` (never raises) when the service is unreachable or has no
         index yet, so the UI degrades to "no images" instead of erroring.
@@ -80,7 +90,7 @@ class InferenceServiceClient:
         try:
             response = httpx.get(
                 f"{self._base_url}/reference/{species_key}",
-                params={"limit": limit},
+                params={"limit": limit, "active_only": active_only},
                 timeout=_MATCH_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
@@ -88,6 +98,28 @@ class InferenceServiceClient:
         except Exception:  # noqa: BLE001 — a missing gallery must not break the page
             logger.info("inference_list_references_failed", species_key=species_key)
             return []
+
+    def set_reference_active(
+        self,
+        species_key: str,
+        embedding_id: int,
+        *,
+        is_active: bool,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Activate/deactivate one reference image (manual curation, REQ-029-A).
+
+        Unlike ``list_references`` this propagates errors (``raise_for_status``)
+        so an admin action that fails surfaces instead of silently no-op'ing. A
+        404 from the service (unknown image) bubbles up as an HTTPStatusError.
+        """
+        response = httpx.patch(
+            f"{self._base_url}/reference/{species_key}/{embedding_id}",
+            json={"is_active": is_active, "reason": reason},
+            timeout=_MATCH_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
 
     # ── Acquisition path (sync, WS-4) ──────────────────────────────────
 

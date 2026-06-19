@@ -5,6 +5,7 @@ from fastapi import Cookie, Depends, Header, Path
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, UnauthorizedError
+from app.config.settings import settings
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -59,7 +60,14 @@ def require_platform_admin(
     user: User = Depends(get_current_user),
     tenant_service: TenantService = Depends(get_tenant_service),
 ) -> User:
-    """Require the user to be a platform admin (admin membership in platform tenant)."""
+    """Require the user to be a platform admin (admin membership in platform tenant).
+
+    In light mode (REQ-027) there is no platform tenant and only the single
+    anonymous system user exists — that user is the sole operator and therefore
+    treated as platform admin.
+    """
+    if settings.kamerplanter_mode == "light":
+        return user
     membership = tenant_service.get_membership(user.key, "platform")
     if not membership or not membership.is_active or membership.role != TenantRole.ADMIN:
         raise ForbiddenError("Platform admin role required.")

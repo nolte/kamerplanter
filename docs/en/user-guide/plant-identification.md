@@ -195,6 +195,17 @@ As an alternative to Pl@ntNet, image recognition can run **entirely on your own 
 
 ---
 
+## Reference Images and Recognition Quality
+
+For each suggestion the system shows you a **reference image** of the identified species for comparison. These reference images are sourced from licensed botanical databases (GBIF, Wikimedia Commons) and are collected automatically.
+
+!!! note "Recognisability of individual species"
+    For some rare species only a small number of reference images are available. If the recognisability threshold is not met, the system indicates this in the results list. In such cases, using the manual species search gives more reliable results.
+
+Platform admins can improve the quality of the reference index by deselecting unsuitable images after a visual inspection. For details see [Curating Reference Images](reference-image-curation.md).
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Why don't I see a camera button?"

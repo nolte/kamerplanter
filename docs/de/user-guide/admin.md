@@ -213,6 +213,16 @@ Fotos werden **nicht** auf dem Kamerplanter-Server gespeichert — sie werden au
 
 ---
 
+## Referenzbilder für die Bilderkennung kuratieren
+
+Die Self-Hosted-Bilderkennung (DINOv2) vergleicht Nutzer-Fotos mit einem gespeicherten **Referenz-Index**. Enthält dieser Index unscharfe, falsch bestimmte oder anderweitig ungeeignete Bilder, verschlechtert sich die Erkennungsgenauigkeit für die betroffene Art.
+
+Als Platform-Admin kannst du einzelne Referenzbilder nach einem **Sichttest abwählen** — sie werden dann aus der Erkennung ausgeschlossen, bleiben aber im System erhalten (Soft-Delete, reaktivierbar). Die vollständige Anleitung einschließlich Coverage-Schwellenwert (< 5 aktive Bilder), API-Endpunkten und FAQ findest du auf der Seite:
+
+**[Referenzbilder kuratieren](reference-image-curation.md)**
+
+---
+
 ## Häufige Fragen
 
 ??? question "Wer kann die Plattform-Admin-Rolle vergeben?"

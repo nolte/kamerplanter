@@ -220,3 +220,72 @@ def test_list_references_empty_for_unknown_species(client, fake_repo):
     resp = client.get("/reference/nope")
     assert resp.status_code == 200
     assert resp.json()["count"] == 0
+
+
+# -- curation (deselect / re-include) --------------------------------------
+
+
+def test_set_reference_inactive_marks_image(client, fake_repo):
+    fake_repo.upsert_reference(
+        species_key="species_a",
+        scientific_name="A",
+        source="gbif",
+        source_url="http://x/1.jpg",
+        embedding=[0.0] * 384,
+    )
+    image_id = fake_repo.rows[0]["id"]
+
+    resp = client.patch(
+        f"/reference/species_a/{image_id}",
+        json={"is_active": False, "reason": "blurry"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_active"] is False
+    assert body["id"] == image_id
+    assert fake_repo.rows[0]["is_active"] is False
+    assert fake_repo.rows[0]["exclusion_reason"] == "blurry"
+
+
+def test_set_reference_active_clears_reason(client, fake_repo):
+    fake_repo.upsert_reference(
+        species_key="species_a",
+        scientific_name="A",
+        source="gbif",
+        source_url="http://x/1.jpg",
+        embedding=[0.0] * 384,
+        is_active=False,
+        exclusion_reason="blurry",
+    )
+    image_id = fake_repo.rows[0]["id"]
+
+    resp = client.patch(
+        f"/reference/species_a/{image_id}",
+        json={"is_active": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+    assert fake_repo.rows[0]["is_active"] is True
+    assert fake_repo.rows[0]["exclusion_reason"] is None
+
+
+def test_set_reference_active_unknown_id_is_404(client, fake_repo):
+    resp = client.patch("/reference/species_a/999", json={"is_active": False})
+    assert resp.status_code == 404
+
+
+def test_list_references_active_only_hides_excluded(client, fake_repo):
+    fake_repo.rows = [
+        {"id": 1, "species_key": "species_a", "source_url": "http://x/1.jpg", "is_active": True},
+        {"id": 2, "species_key": "species_a", "source_url": "http://x/2.jpg", "is_active": False},
+    ]
+    # Curation view: both images visible, with flags.
+    full = client.get("/reference/species_a").json()
+    assert full["count"] == 2
+    by_id = {img["id"]: img for img in full["images"]}
+    assert by_id[2]["is_active"] is False
+
+    # Public gallery view: excluded image is gone.
+    active = client.get("/reference/species_a?active_only=true").json()
+    assert active["count"] == 1
+    assert active["images"][0]["id"] == 1

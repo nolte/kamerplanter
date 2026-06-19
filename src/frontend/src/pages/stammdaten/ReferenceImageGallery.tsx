@@ -12,6 +12,9 @@ import { useTheme } from '@mui/material/styles';
 import CollectionsIcon from '@mui/icons-material/Collections';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { getSpeciesReferenceImages } from '@/api/endpoints/species';
+import { stripHtml } from '@/utils/formatting';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { ReferenceImageCuration } from './ReferenceImageCuration';
 import type { ReferenceImage } from '@/api/types';
 
 interface ReferenceImageGalleryProps {
@@ -23,7 +26,9 @@ interface ReferenceImageGalleryProps {
 /** Builds the "© {attribution} · {license}" caption, omitting empty parts. */
 function buildCaption(image: ReferenceImage): string {
   const parts: string[] = [];
-  if (image.attribution) parts.push(`© ${image.attribution}`);
+  // Attributions from Wikimedia can contain HTML markup — strip it to text.
+  const attribution = stripHtml(image.attribution);
+  if (attribution) parts.push(`© ${attribution}`);
   if (image.license) parts.push(image.license);
   return parts.join(' · ');
 }
@@ -111,6 +116,7 @@ function GalleryTile({ image, scientificName }: GalleryTileProps) {
 export function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceImageGalleryProps) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const isPlatformAdmin = usePlatformAdmin();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const [images, setImages] = useState<ReferenceImage[]>([]);
@@ -136,8 +142,15 @@ export function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceI
   }, [speciesKey]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Admins get the curation view (below), which fetches all images itself.
+    if (!isPlatformAdmin) void load();
+  }, [load, isPlatformAdmin]);
+
+  // Platform admins curate (deselect/re-include); everyone else sees the
+  // read-only public gallery of active images only.
+  if (isPlatformAdmin) {
+    return <ReferenceImageCuration speciesKey={speciesKey} scientificName={scientificName} />;
+  }
 
   return (
     <Box data-testid="reference-image-gallery">

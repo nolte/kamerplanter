@@ -281,6 +281,16 @@ Für jede Species (scientific_name) aus REQ-001-Stammdaten:
 - **Attribution** für CC-BY wird in den Metadaten mitgeführt und (falls UI Referenzbilder zeigt) angezeigt.
 - **Vor Produktivnahme rechtlich absegnen:** ob die Embedding-Berechnung aus CC-BY-SA/-NC-Bildern für einen ggf. kommerziellen Dienst zulässig ist. Default-sicher: **ausschließlich CC0/CC-BY**.
 
+### 4.5 Manuelle Kuratierung — Sichttest-Abwahl (NEU)
+
+Die automatischen Qualitätsgates (§4.2) erkennen nicht jedes ungeeignete Referenzbild (falsches Organ, falsche Art, irreführender Bildausschnitt). Ein **Platform-Admin** kann deshalb in der Referenzbild-Galerie einer Art einzelne Bilder dem **Sichttest** unterziehen und gezielt **abwählen**, damit sie das Ergebnis der Bilderkennung nicht mehr verfälschen.
+
+- **Soft-Delete (Audit-Trail):** Abwahl setzt `is_active = false` und speichert `exclusion_reason` (`blurry` | `wrong_organ` | `wrong_species` | `duplicate` | `irrelevant` | `manual`) sowie `marked_at`. Das Embedding bleibt erhalten und ist jederzeit **reaktivierbar** (Wieder-aufnehmen).
+- **Wirkung auf die Erkennung:** Die Vektorsuche (§5.3) berücksichtigt **ausschließlich** `is_active = true`. Abgewählte Bilder fließen damit in keinen Match mehr ein.
+- **Berechtigung:** ausschließlich Platform-Admin (Referenzbilder sind global, nicht tenant-/nutzerspezifisch). Endnutzer sehen in der öffentlichen Galerie nur aktive Bilder. Im **Light-Modus** (REQ-027) gibt es keinen Platform-Tenant; der alleinige anonyme System-User ist der Betreiber und wird als Platform-Admin behandelt — die Kuratierung ist dort also direkt verfügbar. Der Reference-Images-Admin-Router ist (wie der Recognition-Status) in **beiden** Modi registriert.
+- **Coverage-Hinweis:** Sinkt die Zahl aktiver Referenzen einer Art durch Abwahl unter die Erkennbarkeitsschwelle (§4.3, < 5 Referenzen), warnt die Kuratierungs-UI.
+- **Endpunkte:** Inferenz-Service `PATCH /reference/{species_key}/{id}` `{is_active, reason}`; Backend-Admin-Proxy `GET /admin/reference-images/{species_key}/images` (alle Bilder inkl. abgewählter) und `PATCH /admin/reference-images/{species_key}/images/{id}`.
+
 ---
 
 ## 5. Datenmodell-Erweiterung (ArangoDB)
@@ -301,9 +311,14 @@ Für jede Species (scientific_name) aus REQ-001-Stammdaten:
   "license": "CC-BY",
   "attribution": "© Jane Doe, via GBIF/iNaturalist",
   "source_url": "https://...",
-  "indexed_at": "2026-06-15T10:00:00Z"
+  "indexed_at": "2026-06-15T10:00:00Z",
+  "is_active": true,                          // §4.5 — false = manuell abgewählt
+  "exclusion_reason": null,                   // Grund bei Abwahl (blurry, wrong_organ, ...)
+  "marked_at": null                           // Zeitpunkt der letzten Kuratierungs-Aktion
 }
 ```
+
+> Implementierungshinweis: Der Referenz-Index liegt physisch in **pgvector** (nicht ArangoDB, siehe §2.2 D-2). Die Kuratierungsfelder `is_active`/`exclusion_reason`/`marked_at` werden dort per Migration `002_reference_curation.sql` ergänzt; ein partieller Index `WHERE is_active` deckt die Match-Abfrage ab.
 
 ### 5.2 Neue Collection `reference_image_jobs` (Beschaffungs-Protokoll)
 
@@ -328,6 +343,7 @@ Für jede Species (scientific_name) aus REQ-001-Stammdaten:
 // ArangoDB Vektor-Index (ab 3.12+, ggf. --experimental-vector-index nötig)
 FOR e IN species_embeddings
   FILTER e.model == @model
+  FILTER e.is_active == true                  // §4.5 — abgewählte Bilder ausschließen
   LET dist = APPROX_NEAR_COSINE(e.embedding, @query_vector)
   SORT dist DESC
   LIMIT @k
