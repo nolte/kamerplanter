@@ -52,6 +52,7 @@ import * as sitesApi from '@/api/endpoints/sites';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import type { Species, Cultivar, Site, PlantInstance } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -523,8 +524,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                             />
                           </ListItemIcon>
                           <ListItemText
-                            primary={plant.plant_name ?? plant.instance_id}
-                            secondary={plant.instance_id !== (plant.plant_name ?? plant.instance_id) ? plant.instance_id : undefined}
+                            primary={getPlantDisplayName(plant)}
+                            secondary={getPlantDisplayName(plant) !== plant.instance_id ? plant.instance_id : undefined}
                           />
                           <Chip
                             label={plant.current_phase}

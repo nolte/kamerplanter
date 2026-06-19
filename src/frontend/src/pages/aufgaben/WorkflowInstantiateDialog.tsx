@@ -33,6 +33,7 @@ import type {
   TaskTemplate,
   WorkflowTargetType,
 } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -273,10 +274,7 @@ export default function WorkflowInstantiateDialog({
         return `${option.run.name} (${t('pages.tasks.runPlantCount', { count })})`;
       }
       if (option.type === 'plant') {
-        const p = option.plant;
-        return p.plant_name
-          ? `${p.instance_id} - ${p.plant_name}`
-          : p.instance_id;
+        return getPlantLabel(option.plant);
       }
       if (option.type === 'location') {
         return option.location.name;
@@ -499,9 +497,7 @@ export default function WorkflowInstantiateDialog({
                       direction="row"
                       spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {plant.plant_name
-                          ? `${plant.instance_id} - ${plant.plant_name}`
-                          : plant.instance_id}
+                        {getPlantLabel(plant)}
                       </Typography>
                       <Chip
                         label={t(`enums.phase.${plant.current_phase}`)}

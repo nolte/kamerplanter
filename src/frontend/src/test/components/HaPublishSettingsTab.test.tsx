@@ -57,7 +57,7 @@ describe('HaPublishSettingsTab', () => {
 
     renderWithProviders(<HaPublishSettingsTab />);
 
-    expect(await screen.findByText('Tomate')).toBeInTheDocument();
+    expect(await screen.findByText('T-001 (Tomate)')).toBeInTheDocument();
     // Falls back to instance_id when plant_name is null.
     expect(screen.getByText('T-002')).toBeInTheDocument();
 
@@ -73,7 +73,7 @@ describe('HaPublishSettingsTab', () => {
 
     renderWithProviders(<HaPublishSettingsTab />);
 
-    const row = (await screen.findByText('Tomate')).closest('tr')!;
+    const row = (await screen.findByText('T-001 (Tomate)')).closest('tr')!;
     const toggle = within(row).getByRole('switch');
     expect(toggle).not.toBeChecked();
 
@@ -90,7 +90,7 @@ describe('HaPublishSettingsTab', () => {
 
     renderWithProviders(<HaPublishSettingsTab />);
 
-    const link = await screen.findByRole('link', { name: 'Tomate' });
+    const link = await screen.findByRole('link', { name: 'T-001 (Tomate)' });
     expect(link).toHaveAttribute('href', '/pflanzen/plant-instances/plant-1');
   });
 
@@ -102,7 +102,7 @@ describe('HaPublishSettingsTab', () => {
     ]);
 
     renderWithProviders(<HaPublishSettingsTab />);
-    await screen.findByText('Tomate');
+    await screen.findByText('T-001 (Tomate)');
 
     // Select all visible rows via the header checkbox, then bulk-publish.
     await userEvent.click(screen.getByLabelText('Select all visible entries'));
@@ -125,7 +125,7 @@ describe('HaPublishSettingsTab', () => {
     mockListSettings.mockResolvedValue([]);
 
     renderWithProviders(<HaPublishSettingsTab />);
-    await screen.findByText('Tomate');
+    await screen.findByText('T-001 (Tomate)');
 
     await userEvent.click(screen.getByRole('tab', { name: /tank/i }));
 

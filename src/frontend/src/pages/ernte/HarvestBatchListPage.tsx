@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBatches } from '@/store/slices/harvestSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { HarvestBatch, PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import HarvestCreateDialog from './HarvestCreateDialog';
 import { kamiHarvest } from '@/assets/brand/illustrations';
@@ -70,11 +71,11 @@ export default function HarvestBatchListPage() {
       label: t('pages.harvest.plantKey'),
       render: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant?.plant_name || plant?.instance_id || r.plant_key;
+        return plant ? getPlantLabel(plant) : r.plant_key;
       },
       searchValue: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant?.plant_name || plant?.instance_id || r.plant_key;
+        return plant ? getPlantLabel(plant) : r.plant_key;
       },
       hideBelowBreakpoint: 'md',
     },

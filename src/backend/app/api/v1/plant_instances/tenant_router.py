@@ -3,8 +3,10 @@ from fastapi import APIRouter, Depends, Query
 from app.api.v1.plant_instances.schemas import (
     ActiveChannelResponse,
     AssignNutrientPlanRequest,
+    CultivarSummary,
     PlantCreate,
     PlantResponse,
+    SpeciesSummary,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
@@ -20,11 +22,20 @@ router = APIRouter(prefix="/plant-instances", tags=["plant-instances"])
 
 
 def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantResponse:
-    """Convert PlantInstance to PlantResponse, resolving phase name from key."""
+    """Convert PlantInstance to PlantResponse, resolving phase name and
+    denormalized species/cultivar labels from their keys."""
     phase_name = service.resolve_phase_name(p.current_phase_key) if p.current_phase_key else ""
+    species = service.resolve_species(p.species_key)
+    cultivar = service.resolve_cultivar(p.cultivar_key)
     return PlantResponse(
         key=p.key or "",
         current_phase=phase_name,
+        species=(
+            SpeciesSummary(scientific_name=species.scientific_name, common_names=species.common_names)
+            if species
+            else None
+        ),
+        cultivar=CultivarSummary(name=cultivar.name) if cultivar else None,
         **p.model_dump(exclude={"key"}),
     )
 

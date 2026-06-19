@@ -56,6 +56,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import type { PlantInstance } from '@/api/types';
 import type { TaskItem, TaskComment, TaskAuditEntry, ChecklistItem } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
 
@@ -216,7 +217,7 @@ export default function TaskDetailPage() {
       if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
         plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
-            setPlantName(p.plant_name || p.instance_id);
+            setPlantName(getPlantDisplayName(p));
             try {
               const sp = await speciesApi.getSpecies(p.species_key);
               const speciesName = sp.common_names?.[0] || sp.scientific_name;
@@ -619,7 +620,7 @@ export default function TaskDetailPage() {
                       title={plantInfo ? (
                         <Box sx={{ p: 0.5 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {plantInfo.plant.plant_name || plantInfo.plant.instance_id}
+                            {getPlantDisplayName(plantInfo.plant)}
                           </Typography>
                           <Typography variant="caption" sx={{ display: 'block' }}>
                             {t('entities.species')}: {plantInfo.speciesName}
@@ -635,7 +636,7 @@ export default function TaskDetailPage() {
                             </Typography>
                           )}
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            ID: {plantInfo.plant.instance_id}
+                            {t('pages.plantInstances.instanceId')}: {plantInfo.plant.instance_id}
                           </Typography>
                         </Box>
                       ) : ''}

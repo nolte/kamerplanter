@@ -30,6 +30,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 
 const categories = [
   'maintenance', 'feeding', 'training', 'pruning', 'ausgeizen',
@@ -250,11 +251,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
             render={({ field }) => (
               <Autocomplete
                 options={plants}
-                getOptionLabel={(p) =>
-                  p.plant_name
-                    ? `${p.instance_id} - ${p.plant_name}`
-                    : p.instance_id
-                }
+                getOptionLabel={(p) => getPlantLabel(p)}
                 loading={loadingPlants}
                 value={plants.find((p) => p.key === field.value) ?? null}
                 onChange={(_, value) => field.onChange(value?.key ?? null)}

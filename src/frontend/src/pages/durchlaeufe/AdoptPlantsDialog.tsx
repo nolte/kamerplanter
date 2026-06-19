@@ -25,6 +25,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 
 interface AdoptPlantsDialogProps {
   open: boolean;
@@ -78,6 +79,7 @@ export default function AdoptPlantsDialog({
       (p) =>
         p.instance_id.toLowerCase().includes(lower) ||
         (p.plant_name ?? '').toLowerCase().includes(lower) ||
+        getPlantDisplayName(p).toLowerCase().includes(lower) ||
         p.current_phase.toLowerCase().includes(lower),
     );
   }, [plants, search]);
@@ -203,13 +205,13 @@ export default function AdoptPlantsDialog({
                         tabIndex={-1}
                         disableRipple
                         slotProps={{ input: {
-                          'aria-label': plant.instance_id,
+                          'aria-label': getPlantDisplayName(plant),
                         } }}
                       />
                     </ListItemIcon>
                     <ListItemText
-                      primary={plant.plant_name ?? plant.instance_id}
-                      secondary={plant.instance_id !== (plant.plant_name ?? plant.instance_id) ? plant.instance_id : undefined}
+                      primary={getPlantDisplayName(plant)}
+                      secondary={getPlantDisplayName(plant) !== plant.instance_id ? plant.instance_id : undefined}
                     />
                     <Chip
                       label={t(`enums.plantPhase.${plant.current_phase}`, { defaultValue: plant.current_phase })}

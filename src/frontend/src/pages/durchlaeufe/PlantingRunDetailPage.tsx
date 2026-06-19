@@ -70,6 +70,7 @@ import type {
   Species,
   Cultivar,
 } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -427,6 +428,10 @@ export default function PlantingRunDetailPage() {
 
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
+    { id: 'plantName', label: t('pages.plantInstances.plantName'), render: (r) => {
+      const name = getPlantDisplayName(r);
+      return name === r.instance_id ? '—' : name;
+    }, searchValue: (r) => getPlantDisplayName(r) },
     { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '—', searchValue: (r) => r.current_phase ?? '' },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
     { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '—' },
@@ -669,8 +674,9 @@ export default function PlantingRunDetailPage() {
                             data-testid={`phase-plant-${p.key}`}
                           >
                             <ListItemText
-                              primary={p.plant_name || p.instance_id}
+                              primary={getPlantDisplayName(p)}
                               secondary={[
+                                getPlantDisplayName(p) === p.instance_id ? null : p.instance_id,
                                 p.planted_on,
                                 p.detached_at ? t('pages.plantingRuns.detached') : null,
                                 p.removed_on ? t('pages.plantInstances.removedOn') + ': ' + p.removed_on : null,

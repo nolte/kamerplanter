@@ -9,9 +9,11 @@ from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species import Cultivar, Species
 
 
 class PlantInstanceService:
@@ -24,6 +26,7 @@ class PlantInstanceService:
         phase_repo: IPhaseRepository | None = None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         task_repo: ITaskRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
@@ -32,6 +35,7 @@ class PlantInstanceService:
         self._phase_repo = phase_repo
         self._phase_seq_repo = phase_seq_repo
         self._task_repo = task_repo
+        self._species_repo = species_repo
 
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
@@ -163,6 +167,18 @@ class PlantInstanceService:
             return ""
         phase = self._phase_repo.get_phase_by_key(phase_key)
         return phase.name if phase else ""
+
+    def resolve_species(self, species_key: str) -> Species | None:
+        """Resolve a Species key to its full model (for denormalized labels)."""
+        if not species_key or not self._species_repo:
+            return None
+        return self._species_repo.get_by_key(species_key)
+
+    def resolve_cultivar(self, cultivar_key: str | None) -> Cultivar | None:
+        """Resolve a Cultivar key to its full model (for denormalized labels)."""
+        if not cultivar_key or not self._species_repo:
+            return None
+        return self._species_repo.get_cultivar_by_key(cultivar_key)
 
     def validate_planting(self, slot_key: SlotKey, species_key: SpeciesKey) -> dict:
         rotation_results = self._rotation.validate_planting(slot_key, species_key)

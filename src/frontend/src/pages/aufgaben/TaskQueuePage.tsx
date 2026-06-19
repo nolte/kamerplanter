@@ -62,6 +62,7 @@ import * as taskApi from '@/api/endpoints/tasks';
 import * as careApi from '@/api/endpoints/careReminders';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { TaskItem, PlantInstance, CareDashboardEntry, ReminderType, CareProfile } from '@/api/types';
+import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import { kamiTasks } from '@/assets/brand/illustrations';
 import TaskCreateDialog from './TaskCreateDialog';
@@ -443,7 +444,7 @@ export default function TaskQueuePage() {
   const plantNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of plants) {
-      map.set(p.key, p.plant_name || p.instance_id);
+      map.set(p.key, getPlantDisplayName(p));
     }
     return map;
   }, [plants]);
@@ -1197,9 +1198,7 @@ export default function TaskQueuePage() {
             size="small"
             sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
             options={plants}
-            getOptionLabel={(p) =>
-              p.plant_name ? `${p.instance_id} - ${p.plant_name}` : p.instance_id
-            }
+            getOptionLabel={(p) => getPlantLabel(p)}
             value={plants.find((p) => p.key === filterPlantKey) ?? null}
             onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
             renderInput={(params) => (

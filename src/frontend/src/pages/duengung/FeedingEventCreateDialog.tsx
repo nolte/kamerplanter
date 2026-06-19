@@ -25,6 +25,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/feeding-events';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 
@@ -165,7 +166,7 @@ export default function FeedingEventCreateDialog({
               disabled={loadingPlants}
               options={plants.map((p) => ({
                 value: p.key,
-                label: p.plant_name || p.instance_id,
+                label: getPlantLabel(p),
               }))}
             />
           )}

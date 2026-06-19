@@ -31,6 +31,7 @@ import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import type { PlantInstance, Fertilizer } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 const waterSources = ['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well'] as const;
@@ -235,7 +236,7 @@ export default function WateringLogCreateDialog({
               <Autocomplete
                 multiple
                 options={plantOptions}
-                getOptionLabel={(option) => option.plant_name || option.instance_id}
+                getOptionLabel={(option) => getPlantLabel(option)}
                 value={plantOptions.filter((p) => field.value.includes(p.key))}
                 onChange={(_, newValue) => {
                   field.onChange(newValue.map((p) => p.key));
@@ -257,10 +258,11 @@ export default function WateringLogCreateDialog({
                     return (
                       <Chip
                         key={key}
-                        label={option.plant_name || option.instance_id}
+                        label={getPlantLabel(option)}
                         size="small"
                         color="success"
                         variant="outlined"
+                        sx={{ maxWidth: 'none' }}
                         {...tagProps}
                       />
                     );

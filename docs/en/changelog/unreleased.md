@@ -44,6 +44,16 @@ Changes not yet published in a release.
 - Knowledge container for YAML-based knowledge base
 - GitHub Actions CI/CD (Docker lint/build, Skaffold verify)
 
+## Changed
+
+### Frontend
+
+- Plant instances are displayed everywhere with a speaking name (e.g. `BASIL-001 (Basil – Genovese)`) instead of only the technical instance ID; the instance ID is preserved as secondary information
+
+### Backend
+
+- Plant-instance and planting-run plant responses now embed `species` and `cultivar` summaries (denormalization), so the frontend can build readable names without extra requests
+
 ## In Development
 
 - REQ-025 (Privacy/GDPR): GDPR Art. 15–21 data subject rights — specified, not implemented

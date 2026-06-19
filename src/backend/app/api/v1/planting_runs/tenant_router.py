@@ -2,7 +2,7 @@ from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.v1.plant_instances.schemas import ActiveChannelResponse
+from app.api.v1.plant_instances.schemas import ActiveChannelResponse, CultivarSummary, SpeciesSummary
 from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryCreateRequest,
     DiaryEntryResponse,
@@ -273,9 +273,34 @@ def list_plants(
     include_detached: bool = Query(False),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
+    species_repo: ISpeciesRepository = Depends(get_species_repo),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
     plants = service.get_plants(key, include_detached)
+
+    # Resolve denormalized species/cultivar labels with a per-request cache to
+    # avoid N+1 lookups for plants that share a species or cultivar.
+    species_cache: dict[str, SpeciesSummary | None] = {}
+    cultivar_cache: dict[str, CultivarSummary | None] = {}
+
+    def _species_summary(species_key: str) -> SpeciesSummary | None:
+        if not species_key:
+            return None
+        if species_key not in species_cache:
+            sp = species_repo.get_by_key(species_key)
+            species_cache[species_key] = (
+                SpeciesSummary(scientific_name=sp.scientific_name, common_names=sp.common_names) if sp else None
+            )
+        return species_cache[species_key]
+
+    def _cultivar_summary(cultivar_key: str | None) -> CultivarSummary | None:
+        if not cultivar_key:
+            return None
+        if cultivar_key not in cultivar_cache:
+            cv = species_repo.get_cultivar_by_key(cultivar_key)
+            cultivar_cache[cultivar_key] = CultivarSummary(name=cv.name) if cv else None
+        return cultivar_cache[cultivar_key]
+
     return [
         PlantInRunResponse(
             key=p.get("_key", ""),
@@ -286,6 +311,8 @@ def list_plants(
             planted_on=p.get("planted_on", "1970-01-01"),
             removed_on=p.get("removed_on"),
             current_phase=p.get("current_phase", ""),
+            species=_species_summary(p.get("species_key", "")),
+            cultivar=_cultivar_summary(p.get("cultivar_key")),
             detached_at=p.get("_edge_detached_at"),
             detach_reason=p.get("_edge_detach_reason"),
         )
