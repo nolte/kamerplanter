@@ -21,6 +21,19 @@ class PlantCreate(BaseModel):
     substrate_type_override: SubstrateType | None = None
 
 
+class SpeciesSummary(BaseModel):
+    """Denormalized species fields for human-readable plant labels."""
+
+    scientific_name: str
+    common_names: list[str] = Field(default_factory=list)
+
+
+class CultivarSummary(BaseModel):
+    """Denormalized cultivar fields for human-readable plant labels."""
+
+    name: str
+
+
 class PlantResponse(BaseModel):
     key: str
     instance_id: str
@@ -39,6 +52,8 @@ class PlantResponse(BaseModel):
     current_phase_started_at: datetime | None = None
     container_volume_liters: float | None = None
     substrate_type_override: SubstrateType | None = None
+    species: SpeciesSummary | None = None
+    cultivar: CultivarSummary | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

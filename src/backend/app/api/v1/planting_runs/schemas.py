@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
+
 # ── Phase summary ────────────────────────────────────────────────────
 
 
@@ -198,6 +200,8 @@ class PlantInRunResponse(BaseModel):
     planted_on: date
     removed_on: date | None
     current_phase: str
+    species: SpeciesSummary | None = None
+    cultivar: CultivarSummary | None = None
     detached_at: str | None = None
     detach_reason: str | None = None
 

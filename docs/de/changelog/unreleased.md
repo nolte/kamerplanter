@@ -44,6 +44,16 @@
 - Knowledge-Container für YAML-basierte Wissensbasis
 - GitHub Actions CI/CD (Docker Lint/Build, Skaffold Verify)
 
+## Geändert
+
+### Frontend
+
+- Pflanzinstanzen werden überall mit einem sprechenden Namen angezeigt (z. B. `BASIL-001 (Basilikum – Genovese)`) statt nur der technischen Instanz-ID; die Instanz-ID bleibt als sekundäre Information erhalten
+
+### Backend
+
+- Plant-Instance- und Pflanzdurchlauf-Pflanzen-Responses enthalten eingebettete `species`- und `cultivar`-Kurzinfos (Denormalisierung), damit das Frontend lesbare Namen ohne zusätzliche Abfragen bilden kann
+
 ## In Entwicklung
 
 - REQ-025 (Datenschutz/DSGVO): DSGVO Art. 15–21 Betroffenenrechte — spezifiziert, nicht implementiert

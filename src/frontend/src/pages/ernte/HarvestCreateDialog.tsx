@@ -18,6 +18,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as harvestApi from '@/api/endpoints/harvest';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 
 const harvestTypes = ['partial', 'final', 'continuous'] as const;
 
@@ -145,7 +146,7 @@ export default function HarvestCreateDialog({
               }
               options={plants.map((p) => ({
                 value: p.key,
-                label: p.plant_name || p.instance_id,
+                label: getPlantLabel(p),
               }))}
             />
           )}

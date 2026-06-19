@@ -9,6 +9,7 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import type { PlantInRun, PlantingRunStatus } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 
 interface PlantingRunPlantsTabProps {
   plants: PlantInRun[];
@@ -67,19 +68,29 @@ export default function PlantingRunPlantsTab({
           onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
           variant="simple"
           ariaLabel={t('pages.plantingRuns.tabPlants')}
-          mobileCardRenderer={(r) => (
-            <MobileCard
-              title={r.instance_id}
-              subtitle={r.planted_on}
-              chips={
-                <Chip label={r.current_phase} size="small" color="primary" />
-              }
-              fields={[
-                ...(r.removed_on ? [{ label: t('pages.plantInstances.removedOn'), value: r.removed_on }] : []),
-                ...(r.detached_at ? [{ label: t('pages.plantingRuns.detached'), value: t('common.yes') }] : []),
-              ]}
-            />
-          )}
+          mobileCardRenderer={(r) => {
+            const displayName = getPlantDisplayName(r);
+            return (
+              <MobileCard
+                title={displayName}
+                subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
+                chips={
+                  r.current_phase ? (
+                    <Chip
+                      label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+                      size="small"
+                      color="primary"
+                    />
+                  ) : null
+                }
+                fields={[
+                  ...(r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: r.planted_on }] : []),
+                  ...(r.removed_on ? [{ label: t('pages.plantInstances.removedOn'), value: r.removed_on }] : []),
+                  ...(r.detached_at ? [{ label: t('pages.plantingRuns.detached'), value: t('common.yes') }] : []),
+                ]}
+              />
+            );
+          }}
         />
       )}
     </Box>

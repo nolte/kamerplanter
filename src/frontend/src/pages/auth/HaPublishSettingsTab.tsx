@@ -26,6 +26,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useNotification } from '@/hooks/useNotification';
 import { listPlantInstances } from '@/api/endpoints/plantInstances';
 import { listTanks } from '@/api/endpoints/tanks';
+import { getPlantLabel } from '@/utils/plantDisplay';
 import { listSites, listLocations } from '@/api/endpoints/sites';
 import {
   bulkSetHaPublishStatus,
@@ -43,7 +44,7 @@ const PAGE_LIMIT = 200;
 
 async function loadPlants(): Promise<EntityRow[]> {
   const plants = await listPlantInstances(0, PAGE_LIMIT);
-  return plants.map((p) => ({ key: p.key, label: p.plant_name || p.instance_id }));
+  return plants.map((p) => ({ key: p.key, label: getPlantLabel(p) }));
 }
 
 async function loadTanks(): Promise<EntityRow[]> {

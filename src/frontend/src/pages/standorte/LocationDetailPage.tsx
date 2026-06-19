@@ -49,6 +49,7 @@ import { listPlantInstances } from '@/api/endpoints/plantInstances';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 
 const runStatusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -486,7 +487,10 @@ export default function LocationDetailPage() {
                 <DataTable<PlantInstance>
                   columns={[
                     { id: 'instance_id', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
-                    { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => r.plant_name || '—' },
+                    { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => {
+                      const name = getPlantDisplayName(r);
+                      return name === r.instance_id ? '—' : name;
+                    }, searchValue: (r) => getPlantDisplayName(r) },
                     { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
                       <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
                     ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
@@ -497,15 +501,21 @@ export default function LocationDetailPage() {
                   onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
                   tableState={instanceTableState}
                   ariaLabel={t('pages.locations.standalonePlants')}
-                  mobileCardRenderer={(r) => (
-                    <MobileCard
-                      title={r.plant_name || r.instance_id}
-                      subtitle={r.planted_on ? new Date(r.planted_on).toLocaleDateString() : undefined}
-                      chips={
-                        <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
-                      }
-                    />
-                  )}
+                  mobileCardRenderer={(r) => {
+                    const displayName = getPlantDisplayName(r);
+                    return (
+                      <MobileCard
+                        title={displayName}
+                        subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
+                        chips={
+                          r.current_phase ? (
+                            <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
+                          ) : null
+                        }
+                        fields={r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []}
+                      />
+                    );
+                  }}
                 />
               </Box>
             )}

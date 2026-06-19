@@ -629,6 +629,17 @@ export interface ReusabilityResponse {
 
 // Plant Instances
 
+/** Denormalized species fields embedded in plant responses for readable labels. */
+export interface PlantSpeciesSummary {
+  scientific_name: string;
+  common_names: string[];
+}
+
+/** Denormalized cultivar fields embedded in plant responses for readable labels. */
+export interface PlantCultivarSummary {
+  name: string;
+}
+
 export interface PlantInstance {
   key: string;
   instance_id: string;
@@ -647,6 +658,8 @@ export interface PlantInstance {
   current_phase_started_at: string | null;
   container_volume_liters: number | null;
   substrate_type_override: SubstrateType | null;
+  species: PlantSpeciesSummary | null;
+  cultivar: PlantCultivarSummary | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1160,6 +1173,8 @@ export interface PlantInRun {
   planted_on: string;
   removed_on: string | null;
   current_phase: string;
+  species: PlantSpeciesSummary | null;
+  cultivar: PlantCultivarSummary | null;
   detached_at: string | null;
   detach_reason: string | null;
 }

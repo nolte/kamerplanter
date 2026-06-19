@@ -82,6 +82,7 @@ import * as taskApi from '@/api/endpoints/tasks';
 import * as substrateApi from '@/api/endpoints/substrates';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, Substrate, SubstrateType, TaskItem } from '@/api/types';
+import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 
@@ -831,7 +832,7 @@ export default function PlantInstanceDetailPage() {
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
-        title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')}
+        title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
         action={
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
             <Button
@@ -2288,7 +2289,7 @@ export default function PlantInstanceDetailPage() {
       <ConfirmDialog
         open={removeOpen}
         title={t('pages.plantInstances.remove')}
-        message={t('common.deleteConfirm', { name: plant?.plant_name ?? plant?.instance_id })}
+        message={t('common.deleteConfirm', { name: plant ? getPlantLabel(plant, species, assignedCultivar) : '' })}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}
         destructive
@@ -2315,7 +2316,7 @@ export default function PlantInstanceDetailPage() {
           open={tagDialogOpen}
           onClose={() => setTagDialogOpen(false)}
           plantKey={plant.key}
-          plantName={plant.plant_name ?? plant.instance_id}
+          plantName={getPlantDisplayName(plant, species, assignedCultivar)}
         />
       )}
 
@@ -2324,7 +2325,7 @@ export default function PlantInstanceDetailPage() {
           open={labelDialogOpen}
           onClose={() => setLabelDialogOpen(false)}
           plantKeys={[plant.key]}
-          plantNames={{ [plant.key]: plant.plant_name ?? plant.instance_id }}
+          plantNames={{ [plant.key]: getPlantDisplayName(plant, species, assignedCultivar) }}
         />
       )}
 
@@ -2347,7 +2348,7 @@ export default function PlantInstanceDetailPage() {
         open={wateringDialogOpen}
         onClose={() => setWateringDialogOpen(false)}
         onConfirm={handleConfirmWatering}
-        plantName={plant?.plant_name || plant?.instance_id || ''}
+        plantName={plant ? getPlantDisplayName(plant, species, assignedCultivar) : ''}
         reminderType="watering"
         loading={confirmingWatering}
         defaultDosages={dosagePresets?.dosages}

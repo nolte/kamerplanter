@@ -25,6 +25,7 @@ import { listPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
 import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import { kamiPlants } from '@/assets/brand/illustrations';
+import { getPlantDisplayName } from '@/utils/plantDisplay';
 
 export default function PlantInstanceListPage() {
   const { t } = useTranslation();
@@ -125,8 +126,11 @@ export default function PlantInstanceListPage() {
   );
 
   const labelPlantNames = useMemo(
-    () => Object.fromEntries(filteredItems.map((p) => [p.key, p.plant_name ?? p.instance_id])),
-    [filteredItems],
+    () =>
+      Object.fromEntries(
+        filteredItems.map((p) => [p.key, getPlantDisplayName(p, speciesMap.get(p.species_key), p.cultivar_key ? cultivarMap.get(p.cultivar_key) : null)]),
+      ),
+    [filteredItems, speciesMap, cultivarMap],
   );
 
   const columns: Column<PlantInstance>[] = [
@@ -137,8 +141,10 @@ export default function PlantInstanceListPage() {
       render: (r) => {
         const species = speciesMap.get(r.species_key);
         const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
-        const displayName = r.plant_name ?? '—';
-        if (!species) return displayName;
+        const displayName = getPlantDisplayName(r, species, cultivar);
+        // The instance_id already has its own column — avoid showing it twice.
+        const shown = displayName === r.instance_id ? '—' : displayName;
+        if (!species) return shown;
         return (
           <Tooltip
             arrow
@@ -158,11 +164,11 @@ export default function PlantInstanceListPage() {
               </Box>
             }
           >
-            <span>{displayName}</span>
+            <span>{shown}</span>
           </Tooltip>
         );
       },
-      searchValue: (r) => r.plant_name ?? '',
+      searchValue: (r) => getPlantDisplayName(r, speciesMap.get(r.species_key), r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null),
     },
     {
       id: 'location',
@@ -320,10 +326,11 @@ export default function PlantInstanceListPage() {
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
     };
+    const displayName = getPlantDisplayName(r, species, cultivar);
     return (
       <MobileCard
-        title={r.plant_name ?? r.instance_id}
-        subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` — ${cultivar.name}` : ''}` : undefined}
+        title={displayName}
+        subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
         chips={
           <>
             {r.current_phase ? (

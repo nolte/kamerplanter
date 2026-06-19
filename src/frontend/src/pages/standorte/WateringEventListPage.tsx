@@ -27,6 +27,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWateringEvents } from '@/store/slices/wateringEventsSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { WateringEvent, PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { kamiTanks } from '@/assets/brand/illustrations';
@@ -115,13 +116,14 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
                 <Chip
                   key={p.key}
                   icon={<SpaIcon />}
-                  label={p.plant_name || p.instance_id}
+                  label={getPlantLabel(p)}
                   size="small"
                   component={RouterLink}
                   to={`/pflanzen/plant-instances/${p.key}`}
                   clickable
                   color="success"
                   variant="outlined"
+                  sx={{ maxWidth: 'none' }}
                 />
               ))}
             </Box>
@@ -315,13 +317,14 @@ export default function WateringEventListPage() {
               <Chip
                 key={p.key}
                 icon={<SpaIcon />}
-                label={p.plant_name || p.instance_id}
+                label={getPlantLabel(p)}
                 size="small"
                 color="success"
                 variant="outlined"
                 onClick={(e) => e.stopPropagation()}
                 component={RouterLink}
                 to={`/pflanzen/plant-instances/${p.key}`}
+                sx={{ maxWidth: 'none' }}
               />
             ))}
             {plants.length > 3 && (
@@ -330,7 +333,7 @@ export default function WateringEventListPage() {
           </Box>
         );
       },
-      searchValue: (r) => getPlantsForEvent(r).map((p) => p.plant_name || p.instance_id).join(' '),
+      searchValue: (r) => getPlantsForEvent(r).map((p) => getPlantLabel(p)).join(' '),
     },
     {
       id: 'applicationMethod',
@@ -412,7 +415,7 @@ export default function WateringEventListPage() {
           return (
             <MobileCard
               title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
-              subtitle={plants.length > 0 ? plants.map((p) => p.plant_name || p.instance_id).join(', ') : undefined}
+              subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p)).join(', ') : undefined}
               chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
               fields={[
                 { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },

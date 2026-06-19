@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFeedingEvents } from '@/store/slices/feedingEventsSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { FeedingEvent, PlantInstance } from '@/api/types';
+import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import FeedingEventCreateDialog from './FeedingEventCreateDialog';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
@@ -70,7 +71,7 @@ export default function FeedingEventListPage() {
       label: t('pages.feedingEvents.plantKey'),
       render: (r) => {
         const plant = plantMap.get(r.plant_key);
-        const name = plant?.plant_name || plant?.instance_id || r.plant_key;
+        const name = plant ? getPlantLabel(plant) : r.plant_key;
         return (
           <Chip
             icon={<SpaIcon />}
@@ -82,12 +83,13 @@ export default function FeedingEventListPage() {
             to={`/pflanzen/plant-instances/${r.plant_key}`}
             clickable
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            sx={{ maxWidth: 'none' }}
           />
         );
       },
       searchValue: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant?.plant_name || plant?.instance_id || r.plant_key;
+        return plant ? getPlantLabel(plant) : r.plant_key;
       },
     },
     {
@@ -149,7 +151,7 @@ export default function FeedingEventListPage() {
         ariaLabel={t('pages.feedingEvents.title')}
         mobileCardRenderer={(r) => {
           const plant = plantMap.get(r.plant_key);
-          const plantName = plant?.plant_name || plant?.instance_id || r.plant_key;
+          const plantName = plant ? getPlantLabel(plant) : r.plant_key;
           return (
             <MobileCard
               title={plantName}
