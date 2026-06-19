@@ -313,6 +313,43 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
+## 🌍 Integrations-Anforderungen aus awesome-agriculture (REQ-037 – REQ-041)
+
+Diese fünf Dokumente leiten konkrete Integrationen ausgewählter Open-Source-Projekte aus
+[awesome-agriculture](https://github.com/brycejohnston/awesome-agriculture) ab. Jedes erweitert
+bestehende REQs und folgt dem Standard-Template (Business Case, ArangoDB-Modell, Python-Umsetzung,
+Frontend, Lizenz/Deployment, Abhängigkeiten, Akzeptanzkriterien). Auswahlkriterium: schließt eine
+reale fachliche Lücke **und** ist stack-kompatibel (Python/Self-Hosted, lizenzverträglich).
+Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agriculture-lizenz-und-nutzungsanalyse.md`.
+
+### 💧 REQ-037: Evapotranspiration & bedarfsgerechte Bewässerung
+**Projekt:** PyETo → Fork `aquacropeto` (PyPI, BSD-3) · **Erweitert:** REQ-004, REQ-005, REQ-022
+- ET₀ → ETc = ET₀ × Kc → Netto-Gießbedarf = ETc − effektiver Niederschlag (gedeckelt durch Substrat-WHC)
+- Engine `EvapotranspirationCalculator`, Collection `irrigation_demands`, `crop_coefficient_kc`
+- **Caveat:** nur Outdoor (Indoor bleibt VPD-/intervallbasiert); 🔴 pyTSEB (GPL-3.0) als Dependency ausgeschlossen
+
+### 🔬 REQ-038: CV-gestützte Pflanzendiagnose
+**Projekte:** PlantCV (MPL-2.0) + PlantDoc (CC-BY-4.0) · **Erweitert:** REQ-010, REQ-029/-A, REQ-036, REQ-007
+- Self-hosted ONNX-Krankheitsklassifikator + PlantCV-Phänotyp-Pipeline; CV-Treffer → IPM-Treatment-**Vorschlag** (Karenz-Gate bleibt)
+- **Caveat (G1):** PlantVillage fallengelassen (Lizenz ungeklärt) → PlantDoc + Eigendaten; Domänen-Gap → Fine-Tuning, kein fertiger Klassifikator; immer „nur Hypothese"-Disclaimer
+
+### 🗺️ REQ-039: Klimazonen- & Winterhärte-Geodaten
+**Projekt:** frostline-Schema (MIT) + DWD/Open-Meteo-Daten · **Erweitert:** REQ-001, REQ-002, REQ-022, REQ-005, REQ-015-A
+- `HardinessZoneResolver` leitet Zone aus Standort ab → automatisiert Winterhärte-Ampel + Frost-Defaults
+- **Caveat:** USDA/PHZM-Daten proprietär/US-only (nicht eingecheckt); DACH-Zone aus DWD (GeoNutzV) + Open-Meteo (CC-BY-4.0)
+
+### 📚 REQ-040: Wissensbasis-Enrichment (OpenFarm & Growstuff) — optional
+**Projekte:** OpenFarm (CC0, Server tot → nur Dump) + Growstuff (CC-BY-SA, nur Mapping-Idee) · **Erweitert:** REQ-011, REQ-028, REQ-001, REQ-025
+- **G3:** OpenFarm nur als einmaliger statischer CC0-Dump (kein Live-Adapter); Companion-Import in REQ-028-Graph
+- **Caveat (G2):** Growstuff-Daten CC-BY-SA → kein Wertimport (Wissensbasis bleibt SA-frei, kein REQ-032-Konflikt)
+
+### 🛰️ REQ-041: Agroklimatologie-Wetterquelle (NASA POWER)
+**Projekt:** NASA POWER (CC-BY-4.0, keyless; inspiriert von `agroclimatology`) · **Erweitert:** REQ-005, REQ-037, REQ-039, REQ-002
+- 5. Wetter-Adapter `NasaPowerWeatherAdapter`; liefert Solarstrahlung (ET₀-Input REQ-037) + Klimanormale (`ClimateNormal`, REQ-039)
+- **Caveat:** Reanalyse/Vergangenheit (keine Frühwarnung) → ergänzt DWD/Open-Meteo, ersetzt sie nicht; Ruby-Client nicht nutzbar
+
+---
+
 ## Technologie-Stack
 
 ### Backend
