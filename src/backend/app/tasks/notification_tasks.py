@@ -24,7 +24,7 @@ def dispatch_due_care_notifications() -> dict:
     2. Group by user_key
     3. Send batched notifications via NotificationService
     """
-    from datetime import UTC, date, datetime
+    from datetime import UTC, datetime
 
     from app.common.dependencies import get_notification_service, get_task_repo
     from app.common.enums import TaskCategory, TaskStatus
@@ -32,7 +32,11 @@ def dispatch_due_care_notifications() -> dict:
     task_repo = get_task_repo()
     service = get_notification_service()
 
-    today = date.today()
+    # Work in UTC consistently: the task is scheduled at 06:05 UTC and the
+    # window boundaries below carry UTC tzinfo. Using date.today() (local
+    # timezone) made the due-date window drift by a day whenever local time
+    # had rolled past midnight while UTC had not (e.g. CEST 00:00-02:00).
+    today = datetime.now(UTC).date()
     today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
     today_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
 
@@ -205,7 +209,7 @@ def send_daily_summary() -> dict:
     Runs daily at 06:30 UTC. Aggregates today's due tasks, overdue items,
     and weather hints into a single summary notification per user.
     """
-    from datetime import UTC, date, datetime
+    from datetime import UTC, datetime
 
     from app.common.dependencies import get_notification_service, get_task_repo
     from app.common.enums import TaskCategory, TaskStatus
@@ -214,7 +218,9 @@ def send_daily_summary() -> dict:
     service = get_notification_service()
     task_repo = get_task_repo()
 
-    today = date.today()
+    # Consistent UTC (see dispatch_due_care_notifications) — date.today() would
+    # drift the window by a day across the local-vs-UTC midnight boundary.
+    today = datetime.now(UTC).date()
     today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
 
     # Find all due/overdue care tasks
