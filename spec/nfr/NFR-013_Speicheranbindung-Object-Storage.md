@@ -7,11 +7,11 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.1 (Adapter-Vertrag fuer DSGVO-Erasure, W-007 Fix)
+Version: 1.2 (category `plant` fuer REQ-034 Pflanzenfoto-Galerie)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
-Abhaengigkeiten: [NFR-001, NFR-002, NFR-011, NFR-012, REQ-006, REQ-007, REQ-008, REQ-010, REQ-012, REQ-013, REQ-024, REQ-025 v1.2, REQ-027, REQ-032]
+Abhaengigkeiten: [NFR-001, NFR-002, NFR-011, NFR-012, REQ-006, REQ-007, REQ-008, REQ-010, REQ-012, REQ-013, REQ-024, REQ-025 v1.2, REQ-027, REQ-032, REQ-034]
 Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachment, frontend.upload, helm.values, infra.k8s]
 ---
 
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-06-19 | **category `plant` (REQ-034 Pflanzenfoto-Galerie):** `category`-Enum in §4.3 und Default-Mime-Whitelist in §5.2 um `plant` ergänzt (Foto-Whitelist `image/jpeg,png,webp,heic`, 25 MB). Storage-Key-Schema, Thumbnails, Pre-Sign, DSGVO-Erasure unverändert — REQ-034-Fotos hängen an der Pflanzeninstanz (REQ-013) und werden im Erasure als Scope `user_diary_attachments` klassifiziert. Kein Eingriff in den Adapter-Vertrag. |
 | 1.1 | 2026-04-27 | **W-007 Fix (DSGVO-Erasure-Adapter-Methoden):** `delete_for_user(tenant_key, user_key, scope)` und `strip_exif_for_user(tenant_key, user_key, scope)` in §4.2 Adapter-Vertrag ergänzt. §6.2 Aufruf-Reihenfolge präzisiert: Storage-Cleanup MUSS als Phase 0 des Erasure-Tasks erfolgen, vor der ArangoDB-Löschung — sonst sind die `attachments`-Metadaten beim Lookup nicht mehr verfügbar. |
 | 1.0 | 2026-04-25 | Erstversion — Adapter-Pattern, local-fs + S3 als Phase 1, Tenant-Isolation, Pfadschema, DSGVO-Konformitäts-Sektion. |
 
@@ -269,7 +270,7 @@ t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}.{ext}
 ```
 
 - `tenant_key` — opaker Slug (REQ-024)
-- `category` — Enum: `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `import`, `export`, `id_recognition`, `tenant_export`
+- `category` — Enum: `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `import`, `export`, `id_recognition`, `tenant_export`, `plant` (`plant` = Pflanzenfoto-Galerie pro Pflanzeninstanz, REQ-034)
 - `yyyy/mm` — Erstellungsdatum, ermoeglicht Lifecycle-Regeln und Backup-Pruning
 - `ulid` — Universally Unique Lexicographically Sortable Identifier (zeitlich monoton, kollisionsfrei)
 - `ext` — abgeleitet aus Mime-Type, niemals aus dem Original-Dateinamen (Schutz vor `..`/`\0`)
@@ -308,7 +309,7 @@ Fehlschlaegt einer der Schritte 4–7, wird der Upload **vor** dem Schreiben ins
 
 | Kategorie | Erlaubte Mime-Types | Max-Groesse (Default) |
 |-----------|---------------------|------------------------|
-| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` (server-seitige Konvertierung empfohlen) | 25 MB |
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` (server-seitige Konvertierung empfohlen) | 25 MB |
 | `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
 | `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
 | `tenant_export` | `application/zip` | 5 GB |

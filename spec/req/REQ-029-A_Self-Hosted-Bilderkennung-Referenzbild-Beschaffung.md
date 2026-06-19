@@ -7,11 +7,12 @@ Kategorie: Integration / KI
 Fokus: Backend (Inferenz-Microservice), Datenbeschaffung, Architektur
 Technologie: Python 3.14+, ONNX Runtime, FastAPI, ArangoDB (Vektor-Index), Celery, React/TypeScript
 Status: Entwurf
-Version: 1.1
+Version: 1.2
 Quelle: spec/analysis/n-001-pflanzenerkennung-bilderkennung-research.md (Deep-Research, 2026-06-15)
 Korrigiert: REQ-029 v1.0 (primärer Dienst Plant.id ist kostenpflichtig → disqualifiziert; siehe §0)
 Geändert (v1.1): Roll-out in zwei Phasen — Pl@ntNet-Free-Tier-Adapter als sofort lauffähiger Phase-1-Primäradapter, DINOv2-Embedding-Matching als Phase-2-Zielarchitektur (siehe §0.1)
-Abhängigkeit: REQ-001 v5.0 (Stammdaten/Species), REQ-010 v1.0 (IPM), REQ-011 v1.0 (Adapter-Pattern), REQ-025 (Datenschutz), REQ-029 v1.0 (Adapter-Interface, Consent, EXIF, Frontend — wiederverwendet)
+Geändert (v1.2): REQ-034 Foto-Beitrag (Security-Review SR-003/SR-007) — `species_embeddings` um Provenienz-Felder `tenant_key`/`contributed_by`/`contributed_at` für `user_contributed`-Beiträge erweitert (§5.1, Migration 003); `POST /reference`-Endpunkt-Vertrag + `InferenceServiceClient.reference()` in §3.3 definiert (erzwingt `is_active=false` + Provenienz bei user_contributed).
+Abhängigkeit: REQ-001 v5.0 (Stammdaten/Species), REQ-010 v1.0 (IPM), REQ-011 v1.0 (Adapter-Pattern), REQ-025 v1.4 (Datenschutz, Referenz-Index-Erasure), REQ-029 v1.0 (Adapter-Interface, Consent, EXIF, Frontend — wiederverwendet), REQ-034 v1.1 (Pflanzenfoto-Galerie, user_contributed-Beitrag)
 ```
 
 ---
@@ -178,7 +179,21 @@ def preprocess(image_bytes: bytes) -> "np.ndarray":
 # POST /embed/batch — mehrere Bilder (für Referenz-Indexierung)
 # GET  /healthz — Liveness; GET /readyz — Modell geladen?
 # GET  /modelinfo — { model, dim, input_size, license: "Apache-2.0", checksum }
+#
+# POST /reference — Embedding berechnen UND als Referenz im species_embeddings-Index anlegen.
+#   Verwendet u.a. von der kuratierten Beschaffung (§4.2 Schritt 6/7) und vom
+#   REQ-034-Foto-Beitrag (REQ-034 §4.1, source="user_contributed").
+#   Body (multipart): image; Form-Felder:
+#     species_key (str, required), scientific_name (str), organ (str|auto),
+#     source (str: gbif|wikimedia|user_contributed|...), license (str|null),
+#     attribution (str|null), source_url (str|null),
+#     is_active (bool, Default true; bei user_contributed IMMER false → Kuratierung §4.5),
+#     tenant_key (str|null), contributed_by (str|null)   # Pflicht bei source=user_contributed (§5.1, SR-003)
+#   → { "id": "<emb_key>", "species_key": ..., "is_active": false, "model": ..., "dim": 384 }
+#   Das Originalbild wird NUR zur Embedding-Berechnung gelesen und NICHT persistiert (§4.4).
 ```
+
+> **`InferenceServiceClient.reference(...)`** (Backend-Client, von REQ-034 §4.1 aufgerufen) kapselt `POST /reference`. Bei `source="user_contributed"` erzwingt der Service `is_active=false` sowie gesetzte `tenant_key`/`contributed_by` (sonst HTTP 422) — damit der DSGVO-Erasure-Cleanup (REQ-025 Phase 0.5) die Provenienz garantiert vorfindet.
 
 ### 3.4 LocalEmbeddingAdapter (im Hauptbackend, registriert in der REQ-029-Registry)
 
@@ -314,11 +329,16 @@ Die automatischen Qualitätsgates (§4.2) erkennen nicht jedes ungeeignete Refer
   "indexed_at": "2026-06-15T10:00:00Z",
   "is_active": true,                          // §4.5 — false = manuell abgewählt
   "exclusion_reason": null,                   // Grund bei Abwahl (blurry, wrong_organ, ...)
-  "marked_at": null                           // Zeitpunkt der letzten Kuratierungs-Aktion
+  "marked_at": null,                          // Zeitpunkt der letzten Kuratierungs-Aktion
+  // Provenienz für vom Nutzer beigesteuerte Referenzen (REQ-034 §4 / Security-Review SR-003).
+  // Nur gesetzt, wenn source == "user_contributed"; bei kuratierten Quellen (gbif/wikimedia/...) null.
+  "tenant_key": null,                         // Tenant, dessen Nutzer das Foto beigesteuert hat
+  "contributed_by": null,                     // user_key des Beitragenden (für DSGVO-Erasure-Filter)
+  "contributed_at": null                      // Zeitpunkt des Beitrags
 }
 ```
 
-> Implementierungshinweis: Der Referenz-Index liegt physisch in **pgvector** (nicht ArangoDB, siehe §2.2 D-2). Die Kuratierungsfelder `is_active`/`exclusion_reason`/`marked_at` werden dort per Migration `002_reference_curation.sql` ergänzt; ein partieller Index `WHERE is_active` deckt die Match-Abfrage ab.
+> Implementierungshinweis: Der Referenz-Index liegt physisch in **pgvector** (nicht ArangoDB, siehe §2.2 D-2). Die Kuratierungsfelder `is_active`/`exclusion_reason`/`marked_at` werden dort per Migration `002_reference_curation.sql` ergänzt; ein partieller Index `WHERE is_active` deckt die Match-Abfrage ab. Die Provenienz-Felder `tenant_key`/`contributed_by`/`contributed_at` für `user_contributed`-Beiträge (REQ-034) kommen per Migration `003_user_contributed_provenance.sql` hinzu; ein Index auf `(source, contributed_by)` bzw. `(source, tenant_key)` macht den DSGVO-Erasure-Cleanup (REQ-025 Phase 0.5, AK-OS-05) effizient. **Die Provenienz ist Pflicht für jedes `user_contributed`-Embedding** — ohne sie wäre die Art.-17-Löschung des Beitrags nicht durchführbar.
 
 ### 5.2 Neue Collection `reference_image_jobs` (Beschaffungs-Protokoll)
 
