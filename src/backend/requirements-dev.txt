@@ -120,13 +120,13 @@ pydantic==2.13.4
     #   pydantic-settings
 pydantic-core==2.47.0
     # via pydantic
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2
     # via kamerplanter-backend (pyproject.toml)
 pygments==2.20.0
     # via pytest
 pyjwt==2.13.0
     # via python-arango
-pytest==9.1.0
+pytest==9.1.1
     # via
     #   kamerplanter-backend (pyproject.toml)
     #   pytest-asyncio
