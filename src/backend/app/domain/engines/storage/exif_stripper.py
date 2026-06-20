@@ -33,6 +33,36 @@ _STRIPPABLE_FORMATS: dict[str, str] = {
     "image/webp": "WEBP",
 }
 
+# SEC-005: HEIC/HEIF are *allowed* photo upload types but cannot be EXIF-stripped
+# without a system-level decoder (``pillow-heif``). Listing them here lets the
+# erasure pipeline surface them as ``skipped`` (observable) instead of silently
+# returning the original bytes — so a GDPR erasure never *appears* to strip GPS
+# from a HEIC photo that it actually left untouched.
+#
+# Follow-up (not in this fix): add ``pillow-heif`` and register its opener so
+# these formats become genuinely strippable; then move them into
+# ``_STRIPPABLE_FORMATS`` and drop this set.
+_UNSUPPORTED_PHOTO_FORMATS: frozenset[str] = frozenset({"image/heic", "image/heif"})
+
+
+def is_strippable_format(mime_type: str) -> bool:
+    """Return ``True`` when :func:`strip_exif` can actually remove metadata.
+
+    ``False`` for non-image bytes and for allowed-but-unstrippable photo types
+    (HEIC/HEIF). Used by the erasure hooks to classify and audit ``skipped``
+    images (SEC-005) without re-deriving the strippable-format table.
+    """
+    return (mime_type or "").lower().strip() in _STRIPPABLE_FORMATS
+
+
+def is_unsupported_photo_format(mime_type: str) -> bool:
+    """Return ``True`` for allowed photo types that cannot be EXIF-stripped.
+
+    Currently HEIC/HEIF — images the erasure pipeline must record as ``skipped``
+    (and log) rather than treating the unchanged passthrough as a success.
+    """
+    return (mime_type or "").lower().strip() in _UNSUPPORTED_PHOTO_FORMATS
+
 
 def _save_kwargs(pil_format: str) -> dict[str, object]:
     if pil_format == "JPEG":
@@ -76,4 +106,9 @@ class ExifStripper:
         return strip_exif(data, mime_type)
 
 
-__all__ = ["ExifStripper", "strip_exif"]
+__all__ = [
+    "ExifStripper",
+    "is_strippable_format",
+    "is_unsupported_photo_format",
+    "strip_exif",
+]

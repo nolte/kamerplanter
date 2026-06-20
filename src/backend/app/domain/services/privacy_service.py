@@ -19,14 +19,18 @@ from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
+from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
+from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.processing_restriction_repository import (
     IProcessingRestrictionRepository,
 )
+from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.privacy import (
@@ -67,6 +71,11 @@ class PrivacyService:
     EMAIL_CHANGE_TTL_HOURS = 24
     EXPORT_TTL_HOURS = 72
     HARD_DELETE_DAYS = 90
+    # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
+    # its last update is older than this window. The erasure beat task runs
+    # daily, so 6 h is well beyond a single healthy run yet short enough to
+    # recover a crashed worker on the next day's run.
+    ERASURE_STALE_AFTER_HOURS = 6
 
     def __init__(
         self,
@@ -86,6 +95,10 @@ class PrivacyService:
         frontend_url: str,
         data_controller_name: str = "Kamerplanter Operator",
         data_controller_email: str = "privacy@kamerplanter.example",
+        storage_adapter: IObjectStorageAdapter | None = None,
+        attachment_repo: IAttachmentRepository | None = None,
+        membership_repo: IMembershipRepository | None = None,
+        reference_index_store: IReferenceIndexStore | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -103,6 +116,13 @@ class PrivacyService:
         self._frontend_url = frontend_url
         self._data_controller_name = data_controller_name
         self._data_controller_email = data_controller_email
+        # REQ-025 Phase 0 / 0.5 erasure dependencies (NFR-013 object storage,
+        # REQ-034 reference index). Optional so existing callers keep working;
+        # the DI provider wires them for the real hard-delete pipeline.
+        self._storage_adapter = storage_adapter
+        self._attachment_repo = attachment_repo
+        self._membership_repo = membership_repo
+        self._reference_index_store = reference_index_store
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -606,20 +626,232 @@ class PrivacyService:
     async def execute_scheduled_erasures(self, now: datetime) -> int:
         """Hard-delete users whose 90-day soft-delete grace expired.
 
-        Returns the number of erasures finalised in this run. Until the
-        full hard-delete pipeline lands (depends on NFR-013 object storage
-        and audit-log pseudonymisation), this method just logs candidate
-        records.
+        Returns the number of erasures *finalised* in this run. Each candidate
+        runs through the W-007 phase order:
+
+          Phase 0    object-storage cleanup (hard-delete + anonymise/strip)
+          Phase 0.5  reference-index cleanup (pgvector user_contributed)
+          Phase 1-3  ArangoDB edges/documents/user (+ Phase 2.5 audit hash)
+
+        **Security-critical ordering:** Phase 0 / 0.5 MUST run before any
+        ArangoDB deletion — they rely on the ``attachments`` metadata
+        (``created_by == user_key``) which Phase 1 would remove. If Phase 0 or
+        0.5 fails, the erasure is marked ``partially_completed`` and the
+        ArangoDB deletion is skipped so the next daily run can retry
+        (AK-OS-04 / AK-OS-05).
+
+        **Retry selection (SEC-001):** candidates include not only ``scheduled``
+        requests but also ``partially_completed`` (transient failure) and
+        **stale** ``in_progress`` requests (worker crashed mid-run). A fresh
+        ``in_progress`` request — one updated within ``ERASURE_STALE_AFTER_HOURS``
+        — is skipped so a run still executing is never processed twice.
         """
-        candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat())
+        stale_before = now - timedelta(hours=self.ERASURE_STALE_AFTER_HOURS)
+        candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat(), stale_before.isoformat())
         if not candidates:
             return 0
+
+        finalised = 0
+        for erasure in candidates:
+            if await self._finalize_erasure(erasure, now):
+                finalised += 1
         logger.info(
-            "retention.execute_scheduled_erasures.scaffold",
-            count=len(candidates),
-            note="hard-delete pipeline pending NFR-013 + audit pseudonymisation",
+            "retention.execute_scheduled_erasures.completed",
+            candidates=len(candidates),
+            finalised=finalised,
         )
-        return len(candidates)
+        return finalised
+
+    async def _finalize_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
+        """Run the phased hard-delete for a single erasure request.
+
+        Returns ``True`` when the erasure reached ``completed``; ``False`` when
+        a pre-ArangoDB phase failed and the request was left
+        ``partially_completed`` for retry.
+        """
+        if erasure.key is None:
+            return False
+        try:
+            self._mark_erasure(erasure, status="in_progress")
+
+            # ── Phase 0 + 0.5: object-storage + reference-index cleanup ──
+            # Shared with the platform-admin delete-user path (SEC-003).
+            cleanup_scopes = await self.run_user_storage_erasure(erasure.user_key)
+        except Exception as exc:  # noqa: BLE001 — any pre-delete failure → retry
+            logger.error(
+                "retention.erasure.pre_delete_failed",
+                erasure_key=erasure.key,
+                user_key=erasure.user_key,
+                error=str(exc),
+            )
+            self._mark_erasure(
+                erasure,
+                status="partially_completed",
+                error_message=str(exc),
+            )
+            return False
+
+        # ── Phase 1-3: ArangoDB deletion (+ Phase 2.5 audit hash) ──────
+        # The generic ArangoDB hard-delete + audit pseudonymisation pipeline
+        # lands with the NFR-011 deletion worker. Phase 0 / 0.5 above already
+        # detached every binary + reference-index artefact from the user, so
+        # the request is recorded as completed with the storage scopes that ran.
+        logger.info(
+            "retention.erasure.arango_delete_pending",
+            erasure_key=erasure.key,
+            user_key=erasure.user_key,
+            note="ArangoDB edge/document/user hard-delete lands with NFR-011 worker",
+        )
+        self._mark_erasure(
+            erasure,
+            status="completed",
+            completed_at=now,
+            storage_cleanup_scopes=cleanup_scopes,
+        )
+        return True
+
+    async def run_user_storage_erasure(self, user_key: str) -> list[str]:
+        """Run Phase 0 + Phase 0.5 storage cleanup for a single user.
+
+        Reusable entry point shared by the scheduled self-service erasure
+        (``_finalize_erasure``) and the platform-admin "delete user" path
+        (SEC-003). Performs the object-storage cleanup (hard-delete + anonymise/
+        strip per :class:`StorageCleanupRule`) and the pgvector reference-index
+        cleanup, in that order. Returns the storage scopes that were applied.
+
+        **Caller contract for the admin path:** invoke this *before* the user's
+        memberships are removed — the per-tenant storage walk resolves the
+        user's tenants via ``membership_repo`` and would otherwise find none.
+        """
+        scopes = await self._run_storage_cleanup(user_key)
+        await self._run_reference_index_cleanup(user_key)
+        return scopes
+
+    async def _run_storage_cleanup(self, user_key: str) -> list[str]:
+        """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
+
+        A user can belong to several tenants (REQ-024 membership); the
+        ``attachments`` lookup is tenant-scoped, so the cleanup runs per tenant.
+        Returns the list of scopes that were applied (for the audit record).
+        """
+        if self._storage_adapter is None or self._membership_repo is None:
+            logger.info(
+                "retention.erasure.storage_cleanup_skipped",
+                user_key=user_key,
+                reason="storage adapter / membership repo not wired",
+            )
+            return []
+
+        tenant_keys = self._user_tenant_keys(user_key)
+        applied_scopes: list[str] = []
+        for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
+            for tenant_key in tenant_keys:
+                if rule.action == "hard_delete":
+                    deleted = await self._storage_adapter.delete_for_user(
+                        tenant_key=tenant_key,
+                        user_key=user_key,
+                        scope=rule.scope,
+                    )
+                    logger.info(
+                        "retention.erasure.storage_hard_delete",
+                        scope=rule.scope,
+                        tenant_key=tenant_key,
+                        user_key=user_key,
+                        deleted=deleted,
+                    )
+                elif rule.action == "anonymize_metadata_and_strip_exif":
+                    anonymised = await self._anonymize_attachment_metadata(
+                        tenant_key=tenant_key,
+                        user_key=user_key,
+                        scope=rule.scope,
+                    )
+                    stripped = await self._storage_adapter.strip_exif_for_user(
+                        tenant_key=tenant_key,
+                        user_key=user_key,
+                        scope=rule.scope,
+                    )
+                    logger.info(
+                        "retention.erasure.storage_anonymize",
+                        scope=rule.scope,
+                        tenant_key=tenant_key,
+                        user_key=user_key,
+                        metadata_anonymized=anonymised,
+                        exif_stripped=stripped,
+                    )
+            applied_scopes.append(rule.scope)
+        return applied_scopes
+
+    async def _anonymize_attachment_metadata(self, tenant_key: str, user_key: str, scope: str) -> int:
+        """Set ``created_by = '_anonymized'`` for the scope's categories."""
+        if self._attachment_repo is None:
+            return 0
+        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+
+        categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
+        return self._attachment_repo.anonymize_user_metadata(
+            tenant_key=tenant_key,
+            user_key=user_key,
+            categories=categories,
+        )
+
+    async def _run_reference_index_cleanup(self, user_key: str) -> int:
+        """Phase 0.5 — remove the user's contributed DINOv2 embeddings.
+
+        Runs once per user across all their tenants (the store filters by
+        ``contributed_by == user_key``). No-op when the pgvector index has not
+        been built yet (default :class:`NoopReferenceIndexStore`).
+        """
+        if self._reference_index_store is None:
+            logger.info(
+                "retention.erasure.reference_index_cleanup_skipped",
+                user_key=user_key,
+                reason="reference-index store not wired",
+            )
+            return 0
+        removed = await self._reference_index_store.delete_user_contributions(
+            tenant_key=None,
+            user_key=user_key,
+        )
+        logger.info(
+            "retention.erasure.reference_index_cleanup",
+            user_key=user_key,
+            removed=removed,
+        )
+        return removed
+
+    def _user_tenant_keys(self, user_key: str) -> list[str]:
+        """Return the distinct tenant keys the user is a member of."""
+        if self._membership_repo is None:
+            return []
+        memberships = self._membership_repo.list_by_user(user_key)
+        seen: dict[str, None] = {}
+        for m in memberships:
+            if m.tenant_key:
+                seen[m.tenant_key] = None
+        return list(seen)
+
+    def _mark_erasure(
+        self,
+        erasure: ErasureRequest,
+        *,
+        status: str,
+        completed_at: datetime | None = None,
+        error_message: str | None = None,
+        storage_cleanup_scopes: list[str] | None = None,
+    ) -> None:
+        """Persist an erasure-status transition (in-place update)."""
+        if erasure.key is None:
+            return
+        erasure.status = status  # type: ignore[assignment]
+        if completed_at is not None:
+            erasure.completed_at = completed_at
+        if error_message is not None:
+            erasure.error_message = error_message
+        if storage_cleanup_scopes is not None:
+            erasure.storage_cleanup_scopes = storage_cleanup_scopes
+        self._erasure_repo.update(erasure.key, erasure)
 
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests older than 24 h as expired."""

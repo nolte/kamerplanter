@@ -87,3 +87,79 @@ def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # t
             error=str(exc),
         )
         raise self.retry(exc=exc) from exc
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # type: ignore[misc]
+def migrate_storage(  # type: ignore[no-untyped-def]
+    self,
+    backend_from: str,
+    backend_to: str,
+    *,
+    target_bucket: str | None = None,
+    prefix: str = "",
+    dry_run: bool = False,
+    checksum_verify: bool = False,
+) -> dict:
+    """NFR-013 §7.3 — migrate object storage between backends (AC-07).
+
+    Thin Celery wrapper around :class:`scripts.storage.migrate.StorageMigrator`.
+    Streams every object source → target with optional SHA-256 verification,
+    logs the audited outcome, and returns the migration report. Retries on
+    transient backend failures (the underlying run records per-object failures
+    without aborting, so a retry resumes the not-yet-copied objects).
+    """
+    from app.common.async_bridge import run_async
+    from scripts.storage.migrate import migrate
+
+    logger.info(
+        "storage_migrate_started",
+        backend_from=backend_from,
+        backend_to=backend_to,
+        target_bucket=target_bucket,
+        prefix=prefix or None,
+        dry_run=dry_run,
+        checksum_verify=checksum_verify,
+    )
+    try:
+        report = run_async(
+            migrate(
+                backend_from=backend_from,
+                backend_to=backend_to,
+                target_bucket=target_bucket,
+                prefix=prefix,
+                dry_run=dry_run,
+                checksum_verify=checksum_verify,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — retry on transient backend errors
+        logger.error(
+            "storage_migrate_failed",
+            backend_from=backend_from,
+            backend_to=backend_to,
+            error=str(exc),
+        )
+        raise self.retry(exc=exc) from exc
+
+    result = report.as_dict()
+    logger.info("storage_migrate_audit", **result)
+    return result
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # type: ignore[misc]
+def migrate_photo_refs(self, *, dry_run: bool = False) -> dict:  # type: ignore[no-untyped-def]
+    """NFR-013 §2.2 / AC-09 — normalise legacy ``photo_refs`` to attachment ids.
+
+    Idempotent and non-destructive: already-normalised lists are a no-op and
+    unresolvable values are kept verbatim. Returns the migration report.
+    """
+    from app.migrations.migrate_photo_refs import run
+
+    try:
+        report = run(dry_run=dry_run)
+    except Exception as exc:  # noqa: BLE001 — retry on transient DB errors
+        logger.error("migrate_photo_refs_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
+    result = report.as_dict()
+    logger.info("migrate_photo_refs_audit", **result)
+    return result

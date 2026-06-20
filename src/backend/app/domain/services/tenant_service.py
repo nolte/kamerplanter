@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 import structlog
@@ -16,11 +17,14 @@ from app.common.exceptions import (
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
@@ -28,6 +32,12 @@ from app.domain.models.membership import MemberInfo, Membership
 from app.domain.models.tenant import Tenant, TenantWithRole
 
 logger = structlog.get_logger()
+
+# SEC-004: tenant keys are ArangoDB document keys (system-generated numeric IDs
+# or sanitised slugs). Restrict the storage-prefix builder to this safe charset
+# so a malformed/empty key can never widen the delete prefix to ``t//`` (which
+# would otherwise collapse to ``t`` and match *every* tenant).
+_TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
 
 
 class TenantService:
@@ -40,6 +50,9 @@ class TenantService:
         tenant_engine: TenantEngine,
         membership_engine: MembershipEngine,
         invitation_engine: InvitationEngine,
+        storage_adapter: IObjectStorageAdapter | None = None,
+        attachment_repo: IAttachmentRepository | None = None,
+        reference_index_store: IReferenceIndexStore | None = None,
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -48,6 +61,12 @@ class TenantService:
         self._tenant_engine = tenant_engine
         self._membership_engine = membership_engine
         self._invitation_engine = invitation_engine
+        # NFR-013 §6.1 / REQ-025 — tenant deletion must also purge the tenant's
+        # binary data (object storage) and its contributed reference-index
+        # vectors. Optional so non-deletion call sites stay unaffected.
+        self._storage_adapter = storage_adapter
+        self._attachment_repo = attachment_repo
+        self._reference_index_store = reference_index_store
 
     # --- Tenant CRUD ---
 
@@ -140,6 +159,12 @@ class TenantService:
         return tenant
 
     def delete_tenant(self, tenant_key: str) -> bool:
+        # NFR-013 §6.1 / REQ-025 — purge the tenant's binary data and its
+        # contributed reference-index vectors before removing the tenant record.
+        # Storage cleanup runs first so that, on a mid-delete failure, the
+        # tenant record still exists and the operation is fully retryable.
+        self._purge_tenant_storage(tenant_key)
+
         self._assignment_repo.delete_all_for_tenant(tenant_key)
         self._invitation_repo.delete_all_for_tenant(tenant_key)
         self._membership_repo.delete_all_for_tenant(tenant_key)
@@ -148,6 +173,54 @@ class TenantService:
             raise NotFoundError("tenants", tenant_key)
         logger.info("tenant_deleted", tenant_key=tenant_key)
         return True
+
+    def _purge_tenant_storage(self, tenant_key: str) -> None:
+        """NFR-013 §6.1 — delete the tenant's object-storage prefix + ref index.
+
+        Steps (with audit logs):
+          1. Delete all ``attachments`` metadata for the tenant.
+          2. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
+          3. Remove the tenant's user-contributed reference-index vectors.
+
+        ``delete_prefix`` / reference-index calls are async; this method is
+        invoked from a synchronous request handler, so it bridges via
+        ``run_async`` (a loop-isolated runner — safe even if the caller's
+        thread already owns an event loop).
+        """
+        from app.common.async_bridge import run_async
+
+        # SEC-004 — never build a storage prefix from an empty / malformed key.
+        # An empty key yields ``t//`` which the local-fs adapter would collapse
+        # to ``t`` (matching every tenant) and S3 would pass unchecked to
+        # ``list_objects_v2(Prefix=...)`` — both a mass cross-tenant deletion.
+        if not tenant_key or not _TENANT_KEY_PATTERN.match(tenant_key):
+            raise ValidationError(f"Refusing to purge storage for an invalid tenant key: {tenant_key!r}")
+
+        if self._attachment_repo is not None:
+            removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)
+            logger.info(
+                "tenant_storage_metadata_deleted",
+                tenant_key=tenant_key,
+                removed=removed_meta,
+            )
+
+        if self._storage_adapter is not None:
+            prefix = f"t/{tenant_key}/"
+            deleted_objects = run_async(self._storage_adapter.delete_prefix(prefix))
+            logger.info(
+                "tenant_storage_prefix_deleted",
+                tenant_key=tenant_key,
+                prefix=prefix,
+                deleted=deleted_objects,
+            )
+
+        if self._reference_index_store is not None:
+            removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
+            logger.info(
+                "tenant_reference_index_cleanup",
+                tenant_key=tenant_key,
+                removed=removed_vectors,
+            )
 
     def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
         memberships = self._membership_repo.list_by_user(user_key)

@@ -6,6 +6,7 @@ from app.domain.models.privacy import (
     AnonymizationRule,
     ErasurePlan,
     PseudonymizationRule,
+    ReferenceIndexCleanupRule,
     StorageCleanupRule,
 )
 
@@ -70,6 +71,23 @@ class ErasureEngine:
         ),
     ]
 
+    # Reference-index cleanup rules (Phase 0.5). The DINOv2 reference index
+    # (REQ-029-A species_embeddings) lives in pgvector, outside ArangoDB, so the
+    # generic delete pipeline never reaches it. User-contributed embeddings
+    # (source='user_contributed') carry the provenance fields contributed_by /
+    # tenant_key and are removed here. Curated references (source !=
+    # 'user_contributed') are not personal data and stay untouched. Must run
+    # before Phase 1, like Phase 0.
+    REFERENCE_INDEX_CLEANUP_RULES: list[ReferenceIndexCleanupRule] = [
+        ReferenceIndexCleanupRule(
+            store="pgvector",
+            collection="species_embeddings",
+            filter="source == 'user_contributed' AND contributed_by == user_key",
+            action="hard_delete",
+            ref="REQ-029-A section 5.1, REQ-034 section 5",
+        ),
+    ]
+
     # Deletion order. The list is informational — actual deletion is split
     # into edge-collections, document-collections and the user-collection step
     # by the executor. The order encodes the legal/architectural dependency:
@@ -77,6 +95,7 @@ class ErasureEngine:
     # orphan edges remain.
     DELETE_ORDER: list[str] = [
         "_storage_cleanup",
+        "_reference_index_cleanup",
         "requested_export",
         "has_consent",
         "has_restriction",
@@ -125,6 +144,7 @@ class ErasureEngine:
         return ErasurePlan(
             user_key=user_key,
             storage_cleanup=list(self.STORAGE_CLEANUP_RULES),
+            reference_index_cleanup=list(self.REFERENCE_INDEX_CLEANUP_RULES),
             anonymize=list(self.ANONYMIZE_COLLECTIONS),
             pseudonymize_audit=list(self.PSEUDONYMIZE_AUDIT_COLLECTIONS),
             delete=list(self.DELETE_ORDER),

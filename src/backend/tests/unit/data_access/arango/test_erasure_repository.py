@@ -90,11 +90,24 @@ class TestListDueForHardDelete:
     def test_filters_by_now(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([_doc()])
 
-        result = repo.list_due_for_hard_delete("2026-06-14T00:00:00Z")
+        result = repo.list_due_for_hard_delete("2026-06-14T00:00:00Z", "2026-06-13T18:00:00Z")
 
         assert len(result) == 1
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
 
     def test_empty_result(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
-        assert repo.list_due_for_hard_delete("2026-06-14T00:00:00Z") == []
+        assert repo.list_due_for_hard_delete("2026-06-14T00:00:00Z", "2026-06-13T18:00:00Z") == []
+
+    def test_query_selects_retry_states_with_staleness_guard(self, repo, mock_db):
+        """SEC-001 — query re-picks partially_completed and stale in_progress."""
+        mock_db.aql.execute.return_value = iter([_doc()])
+
+        repo.list_due_for_hard_delete("2026-06-14T00:00:00Z", "2026-06-13T18:00:00Z")
+
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "'partially_completed'" in query
+        assert "'in_progress'" in query
+        assert "doc.updated_at <= @stale_before" in query
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["stale_before"] == "2026-06-13T18:00:00Z"

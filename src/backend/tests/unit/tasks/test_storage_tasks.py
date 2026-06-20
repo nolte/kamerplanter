@@ -65,3 +65,40 @@ async def test_generate_thumbnails_writes_three_renditions(tmp_path):
     for size in THUMBNAIL_SIZES:
         meta = await adapter.head_object(thumbnail_key(storage_key, size))
         assert meta.size_bytes > 0
+
+
+def test_migrate_storage_task_returns_report():
+    """NFR-013 §7.3 / AC-07 — the Celery wrapper returns the migration report."""
+    from unittest.mock import AsyncMock
+
+    from app.tasks import storage_tasks
+    from scripts.storage.migrate import MigrationReport
+
+    report = MigrationReport(
+        backend_from="local-fs",
+        backend_to="s3",
+        dry_run=False,
+        checksum_verify=True,
+        total=4,
+        copied=4,
+        verified=4,
+    )
+    with patch("scripts.storage.migrate.migrate", new=AsyncMock(return_value=report)):
+        result = storage_tasks.migrate_storage.run("local-fs", "s3", checksum_verify=True)
+
+    assert result["copied"] == 4
+    assert result["verified"] == 4
+    assert result["ok"] is True
+
+
+def test_migrate_photo_refs_task_returns_report():
+    """NFR-013 §2.2 / AC-09 — the Celery wrapper returns the normalisation report."""
+    from app.migrations.migrate_photo_refs import PhotoRefMigrationReport
+    from app.tasks import storage_tasks
+
+    report = PhotoRefMigrationReport(dry_run=False, scanned_documents=2, changed_documents=1, changed_refs=1)
+    with patch("app.migrations.migrate_photo_refs.run", return_value=report):
+        result = storage_tasks.migrate_photo_refs.run(dry_run=False)
+
+    assert result["changed_documents"] == 1
+    assert result["noop"] is False

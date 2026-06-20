@@ -123,6 +123,34 @@ class TestListByTenant:
         assert first_call_vars["limit"] == 5
 
 
+class TestAnonymizeUserMetadata:
+    def test_binds_tenant_user_and_marker(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([3])
+        updated = repo.anonymize_user_metadata("t-1", "u-1", [AttachmentCategory.DIARY, AttachmentCategory.PLANT])
+        assert updated == 3
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["tenant_key"] == "t-1"
+        assert bind_vars["user_key"] == "u-1"
+        assert bind_vars["categories"] == ["diary", "plant"]
+        assert bind_vars["marker"] == "_anonymized"
+
+    def test_returns_zero_when_nothing_matches(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+        assert repo.anonymize_user_metadata("t-1", "u-1") == 0
+
+
+class TestDeleteAllForTenant:
+    def test_returns_removed_count(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([9])
+        assert repo.delete_all_for_tenant("t-1") == 9
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["tenant_key"] == "t-1"
+
+    def test_returns_zero_when_empty(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+        assert repo.delete_all_for_tenant("t-1") == 0
+
+
 class TestDelete:
     def test_deletes_when_owned(self, repo, mock_db):
         mock_db.collection.return_value.get.return_value = _attachment_doc()

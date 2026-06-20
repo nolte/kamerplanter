@@ -24,7 +24,10 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
-from app.domain.engines.storage.exif_stripper import strip_exif
+from app.domain.engines.storage.exif_stripper import (
+    is_unsupported_photo_format,
+    strip_exif,
+)
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     S3_DEFAULT_CAPABILITIES,
@@ -237,8 +240,18 @@ class S3StorageAdapter(IObjectStorageAdapter):
         logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
 
     async def delete_prefix(self, prefix: str) -> int:
-        count = await asyncio.to_thread(self._delete_prefix_sync, prefix)
-        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=prefix, deleted=count)
+        # SEC-004 — mirror the local-fs guard: reject an empty / bare ``t/`` root
+        # prefix before it reaches ``list_objects_v2(Prefix=...)``, where it
+        # would match (and delete) every tenant's objects. Use the normalised
+        # form so the prefix can never widen into a mass cross-tenant deletion.
+        from app.data_access.storage.local_fs_adapter import _require_tenant_scoped_prefix
+
+        normalized = _require_tenant_scoped_prefix(prefix)
+        # Preserve the caller's trailing slash so the S3 listing stays scoped to
+        # the tenant folder (``t/{key}/``) rather than sibling-key prefixes.
+        safe_prefix = f"{normalized}/" if prefix.rstrip().endswith("/") else normalized
+        count = await asyncio.to_thread(self._delete_prefix_sync, safe_prefix)
+        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=safe_prefix, deleted=count)
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
@@ -290,6 +303,8 @@ class S3StorageAdapter(IObjectStorageAdapter):
         from app.data_access.storage.local_fs_adapter import _scope_to_categories
 
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         deleted = 0
         for att in attachments:
@@ -308,18 +323,34 @@ class S3StorageAdapter(IObjectStorageAdapter):
     async def strip_exif_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
         """REQ-025 erasure hook — strip EXIF from a user's images.
 
-        Returns 0 until an attachment repository is wired (Lauf 2). The actual
-        Pillow-based strip lands in Lauf 2 (NFR-013 §4.2).
+        HEIC/HEIF cannot be re-encoded without ``pillow-heif`` (SEC-005): such
+        images are not stripped, counted as ``skipped_unsupported`` and logged
+        per object (``exif_strip_unsupported_format``, mime type only) so the
+        erasure audit surfaces the residual GPS/EXIF risk. Returns the number of
+        images stripped.
         """
         if self._attachment_repo is None:
             return 0
         from app.data_access.storage.local_fs_adapter import _scope_to_categories
 
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
+        skipped_unsupported = 0
         for att in attachments:
             if not (att.mime_type or "").startswith("image/"):
+                continue
+            if is_unsupported_photo_format(att.mime_type):
+                skipped_unsupported += 1
+                logger.warning(
+                    "exif_strip_unsupported_format",
+                    backend=BACKEND_KEY,
+                    tenant_key=tenant_key,
+                    user_key=user_key,
+                    mime_type=att.mime_type,
+                )
                 continue
             data = await asyncio.to_thread(self._get_sync, att.storage_key)
             stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
@@ -332,6 +363,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
             user_key=user_key,
             scope=scope,
             rewritten=rewritten,
+            skipped_unsupported=skipped_unsupported,
         )
         return rewritten
 

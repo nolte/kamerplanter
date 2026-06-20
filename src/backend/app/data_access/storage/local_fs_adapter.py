@@ -36,7 +36,10 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
-from app.domain.engines.storage.exif_stripper import strip_exif
+from app.domain.engines.storage.exif_stripper import (
+    is_unsupported_photo_format,
+    strip_exif,
+)
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     ObjectMetadata,
@@ -51,6 +54,34 @@ BACKEND_KEY = "local-fs"
 
 # Stream chunk size for get_object (256 KiB).
 _CHUNK_SIZE = 256 * 1024
+
+
+def _require_tenant_scoped_prefix(prefix: str) -> str:
+    """SEC-004 — reject an over-broad delete prefix.
+
+    ``delete_prefix`` is used by the tenant-purge path with ``t/{tenant_key}/``.
+    An empty ``tenant_key`` collapses to ``t//`` (local-fs) or ``t/`` (S3),
+    which would match *every* tenant's objects. This guard requires the prefix
+    to carry **at least two** non-empty path segments (``<tenant>/<sub>``), so a
+    bare root (``""``, ``t``, ``t/``, ``t//``) can never widen into a mass
+    cross-tenant deletion. Shared by both storage adapters.
+
+    Returns the normalised (separator-cleaned) prefix on success.
+
+    Raises:
+        ValueError: when the prefix is empty or resolves to a single root
+            segment with no scoping sub-segment.
+    """
+    if not prefix or not prefix.strip():
+        raise ValueError("Delete prefix must be a non-empty string.")
+    normalized = prefix.replace("\\", "/").strip("/")
+    segments = [seg for seg in normalized.split("/") if seg]
+    if len(segments) < 2:
+        raise ValueError(
+            f"Refusing to delete an over-broad prefix {prefix!r}: a tenant-scoped "
+            "prefix must carry a non-empty key segment (e.g. 't/<key>/')."
+        )
+    return "/".join(segments)
 
 
 def _sanitize_key(key: str) -> PurePosixPath:
@@ -233,6 +264,9 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
 
     async def delete_prefix(self, prefix: str) -> int:
+        # SEC-004 — block over-broad prefixes (empty key ⇒ ``t//`` ⇒ all tenants)
+        # before sanitisation collapses the path.
+        _require_tenant_scoped_prefix(prefix)
         prefix_rel = _sanitize_key(prefix)
         prefix_path = (self._root / prefix_rel).resolve()
         if self._root != prefix_path and self._root not in prefix_path.parents:
@@ -339,6 +373,10 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         if self._attachment_repo is None:
             return 0
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            # Empty category set ⇒ scope matches no category (e.g. user_personal
+            # before profile/user_notes categories exist). Touch nothing.
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         deleted = 0
         for att in attachments:
@@ -358,17 +396,32 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         """REQ-025 erasure hook — strip EXIF from a user's images.
 
         Walks the attachments catalog and rewrites each image with metadata
-        removed. The actual Pillow-based EXIF strip lands in Lauf 2; for now
-        the bytes are rewritten unchanged so the pipeline (lookup → read →
-        write-back) is exercised end-to-end.
+        removed. HEIC/HEIF cannot be re-encoded without ``pillow-heif`` (SEC-005):
+        such images are **not** stripped, counted as ``skipped_unsupported`` and
+        logged per object (``exif_strip_unsupported_format``, mime type only — no
+        image content) so the erasure audit surfaces the residual GPS/EXIF risk
+        instead of silently leaving it. Returns the number of images stripped.
         """
         if self._attachment_repo is None:
             return 0
         categories = _scope_to_categories(scope)
+        if categories is not None and not categories:
+            return 0
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
+        skipped_unsupported = 0
         for att in attachments:
             if not (att.mime_type or "").startswith("image/"):
+                continue
+            if is_unsupported_photo_format(att.mime_type):
+                skipped_unsupported += 1
+                logger.warning(
+                    "exif_strip_unsupported_format",
+                    backend=BACKEND_KEY,
+                    tenant_key=tenant_key,
+                    user_key=user_key,
+                    mime_type=att.mime_type,
+                )
                 continue
             path = self._path_for(att.storage_key)
             if not await asyncio.to_thread(path.exists):
@@ -384,6 +437,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             user_key=user_key,
             scope=scope,
             rewritten=rewritten,
+            skipped_unsupported=skipped_unsupported,
         )
         return rewritten
 
@@ -404,17 +458,76 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         return verify_token(token, self._signing_secret)
 
 
+def _erasure_scope_categories():  # type: ignore[no-untyped-def]
+    """Return the REQ-025 §3.1 erasure-scope → category-set mapping.
+
+    Built lazily so importing this module does not pull the enum eagerly
+    (avoids any import-order coupling). The single source of truth for which
+    attachment categories each erasure scope covers — extend here, never in the
+    adapters or the erasure task.
+    """
+    from app.common.enums import AttachmentCategory
+
+    return {
+        # Hard-delete scope. No personal categories exist in the enum yet, so
+        # this is intentionally empty (touch nothing) rather than ``None``
+        # (touch everything) — a non-empty mapping would silently hard-delete
+        # the user's documentation photos.
+        "user_personal": (),
+        # Anonymise scope: every documentation category that belongs to the
+        # tenant record. ``plant`` = REQ-034 gallery (REQ-034 §5).
+        "user_diary_attachments": (
+            AttachmentCategory.DIARY,
+            AttachmentCategory.IPM,
+            AttachmentCategory.HARVEST,
+            AttachmentCategory.POST_HARVEST,
+            AttachmentCategory.TASK,
+            AttachmentCategory.PLANT,
+        ),
+    }
+
+
 def _scope_to_categories(scope: str):  # type: ignore[no-untyped-def]
     """Map a REQ-025 erasure scope string to attachment categories.
 
-    ``"all"`` (or empty) means every category. Otherwise the scope is treated
-    as a comma-separated list of ``AttachmentCategory`` values; unknown values
-    are ignored.
+    Return-value contract (consumed by ``delete_for_user`` /
+    ``strip_exif_for_user``):
+
+    - ``None`` means *every* category — used by the ``"all"`` legacy scope.
+    - An empty list ``[]`` means *no category matches* — the caller MUST treat
+      this as "touch nothing", never as "touch everything". This is the safe
+      default for the ``user_personal`` hard-delete scope as long as no
+      personal categories (``profile`` / ``user_notes``) exist in the
+      ``AttachmentCategory`` enum.
+    - A non-empty list restricts the lookup to those categories.
+
+    Recognised REQ-025 §3.1 erasure scopes (``STORAGE_CLEANUP_RULES``):
+
+    - ``user_personal`` → personal attachments that are hard-deleted. The
+      ``AttachmentCategory`` enum currently has no ``profile`` / ``user_notes``
+      members, so this resolves to ``[]`` (nothing). The mapping below is the
+      single place to extend once those categories ship — no adapter change.
+    - ``user_diary_attachments`` → documentation photos that stay attached to
+      the tenant record and are only anonymised (``diary``, ``ipm``,
+      ``harvest``, ``post_harvest``, ``task``, ``plant`` — ``plant`` is the
+      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5).
+
+    For backward compatibility the legacy ``"all"`` scope and a comma-separated
+    list of raw ``AttachmentCategory`` values are still accepted; unknown
+    values are ignored.
     """
     from app.common.enums import AttachmentCategory
 
     if not scope or scope == "all":
         return None
+
+    erasure_scopes = _erasure_scope_categories()
+    if scope in erasure_scopes:
+        # Known REQ-025 scope — resolve to its concrete category set (possibly
+        # empty for ``user_personal`` until personal categories exist).
+        return list(erasure_scopes[scope])
+
+    # Legacy / explicit comma-separated category list.
     categories = []
     for raw in scope.split(","):
         value = raw.strip()
