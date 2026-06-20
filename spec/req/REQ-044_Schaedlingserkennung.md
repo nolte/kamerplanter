@@ -17,6 +17,7 @@ Wird benoetigt von: —
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.0 | 2026-06-20 | Initialer Entwurf — leitet aus dem Methodenvergleich `spec/analysis/pest-detection-research.md` eine dedizierte Schädlingserkennung mit zwei Modi (Direkt-Detektion + Schadbild) ab; definiert Self-Hosted-First-Phasen-Strategie, Tiling-Pflicht, Abstention und Einspeisung als Bild-Signal in IPM/Health ohne Auto-Treatment. <!-- Quelle: spec/analysis/pest-detection-research.md --> |
+| 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): **Modellwahl korrigiert — YOLO entfällt (AGPL-3.0), RF-DETR-S/D-FINE (Apache-2.0)**; **Cloud-Produkt korrigiert — `plant.health` statt `crop.health` für Indoor**; Architektur-Präzisierung **zwei Domänen** (on-leaf Few-Shot-Klassifikation via DINOv2 / Gelbtafel RF-DETR+SAHI); Abstention-Schwelle als Tag-1-Default + Risk-Coverage-Verfahren. <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
 
@@ -70,9 +71,9 @@ Zielsetzung von REQ-044 ist daher **kein** überkonfidenter „Schädlings-Autom
 
 ### 2.2 Die vier grundlegenden Lösungsansätze
 
-**Ansatz A — Cloud-API (Kindwise crop.health / insect.id).** EU-orientiert, DSGVO-beworben, Credit-Preise €0,05–0,01/Call. crop.health deckt 288 Krankheiten/Schädlinge (~180 Schädlinge) über 23 Kulturen ab (Modus 2-tauglich, Symptome/Schweregrad/Treatment-Hinweise). insect.id deckt >14.000 Taxa ab (Modus 1). **Einschränkungen:** DSGVO/Genauigkeit sind Vendor-Selbstauskunft (AVV/EU-Hosting separat zu verifizieren); Indoor-Schädling-Abdeckung **unbelegt**; reale Top-3-Genauigkeit deutlich unter intern.
+**Ansatz A — Cloud-API (Kindwise `plant.health` / insect.id).** EU-orientiert (FlowerChecker s.r.o., Brno/CZ), DSGVO-beworben, Credit-Preise €0,05–0,01/Call. **Korrektur v1.1:** Für Indoor-Zierpflanzen ist **`plant.health`** das richtige Produkt (548 Klassen, „houseplants and ornamentals"), **nicht `crop.health`** (nur 23 essbare Feldkulturen — das „93→66 %"-Argument betraf crop.health). insect.id deckt >14.000 Taxa inkl. Milben ab (Modus 1). **Einschränkungen:** AVV ist öffentlich geklärt (T&C Art. 20), aber 6-Monats-Bildspeicherung **mit Trainingsnutzung ohne dokumentiertes Opt-out**, Hosting Google Cloud + DigitalOcean (US-Konzerne) ohne EU-Residenz-Garantie; plant.health-Indoor-Abdeckung der 5 Zielschädlinge **unbelegt** (keine öffentliche Klassenliste). Details + 9 Vor-Vertrags-Fragen: `spec/analysis/pest-detection-implementation-prep.md` §5.
 
-**Ansatz B — Self-Hosted Direkt-Detektor (Modus 1).** Kleiner, quantisierter ONNX-Detektor (YOLO-/RT-DETR-tiny-Klasse) + Tiling, trainiert auf eigenem Indoor-Datenset (Few-Shot gegen AgriPest/Pest24-Backbones). Voll offline, keine Pro-Foto-Kosten. Aufwand: eigenes Datenset + Training; CPU-only-Inferenz großer Modelle unpraktikabel → klein/quantisiert + asynchron via Celery.
+**Ansatz B — Self-Hosted Direkt-Detektor (Modus 1).** Kleiner, ONNX-exportierbarer Detektor + Tiling, trainiert auf eigenem Indoor-Datenset (Few-Shot gegen AgriPest/Pest24-Backbones). Voll offline, keine Pro-Foto-Kosten. **Korrektur v1.1:** **YOLO (Ultralytics v8/v10/v11) entfällt — AGPL-3.0** zieht einen self-hosted HTTP-Inferenzdienst ins Copyleft (§13). Empfehlung: **RF-DETR-S (Apache-2.0, DINOv2-Backbone)** als 1. Wahl, **D-FINE-S/N (Apache-2.0)** als compute-sparsame Alternative, RT-DETRv2-S für Reife. Aufwand: eigenes Datenset + Training; CPU-only-Inferenz großer Modelle unpraktikabel → klein + asynchron via Celery (INT8 nur für CNNs sinnvoll, bei DETR zurückhaltend). **Präzisierung:** Der robuste **on-leaf-Default ist eine Few-Shot-DINOv2-Klassifikation** (kein Detektor; nutzt REQ-029-A-Embedding-Service); der RF-DETR-Detektor ist primär der **Gelbtafel-/Zähl-Pfad**. Details: `spec/analysis/pest-detection-implementation-prep.md` §2–4.
 
 **Ansatz C — Self-Hosted Schadbild-Detektor (Modus 2).** Symptom-orientiert (Fraß/Saugschäden, Gespinste, Honigtau, Verfärbung), artenagnostischer, hängt nicht von der Sichtbarkeit winziger Insekten ab; mit Tiling. Robustester *Einstieg*, aber kein Ersatz für die Artbestimmung.
 
@@ -436,15 +437,17 @@ WHEN:  Frontend lädt PlantInstance-Seite
 THEN:  /status meldet kein aktiver Adapter; Button ausgeblendet; App voll funktionsfähig
 ```
 
-## 10. Offene Punkte
+## 10. Offene Punkte (geklärt durch Implementierungs-Vorbereitung)
 
-- **Indoor-Datenset:** AgriPest/Pest24/IP102 decken Kamerplanters Saugschädlinge nicht ab; Aufbau eines eigenen Indoor-Datensets (über HITL-Feedback) + Few-Shot/Finetuning-Strategie ist Voraussetzung für Phase 2 (Modus 1).
-- **Kindwise-Vertragslage:** AVV/EU-Hosting und reale Indoor-Genauigkeit vor Produktivnahme empirisch/vertraglich klären (Vendor-Selbstauskunft genügt nicht).
-- **Quantisierte ONNX-Variante:** konkrete Modellfamilie/Input-Auflösung/Tiling-Parameter (Kachelgröße, Overlap) auf Ziel-CPU benchmarken (Genauigkeit/Latenz-Balance).
-- **Abstention-Schwelle:** `ABSTAIN_CONFIDENCE=0.40` ist eine begründete Startannahme; datengestützte Kalibrierung (mit Feedback-Signal) ist v2-Thema.
-- **`deficiencies`/Nützling-Stammdaten:** wie in REQ-038/043 angemerkt fehlt eine eigene `beneficials`-Collection in REQ-010; `category=beneficial` bleibt vorerst ohne `matched_*_key`.
-- **RAG-(V)LM-Erklärungsstufe:** in v1.0 optional (GPU-abhängig); ohne GPU bleibt die Erkennung ohne sprachliche Erklärung funktionsfähig (Graceful Degradation).
-- **Proaktive geplante Scans:** Celery-getriggerte periodische Erkennung ist skizziert (`trigger=scheduled`), Scheduling-Details offen.
+> Die ursprünglich offenen Punkte wurden durch eine fokussierte Recherche geklärt: **`spec/analysis/pest-detection-implementation-prep.md`**. Zusammenfassung pro Punkt; verbleibende externe/empirische Aktions-Items dort in §10.
+
+- **Indoor-Datenset → geklärt (Prep §3):** AgriPest/Pest24/IP102 nur als Backbone-Prior. Cold-Start über **iNaturalist/GBIF** (CC0/CC-BY-gefiltert) + **HITL-Nutzerbilder**; **Few-Shot via frozen DINOv2 + Prototypical/kNN** (~30 Bilder/Klasse → live, nutzt REQ-029-A-Service). Datenlage: Weiße Fliege/Thripse gut, Spinnmilben brauchbar (oft Schadbild), **Trauermücken = echte Lücke, Wollläuse fast**.
+- **Kindwise-Vertragslage → geklärt (Prep §5):** AVV (Art. 28) öffentlich in T&C Art. 20; **`plant.health` statt `crop.health`**; kritisch: Trainingsnutzung ohne Opt-out + keine EU-Residenz-Garantie. **9 Vor-Vertrags-Fragen** dokumentiert (Aktions-Item). Alternative Plantix/PEAT (DE-Sitz, schwächere Indoor-Eignung).
+- **Modell/ONNX/Tiling → geklärt (Prep §4):** **YOLO entfällt (AGPL)** → **RF-DETR-S (Apache-2.0)** 1. Wahl, D-FINE-S/N Alternative; **SAHI**-Tiling (512px/0.2 Overlap/GREEDYNMM, eigener ONNX-Wrapper nötig); INT8 nur für CNNs/optional; realistische Latenz **1–5 s/Foto** mit Tiling.
+- **Abstention-Schwelle → geklärt (Prep §6):** `ABSTAIN_CONFIDENCE=0.40` ist **nur Tag-1-Default**; richtig: **Temperature Scaling + Energy-OOD-Gate + klassenweise Schwelle über Risk-Coverage-Kurve auf Feld-Kalibrierungsdaten**; explizite **`beneficial`/`unknown`-Klasse**; Conformal Prediction erst Phase 2 (≥~1000 Feld-Kalibrierbeispiele, SSBC).
+- **`beneficials`-Stammdaten → geklärt (Prep §8):** REQ-010 um eine **`beneficials`-Collection** (Nützlinge) ergänzen, analog `pests`; bis dahin `category=beneficial` Slug-basiert ohne `matched_*_key`.
+- **RAG-(V)LM-Erklärungsstufe → geklärt (Prep §7):** CPU-machbar als **„Sekunden-pro-Bild"-Feature** (Qwen2.5-VL-3B-Q4 / Moondream2 / SmolVLM2), opt-in/asynchron mit **Graceful Degradation**; interaktiv → GPU. VLM = **Erklärer, nie Erkenner**.
+- **Proaktive geplante Scans → präzisiert (Prep §8):** Celery-Beat-Task analog REQ-022; **keine** automatische Aufnahme, sondern Re-Evaluierung vorhandener Galerie-Fotos (REQ-034). Detail-Spec v2.
 
 ---
 
