@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     pest_detection_symptom_enabled: bool = True
     # Self-hosted detector (Modus 1, Phase 2 — D-FINE/RF-DETR ONNX, WP-1/2/3).
     pest_detection_detector_enabled: bool = False
+    # Demo adapter (no external service, no real model). Lets operators preview
+    # the full pest-detection UI flow while the trained backend is externally
+    # blocked (WP-1/2/3). Returns clearly-labelled placeholder findings. Off by
+    # default; never use in production for real decisions.
+    pest_detection_demo_enabled: bool = False
     # Cloud adapter (Kindwise plant.health, opt-in, WP-7). Default aus, bis die
     # Vertrags-/DSGVO-Fragen (WP-7 Show-Stopper) geklärt sind.
     pest_detection_cloud_enabled: bool = False

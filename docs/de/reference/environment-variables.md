@@ -266,6 +266,7 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 | `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Nein | Schadbild-/Symptom-Erkennung (Modus 2) ein/aus. Aktiv wenn `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Nein | Direkt-Detektor (Modus 1, Phase 2) ein/aus. Erfordert trainierten ONNX-Detektor. |
+| `PEST_DETECTION_DEMO_ENABLED` | `false` | Nein | Demo-Adapter (kein externer Service, kein echtes Modell). Zeigt den kompletten UI-Ablauf mit klar gekennzeichneten Platzhalter-Befunden, während das trainierte Backend extern blockiert ist. Nur zur Vorschau — nicht für echte Entscheidungen. Aktiv, wenn zusätzlich `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | Nein | Cloud-Adapter (Kindwise) ein/aus. Erfordert `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | Nein | API-Key für Kindwise (Cloud-Erkennung). Ohne Key ist der Cloud-Adapter deaktiviert. |
 | `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |

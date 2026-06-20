@@ -266,6 +266,7 @@ These variables configure the optional image-based pest detection feature. The f
 | `PEST_DETECTION_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | No | Damage pattern / symptom detection (mode 2) on/off. Active when `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | No | Direct detector (mode 1, Phase 2) on/off. Requires a trained ONNX detector. |
+| `PEST_DETECTION_DEMO_ENABLED` | `false` | No | Demo adapter (no external service, no real model). Previews the full UI flow with clearly-labelled placeholder findings while the trained backend is externally blocked. Preview only — not for real decisions. Active when `PEST_DETECTION_ENABLED=true` is also set. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | No | Cloud adapter (Kindwise) on/off. Requires `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | No | API key for Kindwise (cloud detection). Without a key the cloud adapter is disabled. |
 | `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | No | Preferred adapter. Possible values: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
