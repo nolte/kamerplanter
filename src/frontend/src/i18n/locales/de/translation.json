@@ -4107,7 +4107,9 @@
       "fungal": "Pilzlich",
       "bacterial": "Bakteriell",
       "viral": "Viral",
-      "physiological": "Physiologisch"
+      "physiological": "Physiologisch",
+      "oomycete": "Oomyzet (Eipilz)",
+      "protist": "Protist"
     },
     "treatmentType": {
       "cultural": "Kulturmassnahme",

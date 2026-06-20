@@ -4106,7 +4106,9 @@
       "fungal": "Fungal",
       "bacterial": "Bacterial",
       "viral": "Viral",
-      "physiological": "Physiological"
+      "physiological": "Physiological",
+      "oomycete": "Oomycete (water mold)",
+      "protist": "Protist"
     },
     "treatmentType": {
       "cultural": "Cultural",
