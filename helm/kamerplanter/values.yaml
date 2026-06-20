@@ -1,3 +1,51 @@
+# -- NFR-013 Object-storage configuration (§4.1, §10).
+#
+# This block is the operator-facing source of truth for the storage backend.
+# The bjw-s common chart consumes ``controllers``/``persistence`` literally
+# (values.yaml is not templated), so the concrete wiring lives there:
+#   * ``STORAGE_*`` env vars on the backend + celery-worker controllers
+#   * the ``backend-uploads`` PVC mounted at ``storage.localFs.root`` (local-fs)
+# Keep this block and that wiring in sync when changing the backend.
+#
+# SECRETS (NFR-013 §4.1): the S3 access key / secret are NEVER placed in
+# values.yaml, a ConfigMap or Git. They are resolved from a Secret produced by
+# the External Secrets Operator (``s3.credentialsRef``) and injected via
+# ``envFrom`` — see the commented example on the backend controller.
+storage:
+  backend: local-fs   # local-fs | s3
+  maxFileSizeMb: 25
+  presignTtlSeconds: 900
+  virusScan:
+    enabled: false
+    endpoint: ""
+
+  localFs:
+    root: /data/attachments
+    pvc:
+      size: 20Gi
+      # ReadWriteMany is required once the backend runs with >1 replica AND the
+      # celery-worker shares the volume (thumbnail generation). With a single
+      # backend replica + single worker on the same node, ReadWriteOnce is fine
+      # but limits horizontal scaling — prefer RWX on a CSI that supports it
+      # (Longhorn, NFS, CephFS).
+      accessMode: ReadWriteOnce
+      storageClass: ""   # "" = cluster default StorageClass
+
+  s3:
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: kamerplanter-prod
+    usePathStyle: false
+    forceTls: true
+    kmsKeyId: ""
+    # External Secrets Operator reference — the operator syncs the upstream
+    # secret store into a Kubernetes Secret with these keys. NEVER inline the
+    # values here (NFR-013 §4.1).
+    credentialsRef:
+      secretName: storage-s3-credentials
+      accessKeyIdKey: AWS_ACCESS_KEY_ID
+      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+
 # -- Default pod-level security context applied to all controllers (SEC-M-004)
 defaultPodOptions:
   securityContext:
@@ -48,6 +96,29 @@ controllers:
           IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT: "0.85"
           IDENTIFICATION_CONFIDENCE_MIN_SHOW: "0.10"
           IDENTIFICATION_MAX_IMAGE_SIZE_MB: "5"
+          # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
+          # whose root MUST match the backend-uploads PVC mount below. Switch to
+          # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding
+          # the credentials via envFrom from the ESO-synced Secret (see comment).
+          STORAGE_BACKEND: "local-fs"
+          STORAGE_LOCAL_FS_ROOT: /data/attachments
+          STORAGE_MAX_FILE_SIZE_MB: "25"
+          STORAGE_PRESIGN_TTL_SECONDS: "900"
+          STORAGE_VIRUS_SCAN_ENABLED: "false"
+          # -- S3 backend (uncomment + set STORAGE_BACKEND=s3 to enable):
+          # STORAGE_S3_ENDPOINT_URL: https://s3.eu-central-1.amazonaws.com
+          # STORAGE_S3_REGION: eu-central-1
+          # STORAGE_S3_BUCKET: kamerplanter-prod
+          # STORAGE_S3_USE_PATH_STYLE: "false"
+          # STORAGE_S3_FORCE_TLS: "true"
+          # STORAGE_S3_KMS_KEY_ID: ""
+          # -- S3 credentials come ONLY from the External Secrets Operator —
+          # never inline them here (NFR-013 §4.1). Provide a Secret named
+          # ``storage-s3-credentials`` (keys STORAGE_S3_ACCESS_KEY_ID /
+          # STORAGE_S3_SECRET_ACCESS_KEY) and reference it via envFrom:
+          #   envFrom:
+          #     - secret: kamerplanter-secrets
+          #     - secret: storage-s3-credentials
         probes:
           liveness:
             enabled: true
@@ -247,6 +318,14 @@ controllers:
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
+          # storage erasure (§6.2), so it MUST see the same backend + volume as
+          # the backend pod. Keep these in sync with the backend controller.
+          STORAGE_BACKEND: "local-fs"
+          STORAGE_LOCAL_FS_ROOT: /data/attachments
+          STORAGE_MAX_FILE_SIZE_MB: "25"
+          # For the s3 backend, add the same STORAGE_S3_* vars + an envFrom on
+          # the ESO-synced ``storage-s3-credentials`` Secret (see backend).
         probes:
           liveness:
             enabled: true
@@ -611,6 +690,8 @@ persistence:
         main:
           - path: /tmp
 
+  # -- Ephemeral scratch for CSV/Excel imports (REQ-012). NOT for attachments —
+  # those go to the persistent ``backend-attachments`` PVC below.
   backend-uploads:
     enabled: true
     type: emptyDir
@@ -619,6 +700,27 @@ persistence:
       backend:
         main:
           - path: /data/uploads
+
+  # -- NFR-013 local-fs object storage (§3.1, §10). Persistent PVC at
+  # STORAGE_LOCAL_FS_ROOT (/data/attachments). Shared by the backend (uploads /
+  # streaming) and the celery-worker (thumbnail generation §8.2, DSGVO erasure
+  # §6.2). Use ReadWriteMany once the backend scales beyond one replica; with a
+  # single backend + worker on the same node ReadWriteOnce suffices. The
+  # ``storage.localFs.pvc`` block above documents the operator-facing values.
+  # ``retain: true`` protects attachment data from accidental ``helm uninstall``.
+  backend-attachments:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    retain: true
+    advancedMounts:
+      backend:
+        main:
+          - path: /data/attachments
+      celery-worker:
+        main:
+          - path: /data/attachments
 
   # -- Fontconfig writable cache (suppresses "No writable cache directories" warning)
   backend-fontconfig:

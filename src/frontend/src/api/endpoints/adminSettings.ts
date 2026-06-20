@@ -15,9 +15,66 @@ export interface PlantIdentificationSettingsResponse {
   source_plantnet_api_key: string;
 }
 
+/**
+ * NFR-013 §4.1 — effective object-storage configuration for the admin UI.
+ *
+ * Carries only non-secret fields. The S3 credentials are never returned by the
+ * backend; only their *presence* is reported (`s3_*_configured`). Per AC-04 the
+ * UI references no bucket/backend in user-visible data paths — this admin
+ * settings surface is the sole, deliberate exception where the operator
+ * configures the backend.
+ */
+export interface StorageSettingsResponse {
+  backend: string;
+  local_fs_root: string;
+  local_fs_public_base_url: string;
+  s3_endpoint_url: string;
+  s3_region: string;
+  s3_bucket: string;
+  s3_use_path_style: boolean;
+  s3_kms_key_id: string;
+  s3_force_tls: boolean;
+  s3_access_key_id_configured: boolean;
+  s3_secret_access_key_configured: boolean;
+  source_backend: string;
+  source_local_fs_root: string;
+  source_local_fs_public_base_url: string;
+  source_s3_endpoint_url: string;
+  source_s3_region: string;
+  source_s3_bucket: string;
+  source_s3_use_path_style: string;
+  source_s3_kms_key_id: string;
+  source_s3_force_tls: string;
+}
+
+/** Update payload — non-secret fields only (secrets come from env / ESO). */
+export interface StorageSettingsUpdate {
+  backend?: 'local-fs' | 's3' | null;
+  local_fs_root?: string | null;
+  local_fs_public_base_url?: string | null;
+  s3_endpoint_url?: string | null;
+  s3_region?: string | null;
+  s3_bucket?: string | null;
+  s3_use_path_style?: boolean | null;
+  s3_kms_key_id?: string | null;
+  s3_force_tls?: boolean | null;
+}
+
+/** Optional not-yet-persisted overrides for a connection test (no secrets). */
+export type StorageTestRequest = StorageSettingsUpdate;
+
+export interface StorageTestResponse {
+  success: boolean;
+  backend: string;
+  message: string;
+  writable?: boolean | null;
+  bucket_reachable?: boolean | null;
+}
+
 export interface SystemSettingsResponse {
   home_assistant: HASettingsResponse;
   plant_identification: PlantIdentificationSettingsResponse;
+  storage: StorageSettingsResponse;
 }
 
 export interface PlantIdentificationSettingsUpdate {
@@ -98,6 +155,36 @@ export async function testPlantIdentificationKey(
 
 export async function clearPlantIdentificationSettings(): Promise<void> {
   await client.delete(`${BASE}/plant-identification`);
+}
+
+/**
+ * GET /admin/settings → storage block. Returns the effective object-storage
+ * configuration (NFR-013). Convenience wrapper around {@link getSystemSettings}.
+ */
+export async function getStorageSettings(): Promise<StorageSettingsResponse> {
+  const { data } = await client.get<SystemSettingsResponse>(BASE);
+  return data.storage;
+}
+
+/** PUT /admin/settings/storage — persist the active backend + non-secret fields. */
+export async function updateStorageSettings(
+  body: StorageSettingsUpdate,
+): Promise<SystemSettingsResponse> {
+  const { data } = await client.put<SystemSettingsResponse>(`${BASE}/storage`, body);
+  return data;
+}
+
+/** POST /admin/settings/storage/test — probe backend reachability (no secrets). */
+export async function testStorageConnection(
+  body: StorageTestRequest,
+): Promise<StorageTestResponse> {
+  const { data } = await client.post<StorageTestResponse>(`${BASE}/storage/test`, body);
+  return data;
+}
+
+/** DELETE /admin/settings/storage — clear the DB override (fall back to env). */
+export async function clearStorageSettings(): Promise<void> {
+  await client.delete(`${BASE}/storage`);
 }
 
 /**

@@ -132,3 +132,51 @@ def _build_s3(attachment_repo: Any = None) -> IObjectStorageAdapter:
         force_tls=settings.storage_s3_force_tls,
         attachment_repo=attachment_repo,
     )
+
+
+def build_storage_test_adapter(config: dict[str, Any]) -> IObjectStorageAdapter:
+    """Build a *throwaway* adapter from explicit config for a connection test.
+
+    Used by ``POST /admin/settings/storage/test`` so the admin can verify a
+    backend *before* persisting it. ``config`` carries the effective non-secret
+    fields (DB override on top of env). The S3 credentials are intentionally NOT
+    in ``config`` (NFR-013 §4.1 variant "a") — they are read here directly from
+    the environment / External Secrets Operator, so they never traverse the API
+    request/response or the database.
+
+    No ``attachment_repo`` is wired: a health probe needs none, and omitting it
+    keeps the test adapter free of erasure side effects.
+    """
+    backend = config.get("backend") or settings.storage_backend
+    if backend == "local-fs":
+        from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+
+        return LocalFsStorageAdapter(
+            root=config.get("local_fs_root") or settings.storage_local_fs_root,
+            public_base_url=config.get("local_fs_public_base_url") or settings.storage_local_fs_public_base_url,
+            signing_secret=_resolve_localfs_signing_secret(),
+            max_object_size_bytes=settings.storage_max_file_size_mb * 1024 * 1024,
+            attachment_repo=None,
+        )
+    if backend == "s3":
+        from app.data_access.storage.s3_adapter import S3StorageAdapter
+
+        return S3StorageAdapter(
+            endpoint_url=config.get("s3_endpoint_url") or settings.storage_s3_endpoint_url,
+            region=config.get("s3_region") or settings.storage_s3_region,
+            bucket=config.get("s3_bucket") or settings.storage_s3_bucket,
+            # Credentials NEVER come from the request — only from env / ESO.
+            access_key_id=settings.storage_s3_access_key_id,
+            secret_access_key=settings.storage_s3_secret_access_key,
+            use_path_style=(
+                config["s3_use_path_style"]
+                if config.get("s3_use_path_style") is not None
+                else settings.storage_s3_use_path_style
+            ),
+            kms_key_id=(config.get("s3_kms_key_id") or settings.storage_s3_kms_key_id) or None,
+            force_tls=(
+                config["s3_force_tls"] if config.get("s3_force_tls") is not None else settings.storage_s3_force_tls
+            ),
+            attachment_repo=None,
+        )
+    raise KeyError(f"Unknown storage backend '{backend}'. Available: {sorted(StorageAdapterRegistry.all_keys())}")

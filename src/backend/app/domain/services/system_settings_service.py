@@ -1,10 +1,17 @@
+from typing import Any
+
 from app.config.settings import settings as env_settings
 from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 from app.domain.models.system_settings import (
     HomeAssistantSettings,
     PlantIdentificationSettings,
+    StorageSettings,
     SystemSettings,
 )
+
+#: Supported storage backends (NFR-013 §3.1). Validated on update so the UI
+#: cannot persist an unknown backend that would later break the adapter build.
+_VALID_STORAGE_BACKENDS = ("local-fs", "s3")
 
 
 class SystemSettingsService:
@@ -132,6 +139,126 @@ class SystemSettingsService:
                 "source_plantnet_api_key": "env",
             }
         return {"plantnet_api_key": "", "source_plantnet_api_key": "none"}
+
+    # ── NFR-013 Object storage backend selection (§4.1) ─────────────────
+    #
+    # SECRET HANDLING (NFR-013 §4.1, variant "a" — env/ESO only):
+    #   The S3 access_key_id / secret_access_key are NEVER persisted to the
+    #   database. They are resolved exclusively from the environment (supplied
+    #   by the External Secrets Operator in production). The settings UI sets
+    #   only non-secret fields; effective resolution layers the DB override on
+    #   top of the env defaults, then injects the env-only credentials when an
+    #   ad-hoc adapter is built for the connection test.
+
+    def update_storage_settings(
+        self,
+        *,
+        backend: str | None = None,
+        local_fs_root: str | None = None,
+        local_fs_public_base_url: str | None = None,
+        s3_endpoint_url: str | None = None,
+        s3_region: str | None = None,
+        s3_bucket: str | None = None,
+        s3_use_path_style: bool | None = None,
+        s3_kms_key_id: str | None = None,
+        s3_force_tls: bool | None = None,
+    ) -> SystemSettings:
+        """Persist the active backend + its non-secret config (DB overrides env).
+
+        Raises ``ValueError`` for an unknown ``backend`` so the API layer can
+        return a 422 rather than persisting a value the adapter cannot build.
+        """
+        if backend is not None and backend not in _VALID_STORAGE_BACKENDS:
+            raise ValueError(
+                f"Unknown storage backend '{backend}'. Allowed: {', '.join(_VALID_STORAGE_BACKENDS)}.",
+            )
+
+        stored = self._repo.get() or SystemSettings()
+        st = stored.storage
+
+        if backend is not None:
+            st.backend = backend
+        if local_fs_root is not None:
+            st.local_fs_root = local_fs_root
+        if local_fs_public_base_url is not None:
+            st.local_fs_public_base_url = local_fs_public_base_url
+        if s3_endpoint_url is not None:
+            st.s3_endpoint_url = s3_endpoint_url
+        if s3_region is not None:
+            st.s3_region = s3_region
+        if s3_bucket is not None:
+            st.s3_bucket = s3_bucket
+        if s3_use_path_style is not None:
+            st.s3_use_path_style = s3_use_path_style
+        if s3_kms_key_id is not None:
+            st.s3_kms_key_id = s3_kms_key_id
+        if s3_force_tls is not None:
+            st.s3_force_tls = s3_force_tls
+
+        stored.storage = st
+        return self._repo.upsert(stored)
+
+    def get_effective_storage_settings(self) -> dict[str, Any]:
+        """Return effective storage config: DB override on top of env.
+
+        The returned dict carries **only non-secret** fields plus the resolved
+        credential *presence* flags. Raw credentials are never included here —
+        they are injected directly from env when building the test adapter
+        (``build_storage_test_adapter``), so they cannot leak through a response.
+        """
+        st = self.get_settings().storage
+
+        def _resolve(db_val: Any, env_val: Any) -> Any:
+            return db_val if db_val is not None and db_val != "" else env_val
+
+        return {
+            "backend": _resolve(st.backend, env_settings.storage_backend),
+            "local_fs_root": _resolve(st.local_fs_root, env_settings.storage_local_fs_root),
+            "local_fs_public_base_url": _resolve(
+                st.local_fs_public_base_url, env_settings.storage_local_fs_public_base_url
+            ),
+            "s3_endpoint_url": _resolve(st.s3_endpoint_url, env_settings.storage_s3_endpoint_url),
+            "s3_region": _resolve(st.s3_region, env_settings.storage_s3_region),
+            "s3_bucket": _resolve(st.s3_bucket, env_settings.storage_s3_bucket),
+            "s3_use_path_style": (
+                st.s3_use_path_style if st.s3_use_path_style is not None else env_settings.storage_s3_use_path_style
+            ),
+            "s3_kms_key_id": _resolve(st.s3_kms_key_id, env_settings.storage_s3_kms_key_id),
+            "s3_force_tls": (st.s3_force_tls if st.s3_force_tls is not None else env_settings.storage_s3_force_tls),
+            # Credential presence only — never the values (NFR-013 §4.1).
+            "s3_access_key_id_configured": bool(env_settings.storage_s3_access_key_id),
+            "s3_secret_access_key_configured": bool(env_settings.storage_s3_secret_access_key),
+        }
+
+    def get_storage_settings_with_source(self) -> dict[str, Any]:
+        """Effective storage settings plus a per-field source (``db``/``env``)."""
+        st = self.get_settings().storage
+        effective = self.get_effective_storage_settings()
+
+        def _source(db_val: Any) -> str:
+            return "db" if db_val is not None and db_val != "" else "env"
+
+        return {
+            **effective,
+            "source_backend": _source(st.backend),
+            "source_local_fs_root": _source(st.local_fs_root),
+            "source_local_fs_public_base_url": _source(st.local_fs_public_base_url),
+            "source_s3_endpoint_url": _source(st.s3_endpoint_url),
+            "source_s3_region": _source(st.s3_region),
+            "source_s3_bucket": _source(st.s3_bucket),
+            "source_s3_use_path_style": "db" if st.s3_use_path_style is not None else "env",
+            "source_s3_kms_key_id": _source(st.s3_kms_key_id),
+            "source_s3_force_tls": "db" if st.s3_force_tls is not None else "env",
+        }
+
+    def delete_storage_settings(self) -> bool:
+        """Reset the DB storage override so resolution falls back to env vars."""
+        stored = self._repo.get()
+        if stored is None:
+            return False
+        stored.storage = StorageSettings()
+        self._repo.upsert(stored)
+        return True
 
     @staticmethod
     def mask_token(token: str | None) -> str:
