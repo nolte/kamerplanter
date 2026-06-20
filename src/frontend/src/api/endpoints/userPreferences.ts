@@ -1,5 +1,5 @@
 import { tenantClient as client } from '../client';
-import type { UserPreference, ExperienceLevel } from '../types';
+import type { UserPreference, ExperienceLevel, ModuleVisibilityState } from '../types';
 
 const BASE = '/user-preferences';
 
@@ -16,6 +16,7 @@ export async function updatePreferences(
     onboarding_completed?: boolean;
     watering_can_liters?: number;
     smart_home_enabled?: boolean;
+    module_visibility?: Record<string, ModuleVisibilityState>;
   },
 ): Promise<UserPreference> {
   const { data } = await client.patch<UserPreference>(BASE, updates);

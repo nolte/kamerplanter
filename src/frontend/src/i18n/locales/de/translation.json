@@ -1,4 +1,144 @@
 {
+  "modules": {
+    "guard": {
+      "title": "Dieses Modul ist ausgeblendet",
+      "description": "Du hast diesen Funktionsbereich in deinen Einstellungen ausgeblendet. Blende das Modul wieder ein, um den vollen Funktionsumfang zu nutzen.",
+      "dataSafeNote": "Deine Daten in diesem Bereich sind weiterhin vollständig vorhanden — das Ausblenden löscht nichts.",
+      "action": "In Einstellungen aktivieren",
+      "goBack": "Zurück"
+    },
+    "manage": {
+      "introTitle": "Module & Funktionen",
+      "subtitle": "Lege fest, welche Funktionsbereiche angezeigt werden. Dies ist eine reine Anzeige-Präferenz — es werden keine Daten gelöscht und keine Berechtigungen geändert.",
+      "searchPlaceholder": "Modul suchen …",
+      "searchAriaLabel": "Module durchsuchen",
+      "searchResultsAria": "{{count}} Modul gefunden für \"{{query}}\"",
+      "searchResultsAria_other": "{{count}} Module gefunden für \"{{query}}\"",
+      "categoryCount": "{{count}} Modul",
+      "categoryCount_other": "{{count}} Module",
+      "reset": "Auf Erfahrungsstufe zurücksetzen",
+      "resetAriaLabel": "{{module}}: Übersteuerung aufheben und Erfahrungsstufe folgen",
+      "manualOn": "Manuell eingeblendet",
+      "manualOff": "Manuell ausgeblendet",
+      "followsLevelVisible": "Folgt Stufe: sichtbar",
+      "followsLevelHidden": "Folgt Stufe: ausgeblendet",
+      "switchAriaLabel": "{{module}} — {{state}}",
+      "coreSectionTitle": "Kern-Module",
+      "coreSectionTooltip": "Kern-Module sind immer sichtbar und können nicht ausgeblendet werden — sie bilden die Grundlage der Anwendung.",
+      "coreSectionTooltipAriaLabel": "Erklärung: Warum können Kern-Module nicht ausgeblendet werden?",
+      "coreTooltip": "Grundfunktion, immer sichtbar",
+      "coreAriaLabel": "{{module}} — Grundfunktion, immer sichtbar",
+      "noResultsTitle": "Kein Modul gefunden",
+      "noResultsHint": "Für \"{{query}}\" gibt es keine Treffer. Überprüfe die Schreibweise oder suche nach einem anderen Begriff.",
+      "clearSearch": "Suche zurücksetzen"
+    },
+    "categories": {
+      "care_planning": "Pflege & Planung",
+      "nutrition_water": "Düngung & Wasser",
+      "plant_protection": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "cultivation": "Anbau",
+      "master_data": "Stammdaten",
+      "automation": "Automation",
+      "ai": "KI"
+    },
+    "dashboard": {
+      "label": "Dashboard",
+      "description": "Startseite mit Übersicht und Schnellzugriffen."
+    },
+    "plants": {
+      "label": "Meine Pflanzen",
+      "description": "Deine Pflanzen und ihre Details."
+    },
+    "locations": {
+      "label": "Standorte",
+      "description": "Standorte, Bereiche und Stellplätze."
+    },
+    "settings": {
+      "label": "Einstellungen",
+      "description": "Konto- und Anwendungseinstellungen."
+    },
+    "onboarding": {
+      "label": "Onboarding",
+      "description": "Einrichtungsassistent für den Einstieg."
+    },
+    "care": {
+      "label": "Pflege & Erinnerungen",
+      "description": "Pflegeerinnerungen und Pflege-Dashboard."
+    },
+    "calendar": {
+      "label": "Kalender",
+      "description": "Termine, Aufgaben und Aussaatkalender im Zeitverlauf."
+    },
+    "watering": {
+      "label": "Gießprotokoll",
+      "description": "Protokoll von Gieß- und Düngevorgängen."
+    },
+    "tasks": {
+      "label": "Aufgaben & Workflows",
+      "description": "Aufgabenplanung und wiederkehrende Workflows."
+    },
+    "nutrition": {
+      "label": "Düngung & Nährstoffpläne",
+      "description": "Dünger, Nährstoffpläne und Düngeprotokolle."
+    },
+    "tanks": {
+      "label": "Tankmanagement",
+      "description": "Tanks, Füllstände und Tankwartung."
+    },
+    "substrates": {
+      "label": "Substrate",
+      "description": "Substratverwaltung und Wiederverwendung."
+    },
+    "calculators": {
+      "label": "Kalkulatoren (VPD/GDD/EC)",
+      "description": "Berechnungswerkzeuge für Klima und Nährstoffe."
+    },
+    "ipm": {
+      "label": "Pflanzenschutz (IPM)",
+      "description": "Schädlinge, Krankheiten und Behandlungen."
+    },
+    "harvest": {
+      "label": "Ernte & Erntechargen",
+      "description": "Ernteplanung, Erntechargen und Qualität."
+    },
+    "post_harvest": {
+      "label": "Post-Harvest",
+      "description": "Nacherntebehandlung wie Trocknen und Aushärten."
+    },
+    "runs": {
+      "label": "Pflanzdurchläufe",
+      "description": "Gruppenmanagement von Pflanzdurchläufen."
+    },
+    "propagation": {
+      "label": "Vermehrung",
+      "description": "Stecklinge, Aussaat und genetische Abstammung."
+    },
+    "master_data": {
+      "label": "Stammdaten (Arten/Familien/Import)",
+      "description": "Botanische Familien, Arten, Aktivitäten und Import."
+    },
+    "companion": {
+      "label": "Mischkultur & Fruchtfolge",
+      "description": "Mischkultur-Empfehlungen und Fruchtfolge-Planung."
+    },
+    "sensors": {
+      "label": "Sensorik & Monitoring",
+      "description": "Sensoren und Umgebungsüberwachung."
+    },
+    "automation": {
+      "label": "Umgebungssteuerung & Aktorik",
+      "description": "Regelbasierte Steuerung von Aktoren."
+    },
+    "smart_home": {
+      "label": "Smart-Home / Home Assistant",
+      "description": "Anbindung an Home Assistant und Smart-Home-Geräte."
+    },
+    "ai": {
+      "label": "KI-Funktionen (Erkennung/Assistent)",
+      "description": "Bildbasierte Pflanzenerkennung und KI-Assistenten."
+    }
+  },
   "storageSettings": {
     "title": "Speicher",
     "intro": "Lege fest, wo Kamerplanter Binärdaten (Fotos, Importe, Exporte) ablegt. Die Auswahl gilt für die gesamte Instanz und wirkt sofort nach dem Speichern.",
@@ -595,6 +735,7 @@
       "tabSessions": "Sitzungen",
       "tabApiKeys": "API-Schlüssel",
       "tabExperience": "Erfahrungsstufe",
+      "tabModules": "Module & Funktionen",
       "tabPlatform": "Plattform-Modus",
       "tabAdmin": "Administration",
       "tabNotifications": "Benachrichtigungen",

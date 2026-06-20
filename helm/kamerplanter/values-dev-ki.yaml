@@ -196,6 +196,10 @@ controllers:
             memory: 4Gi
 
   vectordb:
+    # Re-enable the pgvector store: the base values.yaml disables it by default
+    # (operator/ArgoCD enables it in prod). Without this the KI dev stack has no
+    # kamerplanter-ki-vectordb service and the knowledge-service fails DNS.
+    enabled: true
     type: statefulset
     replicas: 1
     pod:
@@ -278,6 +282,7 @@ service:
       http:
         port: 8080
   vectordb:
+    enabled: true
     controller: vectordb
     ports:
       postgresql:

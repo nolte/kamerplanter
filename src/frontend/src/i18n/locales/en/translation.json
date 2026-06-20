@@ -1,4 +1,144 @@
 {
+  "modules": {
+    "guard": {
+      "title": "This module is hidden",
+      "description": "You have hidden this feature area in your settings. Re-enable the module to use its full functionality.",
+      "dataSafeNote": "Your data in this area is fully intact — hiding a module never deletes anything.",
+      "action": "Enable in settings",
+      "goBack": "Go back"
+    },
+    "manage": {
+      "introTitle": "Modules & Features",
+      "subtitle": "Choose which feature areas are shown. This is a display preference only — no data is deleted and no permissions are changed.",
+      "searchPlaceholder": "Search module …",
+      "searchAriaLabel": "Search modules",
+      "searchResultsAria": "{{count}} module found for \"{{query}}\"",
+      "searchResultsAria_other": "{{count}} modules found for \"{{query}}\"",
+      "categoryCount": "{{count}} module",
+      "categoryCount_other": "{{count}} modules",
+      "reset": "Reset to experience level",
+      "resetAriaLabel": "{{module}}: remove override and follow experience level",
+      "manualOn": "Manually shown",
+      "manualOff": "Manually hidden",
+      "followsLevelVisible": "Follows level: visible",
+      "followsLevelHidden": "Follows level: hidden",
+      "switchAriaLabel": "{{module}} — {{state}}",
+      "coreSectionTitle": "Core modules",
+      "coreSectionTooltip": "Core modules are always visible and cannot be hidden — they form the foundation of the application.",
+      "coreSectionTooltipAriaLabel": "Explanation: Why can core modules not be hidden?",
+      "coreTooltip": "Core feature, always visible",
+      "coreAriaLabel": "{{module}} — core feature, always visible",
+      "noResultsTitle": "No module found",
+      "noResultsHint": "No results for \"{{query}}\". Check the spelling or try a different term.",
+      "clearSearch": "Clear search"
+    },
+    "categories": {
+      "care_planning": "Care & Planning",
+      "nutrition_water": "Nutrition & Water",
+      "plant_protection": "Plant Protection",
+      "harvest": "Harvest",
+      "cultivation": "Cultivation",
+      "master_data": "Master Data",
+      "automation": "Automation",
+      "ai": "AI"
+    },
+    "dashboard": {
+      "label": "Dashboard",
+      "description": "Home page with overview and quick actions."
+    },
+    "plants": {
+      "label": "My Plants",
+      "description": "Your plants and their details."
+    },
+    "locations": {
+      "label": "Locations",
+      "description": "Sites, areas and slots."
+    },
+    "settings": {
+      "label": "Settings",
+      "description": "Account and application settings."
+    },
+    "onboarding": {
+      "label": "Onboarding",
+      "description": "Setup wizard to get you started."
+    },
+    "care": {
+      "label": "Care & Reminders",
+      "description": "Care reminders and the care dashboard."
+    },
+    "calendar": {
+      "label": "Calendar",
+      "description": "Events, tasks and sowing calendar over time."
+    },
+    "watering": {
+      "label": "Watering Log",
+      "description": "Log of watering and feeding events."
+    },
+    "tasks": {
+      "label": "Tasks & Workflows",
+      "description": "Task planning and recurring workflows."
+    },
+    "nutrition": {
+      "label": "Fertilization & Nutrient Plans",
+      "description": "Fertilizers, nutrient plans and feeding logs."
+    },
+    "tanks": {
+      "label": "Tank Management",
+      "description": "Tanks, fill levels and tank maintenance."
+    },
+    "substrates": {
+      "label": "Substrates",
+      "description": "Substrate management and reuse."
+    },
+    "calculators": {
+      "label": "Calculators (VPD/GDD/EC)",
+      "description": "Calculation tools for climate and nutrients."
+    },
+    "ipm": {
+      "label": "Plant Protection (IPM)",
+      "description": "Pests, diseases and treatments."
+    },
+    "harvest": {
+      "label": "Harvest & Harvest Batches",
+      "description": "Harvest planning, batches and quality."
+    },
+    "post_harvest": {
+      "label": "Post-Harvest",
+      "description": "Post-harvest handling such as drying and curing."
+    },
+    "runs": {
+      "label": "Planting Runs",
+      "description": "Group management of planting runs."
+    },
+    "propagation": {
+      "label": "Propagation",
+      "description": "Cuttings, sowing and genetic lineage."
+    },
+    "master_data": {
+      "label": "Master Data (Species/Families/Import)",
+      "description": "Botanical families, species, activities and import."
+    },
+    "companion": {
+      "label": "Companion Planting & Crop Rotation",
+      "description": "Companion planting recommendations and crop rotation planning."
+    },
+    "sensors": {
+      "label": "Sensors & Monitoring",
+      "description": "Sensors and environmental monitoring."
+    },
+    "automation": {
+      "label": "Environment Control & Actuators",
+      "description": "Rule-based control of actuators."
+    },
+    "smart_home": {
+      "label": "Smart Home / Home Assistant",
+      "description": "Integration with Home Assistant and smart-home devices."
+    },
+    "ai": {
+      "label": "AI Features (Recognition/Assistant)",
+      "description": "Image-based plant recognition and AI assistants."
+    }
+  },
   "storageSettings": {
     "title": "Storage",
     "intro": "Choose where Kamerplanter stores binary data (photos, imports, exports). This selection applies to the whole instance and takes effect immediately after saving.",
@@ -594,6 +734,7 @@
       "tabSecurity": "Security",
       "tabSessions": "Sessions",
       "tabExperience": "Experience",
+      "tabModules": "Modules & Features",
       "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
       "tabNotifications": "Notifications",

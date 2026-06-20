@@ -95,6 +95,7 @@ import type {
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
+import ModulesSettingsTab from './ModulesSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
 import StorageSettingsTab from './StorageSettingsTab';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
@@ -165,6 +166,7 @@ export default function AccountSettingsPage() {
         { key: 'profile', label: t('pages.auth.tabProfile') },
         { key: 'notifications', label: t('pages.auth.tabNotifications') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
+        { key: 'modules', label: t('pages.auth.tabModules') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
         ...haPublishTab,
         ...storageTab,
@@ -174,6 +176,7 @@ export default function AccountSettingsPage() {
       { key: 'profile', label: t('pages.auth.tabProfile') },
       { key: 'notifications', label: t('pages.auth.tabNotifications') },
       { key: 'experience', label: t('pages.auth.tabExperience') },
+      { key: 'modules', label: t('pages.auth.tabModules') },
       { key: 'security', label: t('pages.auth.tabSecurity') },
       { key: 'sessions', label: t('pages.auth.tabSessions') },
       { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
@@ -955,6 +958,9 @@ export default function AccountSettingsPage() {
 
       {/* ── Notifications Tab ── */}
       {activeTab === 'notifications' && <NotificationSettingsTab />}
+
+      {/* ── Modules Tab (REQ-042) ── */}
+      {activeTab === 'modules' && <ModulesSettingsTab />}
 
       {/* ── HA Publish-Selection Tab ── */}
       {activeTab === 'ha-publish' && <HaPublishSettingsTab />}
