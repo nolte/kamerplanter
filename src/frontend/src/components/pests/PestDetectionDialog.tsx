@@ -60,7 +60,11 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
   const descId = useId();
 
   const available = status?.available ?? false;
-  const lightMode = isLightMode;
+  // Self-hosted / demo adapters work in light mode; only the cloud path (which
+  // needs consent) is blocked there (§3.3).
+  const active = status?.active_adapter;
+  const activeRequiresConsent = active != null && status?.adapters?.[active]?.requires_consent != null;
+  const cloudBlockedInLight = isLightMode && activeRequiresConsent;
 
   const handleClose = useCallback(() => {
     dispatch(resetPestDetection());
@@ -145,7 +149,7 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
           {result?.disclaimer || t('pages.pests.disclaimer')}
         </Alert>
 
-        {lightMode ? (
+        {cloudBlockedInLight ? (
           <Alert severity="info" data-testid="pest-light-mode">
             {t('pages.pests.lightModeBlocked')}
           </Alert>
@@ -370,7 +374,7 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
         )}
       </DialogContent>
       <DialogActions>
-        {result && !lightMode && available && (
+        {result && !cloudBlockedInLight && available && (
           <Button onClick={handleRetake} data-testid="pest-retake" sx={{ minHeight: 44 }}>
             {t('pages.pests.retake')}
           </Button>

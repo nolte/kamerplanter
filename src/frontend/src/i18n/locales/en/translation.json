@@ -439,7 +439,7 @@
       "feedbackBeneficial": "Was a beneficial",
       "retake": "New photo",
       "previewAlt": "Preview of the analysed photo",
-      "lightModeBlocked": "Please sign in to use pest detection.",
+      "lightModeBlocked": "Cloud pest detection is not available in light mode. You can use local detection.",
       "notConfigured": "Pest detection is not enabled on this instance.",
       "consentRequired": "Cloud pest detection requires your consent.",
       "imageTooLarge": "The image is too large (max. 8 MB).",

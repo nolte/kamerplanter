@@ -26,12 +26,16 @@ export default function PestScanButton({ plantKey, size = 'small' }: PestScanBut
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLightMode && status == null) {
+    if (status == null) {
       dispatch(fetchPestDetectionStatus());
     }
   }, [dispatch, status]);
 
-  if (isLightMode || !status?.available) {
+  // Self-hosted / demo adapters work in light mode (no consent, no egress);
+  // only the cloud path (which needs consent) stays blocked there (§3.3).
+  const active = status?.active_adapter;
+  const activeRequiresConsent = active != null && status?.adapters?.[active]?.requires_consent != null;
+  if (!status?.available || (isLightMode && activeRequiresConsent)) {
     return null;
   }
 

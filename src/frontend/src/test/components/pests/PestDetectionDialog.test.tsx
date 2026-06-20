@@ -154,9 +154,35 @@ describe('PestDetectionDialog', () => {
     expect(screen.queryByTestId('pest-create-inspection')).not.toBeInTheDocument();
   });
 
-  it('blocks in light mode', () => {
+  it('allows the self-hosted path in light mode', () => {
     modeMock.isLightMode = true;
     render();
+    expect(screen.queryByTestId('pest-light-mode')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mock-capture')).toBeInTheDocument();
+  });
+
+  it('blocks only the cloud path in light mode', () => {
+    modeMock.isLightMode = true;
+    const cloudState = {
+      pestDetection: {
+        ...STATUS_AVAILABLE.pestDetection,
+        status: {
+          ...STATUS_AVAILABLE.pestDetection.status,
+          active_adapter: 'kindwise_pest',
+          adapters: {
+            kindwise_pest: {
+              configured: true,
+              is_external: true,
+              requires_consent: 'pest_detection_cloud',
+              supports_modes: ['symptom'],
+            },
+          },
+        },
+      },
+    };
+    renderWithProviders(<PestDetectionDialog open onClose={() => {}} plantKey="p1" />, {
+      store: createTestStore(cloudState),
+    });
     expect(screen.getByTestId('pest-light-mode')).toBeInTheDocument();
   });
 });

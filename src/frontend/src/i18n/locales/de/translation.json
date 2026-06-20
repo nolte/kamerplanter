@@ -439,7 +439,7 @@
       "feedbackBeneficial": "War ein Nützling",
       "retake": "Neues Foto",
       "previewAlt": "Vorschau des analysierten Fotos",
-      "lightModeBlocked": "Bitte anmelden, um die Schädlingserkennung zu nutzen.",
+      "lightModeBlocked": "Die Cloud-Schädlingserkennung ist im Light-Modus nicht verfügbar. Die lokale Erkennung kannst du nutzen.",
       "notConfigured": "Die Schädlingserkennung ist auf dieser Instanz nicht aktiviert.",
       "consentRequired": "Für die Cloud-Schädlingserkennung ist deine Einwilligung erforderlich.",
       "imageTooLarge": "Das Bild ist zu groß (max. 8 MB).",

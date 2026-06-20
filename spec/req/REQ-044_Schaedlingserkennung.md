@@ -324,7 +324,7 @@ async def detect_pests(
 | Nächster-Schritt-CTA | `suggested_next_step` → „Inspektion anlegen" (REQ-010) | alle |
 | Feedback-Buttons | „bestätigt / falsch / war Nützling" (HITL) | alle |
 
-**Light-Modus (REQ-027):** nicht verfügbar (braucht Pflanzen-Kontext, tenant-scoped) — Hinweis „Anmelden, um die Schädlingserkennung zu nutzen".
+**Light-Modus (REQ-027):** Die **Self-Hosted-/Demo-Adapter sind verfügbar** (rein lokal, keine Einwilligung, kein Daten-Egress — konsistent zu §3.3 „Light-Modus rein lokal"; tenant-scoped läuft über den Light-Tenant + System-User). **Nur der Cloud-Adapter** (Kindwise) ist im Light-Modus **blockiert**, da dort kein Consent-Subsystem existiert — Hinweis „Cloud-Erkennung im Light-Modus nicht verfügbar; lokale Erkennung nutzbar". <!-- Quelle: Nutzer-Entscheidung 2026-06-21, Implementierung PR #256 -->
 
 ### 7.1 i18n-Keys (Auszug, `pages.pests.*`)
 
