@@ -272,16 +272,42 @@ class TestAssessPhoto:
         assert assessment.expected_species_matched is None
 
     @pytest.mark.asyncio
-    async def test_re_assessment_overwrites(self):
+    async def test_re_assessment_with_force_overwrites(self):
         res1 = _result([("Mentha spicata", 0.20)])
         service, att_repo, ident = _build_assess(result=res1)
         await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
         assert att_repo.get("att1", TENANT).quality_assessment.rating == "poor"
-        # Second run with a better result overwrites the verdict.
+        # SEC-004: a forced re-run with a better result overwrites the verdict.
         ident._result = _result([("Ocimum basilicum", 0.95)])
-        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet", force=True)
         assert assessment.rating == "good"
         assert att_repo.get("att1", TENANT).quality_assessment.rating == "good"
+
+    @pytest.mark.asyncio
+    async def test_re_assessment_same_adapter_and_photo_is_cached(self):
+        # SEC-004: re-assessing the same unchanged photo with the same adapter
+        # returns the stored verdict WITHOUT a second adapter call.
+        res = _result([("Mentha spicata", 0.20)])
+        service, att_repo, ident = _build_assess(result=res)
+        _u1, first = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert ident.calls == ["plantnet"]
+        # Verdict carries the photo's content hash so a re-run can short-circuit.
+        assert first.source_sha256 == att_repo.get("att1", TENANT).sha256
+        # A new (better) result would change the rating IF the adapter ran — but
+        # the cache short-circuits, so the adapter is not called again.
+        ident._result = _result([("Ocimum basilicum", 0.95)])
+        _u2, second = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert ident.calls == ["plantnet"]  # still exactly one call → cache hit
+        assert second.rating == "poor"  # the cached verdict, unchanged
+
+    @pytest.mark.asyncio
+    async def test_re_assessment_different_adapter_runs_again(self):
+        res = _result([("Mentha spicata", 0.20)])
+        service, _ar, ident = _build_assess(result=res)
+        await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        # A different adapter is a different recognition path → must re-run.
+        await service.assess_photo("plant1", "att1", TENANT, "user_anna", "local_embedding")
+        assert ident.calls == ["plantnet", "local_embedding"]
 
     @pytest.mark.asyncio
     async def test_adapter_not_available_propagates(self):

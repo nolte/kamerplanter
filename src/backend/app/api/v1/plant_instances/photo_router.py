@@ -253,6 +253,17 @@ async def assess_plant_photo(
     trigger a new one (AC-13, §4a.3). The chosen adapter, the consent gate
     (external path, full mode) and the rate limit are enforced downstream; an
     unusable adapter surfaces as a 409.
+
+    SEC-004: re-assessing the same unchanged photo with the same adapter returns
+    the cached verdict and skips a fresh (cost-bearing) external call. Pass
+    ``force: true`` to re-run deliberately.
+
+    REQ-034 §4a.3 / SEC-002: in Light mode (REQ-027) there is no consent
+    subsystem, so the external recognition path is *not* gated by a server-side
+    consent here — it is unlocked solely by the operator opt-in
+    (``IDENTIFICATION_EXTERNAL_IN_LIGHT_MODE``) and disabled by default (409
+    otherwise). The third-party-transfer transparency/opt-in is then surfaced
+    client-side.
     """
     updated, _assessment = await photo_service.assess_photo(
         key,
@@ -260,6 +271,7 @@ async def assess_plant_photo(
         ctx.tenant_key,
         ctx.user_key,
         body.adapter,
+        force=body.force,
     )
     # Re-resolve the cover flag so the response stays consistent with the gallery.
     _plant, photos = photo_service.list_photos(key, ctx.tenant_key)

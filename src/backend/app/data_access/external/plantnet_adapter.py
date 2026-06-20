@@ -40,6 +40,7 @@ class PlantNetAdapter(PlantIdentificationAdapter):
     adapter_key = ADAPTER_KEY
     supports_health_assessment = False
     rate_limit_per_day = 500  # free, non-commercial tier
+    is_external = True  # hosted service — the photo leaves the instance (REQ-034 §4a.1)
 
     def __init__(self) -> None:
         self._base_url = settings.plantnet_base_url

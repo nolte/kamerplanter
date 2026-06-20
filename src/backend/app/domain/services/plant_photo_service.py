@@ -282,6 +282,25 @@ class PlantPhotoService:
             chunks.append(chunk)
         return b"".join(chunks)
 
+    @staticmethod
+    def _is_assessment_cached(attachment: Attachment, adapter_key: str) -> bool:
+        """SEC-004 — whether a fresh adapter call can be skipped for this photo.
+
+        A stored verdict may be reused (no new third-party / cost-bearing call)
+        when it was produced by the **same** adapter and the photo bytes are
+        unchanged. The change check compares the attachment's current ``sha256``
+        with the ``source_sha256`` captured on the verdict. Legacy verdicts with
+        no ``source_sha256`` (written before SEC-004) are treated as a cache miss
+        so they get a hash-stamped re-assessment.
+        """
+        existing = attachment.quality_assessment
+        return (
+            existing is not None
+            and existing.adapter == adapter_key
+            and existing.source_sha256 is not None
+            and existing.source_sha256 == attachment.sha256
+        )
+
     async def assess_photo(
         self,
         key: str,
@@ -289,6 +308,8 @@ class PlantPhotoService:
         tenant_key: str,
         user_key: str,
         adapter_key: str,
+        *,
+        force: bool = False,
     ) -> tuple[Attachment, QualityAssessment]:
         """REQ-034 §4a — assess a gallery photo's recognition quality and persist it.
 
@@ -299,6 +320,12 @@ class PlantPhotoService:
         mode, external path) and the rate limit are enforced by the
         :class:`IdentificationService`. The derived Ampel verdict is persisted on
         the attachment (overwriting any previous one) and returned.
+
+        SEC-004 idempotency: when a verdict for the **same adapter** already
+        exists and the photo bytes are unchanged (``sha256`` matches the stored
+        ``source_sha256``), the cached verdict is returned **without** calling the
+        (cost-bearing, external) adapter again. ``force=True`` bypasses the cache
+        for a deliberate re-assessment; a different adapter always re-runs.
 
         Raises:
             NotFoundError: instance/photo not found in this tenant (404).
@@ -316,6 +343,20 @@ class PlantPhotoService:
         attachment = self._attachments.get(attachment_id, tenant_key)
         if attachment is None:
             raise NotFoundError("PlantPhoto", attachment_id)
+
+        # SEC-004 — short-circuit a repeated assessment of the same unchanged
+        # photo with the same adapter: return the stored verdict without a fresh
+        # (cost-bearing) adapter call. ``force`` re-runs deliberately.
+        if not force and self._is_assessment_cached(attachment, adapter_key):
+            assert attachment.quality_assessment is not None  # narrowed by the guard
+            logger.info(
+                "plant_photo_quality_assessment_cache_hit",
+                tenant_key=tenant_key,
+                plant_instance_key=key,
+                attachment_id=attachment_id,
+                adapter=adapter_key,
+            )
+            return attachment, attachment.quality_assessment
 
         # Resolve the plant's expected species name for the soll/ist comparison.
         # Absent / unknown species → None, the assessor then rates on
@@ -340,6 +381,7 @@ class PlantPhotoService:
             result,
             adapter_key=adapter_key,
             expected_scientific_name=expected_scientific_name,
+            source_sha256=attachment.sha256,
         )
 
         updated = self._attachments.update_quality_assessment(attachment_id, tenant_key, assessment)

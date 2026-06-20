@@ -90,6 +90,14 @@ class PlantPhotoAssessRequest(BaseModel):
     adapter: Literal["plantnet", "local_embedding"] = Field(
         description="Recognition path: 'plantnet' (external, consent) or 'local_embedding' (self-hosted DINOv2).",
     )
+    force: bool = Field(
+        default=False,
+        description=(
+            "Re-run the assessment even when an up-to-date verdict for this "
+            "adapter and unchanged photo already exists. Default false reuses the "
+            "cached verdict and skips a fresh (cost-bearing) external call (SEC-004)."
+        ),
+    )
 
 
 class AssessmentAdapterResponse(BaseModel):

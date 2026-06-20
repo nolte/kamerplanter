@@ -61,6 +61,7 @@ class PhotoQualityAssessor:
         *,
         adapter_key: str,
         expected_scientific_name: str | None,
+        source_sha256: str | None = None,
     ) -> QualityAssessment:
         """Return the Ampel verdict for one photo.
 
@@ -69,6 +70,10 @@ class PhotoQualityAssessor:
             adapter_key: The adapter that produced ``result`` (stored for display).
             expected_scientific_name: The plant's known species name, or ``None``
                 when the plant has no ``species_key`` (no soll/ist comparison).
+            source_sha256: SEC-004 — content hash of the assessed photo, stored on
+                the verdict so a later re-assessment of the *same* photo with the
+                *same* adapter can be served from cache without a fresh (costly)
+                adapter call.
         """
         suggestions = sorted(result.suggestions, key=lambda s: s.rank)
         top1 = suggestions[0] if suggestions else None
@@ -107,6 +112,7 @@ class PhotoQualityAssessor:
             rating=rating,
             expected_species_matched=expected_matched,
             suggestions=stored,
+            source_sha256=source_sha256,
         )
 
     def _derive_rating(

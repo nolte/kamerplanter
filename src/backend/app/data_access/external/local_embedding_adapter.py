@@ -38,6 +38,7 @@ class LocalEmbeddingAdapter(PlantIdentificationAdapter):
     adapter_key = ADAPTER_KEY
     supports_health_assessment = False  # task B is separate (REQ-029-A §6)
     rate_limit_per_day = None  # self-hosted → no external limit
+    is_external = False  # self-hosted DINOv2 — no data egress (REQ-034 §4a.1)
 
     def __init__(self) -> None:
         self._client = InferenceServiceClient(settings.inference_service_url)

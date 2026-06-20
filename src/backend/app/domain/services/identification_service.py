@@ -29,10 +29,14 @@ logger = structlog.get_logger()
 
 _CONSENT_PURPOSE = "plant_identification"
 
-# REQ-034 §4a.1 — adapter keys whose path sends the photo to a third party.
-# The local DINOv2 adapter is self-hosted (no data egress), Pl@ntNet / Plant.id
-# are external. Used to decide whether consent (full mode) or the operator
-# opt-in (Light mode) is required before an assessment may run.
+# REQ-034 §4a.1 — fallback classification of adapter keys whose path sends the
+# photo to a third party. SEC-005: the authoritative source of truth is the
+# adapter's ``is_external`` capability flag (read via ``_is_external``); this set
+# is only consulted when no adapter is registered for the key (e.g. a UI picker
+# entry for a not-yet-deployed adapter). ``plant_id`` is a forward-looking entry
+# for the Plant.id (Kindwise) adapter, which is opt-in and not registered by
+# default — keeping it here means it is treated as external the moment it ships,
+# never silently classified as a no-egress path.
 _EXTERNAL_ADAPTER_KEYS = frozenset({"plantnet", "plant_id"})
 
 
@@ -170,10 +174,20 @@ class IdentificationService:
 
     # ── quality assessment (REQ-034 §4a) ────────────────────────────────
 
-    @staticmethod
-    def _is_external(adapter_key: str) -> bool:
-        """Whether the adapter sends the photo to a third party (REQ-034 §4a.1)."""
-        return adapter_key in _EXTERNAL_ADAPTER_KEYS
+    def _is_external(self, adapter_key: str) -> bool:
+        """Whether the adapter sends the photo to a third party (REQ-034 §4a.1).
+
+        SEC-005: derive the classification from the adapter's ``is_external``
+        capability flag (robust against key renames / new adapters). Only fall
+        back to the static key allow-list when the key is not registered (e.g. a
+        UI picker entry for a not-yet-deployed adapter), so an unknown external
+        adapter is never optimistically treated as a no-egress path.
+        """
+        try:
+            adapter = self._registry.get(adapter_key)
+        except KeyError:
+            return adapter_key in _EXTERNAL_ADAPTER_KEYS
+        return adapter.is_external
 
     def _resolve_assessment_adapter(self, adapter_key: str) -> PlantIdentificationAdapter:
         """Resolve and authorise an explicitly-chosen adapter for an assessment.
@@ -234,15 +248,20 @@ class IdentificationService:
 
         # Consent only gates the external path — the self-hosted DINOv2 adapter
         # has no data egress and therefore needs no third-party-transfer consent.
-        if self._is_external(adapter_key):
+        is_external = self._is_external(adapter_key)
+        if is_external:
             self._require_consent(user_key)
 
         configured_limit = settings.identification_rate_limit_per_user_day
         limit = configured_limit if configured_limit > 0 else (adapter.rate_limit_per_day or 0)
         if limit > 0:
+            # SEC-003: the external (cost-bearing) path fails closed on a Redis
+            # outage — a cache hiccup must not unlock unbounded third-party calls.
+            # The self-hosted path keeps the graceful fail-open behaviour.
             self._rate_limiter.check_and_increment(
                 key=f"assess:{adapter.adapter_key}:{user_key}",
                 limit=limit,
+                fail_closed=is_external,
             )
 
         logger.info(

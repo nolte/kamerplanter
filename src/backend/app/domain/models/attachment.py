@@ -54,6 +54,13 @@ class QualityAssessment(BaseModel):
     rating: QualityRating
     expected_species_matched: bool | None = None
     suggestions: list[QualitySuggestion] = Field(default_factory=list)
+    # SEC-004 — content hash of the photo this verdict was derived from. Lets
+    # ``PlantPhotoService`` return a cached verdict (skipping the cost-bearing
+    # external adapter call) when the *same* photo is re-assessed with the *same*
+    # adapter and the bytes are unchanged. ``None`` on legacy verdicts written
+    # before this field existed (those are always re-assessed). Re-running with
+    # ``force=True`` or a different adapter ignores the cache.
+    source_sha256: str | None = None
 
 
 class Attachment(BaseModel):

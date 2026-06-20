@@ -46,22 +46,52 @@ class Settings(BaseSettings):
 
     gbif: GBIFSettings = GBIFSettings()
 
-    # REQ-029 / REQ-029-A Phase 1 — Plant identification (all optional)
+    # REQ-029 / REQ-029-A Phase 1 — Plant identification (all optional).
+    #
+    # SEC-001: every identification setting below is defined EXACTLY ONCE here.
+    # Python keeps the *last* class-body assignment for a duplicated field, so a
+    # second definition would silently shadow these documented defaults and make
+    # the effective config non-auditable. ``test_settings_identification_defaults``
+    # pins the documented effective values so a re-introduced duplicate fails CI.
+    #
     # Pl@ntNet is the Phase-1 primary adapter (free tier, <=500/day).
     plantnet_api_key: str = ""  # Pl@ntNet free API key; empty = adapter disabled
+    plantnet_enabled: bool = True  # disable the Pl@ntNet adapter entirely
     plantnet_base_url: str = "https://my-api.plantnet.org/v2"
     # Plant.id remains an operator opt-in (no default, never auto-primary).
     plant_id_api_key: str = ""  # Plant.id (Kindwise) — opt-in only
     plant_id_base_url: str = "https://plant.id/api/v3"
+    # Self-hosted DINOv2 inference-service (REQ-029-A Phase 2 priority-1 adapter).
+    # Disabled by default until the service is deployed (WS-6); while disabled the
+    # local adapter is unavailable and the registry falls back to Pl@ntNet.
+    inference_service_enabled: bool = False
+    inference_service_url: str = "http://kamerplanter-recognition:8000"
     # Config-driven adapter priority (REQ-029-A §0.1.1 point 1) — never hard-coded.
-    # Phase 2 switches this to "local_embedding" without touching engine/service/API.
+    # Phase-1 primary adapter is Pl@ntNet (REQ-029-A §0.1.1: DINOv2/local_embedding
+    # is Phase 2). Phase 2 switches this to "local_embedding" without touching
+    # engine/service/API.
     identification_primary_adapter: str = "plantnet"
     identification_http_timeout: int = 30
     identification_confidence_auto_accept: float = 0.85
     identification_confidence_min_show: float = 0.10
     identification_max_image_size_mb: int = 5
-    # Per-user daily rate limit; 0 = use the adapter's own free-tier default.
-    identification_rate_limit_per_user_day: int = 0
+    # Per-user daily rate limit (REQ-029 §7). SEC-003: a sensible per-user floor so
+    # a single account cannot consume the whole shared adapter free-tier quota.
+    # ``0`` falls back to the adapter's own free-tier default.
+    identification_rate_limit_per_user_day: int = 50
+    # REQ-034 §4a.3 — operator opt-in for the *external* recognition path
+    # (Pl@ntNet) in Light mode. In Light mode (REQ-027) there is no consent
+    # subsystem, so sending a gallery photo to a third party requires a deliberate
+    # operator decision. Off by default → in Light mode only the self-hosted
+    # ``local_embedding`` path is usable (and only once Phase 2 is enabled).
+    identification_external_in_light_mode: bool = False
+    # REQ-029-A §4 reference-image acquisition (DINOv2 index population).
+    reference_image_max_candidates: int = 40  # n_max queried per species
+    reference_image_min_usable: int = 5  # below this a species is "not recognizable"
+    reference_image_min_dimension: int = 224  # px on the shorter edge (model input)
+    reference_image_max_aspect_ratio: float = 3.0  # reject extreme crops/banners
+    reference_image_use_wikimedia: bool = True  # query Wikimedia Commons as a 2nd source
+    wikimedia_commons_api_url: str = "https://commons.wikimedia.org/w/api.php"
 
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
@@ -122,36 +152,6 @@ class Settings(BaseSettings):
     privacy_export_retention_hours: int = 72  # NFR-011 R-05
     privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
     privacy_email_change_ttl_hours: int = 24
-
-    # REQ-029 KI-Bilderkennung (Plant identification — all optional)
-    plantnet_api_key: str = ""  # Pl@ntNet (fallback adapter)
-    plantnet_enabled: bool = True  # disable the Pl@ntNet adapter entirely
-    plantnet_base_url: str = "https://my-api.plantnet.org/v2"
-    # Self-hosted DINOv2 inference-service (REQ-029-A, priority-1 adapter).
-    # Disabled by default until the service is deployed (WS-6); when disabled
-    # the local adapter is unavailable and the registry falls back to Pl@ntNet.
-    inference_service_enabled: bool = False
-    inference_service_url: str = "http://kamerplanter-recognition:8000"
-    # Preferred adapter key. Local embedding wins when available; if the
-    # inference-service is disabled, get_preferred() falls back to Pl@ntNet.
-    identification_primary_adapter: str = "local_embedding"
-    identification_http_timeout: int = 30
-    identification_max_image_size_mb: int = 5
-    identification_confidence_auto_accept: float = 0.85
-    identification_confidence_min_show: float = 0.10
-    # REQ-034 §4a.3 — operator opt-in for the *external* recognition path
-    # (Pl@ntNet) in Light mode. In Light mode (REQ-027) there is no consent
-    # subsystem, so sending a gallery photo to a third party requires a deliberate
-    # operator decision. Off by default → in Light mode only the self-hosted
-    # ``local_embedding`` path is usable (and only once Phase 2 is enabled).
-    identification_external_in_light_mode: bool = False
-    # REQ-029-A §4 reference-image acquisition (DINOv2 index population)
-    reference_image_max_candidates: int = 40  # n_max queried per species
-    reference_image_min_usable: int = 5  # below this a species is "not recognizable"
-    reference_image_min_dimension: int = 224  # px on the shorter edge (model input)
-    reference_image_max_aspect_ratio: float = 3.0  # reject extreme crops/banners
-    reference_image_use_wikimedia: bool = True  # query Wikimedia Commons as a 2nd source
-    wikimedia_commons_api_url: str = "https://commons.wikimedia.org/w/api.php"
 
     # REQ-030 Notifications
     vapid_private_key: str = ""
