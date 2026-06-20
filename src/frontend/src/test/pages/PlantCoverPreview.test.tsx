@@ -10,6 +10,28 @@ const TENANT = 'test-tenant';
 const PLANT_KEY = 'plant-1';
 const PHOTOS_URL = `/api/v1/t/${TENANT}/plant-instances/${PLANT_KEY}/photos`;
 
+/** Tiny valid blob body for mocked attachment responses. */
+function attachmentBlob() {
+  return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+    headers: { 'Content-Type': 'image/jpeg' },
+  });
+}
+
+/**
+ * Registers blob handlers for the gated attachment endpoints and records every
+ * requested rendition path so tests can assert which size was loaded (AC-02).
+ */
+function mockAttachmentBlobs(): string[] {
+  const requested: string[] = [];
+  server.use(
+    http.get(`/api/v1/t/${TENANT}/attachments/:id/thumbnails/:px`, ({ request }) => {
+      requested.push(new URL(request.url).pathname);
+      return attachmentBlob();
+    }),
+  );
+  return requested;
+}
+
 function photo(id: string) {
   const uri = `/api/v1/t/${TENANT}/attachments/${id}`;
   return {
@@ -34,11 +56,18 @@ describe('PlantCoverPreview (REQ-034 §2.3 / AC-06)', () => {
         HttpResponse.json({ plant_instance_key: PLANT_KEY, cover_photo_ref: 'cover', photos: [photo('cover'), photo('b')] }),
       ),
     );
+    const requested = mockAttachmentBlobs();
     renderWithProviders(<PlantCoverPreview plantInstanceKey={PLANT_KEY} />);
 
+    // The cover is rendered from an authenticated blob Object-URL, not a bare
+    // <img src={attachmentUri}> (which could not carry the Bearer header).
     const img = (await screen.findByTestId('plant-cover-image')) as HTMLImageElement;
-    // AC-02: only the small (128px) rendition is loaded for previews.
-    expect(img.src).toContain('/attachments/cover/thumbnails/128');
+    await waitFor(() => expect(img.src).toMatch(/^blob:/));
+    expect(img.src).not.toContain('/attachments/');
+
+    // AC-02: only the small (128px) rendition of the cover photo is loaded.
+    await waitFor(() => expect(requested.length).toBeGreaterThan(0));
+    expect(requested.every((p) => p.includes('/attachments/cover/thumbnails/128'))).toBe(true);
   });
 
   it('shows a neutral placeholder (never a broken image) when there are no photos', async () => {
@@ -53,20 +82,24 @@ describe('PlantCoverPreview (REQ-034 §2.3 / AC-06)', () => {
     expect(screen.queryByTestId('plant-cover-image')).not.toBeInTheDocument();
   });
 
-  it('renders a pre-resolved cover URI without fetching', async () => {
-    let fetched = false;
+  it('renders a pre-resolved cover URI without fetching the gallery list', async () => {
+    let listFetched = false;
     server.use(
       http.get(PHOTOS_URL, () => {
-        fetched = true;
+        listFetched = true;
         return HttpResponse.json({ plant_instance_key: PLANT_KEY, cover_photo_ref: null, photos: [] });
       }),
     );
+    const requested = mockAttachmentBlobs();
     renderWithProviders(
       <PlantCoverPreview plantInstanceKey={PLANT_KEY} coverThumbUri="/api/v1/t/test-tenant/attachments/x/thumbnails/128" />,
     );
 
+    // The blob is rendered from the explicitly passed URI; the gallery list is
+    // never queried, and only the small (128px) rendition of that URI is loaded.
     const img = (await screen.findByTestId('plant-cover-image')) as HTMLImageElement;
-    expect(img.src).toContain('/attachments/x/thumbnails/128');
-    expect(fetched).toBe(false);
+    await waitFor(() => expect(img.src).toMatch(/^blob:/));
+    expect(listFetched).toBe(false);
+    expect(requested.every((p) => p.includes('/attachments/x/thumbnails/128'))).toBe(true);
   });
 });

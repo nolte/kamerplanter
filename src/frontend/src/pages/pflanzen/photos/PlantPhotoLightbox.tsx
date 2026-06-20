@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AuthImage from '@/components/common/AuthImage';
 import type { PlantPhoto } from '@/api/endpoints/plantPhotos';
 
 interface PlantPhotoLightboxProps {
@@ -141,15 +142,17 @@ export default function PlantPhotoLightbox({
         </IconButton>
 
         {src && (
-          <Box
-            component="img"
-            src={src}
+          /* Authenticated blob fetch (Bearer header) — loads the large (1280px)
+             rendition; the grid never loads originals. */
+          <AuthImage
+            uri={src}
             alt={t('pages.plantPhotos.lightboxAlt')}
+            objectFit="contain"
+            width="100%"
+            height="auto"
             sx={{
-              display: 'block',
-              width: '100%',
               maxHeight: { xs: '80vh', sm: '85vh' },
-              objectFit: 'contain',
+              bgcolor: 'transparent',
             }}
             data-testid="plant-photo-lightbox-image"
           />

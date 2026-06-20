@@ -12,6 +12,7 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AuthImage from '@/components/common/AuthImage';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -204,18 +205,18 @@ export default function PlantPhotoGallery({
                   data-testid="plant-photo-thumb"
                   /* Keyboard: Enter/Space activates — CardActionArea handles this. */
                 >
-                  <Box
-                    component="img"
-                    src={thumb}
+                  {/* Authenticated blob fetch — a native <img src> cannot send the
+                      JWT Bearer header the attachment endpoint requires (AC-02:
+                      grid loads the medium rendition only, never the original). */}
+                  <AuthImage
+                    uri={thumb}
                     alt={t('pages.plantPhotos.thumbAlt')}
-                    loading="lazy"
                     sx={{
-                      display: 'block',
                       width: '100%',
                       aspectRatio: '1 / 1',
-                      objectFit: 'cover',
                       bgcolor: 'action.hover',
                     }}
+                    data-testid="plant-photo-image"
                   />
                 </CardActionArea>
 

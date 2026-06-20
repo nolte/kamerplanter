@@ -27,6 +27,34 @@ vi.mock('@/components/identification/ImageCapturePanel', () => ({
 const PLANT_KEY = 'plant-1';
 const TENANT = 'test-tenant';
 const PHOTOS_URL = `/api/v1/t/${TENANT}/plant-instances/${PLANT_KEY}/photos`;
+// AuthImage fetches every rendition through the authenticated client as a blob.
+const ATTACHMENT_THUMB_URL = `/api/v1/t/${TENANT}/attachments/:id/thumbnails/:px`;
+
+/** Tiny valid blob body for mocked attachment (thumbnail/original) responses. */
+function attachmentBlob() {
+  return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+    headers: { 'Content-Type': 'image/jpeg' },
+  });
+}
+
+/**
+ * Registers blob handlers for the gated attachment endpoints and records every
+ * requested rendition path so tests can assert which size was loaded (AC-02).
+ */
+function mockAttachmentBlobs(): string[] {
+  const requested: string[] = [];
+  server.use(
+    http.get(ATTACHMENT_THUMB_URL, ({ request }) => {
+      requested.push(new URL(request.url).pathname);
+      return attachmentBlob();
+    }),
+    http.get(`/api/v1/t/${TENANT}/attachments/:id`, ({ request }) => {
+      requested.push(new URL(request.url).pathname);
+      return attachmentBlob();
+    }),
+  );
+  return requested;
+}
 
 function photo(id: string, isCover = false) {
   const uri = `/api/v1/t/${TENANT}/attachments/${id}`;
@@ -88,15 +116,25 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
 
   it('renders a thumbnail grid from the mocked gallery API (AC-02 medium thumbs)', async () => {
     mockList([photo('a', true), photo('b')], 'a');
+    const requested = mockAttachmentBlobs();
     renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
       store: storeWithRole('grower'),
     });
 
     await waitFor(() => expect(screen.getAllByTestId('plant-photo-item')).toHaveLength(2));
-    const imgs = screen.getAllByAltText('Pflanzenfoto') as HTMLImageElement[];
-    // Grid loads the medium (512px) rendition, never the original.
-    expect(imgs[0].src).toContain('/thumbnails/512');
-    expect(imgs[0].src).not.toContain('/thumbnails/1280');
+    // The thumbnails are rendered from authenticated blob Object-URLs, never a
+    // bare <img src={attachmentUri}> (which could not send the Bearer header).
+    const imgs = (await screen.findAllByTestId('plant-photo-image')) as HTMLImageElement[];
+    await waitFor(() => expect(imgs[0].src).toMatch(/^blob:/));
+    imgs.forEach((img) => expect(img.src).not.toContain('/attachments/'));
+
+    // AC-02: the grid loads the medium (512px) rendition only — never the
+    // original or the large (1280px) rendition.
+    await waitFor(() => expect(requested.length).toBeGreaterThan(0));
+    expect(requested.every((p) => p.includes('/thumbnails/512'))).toBe(true);
+    expect(requested.some((p) => p.includes('/thumbnails/1280'))).toBe(false);
+    expect(requested.some((p) => /\/attachments\/[^/]+$/.test(p))).toBe(false);
+
     // The cover photo carries its badge.
     expect(screen.getByTestId('plant-photo-cover-badge')).toBeInTheDocument();
   });
@@ -225,14 +263,21 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
   it('opens the lightbox with the large rendition on thumbnail click', async () => {
     const user = userEvent.setup();
     mockList([photo('a', true)], 'a');
+    const requested = mockAttachmentBlobs();
     renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
       store: storeWithRole('grower'),
     });
 
     await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
     await user.click(screen.getByTestId('plant-photo-thumb'));
+
+    // The lightbox renders the image from an authenticated blob Object-URL and
+    // loads the large (1280px) rendition (AC-02: originals stay out of the grid).
     const lightboxImg = (await screen.findByTestId('plant-photo-lightbox-image')) as HTMLImageElement;
-    expect(lightboxImg.src).toContain('/thumbnails/1280');
+    await waitFor(() => expect(lightboxImg.src).toMatch(/^blob:/));
+    await waitFor(() =>
+      expect(requested.some((p) => p.includes('/thumbnails/1280'))).toBe(true),
+    );
   });
 
   it('hides all write actions for a viewer (AC-13)', async () => {

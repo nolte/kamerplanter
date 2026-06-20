@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import AuthImage from '@/components/common/AuthImage';
 import { listPlantPhotos } from '@/api/endpoints/plantPhotos';
 
 interface PlantCoverPreviewProps {
@@ -60,6 +61,10 @@ export default function PlantCoverPreview({
   const thumb = hasExplicit ? (coverThumbUri ?? null) : fetchedThumb;
   const showPlaceholder = !thumb || failed;
 
+  // AuthImage reports a failed blob load; fall back to the botanical placeholder
+  // instead of a broken-image box (AC-06: previews never show a broken image).
+  const handleImageError = useCallback(() => setFailed(true), []);
+
   return (
     <Box
       role="img"
@@ -86,14 +91,15 @@ export default function PlantCoverPreview({
           sx={{ fontSize: size * 0.5 }}
         />
       ) : (
-        /* alt="" because the outer role="img" + aria-label carry the description. */
-        <Box
-          component="img"
-          src={thumb}
+        /* Authenticated blob fetch — the small (128px) attachment endpoint needs
+           the JWT Bearer header a native <img> cannot send. alt="" because the
+           outer role="img" + aria-label already carry the description. */
+        <AuthImage
+          uri={thumb}
           alt=""
-          loading="lazy"
-          onError={() => setFailed(true)}
-          sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          width="100%"
+          height="100%"
+          onError={handleImageError}
           data-testid="plant-cover-image"
         />
       )}

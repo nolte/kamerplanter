@@ -1316,6 +1316,7 @@
       "previewAlt": "Preview of the selected photo",
       "previewHint": "Happy with the photo? Tap 'Save photo' - or choose a different one.",
       "thumbAlt": "Plant photo",
+      "imageError": "Image could not be loaded",
       "openPhoto": "Open photo at full size",
       "lightboxTitle": "Photo at full size",
       "lightboxAlt": "Plant photo at full size",

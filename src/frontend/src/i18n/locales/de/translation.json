@@ -1316,6 +1316,7 @@
       "previewAlt": "Vorschau des ausgewählten Fotos",
       "previewHint": "Gefällt das Foto? Tippen Sie auf 'Foto speichern' - oder wählen Sie ein anderes.",
       "thumbAlt": "Pflanzenfoto",
+      "imageError": "Bild konnte nicht geladen werden",
       "openPhoto": "Foto in voller Größe öffnen",
       "lightboxTitle": "Foto in voller Größe",
       "lightboxAlt": "Pflanzenfoto in voller Größe",
