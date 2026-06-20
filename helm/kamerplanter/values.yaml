@@ -421,15 +421,19 @@ controllers:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-        # POSTGRES_PASSWORD is NEVER inlined here — it is supplied via the
-        # operator-managed ``kamerplanter-secrets`` Secret (same pattern as the
-        # arangodb root password), so no real credential lands in Git.
-        envFrom:
-          - secret: kamerplanter-secrets
         env:
           POSTGRES_DB: kamerplanter_vectors
           POSTGRES_USER: postgres
           PGDATA: /var/lib/postgresql/data/pgdata
+          # POSTGRES_PASSWORD is NEVER inlined here — the operator sets this one
+          # key in ``kamerplanter-secrets``. Pulled by secretKeyRef (scoped to
+          # the single key, no envFrom of the whole Secret); the inference
+          # service derives its VECTORDB_PASSWORD from the same key.
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: POSTGRES_PASSWORD
         probes:
           liveness:
             enabled: true
@@ -493,16 +497,22 @@ controllers:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
-        # VECTORDB_PASSWORD is NEVER inlined here — it comes from the
-        # operator-managed ``kamerplanter-secrets`` Secret (same value the
-        # vectordb container consumes as POSTGRES_PASSWORD).
-        envFrom:
-          - secret: kamerplanter-secrets
         env:
           VECTORDB_HOST: kamerplanter-vectordb
           VECTORDB_PORT: "5432"
           VECTORDB_DATABASE: kamerplanter_vectors
           VECTORDB_USERNAME: postgres
+          # Single DB-password secret key: the operator sets ONLY
+          # ``POSTGRES_PASSWORD`` in ``kamerplanter-secrets`` (PostgreSQL's
+          # mandated env name, consumed by the vectordb container). The inference
+          # service reads its own ``VECTORDB_PASSWORD`` from that same key via
+          # secretKeyRef — never inlined, and scoped to just this one key (no
+          # envFrom of the whole Secret).
+          VECTORDB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: POSTGRES_PASSWORD
           MODEL_PATH: /app/models/dinov2
           MODEL_NAME: dinov2_vits14
           MODEL_DIM: "384"
