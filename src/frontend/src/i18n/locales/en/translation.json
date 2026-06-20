@@ -7,7 +7,7 @@
       "action": "Enable in settings",
       "goBack": "Go back"
     },
-    "settings": {
+    "manage": {
       "introTitle": "Modules & Features",
       "subtitle": "Choose which feature areas are shown. This is a display preference only — no data is deleted and no permissions are changed.",
       "searchPlaceholder": "Search module …",

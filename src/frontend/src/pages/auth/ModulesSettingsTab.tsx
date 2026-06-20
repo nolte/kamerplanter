@@ -106,8 +106,8 @@ export default function ModulesSettingsTab() {
         icon={<InfoIcon fontSize="small" />}
         data-testid="modules-intro-alert"
       >
-        <AlertTitle sx={{ fontWeight: 600 }}>{t('modules.settings.introTitle')}</AlertTitle>
-        <Typography variant="body2">{t('modules.settings.subtitle')}</Typography>
+        <AlertTitle sx={{ fontWeight: 600 }}>{t('modules.manage.introTitle')}</AlertTitle>
+        <Typography variant="body2">{t('modules.manage.subtitle')}</Typography>
       </Alert>
 
       {/* Search field */}
@@ -116,8 +116,8 @@ export default function ModulesSettingsTab() {
         size="small"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={t('modules.settings.searchPlaceholder')}
-        aria-label={t('modules.settings.searchAriaLabel')}
+        placeholder={t('modules.manage.searchPlaceholder')}
+        aria-label={t('modules.manage.searchAriaLabel')}
         slotProps={{
           input: {
             startAdornment: (
@@ -139,7 +139,7 @@ export default function ModulesSettingsTab() {
         sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
       >
         {isSearchActive &&
-          t('modules.settings.searchResultsAria', { count: totalMatchCount, query: search })}
+          t('modules.manage.searchResultsAria', { count: totalMatchCount, query: search })}
       </Box>
 
       {/* Module accordion list */}
@@ -167,13 +167,13 @@ export default function ModulesSettingsTab() {
                 const hasOverride = override !== undefined;
 
                 let stateLabel: string;
-                if (override === 'enabled') stateLabel = t('modules.settings.manualOn');
-                else if (override === 'disabled') stateLabel = t('modules.settings.manualOff');
-                else if (visible) stateLabel = t('modules.settings.followsLevelVisible');
-                else stateLabel = t('modules.settings.followsLevelHidden');
+                if (override === 'enabled') stateLabel = t('modules.manage.manualOn');
+                else if (override === 'disabled') stateLabel = t('modules.manage.manualOff');
+                else if (visible) stateLabel = t('modules.manage.followsLevelVisible');
+                else stateLabel = t('modules.manage.followsLevelHidden');
 
                 // Accessible label that conveys both module name and current state.
-                const switchAriaLabel = t('modules.settings.switchAriaLabel', {
+                const switchAriaLabel = t('modules.manage.switchAriaLabel', {
                   module: t(def.labelKey),
                   state: stateLabel,
                 });
@@ -230,11 +230,11 @@ export default function ModulesSettingsTab() {
                             // Minimum 44px touch height via py padding
                             sx={{ mt: 0.25, py: 0.75, px: 1, minWidth: 'auto', fontSize: '0.75rem' }}
                             data-testid={`module-reset-${def.key}`}
-                            aria-label={t('modules.settings.resetAriaLabel', {
+                            aria-label={t('modules.manage.resetAriaLabel', {
                               module: t(def.labelKey),
                             })}
                           >
-                            {t('modules.settings.reset')}
+                            {t('modules.manage.reset')}
                           </Button>
                         )}
                       </Box>
@@ -280,10 +280,10 @@ export default function ModulesSettingsTab() {
           >
             <SearchOffIcon sx={{ fontSize: 48, opacity: 0.4 }} aria-hidden="true" />
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              {t('modules.settings.noResultsTitle')}
+              {t('modules.manage.noResultsTitle')}
             </Typography>
             <Typography variant="body2">
-              {t('modules.settings.noResultsHint', { query: search })}
+              {t('modules.manage.noResultsHint', { query: search })}
             </Typography>
             <Button
               size="small"
@@ -291,7 +291,7 @@ export default function ModulesSettingsTab() {
               onClick={() => setSearch('')}
               data-testid="modules-clear-search"
             >
-              {t('modules.settings.clearSearch')}
+              {t('modules.manage.clearSearch')}
             </Button>
           </Box>
         )}
@@ -304,17 +304,17 @@ export default function ModulesSettingsTab() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <LockIcon fontSize="small" sx={{ color: 'text.secondary' }} aria-hidden="true" />
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {t('modules.settings.coreSectionTitle')}
+            {t('modules.manage.coreSectionTitle')}
           </Typography>
           <Tooltip
-            title={t('modules.settings.coreSectionTooltip')}
+            title={t('modules.manage.coreSectionTooltip')}
             enterTouchDelay={0}
             leaveTouchDelay={3000}
           >
             <InfoIcon
               fontSize="small"
               sx={{ color: 'text.secondary', fontSize: 18, cursor: 'help' }}
-              aria-label={t('modules.settings.coreSectionTooltip')}
+              aria-label={t('modules.manage.coreSectionTooltip')}
               tabIndex={0}
             />
           </Tooltip>
@@ -344,7 +344,7 @@ export default function ModulesSettingsTab() {
                     {t(def.labelKey)}
                   </Typography>
                 </Box>
-                <Tooltip title={t('modules.settings.coreTooltip')} enterTouchDelay={0}>
+                <Tooltip title={t('modules.manage.coreTooltip')} enterTouchDelay={0}>
                   <span>
                     <Switch
                       checked
@@ -352,7 +352,7 @@ export default function ModulesSettingsTab() {
                       size="small"
                       slotProps={{
                         input: {
-                          'aria-label': t('modules.settings.coreAriaLabel', {
+                          'aria-label': t('modules.manage.coreAriaLabel', {
                             module: t(def.labelKey),
                           }),
                         },

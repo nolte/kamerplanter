@@ -7,7 +7,7 @@
       "action": "In Einstellungen aktivieren",
       "goBack": "Zurück"
     },
-    "settings": {
+    "manage": {
       "introTitle": "Module & Funktionen",
       "subtitle": "Lege fest, welche Funktionsbereiche angezeigt werden. Dies ist eine reine Anzeige-Präferenz — es werden keine Daten gelöscht und keine Berechtigungen geändert.",
       "searchPlaceholder": "Modul suchen …",
