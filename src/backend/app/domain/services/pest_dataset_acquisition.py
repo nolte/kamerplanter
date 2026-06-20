@@ -21,6 +21,7 @@ from app.data_access.external.gbif_media_client import GBIFMediaClient
 from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 from app.domain.calculators.image_preprocessor import strip_exif_and_normalize
 from app.domain.models.pest_taxonomy import PEST_TAXONOMY, PestTaxon
+from app.domain.models.reference_image import ReferenceLicense
 from app.domain.services.reference_image_license import is_acceptable
 
 logger = structlog.get_logger()
@@ -45,6 +46,7 @@ class PestDatasetAcquisitionService:
         candidates = self._media.list_media(int(taxon.gbif_taxon_key), limit=settings.pest_reference_max_candidates)
         accepted = 0
         rejected_license = 0
+        rejected_attribution = 0
         rejected_quality = 0
         rejected_error = 0
         manifest: list[dict] = []
@@ -54,6 +56,11 @@ class PestDatasetAcquisitionService:
                 break
             if not is_acceptable(candidate.license):
                 rejected_license += 1
+                continue
+            # CC-BY requires attribution; without a recoverable creator/rightsHolder
+            # we cannot reuse the image compliantly. CC0 needs no attribution.
+            if candidate.license == ReferenceLicense.CC_BY and not (candidate.attribution or "").strip():
+                rejected_attribution += 1
                 continue
             try:
                 raw = self._media.download(candidate.url)
@@ -95,6 +102,7 @@ class PestDatasetAcquisitionService:
         summary = self._summary(taxon, candidates=len(candidates), accepted=accepted, manifest=manifest)
         summary.update(
             rejected_license=rejected_license,
+            rejected_attribution=rejected_attribution,
             rejected_quality=rejected_quality,
             rejected_error=rejected_error,
         )

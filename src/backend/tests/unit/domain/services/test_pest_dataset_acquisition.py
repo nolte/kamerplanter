@@ -79,6 +79,27 @@ class TestAcquireForClass:
         assert summary["rejected_quality"] == 1
         assert inference.indexed == []
 
+    def test_ccby_without_attribution_rejected_cc0_kept(self) -> None:
+        good = _jpeg(400, 400)
+        candidates = [
+            MediaCandidate(
+                url="u1", license=ReferenceLicense.CC_BY, source="gbif", source_record_id="r1", attribution=None
+            ),
+            MediaCandidate(
+                url="u2", license=ReferenceLicense.CC0, source="gbif", source_record_id="r2", attribution=None
+            ),
+        ]
+        images = {"u1": good, "u2": good}
+        inference = _FakeInference()
+        svc = PestDatasetAcquisitionService(_FakeMedia(candidates, images), inference)
+
+        summary = svc.acquire_for_class(get_taxon("spider_mite"))
+
+        # CC-BY without attribution dropped; CC0 without attribution is fine.
+        assert summary["accepted"] == 1
+        assert summary["rejected_attribution"] == 1
+        assert inference.indexed[0]["license"] == "CC0"
+
     def test_beneficial_class_carries_category(self) -> None:
         candidates = [_candidate("u1", ReferenceLicense.CC0, "r1")]
         images = {"u1": _jpeg(400, 400)}

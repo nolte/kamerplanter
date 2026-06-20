@@ -123,7 +123,7 @@ class Settings(BaseSettings):
     # WP-3 cold-start dataset acquisition (frozen-DINOv2 few-shot prototypes).
     # Pull CC0/CC-BY images per class from GBIF (public occurrence search, no
     # credentials) and index ~30/class. Insects are tighter-cropped than plants.
-    pest_reference_max_candidates: int = 60  # candidates queried per class
+    pest_reference_max_candidates: int = 150  # candidates queried per class (NC-heavy classes need headroom)
     pest_reference_min_usable: int = 30  # target accepted prototypes per class
     pest_reference_min_dimension: int = 256  # px on the shorter edge
     pest_reference_max_aspect_ratio: float = 2.5
