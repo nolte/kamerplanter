@@ -281,6 +281,24 @@ PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
         PEST_DETECTION_PRIMARY_ADAPTER: "local_pest_symptom"
     ```
 
+!!! warning "Prerequisite: inference service + few-shot index"
+    The local symptom adapter classifies via **few-shot classification on a frozen DINOv2 model** (no separate, license-critical model). For the button to appear and return real findings, **two** steps are required:
+
+    1. **Deploy the inference service** (the same service used for plant identification, REQ-029-A). Once reachable it answers `GET /pest/ready`.
+    2. **Build the few-shot index** — a one-time cold start that pulls ~30 CC0/CC-BY images per class from GBIF and indexes them as prototypes. **No GBIF credentials required** (public occurrence search):
+
+        ```bash
+        # in the backend container/environment, with the inference service reachable
+        python -m app.migrations.acquire_pest_dataset --manifest pest_reference_manifest.json
+        ```
+
+        The script fetches images, filters each to CC0/CC-BY, indexes the DINOv2 prototypes in the inference service, and writes an **attribution manifest** (CC-BY compliance). **No images are persisted.** Also available as the Celery task `acquire_pest_dataset_task`.
+
+    While the index is empty, `/pest/detect` returns "no findings" (not an error). The **direct detector with bounding boxes** (mode 1) is in preparation for phase 2 (externally blocked: model license sign-off + benchmark).
+
+!!! tip "Preview only, without the inference service"
+    To just preview the UI without an inference service, enable the demo adapter: `PEST_DETECTION_ENABLED=true` + `PEST_DETECTION_DEMO_ENABLED=true`. It returns clearly-labelled placeholder findings — never for real decisions.
+
 ### Adapter 2: Cloud detection (Kindwise — optional, requires consent)
 
 The Kindwise cloud adapter transmits photos to the Kindwise service (Brno, Czech Republic — EU) for analysis. It is disabled by default and requires explicit user consent (consent purpose `pest_detection_cloud`).

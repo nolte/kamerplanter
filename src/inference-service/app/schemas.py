@@ -109,3 +109,41 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     vectordb: bool
+
+
+# -- REQ-044 pest few-shot ------------------------------------------------
+
+
+class PestFindingItem(BaseModel):
+    """One few-shot pest/symptom/beneficial classification result."""
+
+    label: str
+    category: str
+    confidence: float = Field(description="Calibrated confidence in [0, 1]")
+    score: float = Field(description="Raw cosine similarity (1 - cosine distance)")
+    mode: str
+
+
+class PestDetectResponse(BaseModel):
+    """Result of a /pest/detect request (single tile)."""
+
+    findings: list[PestFindingItem]
+    model: str
+
+
+class PestReferenceResponse(BaseModel):
+    """Result of upserting a pest prototype embedding."""
+
+    status: str
+    label: str
+    category: str
+    dim: int
+    model: str
+
+
+class PestStatusResponse(BaseModel):
+    """Pest few-shot index availability."""
+
+    ready: bool
+    index_count: int
+    model: str

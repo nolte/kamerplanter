@@ -51,3 +51,48 @@ class PestDetectionInferenceClient:
         response.raise_for_status()
         payload = response.json()
         return payload.get("findings", [])
+
+    def status(self) -> dict[str, Any]:
+        """Return the few-shot index availability ({ready, index_count, model})."""
+        response = httpx.get(f"{self._base_url}/pest/status", timeout=_READY_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        return response.json()
+
+    def upsert_prototype(
+        self,
+        image: bytes,
+        *,
+        label: str,
+        category: str,
+        source: str = "gbif",
+        source_record_id: str | None = None,
+        license: str | None = None,
+        attribution: str | None = None,
+        source_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Index one few-shot prototype (the service embeds the image).
+
+        Used by the dataset-acquisition pipeline (WP-3 cold start). Only the
+        embedding + provenance are stored service-side; no image is persisted.
+        """
+        data = {
+            "label": label,
+            "category": category,
+            "source": source,
+        }
+        for key, value in (
+            ("source_record_id", source_record_id),
+            ("license", license),
+            ("attribution", attribution),
+            ("source_url", source_url),
+        ):
+            if value is not None:
+                data[key] = value
+        response = httpx.post(
+            f"{self._base_url}/pest/reference",
+            data=data,
+            files={"image": ("ref.jpg", image, "image/jpeg")},
+            timeout=_DETECT_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()

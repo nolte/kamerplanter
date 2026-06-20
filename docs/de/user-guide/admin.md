@@ -281,6 +281,24 @@ PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
         PEST_DETECTION_PRIMARY_ADAPTER: "local_pest_symptom"
     ```
 
+!!! warning "Voraussetzung: Inferenz-Service + Few-Shot-Index"
+    Der lokale Schadbild-Adapter erkennt über **Few-Shot-Klassifikation mit einem frozen DINOv2-Modell** (kein separates, lizenzkritisches Modell). Damit der Button erscheint und echte Befunde liefert, sind **zwei** Schritte nötig:
+
+    1. **Inferenz-Service bereitstellen** (derselbe Dienst wie für die Pflanzenerkennung, REQ-029-A). Sobald er erreichbar ist, beantwortet er `GET /pest/ready`.
+    2. **Few-Shot-Index aufbauen** — einmalig pro Klasse ~30 CC0/CC-BY-Bilder von GBIF beschaffen und als Prototypen indizieren. **Keine GBIF-Zugangsdaten nötig** (öffentliche Occurrence-Suche):
+
+        ```bash
+        # im Backend-Container/-Umfeld, Inferenz-Service muss erreichbar sein
+        python -m app.migrations.acquire_pest_dataset --manifest pest_reference_manifest.json
+        ```
+
+        Das Skript beschafft Bilder, filtert pro Bild auf CC0/CC-BY, indiziert die DINOv2-Prototypen im Inferenz-Service und schreibt ein **Attributions-Manifest** (CC-BY-Pflicht). Es werden **keine Bilder dauerhaft gespeichert**. Alternativ als Celery-Task `acquire_pest_dataset_task`.
+
+    Solange der Index leer ist, meldet `/pest/detect` „keine Befunde" (kein Fehler). Der **Direkt-Detektor mit Bounding-Boxes** (Modus 1) bleibt für Phase 2 in Vorbereitung (extern blockiert: Modell-Lizenzfreigabe + Benchmark).
+
+!!! tip "Nur Vorschau ohne Inferenz-Service"
+    Zum reinen Ausprobieren der Oberfläche ohne Inferenz-Service den Demo-Adapter aktivieren: `PEST_DETECTION_ENABLED=true` + `PEST_DETECTION_DEMO_ENABLED=true`. Er liefert klar gekennzeichnete Platzhalter-Befunde — niemals für echte Entscheidungen.
+
 ### Adapter 2: Cloud-Erkennung (Kindwise — optional, einwilligungspflichtig)
 
 Der Kindwise-Cloud-Adapter sendet Fotos zur Analyse an den Kindwise-Dienst (Brno, Tschechien — EU). Er ist standardmäßig deaktiviert und erfordert eine explizite Nutzereinwilligung (Consent-Zweck `pest_detection_cloud`).

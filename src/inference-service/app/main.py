@@ -23,6 +23,10 @@ from app.schemas import (
     MatchResponse,
     MatchSuggestion,
     ModelInfoResponse,
+    PestDetectResponse,
+    PestFindingItem,
+    PestReferenceResponse,
+    PestStatusResponse,
     ReferenceImageItem,
     ReferenceListResponse,
     ReferenceResponse,
@@ -30,6 +34,7 @@ from app.schemas import (
     SetReferenceActiveResponse,
 )
 from app.vectordb.connection import VectorDbConnection
+from app.vectordb.pest_repository import PestEmbeddingRepository
 from app.vectordb.repository import SpeciesEmbeddingRepository
 from app.vectordb.schema import ensure_vectordb_schema
 
@@ -37,6 +42,7 @@ logger = structlog.get_logger(__name__)
 
 _embedder: Embedder | None = None
 _repo: SpeciesEmbeddingRepository | None = None
+_pest_repo: PestEmbeddingRepository | None = None
 _vec_conn: VectorDbConnection | None = None
 _model_checksum: str | None = None
 
@@ -56,12 +62,13 @@ def _load_model_checksum() -> str | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Connect to pgvector, start non-blocking model load, cleanup on shutdown."""
-    global _embedder, _repo, _vec_conn, _model_checksum
+    global _embedder, _repo, _pest_repo, _vec_conn, _model_checksum
 
     _vec_conn = VectorDbConnection(settings)
     pool = _vec_conn.connect()
     ensure_vectordb_schema(pool)
     _repo = SpeciesEmbeddingRepository(pool)
+    _pest_repo = PestEmbeddingRepository(pool)
     logger.info("vectordb_ready")
 
     _embedder = Embedder(
@@ -102,6 +109,12 @@ def _require_repo() -> SpeciesEmbeddingRepository:
     if _repo is None:
         raise HTTPException(status_code=503, detail="Vector store not initialized.")
     return _repo
+
+
+def _require_pest_repo() -> PestEmbeddingRepository:
+    if _pest_repo is None:
+        raise HTTPException(status_code=503, detail="Pest vector store not initialized.")
+    return _pest_repo
 
 
 async def _read_upload(image: UploadFile) -> bytes:
@@ -350,3 +363,134 @@ def delete_reference(species_key: str) -> DeleteReferenceResponse:
     repo = _require_repo()
     deleted = repo.delete_by_species(species_key)
     return DeleteReferenceResponse(status="ok", species_key=species_key, deleted=deleted)
+
+
+# -- REQ-044 pest few-shot (frozen DINOv2, no separate model) --------------
+
+
+@app.get("/pest/ready")
+def pest_ready() -> dict:
+    """Readiness for pest detection -- 503 until model + DB are up."""
+    if _embedder is None or not _embedder.is_ready():
+        raise HTTPException(status_code=503, detail="model not loaded")
+    if _vec_conn is None or not _vec_conn.is_connected():
+        raise HTTPException(status_code=503, detail="vectordb not reachable")
+    return {"status": "ok"}
+
+
+@app.get("/pest/status", response_model=PestStatusResponse)
+def pest_status() -> PestStatusResponse:
+    """Report whether the pest few-shot index is populated."""
+    model_ready = _embedder is not None and _embedder.is_ready()
+    db_ready = _vec_conn is not None and _vec_conn.is_connected()
+    count = _pest_repo.count() if (_pest_repo is not None and db_ready) else 0
+    return PestStatusResponse(ready=bool(model_ready and db_ready), index_count=count, model=settings.model_name)
+
+
+@app.post("/pest/detect", response_model=PestDetectResponse)
+async def pest_detect(
+    image: UploadFile = File(...),
+    mode: str = Query(default="symptom"),
+    language: str = Query(default="de"),
+    k: int = Query(default=3, ge=1, le=10),
+) -> PestDetectResponse:
+    """Classify one tile against the few-shot prototype index (Modus 2).
+
+    Returns calibrated findings above the cosine floor; the backend applies the
+    final abstention gate and bounding-box merge. No image is persisted.
+    """
+    embedder = _require_embedder()
+    pest_repo = _require_pest_repo()
+    data = await _read_upload(image)
+    try:
+        vector = embedder.embed(data)
+    except ModelNotReadyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    matches = pest_repo.classify(vector.tolist(), k=k, model=settings.model_name)
+    findings: list[PestFindingItem] = []
+    for m in matches:
+        if m.score < settings.pest_show_results:
+            continue
+        findings.append(
+            PestFindingItem(
+                label=m.label,
+                category=m.category,
+                score=round(m.score, 6),
+                confidence=cosine_to_confidence(
+                    m.score,
+                    auto_accept=settings.confidence_auto_accept,
+                    show_results=settings.confidence_show_results,
+                ),
+                mode=mode,
+            )
+        )
+    return PestDetectResponse(findings=findings, model=settings.model_name)
+
+
+@app.post("/pest/reference", response_model=PestReferenceResponse)
+async def upsert_pest_reference(
+    label: str = Form(...),
+    category: str = Form(...),
+    source: str = Form(...),
+    source_record_id: str | None = Form(default=None),
+    license: str | None = Form(default=None),
+    attribution: str | None = Form(default=None),
+    source_url: str | None = Form(default=None),
+    image: UploadFile | None = File(default=None),
+    embedding: str | None = Form(default=None),
+) -> PestReferenceResponse:
+    """Index one few-shot prototype for a pest/symptom/beneficial class.
+
+    Accepts EITHER a multipart ``image`` (embedded here) OR a precomputed
+    ``embedding`` (JSON array). Only the vector + provenance are stored; no
+    original image is persisted.
+    """
+    pest_repo = _require_pest_repo()
+
+    if image is not None:
+        embedder = _require_embedder()
+        data = await _read_upload(image)
+        try:
+            vector = embedder.embed(data).tolist()
+        except ModelNotReadyError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    elif embedding is not None:
+        try:
+            vector = [float(v) for v in json.loads(embedding)]
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="embedding must be a JSON array of floats.") from exc
+        if len(vector) != settings.model_dim:
+            raise HTTPException(
+                status_code=400,
+                detail=f"embedding dim {len(vector)} != model dim {settings.model_dim}.",
+            )
+    else:
+        raise HTTPException(status_code=400, detail="Provide either an image or a precomputed embedding.")
+
+    pest_repo.upsert_prototype(
+        label=label,
+        category=category,
+        embedding=vector,
+        model=settings.model_name,
+        source=source,
+        source_record_id=source_record_id,
+        license=license,
+        attribution=attribution,
+        source_url=source_url,
+    )
+    return PestReferenceResponse(
+        status="ok",
+        label=label,
+        category=category,
+        dim=len(vector),
+        model=settings.model_name,
+    )
+
+
+@app.delete("/pest/reference/{label}", response_model=DeleteReferenceResponse)
+def delete_pest_reference(label: str) -> DeleteReferenceResponse:
+    """Delete all prototypes for a class (re-index support)."""
+    pest_repo = _require_pest_repo()
+    deleted = pest_repo.delete_by_label(label)
+    return DeleteReferenceResponse(status="ok", species_key=label, deleted=deleted)

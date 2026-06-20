@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     confidence_auto_accept: float = 0.85
     confidence_show_results: float = 0.10
 
+    # REQ-044 pest few-shot: cosine floor below which a tile classification is
+    # dropped (returned findings are still subject to the backend's abstention
+    # gate, ABSTAIN_CONFIDENCE). Day-1 default; final calibration is WP-5.
+    pest_show_results: float = 0.20
+
     model_config = {"env_prefix": "", "case_sensitive": False, "protected_namespaces": ()}
 
 

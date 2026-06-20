@@ -57,9 +57,7 @@ def _make_loaded_embedder(inputs: list[_FakeNodeArg]) -> tuple[Embedder, _FakeSe
     session = _FakeSession(inputs)
     emb._session = session
     emb._input_name = inputs[0].name
-    emb._aux_inputs = [
-        (inp.name, Embedder._neutral_input(inp)) for inp in inputs[1:]
-    ]
+    emb._aux_inputs = [(inp.name, Embedder._neutral_input(inp)) for inp in inputs[1:]]
     emb._ready = True
     return emb, session
 

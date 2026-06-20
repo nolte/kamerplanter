@@ -203,9 +203,7 @@ class SpeciesEmbeddingRepository:
         """
         stored_reason = reason if not is_active else None
         with self._pool.connection() as conn:
-            result = conn.execute(
-                sql, (is_active, stored_reason, embedding_id, species_key)
-            )
+            result = conn.execute(sql, (is_active, stored_reason, embedding_id, species_key))
             return (result.rowcount or 0) > 0
 
     def delete_by_species(self, species_key: str) -> int:

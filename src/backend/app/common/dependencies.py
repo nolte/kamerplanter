@@ -977,6 +977,18 @@ def get_reference_image_repo():
     return ArangoReferenceImageRepository(get_db())
 
 
+def get_pest_dataset_acquisition_service():
+    """REQ-044 WP-3 — cold-start few-shot prototype acquisition (no credentials)."""
+    from app.data_access.external.gbif_media_client import GBIFMediaClient
+    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+    from app.domain.services.pest_dataset_acquisition import PestDatasetAcquisitionService
+
+    return PestDatasetAcquisitionService(
+        media_client=GBIFMediaClient(),
+        inference=PestDetectionInferenceClient(settings.inference_service_url),
+    )
+
+
 def get_reference_image_service():
     """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index)."""
     from app.data_access.external.gbif_adapter import GBIFAdapter
