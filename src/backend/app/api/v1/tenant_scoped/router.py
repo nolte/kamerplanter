@@ -25,6 +25,7 @@ from app.api.v1.nutrient_calculations.router import router as nutrient_calculati
 from app.api.v1.nutrient_plans.tenant_router import router as tenant_nutrient_plans_router
 from app.api.v1.observations.tenant_router import router as tenant_observations_router
 from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_router
+from app.api.v1.plant_instances.photo_router import router as tenant_plant_photos_router
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
 from app.api.v1.print.tenant_router import router as tenant_print_router
@@ -49,6 +50,7 @@ tenant_scoped_router.include_router(tenant_sites_router)
 tenant_scoped_router.include_router(tenant_locations_router)
 tenant_scoped_router.include_router(tenant_slots_router)
 tenant_scoped_router.include_router(tenant_plants_router)
+tenant_scoped_router.include_router(tenant_plant_photos_router)
 tenant_scoped_router.include_router(tenant_planting_runs_router)
 tenant_scoped_router.include_router(tenant_tanks_router)
 tenant_scoped_router.include_router(tenant_fertilizers_router)

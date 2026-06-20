@@ -34,6 +34,20 @@ class PlantInstance(BaseModel):
         default=None,
         description="Direct substrate type — overrides substrate_batch_key lookup",
     )
+    photo_refs: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered list of attachment ids (NFR-013 §2.2) for the plant photo gallery "
+            "(REQ-034 §2.1). Display order is newest-first; never raw storage URLs."
+        ),
+    )
+    cover_photo_ref: str | None = Field(
+        default=None,
+        description=(
+            "attachment id marked as cover photo (REQ-034 §2.1). MUST be an element of "
+            "photo_refs; None falls back to the first element of photo_refs."
+        ),
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

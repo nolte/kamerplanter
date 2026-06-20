@@ -42,3 +42,34 @@ class IReferenceIndexStore(ABC):
         Removes every vector with ``source == 'user_contributed'`` AND
         ``tenant_key == X``. Returns the number of vectors removed.
         """
+
+    @abstractmethod
+    def count_pending_contributions(self, tenant_key: str) -> int:
+        """REQ-034 §4.3 (SR-005a) — count a tenant's open ``pending_review`` contributions.
+
+        Used by the reference-contribution hook (Guard 5) to cap the curation
+        backlog per tenant. Returns ``0`` while the physical index is absent.
+        Synchronous to match the Celery task call site.
+        """
+
+    @abstractmethod
+    def add_user_contribution(
+        self,
+        *,
+        species_key: str,
+        scientific_name: str,
+        image_data: bytes,
+        tenant_key: str,
+        contributed_by: str,
+    ) -> bool:
+        """REQ-034 §4.1 — add a user-contributed reference embedding (curation-gated).
+
+        The embedding is computed by the self-hosted inference service from
+        ``image_data`` and persisted with ``source == 'user_contributed'``,
+        ``is_active == False`` and the provenance fields (SR-003). The original
+        image is **never** persisted — only the vector + provenance.
+
+        Returns ``True`` when a contribution was stored, ``False`` when the path
+        is a no-op (physical index absent — Phase 1). Implementations must never
+        raise on a routine no-op.
+        """

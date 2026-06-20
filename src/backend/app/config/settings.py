@@ -169,6 +169,11 @@ class Settings(BaseSettings):
     storage_tenant_quota_mb: int = 2048
     # NFR-013 §5.1 step 7 — strip image EXIF/GPS on upload by default.
     storage_strip_exif: bool = True
+    # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
+    storage_max_photos_per_instance: int = 50
+    # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``
+    # user-contributed DINOv2 reference embeddings (index-poisoning guard).
+    reference_contribution_pending_limit: int = 100
     # NFR-013 §5.2 — global MIME whitelist (CSV string). Per-category overrides
     # are read from ``storage_allowed_mime_types_<category>`` (empty = default).
     storage_allowed_mime_types: str = (

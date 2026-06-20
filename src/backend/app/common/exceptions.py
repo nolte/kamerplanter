@@ -288,6 +288,26 @@ class StorageQuotaExceededError(KamerplanterError):
         )
 
 
+class PhotoQuotaExceededError(KamerplanterError):
+    """REQ-034 §3 (SR-004) — per-instance gallery photo limit reached."""
+
+    def __init__(self, plant_instance_key: str, limit: int) -> None:
+        super().__init__(
+            message=f"Gallery photo limit of {limit} reached for this plant instance.",
+            error_code="PHOTO_QUOTA_EXCEEDED",
+            status_code=409,
+            details=[
+                {
+                    "field": "plant_instance",
+                    "reason": (
+                        f"Plant instance '{plant_instance_key}' already holds the maximum of {limit} gallery photos."
+                    ),
+                    "code": "PHOTO_QUOTA_EXCEEDED",
+                }
+            ],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 
