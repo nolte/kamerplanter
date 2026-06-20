@@ -171,6 +171,47 @@ Nach 90 Tagen:
 
 ---
 
+## Fotos und Anhänge (Object Storage)
+
+Kamerplanter speichert Fotos und Dateien über einen Storage-Adapter, der vom Plattformbetreiber konfiguriert wird. Als Nutzer ist für dich relevant:
+
+### EXIF-Daten
+
+Beim Upload von Fotos entfernt das Backend standardmäßig alle EXIF-Metadaten, bevor die Datei im Storage abgelegt wird. Das umfasst:
+
+- GPS-Koordinaten (Aufnahmeort)
+- Kameramodell und Seriennummer
+- Aufnahmezeitpunkt (aus dem EXIF-Header)
+
+Der Betreiber kann die EXIF-Beibehaltung pro Kategorie aktivieren — in diesem Fall wird darauf in den Datenschutzhinweisen der Instanz hingewiesen.
+
+### Fotos und Nutzerlöschung (Account löschen)
+
+Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typen:
+
+| Foto-Typ | Was passiert |
+|----------|-------------|
+| **Persönliche Fotos** (Profilbild, private Notizen) | Hart gelöscht — sowohl die Datei im Storage als auch der Metadateneintrag werden entfernt |
+| **Dokumentierende Fotos** (Tagebucheinträge, IPM-Inspektionen, Erntefotos, Pflanzenfotos) | Bleiben erhalten, werden aber von deinem Account entkoppelt — `erstellt von` wird auf `_anonymized` gesetzt. Sind EXIF-Daten vorhanden, werden sie in diesem Schritt ebenfalls entfernt. |
+
+Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
+
+!!! note "Reihenfolge der Löschung"
+    Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.
+
+### Mandantenlöschung
+
+Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Das Ergebnis wird im Audit-Log dokumentiert.
+
+### Datenportabilität (Art. 20 DSGVO)
+
+Dein Datenexport enthält alle gespeicherten Anhänge als ZIP-Archiv. Das Archiv enthält:
+
+- Alle Dateien in der relativen Ordnerstruktur des Storage-Schemas
+- Ein `manifest.json` mit Zuordnung `attachment_id → Dateipfad → Metadaten`
+
+---
+
 ## Datenspeicherung und Aufbewahrungsfristen
 
 Kamerplanter speichert verschiedene Datenkategorien mit unterschiedlichen Aufbewahrungsfristen:

@@ -171,6 +171,47 @@ After 90 days:
 
 ---
 
+## Photos and Attachments (Object Storage)
+
+Kamerplanter stores photos and files through a storage adapter configured by the platform operator. As a user, the following points are relevant to you:
+
+### EXIF Data
+
+When uploading photos, the backend removes all EXIF metadata by default before storing the file. This includes:
+
+- GPS coordinates (location where the photo was taken)
+- Camera model and serial number
+- Timestamp (from the EXIF header)
+
+The operator may enable EXIF retention per category — this will be noted in the instance's privacy notice if so.
+
+### Photos and Account Deletion
+
+When you delete your account, the system distinguishes between two photo types:
+
+| Photo type | What happens |
+|-----------|-------------|
+| **Personal photos** (profile picture, private notes) | Hard deleted — both the file in storage and the metadata entry are removed |
+| **Documentary photos** (diary entries, IPM inspections, harvest photos, plant photos) | Retained but decoupled from your account — `created by` is set to `_anonymized`. If EXIF data is present, it is stripped at this step. |
+
+Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
+
+!!! note "Order of deletion"
+    Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.
+
+### Tenant Deletion
+
+When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. The result is documented in the audit log.
+
+### Data Portability (GDPR Art. 20)
+
+Your data export includes all stored attachments as a ZIP archive. The archive contains:
+
+- All files in the relative folder structure of the storage schema
+- A `manifest.json` with the mapping `attachment_id → file path → metadata`
+
+---
+
 ## Data Retention and Retention Periods
 
 Kamerplanter stores different data categories with different retention periods:

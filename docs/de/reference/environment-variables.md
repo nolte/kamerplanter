@@ -382,6 +382,114 @@ RERANKER_TOP_K=5
 
 ---
 
+## Object Storage (NFR-013)
+
+Diese Variablen konfigurieren den Storage-Adapter für Binärdaten (Fotos, Importe, Exporte). Das aktive Backend wird durch `STORAGE_BACKEND` bestimmt. Standardmäßig ist `local-fs` aktiv — keine weitere Konfiguration nötig.
+
+Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../user-guide/object-storage.md) und [Helm Charts — Storage-Konfiguration](../deployment/helm.md#storage-konfiguration-nfr-013).
+
+### Allgemeine Storage-Einstellungen
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3` |
+| `STORAGE_MAX_FILE_SIZE_MB` | `25` | Nein | Maximale Upload-Größe in Megabyte (gilt für alle Kategorien, überschreibbar per Kategorie) |
+| `STORAGE_PRESIGN_TTL_SECONDS` | `900` | Nein | Gültigkeitsdauer von Pre-Signed URLs in Sekunden (max. 3600) |
+| `STORAGE_ALLOWED_MIME_TYPES` | *(Liste)* | Nein | Kommagetrennte globale Whitelist erlaubter MIME-Types |
+| `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(pro Kategorie)* | Nein | Kategorie-spezifische Whitelist, z. B. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
+| `STORAGE_VIRUS_SCAN_ENABLED` | `false` | Nein | Virenscan via ClamAV-REST-Wrapper aktivieren |
+| `STORAGE_VIRUS_SCAN_ENDPOINT` | *(leer)* | Nein | URL des ClamAV-REST-Wrappers |
+| `STORAGE_KEEP_EXIF_<CATEGORY>` | `false` | Nein | EXIF-Daten für eine Kategorie beibehalten, z. B. `STORAGE_KEEP_EXIF_PLANT=true` |
+
+**Standard-MIME-Whitelist pro Kategorie:**
+
+| Kategorie | Erlaubte MIME-Types | Max-Größe |
+|-----------|---------------------|-----------|
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` | 25 MB |
+| `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
+| `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
+| `tenant_export` | `application/zip` | 5 GB |
+
+### Backend: Lokales Dateisystem (`local-fs`)
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `STORAGE_LOCAL_FS_ROOT` | `/data/attachments` | Nein | Mount-Pfad innerhalb des Containers |
+| `STORAGE_LOCAL_FS_PUBLIC_BASE_URL` | *(leer)* | Ja* | Vollständige URL des Token-Download-Endpunkts, z. B. `https://api.kamerplanter.example.com/api/v1/attachments/token`. Muss auf `https://<host>/api/v1/attachments/token` zeigen. |
+| `STORAGE_LOCALFS_SIGNING_SECRET` | *(ephemer)* | Ja** | Geheimer Schlüssel für Token-Signaturen. **Pflicht bei mehr als einer Replica**, sonst können Tokens von anderen Pods nicht validiert werden. |
+
+*Pflicht, damit local-fs Token-Downloads einlösen kann.
+**Pflicht bei Multi-Replica-Betrieb.
+
+!!! warning "Signing-Secret als Kubernetes-Secret speichern"
+    Der `STORAGE_LOCALFS_SIGNING_SECRET` ist ein kryptographisches Secret und darf nicht im Klartext in `values.yaml` oder Git committet werden. Anlegen als Kubernetes Secret:
+    ```bash
+    kubectl create secret generic kamerplanter-storage-signing \
+      --from-literal=STORAGE_LOCALFS_SIGNING_SECRET="$(openssl rand -hex 32)" \
+      --namespace kamerplanter
+    ```
+
+### Backend: S3-kompatibel (`s3`)
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `STORAGE_S3_ENDPOINT_URL` | *(leer)* | Ja | Vollständige Endpunkt-URL, z. B. `https://s3.eu-central-1.amazonaws.com` |
+| `STORAGE_S3_REGION` | *(leer)* | Ja | Region, z. B. `eu-central-1` (auch bei MinIO erforderlich) |
+| `STORAGE_S3_BUCKET` | *(leer)* | Ja | Bucket-Name (muss vorab angelegt sein) |
+| `STORAGE_S3_ACCESS_KEY_ID` | *(leer)* | Ja | Access Key (aus External Secrets Operator — niemals im Klartext in Git) |
+| `STORAGE_S3_SECRET_ACCESS_KEY` | *(leer)* | Ja | Secret Access Key (aus External Secrets Operator — niemals im Klartext in Git) |
+| `STORAGE_S3_USE_PATH_STYLE` | `false` | Nein | `true` für MinIO und die meisten Nicht-AWS-Anbieter |
+| `STORAGE_S3_FORCE_TLS` | `true` | Nein | Plain-HTTP verbieten; in Dev-Umgebungen auf `false` setzen |
+| `STORAGE_S3_KMS_KEY_ID` | *(leer)* | Nein | Optionaler Customer-Managed Key für serverseitige Verschlüsselung (SSE-KMS) |
+| `STORAGE_S3_ALLOW_PRIVATE_ENDPOINT` | `false` | Nein | `true` für in-Cluster MinIO, das nicht öffentlich erreichbar ist |
+
+!!! danger "S3-Credentials niemals in Git oder values.yaml"
+    `STORAGE_S3_ACCESS_KEY_ID` und `STORAGE_S3_SECRET_ACCESS_KEY` sind Secrets und werden ausschließlich über den External Secrets Operator (ESO) oder Kubernetes Secrets bereitgestellt. Weitere Details: [Helm Charts — Storage-Konfiguration](../deployment/helm.md#storage-konfiguration-nfr-013).
+
+#### Beispielkonfigurationen
+
+=== "AWS S3 (eu-central-1)"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=https://s3.eu-central-1.amazonaws.com
+    STORAGE_S3_REGION=eu-central-1
+    STORAGE_S3_BUCKET=mein-kamerplanter-bucket
+    STORAGE_S3_ACCESS_KEY_ID=<aus Secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<aus Secret>
+    STORAGE_S3_USE_PATH_STYLE=false
+    STORAGE_S3_FORCE_TLS=true
+    ```
+
+=== "MinIO im Cluster"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=http://minio.kamerplanter.svc:9000
+    STORAGE_S3_REGION=us-east-1
+    STORAGE_S3_BUCKET=kamerplanter
+    STORAGE_S3_ACCESS_KEY_ID=<aus Secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<aus Secret>
+    STORAGE_S3_USE_PATH_STYLE=true
+    STORAGE_S3_FORCE_TLS=false
+    STORAGE_S3_ALLOW_PRIVATE_ENDPOINT=true
+    ```
+
+=== "Hetzner Object Storage"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=https://fsn1.your-objectstorage.com
+    STORAGE_S3_REGION=eu-central
+    STORAGE_S3_BUCKET=mein-kamerplanter-bucket
+    STORAGE_S3_ACCESS_KEY_ID=<aus Secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<aus Secret>
+    STORAGE_S3_USE_PATH_STYLE=false
+    STORAGE_S3_FORCE_TLS=true
+    ```
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich Umgebungsvariablen in Kubernetes als Secrets hinterlegen?"

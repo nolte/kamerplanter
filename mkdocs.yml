@@ -116,6 +116,7 @@ plugins:
             Referenzbilder kuratieren: Curate Reference Images
             Gießprotokoll: Watering Log
             Plattform-Admin: Platform Admin
+            Speicher konfigurieren: Configure Storage
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
@@ -140,6 +141,7 @@ plugins:
             ArgoCD: ArgoCD
             CI/CD: CI/CD
             Bilderkennung (Inferenz-Service): Setting Up Plant Identification
+            Object Storage — Helm: Object Storage — Helm
             Guides: Guides
             GDD-Berechnung: GDD Calculation
             VPD-Optimierung: VPD Optimization
@@ -274,6 +276,7 @@ nav:
       - Pflanze per Foto identifizieren: de/user-guide/plant-identification.md
       - Referenzbilder kuratieren: de/user-guide/reference-image-curation.md
       - Plattform-Admin: de/user-guide/admin.md
+      - Speicher konfigurieren: de/user-guide/object-storage.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
