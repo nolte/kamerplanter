@@ -17,6 +17,7 @@ Wird benoetigt von: —
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.0 | 2026-06-20 | Initialer Entwurf — leitet aus dem Methodenvergleich `spec/analysis/plant-health-vision-research.md` ein ganzheitliches, fortlaufendes Gesundheits-Assessment ab; definiert Phasen-Strategie (Cloud-Adapter → Self-Hosted-Hybrid) und Multi-Signal-Fusion. <!-- Quelle: spec/analysis/plant-health-vision-research.md --> |
+| 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): Kindwise **`plant.health` statt `crop.health`** für Indoor; Konfidenz/Abstention via **Temperature Scaling + Energy-OOD + Risk-Coverage** statt fester Schwelle; CPU-VLM-Erklärungs-Layer machbar (opt-in/async); `deficiencies`/`beneficials`-Stammdaten-Lücke in REQ-010 benannt; Fusion-Gewinn nicht überversprechen (Evidenzlücke). <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
 
@@ -509,12 +510,15 @@ THEN:  Feld disclaimer ist nie leer (automatisierter Test über alle Pfade: clou
 
 ## 10. Offene Punkte
 
-- **Gewichtungs-Kalibrierung:** Die Default-`WEIGHTS` sind eine begründete Startannahme; eine datengestützte Kalibrierung (mit Feedback-Signal) ist v2-Thema.
-- **Score-Skala vs. Ampel:** v1.0 zeigt Beginnern nur die Ampel; ob der numerische Score (0–100) Verwirrung stiftet, ist nach Nutzertests zu prüfen.
-- **RAG-(V)LM-Erklärungsstufe:** in v1.0 optional (Phase 2, GPU-abhängig); ohne GPU bleibt das Assessment ohne sprachliche Erklärung funktionsfähig.
-- **Proaktive geplante Assessments:** Celery-getriggerte periodische Einschätzungen (z. B. bei Sensor-Alarm) sind skizziert (`trigger=scheduled/sensor_alert`), Scheduling-Details offen.
-- **Kindwise-Benchmark:** „>73 % Top-3" ist Anbieter-Selbstauskunft; vor Phase-1-Produktivnahme eigener Stichproben-Test gegen die Zieldomänen (Zimmerpflanzen/Cannabis) empfohlen.
-- **Mangel-`deficiencies`-Stammdaten:** wie in REQ-038 angemerkt fehlt eine eigene `deficiencies`-Collection in REQ-010; `category=deficiency` bleibt vorerst ohne `matched_*_key` (Mapping über Symptom-Slugs).
+> Mehrere dieser Punkte wurden durch die fokussierte Recherche **`spec/analysis/pest-detection-implementation-prep.md`** (gemeinsam mit REQ-044) geklärt; Verweise unten. Verbleibende Aktions-Items dort in §10.
+
+- **Gewichtungs-Kalibrierung → präzisiert (Prep §6.2):** Die Default-`WEIGHTS` bleiben begründete Startannahme. Wichtig: **quantifizierte** Multi-Signal-Fusion-Gewinne fehlen in der Literatur (Evidenzlücke) → den Fusionsvorteil **nicht überversprechen**; datengestützt mit Feedback-Signal nachkalibrieren.
+- **Score-Skala vs. Ampel:** unverändert offen — v1.0 zeigt Beginnern nur die Ampel; numerischer Score (0–100) nach Nutzertests prüfen.
+- **RAG-(V)LM-Erklärungsstufe → geklärt (Prep §7):** CPU-machbar als **„Sekunden-pro-Bild"-Feature** (Qwen2.5-VL-3B-Q4 / Moondream2 / SmolVLM2), opt-in/asynchron mit **Graceful Degradation**; interaktiv → GPU. VLM = **Erklärer, nie Erkenner**; RAG dämpft Halluzination, garantiert sie aber nicht.
+- **Konfidenz/Abstention → geklärt (Prep §6):** **Temperature Scaling + Energy-OOD-Gate + klassenweise Schwelle über Risk-Coverage-Kurve auf Feld-Kalibrierungsdaten** (statt fester Schwelle); explizite **`beneficial`/`unknown`-Klasse**; Conformal Prediction erst Phase 2 (≥~1000 Feld-Kalibrierbeispiele, SSBC).
+- **Proaktive geplante Assessments → präzisiert (Prep §8):** Celery-Beat-Task analog REQ-022; bevorzugt Re-Evaluierung vorhandener Galerie-Fotos (REQ-034) statt automatischer Aufnahme. Detail-Spec v2.
+- **Kindwise-Benchmark → geklärt (Prep §5):** Für Indoor ist **`plant.health`** das richtige Produkt (548 Klassen, „houseplants and ornamentals"), nicht `crop.health`. AVV öffentlich geklärt; kritisch: Trainingsnutzung ohne Opt-out + keine EU-Residenz-Garantie. Eigener Stichproben-Test + 9 Vor-Vertrags-Fragen (Prep §5.3).
+- **`deficiencies`/`beneficials`-Stammdaten → geklärt (Prep §8):** REQ-010 um eigene **`deficiencies`-** und **`beneficials`-Collections** ergänzen; bis dahin `category=deficiency`/`beneficial` Slug-basiert ohne `matched_*_key`.
 
 ---
 
