@@ -66,6 +66,86 @@ Click any photo in the gallery to open it in full-screen view. In the lightbox y
 
 ---
 
+## Captioning Photos
+
+For each photo you can add a **comment** (e.g. "first flower opened") and a **capture date**. This is useful when you upload photos retrospectively — for example, older pictures from your camera roll — where the actual date the photo was taken differs from the upload date.
+
+### Editing a comment and capture date
+
+1. Hover over the photo in the gallery (or press and hold on mobile).
+2. In the photo menu, click **Edit**.
+3. A dialog opens with two fields:
+   - **Comment** — free text, max. 500 characters (e.g. growth status, notable observations).
+   - **Capture date** — pre-filled with the upload date by default; you can change it to an earlier date. A date in the future is not permitted.
+4. Click **Save**.
+
+!!! note "Capture date after EXIF removal"
+    When a photo is uploaded, all EXIF metadata — including the camera's technical timestamp — is removed (see [Privacy: EXIF data](#uploading-a-photo)). For this reason there is no automatically extracted capture date. You can set one manually at any time.
+
+### Display in gallery and full-screen view
+
+If a comment or capture date is set, it is shown **below the thumbnail** in the gallery and **in the lightbox**. Photos without any caption show only the upload date.
+
+!!! tip "Build a visual growth log"
+    If you regularly add a capture date and comment to your photos, you automatically create a visual growth record of your plant over time.
+
+---
+
+## Checking Image Quality
+
+You can send a gallery photo to the plant recognition engine on demand to assess whether it is **sharp and representative enough**. The result appears as a coloured traffic-light badge on the photo and is saved — so you do not have to repeat the check every time.
+
+!!! note "What is this useful for?"
+    The quality check answers the question: "Would the plant recognition reliably identify my plant from this photo?" A photo taken from the wrong angle, in backlight, or severely out of focus will be rated "unsuitable" — telling you which photos to replace or supplement.
+
+### Starting a quality check
+
+1. Hover over the photo in the gallery (or press and hold on mobile).
+2. In the photo menu, click **Check quality**.
+3. Select the recognition path (see below) and confirm.
+4. The check runs in the background; the result appears as a traffic-light badge on the photo.
+
+You can repeat the check at any time — for example after replacing a photo.
+
+### Recognition paths
+
+=== "Pl@ntNet (external API)"
+
+    Pl@ntNet is a scientific species recognition project. When you use this option, your photo is **sent to an external third party** (Pl@ntNet / Plantarium).
+
+    !!! warning "Privacy notice: data leaves your instance"
+        When you choose Pl@ntNet, the photo is transmitted to the Pl@ntNet API. Your Kamerplanter instance has no control over how Pl@ntNet processes or stores the photo. Please read [Pl@ntNet's privacy policy](https://plantnet.org/privacy-policy/) before using this option.
+
+        - You must give **one-time consent** allowing your photos to be sent to Pl@ntNet for identification purposes (the same consent as for the plant identification feature).
+        - You can revoke this consent at any time under **Account Settings → Privacy → Consents**.
+        - In **Light mode** (anonymous access), Pl@ntNet is only available if the instance operator has explicitly enabled it.
+
+=== "DINOv2 (self-hosted, not yet available)"
+
+    DINOv2 is a self-hosted recognition engine with no data transfer to third parties. Your photo does not leave the Kamerplanter instance.
+
+    !!! note "Not yet available — Phase 2 of plant recognition"
+        DINOv2 is only available once **self-hosted plant recognition (Phase 2)** has been set up on your instance. The option is already visible in the menu but disabled — it will activate automatically once Phase 2 is live.
+
+### Understanding the traffic-light result
+
+| Rating | Meaning | Typical reason |
+|--------|---------|----------------|
+| Green — good | The plant was recognised with high confidence; the expected species ranked first. | Sharp, well-lit photo with a clear, typical view. |
+| Yellow — fair | The expected species was recognised but did not rank first, or showed moderate confidence. | Unusual angle, slight blur, or atypical growth stage. |
+| Red — unsuitable | The plant was not recognised, or the expected species does not appear in the results. | Strong blur, backlight, or wrong framing (e.g. only the pot, not the leaves). |
+
+The result also includes the **three most likely recognised species** with confidence scores — even if your plant has no assigned species, you can see whether the photo was identified as a plant at all.
+
+!!! note "No species comparison without an assigned species"
+    If your plant does not yet have a species assigned (the Species field is empty), the expected-vs-actual comparison is skipped. The traffic light then relies solely on whether the image is recognised as a plant at all.
+
+### Who can trigger a quality check?
+
+Only users with the **Grower** or **Admin** role can start a new quality check. As a **Viewer** you can see an existing result saved on the photo, but you cannot trigger a new check.
+
+---
+
 ## Setting a Cover Photo
 
 A cover photo appears as a preview in the **Info tab** of the plant detail page and in the **plant list view**. This way you recognise your plant at a glance without opening the detail page.
@@ -147,6 +227,18 @@ Revocation takes effect immediately for all future photo uploads. Already-create
 
 ??? question "Why does the photo upload dialog look the same as for plant identification?"
     The capture interface (webcam / smartphone camera / file upload) is the same component used for plant identification. The difference lies in the outcome: for identification the photo is discarded after analysis; for the gallery it is stored permanently.
+
+??? question "Can I set a capture date in the past?"
+    Yes — a date in the past is explicitly allowed so you can backfill photos from your camera roll with the actual date they were taken. A date in the future is rejected.
+
+??? question "What happens to a comment and capture date when I delete a photo?"
+    When you delete a photo, all associated data — original image, preview versions, and metadata (including comment and capture date) — is removed completely and cannot be undone.
+
+??? question "Is my photo saved or shared when I run a quality check?"
+    It depends on the recognition path you choose. With **DINOv2** (self-hosted), the photo stays on your instance and is not transmitted anywhere. With **Pl@ntNet**, the photo is sent to the external Pl@ntNet API — your consent is required for this. The **traffic-light result** (rating and top-3 species) is saved on the photo in your gallery so you do not need to repeat the check later.
+
+??? question "What does 'Pl@ntNet must be enabled' mean in Light mode?"
+    In Light mode (anonymous access without login), the individual consent mechanism is not active. The instance operator can enable Pl@ntNet for all gallery users globally — in that case no individual consent step is needed. If the operator has not done so, only DINOv2 (once available) can be used as a recognition path.
 
 ---
 

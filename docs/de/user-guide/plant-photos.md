@@ -66,6 +66,86 @@ Klicke auf ein Foto in der Galerie, um es in der Vollbild-Ansicht zu öffnen. In
 
 ---
 
+## Fotos beschriften
+
+Pro Foto kannst du einen **Kommentar** (z. B. „erste Blüte geöffnet") und ein **Aufnahmedatum** hinterlegen. Das ist nützlich, wenn du Fotos nachträglich hochlädst — etwa ältere Bilder aus der Kamerarolle — und das tatsächliche Aufnahmedatum vom Upload-Datum abweicht.
+
+### Kommentar und Aufnahmedatum bearbeiten
+
+1. Halte den Mauszeiger über das Foto in der Galerie (oder drücke lange auf dem Smartphone).
+2. Klicke im Foto-Menü auf **Bearbeiten**.
+3. Es öffnet sich ein Dialog mit zwei Feldern:
+   - **Kommentar** — freier Text, max. 500 Zeichen (z. B. Wachstumszustand, Besonderheiten).
+   - **Aufnahmedatum** — standardmäßig vorbelegt mit dem Upload-Datum; du kannst es auf ein früheres Datum ändern. Ein Datum in der Zukunft ist nicht zulässig.
+4. Klicke auf **Speichern**.
+
+!!! note "Aufnahmedatum nach EXIF-Entfernung"
+    Beim Hochladen werden alle EXIF-Metadaten — einschließlich des technischen Aufnahmezeitpunkts der Kamera — entfernt (siehe [Datenschutz: EXIF-Daten](#foto-hochladen)). Daher gibt es kein automatisch ausgelesenes Aufnahmedatum. Du kannst es aber jederzeit manuell setzen.
+
+### Anzeige in Galerie und Großansicht
+
+Sind Kommentar oder Aufnahmedatum gesetzt, werden sie **unter dem Thumbnail** in der Galerie und **in der Lightbox** angezeigt. Fotos ohne Beschriftung zeigen nur das Upload-Datum.
+
+!!! tip "Wachstumsprotokoll erstellen"
+    Wenn du regelmäßig Fotos mit Aufnahmedatum und Kommentar versieht, entsteht automatisch ein visuelles Wachstumsprotokoll deiner Pflanze.
+
+---
+
+## Bildqualität prüfen
+
+Du kannst ein Galerie-Foto auf Knopfdruck an die Pflanzenerkennung schicken, um einzuschätzen, ob es **scharf und typisch genug** ist. Das Ergebnis erscheint als farbiges Ampel-Symbol am Foto und bleibt gespeichert — du musst die Prüfung also nicht jedes Mal neu starten.
+
+!!! note "Wofür ist das nützlich?"
+    Die Qualitätsprüfung beantwortet die Frage: „Würde die Bilderkennung meine Pflanze an diesem Foto sicher wiederfinden?" Ein Foto im falschen Ausschnitt, mit Gegenlicht oder stark unscharf wird als „ungeeignet" eingestuft — so weißt du, welche Fotos du ersetzen oder ergänzen solltest.
+
+### Qualitätsprüfung starten
+
+1. Halte den Mauszeiger über das Foto (oder drücke lange auf dem Smartphone).
+2. Klicke im Foto-Menü auf **Qualität prüfen**.
+3. Wähle den Erkennungspfad (siehe unten) und bestätige.
+4. Die Prüfung läuft im Hintergrund; das Ergebnis erscheint als Ampel-Badge am Foto.
+
+Du kannst die Prüfung jederzeit wiederholen — zum Beispiel nach dem Ersetzen eines Fotos.
+
+### Erkennungspfade
+
+=== "Pl@ntNet (externe API)"
+
+    Pl@ntNet ist ein wissenschaftliches Arterkennungsprojekt. Das Foto wird dabei **an einen externen Drittanbieter** (Pl@ntNet / Plantarium) übermittelt.
+
+    !!! warning "Datenschutz-Hinweis: Daten verlassen die Instanz"
+        Wenn du Pl@ntNet wählst, wird das Foto an die Pl@ntNet-API übertragen. Deine Kamerplanter-Instanz hat keine Kontrolle darüber, wie Pl@ntNet das Foto verarbeitet oder speichert. Bitte lies die [Datenschutzerklärung von Pl@ntNet](https://plantnet.org/privacy-policy/) bevor du diesen Weg wählst.
+
+        - Du musst einmalig **einwilligen**, dass deine Fotos zur Identifizierung an Pl@ntNet gesendet werden dürfen (dieselbe Einwilligung wie bei der Pflanzenerkennung).
+        - Die Einwilligung kannst du jederzeit unter **Konto-Einstellungen → Datenschutz → Einwilligungen** widerrufen.
+        - Im **Light-Modus** (anonymer Zugang) ist Pl@ntNet nur nutzbar, wenn der Betreiber der Instanz es ausdrücklich freigeschaltet hat.
+
+=== "DINOv2 (self-hosted, noch nicht verfügbar)"
+
+    DINOv2 ist eine selbst gehostete Erkennungs-Engine ohne Datenabfluss an Dritte. Dein Foto verlässt dabei die Kamerplanter-Instanz nicht.
+
+    !!! note "Noch nicht verfügbar — Phase 2 der Bilderkennung"
+        DINOv2 steht erst zur Verfügung, wenn die **self-hosted Bilderkennung (Phase 2)** auf deiner Instanz eingerichtet ist. Die Option ist bereits im Menü sichtbar, aber deaktiviert — sie schaltet sich automatisch frei, sobald Phase 2 aktiv ist.
+
+### Das Ampel-Ergebnis verstehen
+
+| Ampel | Bedeutung | Typischer Grund |
+|-------|-----------|-----------------|
+| Grün — gut | Die Pflanze wurde sicher erkannt; die erwartete Art liegt auf Platz 1 mit hoher Konfidenz. | Scharfes, gut belichtetes Foto mit typischem Ausschnitt. |
+| Gelb — brauchbar | Die erwartete Art wurde erkannt, liegt aber nicht auf Platz 1 oder zeigt mittlere Konfidenz. | Ungewöhnlicher Ausschnitt, leichte Unschärfe oder ungewöhnliche Wachstumsphase. |
+| Rot — ungeeignet | Die Pflanze wurde nicht erkannt oder die erwartete Art fehlt in den Ergebnissen. | Starke Unschärfe, Gegenlicht, falscher Ausschnitt (z. B. nur Topf statt Blatt). |
+
+Das Ergebnis enthält außerdem die **drei wahrscheinlichsten erkannten Arten** mit Konfidenzwert — auch wenn deine Pflanze keine zugeordnete Art hat, bekommst du so eine Einschätzung, ob das Foto überhaupt als Pflanzenfoto erkannt wurde.
+
+!!! note "Kein Art-Abgleich ohne Artangabe"
+    Hat deine Pflanze noch keine Art zugewiesen (Feld „Art" leer), entfällt der Soll-Ist-Abgleich. Die Ampel stützt sich dann nur darauf, ob das Bild überhaupt als Pflanze erkannt wird.
+
+### Wer darf die Qualitätsprüfung auslösen?
+
+Nur Nutzer mit der Rolle **Gärtner** oder **Admin** können eine neue Prüfung starten. Als **Betrachter** siehst du ein bereits gespeichertes Ergebnis, kannst aber keine neue Prüfung auslösen.
+
+---
+
 ## Titelbild setzen
 
 Ein Titelbild erscheint als Vorschau im **Info-Tab** der Pflanzendetailseite und in der **Pflanzen-Listenansicht**. So erkennst du auf einen Blick, welche Pflanze es ist, ohne die Detailseite öffnen zu müssen.
@@ -147,6 +227,18 @@ Der Widerruf gilt sofort für alle zukünftigen Foto-Uploads. Bereits erzeugte M
 
 ??? question "Warum sieht die Foto-Upload-Maske genauso aus wie bei der Bilderkennung?"
     Die Aufnahme-Benutzeroberfläche (Webcam / Smartphone-Kamera / Datei-Upload) ist dieselbe Komponente, die auch bei der Bilderkennung genutzt wird. Der Unterschied liegt im Ergebnis: Bei der Bilderkennung wird das Foto nach der Analyse verworfen. Bei der Galerie wird es dauerhaft gespeichert.
+
+??? question "Kann ich ein Aufnahmedatum in der Vergangenheit setzen?"
+    Ja — ein Datum in der Vergangenheit ist ausdrücklich erlaubt, damit du Fotos aus der Kamerarolle nachträglich mit dem tatsächlichen Aufnahmedatum versehen kannst. Ein Datum in der Zukunft wird abgelehnt.
+
+??? question "Was passiert mit Kommentar und Aufnahmedatum, wenn ich ein Foto lösche?"
+    Wenn du ein Foto löschst, werden alle zugehörigen Daten — Original, Vorschaubilder, Metadaten (einschließlich Kommentar und Aufnahmedatum) — vollständig und unwiderruflich entfernt.
+
+??? question "Wird mein Foto bei der Qualitätsprüfung gespeichert oder weitergegeben?"
+    Das hängt vom gewählten Erkennungspfad ab. Bei **DINOv2** (self-hosted) bleibt das Foto auf deiner Instanz und wird nirgendwo hin übertragen. Bei **Pl@ntNet** wird das Foto an die externe Pl@ntNet-API gesendet — hierzu ist eine Einwilligung erforderlich. Das **Ampel-Ergebnis** (Bewertung + Top-3-Arten) wird am Foto in deiner Galerie gespeichert, damit du es nicht wiederholen musst.
+
+??? question "Was bedeutet „Pl@ntNet muss freigeschaltet sein" im Light-Modus?"
+    Im Light-Modus (anonymer Zugang ohne Login) ist der Einwilligungsmechanismus deaktiviert. Der Betreiber der Instanz kann Pl@ntNet für alle Galerie-Nutzer pauschal freischalten — dann ist keine individuelle Einwilligung nötig. Ist das nicht der Fall, steht nur DINOv2 (sobald verfügbar) als Erkennungspfad zur Verfügung.
 
 ---
 
