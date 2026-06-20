@@ -1298,6 +1298,104 @@
       "phCurrent": "Current pH",
       "ecCurrent": "Current EC"
     },
+    "plantPhotos": {
+      "tabTitle": "Photos",
+      "sectionTitle": "Photo gallery",
+      "intro": "Your own photos of this plant – capture its growth over time and recognise it at a glance in the overview.",
+      "addPhoto": "Add photo",
+      "addPhotoFirst": "Add first photo",
+      "upload": "Save photo",
+      "uploading": "Uploading…",
+      "uploadTitle": "Add photo",
+      "uploadHint": "Take a photo with your camera or choose an image file from your device.",
+      "uploadError": "The photo could not be uploaded. Please try again.",
+      "uploadForbidden": "You do not have permission to upload photos for this plant.",
+      "quotaExceeded": "The photo limit for this plant has been reached. Please delete an existing photo first before adding a new one.",
+      "fileTooLarge": "The image file is too large. Please choose a smaller photo (maximum 20 MB).",
+      "retake": "Choose another photo",
+      "previewAlt": "Preview of the selected photo",
+      "previewHint": "Happy with the photo? Tap 'Save photo' - or choose a different one.",
+      "thumbAlt": "Plant photo",
+      "imageError": "Image could not be loaded",
+      "imageLoading": "Image loading",
+      "openPhoto": "Open photo at full size",
+      "lightboxTitle": "Photo at full size",
+      "lightboxAlt": "Plant photo at full size",
+      "cover": "Cover",
+      "coverLabel": "Cover photo",
+      "coverAlt": "Plant cover photo",
+      "setCover": "Set as cover",
+      "coverSet": "Cover photo updated",
+      "noCover": "No photo yet",
+      "openGallery": "Open gallery",
+      "deleted": "Photo deleted",
+      "deleteTitle": "Delete photo",
+      "deletePhoto": "Delete photo",
+      "deleteConfirm": "Do you really want to delete this photo? It will be permanently removed and cannot be restored.",
+      "emptyTitle": "No photos yet",
+      "emptyDescriptionWrite": "Add the first photo of your plant – so you can track its growth and recognise it at a glance in the overview.",
+      "emptyDescriptionRead": "No photos have been added for this plant yet.",
+      "emptyDescription": "Add your first photo of this plant to capture its growth over time.",
+      "editPhoto": "Edit",
+      "editTitle": "Edit photo details",
+      "caption": "Caption",
+      "captionTooLong": "The caption must not exceed {{max}} characters.",
+      "takenOn": "Date taken",
+      "takenOnHelper": "When was this photo taken? If left empty, the upload date is used.",
+      "saving": "Saving…",
+      "metadataSaved": "Photo details saved",
+      "metadataError": "The photo details could not be saved. Please try again.",
+      "metadataInvalid": "Please check your input: the caption is too long or the date taken is in the future.",
+      "editForbidden": "You do not have permission to edit this photo.",
+      "quality": {
+        "checkQuality": "Check quality",
+        "badgeLabel": "Image quality",
+        "dialogTitle": "Check image quality",
+        "dialogIntro": "Let the plant recognition estimate whether this photo is sharp and typical enough for your plant to be reliably recognised.",
+        "chooseMethod": "Choose recognition method",
+        "run": "Check photo",
+        "runAgain": "Check again",
+        "running": "Checking…",
+        "assessed": "Image quality assessed",
+        "externalNotice": "Note: with Pl@ntNet the photo is sent to an external (third-party) service for analysis.",
+        "suggestionsLabel": "Recognised plants:",
+        "confidenceExplained": "The percentage shows how confident the AI is in its assessment.",
+        "noSuggestions": "No plants were recognised.",
+        "confidence": "{{percent}}% match",
+        "topSuggestion": "Best match: {{name}} ({{percent}}%)",
+        "adapter": {
+          "plantnet": "Pl@ntNet (external service)",
+          "local_embedding": "DINOv2 (local, self-hosted)"
+        },
+        "adapterHint": {
+          "plantnet": "Fast recognition via the Pl@ntNet database. The photo is sent to the provider.",
+          "local_embedding": "Recognition on your own server — no data sent to third parties."
+        },
+        "adapterUnavailable": {
+          "plantnet": "Currently unavailable. Please contact your administrator.",
+          "local_embedding": "Not available yet — local recognition will be enabled in a later version."
+        },
+        "rating": {
+          "good": "Well suited",
+          "fair": "Usable",
+          "poor": "Not suitable"
+        },
+        "ratingHint": {
+          "good": "This photo is sharp and typical — ideal for recognising your plant.",
+          "fair": "This photo is usable but not ideal. A sharper or more typical image would be better.",
+          "poor": "This photo is not suitable for recognition — likely blurry, the wrong crop, or atypical."
+        },
+        "resultHeadline": {
+          "good": "Well suited for recognition",
+          "fair": "Usable for recognition",
+          "poor": "Not suitable for recognition"
+        },
+        "ratingAction": {
+          "fair": "Tip: a sharper photo from a different angle will improve the result.",
+          "poor": "Please take a new photo: sharp, well-lit, and with the plant clearly visible."
+        }
+      }
+    },
     "plantInstances": {
       "title": "Plant Instances",
       "intro": "All registered plants with their current location, growth phase, and run assignment. Click any row to open the detail view.",

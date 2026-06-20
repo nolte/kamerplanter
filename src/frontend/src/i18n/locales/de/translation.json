@@ -1298,6 +1298,104 @@
       "phCurrent": "Aktueller pH",
       "ecCurrent": "Aktueller EC"
     },
+    "plantPhotos": {
+      "tabTitle": "Fotos",
+      "sectionTitle": "Fotogalerie",
+      "intro": "Eigene Fotos dieser Pflanze – halten Sie den Wachstumsverlauf fest und erkennen Sie Ihre Pflanze in der Übersicht wieder.",
+      "addPhoto": "Foto hinzufügen",
+      "addPhotoFirst": "Erstes Foto hinzufügen",
+      "upload": "Foto speichern",
+      "uploading": "Wird hochgeladen…",
+      "uploadTitle": "Foto hinzufügen",
+      "uploadHint": "Nehmen Sie ein Foto mit der Kamera auf oder wählen Sie eine Bilddatei von Ihrem Gerät aus.",
+      "uploadError": "Das Foto konnte nicht hochgeladen werden. Bitte versuchen Sie es erneut.",
+      "uploadForbidden": "Sie haben keine Berechtigung, Fotos zu dieser Pflanze hochzuladen.",
+      "quotaExceeded": "Das Fotolimit für diese Pflanze ist erreicht. Bitte löschen Sie zuerst ein vorhandenes Foto, um ein neues hinzufügen zu können.",
+      "fileTooLarge": "Die Bilddatei ist zu groß. Bitte wählen Sie ein kleineres Foto (maximal 20 MB).",
+      "retake": "Anderes Foto wählen",
+      "previewAlt": "Vorschau des ausgewählten Fotos",
+      "previewHint": "Gefällt das Foto? Tippen Sie auf 'Foto speichern' - oder wählen Sie ein anderes.",
+      "thumbAlt": "Pflanzenfoto",
+      "imageError": "Bild konnte nicht geladen werden",
+      "imageLoading": "Bild wird geladen",
+      "openPhoto": "Foto in voller Größe öffnen",
+      "lightboxTitle": "Foto in voller Größe",
+      "lightboxAlt": "Pflanzenfoto in voller Größe",
+      "cover": "Titelbild",
+      "coverLabel": "Titelbild",
+      "coverAlt": "Titelbild der Pflanze",
+      "setCover": "Als Titelbild setzen",
+      "coverSet": "Titelbild aktualisiert",
+      "noCover": "Noch kein Foto vorhanden",
+      "openGallery": "Galerie öffnen",
+      "deleted": "Foto gelöscht",
+      "deleteTitle": "Foto löschen",
+      "deletePhoto": "Foto löschen",
+      "deleteConfirm": "Möchten Sie dieses Foto wirklich löschen? Es wird endgültig entfernt und kann nicht wiederhergestellt werden.",
+      "emptyTitle": "Noch keine Fotos",
+      "emptyDescriptionWrite": "Fügen Sie das erste Foto Ihrer Pflanze hinzu – so behalten Sie den Wachstumsverlauf im Blick und erkennen sie in der Übersicht auf einen Blick.",
+      "emptyDescriptionRead": "Für diese Pflanze wurden noch keine Fotos hinzugefügt.",
+      "emptyDescription": "Fügen Sie Ihr erstes Foto dieser Pflanze hinzu, um den Wachstumsverlauf festzuhalten.",
+      "editPhoto": "Bearbeiten",
+      "editTitle": "Fotodetails bearbeiten",
+      "caption": "Kommentar",
+      "captionTooLong": "Der Kommentar darf höchstens {{max}} Zeichen lang sein.",
+      "takenOn": "Aufnahmedatum",
+      "takenOnHelper": "Wann wurde das Foto aufgenommen? Ohne Angabe wird das Datum des Hochladens verwendet.",
+      "saving": "Wird gespeichert…",
+      "metadataSaved": "Fotodetails gespeichert",
+      "metadataError": "Die Fotodetails konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+      "metadataInvalid": "Bitte prüfen Sie Ihre Eingaben: Der Kommentar ist zu lang oder das Aufnahmedatum liegt in der Zukunft.",
+      "editForbidden": "Sie haben keine Berechtigung, dieses Foto zu bearbeiten.",
+      "quality": {
+        "checkQuality": "Qualität prüfen",
+        "badgeLabel": "Bildqualität",
+        "dialogTitle": "Bildqualität prüfen",
+        "dialogIntro": "Lassen Sie die Bilderkennung einschätzen, ob dieses Foto scharf und typisch genug ist, damit Ihre Pflanze sicher wiedererkannt wird.",
+        "chooseMethod": "Erkennungsmethode wählen",
+        "run": "Foto prüfen",
+        "runAgain": "Erneut prüfen",
+        "running": "Wird geprüft…",
+        "assessed": "Bildqualität bewertet",
+        "externalNotice": "Hinweis: Bei Pl@ntNet wird das Foto zur Auswertung an einen externen Dienst (Drittanbieter) gesendet.",
+        "suggestionsLabel": "Erkannte Pflanzen:",
+        "confidenceExplained": "Die Prozentzahl gibt an, wie sicher die KI bei ihrer Einschätzung ist.",
+        "noSuggestions": "Es wurden keine Pflanzen erkannt.",
+        "confidence": "{{percent}} % Übereinstimmung",
+        "topSuggestion": "Beste Übereinstimmung: {{name}} ({{percent}} %)",
+        "adapter": {
+          "plantnet": "Pl@ntNet (externer Dienst)",
+          "local_embedding": "DINOv2 (lokal, self-hosted)"
+        },
+        "adapterHint": {
+          "plantnet": "Schnelle Erkennung über die Pl@ntNet-Datenbank. Das Foto wird an den Anbieter gesendet.",
+          "local_embedding": "Erkennung auf dem eigenen Server – kein Datenversand an Dritte."
+        },
+        "adapterUnavailable": {
+          "plantnet": "Derzeit nicht verfügbar. Bitte wenden Sie sich an Ihren Administrator.",
+          "local_embedding": "Noch nicht verfügbar – die lokale Erkennung wird in einer späteren Version freigeschaltet."
+        },
+        "rating": {
+          "good": "Gut geeignet",
+          "fair": "Brauchbar",
+          "poor": "Ungeeignet"
+        },
+        "ratingHint": {
+          "good": "Dieses Foto ist scharf und typisch – ideal, um Ihre Pflanze wiederzuerkennen.",
+          "fair": "Dieses Foto ist brauchbar, aber nicht ideal. Ein schärferes oder typischeres Bild wäre besser.",
+          "poor": "Dieses Foto ist für die Erkennung ungeeignet – vermutlich unscharf, falscher Ausschnitt oder untypisch."
+        },
+        "resultHeadline": {
+          "good": "Gut geeignet für die Erkennung",
+          "fair": "Brauchbar für die Erkennung",
+          "poor": "Ungeeignet für die Erkennung"
+        },
+        "ratingAction": {
+          "fair": "Tipp: Ein schärferes Foto aus einem anderen Winkel verbessert das Ergebnis.",
+          "poor": "Bitte machen Sie ein neues Foto: scharf, gut beleuchtet und die Pflanze gut sichtbar im Bild."
+        }
+      }
+    },
     "plantInstances": {
       "title": "Pflanzeninstanzen",
       "intro": "Hier sehen Sie alle angelegten Pflanzen mit aktuellem Standort, Wachstumsphase und Durchlauf-Zuordnung. Klicken Sie auf eine Zeile, um die Detailansicht zu öffnen.",

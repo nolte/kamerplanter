@@ -62,6 +62,25 @@ class ConsentEngine:
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
         ),
+        ConsentPurpose(
+            key="reference_contribution",
+            label_de="Foto-Beitrag zur Pflanzenerkennung",
+            label_en="Photo contribution to plant recognition",
+            description_de=(
+                "Optionaler Beitrag eigener Galerie-Fotos einer korrekt bestimmten Pflanze als "
+                "zusaetzliche Referenz fuer die self-hosted Bilderkennung (REQ-034 §4). Es wird "
+                "nur der Embedding-Vektor gespeichert — kein Bild verlaesst die Instanz; jederzeit "
+                "widerrufbar."
+            ),
+            description_en=(
+                "Optional contribution of your own gallery photos of a correctly identified plant "
+                "as an additional reference for the self-hosted image recognition (REQ-034 §4). "
+                "Only the embedding vector is stored — no image leaves the instance; revocable at "
+                "any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
     ]
 
     def get_all_purposes(self) -> list[ConsentPurpose]:

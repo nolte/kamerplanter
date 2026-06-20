@@ -47,3 +47,29 @@ def test_redis_failure_degrades_open():
     redis.incr.side_effect = ConnectionError("redis down")
     # Must not raise — feature stays usable, external quota still applies.
     IdentificationRateLimiter(redis).check_and_increment(key="k", limit=5)
+
+
+def test_redis_failure_fail_open_default_for_local_path():
+    """SEC-003 — the local (no-cost) path keeps the graceful fail-open default."""
+    redis = MagicMock()
+    redis.incr.side_effect = ConnectionError("redis down")
+    # fail_closed defaults to False → no raise on a Redis outage.
+    IdentificationRateLimiter(redis).check_and_increment(key="assess:local_embedding:u1", limit=5, fail_closed=False)
+
+
+def test_redis_failure_fail_closed_blocks_external_path():
+    """SEC-003 — the external (cost-bearing) path fails closed on a Redis outage."""
+    redis = MagicMock()
+    redis.incr.side_effect = ConnectionError("redis down")
+    limiter = IdentificationRateLimiter(redis)
+    with pytest.raises(RateLimitError) as exc:
+        limiter.check_and_increment(key="assess:plantnet:u1", limit=5, fail_closed=True)
+    # The retry hint falls back to the full window when the store is unreachable.
+    assert exc.value.retry_after == 86_400
+
+
+def test_fail_closed_noop_when_limit_zero():
+    """An unlimited (0) configuration is a no-op even with fail_closed=True."""
+    redis = MagicMock()
+    IdentificationRateLimiter(redis).check_and_increment(key="k", limit=0, fail_closed=True)
+    redis.incr.assert_not_called()

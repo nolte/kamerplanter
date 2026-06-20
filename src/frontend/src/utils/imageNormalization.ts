@@ -12,12 +12,27 @@ export const MAX_EDGE = 1280;
 export const JPEG_QUALITY = 0.85;
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
+/**
+ * REQ-034 §2.2 — gallery photos are kept in higher resolution/quality than the
+ * recognition-normalized images, because they document the plant's growth over
+ * time. The recognition path keeps its smaller defaults.
+ */
+export const GALLERY_MAX_EDGE = 2048;
+export const GALLERY_JPEG_QUALITY = 0.9;
+
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 export interface NormalizedImage {
   file: File;
   /** Object URL for preview — caller is responsible for revoking it. */
   previewUrl: string;
+}
+
+export interface NormalizeImageOptions {
+  /** Longest-edge cap in pixels (default {@link MAX_EDGE}). */
+  maxEdge?: number;
+  /** JPEG re-encode quality 0–1 (default {@link JPEG_QUALITY}). */
+  quality?: number;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -43,9 +58,18 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
  * Normalize a captured/selected image: optionally downscale, re-encode as JPEG,
  * strip metadata. Returns the new `File` and a preview object URL.
  *
+ * The optional {@link NormalizeImageOptions} let callers raise the resolution
+ * and quality (e.g. the gallery upload, REQ-034 §2.2) without affecting the
+ * recognition defaults.
+ *
  * @throws Error('UNSUPPORTED_FORMAT') for non-image inputs.
  */
-export async function normalizeImage(input: File): Promise<NormalizedImage> {
+export async function normalizeImage(
+  input: File,
+  options: NormalizeImageOptions = {},
+): Promise<NormalizedImage> {
+  const maxEdge = options.maxEdge ?? MAX_EDGE;
+  const quality = options.quality ?? JPEG_QUALITY;
   const type = input.type.toLowerCase();
   if (type && !SUPPORTED_TYPES.includes(type) && !type.startsWith('image/')) {
     throw new Error('UNSUPPORTED_FORMAT');
@@ -56,7 +80,7 @@ export async function normalizeImage(input: File): Promise<NormalizedImage> {
     const img = await loadImage(sourceUrl);
     const { width, height } = img;
     const longest = Math.max(width, height);
-    const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
+    const scale = longest > maxEdge ? maxEdge / longest : 1;
     const targetW = Math.max(1, Math.round(width * scale));
     const targetH = Math.max(1, Math.round(height * scale));
 
@@ -67,7 +91,7 @@ export async function normalizeImage(input: File): Promise<NormalizedImage> {
     if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
     ctx.drawImage(img, 0, 0, targetW, targetH);
 
-    const blob = await canvasToBlob(canvas, 'image/jpeg', JPEG_QUALITY);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', quality);
     const baseName = input.name.replace(/\.[^./\\]+$/, '') || 'plant';
     const file = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
     const previewUrl = URL.createObjectURL(file);

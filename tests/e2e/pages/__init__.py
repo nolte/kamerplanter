@@ -30,6 +30,7 @@ from .phase_transition_page import PlantInstanceDetailExt, PlantInstanceListExt
 from .print_button_page import PrintButtonPage
 from .plant_instance_detail_page import PlantInstanceDetailPage
 from .plant_instance_list_page import PlantInstanceListPage
+from .plant_photo_gallery_page import PlantPhotoGalleryPage
 from .planting_run_detail_page import PlantingRunDetailPage
 from .planting_run_list_page import PlantingRunListPage
 from .register_page import RegisterPage
@@ -87,6 +88,7 @@ __all__ = [
     "PlantInstanceDetailPage",
     "PlantInstanceListExt",
     "PlantInstanceListPage",
+    "PlantPhotoGalleryPage",
     "PlantingRunDetailPage",
     "PlantingRunListPage",
     "PrintButtonPage",

@@ -93,6 +93,12 @@ class PlantIdentificationAdapter(ABC):
     supports_health_assessment: bool = False
     #: Maximum requests per day, ``None`` = unbounded.
     rate_limit_per_day: int | None = None
+    #: REQ-034 §4a.1 — whether running this adapter sends the photo to a third
+    #: party (data egress). ``True`` for hosted services (Pl@ntNet, Plant.id),
+    #: ``False`` for the self-hosted DINOv2 path (no egress). The service layer
+    #: reads this to decide the consent / Light-mode opt-in / fail-closed
+    #: rate-limit behaviour instead of hard-coding a key allow-list (SEC-005).
+    is_external: bool = False
 
     @abstractmethod
     def is_configured(self) -> bool:

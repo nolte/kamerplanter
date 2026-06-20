@@ -107,6 +107,11 @@ Jedes Galerie-Foto ist ein **Attachment** im Sinne von NFR-013 mit `category = p
 
 - **Konsistenz:** Ein `attachment_id` darf in `photo_refs` nur vorkommen, wenn das zugehoerige `attachments`-Dokument `category == "plant"` und denselben `tenant_key` wie die Pflanzeninstanz hat. Der Service erzwingt das beim Verknuepfen (Schutz vor Cross-Category-/Cross-Tenant-Referenzen).
 
+- **Foto-Metadaten (v1.2):** Jedes Galerie-Foto traegt zwei optionale, vom Nutzer pflegbare Metadaten am `attachments`-Dokument:
+  - `caption: str | None` — ein frei editierbarer Kommentar/Bildunterschrift (max. 500 Zeichen), Default `None`.
+  - `taken_on: date | None` — das Aufnahmedatum. Default/Fallback ist das Upload-`created_at` (EXIF-Aufnahmezeit ist nicht verfuegbar, da EXIF beim Upload gestript wird, §3/NFR-013 §6.4). Der Nutzer kann ein abweichendes Datum setzen (z.B. fuer nachtraeglich hochgeladene aeltere Fotos). `taken_on` darf nicht in der Zukunft liegen.
+  Beide werden ueber `PATCH /api/v1/t/{slug}/plant-instances/{key}/photos/{attachment_id}` gesetzt (`require_permission(UPDATE_RESOURCE)`, gleiche Konsistenz-/Zuweisungs-Guards wie Cover/Delete). In der Galerie werden Aufnahmedatum (`taken_on ?? created_at`) und Kommentar unter dem Thumbnail sowie in der Lightbox angezeigt und dort editiert. `caption`/`taken_on` sind generische Attachment-Felder (auch fuer andere Foto-Kategorien nutzbar), bleiben dort aber `None`.
+
 - **Loeschung der Pflanzeninstanz:** Beim Entfernen einer `PlantInstance` werden die referenzierten Attachments ueber den Attachment-Service mitgeloescht (`delete_object` je `attachment_id` + Metadaten). Verwaiste Storage-Bytes sind unzulaessig.
 
 ### 2.2 Upload-Erlebnis (Wiederverwendung der Bilderkennungs-UX)
@@ -199,6 +204,33 @@ User-beigesteuerte Referenzen sind potenziell fehlerhaft (falsche Selbst-Bestimm
 ### 4.4 Consent
 
 Der Daten-Beitrag ist **opt-in** und erfordert eine eigene Einwilligung `reference_contribution` (REQ-025-Consent-Mechanismus). Ohne Consent wird der Hook nicht ausgefuehrt; die Galerie funktioniert vollstaendig ohne ihn. Der Consent-Text nennt Zweck (Verbesserung der self-hosted Erkennung), Umfang (nur Embedding-Vektor, kein Bild an Dritte) und Widerrufbarkeit.
+
+---
+
+## 4a. Qualitaetsbewertung via Bilderkennung (v1.2)
+
+Der Nutzer kann ein Galerie-Foto **manuell, on-demand** gegen die Bilderkennung (REQ-029/-029-A) schicken, um eine **Einschaetzung der Bildqualitaet** zu erhalten ("ist dieses Foto scharf und typisch genug, dass die Erkennung meine Pflanze sicher wiederfindet?"). Klar abzugrenzen vom DINOv2-Hook (§4): §4 ist ein automatischer, optionaler Daten-**Rueckfluss** in den Referenz-Index; §4a ist eine vom Nutzer ausgeloeste, anzeigende **Bewertung** des einzelnen Fotos.
+
+### 4a.1 Adapter-Wahl
+Der Nutzer waehlt den Erkennungspfad ueber die bestehende `IdentificationAdapterRegistry` (REQ-029):
+- **`plantnet`** (externe API) — sendet das Foto an einen Dritten; erfordert Consent `plant_identification` (REQ-029 §5) und einen konfigurierten API-Key (`adapter.is_configured()`).
+- **`local_embedding`** (DINOv2, self-hosted) — kein Datenabfluss an Dritte; **nur verfuegbar, wenn `inference_service_enabled` und der Adapter konfiguriert ist** (Phase 2). Solange nicht verfuegbar, wird die Option im UI **deaktiviert mit Hinweis** angeboten (aktiviert sich automatisch in Phase 2) — kein toter Code.
+
+Die Bewertung laeuft ueber den bestehenden `IdentificationService` (Consent-Gate, Rate-Limiting, Quell-EXIF-Schutz). Das Galerie-Foto ist beim Upload bereits EXIF-gestript (§3); ein erneuter Strip ist nicht noetig.
+
+### 4a.2 Abgeleitete Qualitaets-Bewertung (Ampel) + Persistenz
+Aus dem `IdentificationResult` (suggestions mit `scientific_name`+`confidence`, `is_plant`) und der bekannten Art der Pflanze (`species_key` → erwarteter `scientific_name`) wird eine **Ampel-Bewertung** abgeleitet:
+- **`poor` (rot):** `is_plant == false` ODER die erwartete Art ist nicht unter den Top-k UND die Top-1-Konfidenz ist niedrig → Bild vermutlich unscharf, falscher Ausschnitt oder untypisch.
+- **`fair` (gelb):** erwartete Art unter den Top-k, aber nicht Top-1 / mittlere Konfidenz → brauchbar, aber nicht ideal.
+- **`good` (gruen):** erwartete Art == Top-1 mit hoher Konfidenz → gut geeignet/repraesentativ.
+- Hat die Pflanze **keine** Art gesetzt (`species_key` leer), entfaellt der Soll-Ist-Abgleich; die Bewertung stuetzt sich nur auf `is_plant` + Top-1-Konfidenz.
+
+Das Ergebnis wird **am Attachment gespeichert** (`quality_assessment`: `adapter`, `assessed_at`, `is_plant`, `rating`, `expected_species_matched`, Top-3-`suggestions` mit Art+Konfidenz), sodass es **im Nachgang** in der Galerie/Lightbox sichtbar bleibt (Ampel-Badge) und erneut ausgeloest werden kann.
+
+### 4a.3 Datenschutz & Abgrenzung
+- `plantnet`-Pfad: Foto verlaesst die Instanz Richtung Dritter → Consent-Pflicht; im **Light-Modus** (REQ-027, Consent deaktiviert) ist der externe Pfad nur nutzbar, wenn der Betreiber das bewusst freischaltet (sonst nur `local_embedding`, sobald verfuegbar).
+- `local_embedding`-Pfad: kein Datenabfluss (self-hosted, ClusterIP/TLS, REQ-029-A §3.1).
+- Berechtigung: Ausloesen erfordert `require_permission` auf der Instanz (mind. `UPDATE_RESOURCE`, da ein Ergebnis persistiert wird); `viewer` darf eine vorhandene Bewertung sehen, aber keine neue ausloesen.
 
 ---
 

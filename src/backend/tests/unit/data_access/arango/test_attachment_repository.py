@@ -4,6 +4,7 @@ Solitary unit tests: the injected ``StandardDatabase`` is the owned I/O
 boundary and is doubled with MagicMock. No real ArangoDB connection.
 """
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -149,6 +150,48 @@ class TestDeleteAllForTenant:
     def test_returns_zero_when_empty(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
         assert repo.delete_all_for_tenant("t-1") == 0
+
+
+class TestUpdateMetadata:
+    def test_patches_caption_and_taken_on_parametrized(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter(
+            [_attachment_doc(category="plant", caption="hello", taken_on="2026-06-01")]
+        )
+        result = repo.update_metadata("att1", "t-1", caption="hello", taken_on=date(2026, 6, 1))
+        assert isinstance(result, Attachment)
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        # Tenant + key are bound, never interpolated (AQL injection guard).
+        assert bind_vars["key"] == "att1"
+        assert bind_vars["tenant_key"] == "t-1"
+        # The patch doc carries both fields; date is serialised ISO.
+        assert bind_vars["patch"]["caption"] == "hello"
+        assert bind_vars["patch"]["taken_on"] == "2026-06-01"
+        assert "updated_at" in bind_vars["patch"]
+
+    def test_omitted_field_not_in_patch(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([_attachment_doc(category="plant", caption="only")])
+        repo.update_metadata("att1", "t-1", caption="only")
+        patch = mock_db.aql.execute.call_args.kwargs["bind_vars"]["patch"]
+        assert patch["caption"] == "only"
+        assert "taken_on" not in patch  # UNSET → untouched
+
+    def test_explicit_null_present_in_patch(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([_attachment_doc(category="plant")])
+        repo.update_metadata("att1", "t-1", caption=None, taken_on=None)
+        patch = mock_db.aql.execute.call_args.kwargs["bind_vars"]["patch"]
+        # Explicit None must be written (keepNull) to clear the fields.
+        assert patch["caption"] is None
+        assert patch["taken_on"] is None
+
+    def test_no_fields_returns_current_without_aql(self, repo, mock_db):
+        mock_db.collection.return_value.get.return_value = _attachment_doc(category="plant")
+        result = repo.update_metadata("att1", "t-1")
+        assert isinstance(result, Attachment)
+        mock_db.aql.execute.assert_not_called()
+
+    def test_returns_none_when_not_matched(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+        assert repo.update_metadata("att1", "t-1", caption="x") is None
 
 
 class TestDelete:

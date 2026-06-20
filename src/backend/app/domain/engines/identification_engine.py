@@ -145,6 +145,29 @@ class IdentificationEngine:
             "suggestions": [c.model_dump() for c in candidates],
         }
 
+    def identify_raw(
+        self,
+        adapter: PlantIdentificationAdapter,
+        image_data: bytes,
+        *,
+        organ: PlantOrgan = PlantOrgan.AUTO,
+        language: str = "de",
+    ) -> IdentificationResult:
+        """Run an identification and return the *raw* adapter result.
+
+        REQ-034 §4a — used by the photo-quality assessment, which only needs the
+        suggestions + ``is_plant`` flag to derive an Ampel verdict and does **not**
+        create an identification-history record (the verdict is persisted on the
+        attachment instead, §4a vs §4). The image is still validated, EXIF-stripped
+        and normalized before it reaches the adapter, exactly like :meth:`identify`.
+        """
+        self.validate_image(image_data)
+        try:
+            clean_image = strip_exif_and_normalize(image_data)
+        except ValueError as exc:
+            raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
+        return adapter.identify(clean_image, organ=organ, language=language)
+
     def _match_candidates(self, result: IdentificationResult) -> list[IdentificationCandidate]:
         """Map adapter suggestions onto local species, filtering by min confidence."""
         candidates: list[IdentificationCandidate] = []

@@ -44,3 +44,29 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
             removed=0,
         )
         return 0
+
+    def count_pending_contributions(self, tenant_key: str) -> int:
+        # No physical index yet → no backlog. The hook's Guard 5 therefore never
+        # rejects on backlog while the store is a no-op.
+        return 0
+
+    def add_user_contribution(
+        self,
+        *,
+        species_key: str,
+        scientific_name: str,
+        image_data: bytes,
+        tenant_key: str,
+        contributed_by: str,
+    ) -> bool:
+        # REQ-034 §4 — full no-op until the pgvector reference index ships
+        # (REQ-029-A Phase 2). Logged so the hook stays observable; no embedding
+        # is computed, no image leaves the instance, nothing is persisted.
+        logger.info(
+            "reference_contribution_noop",
+            reason="pgvector species_embeddings index not yet built (REQ-029-A Phase 2)",
+            species_key=species_key,
+            tenant_key=tenant_key,
+            contributed_by=contributed_by,
+        )
+        return False

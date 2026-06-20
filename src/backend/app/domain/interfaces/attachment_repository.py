@@ -1,9 +1,29 @@
 """NFR-013 §2.2 — repository interface for the ``attachments`` collection."""
 
 from abc import ABC, abstractmethod
+from datetime import date
+from typing import Final
 
 from app.common.enums import AttachmentCategory
-from app.domain.models.attachment import Attachment
+from app.domain.models.attachment import Attachment, QualityAssessment
+
+
+class _Unset:
+    """Sentinel distinguishing "field absent" from an explicit ``None``.
+
+    REQ-034 §2.1 v1.2 — the photo-metadata PATCH must tell "do not touch this
+    field" apart from "clear this field". ``UNSET`` means leave the stored value
+    untouched; an explicit ``None`` clears it. A dedicated singleton type keeps
+    the distinction explicit and type-checkable rather than overloading ``None``.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid only
+        return "UNSET"
+
+
+UNSET: Final[_Unset] = _Unset()
 
 
 class IAttachmentRepository(ABC):
@@ -15,6 +35,40 @@ class IAttachmentRepository(ABC):
 
     @abstractmethod
     def delete(self, key: str, tenant_key: str) -> bool: ...
+
+    @abstractmethod
+    def update_metadata(
+        self,
+        key: str,
+        tenant_key: str,
+        *,
+        caption: str | None | _Unset = UNSET,
+        taken_on: date | None | _Unset = UNSET,
+    ) -> Attachment | None:
+        """REQ-034 §2.1 v1.2 — patch the user-editable photo metadata.
+
+        Tenant-scoped: only an attachment whose ``tenant_key`` matches is
+        touched (cross-tenant updates surface as ``None``). Only the fields that
+        are **not** :data:`UNSET` are written, so this is a true PATCH —
+        passing ``caption=None`` clears the caption while omitting it leaves the
+        stored value intact. Returns the updated attachment, or ``None`` when no
+        matching attachment exists. Does not change any other field.
+        """
+
+    @abstractmethod
+    def update_quality_assessment(
+        self,
+        key: str,
+        tenant_key: str,
+        assessment: QualityAssessment,
+    ) -> Attachment | None:
+        """REQ-034 §4a.2 — persist (overwrite) a photo's quality assessment.
+
+        Tenant-scoped: only an attachment whose ``tenant_key`` matches is
+        touched (cross-tenant updates surface as ``None``). Re-running an
+        assessment overwrites the previous verdict. Returns the updated
+        attachment, or ``None`` when no matching attachment exists.
+        """
 
     @abstractmethod
     def find_by_user(

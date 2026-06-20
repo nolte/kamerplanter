@@ -288,6 +288,26 @@ class StorageQuotaExceededError(KamerplanterError):
         )
 
 
+class PhotoQuotaExceededError(KamerplanterError):
+    """REQ-034 §3 (SR-004) — per-instance gallery photo limit reached."""
+
+    def __init__(self, plant_instance_key: str, limit: int) -> None:
+        super().__init__(
+            message=f"Gallery photo limit of {limit} reached for this plant instance.",
+            error_code="PHOTO_QUOTA_EXCEEDED",
+            status_code=409,
+            details=[
+                {
+                    "field": "plant_instance",
+                    "reason": (
+                        f"Plant instance '{plant_instance_key}' already holds the maximum of {limit} gallery photos."
+                    ),
+                    "code": "PHOTO_QUOTA_EXCEEDED",
+                }
+            ],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 
@@ -369,4 +389,29 @@ class FeatureNotConfiguredError(KamerplanterError):
             message=message,
             error_code="FEATURE_NOT_CONFIGURED",
             status_code=503,
+        )
+
+
+class AdapterNotAvailableError(KamerplanterError):
+    """REQ-034 §4a.3 — the requested recognition adapter cannot be used here.
+
+    A 409 (conflict with the current configuration), not a 503, because the
+    caller explicitly chose an adapter (e.g. ``local_embedding`` while the
+    inference service is still disabled, or the external path in Light mode
+    without the operator opt-in) — the request is well-formed but conflicts with
+    the instance's current state.
+    """
+
+    def __init__(self, adapter_key: str, reason: str) -> None:
+        super().__init__(
+            message=f"Recognition adapter '{adapter_key}' is not available: {reason}",
+            error_code="ADAPTER_NOT_AVAILABLE",
+            status_code=409,
+            details=[
+                {
+                    "field": "adapter",
+                    "reason": reason,
+                    "code": "ADAPTER_NOT_AVAILABLE",
+                }
+            ],
         )

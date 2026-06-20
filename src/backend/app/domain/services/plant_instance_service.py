@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from app.common.exceptions import NotFoundError
@@ -27,6 +28,7 @@ class PlantInstanceService:
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         task_repo: ITaskRepository | None = None,
         species_repo: ISpeciesRepository | None = None,
+        photo_cleanup: Callable[[PlantInstance], None] | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
@@ -36,6 +38,10 @@ class PlantInstanceService:
         self._phase_seq_repo = phase_seq_repo
         self._task_repo = task_repo
         self._species_repo = species_repo
+        # REQ-034 §2.1 / AC-08 — cascade gallery-photo deletion when an instance
+        # is removed. Injected to avoid a service→service import cycle; no-op
+        # when unwired (keeps the service usable in photo-less contexts).
+        self._photo_cleanup = photo_cleanup
 
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
@@ -94,6 +100,17 @@ class PlantInstanceService:
     def remove_plant(self, key: PlantID) -> PlantInstance:
         plant = self.get_plant(key)
         from datetime import date
+
+        # REQ-034 §2.1 / AC-08 — hard-delete the gallery photos before the
+        # instance is removed so no orphan storage bytes remain.
+        # Order is deliberate (security review SEC-002, Low): bytes are deleted
+        # before the metadata update so a failure leaves at worst dangling refs
+        # (skipped on list) rather than orphaned personal bytes (the DSGVO-worse
+        # outcome). A fully transactional cascade is a follow-up.
+        if self._photo_cleanup is not None and plant.photo_refs:
+            self._photo_cleanup(plant)
+            plant.photo_refs = []
+            plant.cover_photo_ref = None
 
         plant.removed_on = date.today()
         updated = self._repo.update(key, plant)
