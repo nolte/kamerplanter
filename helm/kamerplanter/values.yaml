@@ -63,9 +63,15 @@ controllers:
       surge: 1
       unavailable: 0
     pod:
+      # NOTE: setting pod.securityContext here REPLACES the
+      # defaultPodOptions.securityContext (bjw-s does not deep-merge it), so
+      # fsGroup MUST be repeated. Without it the backend-attachments PVC mounts
+      # as root:root and the uid-1000 process can't write — storage health_check
+      # fails and readiness stays 503 (NFR-013).
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
     containers:
       main:
         image:
@@ -142,13 +148,16 @@ controllers:
               periodSeconds: 5
               timeoutSeconds: 3
               failureThreshold: 3
+        # Image upload (REQ-034) decodes photos in-memory (Pillow quality
+        # assessment); a few-MB JPEG balloons to 100+ MB decoded, so 512Mi
+        # OOMKills the pod on upload. 2Gi gives headroom up to the 25 MB max.
         resources:
           requests:
             cpu: 250m
-            memory: 256Mi
+            memory: 512Mi
           limits:
             cpu: "1"
-            memory: 512Mi
+            memory: 2Gi
 
   frontend:
     type: deployment
@@ -339,13 +348,16 @@ controllers:
               failureThreshold: 3
           readiness:
             enabled: false
+        # The worker does the same in-memory Pillow image decoding as the
+        # backend (thumbnail generation §8.2), so 512Mi OOMKills it under load.
+        # Match the backend's 2Gi headroom.
         resources:
           requests:
             cpu: 100m
-            memory: 256Mi
+            memory: 512Mi
           limits:
             cpu: 500m
-            memory: 512Mi
+            memory: 2Gi
 
   celery-beat:
     type: deployment
