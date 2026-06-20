@@ -12,14 +12,20 @@ import pytest
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
+    AdapterNotAvailableError,
     NotFoundError,
     PhotoQuotaExceededError,
     ValidationError,
 )
 from app.config.settings import Settings
 from app.domain.interfaces.attachment_repository import UNSET, _Unset
+from app.domain.interfaces.plant_identification_adapter import (
+    IdentificationResult,
+    IdentificationSuggestion,
+)
 from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species import Species
 from app.domain.services.plant_photo_service import PlantPhotoService
 
 TENANT = "tenant_anna"
@@ -63,6 +69,14 @@ class _FakeAttachmentRepo:
         self._store[key] = updated
         return updated
 
+    def update_quality_assessment(self, key, tenant_key, assessment):
+        att = self.get(key, tenant_key)
+        if att is None:
+            return None
+        updated = att.model_copy(update={"quality_assessment": assessment})
+        self._store[key] = updated
+        return updated
+
 
 class _FakeAttachmentService:
     def __init__(self, repo: _FakeAttachmentRepo) -> None:
@@ -76,6 +90,39 @@ class _FakeAttachmentService:
         del self._repo._store[attachment_id]
         self.deleted.append(attachment_id)
         return True
+
+    async def open_stream(self, attachment):
+        async def _gen():
+            yield b"\xff\xd8fake-jpeg-bytes"
+
+        return _gen()
+
+
+class _FakeSpeciesRepo:
+    def __init__(self, species: dict[str, Species] | None = None) -> None:
+        self._species = species or {}
+
+    def get_by_key(self, key):
+        return self._species.get(key)
+
+
+class _FakeIdentificationService:
+    """Stub of the identification service for assessment tests.
+
+    ``result`` / ``raise_exc`` are set by the test; ``calls`` records the adapter
+    keys the service was asked to run so a test can assert the adapter wiring.
+    """
+
+    def __init__(self, result=None, raise_exc=None) -> None:
+        self._result = result
+        self._raise = raise_exc
+        self.calls: list[str] = []
+
+    def assess_quality(self, image_data, *, adapter_key, tenant_key, user_key, organ=None, language="de"):
+        self.calls.append(adapter_key)
+        if self._raise is not None:
+            raise self._raise
+        return self._result
 
 
 def _attachment(
@@ -113,6 +160,148 @@ def _build(plant: PlantInstance | None = None, *, max_photos: int = 50):
     settings = Settings(storage_max_photos_per_instance=max_photos)
     service = PlantPhotoService(plant_repo, att_repo, att_service, settings)
     return service, plant_repo, att_repo, att_service
+
+
+def _build_assess(
+    *,
+    species_key: str | None = "species1",
+    scientific_name: str | None = "Ocimum basilicum",
+    result=None,
+    raise_exc=None,
+):
+    """Build a PlantPhotoService wired for assessment with one linked photo."""
+    plant = PlantInstance(
+        _key="plant1",
+        tenant_key=TENANT,
+        instance_id="P-1",
+        species_key=species_key or "",
+        planted_on=datetime(2026, 6, 1).date(),
+    )
+    plant_repo = _FakePlantRepo(plant)
+    att_repo = _FakeAttachmentRepo()
+    att_repo.add(_attachment("att1"))
+    att_service = _FakeAttachmentService(att_repo)
+    species = {}
+    if species_key and scientific_name:
+        species[species_key] = Species(scientific_name=scientific_name)
+    ident = _FakeIdentificationService(result=result, raise_exc=raise_exc)
+    settings = Settings()
+    service = PlantPhotoService(
+        plant_repo,
+        att_repo,
+        att_service,
+        settings,
+        identification_service=ident,
+        species_repo=_FakeSpeciesRepo(species),
+    )
+    # Link the photo through the public path so photo_refs is consistent.
+    service.link_photo("plant1", "att1", TENANT)
+    return service, att_repo, ident
+
+
+def _result(suggestions, *, is_plant=True):
+    return IdentificationResult(
+        suggestions=[
+            IdentificationSuggestion(
+                rank=i + 1,
+                scientific_name=name,
+                confidence=conf,
+                external_id=f"plantnet:{i}",
+            )
+            for i, (name, conf) in enumerate(suggestions)
+        ],
+        is_plant=is_plant,
+    )
+
+
+class TestAssessPhoto:
+    @pytest.mark.asyncio
+    async def test_good_when_expected_is_top1_high_confidence(self):
+        res = _result([("Ocimum basilicum", 0.92), ("Mentha spicata", 0.05)])
+        service, att_repo, ident = _build_assess(result=res)
+        updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "good"
+        assert assessment.expected_species_matched is True
+        assert assessment.is_plant is True
+        assert ident.calls == ["plantnet"]
+        # Persisted on the attachment (visible afterwards).
+        assert att_repo.get("att1", TENANT).quality_assessment.rating == "good"
+        assert updated.quality_assessment.rating == "good"
+        # Top-3 suggestions captured.
+        assert assessment.suggestions[0].scientific_name == "Ocimum basilicum"
+
+    @pytest.mark.asyncio
+    async def test_fair_when_expected_present_but_not_top1(self):
+        res = _result([("Mentha spicata", 0.55), ("Ocimum basilicum", 0.30)])
+        service, _ar, _id = _build_assess(result=res)
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "fair"
+        assert assessment.expected_species_matched is True
+
+    @pytest.mark.asyncio
+    async def test_poor_when_expected_missing_and_low_confidence(self):
+        res = _result([("Mentha spicata", 0.20), ("Rosa canina", 0.10)])
+        service, _ar, _id = _build_assess(result=res)
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "poor"
+        assert assessment.expected_species_matched is False
+
+    @pytest.mark.asyncio
+    async def test_poor_when_not_a_plant(self):
+        res = _result([], is_plant=False)
+        service, _ar, _id = _build_assess(result=res)
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "poor"
+        assert assessment.is_plant is False
+
+    @pytest.mark.asyncio
+    async def test_no_species_rates_on_confidence_only(self):
+        # Plant without a species_key — no soll/ist comparison.
+        res = _result([("Whatever plantae", 0.80)])
+        service, _ar, _id = _build_assess(species_key=None, scientific_name=None, result=res)
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "good"
+        assert assessment.expected_species_matched is None
+
+    @pytest.mark.asyncio
+    async def test_no_species_low_confidence_poor(self):
+        res = _result([("Whatever plantae", 0.20)])
+        service, _ar, _id = _build_assess(species_key=None, scientific_name=None, result=res)
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "poor"
+        assert assessment.expected_species_matched is None
+
+    @pytest.mark.asyncio
+    async def test_re_assessment_overwrites(self):
+        res1 = _result([("Mentha spicata", 0.20)])
+        service, att_repo, ident = _build_assess(result=res1)
+        await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert att_repo.get("att1", TENANT).quality_assessment.rating == "poor"
+        # Second run with a better result overwrites the verdict.
+        ident._result = _result([("Ocimum basilicum", 0.95)])
+        _updated, assessment = await service.assess_photo("plant1", "att1", TENANT, "user_anna", "plantnet")
+        assert assessment.rating == "good"
+        assert att_repo.get("att1", TENANT).quality_assessment.rating == "good"
+
+    @pytest.mark.asyncio
+    async def test_adapter_not_available_propagates(self):
+        service, _ar, _id = _build_assess(
+            raise_exc=AdapterNotAvailableError("local_embedding", "adapter is not configured"),
+        )
+        with pytest.raises(AdapterNotAvailableError):
+            await service.assess_photo("plant1", "att1", TENANT, "user_anna", "local_embedding")
+
+    @pytest.mark.asyncio
+    async def test_unknown_photo_404(self):
+        service, _ar, _id = _build_assess(result=_result([]))
+        with pytest.raises(NotFoundError):
+            await service.assess_photo("plant1", "ghost", TENANT, "user_anna", "plantnet")
+
+    @pytest.mark.asyncio
+    async def test_cross_tenant_instance_404(self):
+        service, _ar, _id = _build_assess(result=_result([]))
+        with pytest.raises(NotFoundError):
+            await service.assess_photo("plant1", "att1", OTHER_TENANT, "user_anna", "plantnet")
 
 
 class TestLink:

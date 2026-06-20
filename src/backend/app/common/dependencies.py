@@ -172,7 +172,7 @@ def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]
 
 
 def get_plant_photo_service():
-    """REQ-034 §2.1 — plant-instance photo gallery service."""
+    """REQ-034 §2.1 / §4a — plant-instance photo gallery service."""
     from app.domain.services.plant_photo_service import PlantPhotoService
 
     return PlantPhotoService(
@@ -180,6 +180,8 @@ def get_plant_photo_service():
         attachment_repo=get_attachment_repo(),
         attachment_service=get_attachment_service(),
         settings=settings,
+        identification_service=get_identification_service(),
+        species_repo=get_species_repo(),
     )
 
 

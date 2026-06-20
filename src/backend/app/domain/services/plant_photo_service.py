@@ -37,11 +37,15 @@ from app.common.exceptions import (
 )
 from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import Settings
+from app.domain.engines.photo_quality_assessor import PhotoQualityAssessor
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
+from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment
+from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment, QualityAssessment
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.identification_service import IdentificationService
 
 logger = structlog.get_logger()
 
@@ -55,11 +59,22 @@ class PlantPhotoService:
         attachment_repo: IAttachmentRepository,
         attachment_service: AttachmentService,
         settings: Settings,
+        *,
+        identification_service: IdentificationService | None = None,
+        species_repo: ISpeciesRepository | None = None,
+        quality_assessor: PhotoQualityAssessor | None = None,
     ) -> None:
         self._plants = plant_repo
         self._attachments = attachment_repo
         self._attachment_service = attachment_service
         self._settings = settings
+        # REQ-034 §4a — optional dependencies for the on-demand quality
+        # assessment. They are only required by ``assess_photo``; the link /
+        # cover / delete paths work without them (kept optional so existing
+        # construction sites and tests need no change).
+        self._identification = identification_service
+        self._species = species_repo
+        self._quality_assessor = quality_assessor or PhotoQualityAssessor()
 
     # ── Internal helpers ──────────────────────────────────────────────
 
@@ -251,6 +266,98 @@ class PlantPhotoService:
             taken_on_set=not isinstance(taken_on, _Unset),
         )
         return updated
+
+    # ── Quality assessment (REQ-034 §4a) ──────────────────────────────
+
+    async def _read_photo_bytes(self, attachment: Attachment) -> bytes:
+        """Stream a stored photo's bytes back into memory for assessment.
+
+        The gallery photo is already EXIF-stripped on upload (§3), so it is fed
+        straight to the recognition adapter; the identification engine still
+        validates + normalizes it. Reading a single photo fully into memory is
+        bounded by the upload size limit (NFR-013 §5.2).
+        """
+        chunks: list[bytes] = []
+        async for chunk in await self._attachment_service.open_stream(attachment):
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+    async def assess_photo(
+        self,
+        key: str,
+        attachment_id: str,
+        tenant_key: str,
+        user_key: str,
+        adapter_key: str,
+    ) -> tuple[Attachment, QualityAssessment]:
+        """REQ-034 §4a — assess a gallery photo's recognition quality and persist it.
+
+        Guards mirror the cover/edit paths: the instance must be tenant-owned and
+        the photo must be linked to it (``attachment_id in photo_refs``), else
+        404 — this also yields the cross-tenant 404 (a foreign instance never
+        resolves). Adapter availability, the third-party-transfer consent (full
+        mode, external path) and the rate limit are enforced by the
+        :class:`IdentificationService`. The derived Ampel verdict is persisted on
+        the attachment (overwriting any previous one) and returned.
+
+        Raises:
+            NotFoundError: instance/photo not found in this tenant (404).
+            AdapterNotAvailableError: adapter unusable here (409).
+            ConsentRequiredError: external path without consent (403).
+            RateLimitError: per-user limit reached (429).
+        """
+        if self._identification is None or self._species is None:  # pragma: no cover - DI wiring
+            raise RuntimeError("PlantPhotoService is not wired for quality assessment.")
+
+        plant = self._get_instance(key, tenant_key)
+        if attachment_id not in plant.photo_refs:
+            raise NotFoundError("PlantPhoto", attachment_id)
+
+        attachment = self._attachments.get(attachment_id, tenant_key)
+        if attachment is None:
+            raise NotFoundError("PlantPhoto", attachment_id)
+
+        # Resolve the plant's expected species name for the soll/ist comparison.
+        # Absent / unknown species → None, the assessor then rates on
+        # is_plant + top-1 confidence only (§4a.2).
+        expected_scientific_name: str | None = None
+        if plant.species_key:
+            species = self._species.get_by_key(plant.species_key)
+            if species is not None:
+                expected_scientific_name = species.scientific_name
+
+        image_bytes = await self._read_photo_bytes(attachment)
+
+        result = self._identification.assess_quality(
+            image_bytes,
+            adapter_key=adapter_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            organ=PlantOrgan.AUTO,
+        )
+
+        assessment = self._quality_assessor.assess(
+            result,
+            adapter_key=adapter_key,
+            expected_scientific_name=expected_scientific_name,
+        )
+
+        updated = self._attachments.update_quality_assessment(attachment_id, tenant_key, assessment)
+        if updated is None:
+            # The id is in photo_refs but the metadata vanished — stale ref.
+            raise NotFoundError("PlantPhoto", attachment_id)
+
+        logger.info(
+            "plant_photo_quality_assessed",
+            tenant_key=tenant_key,
+            plant_instance_key=key,
+            attachment_id=attachment_id,
+            adapter=adapter_key,
+            rating=assessment.rating,
+            is_plant=assessment.is_plant,
+            expected_species_matched=assessment.expected_species_matched,
+        )
+        return updated, assessment
 
     # ── List ──────────────────────────────────────────────────────────
 

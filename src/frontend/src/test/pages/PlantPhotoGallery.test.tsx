@@ -56,12 +56,35 @@ function mockAttachmentBlobs(): string[] {
   return requested;
 }
 
+type AssessmentOverride = {
+  rating: 'good' | 'fair' | 'poor';
+  adapter?: string;
+  is_plant?: boolean;
+  expected_species_matched?: boolean | null;
+  suggestions?: { scientific_name: string; confidence: number; external_id: string | null }[];
+};
+
 function photo(
   id: string,
   isCover = false,
-  overrides: { caption?: string | null; taken_on?: string | null } = {},
+  overrides: {
+    caption?: string | null;
+    taken_on?: string | null;
+    quality_assessment?: AssessmentOverride | null;
+  } = {},
 ) {
   const uri = `/api/v1/t/${TENANT}/attachments/${id}`;
+  const qa = overrides.quality_assessment
+    ? {
+        adapter: overrides.quality_assessment.adapter ?? 'plantnet',
+        assessed_at: '2026-06-19T11:00:00Z',
+        is_plant: overrides.quality_assessment.is_plant ?? true,
+        rating: overrides.quality_assessment.rating,
+        expected_species_matched:
+          overrides.quality_assessment.expected_species_matched ?? null,
+        suggestions: overrides.quality_assessment.suggestions ?? [],
+      }
+    : null;
   return {
     attachment_id: id,
     uri,
@@ -75,6 +98,7 @@ function photo(
     byte_size: 1234,
     caption: overrides.caption ?? null,
     taken_on: overrides.taken_on ?? null,
+    quality_assessment: qa,
     created_at: '2026-06-19T10:00:00Z',
   };
 }
@@ -421,6 +445,138 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
       expect(screen.queryByTestId('plant-photo-edit')).not.toBeInTheDocument();
       // But the caption is still shown read-only.
       expect(screen.getByTestId('plant-photo-caption')).toHaveTextContent('visible to viewer');
+    });
+  });
+
+  describe('quality assessment (REQ-034 §4a)', () => {
+    const ADAPTERS_URL = `${PHOTOS_URL}/assess/adapters`;
+
+    function mockAdapters(localAvailable = false) {
+      server.use(
+        http.get(ADAPTERS_URL, () =>
+          HttpResponse.json({
+            adapters: [
+              { key: 'plantnet', available: true, external: true, requires_consent: true },
+              {
+                key: 'local_embedding',
+                available: localAvailable,
+                external: false,
+                requires_consent: false,
+              },
+            ],
+          }),
+        ),
+      );
+    }
+
+    it('renders a persisted quality badge on the thumbnail (visible afterwards)', async () => {
+      mockList([photo('a', true, { quality_assessment: { rating: 'good' } })], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.getByTestId('plant-photo-quality-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('quality-badge-good')).toBeInTheDocument();
+    });
+
+    it('triggers an assessment and shows the Ampel verdict + suggestions', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      mockAdapters();
+      const assessBody = vi.fn();
+      server.use(
+        http.post(`${PHOTOS_URL}/a/assess`, async ({ request }) => {
+          assessBody(await request.json());
+          return HttpResponse.json(
+            photo('a', true, {
+              quality_assessment: {
+                rating: 'good',
+                expected_species_matched: true,
+                suggestions: [
+                  { scientific_name: 'Ocimum basilicum', confidence: 0.95, external_id: 'plantnet:0' },
+                ],
+              },
+            }),
+          );
+        }),
+      );
+
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-assess'));
+
+      // Dialog opens and loads the adapters.
+      await screen.findByTestId('plant-photo-assess-dialog');
+      const runBtn = await screen.findByTestId('assess-run');
+      await user.click(runBtn);
+
+      await waitFor(() => expect(assessBody).toHaveBeenCalledTimes(1));
+      expect(assessBody).toHaveBeenCalledWith(expect.objectContaining({ adapter: 'plantnet' }));
+
+      // The Ampel verdict + the top suggestion appear in the result block.
+      const result = await screen.findByTestId('assess-result');
+      expect(within(result).getByText('Ocimum basilicum')).toBeInTheDocument();
+      expect(within(result).getByTestId('quality-badge-good')).toBeInTheDocument();
+
+      // Persisted: closing the dialog leaves the badge on the thumbnail.
+      await user.click(screen.getByTestId('assess-close'));
+      await waitFor(() =>
+        expect(screen.getByTestId('plant-photo-quality-badge')).toBeInTheDocument(),
+      );
+    });
+
+    it('shows a privacy notice for the external Pl@ntNet path', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      mockAdapters();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-assess'));
+      // Pl@ntNet is the default selection → the external notice is shown.
+      expect(await screen.findByTestId('assess-external-notice')).toBeInTheDocument();
+    });
+
+    it('disables the DINOv2 option when it is not available (no dead code)', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      mockAdapters(false);
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-assess'));
+
+      // The DINOv2 radio is rendered but disabled (greyed-out with a hint).
+      const localRadio = (await screen.findByTestId('assess-adapter-local_embedding')).querySelector(
+        'input',
+      ) as HTMLInputElement;
+      expect(localRadio).toBeDisabled();
+      // Pl@ntNet stays enabled.
+      const plantnetRadio = screen
+        .getByTestId('assess-adapter-plantnet')
+        .querySelector('input') as HTMLInputElement;
+      expect(plantnetRadio).not.toBeDisabled();
+    });
+
+    it('does not offer the assess action to a viewer but shows a persisted badge', async () => {
+      mockList([photo('a', true, { quality_assessment: { rating: 'fair' } })], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('viewer'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      // Viewer cannot trigger a new assessment...
+      expect(screen.queryByTestId('plant-photo-assess')).not.toBeInTheDocument();
+      // ...but sees the persisted verdict.
+      expect(screen.getByTestId('quality-badge-fair')).toBeInTheDocument();
     });
   });
 });

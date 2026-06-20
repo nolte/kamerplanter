@@ -9,6 +9,7 @@ serving (``mime_type`` / ``byte_size``).
 """
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,43 @@ from app.common.enums import AttachmentCategory
 
 # REQ-034 §2.1 — upper bound for the user-editable gallery photo caption.
 CAPTION_MAX_LENGTH = 500
+
+# REQ-034 §4a.2 — the derived photo-quality traffic light.
+QualityRating = Literal["good", "fair", "poor"]
+
+
+class QualitySuggestion(BaseModel):
+    """One recognition suggestion captured in a quality assessment (REQ-034 §4a.2).
+
+    A trimmed-down copy of an ``IdentificationSuggestion`` — only the fields the
+    user needs to understand *why* a photo got its rating are kept (the species
+    name, the model's confidence and the namespaced adapter id). The full
+    identification history is deliberately **not** persisted here (the gallery
+    assessment is anzeigend, not an identification record — §4a vs §4).
+    """
+
+    scientific_name: str
+    confidence: float  # 0.0 - 1.0
+    external_id: str | None = None
+
+
+class QualityAssessment(BaseModel):
+    """REQ-034 §4a.2 — the on-demand image-quality verdict stored on a photo.
+
+    Derived from an ``IdentificationResult`` plus the plant's expected species
+    and persisted on the attachment so it stays visible in the gallery/lightbox
+    afterwards (and can be re-triggered, overwriting the previous verdict).
+    ``expected_species_matched`` is ``None`` when the plant has no
+    ``species_key`` (no soll/ist comparison was possible — the rating then rests
+    on ``is_plant`` + top-1 confidence only, §4a.2).
+    """
+
+    adapter: str
+    assessed_at: datetime
+    is_plant: bool
+    rating: QualityRating
+    expected_species_matched: bool | None = None
+    suggestions: list[QualitySuggestion] = Field(default_factory=list)
 
 
 class Attachment(BaseModel):
@@ -38,6 +76,10 @@ class Attachment(BaseModel):
     # time is unavailable here because EXIF is stripped on upload (NFR-013 §6.4).
     caption: str | None = None
     taken_on: date | None = None
+    # REQ-034 §4a.2 — last image-quality assessment (Ampel + top suggestions).
+    # Populated on demand for gallery photos; ``None`` until the user triggers
+    # an assessment. Re-running overwrites it.
+    quality_assessment: QualityAssessment | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

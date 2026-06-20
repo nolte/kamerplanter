@@ -26,24 +26,55 @@ from fastapi import APIRouter, Depends, Request, Response, UploadFile
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
 from app.api.v1.plant_instances.photo_schemas import (
+    AssessmentAdapterResponse,
+    AssessmentAdaptersResponse,
+    PlantPhotoAssessRequest,
     PlantPhotoListResponse,
     PlantPhotoMetadataUpdate,
     PlantPhotoResponse,
+    QualityAssessmentResponse,
+    QualitySuggestionResponse,
 )
-from app.common.dependencies import get_attachment_service, get_plant_photo_service
+from app.common.dependencies import (
+    get_attachment_service,
+    get_identification_service,
+    get_plant_photo_service,
+)
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.attachment_repository import UNSET
-from app.domain.models.attachment import Attachment
+from app.domain.models.attachment import Attachment, QualityAssessment
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.identification_service import IdentificationService
 from app.domain.services.plant_photo_service import PlantPhotoService
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/plant-instances/{key}/photos", tags=["plant-photos"])
+
+
+def _assessment_response(assessment: QualityAssessment | None) -> QualityAssessmentResponse | None:
+    """Map a stored :class:`QualityAssessment` onto its API response (REQ-034 §4a.2)."""
+    if assessment is None:
+        return None
+    return QualityAssessmentResponse(
+        adapter=assessment.adapter,
+        assessed_at=assessment.assessed_at.isoformat(),
+        is_plant=assessment.is_plant,
+        rating=assessment.rating,
+        expected_species_matched=assessment.expected_species_matched,
+        suggestions=[
+            QualitySuggestionResponse(
+                scientific_name=s.scientific_name,
+                confidence=s.confidence,
+                external_id=s.external_id,
+            )
+            for s in assessment.suggestions
+        ],
+    )
 
 
 def _photo_response(attachment: Attachment, tenant_slug: str, *, is_cover: bool) -> PlantPhotoResponse:
@@ -68,6 +99,7 @@ def _photo_response(attachment: Attachment, tenant_slug: str, *, is_cover: bool)
         byte_size=attachment.byte_size,
         caption=attachment.caption,
         taken_on=attachment.taken_on.isoformat() if attachment.taken_on else None,
+        quality_assessment=_assessment_response(attachment.quality_assessment),
         created_at=attachment.created_at.isoformat() if attachment.created_at else None,
     )
 
@@ -187,6 +219,53 @@ def set_cover_photo(
         cover_photo_ref=cover,
         photos=[_photo_response(p, ctx.tenant_slug, is_cover=(p.key == cover)) for p in photos],
     )
+
+
+@router.get("/assess/adapters", response_model=AssessmentAdaptersResponse)
+def list_assessment_adapters(
+    key: str,
+    ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
+    identification_service: IdentificationService = Depends(get_identification_service),
+) -> AssessmentAdaptersResponse:
+    """List the recognition adapters selectable for a quality check (REQ-034 §4a.1).
+
+    Read-permission only so viewers can see which adapters exist (even though
+    they may not trigger an assessment). Disabled adapters (e.g. DINOv2 before
+    Phase 2) are still returned so the UI can offer them greyed-out instead of
+    hiding the option — no dead code.
+    """
+    adapters = [AssessmentAdapterResponse(**a) for a in identification_service.list_assessment_adapters()]
+    return AssessmentAdaptersResponse(adapters=adapters)
+
+
+@router.post("/{attachment_id}/assess", response_model=PlantPhotoResponse)
+async def assess_plant_photo(
+    key: str,
+    attachment_id: str,
+    body: PlantPhotoAssessRequest,
+    ctx: TenantContext = Depends(require_attachment_permission(Action.UPDATE)),
+    photo_service: PlantPhotoService = Depends(get_plant_photo_service),
+) -> PlantPhotoResponse:
+    """Assess a gallery photo's recognition quality and persist the verdict (REQ-034 §4a).
+
+    ``Action.UPDATE`` because a verdict is persisted on the photo — a ``viewer``
+    may see an existing assessment (it ships in the photo listing) but not
+    trigger a new one (AC-13, §4a.3). The chosen adapter, the consent gate
+    (external path, full mode) and the rate limit are enforced downstream; an
+    unusable adapter surfaces as a 409.
+    """
+    updated, _assessment = await photo_service.assess_photo(
+        key,
+        attachment_id,
+        ctx.tenant_key,
+        ctx.user_key,
+        body.adapter,
+    )
+    # Re-resolve the cover flag so the response stays consistent with the gallery.
+    _plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    photo_ids = [p.key or "" for p in photos]
+    cover = _resolved_cover(_plant.cover_photo_ref, photo_ids)
+    return _photo_response(updated, ctx.tenant_slug, is_cover=(updated.key == cover))
 
 
 @router.patch("/{attachment_id}", response_model=PlantPhotoResponse)

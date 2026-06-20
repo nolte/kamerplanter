@@ -5,7 +5,7 @@ from datetime import date
 from typing import Final
 
 from app.common.enums import AttachmentCategory
-from app.domain.models.attachment import Attachment
+from app.domain.models.attachment import Attachment, QualityAssessment
 
 
 class _Unset:
@@ -53,6 +53,21 @@ class IAttachmentRepository(ABC):
         passing ``caption=None`` clears the caption while omitting it leaves the
         stored value intact. Returns the updated attachment, or ``None`` when no
         matching attachment exists. Does not change any other field.
+        """
+
+    @abstractmethod
+    def update_quality_assessment(
+        self,
+        key: str,
+        tenant_key: str,
+        assessment: QualityAssessment,
+    ) -> Attachment | None:
+        """REQ-034 §4a.2 — persist (overwrite) a photo's quality assessment.
+
+        Tenant-scoped: only an attachment whose ``tenant_key`` matches is
+        touched (cross-tenant updates surface as ``None``). Re-running an
+        assessment overwrites the previous verdict. Returns the updated
+        attachment, or ``None`` when no matching attachment exists.
         """
 
     @abstractmethod

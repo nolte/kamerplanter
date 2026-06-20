@@ -1345,7 +1345,50 @@
       "metadataSaved": "Fotodetails gespeichert",
       "metadataError": "Die Fotodetails konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
       "metadataInvalid": "Bitte prüfen Sie Ihre Eingaben: Der Kommentar ist zu lang oder das Aufnahmedatum liegt in der Zukunft.",
-      "editForbidden": "Sie haben keine Berechtigung, dieses Foto zu bearbeiten."
+      "editForbidden": "Sie haben keine Berechtigung, dieses Foto zu bearbeiten.",
+      "quality": {
+        "checkQuality": "Qualität prüfen",
+        "badgeLabel": "Bildqualität",
+        "dialogTitle": "Bildqualität prüfen",
+        "dialogIntro": "Lassen Sie die Bilderkennung einschätzen, ob dieses Foto scharf und typisch genug ist, damit Ihre Pflanze sicher wiedererkannt wird.",
+        "chooseMethod": "Erkennungsmethode wählen",
+        "run": "Foto prüfen",
+        "runAgain": "Erneut prüfen",
+        "running": "Wird geprüft…",
+        "assessed": "Bildqualität bewertet",
+        "externalNotice": "Hinweis: Bei Pl@ntNet wird das Foto zur Auswertung an einen externen Dienst (Drittanbieter) gesendet.",
+        "suggestionsLabel": "Erkannte Pflanzen:",
+        "noSuggestions": "Es wurden keine Pflanzen erkannt.",
+        "confidence": "{{percent}} % Übereinstimmung",
+        "topSuggestion": "Beste Übereinstimmung: {{name}} ({{percent}} %)",
+        "adapter": {
+          "plantnet": "Pl@ntNet (externer Dienst)",
+          "local_embedding": "DINOv2 (lokal, self-hosted)"
+        },
+        "adapterHint": {
+          "plantnet": "Schnelle Erkennung über die Pl@ntNet-Datenbank. Das Foto wird an den Anbieter gesendet.",
+          "local_embedding": "Erkennung auf dem eigenen Server – kein Datenversand an Dritte."
+        },
+        "adapterUnavailable": {
+          "plantnet": "Derzeit nicht verfügbar. Bitte wenden Sie sich an Ihren Administrator.",
+          "local_embedding": "Noch nicht verfügbar – die lokale Erkennung wird in einer späteren Version freigeschaltet."
+        },
+        "rating": {
+          "good": "Gut geeignet",
+          "fair": "Brauchbar",
+          "poor": "Ungeeignet"
+        },
+        "ratingHint": {
+          "good": "Dieses Foto ist scharf und typisch – ideal, um Ihre Pflanze wiederzuerkennen.",
+          "fair": "Dieses Foto ist brauchbar, aber nicht ideal. Ein schärferes oder typischeres Bild wäre besser.",
+          "poor": "Dieses Foto ist für die Erkennung ungeeignet – vermutlich unscharf, falscher Ausschnitt oder untypisch."
+        },
+        "resultHeadline": {
+          "good": "Gut geeignet für die Erkennung",
+          "fair": "Brauchbar für die Erkennung",
+          "poor": "Ungeeignet für die Erkennung"
+        }
+      }
     },
     "plantInstances": {
       "title": "Pflanzeninstanzen",

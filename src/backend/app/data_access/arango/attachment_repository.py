@@ -9,7 +9,7 @@ from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
-from app.domain.models.attachment import Attachment
+from app.domain.models.attachment import Attachment, QualityAssessment
 
 # REQ-025 §3.1 — value written to ``created_by`` when a user is erased but the
 # attachment must stay attached to the tenant record (Scope
@@ -67,6 +67,41 @@ class ArangoAttachmentRepository(IAttachmentRepository, BaseArangoRepository):
             return self.get(key, tenant_key)
 
         patch["updated_at"] = datetime.now(UTC).isoformat()
+        query = """
+        FOR att IN @@collection
+          FILTER att._key == @key AND att.tenant_key == @tenant_key
+          UPDATE att WITH @patch IN @@collection
+            OPTIONS { keepNull: true }
+          RETURN NEW
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "key": key,
+            "tenant_key": tenant_key,
+            "patch": patch,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        doc = next(cursor, None)
+        if doc is None:
+            return None
+        return Attachment(**self._from_doc(doc))
+
+    def update_quality_assessment(
+        self,
+        key: str,
+        tenant_key: str,
+        assessment: QualityAssessment,
+    ) -> Attachment | None:
+        """REQ-034 §4a.2 — persist (overwrite) a photo's quality assessment (AQL).
+
+        The verdict is serialised to a JSON-safe dict (``mode="json"`` so the
+        nested ``assessed_at`` datetime becomes an ISO string) and bound as a
+        single ``@assessment`` object — the AQL stays fully parametrized.
+        """
+        patch: dict[str, Any] = {
+            "quality_assessment": assessment.model_dump(mode="json"),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
         query = """
         FOR att IN @@collection
           FILTER att._key == @key AND att.tenant_key == @tenant_key

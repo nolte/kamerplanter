@@ -7,19 +7,33 @@ the engine calls. The service is the single place the API depends on.
 
 import structlog
 
-from app.common.exceptions import ConsentRequiredError, FeatureNotConfiguredError
+from app.common.exceptions import (
+    AdapterNotAvailableError,
+    ConsentRequiredError,
+    FeatureNotConfiguredError,
+)
 from app.config.settings import settings
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.identification_engine import IdentificationEngine
 from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.identification_repository import IIdentificationRepository
-from app.domain.interfaces.plant_identification_adapter import PlantOrgan
+from app.domain.interfaces.plant_identification_adapter import (
+    IdentificationResult,
+    PlantIdentificationAdapter,
+    PlantOrgan,
+)
 from app.domain.services.identification_rate_limiter import IdentificationRateLimiter
 from app.domain.services.identification_registry import IdentificationAdapterRegistry
 
 logger = structlog.get_logger()
 
 _CONSENT_PURPOSE = "plant_identification"
+
+# REQ-034 §4a.1 — adapter keys whose path sends the photo to a third party.
+# The local DINOv2 adapter is self-hosted (no data egress), Pl@ntNet / Plant.id
+# are external. Used to decide whether consent (full mode) or the operator
+# opt-in (Light mode) is required before an assessment may run.
+_EXTERNAL_ADAPTER_KEYS = frozenset({"plantnet", "plant_id"})
 
 
 class IdentificationService:
@@ -153,6 +167,120 @@ class IdentificationService:
             tenant_key=tenant_key,
             user_key=user_key,
         )
+
+    # ── quality assessment (REQ-034 §4a) ────────────────────────────────
+
+    @staticmethod
+    def _is_external(adapter_key: str) -> bool:
+        """Whether the adapter sends the photo to a third party (REQ-034 §4a.1)."""
+        return adapter_key in _EXTERNAL_ADAPTER_KEYS
+
+    def _resolve_assessment_adapter(self, adapter_key: str) -> PlantIdentificationAdapter:
+        """Resolve and authorise an explicitly-chosen adapter for an assessment.
+
+        REQ-034 §4a.1/§4a.3 — unlike ``identify_plant`` the photo-quality
+        assessment is always adapter-*specific* (the user picks Pl@ntNet or
+        DINOv2 in the UI), so a missing/unconfigured adapter is a 409 conflict
+        with the current configuration rather than a silent fall-back. In Light
+        mode the external path additionally needs the operator opt-in.
+        """
+        try:
+            adapter = self._registry.get(adapter_key)
+        except KeyError as exc:
+            raise AdapterNotAvailableError(adapter_key, "adapter is not registered") from exc
+
+        if not adapter.is_configured():
+            raise AdapterNotAvailableError(
+                adapter_key,
+                "adapter is not configured (the self-hosted inference service may be disabled until Phase 2)",
+            )
+
+        if (
+            self._is_external(adapter_key)
+            and settings.kamerplanter_mode != "full"
+            and not settings.identification_external_in_light_mode
+        ):
+            raise AdapterNotAvailableError(
+                adapter_key,
+                "the external recognition path is disabled in Light mode (operator opt-in required)",
+            )
+        return adapter
+
+    def assess_quality(
+        self,
+        image_data: bytes,
+        *,
+        adapter_key: str,
+        tenant_key: str,
+        user_key: str,
+        organ: PlantOrgan = PlantOrgan.AUTO,
+        language: str = "de",
+    ) -> IdentificationResult:
+        """Run an adapter-specific recognition for a *quality* assessment (REQ-034 §4a).
+
+        Reuses the identification gates — adapter availability (409), the
+        ``plant_identification`` consent for the external path (403, full mode
+        only) and the per-user rate limit — then returns the **raw**
+        recognition result. The Ampel verdict is derived and persisted by the
+        caller (``PlantPhotoService``); no identification-history record is
+        written (the verdict lives on the photo, §4a vs §4).
+
+        Raises:
+            AdapterNotAvailableError: the chosen adapter cannot be used here (409).
+            ConsentRequiredError: external path without consent (full mode, 403).
+            RateLimitError: the per-user daily limit was reached.
+        """
+        adapter = self._resolve_assessment_adapter(adapter_key)
+
+        # Consent only gates the external path — the self-hosted DINOv2 adapter
+        # has no data egress and therefore needs no third-party-transfer consent.
+        if self._is_external(adapter_key):
+            self._require_consent(user_key)
+
+        configured_limit = settings.identification_rate_limit_per_user_day
+        limit = configured_limit if configured_limit > 0 else (adapter.rate_limit_per_day or 0)
+        if limit > 0:
+            self._rate_limiter.check_and_increment(
+                key=f"assess:{adapter.adapter_key}:{user_key}",
+                limit=limit,
+            )
+
+        logger.info(
+            "photo_quality_assessment_requested",
+            tenant_key=tenant_key,
+            user_key=user_key,
+            adapter=adapter.adapter_key,
+            external=self._is_external(adapter_key),
+        )
+        return self._engine.identify_raw(adapter, image_data, organ=organ, language=language)
+
+    def list_assessment_adapters(self) -> list[dict]:
+        """Adapter choices for the quality-assessment UI (REQ-034 §4a.1).
+
+        Reports every registered adapter with the data the frontend needs to
+        render the picker: its key, whether it is currently usable here
+        (configuration + Light-mode external gate), and whether choosing it
+        requires the third-party-transfer consent. Disabled adapters are still
+        returned so the UI can show them greyed-out with a hint instead of
+        hiding the (future) DINOv2 option entirely (§4a.1 — "kein toter Code").
+        """
+        light_blocks_external = (
+            settings.kamerplanter_mode != "full" and not settings.identification_external_in_light_mode
+        )
+        adapters: list[dict] = []
+        for key in self._registry.all_keys():
+            adapter = self._registry.get(key)
+            external = self._is_external(key)
+            available = adapter.is_configured() and not (external and light_blocks_external)
+            adapters.append(
+                {
+                    "key": key,
+                    "available": available,
+                    "external": external,
+                    "requires_consent": external and settings.kamerplanter_mode == "full",
+                }
+            )
+        return adapters
 
     # ── select result ───────────────────────────────────────────────────
 

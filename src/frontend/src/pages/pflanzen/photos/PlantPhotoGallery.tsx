@@ -13,6 +13,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
 import { formatDate } from '@/utils/formatting';
 import AuthImage from '@/components/common/AuthImage';
 import EmptyState from '@/components/common/EmptyState';
@@ -31,6 +32,8 @@ import {
 import PlantPhotoUploadDialog from './PlantPhotoUploadDialog';
 import PlantPhotoLightbox from './PlantPhotoLightbox';
 import PlantPhotoEditDialog from './PlantPhotoEditDialog';
+import PlantPhotoAssessDialog from './PlantPhotoAssessDialog';
+import QualityRatingBadge from './QualityRatingBadge';
 
 interface PlantPhotoGalleryProps {
   plantInstanceKey: string;
@@ -66,6 +69,7 @@ export default function PlantPhotoGallery({
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<PlantPhoto | null>(null);
   const [editTarget, setEditTarget] = useState<PlantPhoto | null>(null);
+  const [assessTarget, setAssessTarget] = useState<PlantPhoto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlantPhoto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -124,6 +128,21 @@ export default function PlantPhotoGallery({
     },
     [notification, t],
   );
+
+  const handleAssessed = useCallback((updated: PlantPhoto) => {
+    // Patch the assessed photo in place — the quality verdict does not affect
+    // order or cover, so a full reload is unnecessary. Keep an open lightbox in
+    // sync as well so the freshly persisted badge shows immediately.
+    setPhotos((prev) =>
+      prev.map((p) => (p.attachment_id === updated.attachment_id ? { ...p, ...updated } : p)),
+    );
+    setLightboxPhoto((prev) =>
+      prev && prev.attachment_id === updated.attachment_id ? { ...prev, ...updated } : prev,
+    );
+    setAssessTarget((prev) =>
+      prev && prev.attachment_id === updated.attachment_id ? { ...prev, ...updated } : prev,
+    );
+  }, []);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -259,6 +278,17 @@ export default function PlantPhotoGallery({
                   />
                 )}
 
+                {/* Persisted quality verdict (REQ-034 §4a.2) — visible to
+                    everyone incl. viewers (icon-only to stay compact). */}
+                {photo.quality_assessment && (
+                  <Box
+                    sx={{ position: 'absolute', top: 6, right: 6 }}
+                    data-testid="plant-photo-quality-badge"
+                  >
+                    <QualityRatingBadge rating={photo.quality_assessment.rating} iconOnly />
+                  </Box>
+                )}
+
                 {canWrite && (
                   <Box
                     sx={{
@@ -298,6 +328,23 @@ export default function PlantPhotoGallery({
                         </span>
                       </Tooltip>
                     )}
+                    <Tooltip title={t('pages.plantPhotos.quality.checkQuality')}>
+                      <span>
+                        <IconButton
+                          size="medium"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAssessTarget(photo);
+                          }}
+                          disabled={isBusy}
+                          aria-label={t('pages.plantPhotos.quality.checkQuality')}
+                          sx={{ color: 'common.white', p: 0.75 }}
+                          data-testid="plant-photo-assess"
+                        >
+                          <FactCheckIcon />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <Tooltip title={t('pages.plantPhotos.editPhoto')}>
                       <span>
                         <IconButton
@@ -380,6 +427,7 @@ export default function PlantPhotoGallery({
         canWrite={canWrite}
         onSetCover={handleSetCover}
         onEdit={(photo) => setEditTarget(photo)}
+        onAssess={(photo) => setAssessTarget(photo)}
         onDelete={(photo) => setDeleteTarget(photo)}
       />
       <PlantPhotoEditDialog
@@ -387,6 +435,12 @@ export default function PlantPhotoGallery({
         plantInstanceKey={plantInstanceKey}
         onClose={() => setEditTarget(null)}
         onSaved={handleMetadataSaved}
+      />
+      <PlantPhotoAssessDialog
+        photo={assessTarget}
+        plantInstanceKey={plantInstanceKey}
+        onClose={() => setAssessTarget(null)}
+        onAssessed={handleAssessed}
       />
       <ConfirmDialog
         open={deleteTarget !== null}

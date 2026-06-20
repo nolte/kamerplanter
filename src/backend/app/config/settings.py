@@ -139,6 +139,12 @@ class Settings(BaseSettings):
     identification_max_image_size_mb: int = 5
     identification_confidence_auto_accept: float = 0.85
     identification_confidence_min_show: float = 0.10
+    # REQ-034 §4a.3 — operator opt-in for the *external* recognition path
+    # (Pl@ntNet) in Light mode. In Light mode (REQ-027) there is no consent
+    # subsystem, so sending a gallery photo to a third party requires a deliberate
+    # operator decision. Off by default → in Light mode only the self-hosted
+    # ``local_embedding`` path is usable (and only once Phase 2 is enabled).
+    identification_external_in_light_mode: bool = False
     # REQ-029-A §4 reference-image acquisition (DINOv2 index population)
     reference_image_max_candidates: int = 40  # n_max queried per species
     reference_image_min_usable: int = 5  # below this a species is "not recognizable"

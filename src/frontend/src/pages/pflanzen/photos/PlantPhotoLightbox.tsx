@@ -12,9 +12,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
 import { formatDate } from '@/utils/formatting';
 import AuthImage from '@/components/common/AuthImage';
 import type { PlantPhoto } from '@/api/endpoints/plantPhotos';
+import QualityRatingBadge from './QualityRatingBadge';
 
 interface PlantPhotoLightboxProps {
   /** The photo to show full-size, or `null` when the lightbox is closed. */
@@ -26,6 +28,8 @@ interface PlantPhotoLightboxProps {
   onSetCover?: (photo: PlantPhoto) => void;
   /** Called when the user wants to edit caption/date — caller opens the dialog. */
   onEdit?: (photo: PlantPhoto) => void;
+  /** Called when the user wants to check the photo's recognition quality. */
+  onAssess?: (photo: PlantPhoto) => void;
   /** Called when the user requests deletion — caller shows the confirm dialog. */
   onDelete?: (photo: PlantPhoto) => void;
 }
@@ -46,6 +50,7 @@ export default function PlantPhotoLightbox({
   canWrite = false,
   onSetCover,
   onEdit,
+  onAssess,
   onDelete,
 }: PlantPhotoLightboxProps) {
   const { t } = useTranslation();
@@ -77,6 +82,13 @@ export default function PlantPhotoLightbox({
       onClose();
     }
   }, [photo, onEdit, onClose]);
+
+  const handleAssess = useCallback(() => {
+    if (photo && onAssess) {
+      onAssess(photo);
+      onClose();
+    }
+  }, [photo, onAssess, onClose]);
 
   const handleDelete = useCallback(() => {
     if (photo && onDelete) {
@@ -198,6 +210,27 @@ export default function PlantPhotoLightbox({
               {photo.caption}
             </Typography>
           )}
+
+          {/* Persisted quality verdict (REQ-034 §4a.2) — visible to everyone
+              incl. viewers (AC-13): badge + the top suggestions. */}
+          {photo.quality_assessment && (
+            <Box sx={{ mt: 1.5 }} data-testid="plant-photo-lightbox-quality">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <QualityRatingBadge rating={photo.quality_assessment.rating} size="small" />
+                <Typography variant="caption" color="grey.400">
+                  {t(`pages.plantPhotos.quality.resultHeadline.${photo.quality_assessment.rating}`)}
+                </Typography>
+              </Box>
+              {photo.quality_assessment.suggestions.length > 0 && (
+                <Typography variant="caption" color="grey.400" sx={{ display: 'block', mt: 0.5 }}>
+                  {t('pages.plantPhotos.quality.topSuggestion', {
+                    name: photo.quality_assessment.suggestions[0].scientific_name,
+                    percent: Math.round(photo.quality_assessment.suggestions[0].confidence * 100),
+                  })}
+                </Typography>
+              )}
+            </Box>
+          )}
         </Box>
       )}
 
@@ -217,6 +250,17 @@ export default function PlantPhotoLightbox({
             {photo.is_cover ? t('pages.plantPhotos.coverLabel') : ''}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {onAssess && (
+              <Button
+                size="small"
+                startIcon={<FactCheckIcon />}
+                onClick={handleAssess}
+                sx={{ color: 'common.white' }}
+                data-testid="plant-photo-lightbox-assess"
+              >
+                {t('pages.plantPhotos.quality.checkQuality')}
+              </Button>
+            )}
             {onEdit && (
               <Button
                 size="small"

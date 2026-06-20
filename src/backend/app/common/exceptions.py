@@ -390,3 +390,28 @@ class FeatureNotConfiguredError(KamerplanterError):
             error_code="FEATURE_NOT_CONFIGURED",
             status_code=503,
         )
+
+
+class AdapterNotAvailableError(KamerplanterError):
+    """REQ-034 §4a.3 — the requested recognition adapter cannot be used here.
+
+    A 409 (conflict with the current configuration), not a 503, because the
+    caller explicitly chose an adapter (e.g. ``local_embedding`` while the
+    inference service is still disabled, or the external path in Light mode
+    without the operator opt-in) — the request is well-formed but conflicts with
+    the instance's current state.
+    """
+
+    def __init__(self, adapter_key: str, reason: str) -> None:
+        super().__init__(
+            message=f"Recognition adapter '{adapter_key}' is not available: {reason}",
+            error_code="ADAPTER_NOT_AVAILABLE",
+            status_code=409,
+            details=[
+                {
+                    "field": "adapter",
+                    "reason": reason,
+                    "code": "ADAPTER_NOT_AVAILABLE",
+                }
+            ],
+        )

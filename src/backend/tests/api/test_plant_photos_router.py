@@ -19,14 +19,23 @@ from PIL import Image
 
 from app.api.v1.plant_instances.photo_router import router as photo_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_attachment_service, get_plant_photo_service
+from app.common.dependencies import (
+    get_attachment_service,
+    get_identification_service,
+    get_plant_photo_service,
+)
 from app.common.enums import TenantRole
-from app.common.exceptions import KamerplanterError
+from app.common.exceptions import AdapterNotAvailableError, KamerplanterError
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.domain.interfaces.attachment_repository import UNSET, _Unset
+from app.domain.interfaces.plant_identification_adapter import (
+    IdentificationResult,
+    IdentificationSuggestion,
+)
 from app.domain.models.attachment import Attachment
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.plant_photo_service import PlantPhotoService
@@ -77,6 +86,14 @@ class _FakeAttachmentRepo:
         self._store[key] = updated
         return updated
 
+    def update_quality_assessment(self, key, tenant_key, assessment):
+        att = self.get(key, tenant_key)
+        if att is None:
+            return None
+        updated = att.model_copy(update={"quality_assessment": assessment})
+        self._store[key] = updated
+        return updated
+
     def find_by_sha256(self, tenant_key, sha256):
         for a in self._store.values():
             if a.tenant_key == tenant_key and a.sha256 == sha256:
@@ -116,7 +133,42 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
 
-def _build(tmp_path, role: TenantRole = TenantRole.ADMIN, *, max_photos: int = 50):
+class _StubIdentificationService:
+    """Stub for the identification service used by the assess endpoints."""
+
+    def __init__(self, result=None, raise_exc=None, adapters=None) -> None:
+        self._result = result
+        self._raise = raise_exc
+        self._adapters = adapters or []
+
+    def assess_quality(self, image_data, *, adapter_key, tenant_key, user_key, organ=None, language="de"):
+        if self._raise is not None:
+            raise self._raise
+        return self._result
+
+    def list_assessment_adapters(self):
+        return self._adapters
+
+
+class _FakeSpeciesRepo:
+    def __init__(self, species: dict[str, Species] | None = None) -> None:
+        self._species = species or {}
+
+    def get_by_key(self, key):
+        return self._species.get(key)
+
+
+def _build(
+    tmp_path,
+    role: TenantRole = TenantRole.ADMIN,
+    *,
+    max_photos: int = 50,
+    species_key: str = "",
+    species_name: str | None = None,
+    ident_result=None,
+    ident_raise=None,
+    ident_adapters=None,
+):
     att_repo = _FakeAttachmentRepo()
     adapter = LocalFsStorageAdapter(
         root=str(tmp_path),
@@ -131,11 +183,20 @@ def _build(tmp_path, role: TenantRole = TenantRole.ADMIN, *, max_photos: int = 5
         _key=PLANT_KEY,
         tenant_key=TENANT_KEY,
         instance_id="P-1",
-        species_key="",  # empty → reference hook is never dispatched
+        species_key=species_key,  # empty → reference hook is never dispatched
         planted_on=date(2026, 6, 1),
     )
     plant_repo = _FakePlantRepo(plant)
-    photo_service = PlantPhotoService(plant_repo, att_repo, att_service, settings)
+    species = {species_key: Species(scientific_name=species_name)} if species_key and species_name else {}
+    ident = _StubIdentificationService(result=ident_result, raise_exc=ident_raise, adapters=ident_adapters)
+    photo_service = PlantPhotoService(
+        plant_repo,
+        att_repo,
+        att_service,
+        settings,
+        identification_service=ident,
+        species_repo=_FakeSpeciesRepo(species),
+    )
 
     app = FastAPI()
     app.include_router(photo_router, prefix="/api/v1/t/{tenant_slug}")
@@ -143,6 +204,7 @@ def _build(tmp_path, role: TenantRole = TenantRole.ADMIN, *, max_photos: int = 5
     app.dependency_overrides[get_current_tenant] = lambda: _ctx(role)
     app.dependency_overrides[get_attachment_service] = lambda: att_service
     app.dependency_overrides[get_plant_photo_service] = lambda: photo_service
+    app.dependency_overrides[get_identification_service] = lambda: ident
 
     # Silence the off-path Celery dispatches.
     import app.tasks.storage_tasks as storage_tasks
@@ -286,6 +348,102 @@ class TestMetadata:
         assert resp.status_code == 404
 
 
+def _ident_result(pairs, *, is_plant=True):
+    return IdentificationResult(
+        suggestions=[
+            IdentificationSuggestion(rank=i + 1, scientific_name=n, confidence=c, external_id=f"plantnet:{i}")
+            for i, (n, c) in enumerate(pairs)
+        ],
+        is_plant=is_plant,
+    )
+
+
+class TestAssess:
+    def test_assess_persists_and_returns_verdict(self, tmp_path):
+        app, _pr, att_repo = _build(
+            tmp_path,
+            species_key="sp1",
+            species_name="Ocimum basilicum",
+            ident_result=_ident_result([("Ocimum basilicum", 0.95)]),
+        )
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.post(_base(f"/{att}/assess"), json={"adapter": "plantnet"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        qa = body["quality_assessment"]
+        assert qa is not None
+        assert qa["rating"] == "good"
+        assert qa["is_plant"] is True
+        assert qa["expected_species_matched"] is True
+        assert qa["adapter"] == "plantnet"
+        assert qa["suggestions"][0]["scientific_name"] == "Ocimum basilicum"
+
+        # Persisted: the listing now shows the assessment (visible afterwards).
+        listing = client.get(_base()).json()
+        photo = next(p for p in listing["photos"] if p["attachment_id"] == att)
+        assert photo["quality_assessment"]["rating"] == "good"
+
+    def test_assess_poor_when_not_a_plant(self, tmp_path):
+        app, _pr, _ar = _build(
+            tmp_path,
+            species_key="sp1",
+            species_name="Ocimum basilicum",
+            ident_result=_ident_result([], is_plant=False),
+        )
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.post(_base(f"/{att}/assess"), json={"adapter": "plantnet"})
+        assert resp.status_code == 200
+        assert resp.json()["quality_assessment"]["rating"] == "poor"
+
+    def test_assess_adapter_unavailable_409(self, tmp_path):
+        app, _pr, _ar = _build(
+            tmp_path,
+            ident_raise=AdapterNotAvailableError("local_embedding", "adapter is not configured"),
+        )
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.post(_base(f"/{att}/assess"), json={"adapter": "local_embedding"})
+        assert resp.status_code == 409
+        assert resp.json()["error_code"] == "ADAPTER_NOT_AVAILABLE"
+
+    def test_assess_unknown_photo_404(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path, ident_result=_ident_result([]))
+        client = TestClient(app)
+        _upload(client)
+        resp = client.post(_base("/ghost/assess"), json={"adapter": "plantnet"})
+        assert resp.status_code == 404
+
+    def test_assess_invalid_adapter_422(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path, ident_result=_ident_result([]))
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.post(_base(f"/{att}/assess"), json={"adapter": "bogus"})
+        assert resp.status_code == 422
+
+    def test_list_assessment_adapters(self, tmp_path):
+        adapters = [
+            {"key": "plantnet", "available": True, "external": True, "requires_consent": True},
+            {"key": "local_embedding", "available": False, "external": False, "requires_consent": False},
+        ]
+        app, _pr, _ar = _build(tmp_path, ident_adapters=adapters)
+        client = TestClient(app)
+        resp = client.get(_base("/assess/adapters"))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        keys = {a["key"]: a for a in body["adapters"]}
+        assert keys["plantnet"]["available"] is True
+        assert keys["local_embedding"]["available"] is False
+
+    def test_viewer_can_list_adapters(self, tmp_path):
+        adapters = [{"key": "plantnet", "available": True, "external": True, "requires_consent": True}]
+        app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER, ident_adapters=adapters)
+        client = TestClient(app)
+        resp = client.get(_base("/assess/adapters"))
+        assert resp.status_code == 200
+
+
 class TestViewerForbidden:
     def test_viewer_can_read(self, tmp_path):
         app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
@@ -315,6 +473,12 @@ class TestViewerForbidden:
         app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
         client = TestClient(app)
         resp = client.patch(_base("/whatever"), json={"caption": "x"})
+        assert resp.status_code == 403
+
+    def test_viewer_cannot_assess(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
+        client = TestClient(app)
+        resp = client.post(_base("/whatever/assess"), json={"adapter": "plantnet"})
         assert resp.status_code == 403
 
 

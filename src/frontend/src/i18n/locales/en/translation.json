@@ -1345,7 +1345,50 @@
       "metadataSaved": "Photo details saved",
       "metadataError": "The photo details could not be saved. Please try again.",
       "metadataInvalid": "Please check your input: the caption is too long or the date taken is in the future.",
-      "editForbidden": "You do not have permission to edit this photo."
+      "editForbidden": "You do not have permission to edit this photo.",
+      "quality": {
+        "checkQuality": "Check quality",
+        "badgeLabel": "Image quality",
+        "dialogTitle": "Check image quality",
+        "dialogIntro": "Let the plant recognition estimate whether this photo is sharp and typical enough for your plant to be reliably recognised.",
+        "chooseMethod": "Choose recognition method",
+        "run": "Check photo",
+        "runAgain": "Check again",
+        "running": "Checking…",
+        "assessed": "Image quality assessed",
+        "externalNotice": "Note: with Pl@ntNet the photo is sent to an external (third-party) service for analysis.",
+        "suggestionsLabel": "Recognised plants:",
+        "noSuggestions": "No plants were recognised.",
+        "confidence": "{{percent}}% match",
+        "topSuggestion": "Best match: {{name}} ({{percent}}%)",
+        "adapter": {
+          "plantnet": "Pl@ntNet (external service)",
+          "local_embedding": "DINOv2 (local, self-hosted)"
+        },
+        "adapterHint": {
+          "plantnet": "Fast recognition via the Pl@ntNet database. The photo is sent to the provider.",
+          "local_embedding": "Recognition on your own server — no data sent to third parties."
+        },
+        "adapterUnavailable": {
+          "plantnet": "Currently unavailable. Please contact your administrator.",
+          "local_embedding": "Not available yet — local recognition will be enabled in a later version."
+        },
+        "rating": {
+          "good": "Well suited",
+          "fair": "Usable",
+          "poor": "Not suitable"
+        },
+        "ratingHint": {
+          "good": "This photo is sharp and typical — ideal for recognising your plant.",
+          "fair": "This photo is usable but not ideal. A sharper or more typical image would be better.",
+          "poor": "This photo is not suitable for recognition — likely blurry, the wrong crop, or atypical."
+        },
+        "resultHeadline": {
+          "good": "Well suited for recognition",
+          "fair": "Usable for recognition",
+          "poor": "Not suitable for recognition"
+        }
+      }
     },
     "plantInstances": {
       "title": "Plant Instances",
