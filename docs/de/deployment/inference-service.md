@@ -140,13 +140,25 @@ Im Entwicklungs-Workflow wird der Inferenz-Service über das Skaffold-Profil `re
 
 In Produktion laufen der Inferenz-Service und eine **dedizierte** pgvector-Instanz (`vectordb`) im **selben** Helm-Release wie Backend und Frontend (Release-Name `kamerplanter`). Das Chart `helm/kamerplanter/values.yaml` enthält dafür zwei zusätzliche Controller, die standardmäßig deaktiviert sind: `vectordb` und `inference-service`. Der Operator aktiviert sie über `valuesObject` in der ArgoCD-Application.
 
-!!! warning "Passwörter: Zwei Secret-Schlüssel sind Pflicht"
-    Das Chart injiziert das Secret `kamerplanter-secrets` per `envFrom` in beide neuen Container. Der Operator muss **vor** dem ersten Deploy zwei Schlüssel in dieses Secret eintragen:
+!!! warning "Ein Secret-Schlüssel: `POSTGRES_PASSWORD`"
+    Der Operator setzt **vor** dem ersten Deploy genau **einen** Schlüssel in `kamerplanter-secrets`: `POSTGRES_PASSWORD`. Den verlangt der `vectordb`-Container (PostgreSQL 18) zwingend unter diesem Namen; der `inference-service` leitet sein eigenes `VECTORDB_PASSWORD` per `secretKeyRef` aus **demselben** Schlüssel ab (das Chart verdrahtet das). Kein Passwort landet im Chart oder in Git, und beide Container ziehen gezielt nur diesen einen Schlüssel — nicht das ganze Secret per `envFrom`.
 
-    - `POSTGRES_PASSWORD` — wird vom `vectordb`-Container (PostgreSQL 18 mit pgvector) ausgewertet
-    - `VECTORDB_PASSWORD` — wird vom `inference-service`-Container als Pydantic-Setting `vectordb_password` ausgewertet
+    Schlüssel generieren und setzen (bestehende Secret-Schlüssel bleiben erhalten):
 
-    Beide Schlüssel erhalten denselben Wert (das Passwort für den pgvector-Benutzer). Kein Passwort wird jemals im Chart oder in Git gespeichert.
+    ```bash
+    PW=$(openssl rand -base64 24)
+    kubectl patch secret kamerplanter-secrets -n kamerplanter --type merge \
+      -p "{\"stringData\":{\"POSTGRES_PASSWORD\":\"$PW\"}}"
+    ```
+
+    Falls `kamerplanter-secrets` noch nicht existiert:
+
+    ```bash
+    kubectl create secret generic kamerplanter-secrets -n kamerplanter \
+      --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 24)"
+    ```
+
+    Wird `kamerplanter-secrets` über ESO / Sealed Secrets / Vault gespeist, trage `POSTGRES_PASSWORD` stattdessen an der Quelle ein.
 
 **ArgoCD Application — `spec.sources[].helm.valuesObject`:**
 
@@ -217,7 +229,7 @@ Service-Hostnamen im Cluster (Release-Name `kamerplanter`):
 | `VECTORDB_PORT` | Nein | `5432` | Port der pgvector-Datenbank |
 | `VECTORDB_DATABASE` | Nein | `kamerplanter_vectors` | Datenbankname |
 | `VECTORDB_USERNAME` | Nein | `postgres` | Datenbankbenutzer |
-| `VECTORDB_PASSWORD` | Nein | `changeme` | Datenbankpasswort (in Produktion zwingend überschreiben) |
+| `VECTORDB_PASSWORD` | Nein | `changeme` | Datenbankpasswort. In Produktion (Single-Release) per `secretKeyRef` aus dem **einen** Secret-Schlüssel `POSTGRES_PASSWORD` abgeleitet — nicht separat setzen |
 | `MODEL_NAME` | Nein | `dinov2_vits14` | ONNX-Modellname |
 | `MODEL_PATH` | Nein | `/app/models/dinov2` | Verzeichnis mit dem ONNX-Modellartefakt (`model.onnx`) |
 | `CONFIDENCE_AUTO_ACCEPT` | Nein | `0.85` | Konfidenz-Schwelle für direkte Übernahme |
