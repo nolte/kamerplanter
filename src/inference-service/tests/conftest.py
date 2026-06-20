@@ -133,6 +133,44 @@ class FakePestRepo:
     def classify(self, query_vector, k=5, model=None):
         return self.matches[:k]
 
+    def list_by_label(self, label: str, limit: int = 200, *, active_only: bool = False) -> list[dict]:
+        return [
+            {
+                "id": r.get("id", i + 1),
+                "source_url": r.get("source_url"),
+                "license": r.get("license"),
+                "attribution": r.get("attribution"),
+                "source": r.get("source"),
+                "source_record_id": r.get("source_record_id"),
+                "is_active": r.get("is_active", True),
+                "exclusion_reason": r.get("exclusion_reason"),
+            }
+            for i, r in enumerate(self.rows)
+            if r.get("label") == label and r.get("source_url") and (not active_only or r.get("is_active", True))
+        ][:limit]
+
+    def set_active(self, label: str, prototype_id: int, *, is_active: bool, reason=None) -> bool:
+        for r in self.rows:
+            if r.get("label") == label and r.get("id") == prototype_id:
+                r["is_active"] = is_active
+                r["exclusion_reason"] = reason if not is_active else None
+                return True
+        return False
+
+    def coverage(self) -> list[dict]:
+        from collections import Counter
+
+        totals: Counter = Counter()
+        actives: Counter = Counter()
+        cats: dict = {}
+        for r in self.rows:
+            key = r.get("label")
+            cats[key] = r.get("category", "pest")
+            totals[key] += 1
+            if r.get("is_active", True):
+                actives[key] += 1
+        return [{"label": k, "category": cats[k], "total": totals[k], "active": actives[k]} for k in totals]
+
     def delete_by_label(self, label: str) -> int:
         before = len(self.rows)
         self.rows = [r for r in self.rows if r.get("label") != label]

@@ -23,9 +23,15 @@ from app.schemas import (
     MatchResponse,
     MatchSuggestion,
     ModelInfoResponse,
+    PestCoverageItem,
+    PestCoverageResponse,
     PestDetectResponse,
     PestFindingItem,
+    PestPrototypeItem,
+    PestPrototypeListResponse,
     PestReferenceResponse,
+    PestSetActiveRequest,
+    PestSetActiveResponse,
     PestStatusResponse,
     ReferenceImageItem,
     ReferenceListResponse,
@@ -486,6 +492,38 @@ async def upsert_pest_reference(
         dim=len(vector),
         model=settings.model_name,
     )
+
+
+@app.get("/pest/coverage", response_model=PestCoverageResponse)
+def pest_coverage() -> PestCoverageResponse:
+    """Per-class prototype counts (gallery/coverage source)."""
+    pest_repo = _require_pest_repo()
+    rows = pest_repo.coverage()
+    return PestCoverageResponse(classes=[PestCoverageItem(**row) for row in rows])
+
+
+@app.get("/pest/reference/{label}", response_model=PestPrototypeListResponse)
+def list_pest_references(
+    label: str,
+    limit: int = Query(200, ge=1, le=500),
+    active_only: bool = Query(False),
+) -> PestPrototypeListResponse:
+    """List stored prototype provenance for a class (gallery source, no embeddings)."""
+    pest_repo = _require_pest_repo()
+    rows = pest_repo.list_by_label(label, limit=limit, active_only=active_only)
+    images = [PestPrototypeItem(**row) for row in rows]
+    active = sum(1 for img in images if img.is_active)
+    return PestPrototypeListResponse(label=label, count=len(images), active_count=active, images=images)
+
+
+@app.patch("/pest/reference/{label}/{prototype_id}", response_model=PestSetActiveResponse)
+def set_pest_reference_active(label: str, prototype_id: int, body: PestSetActiveRequest) -> PestSetActiveResponse:
+    """Activate/deactivate one prototype (manual curation)."""
+    pest_repo = _require_pest_repo()
+    updated = pest_repo.set_active(label, prototype_id, is_active=body.is_active, reason=body.reason)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Prototype not found.")
+    return PestSetActiveResponse(status="ok", label=label, id=prototype_id, is_active=body.is_active)
 
 
 @app.delete("/pest/reference/{label}", response_model=DeleteReferenceResponse)

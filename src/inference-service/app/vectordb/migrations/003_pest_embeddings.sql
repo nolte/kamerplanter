@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS pest_embeddings (
     attribution      TEXT,
     source_url       TEXT,
     is_active        BOOLEAN     NOT NULL DEFAULT TRUE,
+    exclusion_reason TEXT,
+    marked_at        TIMESTAMPTZ,
     indexed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (label, source, source_record_id)
 );

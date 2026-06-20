@@ -111,6 +111,64 @@ class PestEmbeddingRepository:
             rows = conn.execute(sql, params).fetchall()
         return [PestMatch(label=row[0], category=row[1], score=float(row[2])) for row in rows]
 
+    def list_by_label(self, label: str, limit: int = 200, *, active_only: bool = False) -> list[dict]:
+        """Return stored prototype provenance for a class (gallery source).
+
+        Only rows carrying a ``source_url`` are returned; embeddings are never
+        returned. ``is_active`` / ``exclusion_reason`` drive the admin curation.
+        """
+        active_filter = "AND is_active = TRUE" if active_only else ""
+        sql = f"""
+            SELECT id, source_url, license, attribution, source,
+                   source_record_id, is_active, exclusion_reason
+            FROM pest_embeddings
+            WHERE label = %s AND source_url IS NOT NULL AND source_url <> ''
+                  {active_filter}
+            ORDER BY indexed_at DESC
+            LIMIT %s
+        """
+        with self._pool.connection() as conn:
+            rows = conn.execute(sql, (label, limit)).fetchall()
+        return [
+            {
+                "id": row[0],
+                "source_url": row[1],
+                "license": row[2],
+                "attribution": row[3],
+                "source": row[4],
+                "source_record_id": row[5],
+                "is_active": row[6],
+                "exclusion_reason": row[7],
+            }
+            for row in rows
+        ]
+
+    def set_active(self, label: str, prototype_id: int, *, is_active: bool, reason: str | None = None) -> bool:
+        """Activate/deactivate one prototype (manual curation). Returns True if updated."""
+        sql = """
+            UPDATE pest_embeddings
+            SET is_active = %s, exclusion_reason = %s, marked_at = NOW()
+            WHERE id = %s AND label = %s
+        """
+        stored_reason = reason if not is_active else None
+        with self._pool.connection() as conn:
+            result = conn.execute(sql, (is_active, stored_reason, prototype_id, label))
+            return (result.rowcount or 0) > 0
+
+    def coverage(self) -> list[dict]:
+        """Per-class prototype counts (total + active), highest first."""
+        sql = """
+            SELECT label, category,
+                   COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE is_active) AS active
+            FROM pest_embeddings
+            GROUP BY label, category
+            ORDER BY active DESC, total DESC
+        """
+        with self._pool.connection() as conn:
+            rows = conn.execute(sql).fetchall()
+        return [{"label": r[0], "category": r[1], "total": r[2], "active": r[3]} for r in rows]
+
     def delete_by_label(self, label: str) -> int:
         """Delete all prototypes for a class. Returns rows deleted."""
         with self._pool.connection() as conn:

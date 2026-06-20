@@ -66,6 +66,47 @@ class TestPestDetect:
         assert resp.status_code == 503
 
 
+class TestPestGalleryAndCoverage:
+    def test_list_references_returns_provenance(self, client, fake_pest_repo):
+        fake_pest_repo.rows = [
+            {"id": 1, "label": "spider_mite", "source_url": "u1", "license": "CC0", "is_active": True},
+            {
+                "id": 2,
+                "label": "spider_mite",
+                "source_url": "u2",
+                "license": "CC-BY",
+                "attribution": "X",
+                "is_active": False,
+            },
+        ]
+        body = client.get("/pest/reference/spider_mite").json()
+        assert body["count"] == 2
+        assert body["active_count"] == 1
+        assert {img["source_url"] for img in body["images"]} == {"u1", "u2"}
+
+    def test_coverage_counts_per_class(self, client, fake_pest_repo):
+        fake_pest_repo.rows = [
+            {"id": 1, "label": "spider_mite", "category": "pest", "source_url": "u1", "is_active": True},
+            {"id": 2, "label": "spider_mite", "category": "pest", "source_url": "u2", "is_active": False},
+            {"id": 3, "label": "ladybird", "category": "beneficial", "source_url": "u3", "is_active": True},
+        ]
+        body = client.get("/pest/coverage").json()
+        by_label = {c["label"]: c for c in body["classes"]}
+        assert by_label["spider_mite"]["total"] == 2
+        assert by_label["spider_mite"]["active"] == 1
+        assert by_label["ladybird"]["category"] == "beneficial"
+
+    def test_set_active_curation(self, client, fake_pest_repo):
+        fake_pest_repo.rows = [{"id": 7, "label": "aphid", "source_url": "u", "is_active": True}]
+        resp = client.patch("/pest/reference/aphid/7", json={"is_active": False, "reason": "blurry"})
+        assert resp.status_code == 200
+        assert fake_pest_repo.rows[0]["is_active"] is False
+
+    def test_set_active_404_for_unknown(self, client, fake_pest_repo):
+        resp = client.patch("/pest/reference/aphid/999", json={"is_active": False})
+        assert resp.status_code == 404
+
+
 class TestPestReference:
     def test_upsert_prototype_with_image(self, client, fake_pest_repo):
         resp = client.post(

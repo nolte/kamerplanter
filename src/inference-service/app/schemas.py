@@ -147,3 +147,52 @@ class PestStatusResponse(BaseModel):
     ready: bool
     index_count: int
     model: str
+
+
+class PestPrototypeItem(BaseModel):
+    """Provenance of one stored prototype (no embedding)."""
+
+    id: int
+    source_url: str
+    license: str | None = None
+    attribution: str | None = None
+    source: str | None = None
+    source_record_id: str | None = None
+    is_active: bool = True
+    exclusion_reason: str | None = None
+
+
+class PestPrototypeListResponse(BaseModel):
+    """Prototype provenance for a class (gallery source)."""
+
+    label: str
+    count: int
+    active_count: int
+    images: list[PestPrototypeItem]
+
+
+class PestCoverageItem(BaseModel):
+    """Per-class prototype counts."""
+
+    label: str
+    category: str
+    total: int
+    active: int
+
+
+class PestCoverageResponse(BaseModel):
+    """Few-shot index coverage across classes."""
+
+    classes: list[PestCoverageItem]
+
+
+class PestSetActiveRequest(BaseModel):
+    is_active: bool
+    reason: str | None = None
+
+
+class PestSetActiveResponse(BaseModel):
+    status: str
+    label: str
+    id: int
+    is_active: bool

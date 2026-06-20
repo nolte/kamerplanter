@@ -4198,3 +4198,48 @@ export interface PestCreateInspectionResult {
   inspection_key: string | null;
   detected_pest_keys: string[];
 }
+
+// ── REQ-044 Pest few-shot index admin ─────────────────────────────────
+
+export interface PestCoverageEntry {
+  label: string;
+  common_name: string;
+  category: string;
+  scientific_name: string;
+  gbif_taxon_key: string | null;
+  total: number;
+  active: number;
+  target: number;
+  usable: boolean;
+}
+
+export interface PestRecognitionStatus {
+  feature_enabled: boolean;
+  service_ready: boolean;
+  index_count: number;
+  target_per_class: number;
+  classes: PestCoverageEntry[];
+}
+
+export interface PestAcquireResponse {
+  status: string;
+  task_id: string | null;
+}
+
+export interface PestCurationImage {
+  id: number;
+  source_url: string;
+  license: string | null;
+  attribution: string | null;
+  source: string | null;
+  source_record_id: string | null;
+  is_active: boolean;
+  exclusion_reason: string | null;
+}
+
+export interface PestCurationImageList {
+  label: string;
+  count: number;
+  active_count: number;
+  images: PestCurationImage[];
+}

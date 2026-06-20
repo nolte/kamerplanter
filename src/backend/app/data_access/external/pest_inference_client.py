@@ -58,6 +58,40 @@ class PestDetectionInferenceClient:
         response.raise_for_status()
         return response.json()
 
+    def coverage(self) -> list[dict[str, Any]]:
+        """Per-class prototype counts. Returns [] when the service is unreachable."""
+        try:
+            response = httpx.get(f"{self._base_url}/pest/coverage", timeout=_DETECT_TIMEOUT_SECONDS)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        return response.json().get("classes", [])
+
+    def list_prototypes(self, label: str, *, limit: int = 200, active_only: bool = False) -> dict[str, Any]:
+        """List stored prototype provenance for a class (gallery source)."""
+        try:
+            response = httpx.get(
+                f"{self._base_url}/pest/reference/{label}",
+                params={"limit": limit, "active_only": active_only},
+                timeout=_DETECT_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return {"label": label, "count": 0, "active_count": 0, "images": []}
+        return response.json()
+
+    def set_prototype_active(
+        self, label: str, prototype_id: int, *, is_active: bool, reason: str | None = None
+    ) -> dict[str, Any]:
+        """Activate/deactivate one prototype (manual curation)."""
+        response = httpx.patch(
+            f"{self._base_url}/pest/reference/{label}/{prototype_id}",
+            json={"is_active": is_active, "reason": reason},
+            timeout=_DETECT_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def upsert_prototype(
         self,
         image: bytes,
