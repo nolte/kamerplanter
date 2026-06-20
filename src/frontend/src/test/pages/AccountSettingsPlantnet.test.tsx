@@ -119,6 +119,30 @@ const HA_BASE = {
   source_ha_timeout: 'default',
 };
 
+// NFR-013 storage block — required on every SystemSettingsResponse mock.
+const STORAGE_BASE = {
+  backend: 'local-fs',
+  local_fs_root: '/data/attachments',
+  local_fs_public_base_url: '',
+  s3_endpoint_url: '',
+  s3_region: '',
+  s3_bucket: '',
+  s3_use_path_style: false,
+  s3_kms_key_id: '',
+  s3_force_tls: true,
+  s3_access_key_id_configured: false,
+  s3_secret_access_key_configured: false,
+  source_backend: 'env',
+  source_local_fs_root: 'env',
+  source_local_fs_public_base_url: 'env',
+  source_s3_endpoint_url: 'env',
+  source_s3_region: 'env',
+  source_s3_bucket: 'env',
+  source_s3_use_path_style: 'env',
+  source_s3_kms_key_id: 'env',
+  source_s3_force_tls: 'env',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -127,6 +151,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
   it('renders masked key and DB source badge', async () => {
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '****2345',
         source_plantnet_api_key: 'db',
@@ -144,6 +169,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
   it('renders env source badge when only env key set', async () => {
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '****abcd',
         source_plantnet_api_key: 'env',
@@ -156,6 +182,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
   it('renders "not set" badge when no key configured', async () => {
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '',
         source_plantnet_api_key: 'none',
@@ -169,6 +196,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     const user = userEvent.setup();
     const { getPutBody } = renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '',
         source_plantnet_api_key: 'none',
@@ -190,6 +218,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     const user = userEvent.setup();
     const { wasDeleteCalled } = renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '****2345',
         source_plantnet_api_key: 'db',
@@ -209,6 +238,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
   it('disables the reset button when the key is not DB-sourced (env only)', async () => {
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: {
         plantnet_api_key_masked: '****env',
         source_plantnet_api_key: 'env',
@@ -222,6 +252,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     const user = userEvent.setup();
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
     });
     const field = await screen.findByTestId('plantnet-key-field');
@@ -238,6 +269,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     const { getTestBody } = renderSettings(
       {
         home_assistant: HA_BASE,
+        storage: STORAGE_BASE,
         plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
       },
       { testResult: { success: true, message: 'Key works' } },
@@ -257,6 +289,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     renderSettings(
       {
         home_assistant: HA_BASE,
+        storage: STORAGE_BASE,
         plant_identification: { plantnet_api_key_masked: '****2345', source_plantnet_api_key: 'db' },
       },
       { testResult: { success: false, message: 'Invalid key' } },
@@ -273,6 +306,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     renderSettings(
       {
         home_assistant: HA_BASE,
+        storage: STORAGE_BASE,
         plant_identification: { plantnet_api_key_masked: '****2345', source_plantnet_api_key: 'db' },
       },
       { testFails: true },
@@ -285,6 +319,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
   it('disables the test button when no key is entered or stored', async () => {
     renderSettings({
       home_assistant: HA_BASE,
+      storage: STORAGE_BASE,
       plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
     });
     const testBtn = await screen.findByTestId('plantnet-test-btn');
@@ -296,6 +331,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
     renderSettings(
       {
         home_assistant: HA_BASE,
+        storage: STORAGE_BASE,
         plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
       },
       { putFails: true },
@@ -332,6 +368,7 @@ describe('AccountSettingsPage — Pl@ntNet section', () => {
           source_ha_access_token: 'db',
           source_ha_timeout: 'default',
         },
+        storage: STORAGE_BASE,
         plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
       },
       { smartHomeEnabled: true },

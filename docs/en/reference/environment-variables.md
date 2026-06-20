@@ -382,6 +382,114 @@ RERANKER_TOP_K=5
 
 ---
 
+## Object Storage (NFR-013)
+
+These variables configure the storage adapter for binary data (photos, imports, exports). The active backend is determined by `STORAGE_BACKEND`. By default, `local-fs` is active — no additional configuration required.
+
+For background information, see [Configure Storage (Object Storage)](../user-guide/object-storage.md) and [Helm Charts — Storage Configuration](../deployment/helm.md#storage-configuration-nfr-013).
+
+### General Storage Settings
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3` |
+| `STORAGE_MAX_FILE_SIZE_MB` | `25` | No | Maximum upload size in megabytes (applies to all categories, overridable per category) |
+| `STORAGE_PRESIGN_TTL_SECONDS` | `900` | No | Validity period of pre-signed URLs in seconds (max. 3600) |
+| `STORAGE_ALLOWED_MIME_TYPES` | *(list)* | No | Comma-separated global whitelist of allowed MIME types |
+| `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(per category)* | No | Category-specific whitelist, e.g. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
+| `STORAGE_VIRUS_SCAN_ENABLED` | `false` | No | Enable virus scanning via ClamAV REST wrapper |
+| `STORAGE_VIRUS_SCAN_ENDPOINT` | *(empty)* | No | URL of the ClamAV REST wrapper |
+| `STORAGE_KEEP_EXIF_<CATEGORY>` | `false` | No | Retain EXIF data for a category, e.g. `STORAGE_KEEP_EXIF_PLANT=true` |
+
+**Default MIME whitelist per category:**
+
+| Category | Allowed MIME types | Max size |
+|---------|--------------------|---------|
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` | 25 MB |
+| `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
+| `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
+| `tenant_export` | `application/zip` | 5 GB |
+
+### Backend: Local Filesystem (`local-fs`)
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `STORAGE_LOCAL_FS_ROOT` | `/data/attachments` | No | Mount path inside the container |
+| `STORAGE_LOCAL_FS_PUBLIC_BASE_URL` | *(empty)* | Yes* | Full URL of the token download endpoint, e.g. `https://api.kamerplanter.example.com/api/v1/attachments/token`. Must point to `https://<host>/api/v1/attachments/token`. |
+| `STORAGE_LOCALFS_SIGNING_SECRET` | *(ephemeral)* | Yes** | Secret key for token signatures. **Required when running more than one replica**, otherwise tokens cannot be validated by other pods. |
+
+*Required for local-fs token downloads to work.
+**Required in multi-replica operation.
+
+!!! warning "Store signing secret as a Kubernetes Secret"
+    `STORAGE_LOCALFS_SIGNING_SECRET` is a cryptographic secret and must not be committed to `values.yaml` or Git in plain text. Create it as a Kubernetes Secret:
+    ```bash
+    kubectl create secret generic kamerplanter-storage-signing \
+      --from-literal=STORAGE_LOCALFS_SIGNING_SECRET="$(openssl rand -hex 32)" \
+      --namespace kamerplanter
+    ```
+
+### Backend: S3-compatible (`s3`)
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `STORAGE_S3_ENDPOINT_URL` | *(empty)* | Yes | Full endpoint URL, e.g. `https://s3.eu-central-1.amazonaws.com` |
+| `STORAGE_S3_REGION` | *(empty)* | Yes | Region, e.g. `eu-central-1` (also required for MinIO) |
+| `STORAGE_S3_BUCKET` | *(empty)* | Yes | Bucket name (must be created beforehand) |
+| `STORAGE_S3_ACCESS_KEY_ID` | *(empty)* | Yes | Access key (from External Secrets Operator — never in plain text in Git) |
+| `STORAGE_S3_SECRET_ACCESS_KEY` | *(empty)* | Yes | Secret access key (from External Secrets Operator — never in plain text in Git) |
+| `STORAGE_S3_USE_PATH_STYLE` | `false` | No | `true` for MinIO and most non-AWS providers |
+| `STORAGE_S3_FORCE_TLS` | `true` | No | Block plain HTTP; set to `false` in dev environments |
+| `STORAGE_S3_KMS_KEY_ID` | *(empty)* | No | Optional customer-managed key for server-side encryption (SSE-KMS) |
+| `STORAGE_S3_ALLOW_PRIVATE_ENDPOINT` | `false` | No | `true` for in-cluster MinIO that is not publicly reachable |
+
+!!! danger "Never put S3 credentials in Git or values.yaml"
+    `STORAGE_S3_ACCESS_KEY_ID` and `STORAGE_S3_SECRET_ACCESS_KEY` are secrets and must be provided exclusively through the External Secrets Operator (ESO) or Kubernetes Secrets. For details, see [Helm Charts — Storage Configuration](../deployment/helm.md#storage-configuration-nfr-013).
+
+#### Example Configurations
+
+=== "AWS S3 (eu-central-1)"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=https://s3.eu-central-1.amazonaws.com
+    STORAGE_S3_REGION=eu-central-1
+    STORAGE_S3_BUCKET=my-kamerplanter-bucket
+    STORAGE_S3_ACCESS_KEY_ID=<from secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<from secret>
+    STORAGE_S3_USE_PATH_STYLE=false
+    STORAGE_S3_FORCE_TLS=true
+    ```
+
+=== "MinIO in-cluster"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=http://minio.kamerplanter.svc:9000
+    STORAGE_S3_REGION=us-east-1
+    STORAGE_S3_BUCKET=kamerplanter
+    STORAGE_S3_ACCESS_KEY_ID=<from secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<from secret>
+    STORAGE_S3_USE_PATH_STYLE=true
+    STORAGE_S3_FORCE_TLS=false
+    STORAGE_S3_ALLOW_PRIVATE_ENDPOINT=true
+    ```
+
+=== "Hetzner Object Storage"
+
+    ```bash
+    STORAGE_BACKEND=s3
+    STORAGE_S3_ENDPOINT_URL=https://fsn1.your-objectstorage.com
+    STORAGE_S3_REGION=eu-central
+    STORAGE_S3_BUCKET=my-kamerplanter-bucket
+    STORAGE_S3_ACCESS_KEY_ID=<from secret>
+    STORAGE_S3_SECRET_ACCESS_KEY=<from secret>
+    STORAGE_S3_USE_PATH_STYLE=false
+    STORAGE_S3_FORCE_TLS=true
+    ```
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can I store environment variables as Kubernetes Secrets?"

@@ -304,7 +304,221 @@ controllers:
 
 ---
 
+## Storage Configuration (NFR-013) {#storage-configuration-nfr-013}
+
+Kamerplanter stores all binary data (photos, imports, exports) through an interchangeable storage adapter. The choice of backend and the associated Kubernetes persistence are fully controlled through `values.yaml`.
+
+### Local Filesystem (Default)
+
+In the default setup, the chart automatically creates the PVC `backend-attachments` and mounts it in the backend and Celery worker pods at `/data/attachments`.
+
+```yaml
+storage:
+  backend: local-fs                  # Default; no external storage needed
+  maxFileSizeMb: 25
+  presignTtlSeconds: 900
+  virusScan:
+    enabled: false
+    endpoint: ""
+
+  localFs:
+    root: /data/attachments           # Container-internal mount path
+    pvc:
+      size: 100Gi
+      accessMode: ReadWriteOnce       # For single-replica (default)
+      storageClass: ""                # Empty = cluster default
+```
+
+**Multi-replica operation** (backend replicas > 1):
+
+```yaml
+storage:
+  localFs:
+    pvc:
+      accessMode: ReadWriteMany       # Requires an RWX-capable StorageClass
+      storageClass: longhorn          # Or: nfs, cephfs, etc.
+```
+
+!!! warning "Signing secret required with RWX"
+    With more than one backend replica, `STORAGE_LOCALFS_SIGNING_SECRET` must be set as a stable Kubernetes Secret. Without it, each pod generates its own ephemeral signing secret — token-based downloads fail when the validation request reaches a different pod than the one that signed the token.
+
+    ```bash
+    kubectl create secret generic kamerplanter-storage-signing \
+      --from-literal=STORAGE_LOCALFS_SIGNING_SECRET="$(openssl rand -hex 32)" \
+      --namespace kamerplanter
+    ```
+
+    Reference it in the chart via `envFrom`:
+
+    ```yaml
+    controllers:
+      backend:
+        containers:
+          main:
+            envFrom:
+              - secretRef:
+                  name: kamerplanter-storage-signing
+    ```
+
+### S3-compatible (Production)
+
+Non-secret S3 parameters are set directly in `values.yaml`. Credentials come exclusively from the External Secrets Operator (ESO) — never as plain text in Git.
+
+```yaml
+storage:
+  backend: s3
+  maxFileSizeMb: 25
+  presignTtlSeconds: 900
+
+  s3:
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: kamerplanter-prod
+    usePathStyle: false               # true for MinIO and non-AWS providers
+    forceTls: true
+    kmsKeyId: ""                      # Optional: customer-managed key (SSE-KMS)
+
+    # S3 credentials via External Secrets Operator (NEVER plain text)
+    credentialsRef:
+      secretName: storage-s3-credentials
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+```
+
+**External Secrets Operator — ESO Secret:**
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: storage-s3-credentials
+  namespace: kamerplanter
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend              # Or AWS Secrets Manager, etc.
+    kind: ClusterSecretStore
+  target:
+    name: storage-s3-credentials
+    creationPolicy: Owner
+  data:
+    - secretKey: STORAGE_S3_ACCESS_KEY_ID
+      remoteRef:
+        key: kamerplanter/storage
+        property: access_key_id
+    - secretKey: STORAGE_S3_SECRET_ACCESS_KEY
+      remoteRef:
+        key: kamerplanter/storage
+        property: secret_access_key
+```
+
+!!! tip "Without ESO: manual Kubernetes Secret"
+    If no External Secrets Operator is available, create the secret manually:
+    ```bash
+    kubectl create secret generic storage-s3-credentials \
+      --from-literal=STORAGE_S3_ACCESS_KEY_ID="your-access-key" \
+      --from-literal=STORAGE_S3_SECRET_ACCESS_KEY="your-secret-key" \
+      --namespace kamerplanter
+    ```
+    The secret should come from a secure vault and must **never** be stored in Git.
+
+#### NetworkPolicy for S3 Endpoints
+
+The chart includes a NetworkPolicy that restricts outbound connections to the configured S3 endpoint and blocks access to the cloud metadata IP (`169.254.169.254`) (SSRF protection):
+
+```yaml
+networkPolicies:
+  storage:
+    enabled: true
+    blockMetadataEndpoint: true      # Blocks 169.254.169.254 (default: true)
+```
+
+#### MinIO In-Cluster
+
+```yaml
+storage:
+  backend: s3
+  s3:
+    endpointUrl: http://minio.kamerplanter.svc:9000
+    region: us-east-1
+    bucket: kamerplanter
+    usePathStyle: true
+    forceTls: false
+    allowPrivateEndpoint: true       # Permits a non-publicly-reachable endpoint
+    credentialsRef:
+      secretName: storage-s3-credentials
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+```
+
+### Virus Scanning (optional)
+
+```yaml
+storage:
+  virusScan:
+    enabled: true
+    endpoint: http://clamav-rest.kamerplanter.svc:9000
+```
+
+ClamAV must run as a separate deployment in the cluster. The backend blocks an upload when the scanner reports a finding.
+
+### Common Provider Configurations
+
+=== "Hetzner Object Storage"
+
+    ```yaml
+    storage:
+      backend: s3
+      s3:
+        endpointUrl: https://fsn1.your-objectstorage.com
+        region: eu-central
+        bucket: my-kamerplanter-bucket
+        usePathStyle: false
+        forceTls: true
+        credentialsRef:
+          secretName: storage-s3-credentials
+          accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+          secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+    ```
+
+=== "Cloudflare R2"
+
+    ```yaml
+    storage:
+      backend: s3
+      s3:
+        endpointUrl: https://<account-id>.r2.cloudflarestorage.com
+        region: auto
+        bucket: kamerplanter
+        usePathStyle: false
+        forceTls: true
+        credentialsRef:
+          secretName: storage-s3-credentials
+          accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+          secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+    ```
+
+=== "Backblaze B2 (S3 API)"
+
+    ```yaml
+    storage:
+      backend: s3
+      s3:
+        endpointUrl: https://s3.eu-central-003.backblazeb2.com
+        region: eu-central-003
+        bucket: kamerplanter
+        usePathStyle: false
+        forceTls: true
+        credentialsRef:
+          secretName: storage-s3-credentials
+          accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+          secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+    ```
+
+---
+
 ## See also
 
 - [Kubernetes Deployment](kubernetes.md) — Step-by-step guide
 - [Environment Variables](../reference/environment-variables.md) — Full reference of all environment variables
+- [Configure Storage (Object Storage)](../user-guide/object-storage.md) — Admin UI and migration

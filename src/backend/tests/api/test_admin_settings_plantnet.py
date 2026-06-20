@@ -39,6 +39,27 @@ def _build_app(service: SystemSettingsService) -> FastAPI:
     return app
 
 
+def _set_storage_env_defaults(env: MagicMock) -> None:
+    """Give a patched ``env_settings`` MagicMock real storage defaults.
+
+    Since SEC-001 the general ``GET /admin/settings`` no longer embeds the
+    storage block, but the patched service still reads ``env_settings.storage_*``
+    elsewhere; a bare MagicMock would yield non-serialisable MagicMock values, so
+    set realistic env defaults to keep the patched env consistent.
+    """
+    env.storage_backend = "local-fs"
+    env.storage_local_fs_root = "/data/attachments"
+    env.storage_local_fs_public_base_url = ""
+    env.storage_s3_endpoint_url = ""
+    env.storage_s3_region = ""
+    env.storage_s3_bucket = ""
+    env.storage_s3_access_key_id = ""
+    env.storage_s3_secret_access_key = ""
+    env.storage_s3_use_path_style = False
+    env.storage_s3_kms_key_id = ""
+    env.storage_s3_force_tls = True
+
+
 def _service_with(db_key: str = "", env_key: str = "") -> SystemSettingsService:
     repo = MagicMock()
     stored = SystemSettings(
@@ -57,6 +78,7 @@ def test_get_settings_masks_db_key():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.get("/api/v1/admin/settings")
     assert resp.status_code == 200
@@ -74,6 +96,7 @@ def test_get_settings_reports_env_source():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.get("/api/v1/admin/settings")
     pi = resp.json()["plant_identification"]
@@ -88,6 +111,7 @@ def test_get_settings_reports_none_source():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.get("/api/v1/admin/settings")
     pi = resp.json()["plant_identification"]
@@ -102,6 +126,7 @@ def test_put_sets_key_and_returns_masked():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.put(
             "/api/v1/admin/settings/plant-identification",
@@ -120,6 +145,7 @@ def test_delete_clears_db_key():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.delete("/api/v1/admin/settings/plant-identification")
     assert resp.status_code == 204
@@ -191,6 +217,7 @@ def test_unused_ha_settings_fixture_keeps_ha_intact():
         env.ha_url = ""
         env.ha_access_token = ""
         env.ha_timeout = 10
+        _set_storage_env_defaults(env)
         client = TestClient(_build_app(service))
         resp = client.get("/api/v1/admin/settings")
     body = resp.json()

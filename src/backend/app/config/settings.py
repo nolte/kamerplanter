@@ -199,6 +199,12 @@ class Settings(BaseSettings):
     storage_s3_use_path_style: bool = False
     storage_s3_kms_key_id: str = ""
     storage_s3_force_tls: bool = True
+    # SSRF guard for the admin "test connection" probe (SEC-002, NFR-013).
+    # Link-local / cloud-metadata ranges (169.254.0.0/16, fd00:ec2::254) are
+    # ALWAYS blocked. Private / loopback S3 endpoints (e.g. an in-cluster MinIO
+    # at http://minio.default.svc or http://localhost:9000) are legitimate but
+    # are only probed when this opt-in is enabled by the operator.
+    storage_s3_allow_private_endpoint: bool = False
 
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
 

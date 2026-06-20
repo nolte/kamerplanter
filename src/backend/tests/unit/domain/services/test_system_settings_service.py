@@ -5,9 +5,24 @@ import pytest
 from app.domain.models.system_settings import (
     HomeAssistantSettings,
     PlantIdentificationSettings,
+    StorageSettings,
     SystemSettings,
 )
 from app.domain.services.system_settings_service import SystemSettingsService
+
+
+def _patch_storage_env(env):
+    env.storage_backend = "local-fs"
+    env.storage_local_fs_root = "/data/attachments"
+    env.storage_local_fs_public_base_url = ""
+    env.storage_s3_endpoint_url = ""
+    env.storage_s3_region = ""
+    env.storage_s3_bucket = ""
+    env.storage_s3_access_key_id = ""
+    env.storage_s3_secret_access_key = ""
+    env.storage_s3_use_path_style = False
+    env.storage_s3_kms_key_id = ""
+    env.storage_s3_force_tls = True
 
 
 @pytest.fixture
@@ -282,3 +297,66 @@ class TestMaskToken:
 
     def test_mask_none(self):
         assert SystemSettingsService.mask_token(None) == ""
+
+
+class TestStorageSettings:
+    def test_update_persists_non_secret_fields(self, service, mock_repo):
+        mock_repo.get.return_value = None
+        mock_repo.upsert.side_effect = lambda s: s
+        result = service.update_storage_settings(backend="s3", s3_bucket="kp-prod", s3_region="eu-central-1")
+        assert result.storage.backend == "s3"
+        assert result.storage.s3_bucket == "kp-prod"
+        assert result.storage.s3_region == "eu-central-1"
+
+    def test_update_rejects_unknown_backend(self, service, mock_repo):
+        mock_repo.get.return_value = None
+        with pytest.raises(ValueError, match="Unknown storage backend"):
+            service.update_storage_settings(backend="gdrive")
+        mock_repo.upsert.assert_not_called()
+
+    def test_effective_db_overrides_env(self, service, mock_repo):
+        mock_repo.get.return_value = SystemSettings(storage=StorageSettings(backend="s3", s3_bucket="db-bucket"))
+        with patch("app.domain.services.system_settings_service.env_settings") as env:
+            _patch_storage_env(env)
+            env.storage_s3_bucket = "env-bucket"
+            effective = service.get_effective_storage_settings()
+        assert effective["backend"] == "s3"
+        assert effective["s3_bucket"] == "db-bucket"
+
+    def test_effective_falls_back_to_env(self, service, mock_repo):
+        mock_repo.get.return_value = SystemSettings()  # no DB override
+        with patch("app.domain.services.system_settings_service.env_settings") as env:
+            _patch_storage_env(env)
+            env.storage_backend = "s3"
+            env.storage_s3_bucket = "env-bucket"
+            effective = service.get_effective_storage_settings()
+        assert effective["backend"] == "s3"
+        assert effective["s3_bucket"] == "env-bucket"
+
+    def test_effective_never_exposes_raw_credentials(self, service, mock_repo):
+        mock_repo.get.return_value = SystemSettings()
+        with patch("app.domain.services.system_settings_service.env_settings") as env:
+            _patch_storage_env(env)
+            env.storage_s3_access_key_id = "AKIASECRET"
+            env.storage_s3_secret_access_key = "topsecret"
+            effective = service.get_effective_storage_settings()
+        # Only presence flags — never the values.
+        assert effective["s3_access_key_id_configured"] is True
+        assert effective["s3_secret_access_key_configured"] is True
+        assert "AKIASECRET" not in str(effective)
+        assert "topsecret" not in str(effective)
+
+    def test_source_reporting(self, service, mock_repo):
+        mock_repo.get.return_value = SystemSettings(storage=StorageSettings(backend="s3"))
+        with patch("app.domain.services.system_settings_service.env_settings") as env:
+            _patch_storage_env(env)
+            info = service.get_storage_settings_with_source()
+        assert info["source_backend"] == "db"
+        assert info["source_s3_bucket"] == "env"
+
+    def test_delete_resets_override(self, service, mock_repo):
+        mock_repo.get.return_value = SystemSettings(storage=StorageSettings(backend="s3", s3_bucket="x"))
+        mock_repo.upsert.side_effect = lambda s: s
+        assert service.delete_storage_settings() is True
+        upserted = mock_repo.upsert.call_args[0][0]
+        assert upserted.storage.backend is None

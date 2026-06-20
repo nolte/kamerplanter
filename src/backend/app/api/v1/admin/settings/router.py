@@ -1,4 +1,5 @@
 import httpx
+import structlog
 from fastapi import APIRouter, Depends
 
 from app.api.v1.admin.settings.schemas import (
@@ -10,15 +11,50 @@ from app.api.v1.admin.settings.schemas import (
     PlantIdentificationSettingsUpdate,
     PlantIdentificationTestRequest,
     PlantIdentificationTestResponse,
+    StorageSettingsResponse,
+    StorageSettingsUpdate,
+    StorageTestRequest,
+    StorageTestResponse,
     SystemSettingsResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_ha_client, get_system_settings_service
+from app.common.exceptions import ValidationError
+from app.common.url_safety import validate_storage_endpoint_url
 from app.config.settings import settings
+from app.data_access.storage.registry import build_storage_test_adapter
 from app.domain.models.user import User
 from app.domain.services.system_settings_service import SystemSettingsService
 
+logger = structlog.get_logger()
+
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
+
+
+def _build_storage_response(service: SystemSettingsService) -> StorageSettingsResponse:
+    info = service.get_storage_settings_with_source()
+    return StorageSettingsResponse(
+        backend=info["backend"],
+        local_fs_root=info["local_fs_root"] or "",
+        local_fs_public_base_url=info["local_fs_public_base_url"] or "",
+        s3_endpoint_url=info["s3_endpoint_url"] or "",
+        s3_region=info["s3_region"] or "",
+        s3_bucket=info["s3_bucket"] or "",
+        s3_use_path_style=bool(info["s3_use_path_style"]),
+        s3_kms_key_id=info["s3_kms_key_id"] or "",
+        s3_force_tls=bool(info["s3_force_tls"]),
+        s3_access_key_id_configured=info["s3_access_key_id_configured"],
+        s3_secret_access_key_configured=info["s3_secret_access_key_configured"],
+        source_backend=info["source_backend"],
+        source_local_fs_root=info["source_local_fs_root"],
+        source_local_fs_public_base_url=info["source_local_fs_public_base_url"],
+        source_s3_endpoint_url=info["source_s3_endpoint_url"],
+        source_s3_region=info["source_s3_region"],
+        source_s3_bucket=info["source_s3_bucket"],
+        source_s3_use_path_style=info["source_s3_use_path_style"],
+        source_s3_kms_key_id=info["source_s3_kms_key_id"],
+        source_s3_force_tls=info["source_s3_force_tls"],
+    )
 
 
 def _build_response(service: SystemSettingsService) -> SystemSettingsResponse:
@@ -46,6 +82,22 @@ def get_settings(
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
     return _build_response(service)
+
+
+@router.get("/storage", response_model=StorageSettingsResponse)
+def get_storage_settings(
+    _current_user: User = Depends(require_platform_admin),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Return the storage-infra config — platform-admin only (SEC-001).
+
+    The storage block (endpoint, region, bucket, KMS key, credential-presence
+    flags) is infrastructure disclosure and is therefore NOT part of the general
+    ``GET /admin/settings`` available to any authenticated user. This dedicated
+    endpoint is gated by ``require_platform_admin`` (the same gate as the storage
+    write/test/delete endpoints, light-mode-aware).
+    """
+    return _build_storage_response(service)
 
 
 @router.put("/home-assistant", response_model=SystemSettingsResponse)
@@ -184,6 +236,137 @@ def delete_plant_identification_settings(
 ):
     """Remove the DB Pl@ntNet key so resolution falls back to the env value."""
     service.delete_plant_identification_settings()
+
+
+# ── NFR-013 Object storage backend selection ────────────────────────
+#
+# The storage backend is an instance-wide operator decision (NFR-013 §4.1), so
+# these endpoints require platform-admin rights via ``require_platform_admin``.
+# In light mode (REQ-027) there is no platform tenant; ``require_platform_admin``
+# already treats the single anonymous system user as the operator/admin
+# (app/common/auth.py), so the same dependency works in BOTH modes — the router
+# itself is mode-agnostic and is registered once for both.
+#
+# SECRETS (NFR-013 §4.1, variant "a"): the S3 access key / secret are NOT
+# accepted, persisted or returned here. They come exclusively from env /
+# External Secrets Operator. The update payload carries only non-secret fields.
+
+
+@router.put("/storage", response_model=StorageSettingsResponse)
+def update_storage_settings(
+    body: StorageSettingsUpdate,
+    _current_user: User = Depends(require_platform_admin),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Set the active storage backend + its non-secret config (DB overrides env).
+
+    Returns the storage block only (SEC-001): the general system-settings
+    response no longer carries storage, and this endpoint is already
+    platform-admin gated, so the caller gets the freshly-persisted storage config
+    back directly.
+    """
+    try:
+        service.update_storage_settings(
+            backend=body.backend,
+            local_fs_root=body.local_fs_root,
+            local_fs_public_base_url=body.local_fs_public_base_url,
+            s3_endpoint_url=body.s3_endpoint_url,
+            s3_region=body.s3_region,
+            s3_bucket=body.s3_bucket,
+            s3_use_path_style=body.s3_use_path_style,
+            s3_kms_key_id=body.s3_kms_key_id,
+            s3_force_tls=body.s3_force_tls,
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    return _build_storage_response(service)
+
+
+@router.post("/storage/test", response_model=StorageTestResponse)
+async def test_storage_connection(
+    body: StorageTestRequest,
+    _current_user: User = Depends(require_platform_admin),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Probe a backend (effective config + optional not-yet-saved overrides).
+
+    Builds a throwaway adapter and runs ``health_check()``. The S3 credentials
+    are injected from env / ESO inside the registry — never from this request —
+    so the test neither accepts nor echoes a secret. The response message NEVER
+    contains credentials or signed URLs (NFR-013 §9.2).
+    """
+    effective = service.get_effective_storage_settings()
+    # Layer the not-yet-persisted overrides on top of the effective config.
+    config = dict(effective)
+    for field in (
+        "backend",
+        "local_fs_root",
+        "local_fs_public_base_url",
+        "s3_endpoint_url",
+        "s3_region",
+        "s3_bucket",
+        "s3_use_path_style",
+        "s3_kms_key_id",
+        "s3_force_tls",
+    ):
+        value = getattr(body, field)
+        if value is not None:
+            config[field] = value
+
+    backend = config.get("backend") or settings.storage_backend
+
+    # SEC-002 (SSRF): the S3 endpoint is fully operator-supplied and dialed
+    # server-side. In light mode the anonymous system user is the "operator", so
+    # without this guard any internal URL (IMDS 169.254.169.254, ArangoDB,
+    # RFC1918) could be probed. Validate the *effective* endpoint before building
+    # the adapter. Link-local/metadata is always blocked; private/loopback (legit
+    # in-cluster MinIO / localhost) only when explicitly opted in.
+    if backend == "s3":
+        endpoint = config.get("s3_endpoint_url") or settings.storage_s3_endpoint_url
+        if endpoint:
+            try:
+                validate_storage_endpoint_url(
+                    endpoint,
+                    field="s3_endpoint_url",
+                    allow_private=settings.storage_s3_allow_private_endpoint,
+                )
+            except ValidationError:
+                logger.warning("storage_test_endpoint_rejected_ssrf", backend=backend)
+                return StorageTestResponse(
+                    success=False,
+                    backend=backend,
+                    message="Storage endpoint is not allowed.",
+                )
+
+    try:
+        adapter = build_storage_test_adapter(config)
+        status = await adapter.health_check()
+    except ValueError as exc:
+        # e.g. force_tls rejecting a plain-HTTP endpoint — message is safe.
+        return StorageTestResponse(success=False, backend=backend, message=str(exc))
+    except Exception:  # noqa: BLE001 — never surface backend internals/secrets
+        logger.warning("storage_test_failed", backend=backend)
+        return StorageTestResponse(
+            success=False,
+            backend=backend,
+            message="Storage backend is not reachable with the current configuration.",
+        )
+
+    ready = bool(status.get("ready"))
+    if backend == "local-fs":
+        message = "Storage path is writable." if ready else "Storage path is not writable."
+        return StorageTestResponse(success=ready, backend=backend, message=message, writable=ready)
+    message = "Bucket is reachable." if ready else "Bucket is not reachable."
+    return StorageTestResponse(success=ready, backend=backend, message=message, bucket_reachable=ready)
+
+
+@router.delete("/storage", status_code=204)
+def delete_storage_settings(
+    _current_user: User = Depends(require_platform_admin),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Clear the DB storage override so resolution falls back to env vars."""
+    service.delete_storage_settings()
 
 
 def _sync_ha_notification_channel() -> None:

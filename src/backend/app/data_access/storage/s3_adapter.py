@@ -200,13 +200,20 @@ class S3StorageAdapter(IObjectStorageAdapter):
                 "ready": True,
             }
         except (ClientError, BotoCoreError) as exc:
+            # SEC-004: ``str(exc)`` from boto3 can embed the endpoint, ARN, bucket
+            # or signed URL. Keep it OUT of the returned dict (which flows to the
+            # admin UI); surface only a structured warning + a generic category.
+            error_category = type(exc).__name__
+            logger.warning(
+                "storage_s3_health_check_failed",
+                backend=BACKEND_KEY,
+                error_category=error_category,
+                detail=str(exc),
+            )
             return {
                 "backend": BACKEND_KEY,
-                "endpoint_url": self._endpoint_url,
-                "region": self._region,
-                "bucket": self._bucket,
                 "ready": False,
-                "reason": str(exc),
+                "error_category": error_category,
             }
 
     # --- IObjectStorageAdapter contract ------------------------------

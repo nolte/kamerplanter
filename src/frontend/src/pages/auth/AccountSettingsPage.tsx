@@ -96,7 +96,9 @@ import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
+import StorageSettingsTab from './StorageSettingsTab';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import type {
   AuthProviderInfo,
@@ -143,12 +145,20 @@ export default function AccountSettingsPage() {
   const preferences = useAppSelector((s) => s.userPreferences.preferences);
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
+  // The Storage settings (NFR-013) are an operator-level decision. In light
+  // mode (REQ-027) the single user is the operator/admin; in full mode it is
+  // gated on the platform-admin flag from /users/me.
+  const isPlatformAdminUser = usePlatformAdmin();
+  const canManageStorage = isLightMode || isPlatformAdminUser;
 
   const tabs: TabDef[] = useMemo(() => {
     // The HA publish-selection tab is only relevant once the user has enabled
     // smart-home / Home Assistant features.
     const haPublishTab: TabDef[] = isSmartHomeEnabled
       ? [{ key: 'ha-publish', label: t('pages.auth.tabHaPublish') }]
+      : [];
+    const storageTab: TabDef[] = canManageStorage
+      ? [{ key: 'storage', label: t('pages.auth.tabStorage') }]
       : [];
     if (isLightMode) {
       return [
@@ -157,6 +167,7 @@ export default function AccountSettingsPage() {
         { key: 'experience', label: t('pages.auth.tabExperience') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
         ...haPublishTab,
+        ...storageTab,
       ];
     }
     return [
@@ -168,10 +179,11 @@ export default function AccountSettingsPage() {
       { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
       { key: 'ha', label: t('pages.auth.tabIntegrations') },
       ...haPublishTab,
+      ...storageTab,
       { key: 'platform', label: t('pages.auth.tabPlatform') },
       { key: 'account', label: t('pages.auth.tabAccount') },
     ];
-  }, [t, isSmartHomeEnabled]);
+  }, [t, isSmartHomeEnabled, canManageStorage]);
 
   const [tabIndex, setTabIndex] = useTabUrl(tabs.map((t) => t.key));
   const activeTab = tabs[tabIndex]?.key ?? 'profile';
@@ -946,6 +958,9 @@ export default function AccountSettingsPage() {
 
       {/* ── HA Publish-Selection Tab ── */}
       {activeTab === 'ha-publish' && <HaPublishSettingsTab />}
+
+      {/* ── Storage Tab (NFR-013) ── */}
+      {activeTab === 'storage' && <StorageSettingsTab />}
 
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (
