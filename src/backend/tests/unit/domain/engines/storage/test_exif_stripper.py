@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import io
 
+import pytest
 from PIL import Image
 
-from app.domain.engines.storage.exif_stripper import ExifStripper
+from app.domain.engines.storage.exif_stripper import (
+    ExifStripper,
+    is_strippable_format,
+    is_unsupported_photo_format,
+    strip_exif,
+)
 
 
 def _exif_of(data: bytes) -> Image.Exif:
@@ -43,3 +49,26 @@ class TestExifStripper:
     def test_malformed_image_returns_original(self) -> None:
         garbage = b"\xff\xd8\xff\xe0not-really-a-jpeg"
         assert self.stripper.strip(garbage, "image/jpeg") == garbage
+
+
+class TestFormatClassification:
+    """SEC-005 — observability helpers for the erasure pipeline."""
+
+    @pytest.mark.parametrize("mime", ["image/jpeg", "image/png", "image/webp", "IMAGE/JPEG"])
+    def test_strippable_formats(self, mime: str) -> None:
+        assert is_strippable_format(mime) is True
+        assert is_unsupported_photo_format(mime) is False
+
+    @pytest.mark.parametrize("mime", ["image/heic", "image/heif", "IMAGE/HEIC"])
+    def test_heic_is_unsupported_not_strippable(self, mime: str) -> None:
+        assert is_strippable_format(mime) is False
+        assert is_unsupported_photo_format(mime) is True
+
+    @pytest.mark.parametrize("mime", ["application/pdf", "", None])
+    def test_non_photo_is_neither(self, mime) -> None:
+        assert is_strippable_format(mime) is False
+        assert is_unsupported_photo_format(mime) is False
+
+    def test_heic_strip_exif_passthrough_unchanged(self) -> None:
+        heic_bytes = b"\x00\x00\x00\x18ftypheic-bytes"
+        assert strip_exif(heic_bytes, "image/heic") == heic_bytes

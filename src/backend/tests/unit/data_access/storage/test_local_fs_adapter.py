@@ -9,6 +9,7 @@ import pytest
 
 from app.data_access.storage.local_fs_adapter import (
     LocalFsStorageAdapter,
+    _require_tenant_scoped_prefix,
     _sanitize_key,
     verify_token,
 )
@@ -188,3 +189,72 @@ class TestEraserHooksWithRepo:
 
         rewritten = await adapter.strip_exif_for_user("t-1", "u-1", "all")
         assert rewritten == 1
+
+    @pytest.mark.asyncio
+    async def test_strip_exif_skips_heic_but_counts_it(self, tmp_path):
+        """SEC-005 — HEIC is left unchanged, not stripped, and logged as skipped."""
+        import structlog
+
+        attachments = [
+            self._FakeAttachment("t-1/diary/photo.heic", "image/heic"),
+            self._FakeAttachment("t-1/diary/ok.jpg", "image/jpeg"),
+        ]
+        adapter = LocalFsStorageAdapter(
+            root=str(tmp_path),
+            public_base_url="http://x",
+            signing_secret=SECRET,
+            max_object_size_bytes=MAX_SIZE,
+            attachment_repo=self._FakeRepo(attachments),
+        )
+        original = b"\x00heic-bytes-unchanged\x00"
+        await adapter.put_object("t-1/diary/photo.heic", _stream(original), "image/heic")
+        await adapter.put_object("t-1/diary/ok.jpg", _stream(b"jpegpayload"), "image/jpeg")
+
+        with structlog.testing.capture_logs() as logs:
+            rewritten = await adapter.strip_exif_for_user("t-1", "u-1", "all")
+
+        # Only the JPEG was rewritten; the HEIC is reported as skipped.
+        assert rewritten == 1
+        chunks = b""
+        async for c in await adapter.get_object("t-1/diary/photo.heic"):
+            chunks += c
+        assert chunks == original
+        events = {log["event"] for log in logs}
+        assert "exif_strip_unsupported_format" in events
+        summary = next(log for log in logs if log["event"] == "storage_strip_exif_for_user")
+        assert summary["skipped_unsupported"] == 1
+
+
+class TestDeletePrefixGuard:
+    """SEC-004 — over-broad delete prefixes are rejected."""
+
+    @pytest.mark.parametrize("bad", ["", "   ", "t", "t/", "/t/", "t//"])
+    def test_require_tenant_scoped_prefix_rejects_over_broad(self, bad):
+        with pytest.raises(ValueError):
+            _require_tenant_scoped_prefix(bad)
+
+    def test_require_tenant_scoped_prefix_accepts_tenant_prefix(self):
+        assert _require_tenant_scoped_prefix("t/abc123/") == "t/abc123"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad", ["t//", "t/", ""])
+    async def test_delete_prefix_rejects_over_broad(self, tmp_path, bad):
+        adapter = _adapter(tmp_path)
+        # Seed an object for two tenants so a successful over-broad delete would
+        # be observable — it must NOT happen.
+        await adapter.put_object("t/aaa/diary/x.jpg", _stream(b"a"), "image/jpeg")
+        await adapter.put_object("t/bbb/diary/y.jpg", _stream(b"b"), "image/jpeg")
+        with pytest.raises(ValueError):
+            await adapter.delete_prefix(bad)
+        result = await adapter.list_objects("t/")
+        assert len(result["keys"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_delete_prefix_scopes_to_single_tenant(self, tmp_path):
+        adapter = _adapter(tmp_path)
+        await adapter.put_object("t/aaa/diary/x.jpg", _stream(b"a"), "image/jpeg")
+        await adapter.put_object("t/bbb/diary/y.jpg", _stream(b"b"), "image/jpeg")
+        deleted = await adapter.delete_prefix("t/aaa/")
+        assert deleted == 1
+        remaining = await adapter.list_objects("t/")
+        assert remaining["keys"] == ["t/bbb/diary/y.jpg"]

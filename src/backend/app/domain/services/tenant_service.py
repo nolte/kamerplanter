@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 import structlog
@@ -31,6 +32,12 @@ from app.domain.models.membership import MemberInfo, Membership
 from app.domain.models.tenant import Tenant, TenantWithRole
 
 logger = structlog.get_logger()
+
+# SEC-004: tenant keys are ArangoDB document keys (system-generated numeric IDs
+# or sanitised slugs). Restrict the storage-prefix builder to this safe charset
+# so a malformed/empty key can never widen the delete prefix to ``t//`` (which
+# would otherwise collapse to ``t`` and match *every* tenant).
+_TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
 
 
 class TenantService:
@@ -181,6 +188,13 @@ class TenantService:
         thread already owns an event loop).
         """
         from app.common.async_bridge import run_async
+
+        # SEC-004 — never build a storage prefix from an empty / malformed key.
+        # An empty key yields ``t//`` which the local-fs adapter would collapse
+        # to ``t`` (matching every tenant) and S3 would pass unchecked to
+        # ``list_objects_v2(Prefix=...)`` — both a mass cross-tenant deletion.
+        if not tenant_key or not _TENANT_KEY_PATTERN.match(tenant_key):
+            raise ValidationError(f"Refusing to purge storage for an invalid tenant key: {tenant_key!r}")
 
         if self._attachment_repo is not None:
             removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)

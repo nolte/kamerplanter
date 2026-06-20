@@ -16,10 +16,12 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, get_privacy_service, get_tenant_service
 from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError
 from app.data_access.arango import collections as col
 from app.domain.models.user import User
+from app.domain.services.privacy_service import PrivacyService
+from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/admin/platform", tags=["admin-platform"])
 
@@ -238,56 +240,47 @@ def update_user(
 def delete_tenant(
     key: str,
     _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete a tenant and all its memberships. Platform admin only.
+    """Delete a tenant and all its associated data. Platform admin only.
 
-    Cannot delete the platform tenant.
+    Cannot delete the platform tenant. Routes through
+    ``TenantService.delete_tenant`` so this admin path shares the exact same
+    NFR-013 §6.1 purge as the tenant-scoped ``DELETE /t/{slug}`` endpoint:
+    object-storage prefix (``t/{key}/``) + contributed reference-index vectors
+    are removed alongside memberships, invitations and assignments (SEC-002 —
+    previously this raw-AQL path orphaned the tenant's binary data).
     """
     db = get_db()
-    tenants = db.collection(col.TENANTS)
-
-    existing = tenants.get(key)
+    existing = db.collection(col.TENANTS).get(key)
     if not existing:
         raise NotFoundError("Tenant", key)
 
     if existing.get("is_platform"):
         raise ForbiddenError("The platform tenant cannot be deleted.")
 
-    # Delete all memberships + their edges
-    db.aql.execute(
-        "FOR m IN @@memberships FILTER m.tenant_key == @key "
-        "LET mid = CONCAT(@memberships_prefix, m._key) "
-        "LET del_has = (FOR e IN @@has_membership FILTER e._to == mid REMOVE e IN @@has_membership) "
-        "LET del_in = (FOR e IN @@membership_in FILTER e._from == mid REMOVE e IN @@membership_in) "
-        "REMOVE m IN @@memberships",
-        bind_vars={
-            "@memberships": col.MEMBERSHIPS,
-            "@has_membership": col.HAS_MEMBERSHIP,
-            "@membership_in": col.MEMBERSHIP_IN,
-            "key": key,
-            "memberships_prefix": f"{col.MEMBERSHIPS}/",
-        },
-    )
-
-    # Delete invitations for this tenant
-    db.aql.execute(
-        "FOR i IN @@invitations FILTER i.tenant_key == @key REMOVE i IN @@invitations",
-        bind_vars={"@invitations": col.INVITATIONS, "key": key},
-    )
-
-    # Delete the tenant document
-    tenants.delete(key)
+    tenant_service.delete_tenant(key)
 
 
 @router.delete("/users/{key}", status_code=204)
 def delete_user(
     key: str,
     current_user: User = Depends(require_platform_admin),
+    privacy_service: PrivacyService = Depends(get_privacy_service),
 ):
     """Delete a user and all associated data. Platform admin only.
 
     Cannot delete yourself.
+
+    SEC-003: runs the REQ-025 Phase 0 / 0.5 storage cleanup
+    (``delete_for_user`` / EXIF-strip + contributed reference-index vectors)
+    **before** removing the user's memberships. The cleanup resolves the user's
+    tenants via those memberships, so it must run while they still exist —
+    otherwise the user's binary data (object storage) and contributed
+    embeddings would be orphaned, the same gap the scheduled erasure closes.
     """
+    from app.common.async_bridge import run_async
+
     db = get_db()
     users = db.collection(col.USERS)
 
@@ -299,6 +292,9 @@ def delete_user(
         raise ForbiddenError("You cannot delete your own account from the admin panel.")
 
     user_id = f"{col.USERS}/{key}"
+
+    # ── REQ-025 Phase 0 / 0.5 (SEC-003) — must precede membership removal ──
+    run_async(privacy_service.run_user_storage_erasure(key))
 
     # Delete memberships + edges
     db.aql.execute(

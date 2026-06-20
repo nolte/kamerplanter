@@ -71,6 +71,11 @@ class PrivacyService:
     EMAIL_CHANGE_TTL_HOURS = 24
     EXPORT_TTL_HOURS = 72
     HARD_DELETE_DAYS = 90
+    # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
+    # its last update is older than this window. The erasure beat task runs
+    # daily, so 6 h is well beyond a single healthy run yet short enough to
+    # recover a crashed worker on the next day's run.
+    ERASURE_STALE_AFTER_HOURS = 6
 
     def __init__(
         self,
@@ -634,8 +639,15 @@ class PrivacyService:
         0.5 fails, the erasure is marked ``partially_completed`` and the
         ArangoDB deletion is skipped so the next daily run can retry
         (AK-OS-04 / AK-OS-05).
+
+        **Retry selection (SEC-001):** candidates include not only ``scheduled``
+        requests but also ``partially_completed`` (transient failure) and
+        **stale** ``in_progress`` requests (worker crashed mid-run). A fresh
+        ``in_progress`` request — one updated within ``ERASURE_STALE_AFTER_HOURS``
+        — is skipped so a run still executing is never processed twice.
         """
-        candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat())
+        stale_before = now - timedelta(hours=self.ERASURE_STALE_AFTER_HOURS)
+        candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat(), stale_before.isoformat())
         if not candidates:
             return 0
 
@@ -662,11 +674,9 @@ class PrivacyService:
         try:
             self._mark_erasure(erasure, status="in_progress")
 
-            # ── Phase 0: object-storage cleanup (W-007) ────────────────
-            cleanup_scopes = await self._run_storage_cleanup(erasure.user_key)
-
-            # ── Phase 0.5: reference-index cleanup (REQ-034 SR-003) ────
-            await self._run_reference_index_cleanup(erasure.user_key)
+            # ── Phase 0 + 0.5: object-storage + reference-index cleanup ──
+            # Shared with the platform-admin delete-user path (SEC-003).
+            cleanup_scopes = await self.run_user_storage_erasure(erasure.user_key)
         except Exception as exc:  # noqa: BLE001 — any pre-delete failure → retry
             logger.error(
                 "retention.erasure.pre_delete_failed",
@@ -699,6 +709,23 @@ class PrivacyService:
             storage_cleanup_scopes=cleanup_scopes,
         )
         return True
+
+    async def run_user_storage_erasure(self, user_key: str) -> list[str]:
+        """Run Phase 0 + Phase 0.5 storage cleanup for a single user.
+
+        Reusable entry point shared by the scheduled self-service erasure
+        (``_finalize_erasure``) and the platform-admin "delete user" path
+        (SEC-003). Performs the object-storage cleanup (hard-delete + anonymise/
+        strip per :class:`StorageCleanupRule`) and the pgvector reference-index
+        cleanup, in that order. Returns the storage scopes that were applied.
+
+        **Caller contract for the admin path:** invoke this *before* the user's
+        memberships are removed — the per-tenant storage walk resolves the
+        user's tenants via ``membership_repo`` and would otherwise find none.
+        """
+        scopes = await self._run_storage_cleanup(user_key)
+        await self._run_reference_index_cleanup(user_key)
+        return scopes
 
     async def _run_storage_cleanup(self, user_key: str) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
