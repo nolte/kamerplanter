@@ -1317,6 +1317,7 @@
       "previewHint": "Happy with the photo? Tap 'Save photo' - or choose a different one.",
       "thumbAlt": "Plant photo",
       "imageError": "Image could not be loaded",
+      "imageLoading": "Image loading",
       "openPhoto": "Open photo at full size",
       "lightboxTitle": "Photo at full size",
       "lightboxAlt": "Plant photo at full size",
@@ -1358,6 +1359,7 @@
         "assessed": "Image quality assessed",
         "externalNotice": "Note: with Pl@ntNet the photo is sent to an external (third-party) service for analysis.",
         "suggestionsLabel": "Recognised plants:",
+        "confidenceExplained": "The percentage shows how confident the AI is in its assessment.",
         "noSuggestions": "No plants were recognised.",
         "confidence": "{{percent}}% match",
         "topSuggestion": "Best match: {{name}} ({{percent}}%)",
@@ -1387,6 +1389,10 @@
           "good": "Well suited for recognition",
           "fair": "Usable for recognition",
           "poor": "Not suitable for recognition"
+        },
+        "ratingAction": {
+          "fair": "Tip: a sharper photo from a different angle will improve the result.",
+          "poor": "Please take a new photo: sharp, well-lit, and with the plant clearly visible."
         }
       }
     },

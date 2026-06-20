@@ -1317,6 +1317,7 @@
       "previewHint": "Gefällt das Foto? Tippen Sie auf 'Foto speichern' - oder wählen Sie ein anderes.",
       "thumbAlt": "Pflanzenfoto",
       "imageError": "Bild konnte nicht geladen werden",
+      "imageLoading": "Bild wird geladen",
       "openPhoto": "Foto in voller Größe öffnen",
       "lightboxTitle": "Foto in voller Größe",
       "lightboxAlt": "Pflanzenfoto in voller Größe",
@@ -1358,6 +1359,7 @@
         "assessed": "Bildqualität bewertet",
         "externalNotice": "Hinweis: Bei Pl@ntNet wird das Foto zur Auswertung an einen externen Dienst (Drittanbieter) gesendet.",
         "suggestionsLabel": "Erkannte Pflanzen:",
+        "confidenceExplained": "Die Prozentzahl gibt an, wie sicher die KI bei ihrer Einschätzung ist.",
         "noSuggestions": "Es wurden keine Pflanzen erkannt.",
         "confidence": "{{percent}} % Übereinstimmung",
         "topSuggestion": "Beste Übereinstimmung: {{name}} ({{percent}} %)",
@@ -1387,6 +1389,10 @@
           "good": "Gut geeignet für die Erkennung",
           "fair": "Brauchbar für die Erkennung",
           "poor": "Ungeeignet für die Erkennung"
+        },
+        "ratingAction": {
+          "fair": "Tipp: Ein schärferes Foto aus einem anderen Winkel verbessert das Ergebnis.",
+          "poor": "Bitte machen Sie ein neues Foto: scharf, gut beleuchtet und die Pflanze gut sichtbar im Bild."
         }
       }
     },

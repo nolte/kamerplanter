@@ -10,6 +10,8 @@ import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import { updatePhotoMetadata, type PlantPhoto } from '@/api/endpoints/plantPhotos';
@@ -55,6 +57,8 @@ export default function PlantPhotoEditDialog({
   onSaved,
 }: PlantPhotoEditDialogProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [caption, setCaption] = useState('');
   const [takenOn, setTakenOn] = useState('');
@@ -124,6 +128,7 @@ export default function PlantPhotoEditDialog({
     <Dialog
       open={photo !== null}
       onClose={saving ? undefined : onClose}
+      fullScreen={fullScreen}
       maxWidth="sm"
       fullWidth
       data-testid="plant-photo-edit-dialog"

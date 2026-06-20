@@ -97,13 +97,19 @@ export default function AuthImage({
 
   if (status === 'loading') {
     return (
-      <Box sx={sizingSx} style={style} data-testid={testId ? `${testId}-loading` : undefined}>
+      <Box
+        role="img"
+        aria-label={alt || t('pages.plantPhotos.imageLoading')}
+        sx={sizingSx}
+        style={style}
+        data-testid={testId ? `${testId}-loading` : undefined}
+      >
         <Skeleton
           variant="rectangular"
           width="100%"
           height="100%"
           sx={{ transform: 'none' }}
-          aria-label={alt || undefined}
+          aria-hidden="true"
         />
       </Box>
     );

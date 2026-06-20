@@ -18,6 +18,8 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import CircularProgress from '@mui/material/CircularProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import {
@@ -56,6 +58,8 @@ export default function PlantPhotoAssessDialog({
   onAssessed,
 }: PlantPhotoAssessDialogProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -139,6 +143,7 @@ export default function PlantPhotoAssessDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      fullScreen={fullScreen}
       maxWidth="sm"
       fullWidth
       aria-labelledby="assess-dialog-title"
@@ -194,7 +199,7 @@ export default function PlantPhotoAssessDialog({
         )}
 
         {showExternalNotice && (
-          <Alert severity="info" sx={{ mt: 2 }} data-testid="assess-external-notice">
+          <Alert severity="warning" sx={{ mt: 2 }} data-testid="assess-external-notice">
             {t('pages.plantPhotos.quality.externalNotice')}
           </Alert>
         )}
@@ -211,10 +216,18 @@ export default function PlantPhotoAssessDialog({
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {t(`pages.plantPhotos.quality.ratingHint.${assessment.rating}`)}
             </Typography>
+            {(assessment.rating === 'poor' || assessment.rating === 'fair') && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t(`pages.plantPhotos.quality.ratingAction.${assessment.rating}`)}
+              </Typography>
+            )}
             {assessment.suggestions.length > 0 ? (
               <>
                 <Typography variant="caption" color="text.secondary">
                   {t('pages.plantPhotos.quality.suggestionsLabel')}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  {t('pages.plantPhotos.quality.confidenceExplained')}
                 </Typography>
                 <List dense disablePadding data-testid="assess-suggestions">
                   {assessment.suggestions.map((s, idx) => (
@@ -246,6 +259,7 @@ export default function PlantPhotoAssessDialog({
           onClick={handleRun}
           disabled={!canRun}
           startIcon={running ? <CircularProgress size={16} color="inherit" /> : undefined}
+          sx={{ minHeight: 44 }}
           data-testid="assess-run"
         >
           {running

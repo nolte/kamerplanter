@@ -289,6 +289,7 @@ export default function PlantPhotoLightbox({
                 onClick={handleDelete}
                 color="error"
                 sx={{ color: 'error.light' }}
+                data-testid="plant-photo-lightbox-delete"
               >
                 {t('common.delete')}
               </Button>
