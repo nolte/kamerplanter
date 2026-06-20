@@ -17,6 +17,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import Sidebar from './Sidebar';
+import ModuleGuard from '@/components/common/ModuleGuard';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
@@ -204,7 +205,9 @@ export default function MainLayout() {
           </Alert>
         )}
         <Breadcrumbs />
-        <Outlet />
+        <ModuleGuard>
+          <Outlet />
+        </ModuleGuard>
       </Box>
     </Box>
   );

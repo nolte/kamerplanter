@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.common.enums import ExperienceLevel
+from app.common.enums import ExperienceLevel, ModuleVisibilityState
 
 
 class UserPreferenceResponse(BaseModel):
@@ -12,6 +12,7 @@ class UserPreferenceResponse(BaseModel):
     theme: str
     watering_can_liters: float
     smart_home_enabled: bool
+    module_visibility: dict[str, ModuleVisibilityState] = Field(default_factory=dict)
 
 
 class UserPreferenceUpdate(BaseModel):
@@ -21,3 +22,4 @@ class UserPreferenceUpdate(BaseModel):
     theme: str | None = None
     watering_can_liters: float | None = None
     smart_home_enabled: bool | None = None
+    module_visibility: dict[str, ModuleVisibilityState] | None = None

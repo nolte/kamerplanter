@@ -7,7 +7,10 @@ import {
   setAccessToken,
 } from '@/store/slices/authSlice';
 import { loadMyTenants } from '@/store/slices/tenantSlice';
-import { fetchPreferences } from '@/store/slices/userPreferencesSlice';
+import {
+  fetchPreferences,
+  migrateLocalModuleVisibility,
+} from '@/store/slices/userPreferencesSlice';
 import { isLightMode } from '@/config/mode';
 import client, { tenantClient } from '@/api/client';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
@@ -154,7 +157,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         dispatch(setAccessToken(result.access_token));
         await dispatch(fetchProfile());
         dispatch(loadMyTenants());
-        dispatch(fetchPreferences());
+        dispatch(fetchPreferences()).then(() =>
+          dispatch(migrateLocalModuleVisibility()),
+        );
       } catch {
         // Not authenticated — that's fine
       }
@@ -177,7 +182,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     if (isAuthenticated && !isRefreshing) {
       dispatch(fetchProfile());
       dispatch(loadMyTenants());
-      dispatch(fetchPreferences());
+      dispatch(fetchPreferences()).then(() =>
+        dispatch(migrateLocalModuleVisibility()),
+      );
     }
   }, [isAuthenticated, dispatch]);
 

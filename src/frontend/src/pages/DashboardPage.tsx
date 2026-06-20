@@ -13,10 +13,12 @@ import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import LayersIcon from '@mui/icons-material/Layers';
 import PageTitle from '@/components/layout/PageTitle';
+import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 
 export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isPathVisible } = useModuleVisibility();
 
   const quickActions = [
     { label: t('nav.botanicalFamilies'), path: '/stammdaten/botanical-families', icon: <ParkIcon sx={{ fontSize: 40 }} /> },
@@ -38,7 +40,7 @@ export default function DashboardPage() {
         {t('pages.dashboard.quickActions')}
       </Typography>
       <Grid container spacing={2}>
-        {quickActions.map((action) => (
+        {quickActions.filter((a) => isPathVisible(a.path)).map((action) => (
           <Grid size={{ xs: 6, sm: 4, md: 3 }} key={action.path}>
             <Card data-testid={`quick-action-${action.path}`}>
               <CardActionArea onClick={() => navigate(action.path)}>

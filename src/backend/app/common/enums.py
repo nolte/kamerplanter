@@ -689,6 +689,12 @@ class ExperienceLevel(StrEnum):
     EXPERT = "expert"
 
 
+class ModuleVisibilityState(StrEnum):
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    # Note: 'default' is NOT stored — absence of a key means 'default'.
+
+
 class StarterKitDifficulty(StrEnum):
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"

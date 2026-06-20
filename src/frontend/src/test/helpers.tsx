@@ -61,6 +61,36 @@ export function createStoreWithExpertise(level: ExpertiseLevel): TestStore {
         theme: 'light',
         watering_can_liters: 5,
         smart_home_enabled: false,
+        module_visibility: {},
+      },
+      loading: false,
+      error: null,
+    },
+  });
+}
+
+type ModuleVisibilityState = 'enabled' | 'disabled';
+
+/**
+ * Store seeded with a loaded experience level plus REQ-042 module-visibility
+ * overrides — for components/hooks that combine both signals.
+ */
+export function createStoreWithModuleOverrides(
+  level: ExpertiseLevel,
+  overrides: Record<string, ModuleVisibilityState>,
+): TestStore {
+  return createTestStore({
+    userPreferences: {
+      preferences: {
+        key: 'pref-1',
+        user_key: 'user-1',
+        experience_level: level,
+        onboarding_completed: true,
+        locale: 'de',
+        theme: 'light',
+        watering_can_liters: 5,
+        smart_home_enabled: false,
+        module_visibility: overrides,
       },
       loading: false,
       error: null,

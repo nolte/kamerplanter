@@ -43,6 +43,7 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
 import { useAppDispatch } from '@/store/hooks';
 import { setSidebarOpen } from '@/store/slices/uiSlice';
@@ -70,6 +71,7 @@ export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const { isNavVisible, level } = useExpertiseLevel();
+  const { findModuleByPath, overrides } = useModuleVisibility();
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -79,6 +81,13 @@ export default function Sidebar({ open }: SidebarProps) {
   };
 
   const isItemVisible = (path: string): boolean => {
+    // REQ-042: personal module overrides take precedence over the level filter.
+    const owner = findModuleByPath(path);
+    if (owner && !owner.core) {
+      const ov = overrides[owner.key];
+      if (ov === 'disabled') return false;
+      if (ov === 'enabled') return true;
+    }
     const minLevel = navItemConfig[path];
     if (!minLevel) return true;
     return isNavVisible(minLevel);

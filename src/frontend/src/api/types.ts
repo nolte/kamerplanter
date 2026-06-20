@@ -3333,6 +3333,9 @@ export interface CareDashboardEntry {
 export type ExperienceLevel = 'beginner' | 'intermediate' | 'expert';
 export type StarterKitDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
+// ── REQ-042 Module visibility ────────────────────────────────────────
+export type ModuleVisibilityState = 'enabled' | 'disabled';
+
 export interface StarterKit {
   key: string;
   kit_id: string;
@@ -3423,6 +3426,7 @@ export interface UserPreference {
   theme: string;
   watering_can_liters: number;
   smart_home_enabled: boolean;
+  module_visibility?: Record<string, ModuleVisibilityState>;
 }
 
 // ── Watering Schedule types ──────────────────────────────────────────
