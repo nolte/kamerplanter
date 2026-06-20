@@ -345,9 +345,18 @@ export default function Sidebar({ open }: SidebarProps) {
               );
             }
             const navSection = section as NavSection;
-            if (!isSectionVisible(navSection.sectionKey)) return null;
             const visibleItems = navSection.items.filter((item) => isItemVisible(item.path));
             if (visibleItems.length === 0) return null;
+            // REQ-042: a section whose experience level is above the user's must
+            // still appear when one of its modules was explicitly enabled via a
+            // personal override — otherwise the enabled menu item would be
+            // unreachable. The section-level gate is override-blind, so check the
+            // overrides here (isItemVisible already honoured them per item).
+            const revealedByOverride = visibleItems.some((item) => {
+              const owner = findModuleByPath(item.path);
+              return owner != null && !owner.core && overrides[owner.key] === 'enabled';
+            });
+            if (!isSectionVisible(navSection.sectionKey) && !revealedByOverride) return null;
             // Add a divider before the first section if there are top-level items above
             const isFirstSection =
               hasSections &&
