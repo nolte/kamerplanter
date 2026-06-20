@@ -12,7 +12,7 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CloseIcon from '@mui/icons-material/Close';
 import { useWebcamCapture } from '@/hooks/useWebcamCapture';
-import { normalizeImage } from '@/utils/imageNormalization';
+import { normalizeImage, type NormalizeImageOptions } from '@/utils/imageNormalization';
 import type { ExperienceLevel } from '@/api/types';
 
 interface ImageCapturePanelProps {
@@ -24,6 +24,12 @@ interface ImageCapturePanelProps {
   disabled?: boolean;
   /** Beginner gets a single prominent CTA; intermediate/expert see all paths. */
   level: ExperienceLevel;
+  /**
+   * Optional client-side normalization overrides. Defaults to the recognition
+   * profile (max 1280px, q0.85). The gallery upload (REQ-034 §2.2) passes a
+   * higher-resolution profile here.
+   */
+  normalizeOptions?: NormalizeImageOptions;
 }
 
 /**
@@ -46,6 +52,7 @@ export default function ImageCapturePanel({
   onImageReady,
   disabled = false,
   level,
+  normalizeOptions,
 }: ImageCapturePanelProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -62,7 +69,7 @@ export default function ImageCapturePanel({
       setLocalError(null);
       setProcessing(true);
       try {
-        const { file: normalized, previewUrl } = await normalizeImage(file);
+        const { file: normalized, previewUrl } = await normalizeImage(file, normalizeOptions);
         onImageReady(normalized, previewUrl);
       } catch {
         setLocalError(t('pages.plantIdentification.unsupportedFormat'));
@@ -70,7 +77,7 @@ export default function ImageCapturePanel({
         setProcessing(false);
       }
     },
-    [onImageReady, t],
+    [onImageReady, t, normalizeOptions],
   );
 
   const handleWebcamShot = useCallback(async () => {
@@ -78,7 +85,7 @@ export default function ImageCapturePanel({
     try {
       const shot = await webcam.capture();
       if (shot) {
-        const { file, previewUrl } = await normalizeImage(shot);
+        const { file, previewUrl } = await normalizeImage(shot, normalizeOptions);
         webcam.stop();
         onImageReady(file, previewUrl);
       }
@@ -87,7 +94,7 @@ export default function ImageCapturePanel({
     } finally {
       setProcessing(false);
     }
-  }, [webcam, onImageReady, t]);
+  }, [webcam, onImageReady, t, normalizeOptions]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {

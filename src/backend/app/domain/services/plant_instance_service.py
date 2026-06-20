@@ -103,6 +103,10 @@ class PlantInstanceService:
 
         # REQ-034 §2.1 / AC-08 — hard-delete the gallery photos before the
         # instance is removed so no orphan storage bytes remain.
+        # Order is deliberate (security review SEC-002, Low): bytes are deleted
+        # before the metadata update so a failure leaves at worst dangling refs
+        # (skipped on list) rather than orphaned personal bytes (the DSGVO-worse
+        # outcome). A fully transactional cascade is a follow-up.
         if self._photo_cleanup is not None and plant.photo_refs:
             self._photo_cleanup(plant)
             plant.photo_refs = []

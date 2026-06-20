@@ -85,6 +85,8 @@ import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, 
 import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
+import PlantPhotoGallery from './photos/PlantPhotoGallery';
+import PlantCoverPreview from './photos/PlantCoverPreview';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -120,7 +122,10 @@ export default function PlantInstanceDetailPage() {
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
-  const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
+  const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit', 'photos']);
+  // Bumped whenever a gallery change may have altered the cover photo, so the
+  // info-tab cover preview re-resolves (REQ-034 §2.3 / AC-06).
+  const [coverVersion, setCoverVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
@@ -884,10 +889,48 @@ export default function PlantInstanceDetailPage() {
         <Tab label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
         <Tab label={t('pages.plantInstances.taskHistoryTab')} data-testid="tasks-tab" />
         <Tab label={t('common.edit')} />
+        <Tab label={t('pages.plantPhotos.tabTitle')} data-testid="photos-tab" />
       </Tabs>
 
       {tab === 0 && (
         <>
+          {/* Cover photo preview (REQ-034 §2.3 / AC-06) — links to the gallery tab. */}
+          {plant && key && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setTab(8)}
+                aria-label={t('pages.plantPhotos.tabTitle')}
+                sx={{
+                  p: 0,
+                  border: 'none',
+                  bgcolor: 'transparent',
+                  cursor: 'pointer',
+                  borderRadius: 1,
+                  lineHeight: 0,
+                }}
+                data-testid="info-cover-preview"
+              >
+                <PlantCoverPreview key={coverVersion} plantInstanceKey={key} size={72} />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  {t('pages.plantPhotos.coverLabel')}
+                </Typography>
+                <Link
+                  component="button"
+                  type="button"
+                  variant="body2"
+                  underline="hover"
+                  onClick={() => setTab(8)}
+                  data-testid="info-open-gallery"
+                >
+                  {t('pages.plantPhotos.openGallery')}
+                </Link>
+              </Box>
+            </Box>
+          )}
           {plant && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.plantInstances.infoIntro')}
@@ -2284,6 +2327,15 @@ export default function PlantInstanceDetailPage() {
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />
         </Box>
+      )}
+
+      {/* Tab 8: Photos (REQ-034 §2.3) */}
+      {tab === 8 && key && (
+        <PlantPhotoGallery
+          plantInstanceKey={key}
+          readOnly={!!plant?.removed_on}
+          onCoverChange={() => setCoverVersion((v) => v + 1)}
+        />
       )}
 
       <ConfirmDialog

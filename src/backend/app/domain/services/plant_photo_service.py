@@ -95,6 +95,12 @@ class PlantPhotoService:
         return attachment
 
     def _enforce_photo_quota(self, plant: PlantInstance) -> None:
+        # Known limitation (security review SEC-001, Low): this read-then-update
+        # is not atomic against concurrent uploads on the same instance, so N
+        # parallel uploads can moderately exceed the cap. Tolerated for a gallery
+        # feature (same user/tenant, RBAC-gated); a hard guarantee would need an
+        # atomic AQL `UPDATE ... FILTER LENGTH(photo_refs) < @limit` and is left
+        # as a follow-up rather than risking the well-tested link path now.
         limit = self._settings.storage_max_photos_per_instance
         if limit > 0 and len(plant.photo_refs) >= limit:
             raise PhotoQuotaExceededError(plant.key or "unknown", limit)

@@ -26,6 +26,7 @@ import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import { kamiPlants } from '@/assets/brand/illustrations';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
+import PlantCoverPreview from './photos/PlantCoverPreview';
 
 export default function PlantInstanceListPage() {
   const { t } = useTranslation();
@@ -134,6 +135,13 @@ export default function PlantInstanceListPage() {
   );
 
   const columns: Column<PlantInstance>[] = [
+    {
+      id: 'cover',
+      label: '',
+      width: 64,
+      sortable: false,
+      render: (r) => <PlantCoverPreview plantInstanceKey={r.key} size={44} />,
+    },
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
     {
       id: 'plantName',
@@ -329,6 +337,7 @@ export default function PlantInstanceListPage() {
     const displayName = getPlantDisplayName(r, species, cultivar);
     return (
       <MobileCard
+        leading={<PlantCoverPreview plantInstanceKey={r.key} size={48} />}
         title={displayName}
         subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
         chips={

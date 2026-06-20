@@ -15,13 +15,16 @@ interface MobileCardProps {
   fields?: MobileCardField[];
   trailing?: ReactNode;
   chips?: ReactNode;
+  /** Optional leading visual (e.g. a thumbnail/cover preview) shown on the left. */
+  leading?: ReactNode;
 }
 
-export default function MobileCard({ title, subtitle, fields, trailing, chips }: MobileCardProps) {
+export default function MobileCard({ title, subtitle, fields, trailing, chips, leading }: MobileCardProps) {
   return (
     <Card variant="outlined" sx={{ '&:hover': { borderColor: 'primary.main' } }}>
       <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+          {leading && <Box sx={{ flexShrink: 0 }}>{leading}</Box>}
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="subtitle2" noWrap>{title}</Typography>
             {subtitle && (
