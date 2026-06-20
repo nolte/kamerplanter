@@ -42,9 +42,10 @@ def _build_app(service: SystemSettingsService) -> FastAPI:
 def _set_storage_env_defaults(env: MagicMock) -> None:
     """Give a patched ``env_settings`` MagicMock real storage defaults.
 
-    The settings response now embeds the NFR-013 storage block, which resolves
-    against ``env_settings.storage_*``. A bare MagicMock would yield MagicMock
-    values that fail the (typed) response model — set realistic env defaults.
+    Since SEC-001 the general ``GET /admin/settings`` no longer embeds the
+    storage block, but the patched service still reads ``env_settings.storage_*``
+    elsewhere; a bare MagicMock would yield non-serialisable MagicMock values, so
+    set realistic env defaults to keep the patched env consistent.
     """
     env.storage_backend = "local-fs"
     env.storage_local_fs_root = "/data/attachments"

@@ -20,6 +20,7 @@ from app.api.v1.admin.settings.schemas import (
 from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_ha_client, get_system_settings_service
 from app.common.exceptions import ValidationError
+from app.common.url_safety import validate_storage_endpoint_url
 from app.config.settings import settings
 from app.data_access.storage.registry import build_storage_test_adapter
 from app.domain.models.user import User
@@ -72,7 +73,6 @@ def _build_response(service: SystemSettingsService) -> SystemSettingsResponse:
             plantnet_api_key_masked=service.mask_token(plantnet["plantnet_api_key"]),
             source_plantnet_api_key=plantnet["source_plantnet_api_key"],
         ),
-        storage=_build_storage_response(service),
     )
 
 
@@ -82,6 +82,22 @@ def get_settings(
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
     return _build_response(service)
+
+
+@router.get("/storage", response_model=StorageSettingsResponse)
+def get_storage_settings(
+    _current_user: User = Depends(require_platform_admin),
+    service: SystemSettingsService = Depends(get_system_settings_service),
+):
+    """Return the storage-infra config — platform-admin only (SEC-001).
+
+    The storage block (endpoint, region, bucket, KMS key, credential-presence
+    flags) is infrastructure disclosure and is therefore NOT part of the general
+    ``GET /admin/settings`` available to any authenticated user. This dedicated
+    endpoint is gated by ``require_platform_admin`` (the same gate as the storage
+    write/test/delete endpoints, light-mode-aware).
+    """
+    return _build_storage_response(service)
 
 
 @router.put("/home-assistant", response_model=SystemSettingsResponse)
@@ -236,13 +252,19 @@ def delete_plant_identification_settings(
 # External Secrets Operator. The update payload carries only non-secret fields.
 
 
-@router.put("/storage", response_model=SystemSettingsResponse)
+@router.put("/storage", response_model=StorageSettingsResponse)
 def update_storage_settings(
     body: StorageSettingsUpdate,
     _current_user: User = Depends(require_platform_admin),
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
-    """Set the active storage backend + its non-secret config (DB overrides env)."""
+    """Set the active storage backend + its non-secret config (DB overrides env).
+
+    Returns the storage block only (SEC-001): the general system-settings
+    response no longer carries storage, and this endpoint is already
+    platform-admin gated, so the caller gets the freshly-persisted storage config
+    back directly.
+    """
     try:
         service.update_storage_settings(
             backend=body.backend,
@@ -257,7 +279,7 @@ def update_storage_settings(
         )
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
-    return _build_response(service)
+    return _build_storage_response(service)
 
 
 @router.post("/storage/test", response_model=StorageTestResponse)
@@ -292,6 +314,30 @@ async def test_storage_connection(
             config[field] = value
 
     backend = config.get("backend") or settings.storage_backend
+
+    # SEC-002 (SSRF): the S3 endpoint is fully operator-supplied and dialed
+    # server-side. In light mode the anonymous system user is the "operator", so
+    # without this guard any internal URL (IMDS 169.254.169.254, ArangoDB,
+    # RFC1918) could be probed. Validate the *effective* endpoint before building
+    # the adapter. Link-local/metadata is always blocked; private/loopback (legit
+    # in-cluster MinIO / localhost) only when explicitly opted in.
+    if backend == "s3":
+        endpoint = config.get("s3_endpoint_url") or settings.storage_s3_endpoint_url
+        if endpoint:
+            try:
+                validate_storage_endpoint_url(
+                    endpoint,
+                    field="s3_endpoint_url",
+                    allow_private=settings.storage_s3_allow_private_endpoint,
+                )
+            except ValidationError:
+                logger.warning("storage_test_endpoint_rejected_ssrf", backend=backend)
+                return StorageTestResponse(
+                    success=False,
+                    backend=backend,
+                    message="Storage endpoint is not allowed.",
+                )
+
     try:
         adapter = build_storage_test_adapter(config)
         status = await adapter.health_check()

@@ -908,6 +908,10 @@ networkpolicies:
             - protocol: TCP
               port: 11434
         # External APIs (GBIF, Perenual, Pl@ntNet, weather, SMTP, Home Assistant, OIDC)
+        # SEC-002 defense-in-depth: 169.254.0.0/16 (link-local / cloud-metadata
+        # IMDS, e.g. 169.254.169.254) is excluded so the admin storage "test
+        # connection" probe can never reach the node metadata endpoint even if the
+        # application-layer SSRF guard were bypassed. RFC1918 ranges stay excluded.
         - to:
             - ipBlock:
                 cidr: 0.0.0.0/0
@@ -915,6 +919,7 @@ networkpolicies:
                   - 10.0.0.0/8
                   - 172.16.0.0/12
                   - 192.168.0.0/16
+                  - 169.254.0.0/16
           ports:
             - protocol: TCP
               port: 443

@@ -64,7 +64,13 @@ class StorageSettingsUpdate(BaseModel):
     Deliberately carries **no** ``s3_access_key_id`` / ``s3_secret_access_key``
     field: secrets are configured exclusively via env / External Secrets
     Operator (NFR-013 §4.1, variant "a"). A ``None`` field is left unchanged.
+
+    ``extra="forbid"`` (SEC-003): a stray/malicious ``s3_secret_access_key`` (or
+    any unmodelled key) is rejected with HTTP 422 instead of being silently
+    dropped — making credential-injection attempts loud and auditable.
     """
+
+    model_config = {"extra": "forbid"}
 
     backend: Literal["local-fs", "s3"] | None = None
     local_fs_root: str | None = None
@@ -81,8 +87,11 @@ class StorageTestRequest(BaseModel):
     """Optional not-yet-persisted overrides for the connection test.
 
     No credential fields — the test adapter pulls S3 credentials from env / ESO
-    (NFR-013 §4.1), so a test never accepts or echoes a secret.
+    (NFR-013 §4.1), so a test never accepts or echoes a secret. ``extra="forbid"``
+    (SEC-003) rejects a smuggled credential field with HTTP 422.
     """
+
+    model_config = {"extra": "forbid"}
 
     backend: Literal["local-fs", "s3"] | None = None
     local_fs_root: str | None = None
@@ -112,9 +121,12 @@ class StorageTestResponse(BaseModel):
 
 
 class SystemSettingsResponse(BaseModel):
+    # NOTE (SEC-001): the storage-infra block is deliberately NOT embedded here.
+    # ``GET /admin/settings`` is available to any authenticated user, so exposing
+    # endpoint/region/bucket/KMS would be infrastructure disclosure. Storage
+    # config is served by the platform-admin-only ``GET /admin/settings/storage``.
     home_assistant: HASettingsResponse
     plant_identification: PlantIdentificationSettingsResponse
-    storage: StorageSettingsResponse
 
 
 class HATestRequest(BaseModel):

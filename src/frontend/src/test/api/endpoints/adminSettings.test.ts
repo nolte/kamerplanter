@@ -71,4 +71,37 @@ describe('adminSettings endpoints', () => {
     await adminSettings.clearPlantIdentificationSettings();
     expect(client.delete).toHaveBeenCalledWith('/admin/settings/plant-identification');
   });
+
+  it('getStorageSettings gets the platform-admin-only /admin/settings/storage endpoint (SEC-001)', async () => {
+    const storage = { backend: 'local-fs', s3_endpoint_url: '' };
+    client.get.mockResolvedValue({ data: storage });
+    const result = await adminSettings.getStorageSettings();
+    // Must hit the dedicated, gated endpoint — NOT the general /admin/settings.
+    expect(client.get).toHaveBeenCalledWith('/admin/settings/storage');
+    expect(client.get).not.toHaveBeenCalledWith('/admin/settings');
+    // The dedicated endpoint returns the storage object directly (no .storage).
+    expect(result).toBe(storage);
+  });
+
+  it('updateStorageSettings puts to /storage and returns the storage block directly', async () => {
+    const storage = { backend: 's3', s3_bucket: 'b' };
+    client.put.mockResolvedValue({ data: storage });
+    const body = { backend: 's3' as const };
+    const result = await adminSettings.updateStorageSettings(body);
+    expect(client.put).toHaveBeenCalledWith('/admin/settings/storage', body);
+    expect(result).toBe(storage);
+  });
+
+  it('testStorageConnection posts to /storage/test', async () => {
+    client.post.mockResolvedValue({ data: { success: true, backend: 's3', message: 'ok' } });
+    const body = { backend: 's3' as const };
+    await adminSettings.testStorageConnection(body);
+    expect(client.post).toHaveBeenCalledWith('/admin/settings/storage/test', body);
+  });
+
+  it('clearStorageSettings deletes the storage override', async () => {
+    client.delete.mockResolvedValue({ data: undefined });
+    await adminSettings.clearStorageSettings();
+    expect(client.delete).toHaveBeenCalledWith('/admin/settings/storage');
+  });
 });

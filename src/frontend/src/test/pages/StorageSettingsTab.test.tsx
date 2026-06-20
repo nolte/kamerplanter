@@ -113,18 +113,9 @@ describe('StorageSettingsTab', () => {
   it('saves the selected backend via update', async () => {
     const user = userEvent.setup();
     mockGet.mockResolvedValue(buildSettings());
-    mockUpdate.mockResolvedValue({
-      home_assistant: {
-        ha_url: '',
-        ha_access_token_masked: '',
-        ha_timeout: 10,
-        source_ha_url: 'env',
-        source_ha_access_token: 'env',
-        source_ha_timeout: 'env',
-      },
-      plant_identification: { plantnet_api_key_masked: '', source_plantnet_api_key: 'none' },
-      storage: buildSettings({ backend: 's3', source_backend: 'db' }),
-    });
+    // SEC-001: updateStorageSettings now returns the StorageSettingsResponse
+    // directly (storage is no longer embedded in the general settings response).
+    mockUpdate.mockResolvedValue(buildSettings({ backend: 's3', source_backend: 'db' }));
     renderWithProviders(<StorageSettingsTab />);
 
     await screen.findByTestId('storage-local-fs-fields');

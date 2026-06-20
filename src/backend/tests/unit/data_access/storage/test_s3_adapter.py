@@ -47,6 +47,51 @@ class TestS3StorageAdapterConstructor:
         assert adapter.capabilities.supports_presigned_upload is True
 
 
+class TestHealthCheckDoesNotLeakInternals:
+    """SEC-004: a failed health check must not echo the boto3 error text.
+
+    The raw ``str(exc)`` can embed the endpoint URL, bucket name or a signed ARN;
+    the returned status dict (which flows to the admin UI) must carry only a
+    generic category + ``ready: False``.
+    """
+
+    def _adapter(self) -> S3StorageAdapter:
+        return S3StorageAdapter(
+            endpoint_url="https://s3.secret-internal-host.example.com",
+            region="eu-central-1",
+            bucket="super-secret-bucket-name",
+            access_key_id="AKIASECRET",
+            secret_access_key="secretvalue",
+            force_tls=True,
+        )
+
+    def test_health_failure_omits_boto3_reason_and_infra(self):
+        from botocore.exceptions import ClientError
+
+        adapter = self._adapter()
+        client = MagicMock()
+        client.head_bucket.side_effect = ClientError(
+            {"Error": {"Code": "403", "Message": "Forbidden for arn:aws:s3:::super-secret-bucket-name"}},
+            "HeadBucket",
+        )
+        adapter._client = client
+
+        status = adapter._health_sync()
+
+        assert status["ready"] is False
+        assert status["backend"] == "s3"
+        # No endpoint / bucket / ARN / raw boto3 reason in the returned dict.
+        assert "reason" not in status
+        assert "endpoint_url" not in status
+        assert "bucket" not in status
+        flat = str(status)
+        assert "super-secret-bucket-name" not in flat
+        assert "s3.secret-internal-host.example.com" not in flat
+        assert "arn:aws:s3" not in flat
+        # Only a generic exception category is surfaced.
+        assert status["error_category"] == "ClientError"
+
+
 class TestCapabilities:
     def test_default_capabilities_advertise_full_s3_feature_set(self):
         caps = S3_DEFAULT_CAPABILITIES

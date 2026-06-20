@@ -165,6 +165,107 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
     return url
 
 
+def _is_metadata_or_link_local(address: ipaddress._BaseAddress) -> bool:
+    """True if ``address`` is link-local — covers the cloud metadata endpoint.
+
+    ``169.254.169.254`` (and the IPv6 ``fe80::/10`` range, plus the AWS IMDS
+    ``fd00:ec2::254`` reserved address) are all caught by ``is_link_local`` /
+    ``is_reserved``; both are checked so metadata access can never be opted into.
+    """
+    return address.is_link_local or address.is_reserved or address.is_multicast or address.is_unspecified
+
+
+def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", allow_private: bool = False) -> str:
+    """Validate an admin-supplied S3 endpoint before the server probes it (SEC-002).
+
+    The storage "test connection" probe dials a fully operator-controlled
+    endpoint, so it must not become an SSRF primitive — especially in light mode
+    where the anonymous system user is treated as the operator. Unlike
+    :func:`validate_server_side_url` this is tailored to S3-compatible backends:
+
+    * ``http`` **and** ``https`` are accepted — plain-HTTP MinIO / in-cluster S3
+      is legitimate (the separate ``force_tls`` adapter guard governs TLS).
+    * Link-local / cloud-metadata / reserved / multicast / unspecified addresses
+      (incl. ``169.254.169.254`` IMDS) are **always** rejected — never opt-in-able.
+    * Private (RFC1918) and loopback addresses are rejected **unless**
+      ``allow_private`` is set (operator opt-in via
+      ``STORAGE_S3_ALLOW_PRIVATE_ENDPOINT`` for in-cluster MinIO / localhost).
+
+    Args:
+        url: The S3 endpoint URL the server will dial.
+        field: Field name surfaced in the raised ``ValidationError`` details.
+        allow_private: When True, private / loopback addresses are permitted
+            (still never link-local / metadata).
+
+    Returns:
+        The (unchanged) URL when it passes all checks.
+
+    Raises:
+        ValidationError: if the URL is empty/too long, not http(s), malformed,
+            unresolvable, or resolves to a blocked address.
+    """
+    if not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        raise ValidationError(
+            "Invalid storage endpoint URL.",
+            details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
+        )
+
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise ValidationError(
+            "Storage endpoint must use http or https.",
+            details=[{"field": field, "reason": "Only http(s) URLs are accepted.", "code": "INVALID_URL_SCHEME"}],
+        )
+
+    host = parts.hostname
+    if not host:
+        raise ValidationError(
+            "Storage endpoint has no host.",
+            details=[{"field": field, "reason": "URL has no host.", "code": "INVALID_URL"}],
+        )
+
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            "Storage endpoint host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+
+    for address in addresses:
+        # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
+        if _is_metadata_or_link_local(address):
+            logger.warning("storage_endpoint_rejected_ssrf", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "Storage endpoint resolves to a blocked address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to a link-local / metadata address.",
+                        "code": "URL_METADATA_ADDRESS",
+                    }
+                ],
+            )
+        # Private / loopback — blocked unless the operator opted in.
+        if (address.is_private or address.is_loopback) and not allow_private:
+            logger.warning("storage_endpoint_rejected_private", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "Storage endpoint resolves to a private address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": (
+                            "Host resolves to a private/loopback IP. Set "
+                            "STORAGE_S3_ALLOW_PRIVATE_ENDPOINT=true to allow in-cluster/local S3."
+                        ),
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+
+    return url
+
+
 def validate_push_endpoint(endpoint: str) -> str:
     """Validate a user-supplied Web Push endpoint against SSRF.
 

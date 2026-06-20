@@ -158,19 +158,27 @@ export async function clearPlantIdentificationSettings(): Promise<void> {
 }
 
 /**
- * GET /admin/settings → storage block. Returns the effective object-storage
- * configuration (NFR-013). Convenience wrapper around {@link getSystemSettings}.
+ * GET /admin/settings/storage → effective object-storage configuration
+ * (NFR-013). Platform-admin-only (SEC-001): the storage-infra block is no longer
+ * embedded in the general `GET /admin/settings`, which any authenticated user
+ * can read; it lives behind this dedicated, gated endpoint instead.
  */
 export async function getStorageSettings(): Promise<StorageSettingsResponse> {
-  const { data } = await client.get<SystemSettingsResponse>(BASE);
-  return data.storage;
+  const { data } = await client.get<StorageSettingsResponse>(`${BASE}/storage`);
+  return data;
 }
 
-/** PUT /admin/settings/storage — persist the active backend + non-secret fields. */
+/**
+ * PUT /admin/settings/storage — persist the active backend + non-secret fields.
+ *
+ * Returns the storage block directly (SEC-001): storage is no longer embedded in
+ * the general system-settings response, and this endpoint is platform-admin
+ * gated, so the freshly-persisted {@link StorageSettingsResponse} is returned.
+ */
 export async function updateStorageSettings(
   body: StorageSettingsUpdate,
-): Promise<SystemSettingsResponse> {
-  const { data } = await client.put<SystemSettingsResponse>(`${BASE}/storage`, body);
+): Promise<StorageSettingsResponse> {
+  const { data } = await client.put<StorageSettingsResponse>(`${BASE}/storage`, body);
   return data;
 }
 
