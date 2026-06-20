@@ -29,7 +29,28 @@ export interface PlantPhoto {
   is_cover: boolean;
   mime_type: string;
   byte_size: number;
+  /**
+   * User-editable caption (max 500 chars), or `null` (REQ-034 §2.1 v1.2).
+   */
+  caption: string | null;
+  /**
+   * User-editable capture date (`YYYY-MM-DD`), or `null`. When `null`, the UI
+   * falls back to {@link created_at} for display (`taken_on ?? created_at`).
+   */
+  taken_on: string | null;
   created_at: string | null;
+}
+
+/**
+ * PATCH body for a gallery photo's editable metadata (REQ-034 §2.1 v1.2).
+ *
+ * True PATCH: only the keys present on the object are sent and changed server
+ * side. Send an explicit `null` to clear a field; omit a key to leave it
+ * untouched.
+ */
+export interface PlantPhotoMetadataUpdate {
+  caption?: string | null;
+  taken_on?: string | null;
 }
 
 /** The gallery listing: ordered photos (newest first) plus the resolved cover. */
@@ -75,6 +96,25 @@ export async function setCoverPhoto(
 ): Promise<PlantPhotoList> {
   const { data } = await tenantClient.put<PlantPhotoList>(
     `${base(plantInstanceKey)}/${attachmentId}/cover`,
+  );
+  return data;
+}
+
+/**
+ * PATCH — update a gallery photo's caption / capture date (REQ-034 §2.1 v1.2).
+ *
+ * Only the keys present in `update` are sent (true PATCH); the server leaves
+ * omitted fields untouched and clears a field on an explicit `null`. Returns
+ * the updated photo (with the recomputed `is_cover` flag).
+ */
+export async function updatePhotoMetadata(
+  plantInstanceKey: string,
+  attachmentId: string,
+  update: PlantPhotoMetadataUpdate,
+): Promise<PlantPhoto> {
+  const { data } = await tenantClient.patch<PlantPhoto>(
+    `${base(plantInstanceKey)}/${attachmentId}`,
+    update,
   );
   return data;
 }

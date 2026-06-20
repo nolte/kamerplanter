@@ -56,7 +56,11 @@ function mockAttachmentBlobs(): string[] {
   return requested;
 }
 
-function photo(id: string, isCover = false) {
+function photo(
+  id: string,
+  isCover = false,
+  overrides: { caption?: string | null; taken_on?: string | null } = {},
+) {
   const uri = `/api/v1/t/${TENANT}/attachments/${id}`;
   return {
     attachment_id: id,
@@ -69,6 +73,8 @@ function photo(id: string, isCover = false) {
     is_cover: isCover,
     mime_type: 'image/jpeg',
     byte_size: 1234,
+    caption: overrides.caption ?? null,
+    taken_on: overrides.taken_on ?? null,
     created_at: '2026-06-19T10:00:00Z',
   };
 }
@@ -290,7 +296,131 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
     expect(screen.queryByTestId('plant-photo-add-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plant-photo-delete')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plant-photo-set-cover')).not.toBeInTheDocument();
+    // The edit action is also hidden for viewers (read-only).
+    expect(screen.queryByTestId('plant-photo-edit')).not.toBeInTheDocument();
     // But the viewer can still open the lightbox.
     expect(screen.getByTestId('plant-photo-thumb')).toBeInTheDocument();
+  });
+
+  describe('photo metadata (REQ-034 §2.1 v1.2)', () => {
+    it('renders the capture date and a truncated caption under the thumbnail', async () => {
+      // taken_on overrides created_at for the displayed date.
+      mockList([photo('a', true, { caption: 'My favourite basil', taken_on: '2026-05-10' })], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.getByTestId('plant-photo-caption')).toHaveTextContent('My favourite basil');
+      // The date is the locale-formatted taken_on (2026-05-10), not the upload date.
+      const dateText = screen.getByTestId('plant-photo-date').textContent ?? '';
+      expect(dateText).toMatch(/2026/);
+      expect(dateText).toMatch(/05|5/);
+    });
+
+    it('falls back to the upload date when taken_on is null', async () => {
+      mockList([photo('a', true, { taken_on: null })], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      // created_at is 2026-06-19 → display falls back to it.
+      expect(screen.getByTestId('plant-photo-date').textContent ?? '').toMatch(/2026/);
+      // No caption → no caption node rendered.
+      expect(screen.queryByTestId('plant-photo-caption')).not.toBeInTheDocument();
+    });
+
+    it('opens the edit dialog and saves caption + date via PATCH', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      const patchBody = vi.fn();
+      server.use(
+        http.patch(`${PHOTOS_URL}/a`, async ({ request }) => {
+          patchBody(await request.json());
+          return HttpResponse.json(photo('a', true, { caption: 'Updated', taken_on: '2026-05-01' }));
+        }),
+      );
+
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-edit'));
+
+      const captionInput = await screen.findByTestId('plant-photo-caption-input');
+      await user.type(captionInput, 'Updated');
+      const dateInput = screen.getByTestId('plant-photo-takenon-input');
+      await user.clear(dateInput);
+      await user.type(dateInput, '2026-05-01');
+
+      await user.click(screen.getByTestId('plant-photo-edit-save'));
+
+      await waitFor(() => expect(patchBody).toHaveBeenCalledTimes(1));
+      expect(patchBody).toHaveBeenCalledWith(
+        expect.objectContaining({ caption: 'Updated', taken_on: '2026-05-01' }),
+      );
+      // The dialog closes and the gallery reflects the new caption.
+      await waitFor(() =>
+        expect(screen.getByTestId('plant-photo-caption')).toHaveTextContent('Updated'),
+      );
+    });
+
+    it('blocks saving and shows a counter error when the caption exceeds 500 chars', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      const patchCall = vi.fn();
+      server.use(
+        http.patch(`${PHOTOS_URL}/a`, () => {
+          patchCall();
+          return HttpResponse.json(photo('a', true));
+        }),
+      );
+
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-edit'));
+
+      const captionInput = await screen.findByTestId('plant-photo-caption-input');
+      // Paste 501 chars (fireEvent-style fast input via paste).
+      await user.click(captionInput);
+      await user.paste('x'.repeat(501));
+
+      // The save button is disabled (pointer-events:none) so no request fires.
+      const saveBtn = screen.getByTestId('plant-photo-edit-save');
+      expect(saveBtn).toBeDisabled();
+      expect(patchCall).not.toHaveBeenCalled();
+    });
+
+    it('caps the date input at today so a future date cannot be entered', async () => {
+      const user = userEvent.setup();
+      mockList([photo('a', true)], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-edit'));
+
+      const dateInput = (await screen.findByTestId('plant-photo-takenon-input')) as HTMLInputElement;
+      const today = new Date().toISOString().slice(0, 10);
+      expect(dateInput.max).toBe(today);
+    });
+
+    it('does not render an edit action for a viewer', async () => {
+      mockList([photo('a', true, { caption: 'visible to viewer' })], 'a');
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('viewer'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.queryByTestId('plant-photo-edit')).not.toBeInTheDocument();
+      // But the caption is still shown read-only.
+      expect(screen.getByTestId('plant-photo-caption')).toHaveTextContent('visible to viewer');
+    });
   });
 });

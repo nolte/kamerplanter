@@ -11,6 +11,8 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import { formatDate } from '@/utils/formatting';
 import AuthImage from '@/components/common/AuthImage';
 import type { PlantPhoto } from '@/api/endpoints/plantPhotos';
 
@@ -22,6 +24,8 @@ interface PlantPhotoLightboxProps {
   canWrite?: boolean;
   /** Called when the user wants to set this photo as cover (write-only). */
   onSetCover?: (photo: PlantPhoto) => void;
+  /** Called when the user wants to edit caption/date — caller opens the dialog. */
+  onEdit?: (photo: PlantPhoto) => void;
   /** Called when the user requests deletion — caller shows the confirm dialog. */
   onDelete?: (photo: PlantPhoto) => void;
 }
@@ -41,11 +45,14 @@ export default function PlantPhotoLightbox({
   onClose,
   canWrite = false,
   onSetCover,
+  onEdit,
   onDelete,
 }: PlantPhotoLightboxProps) {
   const { t } = useTranslation();
   const src = photo ? (photo.thumbnail_uris?.large ?? photo.uri) : undefined;
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Display date: explicit capture date, else the upload date (REQ-034 §2.1).
+  const displayDate = photo ? formatDate(photo.taken_on ?? photo.created_at) : '';
 
   // Move focus to the close button when the lightbox opens so keyboard users
   // and screen readers have an immediate, labelled entry point (UI-NFR-008 R-010).
@@ -63,6 +70,13 @@ export default function PlantPhotoLightbox({
       onClose();
     }
   }, [photo, onSetCover, onClose]);
+
+  const handleEdit = useCallback(() => {
+    if (photo && onEdit) {
+      onEdit(photo);
+      onClose();
+    }
+  }, [photo, onEdit, onClose]);
 
   const handleDelete = useCallback(() => {
     if (photo && onDelete) {
@@ -159,6 +173,34 @@ export default function PlantPhotoLightbox({
         )}
       </DialogContent>
 
+      {/* Metadata footer — capture date + full caption, visible to everyone
+          (including viewers, AC-13). The grid only shows a truncated caption. */}
+      {photo && (
+        <Box
+          sx={{ bgcolor: 'rgba(0, 0, 0, 0.75)', px: 2, pt: 1.5, pb: photo.caption ? 1.5 : 1 }}
+          data-testid="plant-photo-lightbox-meta"
+        >
+          <Typography
+            variant="caption"
+            color="grey.400"
+            sx={{ display: 'block' }}
+            data-testid="plant-photo-lightbox-date"
+          >
+            {displayDate}
+          </Typography>
+          {photo.caption && (
+            <Typography
+              variant="body2"
+              color="common.white"
+              sx={{ mt: 0.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              data-testid="plant-photo-lightbox-caption"
+            >
+              {photo.caption}
+            </Typography>
+          )}
+        </Box>
+      )}
+
       {/* Write actions inside the lightbox — viewer sees none (AC-13). */}
       {canWrite && photo && (
         <DialogActions
@@ -167,12 +209,25 @@ export default function PlantPhotoLightbox({
             justifyContent: 'space-between',
             px: 2,
             py: 1,
+            flexWrap: 'wrap',
+            gap: 1,
           }}
         >
           <Typography variant="caption" color="grey.400" sx={{ flexShrink: 0 }}>
             {photo.is_cover ? t('pages.plantPhotos.coverLabel') : ''}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {onEdit && (
+              <Button
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={handleEdit}
+                sx={{ color: 'common.white' }}
+                data-testid="plant-photo-lightbox-edit"
+              >
+                {t('pages.plantPhotos.editPhoto')}
+              </Button>
+            )}
             {!photo.is_cover && onSetCover && (
               <Button
                 size="small"

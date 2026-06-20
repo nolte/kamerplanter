@@ -1334,7 +1334,18 @@
       "emptyTitle": "Noch keine Fotos",
       "emptyDescriptionWrite": "Fügen Sie das erste Foto Ihrer Pflanze hinzu – so behalten Sie den Wachstumsverlauf im Blick und erkennen sie in der Übersicht auf einen Blick.",
       "emptyDescriptionRead": "Für diese Pflanze wurden noch keine Fotos hinzugefügt.",
-      "emptyDescription": "Fügen Sie Ihr erstes Foto dieser Pflanze hinzu, um den Wachstumsverlauf festzuhalten."
+      "emptyDescription": "Fügen Sie Ihr erstes Foto dieser Pflanze hinzu, um den Wachstumsverlauf festzuhalten.",
+      "editPhoto": "Bearbeiten",
+      "editTitle": "Fotodetails bearbeiten",
+      "caption": "Kommentar",
+      "captionTooLong": "Der Kommentar darf höchstens {{max}} Zeichen lang sein.",
+      "takenOn": "Aufnahmedatum",
+      "takenOnHelper": "Wann wurde das Foto aufgenommen? Ohne Angabe wird das Datum des Hochladens verwendet.",
+      "saving": "Wird gespeichert…",
+      "metadataSaved": "Fotodetails gespeichert",
+      "metadataError": "Die Fotodetails konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+      "metadataInvalid": "Bitte prüfen Sie Ihre Eingaben: Der Kommentar ist zu lang oder das Aufnahmedatum liegt in der Zukunft.",
+      "editForbidden": "Sie haben keine Berechtigung, dieses Foto zu bearbeiten."
     },
     "plantInstances": {
       "title": "Pflanzeninstanzen",

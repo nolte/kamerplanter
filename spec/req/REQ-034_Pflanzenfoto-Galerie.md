@@ -107,6 +107,11 @@ Jedes Galerie-Foto ist ein **Attachment** im Sinne von NFR-013 mit `category = p
 
 - **Konsistenz:** Ein `attachment_id` darf in `photo_refs` nur vorkommen, wenn das zugehoerige `attachments`-Dokument `category == "plant"` und denselben `tenant_key` wie die Pflanzeninstanz hat. Der Service erzwingt das beim Verknuepfen (Schutz vor Cross-Category-/Cross-Tenant-Referenzen).
 
+- **Foto-Metadaten (v1.2):** Jedes Galerie-Foto traegt zwei optionale, vom Nutzer pflegbare Metadaten am `attachments`-Dokument:
+  - `caption: str | None` — ein frei editierbarer Kommentar/Bildunterschrift (max. 500 Zeichen), Default `None`.
+  - `taken_on: date | None` — das Aufnahmedatum. Default/Fallback ist das Upload-`created_at` (EXIF-Aufnahmezeit ist nicht verfuegbar, da EXIF beim Upload gestript wird, §3/NFR-013 §6.4). Der Nutzer kann ein abweichendes Datum setzen (z.B. fuer nachtraeglich hochgeladene aeltere Fotos). `taken_on` darf nicht in der Zukunft liegen.
+  Beide werden ueber `PATCH /api/v1/t/{slug}/plant-instances/{key}/photos/{attachment_id}` gesetzt (`require_permission(UPDATE_RESOURCE)`, gleiche Konsistenz-/Zuweisungs-Guards wie Cover/Delete). In der Galerie werden Aufnahmedatum (`taken_on ?? created_at`) und Kommentar unter dem Thumbnail sowie in der Lightbox angezeigt und dort editiert. `caption`/`taken_on` sind generische Attachment-Felder (auch fuer andere Foto-Kategorien nutzbar), bleiben dort aber `None`.
+
 - **Loeschung der Pflanzeninstanz:** Beim Entfernen einer `PlantInstance` werden die referenzierten Attachments ueber den Attachment-Service mitgeloescht (`delete_object` je `attachment_id` + Metadaten). Verwaiste Storage-Bytes sind unzulaessig.
 
 ### 2.2 Upload-Erlebnis (Wiederverwendung der Bilderkennungs-UX)

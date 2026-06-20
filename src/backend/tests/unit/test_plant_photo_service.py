@@ -6,7 +6,7 @@ Covers the gallery link/cover/list/delete logic and the consistency guards
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -17,7 +17,8 @@ from app.common.exceptions import (
     ValidationError,
 )
 from app.config.settings import Settings
-from app.domain.models.attachment import Attachment
+from app.domain.interfaces.attachment_repository import UNSET, _Unset
+from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_photo_service import PlantPhotoService
 
@@ -48,6 +49,19 @@ class _FakeAttachmentRepo:
     def get(self, key, tenant_key):
         att = self._store.get(key)
         return att if att and att.tenant_key == tenant_key else None
+
+    def update_metadata(self, key, tenant_key, *, caption=UNSET, taken_on=UNSET):
+        att = self.get(key, tenant_key)
+        if att is None:
+            return None
+        update: dict = {}
+        if not isinstance(caption, _Unset):
+            update["caption"] = caption
+        if not isinstance(taken_on, _Unset):
+            update["taken_on"] = taken_on
+        updated = att.model_copy(update=update)
+        self._store[key] = updated
+        return updated
 
 
 class _FakeAttachmentService:
@@ -188,6 +202,76 @@ class TestCover:
         service.link_photo("plant1", "att2", TENANT)
         updated = service.set_cover("plant1", "att2", TENANT)
         assert updated.cover_photo_ref == "att2"
+
+
+class TestMetadata:
+    def _linked(self):
+        service, _pr, att_repo, _as = _build()
+        att_repo.add(_attachment("att1"))
+        service.link_photo("plant1", "att1", TENANT)
+        return service, att_repo
+
+    def test_set_caption_and_taken_on(self):
+        service, att_repo = self._linked()
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, caption="My basil", taken_on=date(2026, 6, 1))
+        assert updated.caption == "My basil"
+        assert updated.taken_on == date(2026, 6, 1)
+        # Persisted on the attachment record.
+        assert att_repo.get("att1", TENANT).caption == "My basil"
+
+    def test_patch_only_touches_provided_fields(self):
+        service, _ar = self._linked()
+        service.update_photo_metadata("plant1", "att1", TENANT, caption="first", taken_on=date(2026, 6, 1))
+        # Patch only the caption — taken_on must survive untouched (UNSET).
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, caption="second")
+        assert updated.caption == "second"
+        assert updated.taken_on == date(2026, 6, 1)
+
+    def test_explicit_null_clears_caption(self):
+        service, _ar = self._linked()
+        service.update_photo_metadata("plant1", "att1", TENANT, caption="to be cleared")
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, caption=None)
+        assert updated.caption is None
+
+    def test_taken_on_none_keeps_created_at_for_fe_fallback(self):
+        # The service never substitutes created_at for taken_on — the FE owns the
+        # `taken_on ?? created_at` display fallback. A null taken_on stays null.
+        service, _ar = self._linked()
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, taken_on=None)
+        assert updated.taken_on is None
+        assert updated.created_at is not None
+
+    def test_caption_too_long_422(self):
+        service, _ar = self._linked()
+        with pytest.raises(ValidationError):
+            service.update_photo_metadata("plant1", "att1", TENANT, caption="x" * (CAPTION_MAX_LENGTH + 1))
+
+    def test_caption_at_limit_ok(self):
+        service, _ar = self._linked()
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, caption="x" * CAPTION_MAX_LENGTH)
+        assert updated.caption == "x" * CAPTION_MAX_LENGTH
+
+    def test_taken_on_future_422(self):
+        service, _ar = self._linked()
+        future = datetime.now(UTC).date() + timedelta(days=1)
+        with pytest.raises(ValidationError):
+            service.update_photo_metadata("plant1", "att1", TENANT, taken_on=future)
+
+    def test_taken_on_today_ok(self):
+        service, _ar = self._linked()
+        today = datetime.now(UTC).date()
+        updated = service.update_photo_metadata("plant1", "att1", TENANT, taken_on=today)
+        assert updated.taken_on == today
+
+    def test_unknown_photo_404(self):
+        service, _ar = self._linked()
+        with pytest.raises(NotFoundError):
+            service.update_photo_metadata("plant1", "ghost", TENANT, caption="x")
+
+    def test_cross_tenant_instance_404(self):
+        service, _ar = self._linked()
+        with pytest.raises(NotFoundError):
+            service.update_photo_metadata("plant1", "att1", OTHER_TENANT, caption="x")
 
 
 class TestList:

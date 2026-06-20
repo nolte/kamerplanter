@@ -9,7 +9,7 @@ viewer 403 / read paths (AC-13).
 from __future__ import annotations
 
 import io
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI, Request
@@ -24,6 +24,7 @@ from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+from app.domain.interfaces.attachment_repository import UNSET, _Unset
 from app.domain.models.attachment import Attachment
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
@@ -62,6 +63,19 @@ class _FakeAttachmentRepo:
             del self._store[key]
             return True
         return False
+
+    def update_metadata(self, key, tenant_key, *, caption=UNSET, taken_on=UNSET):
+        att = self.get(key, tenant_key)
+        if att is None:
+            return None
+        update: dict = {}
+        if not isinstance(caption, _Unset):
+            update["caption"] = caption
+        if not isinstance(taken_on, _Unset):
+            update["taken_on"] = taken_on
+        updated = att.model_copy(update=update)
+        self._store[key] = updated
+        return updated
 
     def find_by_sha256(self, tenant_key, sha256):
         for a in self._store.values():
@@ -210,6 +224,68 @@ class TestQuota:
         assert resp.json()["error_code"] == "PHOTO_QUOTA_EXCEEDED"
 
 
+class TestMetadata:
+    def test_patch_sets_caption_and_taken_on(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.patch(_base(f"/{att}"), json={"caption": "My tomato", "taken_on": "2026-06-01"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["caption"] == "My tomato"
+        assert body["taken_on"] == "2026-06-01"
+        # created_at is still present so the FE can fall back when taken_on is null.
+        assert body["created_at"] is not None
+        # List reflects the change.
+        listing = client.get(_base()).json()
+        assert listing["photos"][0]["caption"] == "My tomato"
+
+    def test_patch_only_caption_keeps_taken_on(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        att = _upload(client)
+        client.patch(_base(f"/{att}"), json={"caption": "a", "taken_on": "2026-06-01"})
+        # Omit taken_on entirely → it must survive (true PATCH).
+        resp = client.patch(_base(f"/{att}"), json={"caption": "b"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["caption"] == "b"
+        assert body["taken_on"] == "2026-06-01"
+
+    def test_patch_explicit_null_clears_caption(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        att = _upload(client)
+        client.patch(_base(f"/{att}"), json={"caption": "to clear"})
+        resp = client.patch(_base(f"/{att}"), json={"caption": None})
+        assert resp.status_code == 200
+        assert resp.json()["caption"] is None
+
+    def test_caption_too_long_422(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        att = _upload(client)
+        resp = client.patch(_base(f"/{att}"), json={"caption": "x" * 501})
+        # 422 — either from the schema max_length or the service guard.
+        assert resp.status_code == 422
+
+    def test_taken_on_future_422(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        att = _upload(client)
+        future = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
+        resp = client.patch(_base(f"/{att}"), json={"taken_on": future})
+        assert resp.status_code == 422
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+
+    def test_patch_unknown_attachment_404(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path)
+        client = TestClient(app)
+        _upload(client)
+        resp = client.patch(_base("/ghost"), json={"caption": "x"})
+        assert resp.status_code == 404
+
+
 class TestViewerForbidden:
     def test_viewer_can_read(self, tmp_path):
         app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
@@ -233,6 +309,12 @@ class TestViewerForbidden:
         app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
         client = TestClient(app)
         resp = client.delete(_base("/whatever"))
+        assert resp.status_code == 403
+
+    def test_viewer_cannot_edit_metadata(self, tmp_path):
+        app, _pr, _ar = _build(tmp_path, role=TenantRole.VIEWER)
+        client = TestClient(app)
+        resp = client.patch(_base("/whatever"), json={"caption": "x"})
         assert resp.status_code == 403
 
 

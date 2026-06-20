@@ -12,6 +12,8 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import { formatDate } from '@/utils/formatting';
 import AuthImage from '@/components/common/AuthImage';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -28,6 +30,7 @@ import {
 } from '@/api/endpoints/plantPhotos';
 import PlantPhotoUploadDialog from './PlantPhotoUploadDialog';
 import PlantPhotoLightbox from './PlantPhotoLightbox';
+import PlantPhotoEditDialog from './PlantPhotoEditDialog';
 
 interface PlantPhotoGalleryProps {
   plantInstanceKey: string;
@@ -62,6 +65,7 @@ export default function PlantPhotoGallery({
   const [error, setError] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<PlantPhoto | null>(null);
+  const [editTarget, setEditTarget] = useState<PlantPhoto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlantPhoto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -103,6 +107,22 @@ export default function PlantPhotoGallery({
       }
     },
     [plantInstanceKey, notification, handleError, t, onCoverChange],
+  );
+
+  const handleMetadataSaved = useCallback(
+    (updated: PlantPhoto) => {
+      // Patch the edited photo in place — caption/taken_on do not affect order
+      // or cover, so a full reload is unnecessary.
+      setPhotos((prev) =>
+        prev.map((p) => (p.attachment_id === updated.attachment_id ? { ...p, ...updated } : p)),
+      );
+      // Keep an open lightbox in sync with the freshly saved metadata.
+      setLightboxPhoto((prev) =>
+        prev && prev.attachment_id === updated.attachment_id ? { ...prev, ...updated } : prev,
+      );
+      notification.success(t('pages.plantPhotos.metadataSaved'));
+    },
+    [notification, t],
   );
 
   const handleConfirmDelete = useCallback(async () => {
@@ -193,6 +213,8 @@ export default function PlantPhotoGallery({
           {photos.map((photo) => {
             const thumb = photo.thumbnail_uris?.medium ?? photo.uri;
             const isBusy = busyId === photo.attachment_id;
+            // Display date: explicit capture date, else the upload date (§2.1).
+            const displayDate = formatDate(photo.taken_on ?? photo.created_at);
             return (
               <Card
                 key={photo.attachment_id}
@@ -276,6 +298,23 @@ export default function PlantPhotoGallery({
                         </span>
                       </Tooltip>
                     )}
+                    <Tooltip title={t('pages.plantPhotos.editPhoto')}>
+                      <span>
+                        <IconButton
+                          size="medium"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditTarget(photo);
+                          }}
+                          disabled={isBusy}
+                          aria-label={t('pages.plantPhotos.editPhoto')}
+                          sx={{ color: 'common.white', p: 0.75 }}
+                          data-testid="plant-photo-edit"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <Tooltip title={t('pages.plantPhotos.deletePhoto')}>
                       <span>
                         <IconButton
@@ -295,6 +334,34 @@ export default function PlantPhotoGallery({
                     </Tooltip>
                   </Box>
                 )}
+
+                {/* Metadata under the thumbnail: capture date + 1-line caption
+                    preview (§2.1). Always rendered (read-only for viewers). */}
+                <Box sx={{ px: 1, py: 0.75 }} data-testid="plant-photo-meta">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block' }}
+                    data-testid="plant-photo-date"
+                  >
+                    {displayDate}
+                  </Typography>
+                  {photo.caption && (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        // 1-line truncation — full text lives in the lightbox.
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={photo.caption}
+                      data-testid="plant-photo-caption"
+                    >
+                      {photo.caption}
+                    </Typography>
+                  )}
+                </Box>
               </Card>
             );
           })}
@@ -312,7 +379,14 @@ export default function PlantPhotoGallery({
         onClose={() => setLightboxPhoto(null)}
         canWrite={canWrite}
         onSetCover={handleSetCover}
+        onEdit={(photo) => setEditTarget(photo)}
         onDelete={(photo) => setDeleteTarget(photo)}
+      />
+      <PlantPhotoEditDialog
+        photo={editTarget}
+        plantInstanceKey={plantInstanceKey}
+        onClose={() => setEditTarget(null)}
+        onSaved={handleMetadataSaved}
       />
       <ConfirmDialog
         open={deleteTarget !== null}

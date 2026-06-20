@@ -27,6 +27,7 @@ from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
 from app.api.v1.plant_instances.photo_schemas import (
     PlantPhotoListResponse,
+    PlantPhotoMetadataUpdate,
     PlantPhotoResponse,
 )
 from app.common.dependencies import get_attachment_service, get_plant_photo_service
@@ -34,6 +35,7 @@ from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
+from app.domain.interfaces.attachment_repository import UNSET
 from app.domain.models.attachment import Attachment
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.attachment_service import AttachmentService
@@ -64,6 +66,8 @@ def _photo_response(attachment: Attachment, tenant_slug: str, *, is_cover: bool)
         is_cover=is_cover,
         mime_type=attachment.mime_type,
         byte_size=attachment.byte_size,
+        caption=attachment.caption,
+        taken_on=attachment.taken_on.isoformat() if attachment.taken_on else None,
         created_at=attachment.created_at.isoformat() if attachment.created_at else None,
     )
 
@@ -183,6 +187,37 @@ def set_cover_photo(
         cover_photo_ref=cover,
         photos=[_photo_response(p, ctx.tenant_slug, is_cover=(p.key == cover)) for p in photos],
     )
+
+
+@router.patch("/{attachment_id}", response_model=PlantPhotoResponse)
+def update_plant_photo_metadata(
+    key: str,
+    attachment_id: str,
+    body: PlantPhotoMetadataUpdate,
+    ctx: TenantContext = Depends(require_attachment_permission(Action.UPDATE)),
+    photo_service: PlantPhotoService = Depends(get_plant_photo_service),
+) -> PlantPhotoResponse:
+    """Patch a gallery photo's caption / capture date (REQ-034 §2.1 v1.2).
+
+    True PATCH: only the fields present in the request body are changed. An
+    omitted field is left untouched; an explicit ``null`` clears it. The
+    omitted-vs-null distinction is recovered from ``model_fields_set`` and
+    forwarded to the service as the ``UNSET`` sentinel.
+    """
+    caption = body.caption if "caption" in body.model_fields_set else UNSET
+    taken_on = body.taken_on if "taken_on" in body.model_fields_set else UNSET
+    attachment = photo_service.update_photo_metadata(
+        key,
+        attachment_id,
+        ctx.tenant_key,
+        caption=caption,
+        taken_on=taken_on,
+    )
+    # Re-resolve the cover flag so the response stays consistent with the gallery.
+    _plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    photo_ids = [p.key or "" for p in photos]
+    cover = _resolved_cover(_plant.cover_photo_ref, photo_ids)
+    return _photo_response(attachment, ctx.tenant_slug, is_cover=(attachment.key == cover))
 
 
 @router.delete("/{attachment_id}", status_code=204)

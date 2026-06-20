@@ -25,6 +25,8 @@ caller is already authorised for ``tenant_key``.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
+
 import structlog
 
 from app.common.enums import AttachmentCategory
@@ -35,9 +37,9 @@ from app.common.exceptions import (
 )
 from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import Settings
-from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.models.attachment import Attachment
+from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.attachment_service import AttachmentService
 
@@ -173,6 +175,80 @@ class PlantPhotoService:
             tenant_key=tenant_key,
             plant_instance_key=key,
             attachment_id=attachment_id,
+        )
+        return updated
+
+    # ── Edit metadata (caption / taken_on) ────────────────────────────
+
+    def update_photo_metadata(
+        self,
+        key: str,
+        attachment_id: str,
+        tenant_key: str,
+        *,
+        caption: str | None | _Unset = UNSET,
+        taken_on: date | None | _Unset = UNSET,
+    ) -> Attachment:
+        """REQ-034 §2.1 v1.2 — patch a gallery photo's caption / capture date.
+
+        True PATCH: only the explicitly-passed fields are written; an omitted
+        field is left untouched, an explicit ``None`` clears it. Guards mirror
+        the cover/delete paths — the instance must be tenant-owned and the photo
+        must be linked to it (``attachment_id in photo_refs``), otherwise 404.
+
+        Validation (422):
+
+        - ``caption`` length must not exceed :data:`CAPTION_MAX_LENGTH`;
+        - ``taken_on`` must not lie in the future.
+
+        Returns the updated attachment.
+        """
+        plant = self._get_instance(key, tenant_key)
+        if attachment_id not in plant.photo_refs:
+            raise NotFoundError("PlantPhoto", attachment_id)
+
+        if not isinstance(caption, _Unset) and caption is not None and len(caption) > CAPTION_MAX_LENGTH:
+            raise ValidationError(
+                f"Caption must not exceed {CAPTION_MAX_LENGTH} characters.",
+                details=[
+                    {
+                        "field": "caption",
+                        "reason": f"Caption has {len(caption)} characters, the maximum is {CAPTION_MAX_LENGTH}.",
+                        "code": "CAPTION_TOO_LONG",
+                    }
+                ],
+            )
+
+        if not isinstance(taken_on, _Unset) and taken_on is not None and taken_on > datetime.now(UTC).date():
+            raise ValidationError(
+                "Capture date must not be in the future.",
+                details=[
+                    {
+                        "field": "taken_on",
+                        "reason": f"Capture date '{taken_on.isoformat()}' is in the future.",
+                        "code": "TAKEN_ON_IN_FUTURE",
+                    }
+                ],
+            )
+
+        updated = self._attachments.update_metadata(
+            attachment_id,
+            tenant_key,
+            caption=caption,
+            taken_on=taken_on,
+        )
+        if updated is None:
+            # The id is in photo_refs but the attachment metadata is gone — a
+            # stale reference; surface it as a missing photo rather than 500.
+            raise NotFoundError("PlantPhoto", attachment_id)
+
+        logger.info(
+            "plant_photo_metadata_updated",
+            tenant_key=tenant_key,
+            plant_instance_key=key,
+            attachment_id=attachment_id,
+            caption_set=not isinstance(caption, _Unset),
+            taken_on_set=not isinstance(taken_on, _Unset),
         )
         return updated
 

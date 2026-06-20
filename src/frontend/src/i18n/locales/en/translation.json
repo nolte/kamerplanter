@@ -1334,7 +1334,18 @@
       "emptyTitle": "No photos yet",
       "emptyDescriptionWrite": "Add the first photo of your plant – so you can track its growth and recognise it at a glance in the overview.",
       "emptyDescriptionRead": "No photos have been added for this plant yet.",
-      "emptyDescription": "Add your first photo of this plant to capture its growth over time."
+      "emptyDescription": "Add your first photo of this plant to capture its growth over time.",
+      "editPhoto": "Edit",
+      "editTitle": "Edit photo details",
+      "caption": "Caption",
+      "captionTooLong": "The caption must not exceed {{max}} characters.",
+      "takenOn": "Date taken",
+      "takenOnHelper": "When was this photo taken? If left empty, the upload date is used.",
+      "saving": "Saving…",
+      "metadataSaved": "Photo details saved",
+      "metadataError": "The photo details could not be saved. Please try again.",
+      "metadataInvalid": "Please check your input: the caption is too long or the date taken is in the future.",
+      "editForbidden": "You do not have permission to edit this photo."
     },
     "plantInstances": {
       "title": "Plant Instances",

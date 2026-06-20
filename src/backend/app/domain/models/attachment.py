@@ -8,11 +8,14 @@ this document carries only the metadata needed for listing, deduplication
 serving (``mime_type`` / ``byte_size``).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import AttachmentCategory
+
+# REQ-034 §2.1 — upper bound for the user-editable gallery photo caption.
+CAPTION_MAX_LENGTH = 500
 
 
 class Attachment(BaseModel):
@@ -27,6 +30,14 @@ class Attachment(BaseModel):
     created_by: str
     category: AttachmentCategory
     storage_key: str
+    # REQ-034 §2.1 v1.2 — generic, user-editable photo metadata. Populated for
+    # gallery photos (``category == plant``); every other category leaves them
+    # ``None``. ``caption`` is a free-text note (<= 500 chars); ``taken_on`` is
+    # the capture date the user may override (default/fallback: the upload
+    # ``created_at``; the display fallback lives in the frontend). EXIF capture
+    # time is unavailable here because EXIF is stripped on upload (NFR-013 §6.4).
+    caption: str | None = None
+    taken_on: date | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
