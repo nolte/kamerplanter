@@ -113,6 +113,8 @@ persistence:
     enabled: false
   backend-uploads:
     enabled: false
+  backend-attachments:
+    enabled: false
   backend-fontconfig:
     enabled: false
   backend-tmp:
