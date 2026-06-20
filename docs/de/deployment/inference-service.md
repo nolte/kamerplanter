@@ -12,7 +12,12 @@ Der Inferenz-Service (`src/inference-service/`) ist ein eigenständiger FastAPI-
 - Bilder vorverarbeitet und in Embedding-Vektoren (384 Dimensionen) umrechnet,
 - diese Vektoren gegen einen **Referenz-Index** in pgvector abgleicht und die ähnlichsten Pflanzenarten zurückgibt.
 
-Der Service ist ein **optionales, eigenständiges** Modul. Er läuft im eigenen Helm-Release `kamerplanter-recognition` (Skaffold-Profil `recognition`) und ist nur clusterintern erreichbar (ClusterIP). Damit lässt sich die Bilderkennung unabhängig vom RAG-Stack (dem Retrieval-Augmented-Generation-Stack des Knowledge-Service) betreiben oder ganz weglassen. Den pgvector-Speicher teilt er sich mit dem Knowledge-Service: die Datenbank `kamerplanter_vectors` aus dem `kamerplanter-ki`-Release, darin aber eine eigene Tabelle (`species_embeddings`). Die `kamerplanter-ki`-vectordb muss daher laufen, wenn das `recognition`-Profil startet.
+Der Service ist ein **optionales, eigenständiges** Modul. Es gibt zwei Deployment-Topologien:
+
+- **Entwicklung (Skaffold):** Der Service läuft im eigenen Helm-Release `kamerplanter-recognition` (Skaffold-Profil `recognition`) und teilt sich den pgvector-Speicher mit dem Knowledge-Service (`kamerplanter-ki`-Release, Datenbank `kamerplanter_vectors`, eigene Tabelle `species_embeddings`). Die `kamerplanter-ki`-vectordb muss laufen, wenn das `recognition`-Profil startet.
+- **Produktion (ArgoCD, Single-Release):** Der Inference-Service und eine **dedizierte** pgvector-Instanz laufen im selben Helm-Release wie Backend und Frontend (`kamerplanter`). Kein separates Release, kein geteilter pgvector-Speicher mit dem Knowledge-Service. Verfügbar ab Image-Tag **v0.0.17** (ab diesem Release publiziert CI das `kamerplanter-inference-service`-Image auf GHCR).
+
+Der Service ist in beiden Topologien nur clusterintern erreichbar (Kubernetes `ClusterIP`).
 
 ---
 
@@ -21,7 +26,7 @@ Der Service ist ein **optionales, eigenständiges** Modul. Er läuft im eigenen 
 !!! warning "Reihenfolge einhalten"
     Die drei Schritte müssen in der angegebenen Reihenfolge ausgeführt werden. Wird `INFERENCE_SERVICE_ENABLED=true` gesetzt, bevor der Referenz-Index befüllt ist, ist die lokale Erkennung nicht verfügbar — das Backend fällt dann direkt auf Pl@ntNet zurück (sofern konfiguriert).
 
-### Schritt 1: Inferenz-Service starten (Skaffold)
+### Schritt 1: Inferenz-Service starten — Entwicklung (Skaffold)
 
 ```bash
 # Im Projektverzeichnis (Entwicklung):
@@ -122,51 +127,76 @@ INFERENCE_SERVICE_ENABLED=true
 
 ---
 
-## Helm-Konfiguration (Produktion)
+## Helm-Konfiguration
 
-Der Inferenz-Service hat ein eigenes Helm-Release `kamerplanter-recognition`. Die Konfiguration erfolgt in `values-dev-recognition.yaml`:
+### Entwicklung (Skaffold)
+
+Im Entwicklungs-Workflow wird der Inferenz-Service über das Skaffold-Profil `recognition` als separates Helm-Release `kamerplanter-recognition` gestartet. Konfiguration in `helm/kamerplanter/values-dev-recognition.yaml` — der pgvector-Speicher wird mit dem `kamerplanter-ki`-Release geteilt (siehe Überblick oben).
+
+### Produktion (ArgoCD — Single-Release)
+
+!!! warning "Mindest-Image-Tag: v0.0.17"
+    Das CI-Image `ghcr.io/nolte/kamerplanter-inference-service` wird erst ab Release **v0.0.17** publiziert (ab diesem Release enthält der Workflow den `build-inference-service`-Job). ArgoCD-Applications müssen auf `v0.0.17` oder höher pinnen — ältere Tags enthalten das Image nicht.
+
+In Produktion laufen der Inferenz-Service und eine **dedizierte** pgvector-Instanz (`vectordb`) im **selben** Helm-Release wie Backend und Frontend (Release-Name `kamerplanter`). Das Chart `helm/kamerplanter/values.yaml` enthält dafür zwei zusätzliche Controller, die standardmäßig deaktiviert sind: `vectordb` und `inference-service`. Der Operator aktiviert sie über `valuesObject` in der ArgoCD-Application.
+
+!!! warning "Passwörter: Zwei Secret-Schlüssel sind Pflicht"
+    Das Chart injiziert das Secret `kamerplanter-secrets` per `envFrom` in beide neuen Container. Der Operator muss **vor** dem ersten Deploy zwei Schlüssel in dieses Secret eintragen:
+
+    - `POSTGRES_PASSWORD` — wird vom `vectordb`-Container (PostgreSQL 18 mit pgvector) ausgewertet
+    - `VECTORDB_PASSWORD` — wird vom `inference-service`-Container als Pydantic-Setting `vectordb_password` ausgewertet
+
+    Beide Schlüssel erhalten denselben Wert (das Passwort für den pgvector-Benutzer). Kein Passwort wird jemals im Chart oder in Git gespeichert.
+
+**ArgoCD Application — `spec.sources[].helm.valuesObject`:**
 
 ```yaml
-# helm/kamerplanter/values-dev-recognition.yaml
-
-inference-service:
-  controllers:
-    main:
-      containers:
-        main:
-          image:
-            repository: ghcr.io/nolte/kamerplanter-inference-service
-            tag: latest              # In Produktion: feste Version verwenden
-          env:
-            VECTORDB_HOST: "kamerplanter-ki-vectordb"
-            VECTORDB_PORT: "5432"
-            VECTORDB_DATABASE: "kamerplanter_vectors"
-            VECTORDB_USERNAME: "..."
-            VECTORDB_PASSWORD: "..."
-            MODEL_NAME: "dinov2_vits14"
-            CONFIDENCE_AUTO_ACCEPT: "0.85"
-            CONFIDENCE_SHOW_RESULTS: "0.10"
-          resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
-            limits:
-              cpu: "2"
-              memory: 1Gi           # DINOv2 ViT-S/14 + ONNX Runtime
-
-  service:
-    main:
-      type: ClusterIP
-      ports:
-        http:
-          port: 8000
-
-# Backend — Inference-Service-Verbindung
-backend:
-  env:
-    INFERENCE_SERVICE_ENABLED: "true"
-    INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+controllers:
+  vectordb:
+    enabled: true
+  inference-service:
+    enabled: true
+  backend:
+    containers:
+      main:
+        env:
+          INFERENCE_SERVICE_ENABLED: "true"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
+service:
+  vectordb:
+    enabled: true
+  inference-service:
+    enabled: true
+persistence:
+  inference-service-tmp:
+    enabled: true
+networkpolicies:
+  vectordb:
+    enabled: true
+  inference-service:
+    enabled: true
 ```
+
+Ressourcen und Sicherheitskontext (Chart-Defaults, nicht überschreiben sofern nicht nötig):
+
+| Komponente | CPU request/limit | RAM request/limit | Besonderheit |
+|-----------|-------------------|-------------------|-------------|
+| `vectordb` | 50m / 500m | 128Mi / 512Mi | StatefulSet, 5Gi PVC (`/var/lib/postgresql/data`, `PGDATA` = `.../pgdata`), uid/gid/fsGroup 999 (postgres), `helm.sh/resource-policy: keep` |
+| `inference-service` | 250m / 2 | 512Mi / 2Gi | `readOnlyRootFilesystem: true`, memory-backed `/tmp` emptyDir |
+
+Service-Hostnamen im Cluster (Release-Name `kamerplanter`):
+
+- Backend → Inferenz-Service: `http://kamerplanter-inference-service:8000`
+- Inferenz-Service → pgvector: `kamerplanter-vectordb:5432` (Chart-Default für `VECTORDB_HOST`)
+
+### Aktivierungsreihenfolge in Produktion
+
+!!! warning "Reihenfolge einhalten (Produktion)"
+    Den Stack (vectordb + inference-service) deployen und den Referenz-Index befüllen, **bevor** `INFERENCE_SERVICE_ENABLED=true` gesetzt wird. Andernfalls findet die Erkennung keinen Referenz-Index und gibt keine Ergebnisse zurück.
+
+1. ArgoCD-Application mit den oben gezeigten `valuesObject`-Feldern (ohne `INFERENCE_SERVICE_ENABLED: "true"`) deployen. Warten, bis `kamerplanter-vectordb` und `kamerplanter-inference-service` `Ready` sind.
+2. Referenz-Index befüllen (identisch mit Schritt 2 im Entwicklungs-Pfad oben — das `kubectl exec`-Ziel ist `deploy/kamerplanter-backend`).
+3. `INFERENCE_SERVICE_ENABLED: "true"` in das `valuesObject` eintragen und die Application synchronisieren.
 
 ### Ressourcenbedarf
 
@@ -183,7 +213,7 @@ backend:
 
 | Variable | Pflicht | Standard | Beschreibung |
 |----------|:-------:|----------|-------------|
-| `VECTORDB_HOST` | Nein | `localhost` | Hostname der pgvector-Datenbank (im Cluster: `kamerplanter-ki-vectordb`) |
+| `VECTORDB_HOST` | Nein | `localhost` | Hostname der pgvector-Datenbank. Im Cluster abhängig von der Topologie: DEV/Separate-Release → `kamerplanter-ki-vectordb` (geteilter KI-Stack); Produktion/Single-Release → `kamerplanter-vectordb` (dediziert, Chart-Default) |
 | `VECTORDB_PORT` | Nein | `5432` | Port der pgvector-Datenbank |
 | `VECTORDB_DATABASE` | Nein | `kamerplanter_vectors` | Datenbankname |
 | `VECTORDB_USERNAME` | Nein | `postgres` | Datenbankbenutzer |
@@ -255,5 +285,6 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 - [Pflanzen-Bilderkennung verwenden](../user-guide/plant-identification.md)
 - [Architektur der Bilderkennung](../architecture/ai-architecture.md#bilderkennung-dinov2)
 - [Betriebsprofile](betriebsprofile.md) — Welche KI-Komponenten sind in welchem Profil enthalten?
+- [ArgoCD-Deployment](argocd.md) — Produktiv-Deployment mit ArgoCD (Application-Konfiguration, Sync-Strategien)
 - [Helm Charts](helm.md) — Allgemeine Helm-Konfiguration
 - [Umgebungsvariablen](../reference/environment-variables.md)

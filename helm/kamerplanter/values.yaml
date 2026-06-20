@@ -397,6 +397,147 @@ controllers:
             cpu: 200m
             memory: 256Mi
 
+  # -- VectorDB (REQ-029-A — PostgreSQL + pgvector store for DINOv2 recognition).
+  # Disabled by default; the operator enables it (controllers.vectordb.enabled,
+  # service.vectordb.enabled, persistence.vectordb-data.enabled,
+  # networkpolicies.vectordb.enabled) in the ArgoCD valuesObject together with
+  # the inference-service. Modelled on the ``arangodb`` statefulset above.
+  vectordb:
+    enabled: false
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+    containers:
+      main:
+        image:
+          repository: ghcr.io/nolte/kamerplanter-vectordb
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        # POSTGRES_PASSWORD is NEVER inlined here — it is supplied via the
+        # operator-managed ``kamerplanter-secrets`` Secret (same pattern as the
+        # arangodb root password), so no real credential lands in Git.
+        envFrom:
+          - secret: kamerplanter-secrets
+        env:
+          POSTGRES_DB: kamerplanter_vectors
+          POSTGRES_USER: postgres
+          PGDATA: /var/lib/postgresql/data/pgdata
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 5Gi
+          annotations:
+            helm.sh/resource-policy: keep
+          globalMounts:
+            - path: /var/lib/postgresql/data
+
+  # -- Inference Service (REQ-029-A — DINOv2 embedding + pgvector match, CPU-only,
+  # model baked at build). Disabled by default; the operator enables it together
+  # with the vectordb (controllers.inference-service.enabled,
+  # service.inference-service.enabled, networkpolicies.inference-service.enabled).
+  # INFERENCE_SERVICE_ENABLED on the backend is set in GitOps, not here.
+  inference-service:
+    enabled: false
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+    containers:
+      main:
+        image:
+          repository: ghcr.io/nolte/kamerplanter-inference-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        # VECTORDB_PASSWORD is NEVER inlined here — it comes from the
+        # operator-managed ``kamerplanter-secrets`` Secret (same value the
+        # vectordb container consumes as POSTGRES_PASSWORD).
+        envFrom:
+          - secret: kamerplanter-secrets
+        env:
+          VECTORDB_HOST: kamerplanter-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          MODEL_PATH: /app/models/dinov2
+          MODEL_NAME: dinov2_vits14
+          MODEL_DIM: "384"
+          INPUT_SIZE: "224"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: &inference-port 8000
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: *inference-port
+              initialDelaySeconds: 15
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+
   # -- TimescaleDB (optional — disabled by default, enable via values override)
   # timescaledb:
   #   type: statefulset
@@ -624,6 +765,23 @@ service:
       http:
         port: 8529
 
+  # -- REQ-029-A recognition services (disabled by default; operator enables
+  # ``service.vectordb.enabled`` / ``service.inference-service.enabled`` together
+  # with the matching controllers).
+  vectordb:
+    enabled: false
+    controller: vectordb
+    ports:
+      postgresql:
+        port: 5432
+
+  inference-service:
+    enabled: false
+    controller: inference-service
+    ports:
+      http:
+        port: 8000
+
 persistence:
   nginx-config:
     enabled: true
@@ -773,6 +931,20 @@ persistence:
         main:
           - path: /tmp
 
+  # -- REQ-029-A inference-service writable /tmp (readOnlyRootFilesystem support,
+  # onnxruntime scratch). Disabled by default; operator enables it together with
+  # the inference-service controller. The vectordb store uses its statefulset
+  # volumeClaimTemplate (controllers.vectordb.statefulset), not a persistence key.
+  inference-service-tmp:
+    enabled: false
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      inference-service:
+        main:
+          - path: /tmp
+
   # -- Knowledge data volume (shared between init container and main containers)
   # knowledge:
   #   enabled: true
@@ -899,6 +1071,16 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Inference Service (REQ-029-A DINOv2 — only effective when the
+        # inference-service controller is deployed; backend calls it for plant
+        # recognition. INFERENCE_SERVICE_ENABLED is toggled in GitOps.)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: inference-service
+          ports:
+            - protocol: TCP
+              port: 8000
         # Ollama subchart (optional — only effective when ollama.enabled is true)
         - to:
             - podSelector:
@@ -990,6 +1172,15 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Inference Service (REQ-029-A DINOv2 — celery reference-acquisition tasks
+        # call the inference-service to embed reference images)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: inference-service
+          ports:
+            - protocol: TCP
+              port: 8000
         # External APIs (SMTP, Home Assistant, weather)
         - to:
             - ipBlock:
@@ -1055,6 +1246,79 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8529
+      egress:
+        # DNS only (for cluster-internal resolution)
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  # -- REQ-029-A inference-service: accept from backend + celery-worker on 8000,
+  # talk to the vectordb (5432) + DNS. Disabled by default; operator enables
+  # ``networkpolicies.inference-service.enabled`` with the controller.
+  inference-service:
+    enabled: false
+    controller: inference-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # VectorDB (same release — pgvector store)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  # -- REQ-029-A vectordb (pgvector): accept from inference-service on 5432, no
+  # egress beyond DNS. Disabled by default; operator enables
+  # ``networkpolicies.vectordb.enabled`` with the controller.
+  vectordb:
+    enabled: false
+    controller: vectordb
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: inference-service
+          ports:
+            - protocol: TCP
+              port: 5432
       egress:
         # DNS only (for cluster-internal resolution)
         - to:
