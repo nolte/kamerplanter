@@ -154,13 +154,21 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
     await waitFor(() => expect(screen.getAllByTestId('plant-photo-item')).toHaveLength(2));
     // The thumbnails are rendered from authenticated blob Object-URLs, never a
     // bare <img src={attachmentUri}> (which could not send the Bearer header).
-    const imgs = (await screen.findAllByTestId('plant-photo-image')) as HTMLImageElement[];
-    await waitFor(() => expect(imgs[0].src).toMatch(/^blob:/));
+    // The blob render path is multi-step (MSW -> axios blob -> createObjectURL ->
+    // setState); under the CI runner's constrained parallelism it can exceed the
+    // 1s default waitFor budget, so these image assertions get explicit headroom
+    // (mirrors the rationale for the 30s testTimeout in vitest.config.ts).
+    const imgs = (await screen.findAllByTestId(
+      'plant-photo-image',
+      undefined,
+      { timeout: 10000 },
+    )) as HTMLImageElement[];
+    await waitFor(() => expect(imgs[0].src).toMatch(/^blob:/), { timeout: 10000 });
     imgs.forEach((img) => expect(img.src).not.toContain('/attachments/'));
 
     // AC-02: the grid loads the medium (512px) rendition only — never the
     // original or the large (1280px) rendition.
-    await waitFor(() => expect(requested.length).toBeGreaterThan(0));
+    await waitFor(() => expect(requested.length).toBeGreaterThan(0), { timeout: 10000 });
     expect(requested.every((p) => p.includes('/thumbnails/512'))).toBe(true);
     expect(requested.some((p) => p.includes('/thumbnails/1280'))).toBe(false);
     expect(requested.some((p) => /\/attachments\/[^/]+$/.test(p))).toBe(false);
@@ -303,10 +311,15 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
 
     // The lightbox renders the image from an authenticated blob Object-URL and
     // loads the large (1280px) rendition (AC-02: originals stay out of the grid).
-    const lightboxImg = (await screen.findByTestId('plant-photo-lightbox-image')) as HTMLImageElement;
-    await waitFor(() => expect(lightboxImg.src).toMatch(/^blob:/));
-    await waitFor(() =>
-      expect(requested.some((p) => p.includes('/thumbnails/1280'))).toBe(true),
+    const lightboxImg = (await screen.findByTestId(
+      'plant-photo-lightbox-image',
+      undefined,
+      { timeout: 10000 },
+    )) as HTMLImageElement;
+    await waitFor(() => expect(lightboxImg.src).toMatch(/^blob:/), { timeout: 10000 });
+    await waitFor(
+      () => expect(requested.some((p) => p.includes('/thumbnails/1280'))).toBe(true),
+      { timeout: 10000 },
     );
   });
 
