@@ -63,6 +63,25 @@ class ConsentEngine:
             required=False,
         ),
         ConsentPurpose(
+            key="pest_detection_cloud",
+            label_de="Cloud-basierte Schädlingserkennung",
+            label_en="Cloud-based pest detection",
+            description_de=(
+                "Senden hochgeladener Pflanzenfotos an einen Cloud-Dienst (Kindwise plant.health) "
+                "zur Schädlingserkennung. Nur erforderlich, wenn der Cloud-Adapter aktiv ist — die "
+                "Self-Hosted-Erkennung benötigt diese Einwilligung nicht. Das Foto wird vor dem "
+                "Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert."
+            ),
+            description_en=(
+                "Sending uploaded plant photos to a cloud service (Kindwise plant.health) for pest "
+                "detection. Only required when the cloud adapter is active — the self-hosted path "
+                "needs no such consent. The photo is stripped of EXIF metadata before sending and "
+                "is not persisted."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
             key="reference_contribution",
             label_de="Foto-Beitrag zur Pflanzenerkennung",
             label_en="Photo contribution to plant recognition",

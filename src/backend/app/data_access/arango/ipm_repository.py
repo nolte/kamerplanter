@@ -29,6 +29,12 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         doc = BaseArangoRepository.get_by_key(self, key)
         return Pest(**doc) if doc else None
 
+    def get_pest_by_scientific_name(self, scientific_name: str) -> Pest | None:
+        query = f"FOR p IN {col.PESTS} FILTER p.scientific_name == @name LIMIT 1 RETURN p"
+        cursor = self._db.aql.execute(query, bind_vars={"name": scientific_name})
+        doc = next(cursor, None)
+        return Pest(**self._from_doc(doc)) if doc else None
+
     def create_pest(self, pest: Pest) -> Pest:
         doc = BaseArangoRepository.create(self, pest)
         return Pest(**doc)

@@ -213,6 +213,143 @@ Photos are **not** stored on the Kamerplanter server — they are transmitted to
 
 ---
 
+## Enabling Pest Detection {#enabling-pest-detection}
+
+[Pest detection](pest-detection.md) is disabled by default (`PEST_DETECTION_ENABLED=false`). As long as no adapter is configured, the backend reports `adapter: null` and the "Check for Pests" button remains hidden for all users.
+
+!!! note "Platform admin required"
+    Only users with the platform role **admin** can configure pest detection. The settings apply platform-wide.
+
+!!! note "Phase 1 — Self-Hosted-First"
+    In the current phase (Phase 1) two adapters are available: the local **symptom adapter** (`local_pest_symptom`, requires no external services or user consent) and the optional **cloud adapter** (Kindwise, requires user consent). A self-hosted direct detector using ONNX is being prepared for Phase 2.
+
+### Adapter 1: Local symptom adapter (self-hosted, recommended)
+
+The local adapter detects damage patterns and symptoms (webbing, honeydew, suction damage) directly on the instance — no third-party service, no privacy consent required from users.
+
+**Enable via environment variables:**
+
+```bash
+PEST_DETECTION_ENABLED=true
+PEST_DETECTION_SYMPTOM_ENABLED=true
+PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
+```
+
+=== "Kubernetes / Helm"
+
+    ```bash
+    kubectl create secret generic kamerplanter-secrets \
+      --from-literal=PEST_DETECTION_ENABLED="true" \
+      --from-literal=PEST_DETECTION_SYMPTOM_ENABLED="true" \
+      --from-literal=PEST_DETECTION_PRIMARY_ADAPTER="local_pest_symptom" \
+      --namespace kamerplanter
+    ```
+
+    Reference the secret in Helm values:
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (excerpt)
+    backend:
+      envFrom:
+        - secretRef:
+            name: kamerplanter-secrets
+    ```
+
+=== "Docker Compose"
+
+    ```bash
+    # .env (do not commit)
+    PEST_DETECTION_ENABLED=true
+    PEST_DETECTION_SYMPTOM_ENABLED=true
+    PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
+    ```
+
+    Restart the stack:
+
+    ```bash
+    docker compose up -d
+    ```
+
+=== "Local dev (kind / Skaffold)"
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (local only, do not commit)
+    backend:
+      env:
+        PEST_DETECTION_ENABLED: "true"
+        PEST_DETECTION_SYMPTOM_ENABLED: "true"
+        PEST_DETECTION_PRIMARY_ADAPTER: "local_pest_symptom"
+    ```
+
+### Adapter 2: Cloud detection (Kindwise — optional, requires consent)
+
+The Kindwise cloud adapter transmits photos to the Kindwise service (Brno, Czech Republic — EU) for analysis. It is disabled by default and requires explicit user consent (consent purpose `pest_detection_cloud`).
+
+!!! warning "Verify contractual requirements before activation"
+    Before activating the cloud adapter, the following points must be clarified:
+    - Sign a data processing agreement (DPA under GDPR Art. 28) with Kindwise
+    - Confirm EU hosting guarantee and data retention period contractually
+    - Empirically test the suitability of the `plant.health` product for your target pest classes (indoor)
+    Detailed checklist: `spec/analysis/pest-detection-implementation-prep.md` §5.
+
+**Enable via environment variables:**
+
+```bash
+PEST_DETECTION_ENABLED=true
+PEST_DETECTION_CLOUD_ENABLED=true
+PEST_DETECTION_CLOUD_API_KEY=your-kindwise-api-key
+PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom   # local remains default; cloud selectable as fallback or primary
+```
+
+The button appears automatically in the UI after the next backend restart. Users who want to use the cloud adapter are prompted for consent on first use.
+
+### Checking the status
+
+Call the status endpoint (tenant-scoped, JWT required):
+
+```bash
+curl -H "Authorization: Bearer <JWT>" \
+  http://localhost:8000/api/v1/t/{tenant_slug}/pests/status | python3 -m json.tool
+```
+
+Expected response when an adapter is active:
+
+```json
+{
+  "adapter": "local_pest_symptom",
+  "pest_detection_enabled": true,
+  "symptom_enabled": true,
+  "detector_enabled": false,
+  "cloud_enabled": false
+}
+```
+
+If `pest_detection_enabled: false` or `adapter: null`, the button remains hidden in the UI.
+
+### Optional fine-tuning
+
+The following variables do not usually need to be changed. A full description is available in the [Environment Variables reference](../reference/environment-variables.md#pest-detection-req-044):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PEST_DETECTION_ENABLED` | `false` | Master switch — feature on/off |
+| `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Damage pattern detection (mode 2) on/off |
+| `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Direct detector (mode 1, Phase 2) on/off |
+| `PEST_DETECTION_CLOUD_ENABLED` | `false` | Cloud adapter on/off |
+| `PEST_DETECTION_CLOUD_API_KEY` | — | API key for the cloud adapter (Kindwise) |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Preferred adapter |
+| `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | Maximum image size in megabytes |
+
+### Privacy note
+
+- **Local adapter:** Photos do not leave the instance; no consent required; EXIF is removed before any processing.
+- **Cloud adapter:** Photos are sent to Kindwise (EU); users must consent once for the purpose `pest_detection_cloud`; DPA contractually required; EXIF stripped twice (frontend + backend).
+- Photos are never stored permanently — only the detection result and an anonymous image hash are retained.
+
+See [Privacy (GDPR)](privacy.md) for details.
+
+---
+
 ## Curating Reference Images for Plant Identification
 
 The self-hosted plant identification (DINOv2) compares user photos against a stored **reference index**. If that index contains blurry, misidentified, or otherwise unsuitable images, recognition accuracy for the affected species deteriorates.

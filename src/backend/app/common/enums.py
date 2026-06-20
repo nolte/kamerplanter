@@ -783,6 +783,53 @@ class AttachmentCategory(StrEnum):
     PLANT = "plant"
 
 
+class PestFindingCategory(StrEnum):
+    """REQ-044 §4.2 — what kind of thing a pest-detection finding represents.
+
+    ``BENEFICIAL`` findings are never presented as a pest to fight (§9.1).
+    ``UNKNOWN`` is the open-set reject/abstention class (WP-4.3 / WP-5).
+    """
+
+    PEST = "pest"
+    BENEFICIAL = "beneficial"
+    SYMPTOM = "symptom"
+    UNKNOWN = "unknown"
+
+
+class PestFindingMode(StrEnum):
+    """REQ-044 — detection mode a finding originates from.
+
+    ``DIRECT`` = the pest/beneficial itself is visible (Mode 1, with box).
+    ``SYMPTOM`` = inferred from damage pattern without a visible insect (Mode 2).
+    """
+
+    DIRECT = "direct"
+    SYMPTOM = "symptom"
+
+
+class PestDetectionSource(StrEnum):
+    """REQ-044 §5.1 — which backend produced a detection result."""
+
+    CLOUD_KINDWISE = "cloud_kindwise"
+    LOCAL_DETECTOR = "local_detector"
+    LOCAL_SYMPTOM = "local_symptom"
+
+
+class PestDetectionTrigger(StrEnum):
+    """REQ-044 §5.1 — what initiated a detection."""
+
+    USER_PHOTO = "user_photo"
+    SCHEDULED = "scheduled"
+    MANUAL = "manual"
+
+
+class PestDetectionNextStep(StrEnum):
+    """REQ-044 §5.1 — suggested follow-up. Never an automatic treatment (§0)."""
+
+    IPM_INSPECTION = "ipm_inspection"
+    NONE = "none"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

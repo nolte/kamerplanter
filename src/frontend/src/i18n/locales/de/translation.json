@@ -423,6 +423,35 @@
     "harvestBatches": "Erntechargen"
   },
   "pages": {
+    "pests": {
+      "title": "Schädlingserkennung",
+      "scanButton": "Auf Schädlinge prüfen",
+      "disclaimer": "Dies ist eine Einschätzung der Bilderkennung und keine gesicherte Bestimmung. Bitte prüfe den Befund, bevor du behandelst; Nützlinge nicht verwechseln.",
+      "analyzing": "Foto wird analysiert …",
+      "noFindings": "Keine Schädlinge erkannt — das ist aber kein Beweis für Schädlingsfreiheit.",
+      "abstain": "Keine sichere Erkennung. Bitte prüfe die Pflanze manuell.",
+      "beneficial": "Das ist vermutlich ein Nützling — bitte nicht bekämpfen.",
+      "confidence": "Übereinstimmung",
+      "createInspection": "Inspektion anlegen",
+      "inspectionCreated": "Inspektion wurde angelegt.",
+      "feedbackConfirm": "Stimmt",
+      "feedbackWrong": "Falsch",
+      "feedbackBeneficial": "War ein Nützling",
+      "retake": "Neues Foto",
+      "previewAlt": "Vorschau des analysierten Fotos",
+      "lightModeBlocked": "Bitte anmelden, um die Schädlingserkennung zu nutzen.",
+      "notConfigured": "Die Schädlingserkennung ist auf dieser Instanz nicht aktiviert.",
+      "consentRequired": "Für die Cloud-Schädlingserkennung ist deine Einwilligung erforderlich.",
+      "imageTooLarge": "Das Bild ist zu groß (max. 8 MB).",
+      "unsupportedFormat": "Nicht unterstütztes Bildformat. Bitte JPEG oder PNG verwenden.",
+      "boundingBoxLabel": "Erkanntes Objekt: {{name}}",
+      "findingAriaLabel": "Fund {{index}}: {{name}}, Kategorie {{category}}, Übereinstimmung {{confidence}} Prozent",
+      "dialogDescription": "Lade ein Foto hoch, um Schädlinge oder Schadbilder an deiner Pflanze per Bilderkennung zu analysieren. Das Ergebnis ist eine Einschätzung und ersetzt keine Fachkenntnis.",
+      "confidenceLabel": "Übereinstimmung: {{value}} %",
+      "feedbackConfirmAriaLabel": "Fund als korrekt bestätigen",
+      "feedbackWrongAriaLabel": "Fund als falsch markieren",
+      "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen"
+    },
     "plantIdentification": {
       "title": "KI-Pflanzenerkennung",
       "dialogTitle": "Pflanze identifizieren",
@@ -3600,6 +3629,16 @@
   },
   "enums": {
     "category": "Kategorie",
+    "pestCategory": {
+      "pest": "Schädling",
+      "beneficial": "Nützling",
+      "symptom": "Schadbild",
+      "unknown": "Unbekannt"
+    },
+    "pestMode": {
+      "direct": "Direkt erkannt",
+      "symptom": "Schadbild"
+    },
     "plantOrgan": {
       "auto": "Automatisch",
       "leaf": "Blatt",

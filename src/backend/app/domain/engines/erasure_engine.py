@@ -111,6 +111,13 @@ class ErasureEngine:
         "auth_providers",
         "refresh_tokens",
         "identification_requests",
+        # REQ-044 §8 — pest detections are deleted (no legal retention basis);
+        # edges first, then the document. ``beneficials`` is global reference
+        # data, not personal, and is intentionally left untouched.
+        "pest_detection_of",
+        "pest_detection_flagged",
+        "pest_detection_suggested_inspection",
+        "pest_detections",
         "_pseudonymize_audit_collections",
         "users",
     ]

@@ -93,6 +93,29 @@ class Settings(BaseSettings):
     reference_image_use_wikimedia: bool = True  # query Wikimedia Commons as a 2nd source
     wikimedia_commons_api_url: str = "https://commons.wikimedia.org/w/api.php"
 
+    # REQ-044 Bildbasierte Schädlingserkennung (alle optional, Default-Privacy §8).
+    # Das Feature ist standardmäßig AUS; der Self-Hosted-Symptom-Adapter ist der
+    # Default-Adapter, der Cloud-Adapter ist opt-in und einwilligungspflichtig.
+    pest_detection_enabled: bool = False  # master switch (Default-Privacy)
+    # Self-hosted symptom adapter (Modus 2, Phase-1-Default). Nutzt den
+    # REQ-029-A-Inferenz-Service; die trainierten Few-Shot-Prototypen sind extern
+    # blockiert (WP-3) → bis dahin nur aktiv, wenn der Service erreichbar ist.
+    pest_detection_symptom_enabled: bool = True
+    # Self-hosted detector (Modus 1, Phase 2 — D-FINE/RF-DETR ONNX, WP-1/2/3).
+    pest_detection_detector_enabled: bool = False
+    # Cloud adapter (Kindwise plant.health, opt-in, WP-7). Default aus, bis die
+    # Vertrags-/DSGVO-Fragen (WP-7 Show-Stopper) geklärt sind.
+    pest_detection_cloud_enabled: bool = False
+    pest_detection_cloud_api_key: str = ""
+    pest_detection_cloud_base_url: str = "https://plant.id/api/v3"
+    # Config-driven primary adapter (analog identification) — nie hart kodiert.
+    pest_detection_primary_adapter: str = "local_pest_symptom"
+    pest_detection_max_image_size_mb: int = 8  # §6 multipart upload limit
+    # EXIF-Strip behält für das Tiling mehr Auflösung als der ID-Pfad (1024).
+    pest_detection_max_image_dimension: int = 2048
+    pest_detection_tile_size: int = 512  # §4.3 / WP-3.3 SAHI slice
+    pest_detection_tile_overlap: float = 0.2  # §4.3 / WP-3.3 SAHI overlap
+
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"

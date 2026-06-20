@@ -4140,3 +4140,61 @@ export interface IdentificationHistoryEntry {
   selected_result_rank: number | null;
   created_at: string | null;
 }
+
+// ── REQ-044 Bildbasierte Schädlingserkennung ──────────────────────────
+
+export type PestFindingCategory = 'pest' | 'beneficial' | 'symptom' | 'unknown';
+export type PestFindingMode = 'direct' | 'symptom';
+
+export interface PestBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PestFinding {
+  label: string;
+  category: PestFindingCategory;
+  common_name: string;
+  confidence: number;
+  mode: PestFindingMode;
+  bounding_box: PestBoundingBox | null;
+  matched_pest_key: string | null;
+  matched_beneficial_key: string | null;
+}
+
+export interface PestDetectionResult {
+  key: string | null;
+  plant_instance_key: string | null;
+  source: string;
+  adapter_key: string;
+  is_confident: boolean;
+  trigger: string;
+  findings: PestFinding[];
+  tiles_processed: number;
+  suggested_next_step: 'ipm_inspection' | 'none';
+  image_hash: string;
+  disclaimer: string;
+  created_at: string | null;
+}
+
+export interface PestAdapterStatus {
+  configured: boolean;
+  is_external: boolean;
+  requires_consent: string | null;
+  supports_modes: string[];
+}
+
+export interface PestDetectionStatus {
+  available: boolean;
+  feature_enabled: boolean;
+  primary_adapter: string;
+  active_adapter: string | null;
+  adapters: Record<string, PestAdapterStatus>;
+}
+
+export interface PestCreateInspectionResult {
+  inspection_key: string | null;
+  detected_pest_keys: string[];
+}

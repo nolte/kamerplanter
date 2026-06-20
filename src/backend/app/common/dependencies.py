@@ -872,6 +872,35 @@ def get_identification_service():
     )
 
 
+# ── REQ-044 Pest detection dependencies ─────────────────────────
+
+
+def get_pest_detection_repo():
+    from app.data_access.arango.pest_detection_repository import (
+        ArangoPestDetectionRepository,
+    )
+
+    return ArangoPestDetectionRepository(get_db())
+
+
+def get_pest_detection_service():
+    from app.domain.engines.consent_engine import ConsentEngine
+    from app.domain.engines.pest_detection_engine import PestDetectionEngine
+    from app.domain.services.pest_detection_registry import PestDetectionAdapterRegistry
+    from app.domain.services.pest_detection_service import PestDetectionService
+
+    repo = get_pest_detection_repo()
+    engine = PestDetectionEngine(ipm_repo=get_ipm_repo(), pest_detection_repo=repo)
+    return PestDetectionService(
+        engine=engine,
+        repo=repo,
+        ipm_service=get_ipm_service(),
+        consent_repo=get_consent_repo(),
+        consent_engine=ConsentEngine(),
+        registry=PestDetectionAdapterRegistry,
+    )
+
+
 def get_retention_service():
     from app.domain.services.retention_service import RetentionService
 

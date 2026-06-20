@@ -491,6 +491,26 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             except Exception:
                 logger.info("contraindicated_edge_exists", a=a_name, b=b_name)
 
+    # ── Seed beneficials (REQ-044 WP-8) ──────────────────────────────
+    from app.common.dependencies import get_pest_detection_repo
+    from app.domain.models.beneficial import Beneficial
+    from app.domain.models.pest_taxonomy import beneficial_taxa
+
+    pest_detection_repo = get_pest_detection_repo()
+    for taxon in beneficial_taxa():
+        beneficial = Beneficial(
+            slug=taxon.slug,
+            common_name=taxon.common_name_de,
+            scientific_name=taxon.scientific_name,
+            gbif_taxon_key=taxon.gbif_taxon_key,
+            preys_on=list(taxon.preys_on),
+        )
+        try:
+            pest_detection_repo.upsert_beneficial(beneficial)
+            logger.info("beneficial_upserted", slug=taxon.slug)
+        except Exception:
+            logger.info("beneficial_seed_skipped", slug=taxon.slug)
+
     # ── Seed Harvest indicators (REQ-007) ────────────────────────────
     harvest_repo = get_harvest_repo()
     for ind_data in harvest_indicator_data:

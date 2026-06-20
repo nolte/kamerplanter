@@ -423,6 +423,35 @@
     "harvestBatches": "Harvest Batches"
   },
   "pages": {
+    "pests": {
+      "title": "Pest detection",
+      "scanButton": "Check for pests",
+      "disclaimer": "This is an image-recognition estimate, not a confirmed identification. Please verify the finding before treating, and don't mistake beneficials for pests.",
+      "analyzing": "Analysing photo …",
+      "noFindings": "No pests detected — but that is not proof the plant is pest-free.",
+      "abstain": "No reliable detection. Please check the plant manually.",
+      "beneficial": "This is probably a beneficial insect — please don't fight it.",
+      "confidence": "Match",
+      "createInspection": "Create inspection",
+      "inspectionCreated": "Inspection created.",
+      "feedbackConfirm": "Correct",
+      "feedbackWrong": "Wrong",
+      "feedbackBeneficial": "Was a beneficial",
+      "retake": "New photo",
+      "previewAlt": "Preview of the analysed photo",
+      "lightModeBlocked": "Please sign in to use pest detection.",
+      "notConfigured": "Pest detection is not enabled on this instance.",
+      "consentRequired": "Cloud pest detection requires your consent.",
+      "imageTooLarge": "The image is too large (max. 8 MB).",
+      "unsupportedFormat": "Unsupported image format. Please use JPEG or PNG.",
+      "boundingBoxLabel": "Detected object: {{name}}",
+      "findingAriaLabel": "Finding {{index}}: {{name}}, category {{category}}, match {{confidence}} percent",
+      "dialogDescription": "Upload a photo to analyse pests or damage symptoms on your plant using image recognition. The result is an estimate and does not replace expert knowledge.",
+      "confidenceLabel": "Match: {{value}} %",
+      "feedbackConfirmAriaLabel": "Confirm finding as correct",
+      "feedbackWrongAriaLabel": "Mark finding as incorrect",
+      "feedbackBeneficialAriaLabel": "Mark as beneficial insect"
+    },
     "plantIdentification": {
       "title": "AI Plant Recognition",
       "dialogTitle": "Identify Plant",
@@ -3599,6 +3628,16 @@
   },
   "enums": {
     "category": "Category",
+    "pestCategory": {
+      "pest": "Pest",
+      "beneficial": "Beneficial",
+      "symptom": "Damage pattern",
+      "unknown": "Unknown"
+    },
+    "pestMode": {
+      "direct": "Directly detected",
+      "symptom": "Damage pattern"
+    },
     "plantOrgan": {
       "auto": "Automatic",
       "leaf": "Leaf",

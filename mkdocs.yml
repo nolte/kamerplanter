@@ -112,6 +112,7 @@ plugins:
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
             Druckansichten & Export: Print & Export
+            Schädlinge per Foto erkennen: Pest Detection by Photo
             Pflanze per Foto identifizieren: Identify Plant by Photo
             Referenzbilder kuratieren: Curate Reference Images
             Pflanzenfoto-Galerie: Plant Photo Gallery
@@ -275,6 +276,7 @@ nav:
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
+      - Schädlinge per Foto erkennen: de/user-guide/pest-detection.md
       - Pflanze per Foto identifizieren: de/user-guide/plant-identification.md
       - Referenzbilder kuratieren: de/user-guide/reference-image-curation.md
       - Pflanzenfoto-Galerie: de/user-guide/plant-photos.md

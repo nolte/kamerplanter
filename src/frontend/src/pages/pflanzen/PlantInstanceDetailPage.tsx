@@ -54,6 +54,7 @@ import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import ProfilesSection from './ProfilesSection';
+import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
@@ -840,6 +841,7 @@ export default function PlantInstanceDetailPage() {
         title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
         action={
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+            {key && <PestScanButton plantKey={key} />}
             <Button
               startIcon={<LabelIcon />}
               onClick={() => setTagDialogOpen(true)}

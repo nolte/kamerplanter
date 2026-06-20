@@ -257,6 +257,25 @@ PLANTNET_API_KEY gesetzt?
 
 ---
 
+## Schädlingserkennung (REQ-044) {#schaedlingserkennung-req-044}
+
+Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. Das Feature ist standardmäßig deaktiviert — ohne gesetztes `PEST_DETECTION_ENABLED=true` ist der Button „Auf Schädlinge prüfen" ausgeblendet und die App voll funktionsfähig.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
+| `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Nein | Schadbild-/Symptom-Erkennung (Modus 2) ein/aus. Aktiv wenn `PEST_DETECTION_ENABLED=true`. |
+| `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Nein | Direkt-Detektor (Modus 1, Phase 2) ein/aus. Erfordert trainierten ONNX-Detektor. |
+| `PEST_DETECTION_CLOUD_ENABLED` | `false` | Nein | Cloud-Adapter (Kindwise) ein/aus. Erfordert `PEST_DETECTION_CLOUD_API_KEY`. |
+| `PEST_DETECTION_CLOUD_API_KEY` | — | Nein | API-Key für Kindwise (Cloud-Erkennung). Ohne Key ist der Cloud-Adapter deaktiviert. |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
+| `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 400 abgelehnt. |
+
+!!! note "Self-Hosted-First"
+    Der lokale Adapter (`local_pest_symptom`) benötigt keinen API-Key und erfordert keine Nutzereinwilligung. Cloud-Erkennung ist opt-in und einwilligungspflichtig (Consent-Zweck `pest_detection_cloud`).
+
+---
+
 ## Browser Push / PWA (VAPID)
 
 Diese Variablen aktivieren den Browser-Push-Benachrichtigungskanal (`channel_key: "pwa"`). Sind alle drei Variablen leer, ist der Kanal deaktiviert — die Anwendung bleibt vollständig funktionsfähig, Nutzer sehen dann die Meldung "Nicht konfiguriert" in den Benachrichtigungseinstellungen.

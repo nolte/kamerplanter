@@ -213,6 +213,143 @@ Fotos werden **nicht** auf dem Kamerplanter-Server gespeichert — sie werden au
 
 ---
 
+## Schädlingserkennung aktivieren {#schaedlingserkennung-aktivieren}
+
+Die [Schädlingserkennung](pest-detection.md) ist standardmäßig deaktiviert (`PEST_DETECTION_ENABLED=false`). Solange kein Adapter konfiguriert ist, meldet das Backend `adapter: null` und der Button „Auf Schädlinge prüfen" bleibt für alle Nutzer ausgeblendet.
+
+!!! note "Plattform-Admin erforderlich"
+    Nur Nutzer mit der Plattform-Rolle **admin** können die Schädlingserkennung konfigurieren. Die Einstellungen gelten plattformweit.
+
+!!! note "Phase 1 — Self-Hosted-First"
+    In der aktuellen Phase (Phase 1) stehen zwei Adapter zur Verfügung: der lokale **Schadbild-Adapter** (`local_pest_symptom`, erfordert keine externen Dienste oder Einwilligung) und der optionale **Cloud-Adapter** (Kindwise, einwilligungspflichtig). Ein Self-Hosted-Direkt-Detektor mit ONNX ist für Phase 2 in Vorbereitung.
+
+### Adapter 1: Lokaler Schadbild-Adapter (Self-Hosted, empfohlen)
+
+Der lokale Adapter erkennt Schadbilder und Symptome (Gespinste, Honigtau, Saugschäden) direkt auf der Instanz — kein Drittanbieter, kein Datenschutz-Consent für Nutzer erforderlich.
+
+**Aktivieren via Umgebungsvariable:**
+
+```bash
+PEST_DETECTION_ENABLED=true
+PEST_DETECTION_SYMPTOM_ENABLED=true
+PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
+```
+
+=== "Kubernetes / Helm"
+
+    ```bash
+    kubectl create secret generic kamerplanter-secrets \
+      --from-literal=PEST_DETECTION_ENABLED="true" \
+      --from-literal=PEST_DETECTION_SYMPTOM_ENABLED="true" \
+      --from-literal=PEST_DETECTION_PRIMARY_ADAPTER="local_pest_symptom" \
+      --namespace kamerplanter
+    ```
+
+    Im Helm-Values referenzieren:
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (Auszug)
+    backend:
+      envFrom:
+        - secretRef:
+            name: kamerplanter-secrets
+    ```
+
+=== "Docker Compose"
+
+    ```bash
+    # .env (nicht committen)
+    PEST_DETECTION_ENABLED=true
+    PEST_DETECTION_SYMPTOM_ENABLED=true
+    PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
+    ```
+
+    Starte den Stack neu:
+
+    ```bash
+    docker compose up -d
+    ```
+
+=== "Lokales Dev (kind / Skaffold)"
+
+    ```yaml
+    # helm/kamerplanter/values.yaml (lokal, nicht committen)
+    backend:
+      env:
+        PEST_DETECTION_ENABLED: "true"
+        PEST_DETECTION_SYMPTOM_ENABLED: "true"
+        PEST_DETECTION_PRIMARY_ADAPTER: "local_pest_symptom"
+    ```
+
+### Adapter 2: Cloud-Erkennung (Kindwise — optional, einwilligungspflichtig)
+
+Der Kindwise-Cloud-Adapter sendet Fotos zur Analyse an den Kindwise-Dienst (Brno, Tschechien — EU). Er ist standardmäßig deaktiviert und erfordert eine explizite Nutzereinwilligung (Consent-Zweck `pest_detection_cloud`).
+
+!!! warning "Vertragsvoraussetzungen vor der Aktivierung prüfen"
+    Vor der Aktivierung des Cloud-Adapters sind folgende Punkte zu klären:
+    - Auftragsverarbeitungsvertrag (AVV nach Art. 28 DSGVO) mit Kindwise abschließen
+    - EU-Hosting-Garantie und Datenaufbewahrungsdauer vertraglich bestätigen
+    - Indoor-Eignung des `plant.health`-Produkts für die eigenen Schädlingsziel-Klassen empirisch testen
+    Detaillierte Prüfpunkte: `spec/analysis/pest-detection-implementation-prep.md` §5.
+
+**Aktivieren via Umgebungsvariablen:**
+
+```bash
+PEST_DETECTION_ENABLED=true
+PEST_DETECTION_CLOUD_ENABLED=true
+PEST_DETECTION_CLOUD_API_KEY=dein-kindwise-api-key
+PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom   # lokal bleibt Default; Cloud als Fallback oder primär wählbar
+```
+
+Die Schaltfläche erscheint nach dem nächsten Backend-Neustart automatisch in der UI. Nutzer, die den Cloud-Adapter nutzen möchten, werden beim ersten Aufruf zur Einwilligung aufgefordert.
+
+### Status prüfen
+
+Rufe den Status-Endpunkt auf (tenant-scoped, JWT erforderlich):
+
+```bash
+curl -H "Authorization: Bearer <JWT>" \
+  http://localhost:8000/api/v1/t/{tenant_slug}/pests/status | python3 -m json.tool
+```
+
+Erwartete Antwort, wenn ein Adapter aktiv ist:
+
+```json
+{
+  "adapter": "local_pest_symptom",
+  "pest_detection_enabled": true,
+  "symptom_enabled": true,
+  "detector_enabled": false,
+  "cloud_enabled": false
+}
+```
+
+Ist `pest_detection_enabled: false` oder `adapter: null`, bleibt der Button in der UI ausgeblendet.
+
+### Optionale Feineinstellungen
+
+Die folgenden Variablen müssen in der Regel nicht geändert werden. Eine vollständige Beschreibung findet sich in der [Umgebungsvariablen-Referenz](../reference/environment-variables.md#schaedlingserkennung-req-044):
+
+| Variable | Standard | Zweck |
+|----------|---------|-------|
+| `PEST_DETECTION_ENABLED` | `false` | Gesamtschalter — Feature ein/aus |
+| `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Schadbild-Erkennung (Modus 2) ein/aus |
+| `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Direkt-Detektor (Modus 1, Phase 2) ein/aus |
+| `PEST_DETECTION_CLOUD_ENABLED` | `false` | Cloud-Adapter ein/aus |
+| `PEST_DETECTION_CLOUD_API_KEY` | — | API-Key für den Cloud-Adapter (Kindwise) |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Bevorzugter Adapter |
+| `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | Maximale Bildgröße in Megabyte |
+
+### Datenschutz-Hinweis
+
+- **Lokaler Adapter:** Fotos verlassen die Instanz nicht; kein Consent erforderlich; EXIF wird vor jeder Verarbeitung entfernt.
+- **Cloud-Adapter:** Fotos gehen an Kindwise (EU); Nutzer müssen einmalig für den Zweck `pest_detection_cloud` einwilligen; AVV vertraglich erforderlich; EXIF zweifach gestrippt (Frontend + Backend).
+- Fotos werden nie dauerhaft gespeichert — nur Erkennungsergebnis und anonymer Bild-Hash bleiben.
+
+Weitere Details: [Datenschutz (DSGVO)](privacy.md).
+
+---
+
 ## Referenzbilder für die Bilderkennung kuratieren
 
 Die Self-Hosted-Bilderkennung (DINOv2) vergleicht Nutzer-Fotos mit einem gespeicherten **Referenz-Index**. Enthält dieser Index unscharfe, falsch bestimmte oder anderweitig ungeeignete Bilder, verschlechtert sich die Erkennungsgenauigkeit für die betroffene Art.
