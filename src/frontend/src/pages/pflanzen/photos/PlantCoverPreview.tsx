@@ -21,6 +21,10 @@ interface PlantCoverPreviewProps {
  *
  * Loads only the small (128px) thumbnail (AC-02), never the original. Plants
  * without any photo show a neutral botanical placeholder — never a broken image.
+ *
+ * A11y (UI-NFR-002): the outer Box carries role="img" and aria-label so the
+ * entire widget is announced as a single image by screen readers, regardless of
+ * whether it shows a photo or the placeholder icon.
  */
 export default function PlantCoverPreview({
   plantInstanceKey,
@@ -40,7 +44,9 @@ export default function PlantCoverPreview({
     listPlantPhotos(plantInstanceKey)
       .then((result) => {
         if (!active) return;
-        const cover = result.photos.find((p) => p.attachment_id === result.cover_photo_ref) ?? result.photos[0];
+        const cover =
+          result.photos.find((p) => p.attachment_id === result.cover_photo_ref) ??
+          result.photos[0];
         setFetchedThumb(cover?.thumbnail_uris?.small ?? cover?.uri ?? null);
       })
       .catch(() => {
@@ -56,6 +62,8 @@ export default function PlantCoverPreview({
 
   return (
     <Box
+      role="img"
+      aria-label={showPlaceholder ? t('pages.plantPhotos.noCover') : t('pages.plantPhotos.coverAlt')}
       sx={{
         width: size,
         height: size,
@@ -71,16 +79,18 @@ export default function PlantCoverPreview({
       data-testid="plant-cover-preview"
     >
       {showPlaceholder ? (
+        /* aria-hidden: the outer Box already carries the accessible label. */
         <LocalFloristIcon
-          aria-label={t('pages.plantPhotos.noCover')}
+          aria-hidden="true"
           data-testid="plant-cover-placeholder"
           sx={{ fontSize: size * 0.5 }}
         />
       ) : (
+        /* alt="" because the outer role="img" + aria-label carry the description. */
         <Box
           component="img"
           src={thumb}
-          alt={t('pages.plantPhotos.coverAlt')}
+          alt=""
           loading="lazy"
           onError={() => setFailed(true)}
           sx={{ width: '100%', height: '100%', objectFit: 'cover' }}

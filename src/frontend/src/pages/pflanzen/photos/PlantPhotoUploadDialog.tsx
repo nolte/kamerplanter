@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -14,6 +14,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import ReplayIcon from '@mui/icons-material/Replay';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ImageCapturePanel from '@/components/identification/ImageCapturePanel';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { GALLERY_MAX_EDGE, GALLERY_JPEG_QUALITY } from '@/utils/imageNormalization';
@@ -35,6 +36,13 @@ interface PlantPhotoUploadDialogProps {
  * (webcam / smartphone rear camera / file upload, {@link ImageCapturePanel})
  * but normalizes to a higher gallery resolution. The selected image is shown as
  * a preview before the user confirms the upload.
+ *
+ * A11y (UI-NFR-002 / UI-NFR-008):
+ * - fullScreen on xs/sm for maximum capture-panel space on phones.
+ * - Confirm button receives focus when a file is ready so Enter submits.
+ * - Error Alert uses role="alert" (via MUI severity="error") so screen readers
+ *   announce it without the user having to navigate there.
+ * - Upload hint is shown BEFORE file selection so users know what to expect.
  */
 export default function PlantPhotoUploadDialog({
   open,
@@ -44,6 +52,7 @@ export default function PlantPhotoUploadDialog({
 }: PlantPhotoUploadDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
+  // Full-screen on phones — the capture panel needs the full viewport (mobile-first).
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { level } = useExpertiseLevel();
 
@@ -51,6 +60,10 @@ export default function PlantPhotoUploadDialog({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ref to the confirm button so we can focus it once a preview is ready
+  // (UI-NFR-008 R-010: autofocus on the primary action when file is ready).
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   // Reset all state and revoke any preview URL when the dialog closes/unmounts
   // (effect cleanup runs on close, avoiding a synchronous setState in the body).
@@ -74,6 +87,8 @@ export default function PlantPhotoUploadDialog({
       return url;
     });
     setFile(selected);
+    // Defer focus to after the confirm button renders
+    setTimeout(() => confirmRef.current?.focus(), 50);
   }, []);
 
   const handleRetake = useCallback(() => {
@@ -129,7 +144,21 @@ export default function PlantPhotoUploadDialog({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
+
       <DialogContent dividers>
+        {/* Upload hint — shown BEFORE the capture panel so users know what
+            to expect (not hidden after file selection). */}
+        {!file && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2 }}
+            data-testid="plant-photo-upload-hint"
+          >
+            {t('pages.plantPhotos.uploadHint')}
+          </Typography>
+        )}
+
         {!file ? (
           <ImageCapturePanel
             onImageReady={handleImageReady}
@@ -145,14 +174,20 @@ export default function PlantPhotoUploadDialog({
               alt={t('pages.plantPhotos.previewAlt')}
               sx={{
                 maxWidth: '100%',
-                maxHeight: 360,
+                maxHeight: { xs: 240, sm: 360 },
                 borderRadius: 1,
                 objectFit: 'contain',
                 bgcolor: 'action.hover',
+                display: 'block',
+                mx: 'auto',
               }}
               data-testid="plant-photo-upload-preview"
             />
-            <Box sx={{ mt: 1 }}>
+            {/* Contextual guidance when preview is shown (UI-NFR-008 R-038) */}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              {t('pages.plantPhotos.previewHint')}
+            </Typography>
+            <Box sx={{ mt: 1.5 }}>
               <Button
                 startIcon={<ReplayIcon />}
                 onClick={handleRetake}
@@ -164,29 +199,41 @@ export default function PlantPhotoUploadDialog({
             </Box>
           </Box>
         )}
+
+        {/* Error feedback — always rendered last so it does not displace
+            the capture panel (UI-NFR-004: error stays visible on retry). */}
         {error && (
           <Alert severity="error" sx={{ mt: 2 }} data-testid="plant-photo-upload-error">
             {error}
           </Alert>
         )}
-        {!file && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-            {t('pages.plantPhotos.uploadHint')}
-          </Typography>
-        )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={uploading} data-testid="plant-photo-upload-cancel">
+
+      <DialogActions sx={{ px: 2, py: 1.5, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          disabled={uploading}
+          data-testid="plant-photo-upload-cancel"
+        >
           {t('common.cancel')}
         </Button>
         <Button
+          ref={confirmRef}
           variant="contained"
           onClick={handleUpload}
           disabled={!file || uploading}
-          startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : undefined}
+          startIcon={
+            uploading ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <CloudUploadIcon />
+            )
+          }
+          /* Minimum 44px touch target on mobile (UI-NFR-001 R-008) */
+          sx={{ minHeight: 44 }}
           data-testid="plant-photo-upload-confirm"
         >
-          {t('pages.plantPhotos.upload')}
+          {uploading ? t('pages.plantPhotos.uploading') : t('pages.plantPhotos.upload')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -120,21 +120,48 @@ export default function PlantPhotoGallery({
     }
   }, [deleteTarget, plantInstanceKey, notification, handleError, t, load, onCoverChange]);
 
+  // Stable computed value — useMemo obligation per FRONTEND.md hook conventions.
+  const emptyDescription = useMemo(
+    () =>
+      canWrite
+        ? t('pages.plantPhotos.emptyDescriptionWrite')
+        : t('pages.plantPhotos.emptyDescriptionRead'),
+    [canWrite, t],
+  );
+
   if (loading) return <LoadingSkeleton variant="card" />;
   if (error) return <ErrorDisplay error={error} onRetry={load} />;
 
   return (
     <Box data-testid="plant-photo-gallery">
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <Typography variant="body2" color="text.secondary">
-          {t('pages.plantPhotos.intro')}
-        </Typography>
+      {/* Section heading + intro (UI-NFR-008 R-038) */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          justifyContent: 'space-between',
+          gap: 2,
+          mb: 2,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            {t('pages.plantPhotos.sectionTitle')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.plantPhotos.intro')}
+          </Typography>
+        </Box>
         {canWrite && (
           <Button
             variant="contained"
             startIcon={<AddPhotoAlternateIcon />}
             onClick={() => setUploadOpen(true)}
             data-testid="plant-photo-add-button"
+            /* Minimum 44×44 touch target (UI-NFR-001 R-008) — contained Button
+               height is 36px by default; sx padding compensates on mobile. */
+            sx={{ minHeight: 44, px: { xs: 2.5, sm: 2 } }}
           >
             {t('pages.plantPhotos.addPhoto')}
           </Button>
@@ -144,30 +171,38 @@ export default function PlantPhotoGallery({
       {photos.length === 0 ? (
         <EmptyState
           message={t('pages.plantPhotos.emptyTitle')}
-          description={t('pages.plantPhotos.emptyDescription')}
-          actionLabel={canWrite ? t('pages.plantPhotos.addPhoto') : undefined}
+          description={emptyDescription}
+          actionLabel={canWrite ? t('pages.plantPhotos.addPhotoFirst') : undefined}
           onAction={canWrite ? () => setUploadOpen(true) : undefined}
         />
       ) : (
         <Box
           sx={{
             display: 'grid',
+            // Mobile-first: 2 columns on xs, 3 on sm, 4 on md, 5 on lg (UI-NFR-001)
             gridTemplateColumns: {
               xs: 'repeat(2, 1fr)',
               sm: 'repeat(3, 1fr)',
               md: 'repeat(4, 1fr)',
+              lg: 'repeat(5, 1fr)',
             },
-            gap: { xs: 1.5, sm: 2 },
+            gap: { xs: 1, sm: 1.5, md: 2 },
           }}
         >
           {photos.map((photo) => {
             const thumb = photo.thumbnail_uris?.medium ?? photo.uri;
+            const isBusy = busyId === photo.attachment_id;
             return (
-              <Card key={photo.attachment_id} sx={{ position: 'relative' }} data-testid="plant-photo-item">
+              <Card
+                key={photo.attachment_id}
+                sx={{ position: 'relative' }}
+                data-testid="plant-photo-item"
+              >
                 <CardActionArea
                   onClick={() => setLightboxPhoto(photo)}
                   aria-label={t('pages.plantPhotos.openPhoto')}
                   data-testid="plant-photo-thumb"
+                  /* Keyboard: Enter/Space activates — CardActionArea handles this. */
                 >
                   <Box
                     component="img"
@@ -190,7 +225,13 @@ export default function PlantPhotoGallery({
                     label={t('pages.plantPhotos.cover')}
                     color="primary"
                     size="small"
-                    sx={{ position: 'absolute', top: 8, left: 8 }}
+                    sx={{
+                      position: 'absolute',
+                      top: 6,
+                      left: 6,
+                      // Ensure badge text never overflows narrow cards
+                      maxWidth: 'calc(100% - 12px)',
+                    }}
                     data-testid="plant-photo-cover-badge"
                   />
                 )}
@@ -199,41 +240,55 @@ export default function PlantPhotoGallery({
                   <Box
                     sx={{
                       position: 'absolute',
-                      bottom: 4,
-                      right: 4,
+                      bottom: 0,
+                      right: 0,
+                      left: 0,
                       display: 'flex',
-                      gap: 0.5,
-                      bgcolor: 'rgba(0, 0, 0, 0.45)',
-                      borderRadius: 1,
+                      justifyContent: 'flex-end',
+                      gap: 0.25,
+                      // Semi-transparent bar — always visible on touch devices,
+                      // fades slightly on desktop hover for a cleaner look.
+                      bgcolor: 'rgba(0, 0, 0, 0.50)',
+                      borderBottomLeftRadius: 'inherit',
+                      borderBottomRightRadius: 'inherit',
+                      px: 0.5,
+                      py: 0.25,
                     }}
                   >
                     {!photo.is_cover && (
                       <Tooltip title={t('pages.plantPhotos.setCover')}>
                         <span>
                           <IconButton
-                            size="small"
-                            onClick={() => handleSetCover(photo)}
-                            disabled={busyId === photo.attachment_id}
+                            /* 40×40 effective touch target inside the 48px bar */
+                            size="medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetCover(photo);
+                            }}
+                            disabled={isBusy}
                             aria-label={t('pages.plantPhotos.setCover')}
-                            sx={{ color: 'common.white' }}
+                            sx={{ color: 'common.white', p: 0.75 }}
                             data-testid="plant-photo-set-cover"
                           >
-                            <StarBorderIcon fontSize="small" />
+                            <StarBorderIcon />
                           </IconButton>
                         </span>
                       </Tooltip>
                     )}
-                    <Tooltip title={t('common.delete')}>
+                    <Tooltip title={t('pages.plantPhotos.deletePhoto')}>
                       <span>
                         <IconButton
-                          size="small"
-                          onClick={() => setDeleteTarget(photo)}
-                          disabled={busyId === photo.attachment_id}
-                          aria-label={t('common.delete')}
-                          sx={{ color: 'common.white' }}
+                          size="medium"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(photo);
+                          }}
+                          disabled={isBusy}
+                          aria-label={t('pages.plantPhotos.deletePhoto')}
+                          sx={{ color: 'common.white', p: 0.75 }}
                           data-testid="plant-photo-delete"
                         >
-                          <DeleteIcon fontSize="small" />
+                          <DeleteIcon />
                         </IconButton>
                       </span>
                     </Tooltip>
@@ -251,7 +306,13 @@ export default function PlantPhotoGallery({
         onClose={() => setUploadOpen(false)}
         onUploaded={handleUploaded}
       />
-      <PlantPhotoLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      <PlantPhotoLightbox
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        canWrite={canWrite}
+        onSetCover={handleSetCover}
+        onDelete={(photo) => setDeleteTarget(photo)}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('pages.plantPhotos.deleteTitle')}
