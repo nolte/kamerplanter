@@ -69,11 +69,19 @@ export function useAuthImage(uri: string | null | undefined): UseAuthImageResult
     setStatus('loading');
 
     const requestUrl = toClientRelativeUrl(uri);
+    // Request an ArrayBuffer and build the Blob ourselves rather than letting
+    // axios convert to responseType:'blob'. The blob conversion is unreliable
+    // across runtimes (it hangs under Node 22 + undici + MSW in tests), whereas
+    // an ArrayBuffer is deterministic everywhere. The browser behaviour is
+    // identical: ArrayBuffer + new Blob([...]) -> Object-URL.
     client
-      .get<Blob>(requestUrl, { responseType: 'blob' })
+      .get<ArrayBuffer>(requestUrl, { responseType: 'arraybuffer' })
       .then((response) => {
         if (cancelled) return;
-        const url = URL.createObjectURL(response.data);
+        const contentType =
+          (response.headers?.['content-type'] as string | undefined) ?? 'application/octet-stream';
+        const blob = new Blob([response.data], { type: contentType });
+        const url = URL.createObjectURL(blob);
         activeUrlRef.current = url;
         setObjectUrl(url);
         setStatus('loaded');
