@@ -100,6 +100,29 @@ describe('PestRecognitionAdminCard', () => {
     expect(screen.getByText('© Jane Doe · CC-BY')).toBeInTheDocument();
   });
 
+  it('hides deselected images by default and reveals them via the toggle', async () => {
+    mockStatus.mockResolvedValue(status());
+    mockImages.mockResolvedValue({
+      label: 'spider_mite',
+      count: 2,
+      active_count: 1,
+      images: [
+        { ...IMAGES.images[0], id: 1, is_active: true },
+        { ...IMAGES.images[0], id: 2, is_active: false, exclusion_reason: 'blurry' },
+      ],
+    });
+    renderWithProviders(<PestRecognitionAdminCard />);
+    const row = await screen.findByTestId('pest-class-spider_mite');
+    await userEvent.click(row.querySelector('button')!);
+
+    // Default: the deselected image is hidden → only the active one is shown.
+    await waitFor(() => expect(screen.getAllByTestId('pest-reference-image')).toHaveLength(1));
+
+    // Toggle off "hide deselected" → both images appear.
+    await userEvent.click(screen.getByTestId('pest-hide-deselected-spider_mite'));
+    await waitFor(() => expect(screen.getAllByTestId('pest-reference-image')).toHaveLength(2));
+  });
+
   it('deselects a reference image with a reason so it no longer affects detection', async () => {
     mockStatus.mockResolvedValue(status());
     renderWithProviders(<PestRecognitionAdminCard />);

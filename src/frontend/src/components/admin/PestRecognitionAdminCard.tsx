@@ -321,7 +321,9 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [deselectTarget, setDeselectTarget] = useState<PestCurationImage | null>(null);
   const [reason, setReason] = useState<PestExclusionReason>('blurry');
-  const [hideDeselected, setHideDeselected] = useState(false);
+  // Hidden by default: a deselected image disappears from the gallery right away;
+  // the toggle reveals them again (e.g. to re-include one).
+  const [hideDeselected, setHideDeselected] = useState(true);
   // Ref to the button that opened the deselect dialog — focus returns here on close (WCAG 2.4.3).
   const deselectTriggerRef = useRef<HTMLButtonElement | null>(null);
 
