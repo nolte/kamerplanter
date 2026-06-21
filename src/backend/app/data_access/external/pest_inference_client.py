@@ -19,7 +19,10 @@ import structlog
 logger = structlog.get_logger()
 
 _DETECT_TIMEOUT_SECONDS = 30.0
-_READY_TIMEOUT_SECONDS = 2.0
+# Tolerant readiness timeout: a single-CPU inference-service is saturated during
+# an active acquisition run, so a 2 s probe times out and the admin card would
+# falsely report "service unreachable" while it is actually working.
+_READY_TIMEOUT_SECONDS = 6.0
 
 
 class PestDetectionInferenceClient:
