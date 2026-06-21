@@ -626,7 +626,9 @@
         },
         "deselectSuccess": "Bild abgewählt.",
         "reincludeSuccess": "Bild wieder aufgenommen.",
-        "curationError": "Aktion fehlgeschlagen."
+        "curationError": "Aktion fehlgeschlagen.",
+        "hideDeselected": "Abgewählte ausblenden",
+        "lowCoverageWarning": "Nur {{count}} aktive Bilder — mindestens {{min}} werden für zuverlässige Erkennung benötigt."
       },
       "recognition": {
         "section": "Self-Hosted-Erkennung (DINOv2)",

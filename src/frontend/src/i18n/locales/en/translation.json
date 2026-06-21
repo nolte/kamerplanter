@@ -626,7 +626,9 @@
         },
         "deselectSuccess": "Image deselected.",
         "reincludeSuccess": "Image re-included.",
-        "curationError": "Action failed."
+        "curationError": "Action failed.",
+        "hideDeselected": "Hide deselected",
+        "lowCoverageWarning": "Only {{count}} active images — at least {{min}} are needed for reliable detection."
       },
       "recognition": {
         "section": "Self-hosted recognition (DINOv2)",
