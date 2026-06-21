@@ -26,11 +26,16 @@ function makePest(overrides: Partial<Pest> = {}): Pest {
     optimal_temp_max: 30,
     detection_difficulty: 'medium',
     description: 'Saugende Milbe.',
+    description_de: null,
     damage_symptoms: 'Helle Sprenkelung der Blattoberseite.',
+    damage_symptoms_de: null,
     affected_plant_parts: ['leaf', 'stem'],
     host_plants: ['Gurke', 'Bohne'],
+    host_plants_de: [],
     prevention_tips: 'Luftfeuchte hoch halten.',
+    prevention_tips_de: null,
     monitoring_hints: 'Blattunterseiten mit Lupe prüfen.',
+    monitoring_hints_de: null,
     severity: 'high',
     optimal_humidity_min: 30,
     optimal_humidity_max: 50,
@@ -143,5 +148,41 @@ describe('PestDetailPage', () => {
     const back = await screen.findByTestId('pest-detail-back');
     await userEvent.click(back);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/pflanzenschutz/pests'));
+  });
+
+  it('shows the German variant of a profile field under the German locale', async () => {
+    vi.mocked(getPestDetail).mockResolvedValue(
+      makeDetail({
+        pest: makePest({
+          damage_symptoms: 'Light speckling on the leaf surface.',
+          damage_symptoms_de: 'Helle Sprenkelung der Blattoberseite (DE).',
+        }),
+      }),
+    );
+    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+    // i18n is set to 'de' in beforeEach → the _de variant wins.
+    expect(await screen.findByText('Helle Sprenkelung der Blattoberseite (DE).')).toBeInTheDocument();
+    expect(screen.queryByText('Light speckling on the leaf surface.')).toBeNull();
+  });
+
+  it('shows a localized summary explaining how each countermeasure works', async () => {
+    vi.mocked(getPestDetail).mockResolvedValue(
+      makeDetail({
+        treatments: [
+          makeTreatment({
+            key: 't1',
+            name: 'Neem Oil',
+            name_de: 'Niemöl',
+            treatment_type: 'biological',
+            description_de: 'Pflanzliches Insektizid, das die Häutung stört.',
+          }),
+        ],
+      }),
+    );
+    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+    const summary = await screen.findByTestId('treatment-summary');
+    expect(summary).toHaveTextContent('Pflanzliches Insektizid, das die Häutung stört.');
   });
 });

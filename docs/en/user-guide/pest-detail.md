@@ -55,7 +55,7 @@ Below the fact sheet, the gallery shows curated photos of the pest and of typica
 
 The control measures on the detail page are therefore organised into four groups. Always start at the top and only move to the next group if the previous measures prove insufficient.
 
-Click the **name of a treatment** in the control measures list to open the [treatment detail page](treatment-detail.md), where you will find the mode of action, dosage, pre-harvest interval, and safety information for that specific product.
+Below each treatment name there is a short explanation of **how the measure works** — so you grasp not just the name but also the benefit at a glance. Click the **name of a treatment** in the control measures list to open the [treatment detail page](treatment-detail.md), where you will find the full mode of action, dosage, pre-harvest interval, and safety information for that specific product.
 
 ### 1. Cultural Measures
 

@@ -55,7 +55,7 @@ Das [integrierte Pflanzenschutzmanagement (IPM)](pest-management.md) ordnet Maß
 
 Die Gegenmaßnahmen auf der Detailseite sind deshalb in vier Gruppen geordnet. Beginne immer oben und greife nur dann auf die nächste Gruppe zurück, wenn die vorherigen Maßnahmen nicht ausreichen.
 
-Klicke auf den **Namen einer Behandlung** in der Gegenmaßnahmen-Liste, um zur [Behandlungs-Detailseite](treatment-detail.md) zu gelangen — dort findest du Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für genau dieses Mittel.
+Unter jedem Behandlungsnamen steht eine kurze Erklärung, **wie die Maßnahme wirkt** — so erfasst du nicht nur den Namen, sondern auch den Nutzen auf einen Blick. Klicke auf den **Namen einer Behandlung** in der Gegenmaßnahmen-Liste, um zur [Behandlungs-Detailseite](treatment-detail.md) zu gelangen — dort findest du die vollständige Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für genau dieses Mittel.
 
 ### 1. Kulturelle Maßnahmen
 

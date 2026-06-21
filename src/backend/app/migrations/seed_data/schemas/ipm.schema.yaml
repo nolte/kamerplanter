@@ -74,9 +74,13 @@ $defs:
         enum: [easy, medium, hard]
       description:
         type: string
+      description_de:
+        type: string
       damage_symptoms:
         type: string
-        description: "Schadbild-/Symptombeschreibung für die Detailseite"
+        description: "Schadbild-/Symptombeschreibung (EN) für die Detailseite"
+      damage_symptoms_de:
+        type: string
       affected_plant_parts:
         type: array
         items:
@@ -86,9 +90,17 @@ $defs:
         type: array
         items:
           type: string
+      host_plants_de:
+        type: array
+        items:
+          type: string
       prevention_tips:
         type: string
+      prevention_tips_de:
+        type: string
       monitoring_hints:
+        type: string
+      monitoring_hints_de:
         type: string
       severity:
         type: string

@@ -14,11 +14,16 @@ class PestCreate(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str = "medium"
     description: str | None = None
+    description_de: str | None = None
     damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
     affected_plant_parts: list[PlantPart] = Field(default_factory=list)
     host_plants: list[str] = Field(default_factory=list)
+    host_plants_de: list[str] = Field(default_factory=list)
     prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
     monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
     severity: PestSeverity | None = None
     optimal_humidity_min: float | None = None
     optimal_humidity_max: float | None = None
@@ -35,11 +40,16 @@ class PestUpdate(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str | None = None
     description: str | None = None
+    description_de: str | None = None
     damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
     affected_plant_parts: list[PlantPart] | None = None
     host_plants: list[str] | None = None
+    host_plants_de: list[str] | None = None
     prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
     monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
     severity: PestSeverity | None = None
     optimal_humidity_min: float | None = None
     optimal_humidity_max: float | None = None
@@ -57,11 +67,16 @@ class PestResponse(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str
     description: str | None = None
+    description_de: str | None = None
     damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
     affected_plant_parts: list[PlantPart] = Field(default_factory=list)
     host_plants: list[str] = Field(default_factory=list)
+    host_plants_de: list[str] = Field(default_factory=list)
     prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
     monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
     severity: PestSeverity | None = None
     optimal_humidity_min: float | None = None
     optimal_humidity_max: float | None = None

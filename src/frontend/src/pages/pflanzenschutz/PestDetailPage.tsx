@@ -51,7 +51,7 @@ const TREATMENT_ORDER: TreatmentType[] = ['cultural', 'biological', 'mechanical'
  * - Responsive: 2-column grid on md+ for profile + beneficials panels
  */
 export default function PestDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const l = useLocalizedField();
   const navigate = useNavigate();
   const { key = '' } = useParams<{ key: string }>();
@@ -123,7 +123,12 @@ export default function PestDetailPage() {
   }
 
   const { pest, beneficials } = detail;
-  const symptoms = pest.damage_symptoms || detail.detection_symptom_hint;
+  // Localized free-text fields (base = EN fallback, *_de = German variant).
+  const symptoms = l(pest, 'damage_symptoms') || detail.detection_symptom_hint;
+  const preventionTips = l(pest, 'prevention_tips');
+  const monitoringHints = l(pest, 'monitoring_hints');
+  const hostPlants =
+    i18n.language === 'de' && pest.host_plants_de.length > 0 ? pest.host_plants_de : pest.host_plants;
   const hasTempRange = pest.optimal_temp_min != null && pest.optimal_temp_max != null;
   const hasHumidityRange = pest.optimal_humidity_min != null && pest.optimal_humidity_max != null;
 
@@ -300,10 +305,10 @@ export default function PestDetailPage() {
                   }
                 />
               )}
-              {pest.host_plants.length > 0 && (
+              {hostPlants.length > 0 && (
                 <DetailRow
                   label={t('pages.pestDetail.hostPlants')}
-                  value={pest.host_plants.join(', ')}
+                  value={hostPlants.join(', ')}
                 />
               )}
               {pest.lifecycle_days != null && (
@@ -429,11 +434,22 @@ export default function PestDetailPage() {
                         >
                           {l(tr, 'name')}
                         </Link>
+                        {/* Why the measure helps — short localized summary (REQ-010). */}
+                        {(l(tr, 'description') || l(tr, 'mode_of_action')) && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ display: 'block', mt: 0.25 }}
+                            data-testid="treatment-summary"
+                          >
+                            {l(tr, 'description') || l(tr, 'mode_of_action')}
+                          </Typography>
+                        )}
                         {tr.active_ingredient && (
                           <Typography
                             variant="caption"
                             color="text.secondary"
-                            sx={{ display: 'block' }}
+                            sx={{ display: 'block', mt: 0.25 }}
                           >
                             {t('pages.pestDetail.activeIngredient')}: {tr.active_ingredient}
                           </Typography>
@@ -468,7 +484,7 @@ export default function PestDetailPage() {
       </Card>
 
       {/* Prevention & monitoring */}
-      {(pest.prevention_tips || pest.monitoring_hints) && (
+      {(preventionTips || monitoringHints) && (
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -481,16 +497,16 @@ export default function PestDetailPage() {
               component="dl"
               sx={{ m: 0, '& > *:not(:last-child)': { borderBottom: 1, borderColor: 'divider', pb: 1.5, mb: 1.5 } }}
             >
-              {pest.prevention_tips && (
+              {preventionTips && (
                 <DetailRow
                   label={t('pages.pestDetail.preventionTips')}
-                  value={pest.prevention_tips}
+                  value={preventionTips}
                 />
               )}
-              {pest.monitoring_hints && (
+              {monitoringHints && (
                 <DetailRow
                   label={t('pages.pestDetail.monitoringHints')}
-                  value={pest.monitoring_hints}
+                  value={monitoringHints}
                 />
               )}
             </Box>

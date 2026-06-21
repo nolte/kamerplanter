@@ -12,18 +12,32 @@ pests:
     optimal_humidity_min: 30.0
     optimal_humidity_max: 50.0
     damage_symptoms: >-
+      Light stippling (speckled spots) on the upper leaf surface, fine webbing on
+      the leaf underside and shoot tips, later bronzing and leaf drop. The
+      infestation escalates quickly in dry, warm air.
+    damage_symptoms_de: >-
       Helle Sprenkelung (Sprenkelflecken) auf der Blattoberseite, feine Gespinste
       an Blattunterseite und Triebspitzen, später Bronzefärbung und Blattfall.
       Der Befall eskaliert schnell bei trocken-warmer Luft.
     affected_plant_parts: [leaf, stem]
     host_plants:
+      - Houseplants (Ficus, Dieffenbachia)
+      - Vegetables (cucumber, tomato, bean)
+      - Ornamental plants
+    host_plants_de:
       - Zimmerpflanzen (Ficus, Dieffenbachia)
       - Gemüse (Gurke, Tomate, Bohne)
       - Zierpflanzen
     prevention_tips: >-
+      Keep humidity above 50 %, rinse plants down regularly, quarantine and
+      inspect new arrivals, and avoid drought stress.
+    prevention_tips_de: >-
       Luftfeuchte über 50 % halten, Pflanzen regelmäßig abduschen, Neuzugänge in
       Quarantäne kontrollieren und Trockenstress vermeiden.
     monitoring_hints: >-
+      Inspect leaf undersides with a magnifier for moving dots and webbing, do a
+      tap test over white paper, and spot the first speckling early.
+    monitoring_hints_de: >-
       Blattunterseiten mit der Lupe auf bewegliche Punkte und Gespinste prüfen,
       Klopfprobe über weißem Papier, erste Sprenkel früh erkennen.
 
@@ -39,19 +53,34 @@ pests:
     optimal_humidity_min: 50.0
     optimal_humidity_max: 70.0
     damage_symptoms: >-
+      Sticky honeydew on the leaves followed by black sooty mould, curled and
+      deformed shoot tips, visible colonies and white moulting skins. Aphids also
+      transmit plant viruses.
+    damage_symptoms_de: >-
       Klebriger Honigtau auf den Blättern mit nachfolgendem schwarzem Rußtau,
       gekräuselte und deformierte Triebspitzen, sichtbare Kolonien und weiße
       Häutungshüllen. Blattläuse übertragen zudem Pflanzenviren.
     affected_plant_parts: [leaf, stem, flower]
     host_plants:
+      - nearly all ornamental and crop plants
+      - Pepper
+      - Cucumber
+      - Roses
+    host_plants_de:
       - nahezu alle Zier- und Nutzpflanzen
       - Paprika
       - Gurke
       - Rosen
     prevention_tips: >-
+      Avoid over-fertilising with nitrogen, encourage beneficial insects, inspect
+      new arrivals, and hang yellow sticky traps for early warning.
+    prevention_tips_de: >-
       Stickstoff-Überdüngung vermeiden, Nützlinge fördern, Neuzugänge
       kontrollieren und Gelbtafeln zur Frühwarnung aushängen.
     monitoring_hints: >-
+      Check shoot tips and buds for colonies, use yellow sticky traps for flight
+      monitoring, and watch for ants that "milk" the aphids.
+    monitoring_hints_de: >-
       Triebspitzen und Knospen auf Kolonien prüfen, Gelbtafeln zur
       Flugüberwachung nutzen und auf Ameisen achten, die Läuse „melken".
 
@@ -67,19 +96,34 @@ pests:
     optimal_humidity_min: 40.0
     optimal_humidity_max: 70.0
     damage_symptoms: >-
+      Silvery-grey feeding spots with tiny black faecal specks on the leaves,
+      deformed and crippled leaves and flowers. Transmits tospoviruses (e.g.
+      tomato spotted wilt virus, TSWV).
+    damage_symptoms_de: >-
       Silbrig-graue Saugflecken mit schwarzen Kotpünktchen auf den Blättern,
       deformierte und verkrüppelte Blätter und Blüten. Überträgt Tospoviren
       (z. B. das Tomatenbronzefleckenvirus, TSWV).
     affected_plant_parts: [leaf, flower]
     host_plants:
+      - Ornamental plants
+      - Pepper
+      - Cucumber
+      - Houseplants
+    host_plants_de:
       - Zierpflanzen
       - Paprika
       - Gurke
       - Zimmerpflanzen
     prevention_tips: >-
+      Hang blue sticky traps preventively, quarantine new arrivals, and remove
+      weeds that serve as host plants.
+    prevention_tips_de: >-
       Blaue Klebetafeln vorbeugend aushängen, Neuzugänge in Quarantäne halten
       und Unkraut als Wirtspflanze entfernen.
     monitoring_hints: >-
+      Evaluate blue sticky traps, shake flowers out over white paper, and check
+      the upper leaf surface for feeding spots.
+    monitoring_hints_de: >-
       Blaue Klebetafeln auswerten, Blüten über weißem Papier ausschütteln und
       die Blattoberseite auf Saugflecken prüfen.
 
@@ -95,18 +139,32 @@ pests:
     optimal_humidity_min: 60.0
     optimal_humidity_max: 90.0
     damage_symptoms: >-
+      Small black flies walk and fly over the substrate; white larvae with a
+      black head feed on fine roots and the stem base in the root zone —
+      especially critical for young plants and cuttings.
+    damage_symptoms_de: >-
       Kleine schwarze Mücken laufen und fliegen über dem Substrat; weiße Larven
       mit schwarzem Kopf fressen im Wurzelbereich feine Wurzeln und die
       Stängelbasis — besonders kritisch bei Jungpflanzen und Stecklingen.
     affected_plant_parts: [root, stem]
     host_plants:
+      - Young plants
+      - Cuttings
+      - Houseplants in permanently moist substrate
+    host_plants_de:
       - Jungpflanzen
       - Stecklinge
       - Zimmerpflanzen in dauerfeuchtem Substrat
     prevention_tips: >-
+      Let the substrate surface dry out between waterings, do not overwater,
+      apply a mineral top dressing, and lay out yellow sticky traps.
+    prevention_tips_de: >-
       Substratoberfläche zwischen den Wassergaben abtrocknen lassen, nicht
       überwässern, mineralische Abdeckung aufbringen und Gelbtafeln auslegen.
     monitoring_hints: >-
+      Lay yellow sticky traps flat on the substrate, use the potato-slice test
+      for larvae, and stir up adult flies when watering.
+    monitoring_hints_de: >-
       Gelbtafeln flach auf das Substrat legen, Kartoffelscheiben-Test für Larven
       und adulte Mücken beim Gießen aufscheuchen.
 
@@ -122,19 +180,34 @@ pests:
     optimal_humidity_min: 60.0
     optimal_humidity_max: 80.0
     damage_symptoms: >-
+      When touched, white flies rise up in a cloud; larvae and pupae sit on the
+      leaf underside. Honeydew and sooty mould, yellowing and weakening of the
+      plant. The whitefly transmits viruses.
+    damage_symptoms_de: >-
       Beim Berühren steigen weiße Fliegen in einer Wolke auf; Larven und Puppen
       sitzen an der Blattunterseite. Honigtau und Rußtau, Vergilbung und
       Schwächung der Pflanze. Die Weiße Fliege überträgt Viren.
     affected_plant_parts: [leaf, stem]
     host_plants:
+      - Tomato
+      - Cucumber
+      - Pepper
+      - Ornamental plants (fuchsia, pelargonium)
+    host_plants_de:
       - Tomate
       - Gurke
       - Paprika
       - Zierpflanzen (Fuchsie, Pelargonie)
     prevention_tips: >-
+      Hang yellow sticky traps, inspect new arrivals, and introduce parasitic
+      wasps (Encarsia formosa) early.
+    prevention_tips_de: >-
       Gelbtafeln aushängen, Neuzugänge kontrollieren und Schlupfwespen
       (Encarsia formosa) frühzeitig einsetzen.
     monitoring_hints: >-
+      Use yellow sticky traps for flight monitoring, check leaf undersides for
+      larvae and pupae, and gently shake plants to stir them up.
+    monitoring_hints_de: >-
       Gelbtafeln zur Flugüberwachung nutzen, Blattunterseiten auf Larven und
       Puppen prüfen und Pflanzen zum Aufscheuchen leicht schütteln.
 
@@ -158,19 +231,34 @@ pests:
     optimal_humidity_min: 50.0
     optimal_humidity_max: 70.0
     damage_symptoms: >-
+      White, cottony wax secretions in leaf axils, on shoots and leaf undersides;
+      honeydew and sooty mould, growth disorders and yellowing. Hard to control
+      due to the protective wax.
+    damage_symptoms_de: >-
       Weiße, wattige Wachsausscheidungen in Blattachseln, an Trieben und
       Blattunterseiten; Honigtau und Rußtau, Wuchsstörungen und Vergilbung.
       Durch den Wachsschutz schwer zu bekämpfen.
     affected_plant_parts: [leaf, stem, root]
     host_plants:
+      - Cacti and succulents
+      - Orchids
+      - Ficus
+      - Citrus plants
+    host_plants_de:
       - Kakteen und Sukkulenten
       - Orchideen
       - Ficus
       - Zitruspflanzen
     prevention_tips: >-
+      Inspect new arrivals thoroughly and keep them in quarantine, overwinter
+      neither too warm nor too dry, and check leaf axils regularly.
+    prevention_tips_de: >-
       Neuzugänge gründlich kontrollieren und in Quarantäne halten, nicht zu warm
       und trocken überwintern und Blattachseln regelmäßig prüfen.
     monitoring_hints: >-
+      Search leaf axils and shoot bases with a magnifier, watch for white cottony
+      wax and sticky spots, and check the root collar and pot rim.
+    monitoring_hints_de: >-
       Blattachseln und Triebgrund mit der Lupe absuchen, auf weiße Watte und
       klebrige Stellen achten und Wurzelhals sowie Topfrand kontrollieren.
 

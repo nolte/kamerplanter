@@ -2260,11 +2260,16 @@ export interface Pest {
   optimal_temp_max: number | null;
   detection_difficulty: string;
   description: string | null;
+  description_de: string | null;
   damage_symptoms: string | null;
+  damage_symptoms_de: string | null;
   affected_plant_parts: PlantPart[];
   host_plants: string[];
+  host_plants_de: string[];
   prevention_tips: string | null;
+  prevention_tips_de: string | null;
   monitoring_hints: string | null;
+  monitoring_hints_de: string | null;
   severity: PestSeverity | null;
   optimal_humidity_min: number | null;
   optimal_humidity_max: number | null;

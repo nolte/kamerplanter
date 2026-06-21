@@ -25,12 +25,19 @@ class Pest(BaseModel):
     optimal_temp_max: float | None = Field(default=None, ge=-10, le=60)
     detection_difficulty: str = Field(default="medium", max_length=50)
     description: str | None = None
+    description_de: str | None = None
     # ── Detailseiten-Felder (REQ-010, additiv & abwärtskompatibel) ──
+    # Mehrsprachig: Basisfeld = EN (Fallback), *_de = deutsche Variante
+    # (Anzeige über useLocalizedField, Muster wie Treatment).
     damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
     affected_plant_parts: list[PlantPart] = Field(default_factory=list)
     host_plants: list[str] = Field(default_factory=list)
+    host_plants_de: list[str] = Field(default_factory=list)
     prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
     monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
     severity: PestSeverity | None = None
     optimal_humidity_min: float | None = Field(default=None, ge=0, le=100)
     optimal_humidity_max: float | None = Field(default=None, ge=0, le=100)
