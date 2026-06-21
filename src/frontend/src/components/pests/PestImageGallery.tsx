@@ -14,7 +14,6 @@ import PublicIcon from '@mui/icons-material/Public';
 import AuthImage from '@/components/common/AuthImage';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import PestImageContributeDialog from './PestImageContributeDialog';
-import { isLightMode } from '@/config/mode';
 import { listPestImages, deletePestImage } from '@/api/endpoints/ipm';
 import type { PestImage } from '@/api/types';
 
@@ -34,14 +33,13 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
   const { t } = useTranslation();
   const notification = useNotification();
   const [images, setImages] = useState<PestImage[]>([]);
-  const [loading, setLoading] = useState(!isLightMode);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   /** ID of the image pending deletion — null means the dialog is closed. */
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    if (isLightMode) return;
     setLoading(true);
     try {
       setImages(await listPestImages(pestKey));
@@ -96,18 +94,16 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
         <Typography variant="body2" color="text.secondary">
           {t('pages.pestDetail.sectionImagesIntro')}
         </Typography>
-        {!isLightMode && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<AddAPhotoIcon />}
-            onClick={() => setDialogOpen(true)}
-            data-testid="pest-contribute-button"
-            sx={{ minHeight: 44, flexShrink: 0 }}
-          >
-            {t('pages.pestDetail.contributeButton')}
-          </Button>
-        )}
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<AddAPhotoIcon />}
+          onClick={() => setDialogOpen(true)}
+          data-testid="pest-contribute-button"
+          sx={{ minHeight: 44, flexShrink: 0 }}
+        >
+          {t('pages.pestDetail.contributeButton')}
+        </Button>
       </Box>
 
       {/* Loading skeleton — prevents layout shift and signals busy state */}
@@ -203,7 +199,7 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
           data-testid="pest-detail-no-images"
           aria-live="polite"
         >
-          {isLightMode ? t('pages.pestDetail.noImagesLight') : t('pages.pestDetail.noImages')}
+          {t('pages.pestDetail.noImages')}
         </Typography>
       )}
 

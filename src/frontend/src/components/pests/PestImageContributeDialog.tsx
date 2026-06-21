@@ -15,7 +15,6 @@ import { useTheme } from '@mui/material/styles';
 import ImageCapturePanel from '@/components/identification/ImageCapturePanel';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
-import { isLightMode } from '@/config/mode';
 import { contributePestImage } from '@/api/endpoints/ipm';
 
 interface PestImageContributeDialogProps {
@@ -89,41 +88,33 @@ export default function PestImageContributeDialog({
     >
       <DialogTitle id={titleId}>{t('pages.pestDetail.contributeTitle')}</DialogTitle>
       <DialogContent dividers>
-        {isLightMode ? (
-          <Alert severity="info" data-testid="pest-contribute-light">
-            {t('pages.pestDetail.contributeLightBlocked')}
-          </Alert>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.pestDetail.contributeIntro')}
+        </Typography>
+        <TextField
+          fullWidth
+          size="small"
+          label={t('pages.pestDetail.captionLabel')}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          disabled={uploading}
+          slotProps={{ htmlInput: { maxLength: 500 } }}
+          sx={{ mb: 2 }}
+          data-testid="pest-contribute-caption"
+          autoFocus
+        />
+        {uploading ? (
+          <Box sx={{ textAlign: 'center', py: 3 }} aria-live="polite" aria-busy="true">
+            <CircularProgress aria-hidden="true" />
+            <Typography sx={{ mt: 2 }}>{t('pages.pestDetail.contributeUploading')}</Typography>
+          </Box>
         ) : (
-          <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.pestDetail.contributeIntro')}
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              label={t('pages.pestDetail.captionLabel')}
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              disabled={uploading}
-              slotProps={{ htmlInput: { maxLength: 500 } }}
-              sx={{ mb: 2 }}
-              data-testid="pest-contribute-caption"
-              autoFocus
-            />
-            {uploading ? (
-              <Box sx={{ textAlign: 'center', py: 3 }} aria-live="polite" aria-busy="true">
-                <CircularProgress aria-hidden="true" />
-                <Typography sx={{ mt: 2 }}>{t('pages.pestDetail.contributeUploading')}</Typography>
-              </Box>
-            ) : (
-              <ImageCapturePanel onImageReady={handleImageReady} level={level} disabled={uploading} />
-            )}
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }} role="alert" data-testid="pest-contribute-error">
-                {error}
-              </Alert>
-            )}
-          </>
+          <ImageCapturePanel onImageReady={handleImageReady} level={level} disabled={uploading} />
+        )}
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }} role="alert" data-testid="pest-contribute-error">
+            {error}
+          </Alert>
         )}
       </DialogContent>
       <DialogActions>

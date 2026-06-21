@@ -6,15 +6,6 @@ import PestImageGallery from '@/components/pests/PestImageGallery';
 import { renderWithProviders } from '../../helpers';
 import type { PestImage } from '@/api/types';
 
-const modeMock = vi.hoisted(() => ({ isLightMode: false }));
-vi.mock('@/config/mode', () => ({
-  get isLightMode() {
-    return modeMock.isLightMode;
-  },
-  isFullMode: true,
-  KAMERPLANTER_MODE: 'full',
-}));
-
 vi.mock('@/api/endpoints/ipm', () => ({
   listPestImages: vi.fn(),
   deletePestImage: vi.fn(),
@@ -51,7 +42,6 @@ function img(overrides: Partial<PestImage> = {}): PestImage {
 describe('PestImageGallery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    modeMock.isLightMode = false;
     i18n.changeLanguage('de');
   });
 
@@ -130,12 +120,4 @@ describe('PestImageGallery', () => {
     expect(screen.queryByTestId('pest-image-delete')).toBeNull();
   });
 
-  it('does not offer contribution in light mode', async () => {
-    modeMock.isLightMode = true;
-    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
-
-    expect(await screen.findByTestId('pest-detail-no-images')).toBeInTheDocument();
-    expect(screen.queryByTestId('pest-contribute-button')).toBeNull();
-    expect(listPestImages).not.toHaveBeenCalled();
-  });
 });
