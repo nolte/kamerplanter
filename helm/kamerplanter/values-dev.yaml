@@ -47,6 +47,15 @@ controllers:
           # shadow the Pl@ntNet fallback. Flip to "true" once the index is built.
           INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # REQ-044 pest detection. Demo adapter is the primary in dev so the
+          # feature is visibly active without first building the few-shot index.
+          # For the real self-hosted symptom path, run
+          # `python -m app.migrations.acquire_pest_dataset` (inference service must
+          # be up), then set PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom.
+          PEST_DETECTION_ENABLED: "true"
+          PEST_DETECTION_SYMPTOM_ENABLED: "true"
+          PEST_DETECTION_DEMO_ENABLED: "true"
+          PEST_DETECTION_PRIMARY_ADAPTER: "demo_pest"
         probes:
           liveness:
             enabled: true

@@ -236,7 +236,7 @@ class RagRetriever:
 
 ### Position in the pipeline
 
-```
+```text
 Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 ```
 
@@ -323,7 +323,7 @@ class AiContextBuilder:
 
 The PromptAssembler combines all information into a structured system prompt:
 
-```
+```text
 [System Role]
 You are a plant advisory assistant for Kamerplanter. You respond
 exclusively based on the provided context information.
@@ -369,7 +369,7 @@ My lower leaves are turning yellow — what could be the cause?
 
 Tip cards are cached in Redis with a 4-hour TTL. Cache key schema:
 
-```
+```text
 ai:tips:{tenant_key}:{context_type}:{context_key}
 ```
 
@@ -639,7 +639,7 @@ INPUT_SIZE    = 224  # Multiple of DINOv2 patch size 14
 
 The pipeline runs as a Celery task (`acquire_reference_images_task`) and is idempotent:
 
-```
+```text
 For each species (scientific_name) from REQ-001 master data:
   1. GBIF Occurrence/Media API → candidate images with licence metadata
   2. Licence filter: ONLY CC0 / CC-BY → discard CC-BY-NC, CC-BY-SA, unknown

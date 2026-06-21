@@ -14,6 +14,7 @@ celery_app.conf.update(
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
         "app.tasks.notification_tasks",
+        "app.tasks.pest_dataset_tasks",
         "app.tasks.phase_transitions",
         "app.tasks.reference_contribution_tasks",
         "app.tasks.reference_image_tasks",

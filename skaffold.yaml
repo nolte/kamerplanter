@@ -1,6 +1,13 @@
 # ── KP (Kamerplanter Core) ──────────────────────────────────────────
 # Backend, Frontend, Celery, ArangoDB, TimescaleDB, Valkey
-# Usage: skaffold dev -m kp
+# Usage (core only):  skaffold dev -m kp
+#
+# FULL STACK (one command): skaffold dev        # no -m → runs kp + ki + recognition
+#   equivalent to:          skaffold dev -m kp -m ki -m recognition
+# Image recognition (REQ-029-A) AND pest detection (REQ-044) BOTH need the
+# `recognition` module (the kamerplanter-recognition inference-service), which in
+# turn needs the `ki` module's pgvector store. Running only `-m kp` leaves the
+# inference-service undeployed → both admin cards show "service unreachable".
 apiVersion: skaffold/v4beta13
 kind: Config
 metadata:
@@ -186,11 +193,13 @@ portForward:
     port: 8081
     localPort: 8081
 ---
-# ── Recognition (DINOv2 image recognition) ──────────────────────────
-# Inference-service only. Shares the KI stack's pgvector store
+# ── Recognition (DINOv2 inference-service) ──────────────────────────
+# Inference-service only — serves BOTH plant identification (REQ-029-A, /match)
+# and pest detection (REQ-044, /pest/*). Shares the KI stack's pgvector store
 # (kamerplanter-ki-vectordb), so run alongside `-m ki` (or at least its
-# vectordb). Optional: omit this module to run without image recognition.
-# Usage: skaffold dev -m ki -m recognition
+# vectordb). Omit this module to run without any image recognition; then the
+# plant- and pest-recognition admin cards report "service unreachable".
+# Usage: skaffold dev -m ki -m recognition   (or just `skaffold dev` for all)
 apiVersion: skaffold/v4beta13
 kind: Config
 metadata:

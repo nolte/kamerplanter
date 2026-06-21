@@ -101,6 +101,7 @@ import StorageSettingsTab from './StorageSettingsTab';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
+import { PestRecognitionAdminCard } from '@/components/admin/PestRecognitionAdminCard';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -1283,6 +1284,7 @@ export default function AccountSettingsPage() {
               signed-in user like the Pl@ntNet section above; the card itself is
               read-only and degrades to a discreet hint when the feature is off. */}
           <RecognitionStatusCard gridColumn="1 / -1" />
+          <PestRecognitionAdminCard gridColumn="1 / -1" />
         </Box>
       )}
 

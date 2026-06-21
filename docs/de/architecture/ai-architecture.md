@@ -236,7 +236,7 @@ class RagRetriever:
 
 ### Einordnung in die Pipeline
 
-```
+```text
 Anfrage → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 ```
 
@@ -323,7 +323,7 @@ class AiContextBuilder:
 
 Der PromptAssembler kombiniert alle Informationen zu einem strukturierten System-Prompt:
 
-```
+```text
 [System-Rolle]
 Du bist ein Pflanzenberatungs-Assistent für Kamerplanter. Du antwortest
 ausschließlich auf Basis der bereitgestellten Kontext-Informationen.
@@ -369,7 +369,7 @@ Meine unteren Blätter werden gelb — was kann das sein?
 
 Tipp-Karten werden in Redis mit 4 Stunden TTL gecacht. Cache-Key-Schema:
 
-```
+```text
 ai:tips:{tenant_key}:{context_type}:{context_key}
 ```
 
@@ -639,7 +639,7 @@ INPUT_SIZE    = 224  # Vielfaches der DINOv2-Patch-Größe 14
 
 Die Pipeline läuft als Celery-Task (`acquire_reference_images_task`) und ist idempotent:
 
-```
+```text
 Für jede Art (scientific_name) aus REQ-001-Stammdaten:
   1. GBIF Occurrence/Media-API → Kandidatenbilder mit Lizenzmetadaten
   2. Lizenz-Filter: NUR CC0 / CC-BY → verwerfe CC-BY-NC, CC-BY-SA, unklar

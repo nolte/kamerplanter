@@ -200,8 +200,14 @@ def test_delete_reference(client, fake_repo):
 
 def test_list_references_returns_provenance(client, fake_repo):
     fake_repo.rows = [
-        {"species_key": "species_a", "source_url": "http://x/1.jpg", "license": "CC-BY",
-         "attribution": "Jane Doe", "organ": "leaf", "source": "gbif"},
+        {
+            "species_key": "species_a",
+            "source_url": "http://x/1.jpg",
+            "license": "CC-BY",
+            "attribution": "Jane Doe",
+            "organ": "leaf",
+            "source": "gbif",
+        },
         {"species_key": "species_a", "source_url": "http://x/2.jpg", "license": "CC0", "source": "wikimedia"},
         {"species_key": "species_a"},  # no source_url → excluded
         {"species_key": "species_b", "source_url": "http://y/9.jpg", "license": "CC0"},

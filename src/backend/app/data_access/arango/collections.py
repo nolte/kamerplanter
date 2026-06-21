@@ -132,6 +132,10 @@ REFERENCE_IMAGE_JOBS = "reference_image_jobs"
 # NFR-013 Object storage — attachment catalog
 ATTACHMENTS = "attachments"
 
+# REQ-044 Bildbasierte Schädlingserkennung
+PEST_DETECTIONS = "pest_detections"
+BENEFICIALS = "beneficials"  # WP-8 — Nützlings-Stammdaten
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -218,6 +222,8 @@ DOCUMENT_COLLECTIONS = [
     DIAGNOSIS_REQUESTS,
     REFERENCE_IMAGE_JOBS,
     ATTACHMENTS,
+    PEST_DETECTIONS,
+    BENEFICIALS,
 ]
 
 # Edge collections
@@ -372,6 +378,11 @@ INCLUDES_TEMPLATE = "includes_template"
 INCLUDES_NUTRIENT_PLAN = "includes_nutrient_plan"
 CREATED_BY_WIZARD = "created_by_wizard"
 
+# REQ-044 Pest detection edges (§5.2)
+PEST_DETECTION_OF = "pest_detection_of"  # pest_detections → plant_instances/planting_runs
+PEST_DETECTION_FLAGGED = "pest_detection_flagged"  # pest_detections → pests
+PEST_DETECTION_SUGGESTED_INSPECTION = "pest_detection_suggested_inspection"  # → inspections
+
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
@@ -490,6 +501,9 @@ EDGE_COLLECTIONS = [
     HAS_RESTRICTION,
     REQUESTED_ERASURE,
     REQUESTED_EMAIL_CHANGE,
+    PEST_DETECTION_OF,
+    PEST_DETECTION_FLAGGED,
+    PEST_DETECTION_SUGGESTED_INSPECTION,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1097,6 +1111,22 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [USERS],
         "to_vertex_collections": [EMAIL_CHANGE_REQUESTS],
     },
+    # REQ-044 Pest detection edges (§5.2)
+    {
+        "edge_collection": PEST_DETECTION_OF,
+        "from_vertex_collections": [PEST_DETECTIONS],
+        "to_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
+    },
+    {
+        "edge_collection": PEST_DETECTION_FLAGGED,
+        "from_vertex_collections": [PEST_DETECTIONS],
+        "to_vertex_collections": [PESTS],
+    },
+    {
+        "edge_collection": PEST_DETECTION_SUGGESTED_INSPECTION,
+        "from_vertex_collections": [PEST_DETECTIONS],
+        "to_vertex_collections": [INSPECTIONS],
+    },
 ]
 
 
@@ -1331,6 +1361,17 @@ def ensure_collections(db: StandardDatabase) -> None:
     reference_image_jobs_col = db.collection(REFERENCE_IMAGE_JOBS)
     reference_image_jobs_col.add_persistent_index(fields=["species_key"], unique=True)
     reference_image_jobs_col.add_persistent_index(fields=["status"], unique=False)
+
+    # REQ-044 Pest detection indexes (§5.1)
+    pest_detections_col = db.collection(PEST_DETECTIONS)
+    pest_detections_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    pest_detections_col.add_persistent_index(fields=["plant_instance_key"], unique=False)
+    pest_detections_col.add_persistent_index(fields=["created_at"], unique=False)
+    pest_detections_col.add_persistent_index(fields=["is_confident"], unique=False)
+
+    beneficials_col = db.collection(BENEFICIALS)
+    beneficials_col.add_persistent_index(fields=["slug"], unique=True)
+    beneficials_col.add_persistent_index(fields=["scientific_name"], unique=True)
 
     # NFR-013 Object storage — attachment catalog indexes
     attachments_col = db.collection(ATTACHMENTS)

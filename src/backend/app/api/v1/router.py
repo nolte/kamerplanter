@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.activities.router import router as activities_router
 from app.api.v1.activity_plans.router import router as activity_plans_router
+from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.reference_images.router import router as reference_images_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
@@ -63,6 +64,9 @@ api_router.include_router(admin_settings_router)
 # Recognition status is read-only + get_current_user-gated, like admin settings —
 # available in both light and full mode (the inference feature itself is optional).
 api_router.include_router(recognition_admin_router)
+# REQ-044 pest few-shot index admin (coverage, gallery, acquisition). Like
+# recognition admin: platform-admin-gated, available in light + full mode.
+api_router.include_router(pests_admin_router)
 # Reference-image acquisition + manual curation (REQ-029-A) belongs to the same
 # optional inference feature and is available in both modes. Its endpoints are
 # require_platform_admin-gated; in light mode the sole system user is treated as

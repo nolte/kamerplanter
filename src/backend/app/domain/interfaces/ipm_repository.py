@@ -23,6 +23,9 @@ class IIpmRepository(ABC):
     def get_pest_by_key(self, key: PestKey) -> Pest | None: ...
 
     @abstractmethod
+    def get_pest_by_scientific_name(self, scientific_name: str) -> Pest | None: ...
+
+    @abstractmethod
     def create_pest(self, pest: Pest) -> Pest: ...
 
     @abstractmethod

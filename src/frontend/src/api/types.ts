@@ -4140,3 +4140,106 @@ export interface IdentificationHistoryEntry {
   selected_result_rank: number | null;
   created_at: string | null;
 }
+
+// ── REQ-044 Bildbasierte Schädlingserkennung ──────────────────────────
+
+export type PestFindingCategory = 'pest' | 'beneficial' | 'symptom' | 'unknown';
+export type PestFindingMode = 'direct' | 'symptom';
+
+export interface PestBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PestFinding {
+  label: string;
+  category: PestFindingCategory;
+  common_name: string;
+  confidence: number;
+  mode: PestFindingMode;
+  bounding_box: PestBoundingBox | null;
+  matched_pest_key: string | null;
+  matched_beneficial_key: string | null;
+}
+
+export interface PestDetectionResult {
+  key: string | null;
+  plant_instance_key: string | null;
+  source: string;
+  adapter_key: string;
+  is_confident: boolean;
+  trigger: string;
+  findings: PestFinding[];
+  tiles_processed: number;
+  suggested_next_step: 'ipm_inspection' | 'none';
+  image_hash: string;
+  disclaimer: string;
+  created_at: string | null;
+}
+
+export interface PestAdapterStatus {
+  configured: boolean;
+  is_external: boolean;
+  requires_consent: string | null;
+  supports_modes: string[];
+}
+
+export interface PestDetectionStatus {
+  available: boolean;
+  feature_enabled: boolean;
+  primary_adapter: string;
+  active_adapter: string | null;
+  adapters: Record<string, PestAdapterStatus>;
+}
+
+export interface PestCreateInspectionResult {
+  inspection_key: string | null;
+  detected_pest_keys: string[];
+}
+
+// ── REQ-044 Pest few-shot index admin ─────────────────────────────────
+
+export interface PestCoverageEntry {
+  label: string;
+  common_name: string;
+  category: string;
+  scientific_name: string;
+  gbif_taxon_key: string | null;
+  total: number;
+  active: number;
+  target: number;
+  usable: boolean;
+}
+
+export interface PestRecognitionStatus {
+  feature_enabled: boolean;
+  service_ready: boolean;
+  index_count: number;
+  target_per_class: number;
+  classes: PestCoverageEntry[];
+}
+
+export interface PestAcquireResponse {
+  status: string;
+  task_id: string | null;
+}
+
+export interface PestCurationImage {
+  id: number;
+  source_url: string;
+  license: string | null;
+  attribution: string | null;
+  source: string | null;
+  source_record_id: string | null;
+  is_active: boolean;
+  exclusion_reason: string | null;
+}
+
+export interface PestCurationImageList {
+  label: string;
+  count: number;
+  active_count: number;
+  images: PestCurationImage[];
+}

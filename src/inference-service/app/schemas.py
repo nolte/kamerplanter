@@ -109,3 +109,90 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     vectordb: bool
+
+
+# -- REQ-044 pest few-shot ------------------------------------------------
+
+
+class PestFindingItem(BaseModel):
+    """One few-shot pest/symptom/beneficial classification result."""
+
+    label: str
+    category: str
+    confidence: float = Field(description="Calibrated confidence in [0, 1]")
+    score: float = Field(description="Raw cosine similarity (1 - cosine distance)")
+    mode: str
+
+
+class PestDetectResponse(BaseModel):
+    """Result of a /pest/detect request (single tile)."""
+
+    findings: list[PestFindingItem]
+    model: str
+
+
+class PestReferenceResponse(BaseModel):
+    """Result of upserting a pest prototype embedding."""
+
+    status: str
+    label: str
+    category: str
+    dim: int
+    model: str
+
+
+class PestStatusResponse(BaseModel):
+    """Pest few-shot index availability."""
+
+    ready: bool
+    index_count: int
+    model: str
+
+
+class PestPrototypeItem(BaseModel):
+    """Provenance of one stored prototype (no embedding)."""
+
+    id: int
+    source_url: str
+    license: str | None = None
+    attribution: str | None = None
+    source: str | None = None
+    source_record_id: str | None = None
+    is_active: bool = True
+    exclusion_reason: str | None = None
+
+
+class PestPrototypeListResponse(BaseModel):
+    """Prototype provenance for a class (gallery source)."""
+
+    label: str
+    count: int
+    active_count: int
+    images: list[PestPrototypeItem]
+
+
+class PestCoverageItem(BaseModel):
+    """Per-class prototype counts."""
+
+    label: str
+    category: str
+    total: int
+    active: int
+
+
+class PestCoverageResponse(BaseModel):
+    """Few-shot index coverage across classes."""
+
+    classes: list[PestCoverageItem]
+
+
+class PestSetActiveRequest(BaseModel):
+    is_active: bool
+    reason: str | None = None
+
+
+class PestSetActiveResponse(BaseModel):
+    status: str
+    label: str
+    id: int
+    is_active: bool
