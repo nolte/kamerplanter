@@ -204,7 +204,7 @@ qrcode[pil]>=8.0
     # via kamerplanter-backend (pyproject.toml)
 websockets==16.0
     # via uvicorn
-wrapt==2.2.1
+wrapt==2.2.2
     # via deprecated
 yarl==1.24.2
     # via aiohttp
