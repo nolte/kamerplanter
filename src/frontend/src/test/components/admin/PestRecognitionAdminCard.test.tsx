@@ -9,6 +9,7 @@ vi.mock('@/api/endpoints/adminPestRecognition', () => ({
   getPestRecognitionStatus: vi.fn(),
   startPestAcquisition: vi.fn(),
   getPestClassImages: vi.fn(),
+  setPestImageActive: vi.fn(),
 }));
 
 import * as api from '@/api/endpoints/adminPestRecognition';
@@ -16,6 +17,7 @@ import * as api from '@/api/endpoints/adminPestRecognition';
 const mockStatus = api.getPestRecognitionStatus as unknown as ReturnType<typeof vi.fn>;
 const mockStart = api.startPestAcquisition as unknown as ReturnType<typeof vi.fn>;
 const mockImages = api.getPestClassImages as unknown as ReturnType<typeof vi.fn>;
+const mockSetActive = api.setPestImageActive as unknown as ReturnType<typeof vi.fn>;
 
 function status(overrides: Partial<PestRecognitionStatus> = {}): PestRecognitionStatus {
   return {
@@ -62,6 +64,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockStart.mockResolvedValue({ status: 'queued', task_id: 't1' });
   mockImages.mockResolvedValue(IMAGES);
+  mockSetActive.mockResolvedValue({ label: 'spider_mite', id: 1, is_active: false });
 });
 
 describe('PestRecognitionAdminCard', () => {
@@ -95,5 +98,21 @@ describe('PestRecognitionAdminCard', () => {
     await waitFor(() => expect(mockImages).toHaveBeenCalledWith('spider_mite'));
     expect(await screen.findByTestId('pest-reference-image')).toBeInTheDocument();
     expect(screen.getByText('© Jane Doe · CC-BY')).toBeInTheDocument();
+  });
+
+  it('deselects a reference image with a reason so it no longer affects detection', async () => {
+    mockStatus.mockResolvedValue(status());
+    renderWithProviders(<PestRecognitionAdminCard />);
+    const row = await screen.findByTestId('pest-class-spider_mite');
+    await userEvent.click(row.querySelector('button')!);
+    await screen.findByTestId('pest-reference-image');
+
+    await userEvent.click(screen.getByTestId('pest-deselect-button'));
+    expect(await screen.findByTestId('pest-deselect-dialog')).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId('pest-deselect-confirm'));
+
+    await waitFor(() =>
+      expect(mockSetActive).toHaveBeenCalledWith('spider_mite', 1, { is_active: false, reason: 'blurry' }),
+    );
   });
 });

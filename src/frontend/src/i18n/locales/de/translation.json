@@ -608,7 +608,25 @@
         "notUsableLabel": "Noch nicht verwendbar",
         "galleryLoading": "Bilder werden geladen …",
         "galleryEmpty": "Noch keine Referenzbilder für diese Klasse. Starte die Beschaffung.",
-        "imageAlt": "Referenzbild für {{name}}"
+        "imageAlt": "Referenzbild für {{name}}",
+        "deselect": "Abwählen",
+        "reinclude": "Wieder aufnehmen",
+        "deselectAria": "Referenzbild für {{name}} abwählen",
+        "reincludeAria": "Referenzbild für {{name}} wieder aufnehmen",
+        "excludedBadge": "Abgewählt",
+        "deselectDialogTitle": "Referenzbild abwählen",
+        "deselectDialogText": "Das Bild wird aus der Erkennung entfernt (bleibt für die Nachvollziehbarkeit erhalten). So beeinträchtigen falsch ausgewählte Bilder das Ergebnis nicht.",
+        "reasonLabel": "Grund",
+        "reason": {
+          "blurry": "Unscharf / schlechte Qualität",
+          "wrong_species": "Falsche Art",
+          "duplicate": "Duplikat",
+          "irrelevant": "Nicht relevant",
+          "manual": "Manuell abgewählt"
+        },
+        "deselectSuccess": "Bild abgewählt.",
+        "reincludeSuccess": "Bild wieder aufgenommen.",
+        "curationError": "Aktion fehlgeschlagen."
       },
       "recognition": {
         "section": "Self-Hosted-Erkennung (DINOv2)",

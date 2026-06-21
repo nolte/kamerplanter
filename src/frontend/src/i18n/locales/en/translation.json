@@ -608,7 +608,25 @@
         "notUsableLabel": "Not yet usable",
         "galleryLoading": "Loading images …",
         "galleryEmpty": "No reference images for this class yet. Start the acquisition.",
-        "imageAlt": "Reference image for {{name}}"
+        "imageAlt": "Reference image for {{name}}",
+        "deselect": "Deselect",
+        "reinclude": "Re-include",
+        "deselectAria": "Deselect reference image for {{name}}",
+        "reincludeAria": "Re-include reference image for {{name}}",
+        "excludedBadge": "Deselected",
+        "deselectDialogTitle": "Deselect reference image",
+        "deselectDialogText": "The image is removed from detection (kept for the audit trail). This stops wrongly-acquired images from skewing the result.",
+        "reasonLabel": "Reason",
+        "reason": {
+          "blurry": "Blurry / poor quality",
+          "wrong_species": "Wrong species",
+          "duplicate": "Duplicate",
+          "irrelevant": "Not relevant",
+          "manual": "Manually deselected"
+        },
+        "deselectSuccess": "Image deselected.",
+        "reincludeSuccess": "Image re-included.",
+        "curationError": "Action failed."
       },
       "recognition": {
         "section": "Self-hosted recognition (DINOv2)",

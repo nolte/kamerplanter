@@ -32,3 +32,21 @@ export async function getPestClassImages(label: string): Promise<PestCurationIma
   const { data } = await client.get<PestCurationImageList>(`${BASE}/${label}/images`);
   return data;
 }
+
+/**
+ * PATCH /admin/pests/{label}/images/{id} — deselect/re-include a reference image.
+ *
+ * Deselected images are kept (audit trail) but excluded from few-shot matching,
+ * so a wrongly-acquired image no longer skews the detection result.
+ */
+export async function setPestImageActive(
+  label: string,
+  imageId: number,
+  payload: { is_active: boolean; reason?: string | null },
+): Promise<{ label: string; id: number; is_active: boolean }> {
+  const { data } = await client.patch<{ label: string; id: number; is_active: boolean }>(
+    `${BASE}/${label}/images/${imageId}`,
+    payload,
+  );
+  return data;
+}

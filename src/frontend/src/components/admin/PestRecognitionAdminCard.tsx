@@ -16,18 +16,36 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import ImageListItemBar from '@mui/material/ImageListItemBar';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PestControlIcon from '@mui/icons-material/PestControl';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import {
   getPestClassImages,
   getPestRecognitionStatus,
+  setPestImageActive,
   startPestAcquisition,
 } from '@/api/endpoints/adminPestRecognition';
+import { useNotification } from '@/hooks/useNotification';
 import type { PestCoverageEntry, PestCurationImage, PestRecognitionStatus } from '@/api/types';
+
+const PEST_EXCLUSION_REASONS = ['blurry', 'wrong_species', 'duplicate', 'irrelevant', 'manual'] as const;
+type PestExclusionReason = (typeof PEST_EXCLUSION_REASONS)[number];
 
 type GridColumnValue = string | Record<string, string>;
 
@@ -292,8 +310,12 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
 
 function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
   const { t } = useTranslation();
+  const notify = useNotification();
   const [images, setImages] = useState<PestCurationImage[] | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [deselectTarget, setDeselectTarget] = useState<PestCurationImage | null>(null);
+  const [reason, setReason] = useState<PestExclusionReason>('blurry');
 
   const handleExpand = useCallback(
     async (_e: unknown, expanded: boolean) => {
@@ -310,6 +332,45 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
     },
     [entry.label, images],
   );
+
+  // Toggle one image in/out of the few-shot index. Deselected images are kept
+  // (audit trail) but excluded from matching, so a wrongly-acquired image no
+  // longer affects detection (the inference kNN filters is_active = TRUE).
+  const applyActive = useCallback(
+    async (image: PestCurationImage, isActive: boolean, why?: PestExclusionReason) => {
+      setBusyId(image.id);
+      try {
+        await setPestImageActive(entry.label, image.id, {
+          is_active: isActive,
+          reason: isActive ? null : (why ?? 'manual'),
+        });
+        setImages((prev) =>
+          (prev ?? []).map((img) =>
+            img.id === image.id
+              ? { ...img, is_active: isActive, exclusion_reason: isActive ? null : (why ?? 'manual') }
+              : img,
+          ),
+        );
+        notify.success(
+          isActive
+            ? t('pages.admin.pestRecognition.reincludeSuccess')
+            : t('pages.admin.pestRecognition.deselectSuccess'),
+        );
+      } catch {
+        notify.error(t('pages.admin.pestRecognition.curationError'));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [entry.label, notify, t],
+  );
+
+  const confirmDeselect = useCallback(async () => {
+    if (!deselectTarget) return;
+    const target = deselectTarget;
+    setDeselectTarget(null);
+    await applyActive(target, false, reason);
+  }, [deselectTarget, reason, applyActive]);
 
   // Explicit usable status text for screen readers — never conveyed by colour alone (UI-NFR-002 R-018).
   const usableAriaLabel = entry.usable
@@ -396,24 +457,120 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
             sx={{ m: 0, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' } }}
             data-testid={`pest-class-gallery-${entry.label}`}
           >
-            {images.map((img) => (
-              <ImageListItem key={img.id} data-testid="pest-reference-image">
-                <img
-                  src={img.source_url}
-                  alt={t('pages.admin.pestRecognition.imageAlt', { name: entry.common_name })}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  style={{ borderRadius: 4, aspectRatio: '1 / 1', objectFit: 'cover', width: '100%' }}
-                />
-                <ImageListItemBar
-                  subtitle={buildCaption(img)}
-                  sx={{ '& .MuiImageListItemBar-subtitle': { fontSize: '0.65rem' } }}
-                />
-              </ImageListItem>
-            ))}
+            {images.map((img) => {
+              const inactive = !img.is_active;
+              return (
+                <ImageListItem key={img.id} data-testid="pest-reference-image" data-active={img.is_active}>
+                  <img
+                    src={img.source_url}
+                    alt={t('pages.admin.pestRecognition.imageAlt', { name: entry.common_name })}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      borderRadius: 4,
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      width: '100%',
+                      // Deselected images are visibly muted so the active set is obvious.
+                      filter: inactive ? 'grayscale(1)' : 'none',
+                      opacity: inactive ? 0.45 : 1,
+                    }}
+                  />
+                  {inactive && (
+                    <Chip
+                      size="small"
+                      label={t('pages.admin.pestRecognition.excludedBadge')}
+                      sx={{ position: 'absolute', top: 6, left: 6, bgcolor: 'rgba(0,0,0,0.7)', color: '#fff' }}
+                    />
+                  )}
+                  <ImageListItemBar
+                    subtitle={buildCaption(img)}
+                    sx={{ '& .MuiImageListItemBar-subtitle': { fontSize: '0.65rem' } }}
+                    actionIcon={
+                      inactive ? (
+                        <Tooltip title={t('pages.admin.pestRecognition.reinclude')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busyId === img.id}
+                              onClick={() => void applyActive(img, true)}
+                              aria-label={t('pages.admin.pestRecognition.reincludeAria', { name: entry.common_name })}
+                              data-testid="pest-reinclude-button"
+                              sx={{ color: 'rgba(255,255,255,0.9)', p: { xs: 1.5, sm: 1 } }}
+                            >
+                              <RestoreFromTrashIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title={t('pages.admin.pestRecognition.deselect')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busyId === img.id}
+                              onClick={() => {
+                                setReason('blurry');
+                                setDeselectTarget(img);
+                              }}
+                              aria-label={t('pages.admin.pestRecognition.deselectAria', { name: entry.common_name })}
+                              data-testid="pest-deselect-button"
+                              sx={{ color: 'rgba(255,255,255,0.9)', p: { xs: 1.5, sm: 1 } }}
+                            >
+                              <VisibilityOffIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )
+                    }
+                  />
+                </ImageListItem>
+              );
+            })}
           </ImageList>
         )}
       </AccordionDetails>
+
+      <Dialog
+        open={!!deselectTarget}
+        onClose={() => setDeselectTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        aria-labelledby={`pest-deselect-title-${entry.label}`}
+        data-testid="pest-deselect-dialog"
+      >
+        <DialogTitle id={`pest-deselect-title-${entry.label}`}>
+          {t('pages.admin.pestRecognition.deselectDialogTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {t('pages.admin.pestRecognition.deselectDialogText')}
+          </DialogContentText>
+          <FormControl fullWidth size="small">
+            <InputLabel id={`pest-deselect-reason-${entry.label}`}>
+              {t('pages.admin.pestRecognition.reasonLabel')}
+            </InputLabel>
+            <Select
+              labelId={`pest-deselect-reason-${entry.label}`}
+              label={t('pages.admin.pestRecognition.reasonLabel')}
+              value={reason}
+              onChange={(e) => setReason(e.target.value as PestExclusionReason)}
+              data-testid="pest-deselect-reason-select"
+            >
+              {PEST_EXCLUSION_REASONS.map((r) => (
+                <MenuItem key={r} value={r}>
+                  {t(`pages.admin.pestRecognition.reason.${r}`)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeselectTarget(null)}>{t('common.cancel')}</Button>
+          <Button onClick={() => void confirmDeselect()} color="error" variant="contained" data-testid="pest-deselect-confirm">
+            {t('pages.admin.pestRecognition.deselect')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Accordion>
   );
 }
