@@ -92,7 +92,10 @@ class IpmService:
         """Aggregierte Detailansicht: Stammdaten + Gegenmaßnahmen (nach
         IPM-Hierarchie) + passende Nützlinge + Schadbild-Hinweis (REQ-044)."""
         pest = self.get_pest(key)
-        treatments = sorted(self._repo.get_treatments_for_pest(key), key=_ipm_rank)
+        # Defensiv nach _key deduplizieren (falls mehrfache identische
+        # targets_pest-Edges existieren) und nach IPM-Hierarchie sortieren.
+        unique = {t.key: t for t in self._repo.get_treatments_for_pest(key)}
+        treatments = sorted(unique.values(), key=_ipm_rank)
         beneficials: list[Beneficial] = []
         symptom_hint: str | None = None
         if pest.detection_slug:

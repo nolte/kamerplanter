@@ -67,6 +67,17 @@ class TestGetPestDetail:
             TreatmentType.CHEMICAL,
         ]
 
+    def test_duplicate_treatments_are_deduplicated(self):
+        # Mehrfache identische targets_pest-Edges → das Repo liefert dasselbe
+        # Treatment mehrfach; der Service liefert es genau einmal zurück.
+        pest = Pest(_key="p1", scientific_name="X", common_name="Y")
+        neem = _treatment("Neem Oil", TreatmentType.BIOLOGICAL)
+        service = _service(_FakeRepo(pest=pest, treatments=[neem, neem, neem]))
+
+        detail = service.get_pest_detail("p1")
+
+        assert [t.name for t in detail["treatments"]] == ["Neem Oil"]
+
     def test_beneficials_and_symptom_hint_from_detection_slug(self):
         pest = Pest(
             _key="p1",

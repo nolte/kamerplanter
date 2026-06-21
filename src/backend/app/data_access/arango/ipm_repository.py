@@ -285,11 +285,15 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
 
     def get_treatments_for_pest(self, pest_key: PestKey) -> list[Treatment]:
         pest_id = f"{col.PESTS}/{pest_key}"
+        # COLLECT dedupliziert mehrfache identische targets_pest-Edges (entstehen,
+        # weil create_edge nicht idempotent ist und der Seed-Loader bei jedem Lauf
+        # eine neue Edge anlegt) — sonst erscheint dasselbe Treatment mehrfach.
         query = f"""
         FOR e IN {col.TARGETS_PEST}
             FILTER e._to == @pest_id
+            COLLECT from_id = e._from
             FOR t IN {col.TREATMENTS}
-                FILTER t._key == PARSE_IDENTIFIER(e._from).key
+                FILTER t._key == PARSE_IDENTIFIER(from_id).key
                 RETURN t
         """
         cursor = self._db.aql.execute(query, bind_vars={"pest_id": pest_id})
