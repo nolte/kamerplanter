@@ -43,7 +43,7 @@ function makeDetail(overrides: Partial<TreatmentDetail> = {}): TreatmentDetail {
   return {
     treatment: makeTreatment(),
     targeted_pests: [
-      { key: 'p1', common_name: 'Spider Mites', scientific_name: 'Tetranychus urticae' },
+      { key: 'p1', common_name: 'Spider Mites', common_name_de: null, scientific_name: 'Tetranychus urticae' },
     ],
     targeted_diseases: [],
     ...overrides,

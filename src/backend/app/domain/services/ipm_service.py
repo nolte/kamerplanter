@@ -62,6 +62,7 @@ class IpmService:
         allowed = {
             "scientific_name",
             "common_name",
+            "common_name_de",
             "pest_type",
             "lifecycle_days",
             "optimal_temp_min",

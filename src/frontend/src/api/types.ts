@@ -2254,6 +2254,7 @@ export interface Pest {
   key: string;
   scientific_name: string;
   common_name: string;
+  common_name_de: string | null;
   pest_type: string;
   lifecycle_days: number | null;
   optimal_temp_min: number | null;
@@ -2433,6 +2434,7 @@ export interface TreatmentUpdate {
 export interface TreatmentTargetRef {
   key: string;
   common_name: string;
+  common_name_de: string | null;
   scientific_name: string;
 }
 

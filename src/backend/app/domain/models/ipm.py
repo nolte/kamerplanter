@@ -19,6 +19,7 @@ class Pest(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    common_name_de: str | None = Field(default=None, max_length=200)
     pest_type: str = Field(default="insect", max_length=50)
     lifecycle_days: int | None = Field(default=None, ge=1)
     optimal_temp_min: float | None = Field(default=None, ge=-10, le=60)

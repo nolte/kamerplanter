@@ -152,7 +152,7 @@ export default function PestDetailPage() {
         {/* Left: title + meta row */}
         <Box>
           {/* Row 1: page title */}
-          <PageTitle title={pest.common_name} sx={{ mb: 0 }} />
+          <PageTitle title={l(pest, 'common_name')} sx={{ mb: 0 }} />
           {/* Row 2: scientific name + classification chips */}
           <Box
             sx={{

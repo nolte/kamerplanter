@@ -8,6 +8,7 @@ from app.common.enums import PestSeverity, PlantPart
 class PestCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    common_name_de: str | None = None
     pest_type: str = "insect"
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
@@ -34,6 +35,7 @@ class PestCreate(BaseModel):
 class PestUpdate(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
+    common_name_de: str | None = None
     pest_type: str | None = None
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
@@ -61,6 +63,7 @@ class PestResponse(BaseModel):
     key: str
     scientific_name: str
     common_name: str
+    common_name_de: str | None = None
     pest_type: str
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
@@ -257,6 +260,7 @@ class TreatmentTargetRef(BaseModel):
 
     key: str
     common_name: str
+    common_name_de: str | None = None
     scientific_name: str
 
 

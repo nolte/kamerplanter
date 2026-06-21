@@ -2,6 +2,7 @@
 pests:
   - scientific_name: Tetranychus urticae
     common_name: Spider Mites
+    common_name_de: Spinnmilben
     pest_type: arachnid
     lifecycle_days: 21
     optimal_temp_min: 25.0
@@ -43,6 +44,7 @@ pests:
 
   - scientific_name: Aphis gossypii
     common_name: Aphids
+    common_name_de: Blattläuse
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 20.0
@@ -86,6 +88,7 @@ pests:
 
   - scientific_name: Frankliniella occidentalis
     common_name: Thrips
+    common_name_de: Thripse (Fransenflügler)
     pest_type: insect
     lifecycle_days: 18
     optimal_temp_min: 20.0
@@ -129,6 +132,7 @@ pests:
 
   - scientific_name: Bradysia spp.
     common_name: Fungus Gnats
+    common_name_de: Trauermücken
     pest_type: insect
     lifecycle_days: 28
     optimal_temp_min: 20.0
@@ -170,6 +174,7 @@ pests:
 
   - scientific_name: Trialeurodes vaporariorum
     common_name: Whitefly
+    common_name_de: Weiße Fliege
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0
@@ -213,14 +218,49 @@ pests:
 
   - scientific_name: Trichoplusia ni
     common_name: Caterpillar
+    common_name_de: Raupen (Eulenraupen)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
     optimal_temp_max: 28.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Irregular feeding holes and window-pane feeding on leaves, later complete
+      defoliation; dark green frass pellets reveal the caterpillars, which often
+      sit camouflaged on the leaf underside.
+    damage_symptoms_de: >-
+      Unregelmäßige Fraßlöcher und Fensterfraß an den Blättern, später
+      Kahlfraß; dunkelgrüne Kotkrümel verraten die Raupen, die oft getarnt an
+      der Blattunterseite sitzen.
+    affected_plant_parts: [leaf, flower, fruit]
+    host_plants:
+      - Cabbage and other brassicas
+      - Lettuce
+      - Tomato
+      - Many ornamental plants
+    host_plants_de:
+      - Kohl und andere Kreuzblütler
+      - Salat
+      - Tomate
+      - Viele Zierpflanzen
+    prevention_tips: >-
+      Cover crops with insect netting, remove eggs and young caterpillars by
+      hand, and encourage birds and parasitic wasps as natural enemies.
+    prevention_tips_de: >-
+      Kulturen mit Insektennetz abdecken, Eier und junge Raupen absammeln und
+      Vögel sowie Schlupfwespen als natürliche Gegenspieler fördern.
+    monitoring_hints: >-
+      Check leaf undersides for egg clusters and frass, inspect plants weekly,
+      and look for feeding damage at dusk when caterpillars are active.
+    monitoring_hints_de: >-
+      Blattunterseiten auf Eigelege und Kot prüfen, Pflanzen wöchentlich
+      kontrollieren und in der Dämmerung auf Fraßspuren achten, wenn die Raupen
+      aktiv sind.
 
   - scientific_name: Pseudococcus longispinus
     common_name: Mealybug
+    common_name_de: Schmier-/Wollläuse
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 22.0
@@ -264,215 +304,1122 @@ pests:
 
   - scientific_name: Coccoidea (Überfamilie)
     common_name: Scale Insects
+    common_name_de: Schildläuse
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 20.0
     optimal_temp_max: 30.0
     detection_difficulty: hard
+    severity: high
+    optimal_humidity_min: 40.0
+    optimal_humidity_max: 60.0
+    damage_symptoms: >-
+      Brown or waxy humps on stems, leaf veins and undersides that barely move;
+      sticky honeydew with sooty mould, yellowing and stunted growth weaken the
+      plant over time.
+    damage_symptoms_de: >-
+      Braune oder wachsige Höcker an Stängeln, Blattadern und -unterseiten, die
+      sich kaum bewegen; klebriger Honigtau mit Rußtau, Vergilbung und
+      Kümmerwuchs schwächen die Pflanze mit der Zeit.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Citrus plants
+      - Ficus and other houseplants
+      - Orchids
+      - Ferns
+    host_plants_de:
+      - Zitruspflanzen
+      - Ficus und andere Zimmerpflanzen
+      - Orchideen
+      - Farne
+    prevention_tips: >-
+      Inspect and quarantine new arrivals, avoid dry overwintering and heat
+      stress, and wipe leaves regularly to catch early infestations.
+    prevention_tips_de: >-
+      Neuzugänge kontrollieren und in Quarantäne halten, trockene Überwinterung
+      und Hitzestress vermeiden und Blätter regelmäßig abwischen, um einen
+      frühen Befall zu erkennen.
+    monitoring_hints: >-
+      Scan stems and leaf veins with a magnifier for stationary humps, check for
+      sticky honeydew, and gently lift a scale to confirm it is a live insect.
+    monitoring_hints_de: >-
+      Stängel und Blattadern mit der Lupe auf unbewegliche Höcker absuchen, auf
+      klebrigen Honigtau achten und einen Schild vorsichtig anheben, um ein
+      lebendes Tier zu bestätigen.
 
   - scientific_name: Phyllotreta spp.
     common_name: Flea Beetle
+    common_name_de: Erdflöhe
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 20.0
     optimal_temp_max: 27.0
     detection_difficulty: easy
+    severity: medium
+    damage_symptoms: >-
+      Many small round shot-holes in young leaves; the tiny beetles jump away
+      when disturbed. Seedlings can be killed outright in warm, dry weather.
+    damage_symptoms_de: >-
+      Viele kleine, runde Löcher (Lochfraß) in jungen Blättern; die winzigen
+      Käfer springen bei Störung weg. Sämlinge können bei warm-trockenem Wetter
+      ganz absterben.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Radish and rocket
+      - Cabbage and other brassicas
+      - Turnip
+      - Mustard greens
+    host_plants_de:
+      - Radieschen und Rucola
+      - Kohl und andere Kreuzblütler
+      - Rübe
+      - Senfblätter
+    prevention_tips: >-
+      Keep the soil moist, sow under insect netting, and avoid bare dusty beds;
+      a thin mulch and regular watering deter the beetles.
+    prevention_tips_de: >-
+      Boden feucht halten, unter Insektennetz aussäen und staubige Kahlbeete
+      vermeiden; eine dünne Mulchschicht und regelmäßiges Gießen halten die
+      Käfer fern.
+    monitoring_hints: >-
+      Inspect young leaves for shot-holes on warm dry days, watch for jumping
+      beetles, and use yellow sticky traps laid near the soil.
+    monitoring_hints_de: >-
+      Junge Blätter an warm-trockenen Tagen auf Lochfraß prüfen, auf springende
+      Käfer achten und bodennah ausgelegte Gelbtafeln nutzen.
 
   - scientific_name: Arion vulgaris
     common_name: Slug
+    common_name_de: Nacktschnecke (Spanische Wegschnecke)
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 10.0
     optimal_temp_max: 20.0
     detection_difficulty: easy
+    severity: high
+    optimal_humidity_min: 80.0
+    optimal_humidity_max: 100.0
+    damage_symptoms: >-
+      Large ragged holes eaten from leaf edges and inward, whole seedlings
+      cleared overnight, and tell-tale silvery slime trails on leaves and soil.
+    damage_symptoms_de: >-
+      Große, ausgefranste Löcher vom Blattrand nach innen, über Nacht komplett
+      abgefressene Sämlinge und verräterische silbrige Schleimspuren auf
+      Blättern und Boden.
+    affected_plant_parts: [leaf, stem, fruit]
+    host_plants:
+      - Lettuce and salad greens
+      - Hostas
+      - Strawberries
+      - Young vegetable seedlings
+    host_plants_de:
+      - Salat und Blattgemüse
+      - Funkien (Hosta)
+      - Erdbeeren
+      - Junge Gemüsesämlinge
+    prevention_tips: >-
+      Water in the morning rather than evening, keep beds tidy and free of
+      hiding places, use slug collars or barriers, and encourage hedgehogs and
+      ground beetles.
+    prevention_tips_de: >-
+      Morgens statt abends gießen, Beete aufgeräumt und ohne Verstecke halten,
+      Schneckenkragen oder Barrieren einsetzen und Igel sowie Laufkäfer fördern.
+    monitoring_hints: >-
+      Search at dusk or after rain with a torch, lay out boards as traps and
+      check underneath in the morning, and follow slime trails to nests.
+    monitoring_hints_de: >-
+      In der Dämmerung oder nach Regen mit Taschenlampe absuchen, Bretter als
+      Fallen auslegen und morgens darunter kontrollieren sowie Schleimspuren zu
+      den Verstecken verfolgen.
 
   - scientific_name: Meloidogyne spp.
     common_name: Nematode
+    common_name_de: Nematoden (Wurzelgallenälchen)
     pest_type: nematode
     lifecycle_days: 30
     optimal_temp_min: 20.0
     optimal_temp_max: 30.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Knotty galls and swellings on the roots, above ground stunted growth,
+      wilting in midday heat despite moist soil, and yellowing — symptoms are
+      easily mistaken for nutrient deficiency.
+    damage_symptoms_de: >-
+      Knotige Gallen und Verdickungen an den Wurzeln, oberirdisch Kümmerwuchs,
+      Welke in der Mittagshitze trotz feuchten Bodens und Vergilbung — die
+      Symptome werden leicht mit Nährstoffmangel verwechselt.
+    affected_plant_parts: [root]
+    host_plants:
+      - Tomato
+      - Cucumber
+      - Carrot
+      - Many vegetables and ornamentals
+    host_plants_de:
+      - Tomate
+      - Gurke
+      - Möhre
+      - Viele Gemüse- und Zierpflanzen
+    prevention_tips: >-
+      Practise crop rotation, grow resistant cultivars, plant marigolds (Tagetes)
+      as a catch crop, and use only clean, sterilised substrate.
+    prevention_tips_de: >-
+      Fruchtfolge einhalten, resistente Sorten anbauen, Tagetes als Fangpflanze
+      setzen und nur sauberes, sterilisiertes Substrat verwenden.
+    monitoring_hints: >-
+      Lift suspect plants and inspect the roots for galls, watch for unexplained
+      wilting and stunting in patches, and keep records per bed for rotation.
+    monitoring_hints_de: >-
+      Verdächtige Pflanzen ausgraben und die Wurzeln auf Gallen prüfen, auf
+      unerklärliche Welke und Kümmerwuchs in Nestern achten und je Beet für die
+      Fruchtfolge Buch führen.
 
   # --- Outdoor-focused pests (new) ---
 
   - scientific_name: Pieris brassicae
     common_name: Large Cabbage White  # Großer Kohlweißling
+    common_name_de: Großer Kohlweißling
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Yellow-black gregarious caterpillars eat coarse holes and skeletonise
+      outer cabbage leaves, leaving heavy green-black frass; severe infestations
+      can strip plants down to the leaf veins.
+    damage_symptoms_de: >-
+      Gelb-schwarze, gesellig fressende Raupen verursachen groben Lochfraß und
+      Skelettierfraß an den äußeren Kohlblättern und hinterlassen reichlich
+      grün-schwarzen Kot; bei starkem Befall bleiben nur die Blattadern.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Kale
+      - Broccoli and cauliflower
+      - Nasturtium
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Grünkohl
+      - Brokkoli und Blumenkohl
+      - Kapuzinerkresse
+    prevention_tips: >-
+      Cover brassicas with insect netting from planting, scrape off the bright
+      yellow egg clusters on leaf undersides, and encourage parasitic wasps.
+    prevention_tips_de: >-
+      Kohl von Anfang an mit Insektennetz abdecken, die leuchtend gelben
+      Eigelege an den Blattunterseiten abkratzen und Schlupfwespen fördern.
+    monitoring_hints: >-
+      Inspect leaf undersides for yellow egg clusters from late spring, watch
+      for white butterflies flying over the bed, and check weekly for young
+      caterpillars.
+    monitoring_hints_de: >-
+      Ab dem Spätfrühjahr die Blattunterseiten auf gelbe Eigelege prüfen, auf
+      weiße Falter über dem Beet achten und wöchentlich nach jungen Raupen
+      suchen.
 
   - scientific_name: Pieris rapae
     common_name: Small Cabbage White  # Kleiner Kohlweißling
+    common_name_de: Kleiner Kohlweißling
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Solitary velvety-green caterpillars bore deep into cabbage hearts and eat
+      irregular holes; they are well camouflaged along the leaf veins and foul
+      the heads with frass.
+    damage_symptoms_de: >-
+      Einzeln lebende, samtgrüne Raupen bohren sich tief in die Kohlherzen und
+      fressen unregelmäßige Löcher; sie sind entlang der Blattadern gut getarnt
+      und verschmutzen die Köpfe mit Kot.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Kohlrabi
+      - Radish
+      - Nasturtium
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Kohlrabi
+      - Radieschen
+      - Kapuzinerkresse
+    prevention_tips: >-
+      Use insect netting over brassica beds, plant strongly scented companions,
+      and remove the well-hidden caterpillars by hand before they reach the
+      heart.
+    prevention_tips_de: >-
+      Kohlbeete mit Insektennetz schützen, stark duftende Mischkulturpartner
+      pflanzen und die gut versteckten Raupen vor dem Erreichen des Herzens
+      absammeln.
+    monitoring_hints: >-
+      Look closely along leaf veins and into the heart for camouflaged
+      caterpillars, watch for small white butterflies, and check for fresh
+      frass.
+    monitoring_hints_de: >-
+      Entlang der Blattadern und im Herzen gezielt nach getarnten Raupen suchen,
+      auf kleine weiße Falter achten und auf frischen Kot prüfen.
 
   - scientific_name: Leptinotarsa decemlineata
     common_name: Colorado Potato Beetle  # Kartoffelkäfer
+    common_name_de: Kartoffelkäfer
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Yellow-black striped beetles and fat red-orange larvae feed voraciously on
+      potato foliage and can defoliate whole plants; orange egg clusters sit on
+      the leaf undersides.
+    damage_symptoms_de: >-
+      Gelb-schwarz gestreifte Käfer und dicke rot-orange Larven fressen gierig
+      am Kartoffellaub und können ganze Pflanzen kahl fressen; orange Eigelege
+      sitzen an den Blattunterseiten.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Potato
+      - Aubergine
+      - Tomato
+      - Other nightshades
+    host_plants_de:
+      - Kartoffel
+      - Aubergine
+      - Tomate
+      - Andere Nachtschattengewächse
+    prevention_tips: >-
+      Rotate potato beds widely each year, inspect plants from emergence and
+      collect beetles, larvae and egg clusters by hand, and use straw mulch to
+      hinder migrating adults.
+    prevention_tips_de: >-
+      Kartoffelbeete jährlich weit wechseln, Pflanzen ab dem Auflaufen
+      kontrollieren und Käfer, Larven und Eigelege absammeln sowie Strohmulch
+      einsetzen, um zuwandernde Käfer zu bremsen.
+    monitoring_hints: >-
+      From emergence check leaf undersides for orange egg clusters and young
+      larvae, and act early before populations explode.
+    monitoring_hints_de: >-
+      Ab dem Auflaufen die Blattunterseiten auf orange Eigelege und junge Larven
+      prüfen und früh eingreifen, bevor die Population explodiert.
 
   - scientific_name: Cydia pomonella
     common_name: Codling Moth  # Apfelwickler
+    common_name_de: Apfelwickler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 16.0
     optimal_temp_max: 26.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Caterpillars tunnel into the fruit and feed on the core, leaving a
+      frass-filled entry hole; affected apples and pears ripen early, drop
+      prematurely and are inedible ("wormy" fruit).
+    damage_symptoms_de: >-
+      Raupen bohren sich in die Frucht und fressen am Kerngehäuse und
+      hinterlassen ein kotgefülltes Einbohrloch; befallene Äpfel und Birnen
+      reifen vorzeitig, fallen früh ab und sind ungenießbar („wurmstichig").
+    affected_plant_parts: [fruit]
+    host_plants:
+      - Apple
+      - Pear
+      - Quince
+      - Walnut
+    host_plants_de:
+      - Apfel
+      - Birne
+      - Quitte
+      - Walnuss
+    prevention_tips: >-
+      Hang corrugated cardboard trap belts around the trunk to catch larvae,
+      collect and dispose of fallen fruit, and apply granulovirus or Trichogramma
+      wasps at the right time.
+    prevention_tips_de: >-
+      Wellpappe-Fanggürtel um den Stamm legen, um Larven abzufangen, Fallobst
+      einsammeln und entsorgen sowie Granulovirus oder Trichogramma-Schlupfwespen
+      zum richtigen Zeitpunkt einsetzen.
+    monitoring_hints: >-
+      Hang pheromone traps from blossom time to time the flight peaks, inspect
+      fruit for entry holes, and base treatment on degree-day forecasts.
+    monitoring_hints_de: >-
+      Pheromonfallen ab der Blüte aufhängen, um die Flughöhepunkte zu erfassen,
+      Früchte auf Einbohrlöcher prüfen und die Behandlung an
+      Temperatursummen-Prognosen ausrichten.
 
   - scientific_name: Acrolepiopsis assectella
     common_name: Leek Moth  # Lauchmotte
+    common_name_de: Lauchmotte
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Caterpillars mine into leaves and shafts, leaving translucent windows and
+      lengthwise tunnels; secondary rot follows, and onion bulbs may be hollowed
+      out from within.
+    damage_symptoms_de: >-
+      Raupen minieren in Blätter und Schäfte und hinterlassen durchscheinende
+      Fenster und Längsgänge; Folgefäulnis tritt auf, und Zwiebeln können von
+      innen ausgehöhlt werden.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Leek
+      - Onion
+      - Garlic
+      - Chives
+    host_plants_de:
+      - Lauch (Porree)
+      - Zwiebel
+      - Knoblauch
+      - Schnittlauch
+    prevention_tips: >-
+      Cover allium beds with insect netting during the moth flight, rotate
+      crops, and remove infested leaves promptly to break the cycle.
+    prevention_tips_de: >-
+      Lauchgewächse während des Mottenflugs mit Insektennetz abdecken,
+      Fruchtfolge einhalten und befallene Blätter zeitnah entfernen, um den
+      Zyklus zu unterbrechen.
+    monitoring_hints: >-
+      Use pheromone traps to time the flights, hold leaves against the light to
+      spot mines, and check for caterpillars inside the shafts.
+    monitoring_hints_de: >-
+      Pheromonfallen zur Flugüberwachung nutzen, Blätter gegen das Licht halten,
+      um Minen zu erkennen, und die Schäfte auf Raupen prüfen.
 
   - scientific_name: Psila rosae
     common_name: Carrot Rust Fly  # Möhrenfliege
+    common_name_de: Möhrenfliege
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Larvae bore rust-brown tunnels through the roots, foliage turns reddish and
+      stunted, and the cracked, tunnelled roots rot in storage and become
+      inedible.
+    damage_symptoms_de: >-
+      Larven fressen rostbraune Gänge durch die Wurzeln, das Laub verfärbt sich
+      rötlich und bleibt kümmerlich, und die rissigen, durchbohrten Wurzeln
+      faulen im Lager und werden ungenießbar.
+    affected_plant_parts: [root]
+    host_plants:
+      - Carrot
+      - Parsnip
+      - Celery
+      - Parsley
+    host_plants_de:
+      - Möhre
+      - Pastinake
+      - Sellerie
+      - Petersilie
+    prevention_tips: >-
+      Cover beds with insect netting at least 60 cm high, sow late to dodge the
+      first flight, thin in the evening, and avoid bruising the foliage that
+      attracts the flies.
+    prevention_tips_de: >-
+      Beete mit mindestens 60 cm hohem Insektennetz abdecken, spät säen, um den
+      ersten Flug zu umgehen, abends ausdünnen und das Laub nicht verletzen, das
+      die Fliegen anlockt.
+    monitoring_hints: >-
+      Hang yellow sticky traps to detect the flight, watch for reddish stunted
+      foliage, and pull sample roots to check for rust-brown tunnels.
+    monitoring_hints_de: >-
+      Gelbtafeln zur Flugerkennung aushängen, auf rötlich-kümmerliches Laub
+      achten und Probewurzeln ziehen, um auf rostbraune Gänge zu prüfen.
 
   - scientific_name: Delia antiqua
     common_name: Onion Fly  # Zwiebelfliege
+    common_name_de: Zwiebelfliege
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      White maggots feed on the roots and bore into the bulb base; young plants
+      wilt and yellow, while older bulbs rot and collapse, often with secondary
+      bacterial soft rot.
+    damage_symptoms_de: >-
+      Weiße Maden fressen an den Wurzeln und bohren sich in den Zwiebelboden;
+      junge Pflanzen welken und vergilben, ältere Zwiebeln faulen und brechen
+      zusammen, oft mit bakterieller Folgefäule.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Onion
+      - Shallot
+      - Leek
+      - Garlic
+    host_plants_de:
+      - Zwiebel
+      - Schalotte
+      - Lauch (Porree)
+      - Knoblauch
+    prevention_tips: >-
+      Use insect netting, rotate alliums, prefer onion sets over seed, and
+      interplant with carrots whose scent confuses the flies.
+    prevention_tips_de: >-
+      Insektennetz verwenden, Zwiebelgewächse in der Fruchtfolge wechseln,
+      Steckzwiebeln statt Saat bevorzugen und mit Möhren mischen, deren Duft die
+      Fliegen verwirrt.
+    monitoring_hints: >-
+      Hang yellow sticky traps to time the flight, watch for wilting yellowing
+      seedlings, and lift suspect plants to check for white maggots.
+    monitoring_hints_de: >-
+      Gelbtafeln zur Flugüberwachung aushängen, auf welkende, vergilbende
+      Sämlinge achten und verdächtige Pflanzen ziehen, um auf weiße Maden zu
+      prüfen.
 
   - scientific_name: Delia radicum
     common_name: Cabbage Root Fly  # Kohlfliege
+    common_name_de: Kohlfliege
     pest_type: insect
     lifecycle_days: 55
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      White maggots gnaw the roots and bore into the stem base; plants wilt in
+      sunshine, the outer leaves turn bluish-purple, and young transplants
+      collapse and die.
+    damage_symptoms_de: >-
+      Weiße Maden benagen die Wurzeln und bohren sich in die Stängelbasis;
+      Pflanzen welken bei Sonnenschein, die äußeren Blätter färben sich
+      bläulich-violett und junge Setzlinge brechen zusammen und sterben.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Cabbage (all types)
+      - Kohlrabi
+      - Radish
+      - Turnip
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Kohlrabi
+      - Radieschen
+      - Rübe
+    prevention_tips: >-
+      Fit cabbage collars around transplants, use insect netting, rotate
+      brassicas, and earth up stems to encourage new roots above the damage.
+    prevention_tips_de: >-
+      Kohlkragen um die Setzlinge legen, Insektennetz verwenden, Kohl in der
+      Fruchtfolge wechseln und Stängel anhäufeln, um neue Wurzeln oberhalb des
+      Schadens zu fördern.
+    monitoring_hints: >-
+      Watch newly set transplants for midday wilting and bluish leaves, hang
+      yellow sticky traps to time the flight, and check the root collar for
+      maggots.
+    monitoring_hints_de: >-
+      Frisch gesetzte Setzlinge auf Mittagswelke und bläuliche Blätter
+      beobachten, Gelbtafeln zur Flugüberwachung aushängen und den Wurzelhals
+      auf Maden prüfen.
 
   - scientific_name: Rhagoletis cerasi
     common_name: Cherry Fruit Fly  # Kirschfruchtfliege
+    common_name_de: Kirschfruchtfliege
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 16.0
     optimal_temp_max: 25.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      A single white maggot develops in each ripening cherry, leaving the flesh
+      soft, brown and rotten around the stone; affected fruit is "maggoty" and
+      unmarketable.
+    damage_symptoms_de: >-
+      In jeder reifenden Kirsche entwickelt sich eine weiße Made, die das
+      Fruchtfleisch um den Stein weich, braun und faul macht; befallene Früchte
+      sind „madig" und nicht vermarktbar.
+    affected_plant_parts: [fruit]
+    host_plants:
+      - Sweet cherry
+      - Sour cherry
+      - Honeysuckle (wild host)
+    host_plants_de:
+      - Süßkirsche
+      - Sauerkirsche
+      - Heckenkirsche (Wildwirt)
+    prevention_tips: >-
+      Hang yellow sticky traps from late May to monitor and reduce flies, grow
+      early-ripening cultivars that escape the flight, and remove fallen fruit.
+    prevention_tips_de: >-
+      Ab Ende Mai Gelbtafeln aufhängen, um Fliegen zu überwachen und zu
+      reduzieren, frühreifende Sorten anbauen, die dem Flug entgehen, und
+      Fallobst entfernen.
+    monitoring_hints: >-
+      Hang yellow sticky traps when fruit starts to colour; once the first flies
+      are caught the egg-laying window has begun and yellowing fruit is at risk.
+    monitoring_hints_de: >-
+      Gelbtafeln aufhängen, sobald die Früchte Farbe annehmen; mit den ersten
+      gefangenen Fliegen beginnt die Eiablage, und sich gelb färbende Früchte
+      sind gefährdet.
 
   - scientific_name: Cydalima perspectalis
     common_name: Box Tree Moth  # Buchsbaumzünsler
+    common_name_de: Buchsbaumzünsler
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Green-black striped caterpillars skeletonise the leaves and gnaw the bark
+      inside dense webbing; box bushes turn brown from the inside out and can be
+      killed within weeks.
+    damage_symptoms_de: >-
+      Grün-schwarz gestreifte Raupen skelettieren die Blätter und benagen die
+      Rinde innerhalb dichter Gespinste; Buchsbäume verbräunen von innen nach
+      außen und können innerhalb weniger Wochen absterben.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Box (Buxus sempervirens)
+      - Other Buxus species
+    host_plants_de:
+      - Buchsbaum (Buxus sempervirens)
+      - Andere Buxus-Arten
+    prevention_tips: >-
+      Hang pheromone traps to detect the flight, spray Bacillus thuringiensis on
+      young caterpillars, and shear bushes to expose and disturb the webs.
+    prevention_tips_de: >-
+      Pheromonfallen zur Flugerkennung aufhängen, junge Raupen mit Bacillus
+      thuringiensis behandeln und die Sträucher schneiden, um die Gespinste
+      freizulegen und zu stören.
+    monitoring_hints: >-
+      Part the foliage and inspect the bush interior for webbing, frass and
+      green caterpillars, and use pheromone traps from spring to time the
+      generations.
+    monitoring_hints_de: >-
+      Das Laub teilen und das Strauchinnere auf Gespinste, Kot und grüne Raupen
+      prüfen sowie ab dem Frühjahr Pheromonfallen nutzen, um die Generationen zu
+      erfassen.
 
   - scientific_name: Anthonomus rubi
     common_name: Strawberry Blossom Weevil  # Erdbeerblütenstecher
+    common_name_de: Erdbeerblütenstecher
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      The weevil lays an egg in a flower bud and then partly snips through the
+      stalk, so the bud wilts and hangs or drops; each lost bud means one fewer
+      fruit.
+    damage_symptoms_de: >-
+      Der Käfer legt ein Ei in eine Blütenknospe und knickt dann den Stiel an,
+      sodass die Knospe welkt, hängt oder abfällt; jede verlorene Knospe bedeutet
+      eine Frucht weniger.
+    affected_plant_parts: [flower]
+    host_plants:
+      - Strawberry
+      - Raspberry
+      - Blackberry
+    host_plants_de:
+      - Erdbeere
+      - Himbeere
+      - Brombeere
+    prevention_tips: >-
+      Remove and destroy the drooping snipped buds to break the cycle, keep beds
+      weed-free, and rotate strawberry plantings away from old infested sites.
+    prevention_tips_de: >-
+      Die hängenden, angeknickten Knospen entfernen und vernichten, um den Zyklus
+      zu unterbrechen, Beete unkrautfrei halten und Erdbeeren von alten
+      Befallsflächen weg pflanzen.
+    monitoring_hints: >-
+      At flowering, look for wilted hanging buds with a snipped stalk and check
+      for the small dark weevils on the plants in the morning.
+    monitoring_hints_de: >-
+      Zur Blüte nach welken, hängenden Knospen mit angeknicktem Stiel suchen und
+      morgens die kleinen dunklen Käfer auf den Pflanzen kontrollieren.
 
   - scientific_name: Otiorhynchus sulcatus
     common_name: Black Vine Weevil  # Dickmaulrüssler
+    common_name_de: Dickmaulrüssler
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 12.0
     optimal_temp_max: 24.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Adults bite typical U-shaped notches into leaf edges at night; the far
+      worse damage comes from white C-shaped grubs that eat the roots, causing
+      sudden wilting and plant death.
+    damage_symptoms_de: >-
+      Käfer fressen nachts typische bogenförmige Buchten in die Blattränder; der
+      weit schlimmere Schaden stammt von weißen, c-förmigen Larven, die die
+      Wurzeln fressen und plötzliches Welken und Absterben verursachen.
+    affected_plant_parts: [leaf, root]
+    host_plants:
+      - Rhododendron and azalea
+      - Container plants and pot perennials
+      - Strawberry
+      - Yew and conifers
+    host_plants_de:
+      - Rhododendron und Azalee
+      - Kübelpflanzen und Topfstauden
+      - Erdbeere
+      - Eibe und Nadelgehölze
+    prevention_tips: >-
+      Apply parasitic nematodes (Heterorhabditis) to the soil in late summer,
+      collect adults at night, and inspect the root balls of new container
+      plants.
+    prevention_tips_de: >-
+      Im Spätsommer parasitische Nematoden (Heterorhabditis) in den Boden
+      ausbringen, Käfer nachts absammeln und die Wurzelballen neuer
+      Kübelpflanzen kontrollieren.
+    monitoring_hints: >-
+      Look for nightly U-shaped leaf notches as an early warning, search for
+      adults after dark with a torch, and check the root ball of wilting potted
+      plants for grubs.
+    monitoring_hints_de: >-
+      Nächtliche bogenförmige Blattbuchten als Frühwarnung beachten, nachts mit
+      Taschenlampe nach Käfern suchen und bei welkenden Topfpflanzen den
+      Wurzelballen auf Larven prüfen.
 
   - scientific_name: Aleyrodes proletella
     common_name: Cabbage Whitefly  # Kohlmottenschildlaus
+    common_name_de: Kohlmottenschildlaus
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 80.0
+    damage_symptoms: >-
+      Clouds of small white flies rise from the leaf undersides when disturbed;
+      honeydew and black sooty mould soil the outer leaves and reduce the quality
+      of cabbage and kale.
+    damage_symptoms_de: >-
+      Wolken kleiner weißer Fliegen steigen bei Störung von den Blattunterseiten
+      auf; Honigtau und schwarzer Rußtau verschmutzen die äußeren Blätter und
+      mindern die Qualität von Kohl und Grünkohl.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Kale
+      - Brussels sprouts
+      - Cabbage
+      - Other brassicas
+    host_plants_de:
+      - Grünkohl
+      - Rosenkohl
+      - Kohl
+      - Andere Kreuzblütler
+    prevention_tips: >-
+      Clear old brassica stalks that harbour overwintering adults, rotate crops,
+      use insect netting, and hose down heavily infested leaf undersides.
+    prevention_tips_de: >-
+      Alte Kohlstrünke mit überwinternden Tieren entfernen, Fruchtfolge
+      einhalten, Insektennetz verwenden und stark befallene Blattunterseiten
+      abspritzen.
+    monitoring_hints: >-
+      Tap plants and watch for the white cloud, use yellow sticky traps for
+      flight monitoring, and check leaf undersides for scale-like larvae.
+    monitoring_hints_de: >-
+      Pflanzen anstoßen und auf die weiße Wolke achten, Gelbtafeln zur
+      Flugüberwachung nutzen und Blattunterseiten auf schildförmige Larven
+      prüfen.
 
   - scientific_name: Agriotes spp.
     common_name: Wireworm  # Drahtwurm
+    common_name_de: Drahtwurm (Larve des Schnellkäfers)
     pest_type: insect
     lifecycle_days: 1460
     optimal_temp_min: 10.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: medium
+    damage_symptoms: >-
+      Tough orange-brown larvae bore narrow tunnels into tubers and roots and
+      sever seedling stems below ground; potatoes show round holes and seedlings
+      wilt and die in patches.
+    damage_symptoms_de: >-
+      Zähe, orange-braune Larven bohren schmale Gänge in Knollen und Wurzeln und
+      durchtrennen Sämlingsstängel unter der Erde; Kartoffeln zeigen runde Löcher
+      und Sämlinge welken und sterben nesterweise.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Potato
+      - Carrot
+      - Lettuce
+      - Cereals and grassland crops
+    host_plants_de:
+      - Kartoffel
+      - Möhre
+      - Salat
+      - Getreide und Grünlandkulturen
+    prevention_tips: >-
+      Cultivate the soil to expose larvae to predators, avoid planting straight
+      after grass, keep beds weed-free, and rotate susceptible crops.
+    prevention_tips_de: >-
+      Den Boden bearbeiten, um Larven Fressfeinden auszusetzen, nicht direkt nach
+      Grasland anbauen, Beete unkrautfrei halten und anfällige Kulturen in der
+      Fruchtfolge wechseln.
+    monitoring_hints: >-
+      Bury halved potato or carrot baits and dig them up after a few days to
+      count larvae, and watch for wilting seedlings in patches.
+    monitoring_hints_de: >-
+      Halbierte Kartoffel- oder Möhrenköder vergraben und nach einigen Tagen
+      ausgraben, um Larven zu zählen, und auf nesterweise welkende Sämlinge
+      achten.
 
   - scientific_name: Ostrinia nubilalis
     common_name: European Corn Borer  # Maiszünsler
+    common_name_de: Maiszünsler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 18.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Caterpillars bore into stalks and cobs, leaving frass at the tunnel
+      entrances; tunnelled stalks snap in wind and the bore holes open the door
+      to Fusarium ear rot.
+    damage_symptoms_de: >-
+      Raupen bohren sich in Stängel und Kolben und hinterlassen Kot an den
+      Eingängen; durchbohrte Stängel knicken bei Wind, und die Bohrlöcher öffnen
+      Fusarium-Kolbenfäule Tür und Tor.
+    affected_plant_parts: [stem, fruit]
+    host_plants:
+      - Maize / sweetcorn
+      - Pepper
+      - Hops
+      - Tall ornamental grasses
+    host_plants_de:
+      - Mais / Zuckermais
+      - Paprika
+      - Hopfen
+      - Hohe Ziergräser
+    prevention_tips: >-
+      Shred and incorporate maize stubble after harvest to destroy overwintering
+      larvae, rotate crops, and release Trichogramma wasps against the eggs.
+    prevention_tips_de: >-
+      Maisstoppeln nach der Ernte häckseln und einarbeiten, um überwinternde
+      Larven zu vernichten, Fruchtfolge einhalten und Trichogramma-Schlupfwespen
+      gegen die Eier einsetzen.
+    monitoring_hints: >-
+      Use light or pheromone traps to time the flight, inspect stalks and leaf
+      axils for egg clusters and frass, and target young caterpillars before
+      they bore in.
+    monitoring_hints_de: >-
+      Licht- oder Pheromonfallen zur Flugüberwachung nutzen, Stängel und
+      Blattachseln auf Eigelege und Kot prüfen und junge Raupen vor dem
+      Einbohren bekämpfen.
 
   - scientific_name: Myzus persicae
     common_name: Green Peach Aphid  # Grüne Pfirsichblattlaus
+    common_name_de: Grüne Pfirsichblattlaus
     pest_type: insect
     lifecycle_days: 12
     optimal_temp_min: 18.0
     optimal_temp_max: 26.0
     detection_difficulty: easy
+    severity: high
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 75.0
+    damage_symptoms: >-
+      Pale green aphids cluster on shoot tips and leaf undersides, causing
+      curled leaves, honeydew and sooty mould; this species is a leading vector
+      of many damaging plant viruses.
+    damage_symptoms_de: >-
+      Hellgrüne Blattläuse sammeln sich an Triebspitzen und Blattunterseiten und
+      verursachen eingerollte Blätter, Honigtau und Rußtau; diese Art ist ein
+      führender Überträger vieler schädlicher Pflanzenviren.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - Peach (winter host)
+      - Potato and pepper
+      - Lettuce and spinach
+      - Many ornamentals and vegetables
+    host_plants_de:
+      - Pfirsich (Winterwirt)
+      - Kartoffel und Paprika
+      - Salat und Spinat
+      - Viele Zier- und Gemüsepflanzen
+    prevention_tips: >-
+      Avoid excess nitrogen, encourage ladybirds and lacewings, hang yellow
+      sticky traps, and remove virus-infected plants promptly.
+    prevention_tips_de: >-
+      Stickstoff-Überschuss vermeiden, Marienkäfer und Florfliegen fördern,
+      Gelbtafeln aushängen und virusbefallene Pflanzen rasch entfernen.
+    monitoring_hints: >-
+      Check shoot tips and leaf undersides for colonies, use yellow sticky traps
+      to track winged migrants, and act early to limit virus spread.
+    monitoring_hints_de: >-
+      Triebspitzen und Blattunterseiten auf Kolonien prüfen, Gelbtafeln zur
+      Erfassung geflügelter Wanderer nutzen und früh eingreifen, um die
+      Virusausbreitung zu begrenzen.
 
   - scientific_name: Macrosiphum euphorbiae
     common_name: Potato Aphid  # Kartoffelblattlaus
+    common_name_de: Kartoffelblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 75.0
+    damage_symptoms: >-
+      Large pink or green aphids colonise shoot tips and leaf undersides,
+      sucking sap and weakening growth; honeydew, sooty mould and virus
+      transmission add to the damage.
+    damage_symptoms_de: >-
+      Große rosa oder grüne Blattläuse besiedeln Triebspitzen und
+      Blattunterseiten, saugen Saft und schwächen das Wachstum; Honigtau, Rußtau
+      und Virusübertragung verstärken den Schaden.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - Potato
+      - Tomato
+      - Lettuce
+      - Roses and many ornamentals
+    host_plants_de:
+      - Kartoffel
+      - Tomate
+      - Salat
+      - Rosen und viele Zierpflanzen
+    prevention_tips: >-
+      Encourage natural enemies, avoid lush over-fertilised growth, inspect new
+      plants, and hang yellow sticky traps for early warning.
+    prevention_tips_de: >-
+      Natürliche Gegenspieler fördern, üppigen, überdüngten Wuchs vermeiden,
+      neue Pflanzen kontrollieren und Gelbtafeln zur Frühwarnung aushängen.
+    monitoring_hints: >-
+      Inspect shoot tips and leaf undersides for the large aphids, watch for
+      honeydew and ants, and use yellow sticky traps for winged migrants.
+    monitoring_hints_de: >-
+      Triebspitzen und Blattunterseiten auf die großen Läuse prüfen, auf
+      Honigtau und Ameisen achten und Gelbtafeln für geflügelte Wanderer nutzen.
 
   - scientific_name: Mamestra brassicae
     common_name: Cabbage Moth  # Kohleule
+    common_name_de: Kohleule
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Caterpillars eat holes in the outer leaves, then bore deep into the cabbage
+      heart and contaminate it with wet frass; the soiled hearts rot and become
+      unsaleable.
+    damage_symptoms_de: >-
+      Raupen fressen Löcher in die äußeren Blätter, bohren sich dann tief ins
+      Kohlherz und verschmutzen es mit nassem Kot; die verunreinigten Herzen
+      faulen und werden unverkäuflich.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Lettuce
+      - Spinach
+      - Many vegetables
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Salat
+      - Spinat
+      - Viele Gemüsearten
+    prevention_tips: >-
+      Cover beds with insect netting, control young caterpillars with Bacillus
+      thuringiensis before they enter the heart, and remove crop residues that
+      shelter pupae.
+    prevention_tips_de: >-
+      Beete mit Insektennetz abdecken, junge Raupen mit Bacillus thuringiensis
+      bekämpfen, bevor sie ins Herz wandern, und Ernterückstände entfernen, die
+      Puppen Schutz bieten.
+    monitoring_hints: >-
+      Use pheromone or light traps to time the flight, check leaf undersides and
+      hearts for caterpillars and frass, and treat while caterpillars are still
+      small.
+    monitoring_hints_de: >-
+      Pheromon- oder Lichtfallen zur Flugüberwachung nutzen, Blattunterseiten und
+      Herzen auf Raupen und Kot prüfen und behandeln, solange die Raupen noch
+      klein sind.
 
   - scientific_name: Plutella xylostella
     common_name: Diamondback Moth  # Kohlschabe
+    common_name_de: Kohlschabe
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Small green caterpillars graze the lower leaf surface, leaving the upper
+      epidermis intact so a window-pane pattern of translucent spots and tiny
+      holes appears; heavy attacks riddle young plants.
+    damage_symptoms_de: >-
+      Kleine grüne Raupen schaben die Blattunterseite ab und lassen die obere
+      Epidermis stehen, sodass ein Fensterfraß-Muster aus durchscheinenden
+      Flecken und winzigen Löchern entsteht; bei starkem Befall sind Jungpflanzen
+      durchlöchert.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Radish
+      - Rocket
+      - Other brassicas
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Radieschen
+      - Rucola
+      - Andere Kreuzblütler
+    prevention_tips: >-
+      Use insect netting, rotate brassicas, encourage parasitic wasps, and apply
+      Bacillus thuringiensis to young caterpillars, as this moth resists many
+      insecticides.
+    prevention_tips_de: >-
+      Insektennetz verwenden, Kohl in der Fruchtfolge wechseln, Schlupfwespen
+      fördern und junge Raupen mit Bacillus thuringiensis behandeln, da diese
+      Motte gegen viele Insektizide resistent ist.
+    monitoring_hints: >-
+      Use pheromone traps to follow the flight, check leaf undersides for the
+      small green caterpillars, and watch for the typical window-pane feeding.
+    monitoring_hints_de: >-
+      Pheromonfallen zur Flugverfolgung nutzen, Blattunterseiten auf die kleinen
+      grünen Raupen prüfen und auf den typischen Fensterfraß achten.
 
   # --- Aquatic pests (Nymphaea) ---
 
   - scientific_name: Rhopalosiphum nymphaeae
     common_name: Water Lily Aphid  # Seerosenblattlaus
+    common_name_de: Seerosenblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: medium
+    damage_symptoms: >-
+      Dark aphid colonies cover floating leaves, buds and flowers; sucked leaves
+      yellow and rot, buds fail to open, and a sticky honeydew film spreads over
+      the water surface.
+    damage_symptoms_de: >-
+      Dunkle Blattlauskolonien überziehen Schwimmblätter, Knospen und Blüten;
+      besaugte Blätter vergilben und faulen, Knospen öffnen sich nicht, und ein
+      klebriger Honigtaufilm breitet sich auf der Wasseroberfläche aus.
+    affected_plant_parts: [leaf, flower]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Other pond plants
+      - Marginal aquatic plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Andere Teichpflanzen
+      - Uferpflanzen
+    prevention_tips: >-
+      Hose the aphids off the leaves into the water for fish to eat, avoid
+      nutrient-rich water, and never use insecticides that would poison the pond.
+    prevention_tips_de: >-
+      Die Läuse mit einem Wasserstrahl ins Wasser spülen, damit Fische sie
+      fressen, nährstoffreiches Wasser vermeiden und niemals Insektizide
+      einsetzen, die den Teich vergiften würden.
+    monitoring_hints: >-
+      Inspect floating leaves and flower buds for dark colonies from late
+      spring, and watch for sticky honeydew on the water as an early sign.
+    monitoring_hints_de: >-
+      Ab dem Spätfrühjahr Schwimmblätter und Blütenknospen auf dunkle Kolonien
+      prüfen und auf klebrigen Honigtau auf dem Wasser als frühes Zeichen achten.
 
   - scientific_name: Galerucella nymphaeae
     common_name: Water Lily Leaf Beetle  # Seerosenblattkäfer
+    common_name_de: Seerosenblattkäfer
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 16.0
     optimal_temp_max: 26.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Adults and dark larvae gnaw elongated slots and channels in the floating
+      leaves; the damaged tissue rots, leaves disintegrate and the plant loses
+      vigour and flowering.
+    damage_symptoms_de: >-
+      Käfer und dunkle Larven benagen längliche Schlitze und Rinnen in den
+      Schwimmblättern; das geschädigte Gewebe fault, die Blätter zerfallen und
+      die Pflanze verliert an Kraft und Blühfreude.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Pondweed
+      - Other floating-leaf plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Laichkraut
+      - Andere Schwimmblattpflanzen
+    prevention_tips: >-
+      Remove and dispose of heavily eaten leaves and the orange egg clusters on
+      them, and encourage fish and waterfowl that feed on the larvae.
+    prevention_tips_de: >-
+      Stark zerfressene Blätter samt den orange Eigelegen entfernen und
+      entsorgen und Fische sowie Wasservögel fördern, die sich von den Larven
+      ernähren.
+    monitoring_hints: >-
+      Inspect the upper side of floating leaves for slot feeding and orange egg
+      clusters, and look for the small brown beetles and dark larvae on the
+      pads.
+    monitoring_hints_de: >-
+      Die Oberseite der Schwimmblätter auf Schlitzfraß und orange Eigelege
+      prüfen und nach den kleinen braunen Käfern und dunklen Larven auf den
+      Blättern suchen.
 
   - scientific_name: Elophila nymphaeata
     common_name: Brown China-mark Moth  # Seerosenzünsler
+    common_name_de: Seerosenzünsler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Caterpillars cut oval pieces out of floating leaves and bind them into a
+      protective case; the leaves become holed and ragged, and the characteristic
+      cut-out cases drift on the water.
+    damage_symptoms_de: >-
+      Raupen schneiden ovale Stücke aus den Schwimmblättern und spinnen sie zu
+      einer schützenden Hülle zusammen; die Blätter werden durchlöchert und
+      zerfetzt, und die typischen ausgeschnittenen Hüllen treiben auf dem Wasser.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Pondweed
+      - Frogbit and other floating-leaf plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Laichkraut
+      - Froschbiss und andere Schwimmblattpflanzen
+    prevention_tips: >-
+      Skim off the floating leaf cases and damaged pads, and encourage fish and
+      water birds that prey on the caterpillars; avoid pond insecticides.
+    prevention_tips_de: >-
+      Die treibenden Blatthüllen und beschädigten Blätter abschöpfen und Fische
+      sowie Wasservögel fördern, die die Raupen fressen; Teichinsektizide
+      vermeiden.
+    monitoring_hints: >-
+      Watch for oval holes in floating leaves and small leaf cases drifting on
+      the surface, and turn cases over to find the caterpillar inside.
+    monitoring_hints_de: >-
+      Auf ovale Löcher in den Schwimmblättern und kleine, auf der Oberfläche
+      treibende Blatthüllen achten und die Hüllen umdrehen, um die Raupe darin zu
+      finden.
 
 diseases:
   - scientific_name: Erysiphe spp.

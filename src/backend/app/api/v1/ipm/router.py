@@ -174,7 +174,12 @@ def get_treatment_detail(key: str, service: IpmService = Depends(get_ipm_service
     return TreatmentDetailResponse(
         treatment=_treatment_response(detail["treatment"]),
         targeted_pests=[
-            TreatmentTargetRef(key=p.key or "", common_name=p.common_name, scientific_name=p.scientific_name)
+            TreatmentTargetRef(
+                key=p.key or "",
+                common_name=p.common_name,
+                common_name_de=p.common_name_de,
+                scientific_name=p.scientific_name,
+            )
             for p in detail["targeted_pests"]
         ],
         targeted_diseases=[

@@ -59,6 +59,9 @@ $defs:
         type: string
       common_name:
         type: string
+      common_name_de:
+        type: string
+        description: "Deutsche Anzeige-Variante des common_name"
       pest_type:
         type: string
         enum: [insect, arachnid, gastropod, nematode, mammal]

@@ -20,6 +20,7 @@ function makePest(overrides: Partial<Pest> = {}): Pest {
     key: 'p1',
     scientific_name: 'Tetranychus urticae',
     common_name: 'Spinnmilbe',
+    common_name_de: null,
     pest_type: 'arachnid',
     lifecycle_days: 21,
     optimal_temp_min: 25,
@@ -148,6 +149,16 @@ describe('PestDetailPage', () => {
     const back = await screen.findByTestId('pest-detail-back');
     await userEvent.click(back);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/pflanzenschutz/pests'));
+  });
+
+  it('shows the German common name in the title under the German locale', async () => {
+    vi.mocked(getPestDetail).mockResolvedValue(
+      makeDetail({ pest: makePest({ common_name: 'Fungus Gnats', common_name_de: 'Trauermücken' }) }),
+    );
+    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+    expect(await screen.findByText('Trauermücken')).toBeInTheDocument();
+    expect(screen.queryByText('Fungus Gnats')).toBeNull();
   });
 
   it('shows the German variant of a profile field under the German locale', async () => {
