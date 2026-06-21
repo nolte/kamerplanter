@@ -177,6 +177,7 @@ Unter **Pflanzenschutz → Befallshistorie** siehst du, welche Schädlinge und K
 ## Siehe auch
 
 - [Schädlings-Detailseite](pest-detail.md) — Steckbrief, Referenzbilder, IPM-Gegenmaßnahmen und Nützlinge pro Schädling
+- [Behandlungs-Detailseite](treatment-detail.md) — Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für ein konkretes Behandlungsmittel
 - [Schädlingserkennung per Foto](pest-detection.md) — Foto hochladen und automatisch einschätzen lassen
 - [Ernte](harvest.md)
 - [Aufgaben](tasks.md)

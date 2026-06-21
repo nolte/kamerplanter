@@ -161,6 +161,7 @@ class IpmService:
         existing = self.get_treatment(key)
         allowed = {
             "name",
+            "name_de",
             "treatment_type",
             "active_ingredient",
             "application_method",
@@ -168,11 +169,30 @@ class IpmService:
             "dosage_per_liter",
             "protective_equipment",
             "description",
+            "description_de",
+            "how_to_apply",
+            "how_to_apply_de",
+            "mode_of_action",
+            "mode_of_action_de",
+            "precautions",
+            "precautions_de",
         }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
         return self._repo.update_treatment(key, existing)
+
+    def get_treatment_detail(self, key: str) -> dict:
+        """Aggregierte Behandlungs-Detailansicht: Stammdaten der Maßnahme +
+        die behandelten Schädlinge und Krankheiten (Reverse-Edges)."""
+        treatment = self.get_treatment(key)
+        pests = list({p.key: p for p in self._repo.get_pests_for_treatment(key)}.values())
+        diseases = list({d.key: d for d in self._repo.get_diseases_for_treatment(key)}.values())
+        return {
+            "treatment": treatment,
+            "targeted_pests": pests,
+            "targeted_diseases": diseases,
+        }
 
     def delete_treatment(self, key: str) -> bool:
         self.get_treatment(key)

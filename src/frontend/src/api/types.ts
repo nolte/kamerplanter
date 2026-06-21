@@ -2368,6 +2368,7 @@ export interface DiseaseUpdate {
 export interface Treatment {
   key: string;
   name: string;
+  name_de: string | null;
   treatment_type: string;
   active_ingredient: string | null;
   application_method: string;
@@ -2375,12 +2376,20 @@ export interface Treatment {
   dosage_per_liter: number | null;
   protective_equipment: string[];
   description: string | null;
+  description_de: string | null;
+  how_to_apply: string | null;
+  how_to_apply_de: string | null;
+  mode_of_action: string | null;
+  mode_of_action_de: string | null;
+  precautions: string | null;
+  precautions_de: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
 
 export interface TreatmentCreate {
   name: string;
+  name_de?: string | null;
   treatment_type: string;
   active_ingredient?: string | null;
   application_method?: string;
@@ -2388,10 +2397,18 @@ export interface TreatmentCreate {
   dosage_per_liter?: number | null;
   protective_equipment?: string[];
   description?: string | null;
+  description_de?: string | null;
+  how_to_apply?: string | null;
+  how_to_apply_de?: string | null;
+  mode_of_action?: string | null;
+  mode_of_action_de?: string | null;
+  precautions?: string | null;
+  precautions_de?: string | null;
 }
 
 export interface TreatmentUpdate {
   name?: string;
+  name_de?: string | null;
   treatment_type?: string;
   active_ingredient?: string | null;
   application_method?: string;
@@ -2399,6 +2416,25 @@ export interface TreatmentUpdate {
   dosage_per_liter?: number | null;
   protective_equipment?: string[];
   description?: string | null;
+  description_de?: string | null;
+  how_to_apply?: string | null;
+  how_to_apply_de?: string | null;
+  mode_of_action?: string | null;
+  mode_of_action_de?: string | null;
+  precautions?: string | null;
+  precautions_de?: string | null;
+}
+
+export interface TreatmentTargetRef {
+  key: string;
+  common_name: string;
+  scientific_name: string;
+}
+
+export interface TreatmentDetail {
+  treatment: Treatment;
+  targeted_pests: TreatmentTargetRef[];
+  targeted_diseases: TreatmentTargetRef[];
 }
 
 export interface Inspection {

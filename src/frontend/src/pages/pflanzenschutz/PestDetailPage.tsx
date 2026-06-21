@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -16,6 +17,7 @@ import AuthImage from '@/components/common/AuthImage';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
+import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { getPestDetail } from '@/api/endpoints/ipm';
 import type { PestDetail, TreatmentType } from '@/api/types';
 
@@ -50,6 +52,7 @@ const TREATMENT_ORDER: TreatmentType[] = ['cultural', 'biological', 'mechanical'
  */
 export default function PestDetailPage() {
   const { t } = useTranslation();
+  const l = useLocalizedField();
   const navigate = useNavigate();
   const { key = '' } = useParams<{ key: string }>();
 
@@ -416,9 +419,16 @@ export default function PestDetailPage() {
                         sx={{ pl: 1.5, borderLeft: 3, borderColor: 'divider' }}
                         data-testid="treatment-item"
                       >
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {tr.name}
-                        </Typography>
+                        <Link
+                          component={RouterLink}
+                          to={`/pflanzenschutz/treatments/${tr.key}`}
+                          variant="body2"
+                          underline="hover"
+                          sx={{ fontWeight: 600, textAlign: 'left', display: 'block' }}
+                          data-testid="treatment-detail-link"
+                        >
+                          {l(tr, 'name')}
+                        </Link>
                         {tr.active_ingredient && (
                           <Typography
                             variant="caption"

@@ -303,3 +303,30 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         query = f"FOR b IN {col.BENEFICIALS} FILTER @slug IN b.preys_on RETURN b"
         cursor = self._db.aql.execute(query, bind_vars={"slug": slug})
         return [Beneficial(**self._from_doc(doc)) for doc in cursor]
+
+    def get_pests_for_treatment(self, treatment_key: TreatmentKey) -> list[Pest]:
+        treatment_id = f"{col.TREATMENTS}/{treatment_key}"
+        # COLLECT dedupliziert mehrfache identische targets_pest-Edges.
+        query = f"""
+        FOR e IN {col.TARGETS_PEST}
+            FILTER e._from == @treatment_id
+            COLLECT to_id = e._to
+            FOR p IN {col.PESTS}
+                FILTER p._id == to_id
+                RETURN p
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"treatment_id": treatment_id})
+        return [Pest(**self._from_doc(doc)) for doc in cursor]
+
+    def get_diseases_for_treatment(self, treatment_key: TreatmentKey) -> list[Disease]:
+        treatment_id = f"{col.TREATMENTS}/{treatment_key}"
+        query = f"""
+        FOR e IN {col.TARGETS_DISEASE}
+            FILTER e._from == @treatment_id
+            COLLECT to_id = e._to
+            FOR d IN {col.DISEASES}
+                FILTER d._id == to_id
+                RETURN d
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"treatment_id": treatment_id})
+        return [Disease(**self._from_doc(doc)) for doc in cursor]

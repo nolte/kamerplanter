@@ -55,6 +55,8 @@ Below the fact sheet, the gallery shows curated photos of the pest and of typica
 
 The control measures on the detail page are therefore organised into four groups. Always start at the top and only move to the next group if the previous measures prove insufficient.
 
+Click the **name of a treatment** in the control measures list to open the [treatment detail page](treatment-detail.md), where you will find the mode of action, dosage, pre-harvest interval, and safety information for that specific product.
+
 ### 1. Cultural Measures
 
 These are adjustments to your cultivation and care practices that require no additional product:
@@ -173,6 +175,7 @@ At the top of the detail page you will find a **Create Inspection** button. This
 ## See Also
 
 - [Integrated Pest Management (IPM)](pest-management.md) — create inspections, record treatments, monitor pre-harvest intervals
+- [Treatment Detail Page](treatment-detail.md) — mode of action, dosage, pre-harvest interval, and safety information for a specific product
 - [Pest Detection by Photo](pest-detection.md) — upload a photo and get an assessment
 - [Harvest](harvest.md) — how pre-harvest intervals affect harvesting
 - [Actuator Control](actuator-control.md) — optimise growing conditions to prevent pest infestation

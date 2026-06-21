@@ -15,6 +15,7 @@ import type {
   TreatmentApplication,
   TreatmentApplicationCreate,
   TreatmentCreate,
+  TreatmentDetail,
   TreatmentUpdate,
 } from '../types';
 
@@ -110,6 +111,11 @@ export async function listTreatments(
 
 export async function getTreatment(key: string): Promise<Treatment> {
   const { data } = await globalClient.get<Treatment>(`${BASE}/treatments/${key}`);
+  return data;
+}
+
+export async function getTreatmentDetail(key: string): Promise<TreatmentDetail> {
+  const { data } = await globalClient.get<TreatmentDetail>(`${BASE}/treatments/${key}/detail`);
   return data;
 }
 

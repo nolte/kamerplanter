@@ -10,10 +10,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.api.v1.ipm import router as ipm_router
-from app.common.enums import PestSeverity, PlantPart, TreatmentType
+from app.common.enums import PathogenType, PestSeverity, PlantPart, TreatmentType
 from app.common.exceptions import NotFoundError
 from app.domain.models.beneficial import Beneficial
-from app.domain.models.ipm import Pest, Treatment
+from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.services.ipm_service import IpmService
 
 
@@ -24,10 +24,13 @@ def _treatment(name: str, ttype: TreatmentType) -> Treatment:
 
 
 class _FakeRepo:
-    def __init__(self, *, pest=None, treatments=None, beneficials=None):
+    def __init__(self, *, pest=None, treatments=None, beneficials=None, treatment=None, pests=None, diseases=None):
         self._pest = pest
         self._treatments = treatments or []
         self._beneficials = beneficials or []
+        self._treatment = treatment
+        self._pests = pests or []
+        self._diseases = diseases or []
         self.beneficial_slug_queried: str | None = None
 
     def get_pest_by_key(self, key):
@@ -39,6 +42,15 @@ class _FakeRepo:
     def get_beneficials_for_pest_slug(self, slug):
         self.beneficial_slug_queried = slug
         return [b for b in self._beneficials if slug in b.preys_on]
+
+    def get_treatment_by_key(self, key):
+        return self._treatment if self._treatment and self._treatment.key == key else None
+
+    def get_pests_for_treatment(self, key):
+        return list(self._pests)
+
+    def get_diseases_for_treatment(self, key):
+        return list(self._diseases)
 
 
 def _service(repo) -> IpmService:
@@ -175,3 +187,57 @@ class TestRouterMapping:
         service = _service(_FakeRepo(pest=None))
         with pytest.raises(NotFoundError):
             ipm_router.get_pest_detail("missing", service=service)
+
+
+class TestGetTreatmentDetail:
+    def test_returns_treatment_with_targets(self):
+        treatment = Treatment(_key="t1", name="Neem Oil", name_de="Niemöl", treatment_type=TreatmentType.BIOLOGICAL)
+        pest = Pest(_key="p1", scientific_name="Tetranychus urticae", common_name="Spider Mites")
+        disease = Disease(
+            _key="d1",
+            scientific_name="Botrytis cinerea",
+            common_name="Grey Mold",
+            pathogen_type=PathogenType.FUNGAL,
+        )
+        service = _service(_FakeRepo(treatment=treatment, pests=[pest], diseases=[disease]))
+
+        detail = service.get_treatment_detail("t1")
+
+        assert detail["treatment"].name_de == "Niemöl"
+        assert [p.key for p in detail["targeted_pests"]] == ["p1"]
+        assert [d.key for d in detail["targeted_diseases"]] == ["d1"]
+
+    def test_deduplicates_targeted_pests(self):
+        treatment = Treatment(_key="t1", name="Neem Oil", treatment_type=TreatmentType.BIOLOGICAL)
+        pest = Pest(_key="p1", scientific_name="X", common_name="Y")
+        service = _service(_FakeRepo(treatment=treatment, pests=[pest, pest, pest]))
+
+        detail = service.get_treatment_detail("t1")
+
+        assert len(detail["targeted_pests"]) == 1
+
+    def test_unknown_key_raises_not_found(self):
+        service = _service(_FakeRepo(treatment=None))
+        with pytest.raises(NotFoundError):
+            service.get_treatment_detail("missing")
+
+    def test_router_maps_treatment_detail(self):
+        treatment = Treatment(_key="t1", name="Neem Oil", name_de="Niemöl", treatment_type=TreatmentType.BIOLOGICAL)
+        pest = Pest(_key="p1", scientific_name="Tetranychus urticae", common_name="Spider Mites")
+        service = _service(_FakeRepo(treatment=treatment, pests=[pest]))
+
+        resp = ipm_router.get_treatment_detail("t1", service=service)
+
+        assert resp.treatment.name_de == "Niemöl"
+        assert [p.key for p in resp.targeted_pests] == ["p1"]
+        assert resp.targeted_pests[0].common_name == "Spider Mites"
+
+
+class TestTreatmentModelMultilingual:
+    def test_minimal_treatment_has_safe_defaults(self):
+        t = Treatment(name="Neem Oil", treatment_type=TreatmentType.BIOLOGICAL)
+        assert t.name_de is None
+        assert t.description_de is None
+        assert t.how_to_apply is None
+        assert t.mode_of_action_de is None
+        assert t.precautions is None

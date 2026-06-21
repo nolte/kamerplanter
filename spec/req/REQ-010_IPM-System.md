@@ -7,13 +7,14 @@ Kategorie: Schädlingsmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 1.2 (Schädlings-Detailseite + erweiterte Pest-Stammdaten)
+Version: 1.3 (Behandlungs-Detailseite + mehrsprachige, detaillierte Gegenmaßnahmen)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-06-21 | **Behandlungs-Detailseite + mehrsprachige Gegenmaßnahmen:** `treatments`-Stammdaten mehrsprachig (Muster `name`/`name_de` über `useLocalizedField`; `name` bleibt englischer Edge-Schlüssel) und detailliert — neue Feldpaare `description(_de)`, `how_to_apply(_de)` (Anwendung), `mode_of_action(_de)` (Wirkweise), `precautions(_de)` (Sicherheitshinweise). Neuer aggregierter Endpoint `GET /ipm/treatments/{key}/detail` (Maßnahme + behandelte Schädlinge/Krankheiten via Reverse-`targets_pest`/`targets_disease`-Edges, dedupliziert). Frontend-Detailseite `pflanzenschutz/treatments/:key`, verlinkt aus der Behandlungs-Liste und aus den Gegenmaßnahmen der Schädlings-Detailseite. Alle Treatment-Seeds in `ipm.yaml` (40) vollständig DE+EN angereichert. Alle neuen Felder optional → abwärtskompatibel. |
 | 1.2 | 2026-06-21 | **Schädlings-Detailseite:** `pests`-Stammdaten um Detailfelder erweitert (`damage_symptoms`, `affected_plant_parts`, `host_plants`, `prevention_tips`, `monitoring_hints`, `severity`, `optimal_humidity_min/max`, `reference_image_refs`) sowie `detection_slug` als Brücke zur Erkennungs-Taxonomie (REQ-044 `PestTaxon.slug`). Neuer aggregierter Endpoint `GET /ipm/pests/{key}/detail` (Stammdaten + Gegenmaßnahmen nach IPM-Hierarchie + passende Nützlinge + Schadbild-Hinweis). Frontend-Detailseite `pflanzenschutz/pests/:key`, verlinkt aus der Schädlings-Liste und dem Erkennungs-Dialog (REQ-044). Kuratierte Referenzbilder via Admin-Upload (Object-Storage, NFR-013); Galerie anfangs leer. Alle neuen Felder optional → abwärtskompatibel zu bestehenden Seeds. |
 | 1.1 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `to_plant`-Edge um Snapshot-Felder `inherited_from_run` + `inherited_at` erweitert. `SafetyIntervalValidator.collect_relevant_treatments()` ergänzt — sammelt direkte, run-aktive und geerbte Treatments und dedupliziert über `_key` (Re-attach-sicher). AQL-Lookup im Repository-Layer dokumentiert. |
 | 1.0 | (vorher) | Erstversion. |
@@ -48,6 +49,7 @@ Das System unterscheidet zwischen:
   - Felder: `description`, `severity_level`, `affected_plant_part: ['leaf', 'stem', 'root', 'flower']`
 - **`treatments`** - Gegenmaßnahme
   - Felder: `type: ['cultural', 'biological', 'chemical', 'mechanical']`, `active_ingredient`, `application_method`, `safety_interval_days`
+  - **Mehrsprachig + Detailseiten-Felder (v1.3, alle optional):** `name` (englisch, stabiler Edge-Schlüssel) + `name_de` (deutsche Anzeige); `description(_de)`, `how_to_apply(_de)` (Anwendung), `mode_of_action(_de)` (Wirkweise), `precautions(_de)` (Sicherheits-/Vorsichtshinweise). Anzeige-Sprachwahl im Frontend über `useLocalizedField` (DE → `_de`, sonst englisches Basisfeld als Fallback). Inhalte vollständig seed-getrieben (`ipm.yaml`).
 - **`beneficial_organisms`** - Nützling
   - Felder: `species`, `target_pests`, `release_rate_per_m2`, `establishment_time_days`
 - **`inspections`** - Befallskontrolle
@@ -804,6 +806,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Verlinkung:** Schädlings-Liste (Zeilen-Klick, Desktop + Mobile) und der REQ-044-Erkennungs-Dialog (Link „Mehr über diesen Schädling" via `matched_pest_key`) führen auf die Detailseite.
 - [ ] **Abwärtskompatibilität:** Alle neuen `pests`-Felder sind optional; bestehende Seeds ohne Detailfelder bleiben gültig und die Detailseite blendet leere Abschnitte aus.
 <!-- /Quelle: REQ-010 v1.2 -->
+<!-- Quelle: REQ-010 v1.3 — Behandlungs-Detailseite + mehrsprachige Gegenmaßnahmen -->
+- [ ] **Mehrsprachige Gegenmaßnahmen:** Treatment-Namen und -Detailtexte liegen mehrsprachig vor (`name`/`name_de`, `description(_de)`, `how_to_apply(_de)`, `mode_of_action(_de)`, `precautions(_de)`); die UI zeigt die Sprache des Nutzers (DE → `_de`, sonst englisches Basisfeld). Inhalte stammen vollständig aus `ipm.yaml` (kein hartkodierter Fachtext im Code).
+- [ ] **Behandlungs-Detailseite:** Eine eigene Seite (`pflanzenschutz/treatments/:key`) zeigt pro Maßnahme Eckdaten (Anwendungsart, Wirkstoff, Dosierung, Karenzzeit, Schutzausrüstung), Anwendung, Wirkweise, Sicherheitshinweise sowie die behandelten Schädlinge (verlinkt) und Krankheiten.
+- [ ] **Aggregierter Endpoint:** `GET /ipm/treatments/{key}/detail` liefert die Maßnahme + die behandelten Schädlinge/Krankheiten (Reverse-Edges, dedupliziert). 404 bei unbekanntem Schlüssel.
+- [ ] **Verlinkung:** Behandlungs-Liste (Zeilen-Klick) und die Gegenmaßnahmen auf der Schädlings-Detailseite verlinken auf die Behandlungs-Detailseite; die behandelten Schädlinge dort verlinken zurück auf die Schädlings-Detailseite.
+- [ ] **Abwärtskompatibilität (Treatments):** Alle neuen `treatments`-Felder sind optional; `name` (englisch) bleibt unverändert als Edge-Schlüssel der `pest_treatments`/`disease_treatments`-Mappings.
+<!-- /Quelle: REQ-010 v1.3 -->
 
 ### Testszenarien:
 

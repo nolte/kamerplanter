@@ -55,6 +55,8 @@ Das [integrierte Pflanzenschutzmanagement (IPM)](pest-management.md) ordnet Maß
 
 Die Gegenmaßnahmen auf der Detailseite sind deshalb in vier Gruppen geordnet. Beginne immer oben und greife nur dann auf die nächste Gruppe zurück, wenn die vorherigen Maßnahmen nicht ausreichen.
 
+Klicke auf den **Namen einer Behandlung** in der Gegenmaßnahmen-Liste, um zur [Behandlungs-Detailseite](treatment-detail.md) zu gelangen — dort findest du Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für genau dieses Mittel.
+
 ### 1. Kulturelle Maßnahmen
 
 Das sind Maßnahmen, die du in deiner Pflege- und Anbaupraxis umsetzen kannst, ohne ein zusätzliches Mittel einzusetzen:
@@ -173,6 +175,7 @@ Auf der Detailseite findest du oben einen direkten Button **Inspektion anlegen**
 ## Siehe auch
 
 - [Integrierter Pflanzenschutz (IPM)](pest-management.md) — Inspektionen anlegen, Behandlungen erfassen, Karenzzeiten überwachen
+- [Behandlungs-Detailseite](treatment-detail.md) — Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für ein konkretes Mittel
 - [Schädlingserkennung per Foto](pest-detection.md) — Foto hochladen und Schädling einschätzen lassen
 - [Ernte](harvest.md) — Wie Karenzzeiten die Ernte beeinflussen
 - [Umgebungssteuerung](actuator-control.md) — Klimabedingungen optimieren, um Schädlingsbefall vorzubeugen

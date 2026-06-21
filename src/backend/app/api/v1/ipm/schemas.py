@@ -106,6 +106,7 @@ class DiseaseResponse(BaseModel):
 
 class TreatmentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    name_de: str | None = None
     treatment_type: str
     active_ingredient: str | None = None
     application_method: str = "spray"
@@ -113,10 +114,18 @@ class TreatmentCreate(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str] = Field(default_factory=list)
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
 
 
 class TreatmentUpdate(BaseModel):
     name: str | None = None
+    name_de: str | None = None
     treatment_type: str | None = None
     active_ingredient: str | None = None
     application_method: str | None = None
@@ -124,11 +133,19 @@ class TreatmentUpdate(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str] | None = None
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
 
 
 class TreatmentResponse(BaseModel):
     key: str
     name: str
+    name_de: str | None = None
     treatment_type: str
     active_ingredient: str | None = None
     application_method: str
@@ -136,6 +153,13 @@ class TreatmentResponse(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str]
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -211,6 +235,23 @@ class PestDetailResponse(BaseModel):
     treatments: list[TreatmentResponse] = Field(default_factory=list)
     beneficials: list[BeneficialResponse] = Field(default_factory=list)
     detection_symptom_hint: str | None = None
+
+
+class TreatmentTargetRef(BaseModel):
+    """Schlanke Referenz auf einen behandelten Schädling/eine Krankheit."""
+
+    key: str
+    common_name: str
+    scientific_name: str
+
+
+class TreatmentDetailResponse(BaseModel):
+    """Aggregierte Behandlungs-Detailseite (REQ-010) — Stammdaten der Maßnahme
+    plus die Schädlinge und Krankheiten, gegen die sie eingesetzt wird."""
+
+    treatment: TreatmentResponse
+    targeted_pests: list[TreatmentTargetRef] = Field(default_factory=list)
+    targeted_diseases: list[TreatmentTargetRef] = Field(default_factory=list)
 
 
 class KarenzPeriodResponse(BaseModel):

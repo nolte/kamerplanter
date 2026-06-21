@@ -63,6 +63,9 @@ class Disease(BaseModel):
 class Treatment(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     name: str = Field(min_length=1, max_length=200)
+    # name (englisch) ist der stabile Schlüssel für Seed-Edges; name_de ist die
+    # deutsche Anzeige-Variante (Muster wie task/substrate, useLocalizedField).
+    name_de: str | None = Field(default=None, max_length=200)
     treatment_type: TreatmentType
     active_ingredient: str | None = None
     application_method: TreatmentApplicationMethod = TreatmentApplicationMethod.SPRAY
@@ -70,6 +73,14 @@ class Treatment(BaseModel):
     dosage_per_liter: float | None = Field(default=None, gt=0)
     protective_equipment: list[str] = Field(default_factory=list)
     description: str | None = None
+    description_de: str | None = None
+    # ── Detailseiten-Felder (REQ-010, mehrsprachig: Basis = EN, _de = DE) ──
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

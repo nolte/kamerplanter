@@ -99,6 +99,9 @@ const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPag
 const TreatmentListPage = lazy(
   () => import('@/pages/pflanzenschutz/TreatmentListPage'),
 );
+const TreatmentDetailPage = lazy(
+  () => import('@/pages/pflanzenschutz/TreatmentDetailPage'),
+);
 // REQ-007 Harvest
 const HarvestBatchListPage = lazy(
   () => import('@/pages/ernte/HarvestBatchListPage'),
@@ -613,6 +616,14 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <TreatmentListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="pflanzenschutz/treatments/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <TreatmentDetailPage />
               </Suspense>
             }
           />

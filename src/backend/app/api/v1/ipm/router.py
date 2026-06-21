@@ -12,7 +12,9 @@ from app.api.v1.ipm.schemas import (
     PestUpdate,
     TreatmentApplicationResponse,
     TreatmentCreate,
+    TreatmentDetailResponse,
     TreatmentResponse,
+    TreatmentTargetRef,
     TreatmentUpdate,
 )
 from app.common.auth import get_current_user
@@ -164,6 +166,22 @@ def create_treatment(body: TreatmentCreate, service: IpmService = Depends(get_ip
     treatment = Treatment(**body.model_dump())
     created = service.create_treatment(treatment)
     return _treatment_response(created)
+
+
+@router.get("/treatments/{key}/detail", response_model=TreatmentDetailResponse)
+def get_treatment_detail(key: str, service: IpmService = Depends(get_ipm_service)):
+    detail = service.get_treatment_detail(key)
+    return TreatmentDetailResponse(
+        treatment=_treatment_response(detail["treatment"]),
+        targeted_pests=[
+            TreatmentTargetRef(key=p.key or "", common_name=p.common_name, scientific_name=p.scientific_name)
+            for p in detail["targeted_pests"]
+        ],
+        targeted_diseases=[
+            TreatmentTargetRef(key=d.key or "", common_name=d.common_name, scientific_name=d.scientific_name)
+            for d in detail["targeted_diseases"]
+        ],
+    )
 
 
 @router.get("/treatments/{key}", response_model=TreatmentResponse)

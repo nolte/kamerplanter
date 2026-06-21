@@ -177,6 +177,7 @@ Under **Pest Management → Infestation History** you see which pests and diseas
 ## See Also
 
 - [Pest Detail Page](pest-detail.md) — fact sheet, reference images, IPM control measures, and beneficials per pest
+- [Treatment Detail Page](treatment-detail.md) — mode of action, dosage, pre-harvest interval, and safety information for a specific product
 - [Pest Detection by Photo](pest-detection.md) — upload a photo and get an automated assessment
 - [Harvest](harvest.md)
 - [Tasks](tasks.md)

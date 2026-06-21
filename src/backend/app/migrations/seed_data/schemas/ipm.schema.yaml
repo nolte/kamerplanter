@@ -162,10 +162,30 @@ $defs:
     properties:
       name:
         type: string
+        description: "Englischer Name — stabiler Schlüssel für pest_treatments-Edges"
+      name_de:
+        type: string
+        description: "Deutsche Anzeige-Variante"
       treatment_type:
         type: string
         enum: [cultural, biological, chemical, mechanical]
       active_ingredient:
+        type: string
+      description:
+        type: string
+      description_de:
+        type: string
+      how_to_apply:
+        type: string
+      how_to_apply_de:
+        type: string
+      mode_of_action:
+        type: string
+      mode_of_action_de:
+        type: string
+      precautions:
+        type: string
+      precautions_de:
         type: string
       application_method:
         type: string

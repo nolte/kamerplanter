@@ -113,3 +113,9 @@ class IIpmRepository(ABC):
 
     @abstractmethod
     def get_beneficials_for_pest_slug(self, slug: str) -> list[Beneficial]: ...
+
+    @abstractmethod
+    def get_pests_for_treatment(self, treatment_key: TreatmentKey) -> list[Pest]: ...
+
+    @abstractmethod
+    def get_diseases_for_treatment(self, treatment_key: TreatmentKey) -> list[Disease]: ...
