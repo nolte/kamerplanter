@@ -46,6 +46,27 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 | Orchestration | Kubernetes, Helm, Skaffold |
 | Testing | pytest, vitest, Selenium E2E |
 
+## Containers
+
+Kamerplanter is composed of the following services. Core services start by default; optional services are enabled via [Docker Compose profiles](docker-compose.yml) (`vectordb`, `ollama`, `timescaledb`) or their dedicated Skaffold modules.
+
+| Container | Image / Base | Role | Default |
+|-----------|--------------|------|---------|
+| `backend` | `kamerplanter-backend` (FastAPI) | REST API and business logic (5-layer architecture) | ✅ Core |
+| `celery-worker` | `kamerplanter-backend` | Asynchronous background tasks (enrichment, care reminders, imports) | ✅ Core |
+| `celery-beat` | `kamerplanter-backend` | Scheduler for periodic tasks (retention, watering, reminders) | ✅ Core |
+| `frontend` | `kamerplanter-frontend` (React + nginx) | Web UI served as static assets via nginx | ✅ Core |
+| `arangodb` | `arangodb:3.12` | Primary database — documents + graph (species, lineage, companion planting) | ✅ Core |
+| `valkey` | `valkey/valkey:9` | Redis-compatible cache and Celery broker/result backend | ✅ Core |
+| `vectordb` | `kamerplanter-vectordb` (PostgreSQL 18 + pgvector) | Vector store for RAG embeddings and image-match vectors | ⚙️ `vectordb` |
+| `knowledge-service` | `kamerplanter-knowledge-service` (FastAPI) | RAG-based plant knowledge assistant with pluggable LLM backends | ⚙️ AI |
+| `embedding-service` | `kamerplanter-embedding-service` (ONNX Runtime) | Text embedding generation for RAG (no PyTorch at runtime) | ⚙️ AI |
+| `reranker-service` | `kamerplanter-reranker-service` (ONNX Runtime) | Cross-encoder reranking to improve RAG retrieval quality | ⚙️ `vectordb` |
+| `inference-service` | `kamerplanter-inference-service` (ONNX Runtime) | Self-hosted DINOv2 image matching for plant & pest recognition | ⚙️ AI |
+| `ollama` | `ollama/ollama` | Local LLM inference backend for the knowledge assistant | ⚙️ `ollama` |
+| `timescaledb` | `timescale/timescaledb:2.28` | Time-series store for sensor data with automatic downsampling | ⚙️ `timescaledb` |
+| `knowledge` | `kamerplanter-knowledge` (busybox) | Init container — copies knowledge-base YAMLs into a shared volume | ⚙️ Init |
+
 ## Quick Start
 
 ```bash
