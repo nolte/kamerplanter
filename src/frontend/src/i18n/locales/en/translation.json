@@ -3680,7 +3680,22 @@
       "sectionPreventionIntro": "Prevention is cheaper than control. Regular monitoring detects infestations early.",
       "ipmTooltipHint": "IPM = Integrated Pest Management",
       "karenzTooltipHint": "Pre-harvest interval = mandatory waiting time before harvest",
-      "beneficialScientificName": "Scientific name"
+      "beneficialScientificName": "Scientific name",
+      "contributeButton": "Contribute a photo",
+      "contributeTitle": "Contribute your photo",
+      "contributeIntro": "Upload a photo or take one with your camera. It appears in your private gallery for this pest; EXIF location data is removed automatically.",
+      "contributeUploading": "Uploading …",
+      "contributeError": "The image could not be uploaded.",
+      "contributeLightBlocked": "Contributing your own images is not available in anonymous mode.",
+      "captionLabel": "Image caption (optional)",
+      "imageDelete": "Delete image",
+      "imageGlobal": "This image is approved globally and visible to all users.",
+      "imageGlobalShort": "Global",
+      "noImagesLight": "Your own images are not available in anonymous mode.",
+      "imageDeleteConfirmTitle": "Delete image?",
+      "imageDeleteConfirmMessage": "This reference image will be permanently deleted. This action cannot be undone.",
+      "imageDeleteSuccess": "Image deleted.",
+      "contributeSuccess": "Your photo was uploaded successfully."
     },
     "treatmentDetail": {
       "back": "Back to list",

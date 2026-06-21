@@ -15,6 +15,11 @@ vi.mock('react-router-dom', async (orig) => {
 vi.mock('@/api/endpoints/ipm', () => ({ getPestDetail: vi.fn() }));
 import { getPestDetail } from '@/api/endpoints/ipm';
 
+// The gallery is a self-contained component (own tenant-scoped API + own tests).
+vi.mock('@/components/pests/PestImageGallery', () => ({
+  default: () => <div data-testid="pest-image-gallery-stub" />,
+}));
+
 function makePest(overrides: Partial<Pest> = {}): Pest {
   return {
     key: 'p1',
@@ -125,14 +130,6 @@ describe('PestDetailPage', () => {
 
     await screen.findByTestId('pest-detail-beneficials');
     expect(screen.getByText('Marienkäfer')).toBeInTheDocument();
-  });
-
-  it('shows an empty-state hint when no reference images exist', async () => {
-    vi.mocked(getPestDetail).mockResolvedValue(makeDetail({ pest: makePest({ reference_image_refs: [] }) }));
-    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
-
-    expect(await screen.findByTestId('pest-detail-no-images')).toBeInTheDocument();
-    expect(screen.queryByTestId('pest-detail-gallery')).toBeNull();
   });
 
   it('renders an error state when loading fails', async () => {

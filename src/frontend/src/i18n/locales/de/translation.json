@@ -3681,7 +3681,22 @@
       "sectionPreventionIntro": "Vorbeugung ist günstiger als Bekämpfung. Regelmässiges Monitoring erkennt Befälle früh.",
       "ipmTooltipHint": "IPM = Integrierter Pflanzenschutz",
       "karenzTooltipHint": "Karenzzeit = Sicherheitsabstand bis zur Ernte",
-      "beneficialScientificName": "Wissenschaftlicher Name"
+      "beneficialScientificName": "Wissenschaftlicher Name",
+      "contributeButton": "Eigenes Foto beitragen",
+      "contributeTitle": "Eigenes Foto beitragen",
+      "contributeIntro": "Lade ein Foto hoch oder nimm eines mit der Kamera auf. Es erscheint in deiner privaten Galerie zu diesem Schädling; EXIF-Standortdaten werden automatisch entfernt.",
+      "contributeUploading": "Wird hochgeladen …",
+      "contributeError": "Das Bild konnte nicht hochgeladen werden.",
+      "contributeLightBlocked": "Im anonymen Modus können keine eigenen Bilder beigesteuert werden.",
+      "captionLabel": "Bildbeschreibung (optional)",
+      "imageDelete": "Bild löschen",
+      "imageGlobal": "Dieses Bild ist global freigegeben und für alle Nutzer sichtbar.",
+      "imageGlobalShort": "Global",
+      "noImagesLight": "Im anonymen Modus sind keine eigenen Bilder verfügbar.",
+      "imageDeleteConfirmTitle": "Bild löschen?",
+      "imageDeleteConfirmMessage": "Dieses Referenzbild wird unwiderruflich gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.",
+      "imageDeleteSuccess": "Bild wurde gelöscht.",
+      "contributeSuccess": "Dein Foto wurde erfolgreich hochgeladen."
     },
     "treatmentDetail": {
       "back": "Zurück zur Liste",

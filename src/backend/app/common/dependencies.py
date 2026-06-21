@@ -337,6 +337,22 @@ def get_ipm_service() -> IpmService:
     )
 
 
+def get_pest_image_repo():
+    from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
+
+    return ArangoPestImageRepository(get_db())
+
+
+def get_pest_image_service():
+    from app.domain.services.pest_image_service import PestImageService
+
+    return PestImageService(
+        repo=get_pest_image_repo(),
+        attachment_service=get_attachment_service(),
+        ipm_service=get_ipm_service(),
+    )
+
+
 def get_harvest_repo() -> ArangoHarvestRepository:
     return ArangoHarvestRepository(get_db())
 

@@ -136,6 +136,9 @@ ATTACHMENTS = "attachments"
 PEST_DETECTIONS = "pest_detections"
 BENEFICIALS = "beneficials"  # WP-8 — Nützlings-Stammdaten
 
+# REQ-010 User-contributed pest reference images (tenant-private gallery)
+PEST_IMAGE_CONTRIBUTIONS = "pest_image_contributions"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -224,6 +227,7 @@ DOCUMENT_COLLECTIONS = [
     ATTACHMENTS,
     PEST_DETECTIONS,
     BENEFICIALS,
+    PEST_IMAGE_CONTRIBUTIONS,
 ]
 
 # Edge collections
@@ -1372,6 +1376,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     beneficials_col = db.collection(BENEFICIALS)
     beneficials_col.add_persistent_index(fields=["slug"], unique=True)
     beneficials_col.add_persistent_index(fields=["scientific_name"], unique=True)
+
+    # REQ-010 user-contributed pest reference image indexes — the gallery query
+    # always filters by (tenant_key, pest_key); DSGVO lookup filters by tenant.
+    pest_image_contributions_col = db.collection(PEST_IMAGE_CONTRIBUTIONS)
+    pest_image_contributions_col.add_persistent_index(fields=["tenant_key", "pest_key"], unique=False)
+    pest_image_contributions_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    pest_image_contributions_col.add_persistent_index(fields=["attachment_id"], unique=False)
 
     # NFR-013 Object storage — attachment catalog indexes
     attachments_col = db.collection(ATTACHMENTS)

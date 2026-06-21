@@ -47,6 +47,17 @@ Unterhalb des Steckbriefs zeigt die Galerie kuratierte Fotos des Schädlings sow
 !!! tip "Mehrere Fotos vergleichen"
     Schädlinge sehen je nach Entwicklungsstadium sehr unterschiedlich aus. Zoome in die Bilder hinein, um auch winzige Merkmale zu erkennen, und vergleiche Larven- und Adultstadium.
 
+### Eigene Fotos beitragen
+
+Du kannst eigene Fotos zu einem Schädling hinzufügen — entweder per **Datei-Upload** oder indem du den Schädling direkt mit der **Kamera** fotografierst (Smartphone oder Webcam). Klicke dazu in der Galerie auf **„Eigenes Foto beitragen"**.
+
+- **Sofort sichtbar, privat:** Deine Fotos erscheinen unmittelbar in deiner Galerie und sind nur für deinen Garten (Tenant) sichtbar. Du kannst eigene Fotos jederzeit wieder löschen (Mülleimer-Symbol auf dem Bild).
+- **Datenschutz:** Standortdaten (EXIF) werden beim Hochladen automatisch entfernt; die Bilder werden sicher im Object-Storage abgelegt.
+- **Optional global:** Ein Platform-Admin kann besonders gute Aufnahmen für alle Nutzer freigeben — solche Bilder tragen dann das Kennzeichen **„Global"**.
+
+!!! note "Anonymer Modus"
+    Im anonymen (Light-)Modus steht das Beitragen eigener Bilder nicht zur Verfügung, da kein persönlicher Garten existiert.
+
 ---
 
 ## Gegenmaßnahmen nach IPM-Hierarchie

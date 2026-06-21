@@ -2338,6 +2338,21 @@ export interface PestDetail {
   detection_symptom_hint: string | null;
 }
 
+export type PestImageStatus = 'private' | 'promoted';
+
+export interface PestImage {
+  id: string;
+  pest_key: string;
+  attachment_id: string;
+  uri: string;
+  thumbnail_uri: string | null;
+  status: PestImageStatus;
+  caption: string | null;
+  contributed_by: string;
+  created_at: string | null;
+  is_own: boolean;
+}
+
 export interface Disease {
   key: string;
   scientific_name: string;

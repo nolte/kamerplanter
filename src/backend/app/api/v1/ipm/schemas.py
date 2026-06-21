@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import PestSeverity, PlantPart
+from app.common.enums import PestImageStatus, PestSeverity, PlantPart
 
 
 class PestCreate(BaseModel):
@@ -284,3 +284,25 @@ class KarenzPeriodResponse(BaseModel):
 class HarvestSafetyResponse(BaseModel):
     can_harvest: bool
     blocking_treatments: list[dict] = Field(default_factory=list)
+
+
+class PestImageResponse(BaseModel):
+    """REQ-010 — a user-contributed pest reference image (Phase 1: tenant-private).
+
+    ``uri`` / ``thumbnail_uri`` are fully-qualified, tenant-scoped attachment
+    URIs (``/api/v1/t/{slug}/attachments/{id}[/thumbnails/{size}]``).
+    ``thumbnail_uri`` is ``None`` for non-renderable attachments. ``is_own``
+    reflects whether the requesting user contributed the image — in Phase 1 the
+    gallery only ever returns the tenant's own images, so it is always ``True``.
+    """
+
+    id: str
+    pest_key: str
+    attachment_id: str
+    uri: str
+    thumbnail_uri: str | None = None
+    status: PestImageStatus
+    caption: str | None = None
+    contributed_by: str
+    created_at: datetime | None = None
+    is_own: bool

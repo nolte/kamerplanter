@@ -225,6 +225,7 @@ class Settings(BaseSettings):
     storage_allowed_mime_types_harvest: str = ""
     storage_allowed_mime_types_post_harvest: str = ""
     storage_allowed_mime_types_plant: str = ""
+    storage_allowed_mime_types_pest_reference: str = ""
     storage_allowed_mime_types_id_recognition: str = ""
     storage_allowed_mime_types_task: str = ""
     storage_allowed_mime_types_import: str = "text/csv,application/zip"
@@ -279,7 +280,7 @@ class Settings(BaseSettings):
 # Categories that semantically only accept images (NFR-013 §5.2). Without an
 # explicit override these fall back to the image-only subset of the whitelist.
 _PHOTO_CATEGORIES: frozenset[str] = frozenset(
-    {"diary", "ipm", "harvest", "post_harvest", "plant", "id_recognition", "task"}
+    {"diary", "ipm", "harvest", "post_harvest", "plant", "pest_reference", "id_recognition", "task"}
 )
 _PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"})
 

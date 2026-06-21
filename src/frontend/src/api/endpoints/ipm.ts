@@ -10,6 +10,7 @@ import type {
   Pest,
   PestCreate,
   PestDetail,
+  PestImage,
   PestUpdate,
   Treatment,
   TreatmentApplication,
@@ -41,6 +42,33 @@ export async function getPest(key: string): Promise<Pest> {
 export async function getPestDetail(key: string): Promise<PestDetail> {
   const { data } = await globalClient.get<PestDetail>(`${BASE}/pests/${key}/detail`);
   return data;
+}
+
+// ── Pest reference images (tenant-scoped, user-contributed) ─────────────
+
+export async function listPestImages(pestKey: string): Promise<PestImage[]> {
+  const { data } = await tenantClient.get<PestImage[]>(`${BASE}/pests/${pestKey}/images`);
+  return data;
+}
+
+export async function contributePestImage(
+  pestKey: string,
+  file: File,
+  caption?: string,
+): Promise<PestImage> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (caption) formData.append('caption', caption);
+  const { data } = await tenantClient.post<PestImage>(
+    `${BASE}/pests/${pestKey}/images`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
+export async function deletePestImage(pestKey: string, imageId: string): Promise<void> {
+  await tenantClient.delete(`${BASE}/pests/${pestKey}/images/${imageId}`);
 }
 
 export async function createPest(payload: PestCreate): Promise<Pest> {

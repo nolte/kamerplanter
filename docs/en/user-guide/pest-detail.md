@@ -47,6 +47,17 @@ Below the fact sheet, the gallery shows curated photos of the pest and of typica
 !!! tip "Compare several photos"
     Pests can look very different depending on their developmental stage. Zoom into the images to spot even tiny details, and compare the larval and adult stages side by side.
 
+### Contribute your own photos
+
+You can add your own photos for a pest — either by **uploading a file** or by photographing the pest directly with your **camera** (smartphone or webcam). In the gallery, click **"Contribute a photo"**.
+
+- **Instantly visible, private:** Your photos appear in your gallery immediately and are visible only to your garden (tenant). You can delete your own photos at any time (trash icon on the image).
+- **Privacy:** Location data (EXIF) is removed automatically on upload; the images are stored securely in object storage.
+- **Optionally global:** A platform admin can approve especially good shots for all users — such images then carry the **"Global"** badge.
+
+!!! note "Anonymous mode"
+    Contributing your own images is not available in anonymous (light) mode, because there is no personal garden.
+
 ---
 
 ## Control Measures by IPM Hierarchy

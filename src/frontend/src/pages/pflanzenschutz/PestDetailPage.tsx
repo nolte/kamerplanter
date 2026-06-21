@@ -13,8 +13,8 @@ import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import AuthImage from '@/components/common/AuthImage';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import PestImageGallery from '@/components/pests/PestImageGallery';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
@@ -205,51 +205,13 @@ export default function PestDetailPage() {
         </Typography>
       )}
 
-      {/* Reference image gallery (curated; may be empty initially) */}
+      {/* User-contributed reference image gallery (upload or camera) */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             {t('pages.pestDetail.sectionImages')}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {t('pages.pestDetail.sectionImagesIntro')}
-          </Typography>
-          {pest.reference_image_refs.length > 0 ? (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: 'repeat(2, 1fr)',
-                  sm: 'repeat(3, 1fr)',
-                  md: 'repeat(4, 1fr)',
-                },
-                gap: 1,
-              }}
-              data-testid="pest-detail-gallery"
-              role="list"
-              aria-label={t('pages.pestDetail.sectionImages')}
-            >
-              {pest.reference_image_refs.map((ref) => (
-                <Box key={ref} role="listitem">
-                  <AuthImage
-                    uri={ref}
-                    alt={t('pages.pestDetail.imageAlt', { name: pest.common_name })}
-                    height={140}
-                    sx={{ borderRadius: 1, width: '100%', objectFit: 'cover' }}
-                    data-testid="pest-detail-image"
-                  />
-                </Box>
-              ))}
-            </Box>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="pest-detail-no-images"
-            >
-              {t('pages.pestDetail.noImages')}
-            </Typography>
-          )}
+          <PestImageGallery pestKey={pest.key} pestName={l(pest, 'common_name')} />
         </CardContent>
       </Card>
 
