@@ -79,6 +79,18 @@ class IIpmRepository(ABC):
         limit: int = 50,
     ) -> tuple[list[Inspection], int]: ...
 
+    @abstractmethod
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
+        """Return the deduplicated photo attachment ids of a tenant's inspections.
+
+        Yields every ``photo_refs`` entry of inspections that belong to
+        ``tenant_key`` and that detected ``pest_key`` (``pest_key`` is contained
+        in ``detected_pest_keys``). Strict tenant isolation: only the calling
+        tenant's inspections are considered. The order is stable, newest
+        inspection first; duplicate attachment ids are collapsed.
+        """
+        ...
+
     # ── TreatmentApplication CRUD ──
     @abstractmethod
     def create_treatment_application(self, app: TreatmentApplication) -> TreatmentApplication: ...

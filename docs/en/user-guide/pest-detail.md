@@ -54,6 +54,9 @@ You can add your own photos for a pest — either by **uploading a file** or by 
 - **Instantly visible, private:** Your photos appear in your gallery immediately and are visible only to your garden (tenant). You can delete your own photos at any time (trash icon on the image).
 - **Privacy:** Location data (EXIF) is removed automatically on upload; the images are stored securely in object storage.
 - **Optionally global:** A platform admin can approve especially good shots for all users — such images then carry the **"Global"** badge.
+- **Keep from recognition:** If you identified the pest via [photo recognition](pest-detection.md), you can keep the captured photo straight from the recognition dialog via **"Add this photo to the gallery"**. (Otherwise the recognition photo is not stored for privacy reasons — it only enters the gallery when you explicitly choose to.)
+
+In addition, your **inspection photos** appear in the gallery automatically: photos you took during an [inspection](pest-management.md) where you recorded this pest as detected. They are marked **"From inspection"**, read-only (editable only via the inspection itself) and visible only to your garden.
 
 !!! note "Anonymous mode"
     Contributing your own images is not available in anonymous (light) mode, because there is no personal garden.

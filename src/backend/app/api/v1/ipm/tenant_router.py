@@ -27,7 +27,12 @@ from app.core.permissions import Action
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ipm_service import IpmService
-from app.domain.services.pest_image_service import GALLERY_THUMBNAIL_SIZE, PestImageService, PestImageView
+from app.domain.services.pest_image_service import (
+    GALLERY_THUMBNAIL_SIZE,
+    PestImageService,
+    PestImageView,
+    PestInspectionImageView,
+)
 
 router = APIRouter(prefix="/ipm", tags=["ipm"])
 
@@ -93,6 +98,33 @@ def _pest_image_response(view: PestImageView, tenant_slug: str) -> PestImageResp
         contributed_by=contribution.contributed_by if view.is_own else None,
         created_at=contribution.created_at,
         is_own=view.is_own,
+        source="contribution",
+    )
+
+
+def _inspection_image_response(view: PestInspectionImageView, pest_key: str, tenant_slug: str) -> PestImageResponse:
+    """Map an inspection-sourced photo onto the shared gallery response.
+
+    Read-only provenance: it is always the tenant's own data (``is_own=True``),
+    served via tenant-scoped attachment URIs, with no contribution id / status
+    (the attachment id is the stable client key). ``contributed_by`` stays
+    ``None`` — this is not a curated upload.
+    """
+    attachment_id = view.attachment_id
+    uri = f"/api/v1/t/{tenant_slug}/attachments/{attachment_id}"
+    thumbnail_uri = f"{uri}/thumbnails/{GALLERY_THUMBNAIL_SIZE}" if view.has_thumbnail else None
+    return PestImageResponse(
+        id=attachment_id,
+        pest_key=pest_key,
+        attachment_id=attachment_id,
+        uri=uri,
+        thumbnail_uri=thumbnail_uri,
+        status=None,
+        caption=None,
+        contributed_by=None,
+        created_at=None,
+        is_own=True,
+        source="inspection",
     )
 
 
@@ -230,12 +262,29 @@ def list_pest_images(
 ) -> list[PestImageResponse]:
     """List reference images for a pest from the caller's tenant perspective.
 
-    Returns the tenant's own contributions (tenant attachment URIs, ``is_own``)
-    plus all globally-promoted contributions of other tenants (global content
-    URIs). Foreign *private* images are never returned (strict isolation).
+    Returns, in order:
+
+    * the tenant's own contributions (tenant attachment URIs, ``is_own``);
+    * all globally-promoted contributions of other tenants (global content URIs);
+    * read-only photos of the tenant's own inspections in which this pest was
+      detected (``source == "inspection"``).
+
+    Foreign *private* contributions are never returned (strict isolation), and
+    only the calling tenant's inspections are scanned. An attachment that is
+    already surfaced as a contribution is not repeated as an inspection tile
+    (contribution provenance wins).
     """
     views = service.list_for_pest(ctx.tenant_key, pest_key)
-    return [_pest_image_response(v, ctx.tenant_slug) for v in views]
+    responses = [_pest_image_response(v, ctx.tenant_slug) for v in views]
+
+    contributed_attachment_ids = {r.attachment_id for r in responses}
+    inspection_views = service.list_inspection_images_for_pest(ctx.tenant_key, pest_key)
+    responses.extend(
+        _inspection_image_response(v, pest_key, ctx.tenant_slug)
+        for v in inspection_views
+        if v.attachment_id not in contributed_attachment_ids
+    )
+    return responses
 
 
 @router.delete("/pests/{pest_key}/images/{image_id}", status_code=204)

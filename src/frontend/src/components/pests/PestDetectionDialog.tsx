@@ -17,10 +17,13 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import ImageCapturePanel from '@/components/identification/ImageCapturePanel';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { isLightMode } from '@/config/mode';
+import { contributePestImage } from '@/api/endpoints/ipm';
 import {
   createInspectionFromDetection,
   detectPests,
@@ -48,6 +51,7 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const notification = useNotification();
   const { level } = useExpertiseLevel();
   const status = useAppSelector((s) => s.pestDetection.status);
   const result = useAppSelector((s) => s.pestDetection.result);
@@ -56,6 +60,14 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [inspectionCreated, setInspectionCreated] = useState(false);
+  // REQ-044 §8 — the captured photo is NOT persisted by the detection path
+  // (only its hash). We keep the in-browser File so the user can, on a
+  // deliberate action, contribute it to the pest gallery (no auto-save).
+  const [capturedFile, setCapturedFile] = useState<File | null>(null);
+  // Pest keys whose photo has already been added to the gallery (one CTA per
+  // matched pest), plus the pest key whose upload is currently in flight.
+  const [addedPestKeys, setAddedPestKeys] = useState<string[]>([]);
+  const [addingPestKey, setAddingPestKey] = useState<string | null>(null);
 
   // Stable IDs for aria-labelledby / aria-describedby
   const titleId = useId();
@@ -72,6 +84,9 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
     dispatch(resetPestDetection());
     setPreviewUrl(null);
     setInspectionCreated(false);
+    setCapturedFile(null);
+    setAddedPestKeys([]);
+    setAddingPestKey(null);
     onClose();
   }, [dispatch, onClose]);
 
@@ -79,6 +94,11 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
     (file: File, url: string) => {
       setPreviewUrl(url);
       setInspectionCreated(false);
+      // Hold the File so it can later be contributed to the gallery on a
+      // deliberate user action (it is never auto-persisted, §8).
+      setCapturedFile(file);
+      setAddedPestKeys([]);
+      setAddingPestKey(null);
       dispatch(detectPests({ plantKey, image: file }));
     },
     [dispatch, plantKey],
@@ -88,7 +108,27 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
     dispatch(resetPestDetection());
     setPreviewUrl(null);
     setInspectionCreated(false);
+    setCapturedFile(null);
+    setAddedPestKeys([]);
+    setAddingPestKey(null);
   }, [dispatch]);
+
+  const handleAddToGallery = useCallback(
+    async (pestKey: string) => {
+      if (!capturedFile) return;
+      setAddingPestKey(pestKey);
+      try {
+        await contributePestImage(pestKey, capturedFile);
+        setAddedPestKeys((prev) => (prev.includes(pestKey) ? prev : [...prev, pestKey]));
+        notification.success(t('pages.pests.addToGallerySuccess'));
+      } catch {
+        notification.error(t('pages.pests.addToGalleryError'));
+      } finally {
+        setAddingPestKey(null);
+      }
+    },
+    [capturedFile, notification, t],
+  );
 
   const handleFeedback = useCallback(
     (finding: PestFinding, confirmed: boolean, wasBeneficial = false) => {
@@ -329,6 +369,29 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
                             sx={{ px: 0, mb: f.category !== 'beneficial' ? 1 : 0 }}
                           >
                             {t('pages.pests.viewPestDetail')}
+                          </Button>
+                        )}
+                        {/* REQ-044 §8 — deliberate, opt-in contribution of the
+                            already-captured photo to the pest gallery. Never an
+                            automatic save; only offered when a pest matched, a
+                            File is held, and the cloud path is not light-blocked. */}
+                        {f.matched_pest_key && capturedFile && !cloudBlockedInLight && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AddPhotoAlternateIcon />}
+                            disabled={
+                              addingPestKey === f.matched_pest_key ||
+                              addedPestKeys.includes(f.matched_pest_key)
+                            }
+                            onClick={() => handleAddToGallery(f.matched_pest_key as string)}
+                            data-testid="pest-detection-add-to-gallery"
+                            aria-label={t('pages.pests.addToGalleryAriaLabel', { name: f.common_name })}
+                            sx={{ display: 'flex', mt: 0.5, mb: f.category !== 'beneficial' ? 1 : 0, minHeight: 44 }}
+                          >
+                            {addedPestKeys.includes(f.matched_pest_key)
+                              ? t('pages.pests.addToGallerySuccess')
+                              : t('pages.pests.addToGallery')}
                           </Button>
                         )}
                         {f.category !== 'beneficial' && (

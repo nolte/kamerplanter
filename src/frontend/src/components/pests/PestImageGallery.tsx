@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PublicIcon from '@mui/icons-material/Public';
+import SearchIcon from '@mui/icons-material/Search';
 import AuthImage from '@/components/common/AuthImage';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import PestImageContributeDialog from './PestImageContributeDialog';
@@ -136,58 +137,87 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
           aria-label={t('pages.pestDetail.sectionImages')}
           aria-live="polite"
         >
-          {images.map((img) => (
-            <Box key={img.id} role="listitem" sx={{ position: 'relative' }}>
-              <AuthImage
-                uri={img.thumbnail_uri ?? img.uri}
-                alt={img.caption || t('pages.pestDetail.imageAlt', { name: pestName })}
-                height={140}
-                sx={{ borderRadius: 1, width: '100%', objectFit: 'cover' }}
-                data-testid="pest-detail-image"
-              />
-              {img.status === 'promoted' && (
-                <Tooltip title={t('pages.pestDetail.imageGlobal')}>
-                  <Chip
-                    icon={<PublicIcon />}
-                    size="small"
-                    color="success"
-                    label={t('pages.pestDetail.imageGlobalShort')}
-                    aria-label={t('pages.pestDetail.imageGlobal')}
-                    sx={{ position: 'absolute', top: 4, left: 4, cursor: 'default' }}
-                    data-testid="pest-image-global"
-                  />
-                </Tooltip>
-              )}
-              {img.is_own && (
-                <Tooltip title={t('pages.pestDetail.imageDelete')}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteRequest(img.id)}
-                    aria-label={t('pages.pestDetail.imageDelete')}
-                    data-testid="pest-image-delete"
-                    sx={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      // Minimum 48×48px touch target per UI-NFR-001 R-011.
-                      minWidth: 48,
-                      minHeight: 48,
-                      bgcolor: 'background.paper',
-                      '&:hover': { bgcolor: 'background.paper' },
-                      // Ensure the focus ring is visible over the image (UI-NFR-002 R-005).
-                      '&:focus-visible': {
-                        outline: '2px solid',
-                        outlineColor: 'primary.main',
-                        outlineOffset: 2,
-                      },
-                    }}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          ))}
+          {images.map((img) => {
+            // Inspection-sourced photos are read-only: no delete, a dedicated
+            // provenance badge instead of the global/own contribution chrome.
+            const isInspection = img.source === 'inspection';
+            return (
+              <Box key={img.id} role="listitem" sx={{ position: 'relative' }}>
+                <AuthImage
+                  uri={img.thumbnail_uri ?? img.uri}
+                  alt={
+                    isInspection
+                      ? t('pages.pestDetail.imageFromInspectionAlt', { name: pestName })
+                      : img.caption || t('pages.pestDetail.imageAlt', { name: pestName })
+                  }
+                  height={140}
+                  sx={{ borderRadius: 1, width: '100%', objectFit: 'cover' }}
+                  data-testid="pest-detail-image"
+                />
+                {isInspection && (
+                  <Tooltip title={t('pages.pestDetail.imageFromInspection')}>
+                    <Chip
+                      icon={<SearchIcon />}
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                      label={t('pages.pestDetail.imageFromInspectionShort')}
+                      aria-label={t('pages.pestDetail.imageFromInspection')}
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        cursor: 'default',
+                        bgcolor: 'background.paper',
+                      }}
+                      data-testid="pest-image-inspection"
+                    />
+                  </Tooltip>
+                )}
+                {!isInspection && img.status === 'promoted' && (
+                  <Tooltip title={t('pages.pestDetail.imageGlobal')}>
+                    <Chip
+                      icon={<PublicIcon />}
+                      size="small"
+                      color="success"
+                      label={t('pages.pestDetail.imageGlobalShort')}
+                      aria-label={t('pages.pestDetail.imageGlobal')}
+                      sx={{ position: 'absolute', top: 4, left: 4, cursor: 'default' }}
+                      data-testid="pest-image-global"
+                    />
+                  </Tooltip>
+                )}
+                {!isInspection && img.is_own && (
+                  <Tooltip title={t('pages.pestDetail.imageDelete')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteRequest(img.id)}
+                      aria-label={t('pages.pestDetail.imageDelete')}
+                      data-testid="pest-image-delete"
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        // Minimum 48×48px touch target per UI-NFR-001 R-011.
+                        minWidth: 48,
+                        minHeight: 48,
+                        bgcolor: 'background.paper',
+                        '&:hover': { bgcolor: 'background.paper' },
+                        // Ensure the focus ring is visible over the image (UI-NFR-002 R-005).
+                        '&:focus-visible': {
+                          outline: '2px solid',
+                          outlineColor: 'primary.main',
+                          outlineOffset: 2,
+                        },
+                      }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            );
+          })}
         </Box>
       )}
 

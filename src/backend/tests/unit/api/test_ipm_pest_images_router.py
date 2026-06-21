@@ -18,7 +18,7 @@ from app.common.exceptions import NotFoundError
 from app.core.permissions import TenantRole
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.tenant_context import TenantContext
-from app.domain.services.pest_image_service import PestImageView
+from app.domain.services.pest_image_service import PestImageView, PestInspectionImageView
 
 
 def _ctx(tenant_slug: str = "my-garden", tenant_key: str = "t1", user_key: str = "u1") -> TenantContext:
@@ -56,14 +56,26 @@ def _view(
     return PestImageView(contribution=contribution, mime_type=mime, has_thumbnail=renderable, is_own=is_own)
 
 
+def _inspection_view(*, attachment_id: str = "att-i1", renderable: bool = True) -> PestInspectionImageView:
+    return PestInspectionImageView(
+        attachment_id=attachment_id,
+        mime_type="image/jpeg" if renderable else "application/pdf",
+        has_thumbnail=renderable,
+    )
+
+
 class _FakeService:
-    def __init__(self, *, list_views=None, delete_result=True):
+    def __init__(self, *, list_views=None, inspection_views=None, delete_result=True):
         self._list_views = list_views or []
+        self._inspection_views = inspection_views or []
         self._delete_result = delete_result
         self.delete_args: tuple | None = None
 
     def list_for_pest(self, tenant_key, pest_key):
         return list(self._list_views)
+
+    def list_inspection_images_for_pest(self, tenant_key, pest_key):
+        return list(self._inspection_views)
 
     async def delete(self, tenant_key, user_key, contribution_key):
         self.delete_args = (tenant_key, user_key, contribution_key)
@@ -87,6 +99,7 @@ class TestResponseMapping:
         assert item.caption == "hi"
         assert item.contributed_by == "u1"
         assert item.is_own is True
+        assert item.source == "contribution"
 
     def test_non_renderable_attachment_has_no_thumbnail(self):
         service = _FakeService(list_views=[_view(mime="application/pdf", renderable=False)])
@@ -121,6 +134,60 @@ class TestResponseMapping:
         assert resp[0].contributed_by is None
         # The global content URI is still returned so the image renders.
         assert resp[0].uri == "/api/v1/ipm/pest-images/pic-foreign"
+
+
+class TestInspectionImages:
+    """REQ-010 — inspection photos appended read-only to the gallery."""
+
+    def test_inspection_photo_mapped_as_read_only_source(self):
+        service = _FakeService(inspection_views=[_inspection_view(attachment_id="att-i1")])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert len(resp) == 1
+        item = resp[0]
+        assert item.source == "inspection"
+        assert item.is_own is True
+        # The attachment id doubles as the stable client key; no contribution id.
+        assert item.id == "att-i1"
+        assert item.attachment_id == "att-i1"
+        assert item.uri == "/api/v1/t/my-garden/attachments/att-i1"
+        assert item.thumbnail_uri == "/api/v1/t/my-garden/attachments/att-i1/thumbnails/512"
+        # Read-only: no contribution lifecycle / contributor provenance.
+        assert item.status is None
+        assert item.contributed_by is None
+
+    def test_contributions_precede_inspection_photos(self):
+        service = _FakeService(
+            list_views=[_view(attachment_id="att-c1")],
+            inspection_views=[_inspection_view(attachment_id="att-i1")],
+        )
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert [(r.source, r.attachment_id) for r in resp] == [
+            ("contribution", "att-c1"),
+            ("inspection", "att-i1"),
+        ]
+
+    def test_attachment_already_contributed_not_duplicated(self):
+        """An attachment surfaced as a contribution is not repeated as an inspection tile."""
+        service = _FakeService(
+            list_views=[_view(attachment_id="att-shared")],
+            inspection_views=[_inspection_view(attachment_id="att-shared")],
+        )
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert len(resp) == 1
+        assert resp[0].source == "contribution"
+
+    def test_inspection_non_renderable_has_no_thumbnail(self):
+        service = _FakeService(inspection_views=[_inspection_view(attachment_id="att-i1", renderable=False)])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert resp[0].thumbnail_uri is None
 
 
 class TestDelete:

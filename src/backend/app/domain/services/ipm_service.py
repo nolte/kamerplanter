@@ -54,6 +54,15 @@ class IpmService:
             raise NotFoundError("Pest", key)
         return pest
 
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: str) -> list[str]:
+        """Return a tenant's inspection photo attachment ids for a given pest.
+
+        REQ-010 — feeds the pest detail gallery with the real photos of the
+        tenant's own inspections in which this pest was detected. Strictly
+        tenant-scoped and deduplicated (newest inspection first).
+        """
+        return self._repo.get_inspection_photo_refs_for_pest(tenant_key, pest_key)
+
     def create_pest(self, pest: Pest) -> Pest:
         return self._repo.create_pest(pest)
 

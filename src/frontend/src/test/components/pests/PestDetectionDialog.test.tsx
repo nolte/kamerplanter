@@ -19,6 +19,14 @@ vi.mock('@/config/mode', () => ({
   KAMERPLANTER_MODE: 'full',
 }));
 
+// Spy on the gallery-contribution endpoint while keeping the rest of the
+// ipm endpoints (detect/feedback flow uses the slice, not this module) intact.
+const contributePestImageMock = vi.hoisted(() => vi.fn());
+vi.mock('@/api/endpoints/ipm', async (importActual) => {
+  const actual = await importActual<typeof import('@/api/endpoints/ipm')>();
+  return { ...actual, contributePestImage: contributePestImageMock };
+});
+
 // Mock the capture panel: one click fires onImageReady with a fake JPEG + preview.
 vi.mock('@/components/identification/ImageCapturePanel', () => ({
   default: ({ onImageReady }: { onImageReady: (f: File, url: string) => void }) => (
@@ -73,7 +81,19 @@ function detection(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   modeMock.isLightMode = false;
   setActiveTenantSlug('t1');
+  contributePestImageMock.mockReset();
 });
+
+const PEST_FINDING = {
+  label: 'spider_mite',
+  category: 'pest',
+  common_name: 'Spinnmilbe',
+  confidence: 0.72,
+  mode: 'direct',
+  bounding_box: { x: 0.1, y: 0.2, width: 0.3, height: 0.2 },
+  matched_pest_key: 'pest_spider_mite',
+  matched_beneficial_key: null,
+};
 
 function render() {
   return renderWithProviders(<PestDetectionDialog open onClose={() => {}} plantKey="p1" />, {
@@ -159,6 +179,47 @@ describe('PestDetectionDialog', () => {
     render();
     expect(screen.queryByTestId('pest-light-mode')).not.toBeInTheDocument();
     expect(screen.getByTestId('mock-capture')).toBeInTheDocument();
+  });
+
+  it('contributes the captured photo to the gallery with the matched pest key', async () => {
+    contributePestImageMock.mockResolvedValue({});
+    server.use(
+      http.post(DETECT_URL, () =>
+        HttpResponse.json(
+          detection({ is_confident: true, suggested_next_step: 'none', findings: [PEST_FINDING] }),
+        ),
+      ),
+    );
+    render();
+    await userEvent.click(screen.getByTestId('mock-capture'));
+
+    const addBtn = await screen.findByTestId('pest-detection-add-to-gallery');
+    await userEvent.click(addBtn);
+
+    expect(contributePestImageMock).toHaveBeenCalledTimes(1);
+    const [pestKey, file] = contributePestImageMock.mock.calls[0];
+    expect(pestKey).toBe('pest_spider_mite');
+    // The already-captured File (from onImageReady) is uploaded as-is.
+    expect(file).toBeInstanceOf(File);
+    expect((file as File).name).toBe('p.jpg');
+    // After success the CTA is disabled (no repeated uploads).
+    await vi.waitFor(() => expect(screen.getByTestId('pest-detection-add-to-gallery')).toBeDisabled());
+  });
+
+  it('does not offer the gallery CTA for a finding without a matched pest', async () => {
+    server.use(
+      http.post(DETECT_URL, () =>
+        HttpResponse.json(
+          detection({
+            findings: [{ ...PEST_FINDING, matched_pest_key: null, bounding_box: null }],
+          }),
+        ),
+      ),
+    );
+    render();
+    await userEvent.click(screen.getByTestId('mock-capture'));
+    await screen.findByTestId('pest-finding');
+    expect(screen.queryByTestId('pest-detection-add-to-gallery')).not.toBeInTheDocument();
   });
 
   it('blocks only the cloud path in light mode', () => {

@@ -2340,19 +2340,30 @@ export interface PestDetail {
 
 export type PestImageStatus = 'private' | 'promoted';
 
+/**
+ * Provenance of a pest detail gallery tile:
+ * - `contribution` — a curated, deletable/promotable user upload;
+ * - `inspection`   — a read-only photo of one of the tenant's own inspections
+ *   in which this pest was detected (no delete/promote).
+ */
+export type PestImageSource = 'contribution' | 'inspection';
+
 export interface PestImage {
   id: string;
   pest_key: string;
   attachment_id: string;
   uri: string;
   thumbnail_uri: string | null;
-  status: PestImageStatus;
+  // null for inspection-sourced photos (no contribution lifecycle).
+  status: PestImageStatus | null;
   caption: string | null;
   // SEC-002 — only set for the caller's own contributions. For foreign promoted
   // images the backend returns null (a contributor's identity is PII).
   contributed_by: string | null;
   created_at: string | null;
   is_own: boolean;
+  // Defaults to 'contribution' for back-compat with older payloads.
+  source?: PestImageSource;
 }
 
 export interface Disease {

@@ -120,4 +120,33 @@ describe('PestImageGallery', () => {
     expect(screen.queryByTestId('pest-image-delete')).toBeNull();
   });
 
+  it('renders inspection-sourced photos read-only with a provenance badge', async () => {
+    // Inspection photos report is_own=true but must NOT be deletable; they carry
+    // their own provenance badge instead of the global / delete chrome.
+    vi.mocked(listPestImages).mockResolvedValue([
+      img({ id: 'a-insp', status: null, source: 'inspection', is_own: true, contributed_by: null }),
+    ]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+    await screen.findByTestId('pest-detail-gallery');
+    expect(screen.getByTestId('pest-image-inspection')).toBeInTheDocument();
+    // Read-only: neither a delete button nor the global badge.
+    expect(screen.queryByTestId('pest-image-delete')).toBeNull();
+    expect(screen.queryByTestId('pest-image-global')).toBeNull();
+  });
+
+  it('shows both contribution and inspection tiles together', async () => {
+    vi.mocked(listPestImages).mockResolvedValue([
+      img({ id: 'c1', source: 'contribution', is_own: true }),
+      img({ id: 'a-insp', status: null, source: 'inspection', is_own: true, contributed_by: null }),
+    ]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+    const gallery = await screen.findByTestId('pest-detail-gallery');
+    expect(within(gallery).getAllByTestId('pest-detail-image')).toHaveLength(2);
+    // Contribution tile keeps its delete button; inspection tile does not.
+    expect(screen.getAllByTestId('pest-image-delete')).toHaveLength(1);
+    expect(screen.getByTestId('pest-image-inspection')).toBeInTheDocument();
+  });
+
 });

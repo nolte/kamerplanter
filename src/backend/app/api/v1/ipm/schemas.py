@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -308,7 +309,10 @@ class PestImageResponse(BaseModel):
     attachment_id: str
     uri: str
     thumbnail_uri: str | None = None
-    status: PestImageStatus
+    # ``status`` only applies to curated contributions. Inspection-sourced photos
+    # (``source == "inspection"``) carry no contribution lifecycle, so it is
+    # ``None`` there.
+    status: PestImageStatus | None = None
     caption: str | None = None
     # SEC-002 — only set for the caller's own contributions (``is_own=True``).
     # For foreign promoted images it is ``None``: a contributor's identity is PII
@@ -317,3 +321,8 @@ class PestImageResponse(BaseModel):
     contributed_by: str | None = None
     created_at: datetime | None = None
     is_own: bool
+    # Provenance of the gallery tile:
+    #   * ``"contribution"`` — a curated, deletable/promotable user upload;
+    #   * ``"inspection"``   — a read-only photo of one of the tenant's own
+    #     inspections in which this pest was detected (no delete/promote).
+    source: Literal["contribution", "inspection"] = "contribution"

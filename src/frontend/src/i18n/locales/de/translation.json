@@ -451,7 +451,11 @@
       "feedbackConfirmAriaLabel": "Fund als korrekt bestätigen",
       "feedbackWrongAriaLabel": "Fund als falsch markieren",
       "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen",
-      "viewPestDetail": "Mehr über diesen Schädling"
+      "viewPestDetail": "Mehr über diesen Schädling",
+      "addToGallery": "Dieses Foto zur Galerie hinzufügen",
+      "addToGalleryAriaLabel": "Dieses Foto zur Galerie von {{name}} hinzufügen",
+      "addToGallerySuccess": "Foto wurde zur Galerie hinzugefügt.",
+      "addToGalleryError": "Das Foto konnte nicht zur Galerie hinzugefügt werden."
     },
     "plantIdentification": {
       "title": "KI-Pflanzenerkennung",
@@ -3722,6 +3726,9 @@
       "imageDelete": "Bild löschen",
       "imageGlobal": "Dieses Bild ist global freigegeben und für alle Nutzer sichtbar.",
       "imageGlobalShort": "Global",
+      "imageFromInspection": "Dieses Foto stammt aus einer deiner Inspektionen, bei der dieser Schädling erkannt wurde.",
+      "imageFromInspectionShort": "Aus Inspektion",
+      "imageFromInspectionAlt": "Inspektionsfoto: {{name}}",
       "noImagesLight": "Im anonymen Modus sind keine eigenen Bilder verfügbar.",
       "imageDeleteConfirmTitle": "Bild löschen?",
       "imageDeleteConfirmMessage": "Dieses Referenzbild wird unwiderruflich gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.",

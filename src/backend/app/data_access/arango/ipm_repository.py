@@ -184,6 +184,28 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         total = next(count_cursor, 0)
         return items, total
 
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
+        # Strict tenant isolation: only the calling tenant's inspections are
+        # scanned. ``pest_key in detected_pest_keys`` selects the inspections
+        # that documented this pest. Photo refs are flattened newest-first and
+        # deduplicated in Python so the first (newest) occurrence wins.
+        query = (
+            f"FOR doc IN {col.INSPECTIONS} "
+            f"FILTER doc.tenant_key == @tenant_key "
+            f"FILTER @pest_key IN doc.detected_pest_keys "
+            f"SORT doc.inspected_at DESC "
+            f"RETURN doc.photo_refs"
+        )
+        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "pest_key": pest_key})
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for refs in cursor:
+            for ref in refs or []:
+                if ref and ref not in seen:
+                    seen.add(ref)
+                    ordered.append(ref)
+        return ordered
+
     # ── TreatmentApplication ──
 
     def create_treatment_application(self, app: TreatmentApplication) -> TreatmentApplication:

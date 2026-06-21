@@ -54,6 +54,9 @@ Du kannst eigene Fotos zu einem Schädling hinzufügen — entweder per **Datei-
 - **Sofort sichtbar, privat:** Deine Fotos erscheinen unmittelbar in deiner Galerie und sind nur für deinen Garten (Tenant) sichtbar. Du kannst eigene Fotos jederzeit wieder löschen (Mülleimer-Symbol auf dem Bild).
 - **Datenschutz:** Standortdaten (EXIF) werden beim Hochladen automatisch entfernt; die Bilder werden sicher im Object-Storage abgelegt.
 - **Optional global:** Ein Platform-Admin kann besonders gute Aufnahmen für alle Nutzer freigeben — solche Bilder tragen dann das Kennzeichen **„Global"**.
+- **Aus der Erkennung übernehmen:** Hast du den Schädling über die [Foto-Erkennung](pest-detection.md) bestimmt, kannst du das aufgenommene Foto direkt im Erkennungs-Dialog per **„Dieses Foto zur Galerie hinzufügen"** übernehmen. (Das Erkennungs-Foto wird sonst aus Datenschutzgründen nicht gespeichert — es landet nur dann in der Galerie, wenn du das bewusst auslöst.)
+
+Zusätzlich erscheinen in der Galerie automatisch deine **Inspektions-Fotos**: Fotos, die du bei einer [Inspektion](pest-management.md) aufgenommen und bei denen du diesen Schädling als erkannt eingetragen hast. Sie sind mit **„Aus Inspektion"** gekennzeichnet, schreibgeschützt (nur über die Inspektion selbst änderbar) und nur für deinen Garten sichtbar.
 
 !!! note "Anonymer Modus"
     Im anonymen (Light-)Modus steht das Beitragen eigener Bilder nicht zur Verfügung, da kein persönlicher Garten existiert.

@@ -53,6 +53,23 @@ class PestImageView:
 
 
 @dataclass(frozen=True)
+class PestInspectionImageView:
+    """A read-only pest-detail gallery photo sourced from a tenant inspection.
+
+    Unlike :class:`PestImageView` this is not a curated contribution: it is a
+    real attachment referenced by an :class:`Inspection` whose
+    ``detected_pest_keys`` includes the pest. It is always the calling tenant's
+    own data (``is_own=True``), served through tenant-scoped attachment URIs and
+    never deletable / promotable through the gallery. ``attachment_id`` doubles
+    as the stable client key.
+    """
+
+    attachment_id: str
+    mime_type: str
+    has_thumbnail: bool
+
+
+@dataclass(frozen=True)
 class PestImageContent:
     """The resolved bytes-source for serving a (promoted) contribution globally."""
 
@@ -152,6 +169,36 @@ class PestImageService:
             self._to_view(c, self._resolve_mime(c.attachment_id, c.tenant_key), is_own=False) for c in foreign_promoted
         ]
         views.sort(key=_created_sort_key, reverse=True)
+        return views
+
+    def list_inspection_images_for_pest(self, tenant_key: str, pest_key: str) -> list[PestInspectionImageView]:
+        """Return read-only inspection photos of a pest for the tenant gallery.
+
+        REQ-010 — surfaces the real photos (``Inspection.photo_refs``) of the
+        calling tenant's inspections that detected ``pest_key``. The pest is
+        validated to exist first (consistent 404 with the contribution path).
+        The id list is already deduplicated + newest-first by the repository; a
+        vanished attachment (raced erasure) is silently dropped so a stale ref
+        never blows up the listing. Strict tenant isolation is enforced in the
+        AQL filter — only ``tenant_key``'s inspections are scanned.
+        """
+        self._ipm.get_pest(pest_key)
+        attachment_ids = self._ipm.get_inspection_photo_refs_for_pest(tenant_key, pest_key)
+
+        views: list[PestInspectionImageView] = []
+        for attachment_id in attachment_ids:
+            mime_type = self._resolve_mime(attachment_id, tenant_key)
+            if not mime_type:
+                # Attachment metadata is gone (stale ref) — skip rather than
+                # surfacing an un-renderable, broken tile.
+                continue
+            views.append(
+                PestInspectionImageView(
+                    attachment_id=attachment_id,
+                    mime_type=mime_type,
+                    has_thumbnail=can_render(mime_type),
+                )
+            )
         return views
 
     async def delete(self, tenant_key: str, user_key: str, contribution_key: str) -> bool:
@@ -391,4 +438,5 @@ __all__ = [
     "PestImageContent",
     "PestImageService",
     "PestImageView",
+    "PestInspectionImageView",
 ]

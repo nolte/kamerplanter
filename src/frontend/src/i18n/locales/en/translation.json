@@ -451,7 +451,11 @@
       "feedbackConfirmAriaLabel": "Confirm finding as correct",
       "feedbackWrongAriaLabel": "Mark finding as incorrect",
       "feedbackBeneficialAriaLabel": "Mark as beneficial insect",
-      "viewPestDetail": "More about this pest"
+      "viewPestDetail": "More about this pest",
+      "addToGallery": "Add this photo to the gallery",
+      "addToGalleryAriaLabel": "Add this photo to the gallery of {{name}}",
+      "addToGallerySuccess": "Photo added to the gallery.",
+      "addToGalleryError": "The photo could not be added to the gallery."
     },
     "plantIdentification": {
       "title": "AI Plant Recognition",
@@ -3721,6 +3725,9 @@
       "imageDelete": "Delete image",
       "imageGlobal": "This image is approved globally and visible to all users.",
       "imageGlobalShort": "Global",
+      "imageFromInspection": "This photo comes from one of your inspections in which this pest was detected.",
+      "imageFromInspectionShort": "From inspection",
+      "imageFromInspectionAlt": "Inspection photo: {{name}}",
       "noImagesLight": "Your own images are not available in anonymous mode.",
       "imageDeleteConfirmTitle": "Delete image?",
       "imageDeleteConfirmMessage": "This reference image will be permanently deleted. This action cannot be undone.",

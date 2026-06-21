@@ -141,6 +141,21 @@ class _FakeAttachmentService:
         self.store[key] = att
         return att
 
+    def seed_attachment(self, attachment_id: str, tenant_key: str, mime_type: str = "image/jpeg") -> None:
+        """Inject a pre-existing attachment (e.g. an inspection photo) directly."""
+        self.store[attachment_id] = Attachment(
+            _key=attachment_id,
+            tenant_key=tenant_key,
+            mime_type=mime_type,
+            byte_size=123,
+            sha256="y" * 64,
+            original_filename=f"{attachment_id}.jpg",
+            created_by="u1",
+            category=AttachmentCategory.PLANT,
+            storage_key=f"{tenant_key}/{attachment_id}",
+            created_at=datetime.now(UTC),
+        )
+
     def get_attachment(self, attachment_id: str, tenant_key: str) -> Attachment:
         from app.common.exceptions import AttachmentNotFoundError
 
@@ -174,12 +189,20 @@ class _FakeIpmService:
     def __init__(self, known_pests: set[str]) -> None:
         self._known = known_pests
         self.get_pest_calls: list[str] = []
+        # Maps (tenant_key, pest_key) → ordered, deduplicated attachment ids,
+        # mirroring ArangoIpmRepository.get_inspection_photo_refs_for_pest.
+        self.inspection_photo_refs: dict[tuple[str, str], list[str]] = {}
+        self.inspection_calls: list[tuple[str, str]] = []
 
     def get_pest(self, key: str) -> Pest:
         self.get_pest_calls.append(key)
         if key not in self._known:
             raise NotFoundError("Pest", key)
         return Pest(_key=key, scientific_name="Tetranychus urticae", common_name="Spider Mites")
+
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: str) -> list[str]:
+        self.inspection_calls.append((tenant_key, pest_key))
+        return list(self.inspection_photo_refs.get((tenant_key, pest_key), []))
 
 
 def _service(*, known_pests: set[str] | None = None):
@@ -611,3 +634,55 @@ class TestErasure:
         # Each attachment deleted against its own tenant.
         assert (a.contribution.attachment_id, "t1") in attachments.deleted
         assert (b.contribution.attachment_id, "t2") in attachments.deleted
+
+
+class TestListInspectionImagesForPest:
+    """REQ-010 — read-only inspection photos surfaced in the pest detail gallery."""
+
+    def test_returns_resolvable_inspection_photos(self):
+        service, _repo, attachments, ipm = _service()
+        attachments.seed_attachment("att-i1", "t1")
+        attachments.seed_attachment("att-i2", "t1")
+        ipm.inspection_photo_refs[("t1", "p1")] = ["att-i1", "att-i2"]
+
+        views = service.list_inspection_images_for_pest("t1", "p1")
+
+        # Pest validated first (consistent 404 with the contribution path).
+        assert ipm.get_pest_calls == ["p1"]
+        assert [v.attachment_id for v in views] == ["att-i1", "att-i2"]
+        assert all(v.has_thumbnail for v in views)
+        assert ipm.inspection_calls == [("t1", "p1")]
+
+    def test_unknown_pest_raises(self):
+        service, _repo, _attachments, _ipm = _service(known_pests=set())
+        with pytest.raises(NotFoundError):
+            service.list_inspection_images_for_pest("t1", "ghost")
+
+    def test_strict_tenant_isolation(self):
+        """Only the calling tenant's inspection refs are ever resolved."""
+        service, _repo, attachments, ipm = _service()
+        attachments.seed_attachment("att-t1", "t1")
+        attachments.seed_attachment("att-t2", "t2")
+        ipm.inspection_photo_refs[("t1", "p1")] = ["att-t1"]
+        ipm.inspection_photo_refs[("t2", "p1")] = ["att-t2"]
+
+        views_t1 = service.list_inspection_images_for_pest("t1", "p1")
+
+        assert [v.attachment_id for v in views_t1] == ["att-t1"]
+        # The repo lookup was scoped to t1 only.
+        assert ipm.inspection_calls == [("t1", "p1")]
+
+    def test_stale_ref_is_skipped(self):
+        """A photo_ref whose attachment vanished is dropped, not surfaced broken."""
+        service, _repo, attachments, ipm = _service()
+        attachments.seed_attachment("att-live", "t1")
+        # "att-gone" is referenced but has no attachment metadata.
+        ipm.inspection_photo_refs[("t1", "p1")] = ["att-gone", "att-live"]
+
+        views = service.list_inspection_images_for_pest("t1", "p1")
+
+        assert [v.attachment_id for v in views] == ["att-live"]
+
+    def test_empty_when_no_inspection_photos(self):
+        service, _repo, _attachments, _ipm = _service()
+        assert service.list_inspection_images_for_pest("t1", "p1") == []
