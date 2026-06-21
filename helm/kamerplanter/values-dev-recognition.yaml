@@ -25,8 +25,12 @@ controllers:
   celery-beat:
     enabled: false
 
-  # REQ-029-A — DINOv2 inference service (embedding + pgvector match)
+  # REQ-029-A — DINOv2 inference service (embedding + pgvector match).
+  # enabled is false in the base values.yaml, so this dev override MUST flip it
+  # on — otherwise only a ServiceAccount renders and the kamerplanter-recognition
+  # Service never exists (skaffold port-forward + backend both fail to find it).
   inference-service:
+    enabled: true
     replicas: 1
     strategy: Recreate
     pod:
@@ -92,6 +96,7 @@ service:
   arangodb:
     enabled: false
   inference-service:
+    enabled: true
     controller: inference-service
     ports:
       http:
@@ -140,6 +145,7 @@ networkpolicies:
     enabled: false
 
   inference-service:
+    enabled: true
     controller: inference-service
     policyTypes:
       - Ingress
