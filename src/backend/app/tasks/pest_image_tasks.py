@@ -157,9 +157,11 @@ def index_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type
     """
     try:
         outcome = _index_promoted(contribution_key)
-    except ConnectionError, TimeoutError:
-        raise  # autoretry_for handles transient transport errors
     except Exception as exc:  # noqa: BLE001 — never propagate into the admin flow
+        # Transient transport errors bubble up so Celery's autoretry_for retries.
+        # (isinstance avoids `except (A, B):`, which ruff-format would corrupt.)
+        if isinstance(exc, (ConnectionError, TimeoutError)):
+            raise
         logger.warning(
             "index_promoted_pest_image_failed",
             contribution_key=contribution_key,
@@ -187,9 +189,10 @@ def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # ty
     """
     try:
         outcome = _retract_promoted(contribution_key)
-    except ConnectionError, TimeoutError:
-        raise
     except Exception as exc:  # noqa: BLE001 — never propagate into the admin flow
+        # Transient transport errors bubble up so Celery's autoretry_for retries.
+        if isinstance(exc, (ConnectionError, TimeoutError)):
+            raise
         logger.warning(
             "retract_promoted_pest_image_failed",
             contribution_key=contribution_key,
