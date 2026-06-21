@@ -69,6 +69,19 @@ class ErasureEngine:
             action="anonymize_metadata_and_strip_exif",
             ref="NFR-013 section 6.2 items 3+4 and 6.4",
         ),
+        StorageCleanupRule(
+            scope="user_pest_reference_images",
+            description=(
+                "Hard-delete all attachments where created_by == user_key AND "
+                "category == 'pest_reference' (REQ-010 user-contributed pest "
+                "reference images). Unlike documentation photos these carry no "
+                "legal retention obligation, so the binary objects are removed "
+                "outright. The matching pest_image_contributions link documents "
+                "are removed by the ArangoDB pass (DELETE_ORDER below)."
+            ),
+            action="hard_delete",
+            ref="REQ-010 Phase 2, REQ-025 section 3.1",
+        ),
     ]
 
     # Reference-index cleanup rules (Phase 0.5). The DINOv2 reference index
@@ -118,6 +131,12 @@ class ErasureEngine:
         "pest_detection_flagged",
         "pest_detection_suggested_inspection",
         "pest_detections",
+        # REQ-010 §8 — user-contributed pest reference images are deleted (no
+        # legal retention basis). Their attachment bytes are hard-deleted by the
+        # ``user_pest_reference_images`` storage-cleanup rule (Phase 0); this
+        # removes the link documents. A *promoted* contribution is still deleted
+        # on erasure — global visibility does not create a retention basis.
+        "pest_image_contributions",
         "_pseudonymize_audit_collections",
         "users",
     ]

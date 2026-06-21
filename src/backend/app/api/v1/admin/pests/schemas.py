@@ -1,6 +1,10 @@
 """REQ-044 — admin pest-recognition (coverage + gallery + acquisition) DTOs."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
+
+from app.common.enums import PestImageStatus
 
 
 class PestCoverageEntry(BaseModel):
@@ -55,3 +59,48 @@ class SetPestImageActiveResponse(BaseModel):
     label: str
     id: int
     is_active: bool
+
+
+# ── REQ-010 — user-contributed pest image moderation (global promotion) ──
+
+
+class PestContributionModerationItem(BaseModel):
+    """A single user-contributed pest image, for cross-tenant moderation.
+
+    ``content_uri`` / ``thumbnail_uri`` point at the global content endpoint
+    so the admin can preview the pixels regardless of which tenant owns them.
+    Provenance (``tenant_key`` / ``contributed_by`` / ``created_at``) supports
+    the moderation decision.
+    """
+
+    id: str
+    pest_key: str
+    attachment_id: str
+    content_uri: str
+    thumbnail_uri: str | None = None
+    status: PestImageStatus
+    caption: str | None = None
+    tenant_key: str
+    contributed_by: str
+    created_at: datetime | None = None
+    promoted_at: datetime | None = None
+    promoted_by: str | None = None
+
+
+class PestContributionModerationList(BaseModel):
+    pest_key: str
+    count: int
+    promoted_count: int
+    images: list[PestContributionModerationItem] = Field(default_factory=list)
+
+
+class PromotePestContributionRequest(BaseModel):
+    promote: bool
+
+
+class PromotePestContributionResponse(BaseModel):
+    id: str
+    pest_key: str
+    status: PestImageStatus
+    promoted_at: datetime | None = None
+    promoted_by: str | None = None

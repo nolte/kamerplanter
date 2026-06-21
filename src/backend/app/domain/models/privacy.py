@@ -181,7 +181,7 @@ class PseudonymizationRule(BaseModel):
 class StorageCleanupRule(BaseModel):
     """Object-storage cleanup rule (Phase 0 of the erasure pipeline)."""
 
-    scope: Literal["user_personal", "user_diary_attachments"]
+    scope: Literal["user_personal", "user_diary_attachments", "user_pest_reference_images"]
     description: str
     action: Literal["hard_delete", "anonymize_metadata_and_strip_exif"]
     ref: str

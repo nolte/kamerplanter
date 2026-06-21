@@ -19,6 +19,7 @@ from app.api.v1.family_relationships.router import router as family_relationship
 from app.api.v1.growth_phases.router import router as phases_router
 from app.api.v1.health.router import router as health_router
 from app.api.v1.imports.router import router as imports_router
+from app.api.v1.ipm.pest_images_router import router as pest_images_router
 from app.api.v1.ipm.router import router as ipm_router
 from app.api.v1.lifecycle_configs.router import router as lifecycle_router
 from app.api.v1.location_types.router import router as location_types_router
@@ -106,6 +107,12 @@ api_router.include_router(substrates_router)
 api_router.include_router(enrichment_router)
 api_router.include_router(family_relationships_router)
 api_router.include_router(ipm_router)
+# REQ-010 — global, read-only content endpoint for *promoted* pest images
+# (cross-tenant pixels). Authenticated-only, no tenant prefix; promotion is the
+# authorization. Available in both modes (the gate is status=promoted, not auth
+# mode). Mounted before the tenant-scoped router so /ipm/pest-images/... is
+# matched as a global route, not under a tenant slug.
+api_router.include_router(pest_images_router)
 api_router.include_router(tenants_router)
 # NFR-013 §4.2 — local-fs signed-token download redemption (global, not
 # tenant-scoped; the token is the authorization). Mounted before the

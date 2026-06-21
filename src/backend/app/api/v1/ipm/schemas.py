@@ -287,13 +287,20 @@ class HarvestSafetyResponse(BaseModel):
 
 
 class PestImageResponse(BaseModel):
-    """REQ-010 — a user-contributed pest reference image (Phase 1: tenant-private).
+    """REQ-010 — a user-contributed pest reference image.
 
-    ``uri`` / ``thumbnail_uri`` are fully-qualified, tenant-scoped attachment
-    URIs (``/api/v1/t/{slug}/attachments/{id}[/thumbnails/{size}]``).
-    ``thumbnail_uri`` is ``None`` for non-renderable attachments. ``is_own``
-    reflects whether the requesting user contributed the image — in Phase 1 the
-    gallery only ever returns the tenant's own images, so it is always ``True``.
+    ``uri`` / ``thumbnail_uri`` are fully-qualified content URLs whose shape
+    depends on ``is_own``:
+
+    * ``is_own=True`` (the caller's own tenant) → tenant-scoped attachment URIs
+      (``/api/v1/t/{slug}/attachments/{id}[/thumbnails/{size}]``);
+    * ``is_own=False`` (a *promoted* image of another tenant) → the global,
+      read-only content endpoint
+      (``/api/v1/ipm/pest-images/{id}[/thumbnails/{size}]``).
+
+    ``thumbnail_uri`` is ``None`` for non-renderable attachments. Foreign images
+    are only ever returned when ``status == promoted`` (strict isolation for
+    private images).
     """
 
     id: str

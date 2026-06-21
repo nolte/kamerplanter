@@ -14,15 +14,19 @@ already authorized for ``tenant_key`` / ``user_key`` and works purely on keys.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import structlog
 
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, PestImageStatus
 from app.domain.engines.storage.thumbnail_generator import can_render
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.ipm_service import IpmService
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = structlog.get_logger()
 
@@ -36,12 +40,24 @@ class PestImageView:
     """A contribution paired with the data the API needs to build its response.
 
     ``mime_type`` lets the API decide whether a thumbnail rendition exists
-    (non-renderable types get no ``thumbnail_uri``).
+    (non-renderable types get no ``thumbnail_uri``). ``is_own`` distinguishes
+    the requesting tenant's own contributions (served via tenant-scoped
+    attachment URIs) from foreign *promoted* contributions (served via the
+    global content endpoint).
     """
 
     contribution: PestImageContribution
     mime_type: str
     has_thumbnail: bool
+    is_own: bool = True
+
+
+@dataclass(frozen=True)
+class PestImageContent:
+    """The resolved bytes-source for serving a (promoted) contribution globally."""
+
+    contribution: PestImageContribution
+    attachment: object  # app.domain.models.attachment.Attachment (avoid import cycle)
 
 
 class PestImageService:
@@ -107,9 +123,36 @@ class PestImageService:
         return self._to_view(created, attachment.mime_type)
 
     def list_for_pest(self, tenant_key: str, pest_key: str) -> list[PestImageView]:
-        """Return the tenant's contributions for a pest as response-ready views."""
-        contributions = self._repo.list_for_pest(tenant_key, pest_key)
-        return [self._to_view(c, self._resolve_mime(c.attachment_id, tenant_key)) for c in contributions]
+        """Return the combined gallery for a pest from the tenant's perspective.
+
+        Two sources are merged:
+
+        * the tenant's **own** contributions (any status), served via tenant-
+          scoped attachment URIs (``is_own=True``);
+        * all **promoted** contributions of *other* tenants, served via the
+          global content endpoint (``is_own=False``).
+
+        An own contribution that is itself promoted stays ``is_own=True`` (it
+        keeps its tenant URI). The two sources are deduplicated by contribution
+        key so a promoted own image never appears twice. Newest first.
+        """
+        own = self._repo.list_for_pest(tenant_key, pest_key)
+        own_keys = {c.key for c in own}
+        foreign_promoted = [
+            c
+            for c in self._repo.list_promoted_for_pest(pest_key)
+            if c.tenant_key != tenant_key and c.key not in own_keys
+        ]
+
+        views: list[PestImageView] = [
+            self._to_view(c, self._resolve_mime(c.attachment_id, tenant_key), is_own=True) for c in own
+        ]
+        # Foreign promoted images: resolve MIME against the *owning* tenant.
+        views += [
+            self._to_view(c, self._resolve_mime(c.attachment_id, c.tenant_key), is_own=False) for c in foreign_promoted
+        ]
+        views.sort(key=_created_sort_key, reverse=True)
+        return views
 
     async def delete(self, tenant_key: str, user_key: str, contribution_key: str) -> bool:
         """Delete a tenant-owned contribution and its underlying attachment.
@@ -139,6 +182,145 @@ class PestImageService:
         """Expose the configured max upload size so the API can early-reject (SEC-005)."""
         return self._attachments.max_upload_bytes()
 
+    # --- moderation (platform-admin, cross-tenant) -------------------
+
+    def list_all_for_pest(self, pest_key: str) -> list[PestImageView]:
+        """Return *every* tenant's contributions for a pest (admin moderation).
+
+        Validates the global pest exists first. MIME is resolved against each
+        contribution's *owning* tenant. The API exposes provenance
+        (``tenant_key`` / ``contributed_by``) and status from the contribution.
+        """
+        self._ipm.get_pest(pest_key)
+        contributions = self._repo.list_all_for_pest(pest_key)
+        return [
+            self._to_view(c, self._resolve_mime(c.attachment_id, c.tenant_key), is_own=False) for c in contributions
+        ]
+
+    def set_promotion(self, *, contribution_key: str, promote: bool, admin_user_key: str) -> PestImageView | None:
+        """Promote / demote a contribution to/from global visibility (idempotent).
+
+        Returns the updated view, or ``None`` when the contribution is unknown.
+        Promotion is the trigger point for the later recognition wiring — see
+        :meth:`_on_promotion_changed`.
+        """
+        existing = self._repo.get_by_key(contribution_key)
+        if existing is None:
+            return None
+
+        target = PestImageStatus.PROMOTED if promote else PestImageStatus.PRIVATE
+        updated = self._repo.set_status(
+            contribution_key,
+            target,
+            promoted_by=admin_user_key if promote else None,
+        )
+        if updated is None:
+            return None
+
+        logger.info(
+            "pest_image_promotion_changed",
+            contribution_id=contribution_key,
+            tenant_key=updated.tenant_key,
+            pest_key=updated.pest_key,
+            status=updated.status.value,
+            admin_user_key=admin_user_key,
+        )
+        # Only fire the side-effect on an actual transition (idempotent calls
+        # that don't change the status do not re-enqueue recognition work).
+        if existing.status != updated.status:
+            self._on_promotion_changed(updated, promoted=promote)
+
+        return self._to_view(updated, self._resolve_mime(updated.attachment_id, updated.tenant_key), is_own=False)
+
+    def _on_promotion_changed(self, contribution: PestImageContribution, *, promoted: bool) -> None:
+        """Hook for the Phase-2 recognition wiring (REQ-010 P2 recognition).
+
+        When a contribution is promoted it becomes globally visible and is a
+        candidate reference image for the few-shot pest-recognition index
+        (REQ-029-A / inference-service ``/pest/*`` + pgvector embeddings); when
+        demoted it must be retracted from that index. The embedding/inference
+        anschluss is intentionally out of scope here — this method is the single,
+        clearly-named seam to add ``celery.send_task(...)`` / an
+        ``IPestRecognitionIndex`` call without touching promotion logic.
+
+        TODO(REQ-010 P2 recognition): enqueue index upsert on promote / index
+        retract on demote, keyed by ``contribution.attachment_id`` +
+        ``contribution.pest_key``.
+        """
+        logger.info(
+            "pest_image_recognition_hook_pending",
+            contribution_id=contribution.key,
+            pest_key=contribution.pest_key,
+            attachment_id=contribution.attachment_id,
+            action="index_upsert" if promoted else "index_retract",
+        )
+
+    # --- global (cross-tenant) content for promoted images -----------
+
+    def resolve_promoted_content(self, contribution_key: str) -> PestImageContent | None:
+        """Resolve a *promoted* contribution to its attachment for global serving.
+
+        Returns ``None`` when the contribution is missing, not promoted, or its
+        attachment has vanished — the API maps every such case to 404 so a
+        ``PRIVATE`` (or foreign-private) image can never be served globally.
+        Attachment resolution uses the contribution's *owning* ``tenant_key``;
+        no caller-tenant gate applies because ``PROMOTED`` is a global release.
+        """
+        from app.common.exceptions import AttachmentNotFoundError
+
+        contribution = self._repo.get_by_key(contribution_key)
+        if contribution is None or contribution.status != PestImageStatus.PROMOTED:
+            return None
+        try:
+            attachment = self._attachments.get_attachment(contribution.attachment_id, contribution.tenant_key)
+        except AttachmentNotFoundError:
+            return None
+        return PestImageContent(contribution=contribution, attachment=attachment)
+
+    async def open_content_stream(self, content: PestImageContent) -> AsyncIterator[bytes]:
+        """Proxy-stream the original bytes of a resolved promoted contribution."""
+        return await self._attachments.open_stream(content.attachment)
+
+    async def open_content_thumbnail_stream(self, content: PestImageContent, size: int) -> AsyncIterator[bytes]:
+        """Proxy-stream a thumbnail rendition of a resolved promoted contribution.
+
+        Raises ``NotFoundError`` (from the storage adapter) when the rendition
+        has not been generated yet — the API translates that into the same
+        lazy-regeneration 202 the tenant attachment endpoint uses.
+        """
+        return await self._attachments.open_thumbnail_stream(content.attachment, size)
+
+    # --- DSGVO erasure (REQ-025) -------------------------------------
+
+    async def delete_all_for_tenant(self, tenant_key: str) -> int:
+        """Hard-delete every contribution + attachment of a tenant (erasure).
+
+        The attachment bytes are removed via the tenant-scoped attachment
+        service (idempotent); the link documents are then dropped in one AQL
+        sweep. Returns the number of contributions removed.
+        """
+        contributions = self._repo.list_for_tenant(tenant_key)
+        for c in contributions:
+            await self._attachments.delete(c.attachment_id, tenant_key)
+        removed = self._repo.delete_for_tenant(tenant_key)
+        logger.info("pest_images_deleted_for_tenant", tenant_key=tenant_key, removed=removed)
+        return removed
+
+    async def delete_all_for_user(self, user_key: str) -> int:
+        """Hard-delete every contribution + attachment a user authored (erasure).
+
+        A user may have contributed across several tenants; each contribution's
+        attachment is deleted against its own ``tenant_key`` and the link
+        document is removed. Returns the number of contributions removed.
+        """
+        contributions = self._repo.list_for_user(user_key)
+        for c in contributions:
+            await self._attachments.delete(c.attachment_id, c.tenant_key)
+            if c.key is not None:
+                self._repo.delete(c.key, c.tenant_key)
+        logger.info("pest_images_deleted_for_user", user_key=user_key, removed=len(contributions))
+        return len(contributions)
+
     # --- helpers -----------------------------------------------------
 
     def _resolve_mime(self, attachment_id: str, tenant_key: str) -> str:
@@ -154,12 +336,23 @@ class PestImageService:
         except AttachmentNotFoundError:
             return ""
 
-    def _to_view(self, contribution: PestImageContribution, mime_type: str) -> PestImageView:
+    def _to_view(self, contribution: PestImageContribution, mime_type: str, *, is_own: bool = True) -> PestImageView:
         return PestImageView(
             contribution=contribution,
             mime_type=mime_type,
             has_thumbnail=can_render(mime_type),
+            is_own=is_own,
         )
+
+
+def _created_sort_key(view: PestImageView) -> str:
+    """Stable, total-order sort key for mixed (possibly ``None``) ``created_at``.
+
+    ``None`` sorts oldest (empty string < any ISO timestamp) so newest-first
+    ordering places undated rows last without ever comparing ``None`` values.
+    """
+    created = view.contribution.created_at
+    return created.isoformat() if created is not None else ""
 
 
 def _normalize_caption(caption: str | None) -> str | None:
@@ -169,4 +362,9 @@ def _normalize_caption(caption: str | None) -> str | None:
     return trimmed or None
 
 
-__all__ = ["GALLERY_THUMBNAIL_SIZE", "PestImageService", "PestImageView"]
+__all__ = [
+    "GALLERY_THUMBNAIL_SIZE",
+    "PestImageContent",
+    "PestImageService",
+    "PestImageView",
+]

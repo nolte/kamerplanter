@@ -27,6 +27,7 @@ from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.processing_restriction_repository import (
     IProcessingRestrictionRepository,
 )
@@ -99,6 +100,7 @@ class PrivacyService:
         attachment_repo: IAttachmentRepository | None = None,
         membership_repo: IMembershipRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
+        pest_image_repo: IPestImageRepository | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -123,6 +125,10 @@ class PrivacyService:
         self._attachment_repo = attachment_repo
         self._membership_repo = membership_repo
         self._reference_index_store = reference_index_store
+        # REQ-010 — pest-image link documents are an ArangoDB collection outside
+        # the object-storage sweep; their bytes are hard-deleted by the
+        # ``user_pest_reference_images`` storage rule, this repo drops the docs.
+        self._pest_image_repo = pest_image_repo
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -725,7 +731,30 @@ class PrivacyService:
         """
         scopes = await self._run_storage_cleanup(user_key)
         await self._run_reference_index_cleanup(user_key)
+        self._run_pest_image_document_cleanup(user_key)
         return scopes
+
+    def _run_pest_image_document_cleanup(self, user_key: str) -> int:
+        """REQ-010 — drop the user's ``pest_image_contributions`` link documents.
+
+        The attachment *bytes* are hard-deleted by the
+        ``user_pest_reference_images`` storage-cleanup rule; this removes the
+        accompanying link documents (no legal retention basis — a *promoted*
+        contribution is deleted too). No-op when the repo is not wired.
+        """
+        if self._pest_image_repo is None:
+            return 0
+        contributions = self._pest_image_repo.list_for_user(user_key)
+        removed = 0
+        for c in contributions:
+            if c.key is not None and self._pest_image_repo.delete(c.key, c.tenant_key):
+                removed += 1
+        logger.info(
+            "retention.erasure.pest_image_documents_cleanup",
+            user_key=user_key,
+            removed=removed,
+        )
+        return removed
 
     async def _run_storage_cleanup(self, user_key: str) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.

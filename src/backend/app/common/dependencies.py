@@ -510,6 +510,7 @@ def get_tenant_service() -> TenantService:
         storage_adapter=get_object_storage(),
         attachment_repo=get_attachment_repo(),
         reference_index_store=get_reference_index_store(),
+        pest_image_repo=get_pest_image_repo(),
     )
 
 
@@ -953,6 +954,7 @@ def get_privacy_service():
         attachment_repo=get_attachment_repo(),
         membership_repo=get_membership_repo(),
         reference_index_store=get_reference_index_store(),
+        pest_image_repo=get_pest_image_repo(),
     )
 
 

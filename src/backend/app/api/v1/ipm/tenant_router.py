@@ -59,12 +59,27 @@ async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
 
 
 def _pest_image_response(view: PestImageView, tenant_slug: str) -> PestImageResponse:
+    """Map a view to a response, choosing tenant-scoped vs. global content URIs.
+
+    Own contributions are served through the caller's tenant attachment URIs
+    (``/api/v1/t/{slug}/attachments/{id}``). Foreign *promoted* contributions
+    are served through the global, read-only pest-image content endpoint
+    (``/api/v1/ipm/pest-images/{contribution_id}``) — the caller is not a member
+    of the owning tenant, so a tenant URI would be forbidden for them.
+    """
     contribution = view.contribution
+    contribution_id = contribution.key or ""
     attachment_id = contribution.attachment_id
-    uri = f"/api/v1/t/{tenant_slug}/attachments/{attachment_id}"
-    thumbnail_uri = f"{uri}/thumbnails/{GALLERY_THUMBNAIL_SIZE}" if view.has_thumbnail else None
+
+    if view.is_own:
+        uri = f"/api/v1/t/{tenant_slug}/attachments/{attachment_id}"
+        thumbnail_uri = f"{uri}/thumbnails/{GALLERY_THUMBNAIL_SIZE}" if view.has_thumbnail else None
+    else:
+        uri = f"/api/v1/ipm/pest-images/{contribution_id}"
+        thumbnail_uri = f"{uri}/thumbnails/{GALLERY_THUMBNAIL_SIZE}" if view.has_thumbnail else None
+
     return PestImageResponse(
-        id=contribution.key or "",
+        id=contribution_id,
         pest_key=contribution.pest_key,
         attachment_id=attachment_id,
         uri=uri,
@@ -73,8 +88,7 @@ def _pest_image_response(view: PestImageView, tenant_slug: str) -> PestImageResp
         caption=contribution.caption,
         contributed_by=contribution.contributed_by,
         created_at=contribution.created_at,
-        # Phase 1: the gallery only returns the tenant's own contributions.
-        is_own=True,
+        is_own=view.is_own,
     )
 
 
@@ -210,7 +224,12 @@ def list_pest_images(
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: PestImageService = Depends(get_pest_image_service),
 ) -> list[PestImageResponse]:
-    """List the current tenant's contributed reference images for a pest."""
+    """List reference images for a pest from the caller's tenant perspective.
+
+    Returns the tenant's own contributions (tenant attachment URIs, ``is_own``)
+    plus all globally-promoted contributions of other tenants (global content
+    URIs). Foreign *private* images are never returned (strict isolation).
+    """
     views = service.list_for_pest(ctx.tenant_key, pest_key)
     return [_pest_image_response(v, ctx.tenant_slug) for v in views]
 

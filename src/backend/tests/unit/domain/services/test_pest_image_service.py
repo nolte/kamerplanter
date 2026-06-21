@@ -26,7 +26,7 @@ from app.common.exceptions import NotFoundError
 from app.domain.models.attachment import Attachment
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
-from app.domain.services.pest_image_service import PestImageService
+from app.domain.services.pest_image_service import PestImageContent, PestImageService
 
 
 class _FakePestImageRepo:
@@ -53,12 +53,43 @@ class _FakePestImageRepo:
     def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
         return [c for c in self.store.values() if c.tenant_key == tenant_key]
 
+    def list_for_user(self, user_key: str) -> list[PestImageContribution]:
+        return [c for c in self.store.values() if c.contributed_by == user_key]
+
+    def get_by_key(self, key: str) -> PestImageContribution | None:
+        return self.store.get(key)
+
+    def list_all_for_pest(self, pest_key: str) -> list[PestImageContribution]:
+        return [c for c in self.store.values() if c.pest_key == pest_key]
+
+    def list_promoted_for_pest(self, pest_key: str) -> list[PestImageContribution]:
+        return [c for c in self.store.values() if c.pest_key == pest_key and c.status == PestImageStatus.PROMOTED]
+
+    def set_status(self, key, status, promoted_by):
+        c = self.store.get(key)
+        if c is None:
+            return None
+        if status == PestImageStatus.PROMOTED:
+            promoted_at = datetime.now(UTC)
+        else:
+            promoted_at = None
+            promoted_by = None
+        updated = c.model_copy(update={"status": status, "promoted_at": promoted_at, "promoted_by": promoted_by})
+        self.store[key] = updated
+        return updated
+
     def delete(self, key: str, tenant_key: str) -> bool:
         c = self.store.get(key)
         if c is None or c.tenant_key != tenant_key:
             return False
         del self.store[key]
         return True
+
+    def delete_for_tenant(self, tenant_key: str) -> int:
+        keys = [k for k, c in self.store.items() if c.tenant_key == tenant_key]
+        for k in keys:
+            del self.store[k]
+        return len(keys)
 
 
 class _FakeAttachmentService:
@@ -118,12 +149,24 @@ class _FakeAttachmentService:
         return att
 
     async def delete(self, attachment_id: str, tenant_key: str) -> bool:
-        self.deleted.append(attachment_id)
+        self.deleted.append((attachment_id, tenant_key))
         att = self.store.get(attachment_id)
         if att is None or att.tenant_key != tenant_key:
             return False
         del self.store[attachment_id]
         return True
+
+    async def open_stream(self, attachment):
+        async def _gen():
+            yield b"bytes-for-" + (attachment.key or "x").encode()
+
+        return _gen()
+
+    async def open_thumbnail_stream(self, attachment, size):
+        async def _gen():
+            yield b"thumb"
+
+        return _gen()
 
 
 class _FakeIpmService:
@@ -286,7 +329,7 @@ class TestDelete:
 
         assert result is True
         assert contribution_key not in repo.store
-        assert attachment_id in attachments.deleted
+        assert (attachment_id, "t1") in attachments.deleted
         assert attachment_id not in attachments.store
 
     @pytest.mark.asyncio
@@ -316,3 +359,167 @@ class TestDelete:
         result = await service.delete("t1", "u1", "missing")
         assert result is False
         assert attachments.deleted == []
+
+
+async def _contribute(service, *, tenant_key, user_key="u1", pest_key="p1", data=b"a"):
+    return await service.contribute(
+        tenant_key=tenant_key,
+        user_key=user_key,
+        pest_key=pest_key,
+        data=data,
+        mime_type="image/jpeg",
+        filename="a.jpg",
+        caption=None,
+    )
+
+
+class TestSetPromotion:
+    @pytest.mark.asyncio
+    async def test_promote_sets_status_and_audit(self):
+        service, repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        promoted = service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+
+        assert promoted is not None
+        assert promoted.contribution.status == PestImageStatus.PROMOTED
+        assert promoted.contribution.promoted_by == "admin1"
+        assert promoted.contribution.promoted_at is not None
+        # is_own is False on the moderation view (cross-tenant perspective).
+        assert promoted.is_own is False
+        assert repo.store[key].status == PestImageStatus.PROMOTED
+
+    @pytest.mark.asyncio
+    async def test_demote_clears_audit(self):
+        service, repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+
+        demoted = service.set_promotion(contribution_key=key, promote=False, admin_user_key="admin1")
+
+        assert demoted.contribution.status == PestImageStatus.PRIVATE
+        assert demoted.contribution.promoted_at is None
+        assert demoted.contribution.promoted_by is None
+        assert repo.store[key].status == PestImageStatus.PRIVATE
+
+    @pytest.mark.asyncio
+    async def test_promote_is_idempotent(self):
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        first = service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+        second = service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin2")
+
+        assert first.contribution.status == PestImageStatus.PROMOTED
+        assert second.contribution.status == PestImageStatus.PROMOTED
+
+    def test_promote_unknown_returns_none(self):
+        service, _repo, _attachments, _ipm = _service()
+        assert service.set_promotion(contribution_key="missing", promote=True, admin_user_key="a") is None
+
+
+class TestResolvePromotedContent:
+    @pytest.mark.asyncio
+    async def test_promoted_image_resolves(self):
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+
+        content = service.resolve_promoted_content(key)
+
+        assert isinstance(content, PestImageContent)
+        assert content.contribution.key == key
+
+    @pytest.mark.asyncio
+    async def test_private_image_resolves_to_none(self):
+        """SECURITY: a private contribution must never resolve for global serving."""
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+
+        assert service.resolve_promoted_content(view.contribution.key) is None
+
+    def test_unknown_resolves_to_none(self):
+        service, _repo, _attachments, _ipm = _service()
+        assert service.resolve_promoted_content("missing") is None
+
+    @pytest.mark.asyncio
+    async def test_promoted_then_demoted_no_longer_resolves(self):
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+        service.set_promotion(contribution_key=key, promote=False, admin_user_key="admin1")
+
+        assert service.resolve_promoted_content(key) is None
+
+
+class TestCombinedListForPest:
+    @pytest.mark.asyncio
+    async def test_returns_own_plus_foreign_promoted(self):
+        service, _repo, _attachments, _ipm = _service()
+        own = await _contribute(service, tenant_key="t1", user_key="u1")
+        foreign = await _contribute(service, tenant_key="t2", user_key="u2")
+        # Promote the foreign one.
+        service.set_promotion(contribution_key=foreign.contribution.key, promote=True, admin_user_key="admin1")
+        # A second foreign one stays private → must NOT appear for t1.
+        foreign_private = await _contribute(service, tenant_key="t3", user_key="u3")
+
+        views = service.list_for_pest("t1", "p1")
+        keys = {v.contribution.key: v.is_own for v in views}
+
+        assert own.contribution.key in keys
+        assert keys[own.contribution.key] is True
+        assert foreign.contribution.key in keys
+        assert keys[foreign.contribution.key] is False
+        assert foreign_private.contribution.key not in keys
+
+    @pytest.mark.asyncio
+    async def test_own_promoted_not_duplicated_and_stays_own(self):
+        service, _repo, _attachments, _ipm = _service()
+        own = await _contribute(service, tenant_key="t1", user_key="u1")
+        service.set_promotion(contribution_key=own.contribution.key, promote=True, admin_user_key="admin1")
+
+        views = service.list_for_pest("t1", "p1")
+
+        matching = [v for v in views if v.contribution.key == own.contribution.key]
+        assert len(matching) == 1
+        assert matching[0].is_own is True
+
+
+class TestErasure:
+    @pytest.mark.asyncio
+    async def test_delete_all_for_tenant_removes_docs_and_attachments(self):
+        service, repo, attachments, _ipm = _service()
+        a = await _contribute(service, tenant_key="t1", user_key="u1")
+        b = await _contribute(service, tenant_key="t1", user_key="u2")
+        other = await _contribute(service, tenant_key="t2", user_key="u3")
+
+        removed = await service.delete_all_for_tenant("t1")
+
+        assert removed == 2
+        assert a.contribution.key not in repo.store
+        assert b.contribution.key not in repo.store
+        assert other.contribution.key in repo.store  # foreign tenant untouched
+        assert (a.contribution.attachment_id, "t1") in attachments.deleted
+
+    @pytest.mark.asyncio
+    async def test_delete_all_for_user_removes_across_tenants(self):
+        service, repo, attachments, _ipm = _service()
+        # Same user contributes in two tenants.
+        a = await _contribute(service, tenant_key="t1", user_key="u1")
+        b = await _contribute(service, tenant_key="t2", user_key="u1")
+        other = await _contribute(service, tenant_key="t1", user_key="u2")
+
+        removed = await service.delete_all_for_user("u1")
+
+        assert removed == 2
+        assert a.contribution.key not in repo.store
+        assert b.contribution.key not in repo.store
+        assert other.contribution.key in repo.store
+        # Each attachment deleted against its own tenant.
+        assert (a.contribution.attachment_id, "t1") in attachments.deleted
+        assert (b.contribution.attachment_id, "t2") in attachments.deleted

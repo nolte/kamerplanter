@@ -24,6 +24,7 @@ from app.domain.interfaces.location_assignment_repository import (
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
@@ -53,6 +54,7 @@ class TenantService:
         storage_adapter: IObjectStorageAdapter | None = None,
         attachment_repo: IAttachmentRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
+        pest_image_repo: IPestImageRepository | None = None,
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -67,6 +69,10 @@ class TenantService:
         self._storage_adapter = storage_adapter
         self._attachment_repo = attachment_repo
         self._reference_index_store = reference_index_store
+        # REQ-010 — pest-image link documents are a separate ArangoDB collection
+        # (not covered by the object-storage prefix sweep). They are dropped on
+        # tenant deletion alongside the attachment metadata.
+        self._pest_image_repo = pest_image_repo
 
     # --- Tenant CRUD ---
 
@@ -179,8 +185,9 @@ class TenantService:
 
         Steps (with audit logs):
           1. Delete all ``attachments`` metadata for the tenant.
-          2. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
-          3. Remove the tenant's user-contributed reference-index vectors.
+          2. Drop the tenant's ``pest_image_contributions`` link documents.
+          3. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
+          4. Remove the tenant's user-contributed reference-index vectors.
 
         ``delete_prefix`` / reference-index calls are async; this method is
         invoked from a synchronous request handler, so it bridges via
@@ -202,6 +209,17 @@ class TenantService:
                 "tenant_storage_metadata_deleted",
                 tenant_key=tenant_key,
                 removed=removed_meta,
+            )
+
+        # REQ-010 — drop the pest-image link documents. The attachment bytes are
+        # removed by the prefix sweep below; this removes the dangling catalog of
+        # contributions so a re-created tenant key never inherits stale rows.
+        if self._pest_image_repo is not None:
+            removed_pest_images = self._pest_image_repo.delete_for_tenant(tenant_key)
+            logger.info(
+                "tenant_pest_images_deleted",
+                tenant_key=tenant_key,
+                removed=removed_pest_images,
             )
 
         if self._storage_adapter is not None:

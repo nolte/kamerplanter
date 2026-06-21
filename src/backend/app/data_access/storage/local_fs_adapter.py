@@ -484,6 +484,10 @@ def _erasure_scope_categories():  # type: ignore[no-untyped-def]
             AttachmentCategory.TASK,
             AttachmentCategory.PLANT,
         ),
+        # Hard-delete scope: REQ-010 user-contributed pest reference images.
+        # No retention obligation, so the binary objects are removed outright
+        # (the link documents go via the ArangoDB DELETE_ORDER pass).
+        "user_pest_reference_images": (AttachmentCategory.PEST_REFERENCE,),
     }
 
 
@@ -511,6 +515,8 @@ def _scope_to_categories(scope: str):  # type: ignore[no-untyped-def]
       the tenant record and are only anonymised (``diary``, ``ipm``,
       ``harvest``, ``post_harvest``, ``task``, ``plant`` — ``plant`` is the
       REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5).
+    - ``user_pest_reference_images`` → REQ-010 user-contributed pest reference
+      images (``pest_reference``). Hard-deleted (no retention obligation).
 
     For backward compatibility the legacy ``"all"`` scope and a comma-separated
     list of raw ``AttachmentCategory`` values are still accepted; unknown

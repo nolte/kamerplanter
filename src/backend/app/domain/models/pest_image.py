@@ -1,9 +1,11 @@
 """REQ-010 — user-contributed pest reference images.
 
 A :class:`PestImageContribution` links a (tenant-private) uploaded attachment
-to a *global* pest record (``pests`` are global reference data). Phase 1 keeps
-every contribution scoped to the contributing tenant; the ``status`` field is
-already modelled so the later global-promotion phase needs no migration.
+to a *global* pest record (``pests`` are global reference data). A contribution
+is uploaded ``PRIVATE`` (visible only to its tenant); a platform admin may
+``PROMOTE`` it, after which its pixels are served globally (cross-tenant) via a
+dedicated read-only content endpoint. ``promoted_at`` / ``promoted_by`` record
+the moderation decision.
 
 The binary image itself lives in object storage and is catalogued as an
 ``Attachment`` (NFR-013); this document only references it via ``attachment_id``.
@@ -30,8 +32,13 @@ class PestImageContribution(BaseModel):
     # User who contributed the image (for "is_own" display + DSGVO lookup).
     contributed_by: str = Field(min_length=1)
     caption: str | None = Field(default=None, max_length=500)
-    # Phase 1 always PRIVATE; PROMOTED is reserved for global curation (Phase 2).
+    # PRIVATE on upload; a platform admin may PROMOTE it to global visibility
+    # (Phase 2 curation). Promotion is the gate for cross-tenant pixel access.
     status: PestImageStatus = PestImageStatus.PRIVATE
+    # Promotion audit (set on PRIVATE → PROMOTED, cleared on demotion). Records
+    # the platform-admin user_key and the moment of the global release.
+    promoted_at: datetime | None = None
+    promoted_by: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
