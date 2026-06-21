@@ -5,6 +5,7 @@ from app.common.types import (
     PestKey,
     TreatmentKey,
 )
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -109,3 +110,6 @@ class IIpmRepository(ABC):
 
     @abstractmethod
     def get_treatments_for_pest(self, pest_key: PestKey) -> list[Treatment]: ...
+
+    @abstractmethod
+    def get_beneficials_for_pest_slug(self, slug: str) -> list[Beneficial]: ...

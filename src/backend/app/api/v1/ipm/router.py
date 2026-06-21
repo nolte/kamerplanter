@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.ipm.schemas import (
+    BeneficialResponse,
     DiseaseCreate,
     DiseaseResponse,
     DiseaseUpdate,
     InspectionResponse,
     PestCreate,
+    PestDetailResponse,
     PestResponse,
     PestUpdate,
     TreatmentApplicationResponse,
@@ -15,6 +17,7 @@ from app.api.v1.ipm.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_ipm_service
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -47,6 +50,17 @@ def _application_response(a: TreatmentApplication) -> TreatmentApplicationRespon
     return TreatmentApplicationResponse(key=a.key or "", **a.model_dump(exclude={"key"}))
 
 
+def _beneficial_response(b: Beneficial) -> BeneficialResponse:
+    return BeneficialResponse(
+        key=b.key or "",
+        slug=b.slug,
+        common_name=b.common_name,
+        scientific_name=b.scientific_name,
+        description=b.description,
+        preys_on=b.preys_on,
+    )
+
+
 # -- Pests --
 
 
@@ -65,6 +79,17 @@ def create_pest(body: PestCreate, service: IpmService = Depends(get_ipm_service)
     pest = Pest(**body.model_dump())
     created = service.create_pest(pest)
     return _pest_response(created)
+
+
+@router.get("/pests/{key}/detail", response_model=PestDetailResponse)
+def get_pest_detail(key: str, service: IpmService = Depends(get_ipm_service)):
+    detail = service.get_pest_detail(key)
+    return PestDetailResponse(
+        pest=_pest_response(detail["pest"]),
+        treatments=[_treatment_response(t) for t in detail["treatments"]],
+        beneficials=[_beneficial_response(b) for b in detail["beneficials"]],
+        detection_symptom_hint=detail["detection_symptom_hint"],
+    )
 
 
 @router.get("/pests/{key}", response_model=PestResponse)

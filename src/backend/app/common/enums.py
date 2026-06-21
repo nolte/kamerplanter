@@ -457,6 +457,14 @@ class EfficacyRating(StrEnum):
     INEFFECTIVE = "ineffective"
 
 
+class PestSeverity(StrEnum):
+    """Schadpotenzial eines Schädlings (REQ-010 — Detailseite)."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 # ── REQ-007 Harvest ──
 
 

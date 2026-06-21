@@ -72,6 +72,42 @@ $defs:
       detection_difficulty:
         type: string
         enum: [easy, medium, hard]
+      description:
+        type: string
+      damage_symptoms:
+        type: string
+        description: "Schadbild-/Symptombeschreibung für die Detailseite"
+      affected_plant_parts:
+        type: array
+        items:
+          type: string
+          enum: [leaf, stem, root, flower, fruit]
+      host_plants:
+        type: array
+        items:
+          type: string
+      prevention_tips:
+        type: string
+      monitoring_hints:
+        type: string
+      severity:
+        type: string
+        enum: [low, medium, high]
+      optimal_humidity_min:
+        type: number
+        minimum: 0
+        maximum: 100
+      optimal_humidity_max:
+        type: number
+        minimum: 0
+        maximum: 100
+      detection_slug:
+        type: string
+        description: "Brücke zur Erkennungs-Taxonomie (PestTaxon.slug, REQ-044)"
+      reference_image_refs:
+        type: array
+        items:
+          type: string
     required: [scientific_name, common_name, pest_type, lifecycle_days,
                optimal_temp_min, optimal_temp_max, detection_difficulty]
     additionalProperties: false

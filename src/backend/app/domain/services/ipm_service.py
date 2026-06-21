@@ -1,10 +1,12 @@
 from datetime import datetime
 
+from app.common.enums import TreatmentType
 from app.common.exceptions import NotFoundError, ResistanceWarningError
 from app.domain.engines.inspection_scheduler import InspectionScheduler
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.interfaces.ipm_repository import IIpmRepository
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -12,6 +14,20 @@ from app.domain.models.ipm import (
     Treatment,
     TreatmentApplication,
 )
+from app.domain.models.pest_taxonomy import get_taxon
+
+# IPM-Hierarchie für die Gegenmaßnahmen-Reihenfolge auf der Detailseite
+# (REQ-010 DoD „Kultur > Biologisch > Chemisch"; mechanisch vor chemisch).
+_IPM_HIERARCHY: dict[TreatmentType, int] = {
+    TreatmentType.CULTURAL: 0,
+    TreatmentType.BIOLOGICAL: 1,
+    TreatmentType.MECHANICAL: 2,
+    TreatmentType.CHEMICAL: 3,
+}
+
+
+def _ipm_rank(treatment: Treatment) -> int:
+    return _IPM_HIERARCHY.get(treatment.treatment_type, 99)
 
 
 class IpmService:
@@ -52,6 +68,16 @@ class IpmService:
             "optimal_temp_max",
             "detection_difficulty",
             "description",
+            "damage_symptoms",
+            "affected_plant_parts",
+            "host_plants",
+            "prevention_tips",
+            "monitoring_hints",
+            "severity",
+            "optimal_humidity_min",
+            "optimal_humidity_max",
+            "detection_slug",
+            "reference_image_refs",
         }
         for field, value in data.items():
             if field in allowed:
@@ -61,6 +87,24 @@ class IpmService:
     def delete_pest(self, key: str) -> bool:
         self.get_pest(key)
         return self._repo.delete_pest(key)
+
+    def get_pest_detail(self, key: str) -> dict:
+        """Aggregierte Detailansicht: Stammdaten + Gegenmaßnahmen (nach
+        IPM-Hierarchie) + passende Nützlinge + Schadbild-Hinweis (REQ-044)."""
+        pest = self.get_pest(key)
+        treatments = sorted(self._repo.get_treatments_for_pest(key), key=_ipm_rank)
+        beneficials: list[Beneficial] = []
+        symptom_hint: str | None = None
+        if pest.detection_slug:
+            beneficials = self._repo.get_beneficials_for_pest_slug(pest.detection_slug)
+            taxon = get_taxon(pest.detection_slug)
+            symptom_hint = taxon.symptom_hint_de if taxon else None
+        return {
+            "pest": pest,
+            "treatments": treatments,
+            "beneficials": beneficials,
+            "detection_symptom_hint": symptom_hint,
+        }
 
     # ── Disease CRUD ──
 

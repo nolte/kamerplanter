@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import PestSeverity, PlantPart
+
 
 class PestCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
@@ -12,6 +14,16 @@ class PestCreate(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str = "medium"
     description: str | None = None
+    damage_symptoms: str | None = None
+    affected_plant_parts: list[PlantPart] = Field(default_factory=list)
+    host_plants: list[str] = Field(default_factory=list)
+    prevention_tips: str | None = None
+    monitoring_hints: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] = Field(default_factory=list)
 
 
 class PestUpdate(BaseModel):
@@ -23,6 +35,16 @@ class PestUpdate(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str | None = None
     description: str | None = None
+    damage_symptoms: str | None = None
+    affected_plant_parts: list[PlantPart] | None = None
+    host_plants: list[str] | None = None
+    prevention_tips: str | None = None
+    monitoring_hints: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] | None = None
 
 
 class PestResponse(BaseModel):
@@ -35,6 +57,16 @@ class PestResponse(BaseModel):
     optimal_temp_max: float | None = None
     detection_difficulty: str
     description: str | None = None
+    damage_symptoms: str | None = None
+    affected_plant_parts: list[PlantPart] = Field(default_factory=list)
+    host_plants: list[str] = Field(default_factory=list)
+    prevention_tips: str | None = None
+    monitoring_hints: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -156,6 +188,29 @@ class TreatmentApplicationResponse(BaseModel):
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class BeneficialResponse(BaseModel):
+    key: str
+    slug: str
+    common_name: str
+    scientific_name: str
+    description: str | None = None
+    preys_on: list[str] = Field(default_factory=list)
+
+
+class PestDetailResponse(BaseModel):
+    """Aggregierte Schädlings-Detailseite (REQ-010).
+
+    Bündelt Stammdaten + Gegenmaßnahmen (nach IPM-Hierarchie sortiert:
+    cultural → biological → mechanical → chemical) + passende Nützlinge +
+    den Schadbild-Hinweis aus der Erkennungs-Taxonomie (REQ-044).
+    """
+
+    pest: PestResponse
+    treatments: list[TreatmentResponse] = Field(default_factory=list)
+    beneficials: list[BeneficialResponse] = Field(default_factory=list)
+    detection_symptom_hint: str | None = None
 
 
 class KarenzPeriodResponse(BaseModel):

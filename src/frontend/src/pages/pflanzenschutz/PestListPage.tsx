@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -26,6 +27,7 @@ const difficultyColor: Record<string, ChipColor> = {
 
 export default function PestListPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
   const [createOpen, setCreateOpen] = useState(false);
@@ -117,6 +119,7 @@ export default function PestListPage() {
         rows={pests}
         loading={loading}
         getRowKey={(r) => r.key}
+        onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
         emptyActionLabel={t('pages.ipm.createPest')}
         onEmptyAction={() => setCreateOpen(true)}
         emptyIllustration={kamiIpm}

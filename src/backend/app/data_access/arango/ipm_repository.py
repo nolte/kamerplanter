@@ -6,6 +6,7 @@ from app.common.types import DiseaseKey, PestKey, TreatmentKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -293,3 +294,8 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         """
         cursor = self._db.aql.execute(query, bind_vars={"pest_id": pest_id})
         return [Treatment(**self._from_doc(doc)) for doc in cursor]
+
+    def get_beneficials_for_pest_slug(self, slug: str) -> list[Beneficial]:
+        query = f"FOR b IN {col.BENEFICIALS} FILTER @slug IN b.preys_on RETURN b"
+        cursor = self._db.aql.execute(query, bind_vars={"slug": slug})
+        return [Beneficial(**self._from_doc(doc)) for doc in cursor]

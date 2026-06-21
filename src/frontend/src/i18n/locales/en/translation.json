@@ -450,7 +450,8 @@
       "confidenceLabel": "Match: {{value}} %",
       "feedbackConfirmAriaLabel": "Confirm finding as correct",
       "feedbackWrongAriaLabel": "Mark finding as incorrect",
-      "feedbackBeneficialAriaLabel": "Mark as beneficial insect"
+      "feedbackBeneficialAriaLabel": "Mark as beneficial insect",
+      "viewPestDetail": "More about this pest"
     },
     "plantIdentification": {
       "title": "AI Plant Recognition",
@@ -3647,6 +3648,39 @@
         "bloomLabel": "Bloom",
         "tasks": "Tasks"
       }
+    },
+    "pestDetail": {
+      "back": "Back to list",
+      "loadError": "The pest data could not be loaded.",
+      "notFound": "Pest not found.",
+      "sectionImages": "Images",
+      "noImages": "No reference images have been added for this pest yet.",
+      "imageAlt": "Reference image: {{name}}",
+      "sectionProfile": "Profile",
+      "damageSymptoms": "Damage symptoms",
+      "affectedParts": "Affected plant parts",
+      "hostPlants": "Typical host plants",
+      "tempRange": "Optimal temperature range",
+      "humidityRange": "Optimal humidity",
+      "sectionTreatments": "Countermeasures",
+      "treatmentsIntro": "Measures follow integrated pest management (IPM): preventive and gentle methods first, chemical agents last.",
+      "noTreatments": "No countermeasures have been added for this pest yet.",
+      "activeIngredient": "Active ingredient",
+      "karenzDays": "Pre-harvest interval: {{days}} days",
+      "sectionBeneficials": "Beneficial organisms",
+      "beneficialsIntro": "These beneficial organisms prey on the pest and help regulate the infestation naturally.",
+      "sectionPrevention": "Prevention & monitoring",
+      "preventionTips": "Prevention",
+      "monitoringHints": "Monitoring",
+      "severity": "Severity",
+      "pageIntro": "This pest profile summarises damage symptoms, lifecycle, countermeasures following the IPM hierarchy, and matching beneficial organisms.",
+      "sectionProfileIntro": "Identification features, affected plant parts, typical host plants, and the environmental conditions under which the pest thrives.",
+      "sectionImagesIntro": "Reference images help with identification. Curated images are added incrementally.",
+      "sectionBeneficialsIntro2": "Beneficial organisms are natural predators of the pest. Their use is the most gentle control method (biological / IPM tier 2).",
+      "sectionPreventionIntro": "Prevention is cheaper than control. Regular monitoring detects infestations early.",
+      "ipmTooltipHint": "IPM = Integrated Pest Management",
+      "karenzTooltipHint": "Pre-harvest interval = mandatory waiting time before harvest",
+      "beneficialScientificName": "Scientific name"
     }
   },
   "tankAlerts": {
@@ -4150,7 +4184,10 @@
       "insect": "Insect",
       "mite": "Mite",
       "nematode": "Nematode",
-      "mollusk": "Mollusk"
+      "mollusk": "Mollusk",
+      "arachnid": "Arachnid",
+      "gastropod": "Gastropod",
+      "mammal": "Mammal"
     },
     "pathogenType": {
       "fungal": "Fungal",
@@ -4361,6 +4398,18 @@
       "dormancy": "Dormancy",
       "early_flower": "Early Flower",
       "late_flower": "Late Flower"
+    },
+    "plantPart": {
+      "leaf": "Leaf",
+      "stem": "Stem",
+      "root": "Root",
+      "flower": "Flower",
+      "fruit": "Fruit"
+    },
+    "pestSeverity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     }
   },
   "sensorChart": {
@@ -4474,6 +4523,21 @@
       "long": "An adapter is the software layer that converts a plant photo into comparable numerical values (features). 'local_embedding' means: this happens on your own server using the DINOv2 model, without any external services.",
       "beginnerTip": "For most installations 'local_embedding' is the right choice.",
       "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrated Pest Management — prevention before chemicals",
+      "long": "Three-tier approach: 1) Prevent (healthy plants, hygiene), 2) Monitor (check regularly), 3) Intervene (beneficials before pesticides). Chemical agents are always the last resort.",
+      "beginnerTip": "Healthy plants get pests less often. Regular inspection is enough for starters."
+    },
+    "karenzzeit": {
+      "short": "Mandatory waiting time between last treatment and harvest",
+      "long": "After applying chemical plant protection products, a minimum period must pass before the harvest may be consumed. The duration is printed on the product label and required by law.",
+      "beginnerTip": "Never harvest when a pre-harvest interval is active. The system will warn you automatically."
+    },
+    "nuetzlinge": {
+      "short": "Natural enemies of pest organisms",
+      "long": "Beneficial organisms (e.g. ladybirds, lacewings, parasitic wasps, predatory mites) feed on or parasitise pests. Their deliberate use is biological pest control and protects people and the environment.",
+      "beginnerTip": "Ladybirds against aphids is the best-known example. In greenhouses, beneficials can be purchased and released."
     }
   }
 }

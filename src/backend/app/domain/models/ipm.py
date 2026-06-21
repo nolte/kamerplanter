@@ -8,6 +8,7 @@ from app.common.enums import (
     EfficacyRating,
     PathogenType,
     PestPressureLevel,
+    PestSeverity,
     PlantPart,
     TreatmentApplicationMethod,
     TreatmentType,
@@ -24,6 +25,20 @@ class Pest(BaseModel):
     optimal_temp_max: float | None = Field(default=None, ge=-10, le=60)
     detection_difficulty: str = Field(default="medium", max_length=50)
     description: str | None = None
+    # ── Detailseiten-Felder (REQ-010, additiv & abwärtskompatibel) ──
+    damage_symptoms: str | None = None
+    affected_plant_parts: list[PlantPart] = Field(default_factory=list)
+    host_plants: list[str] = Field(default_factory=list)
+    prevention_tips: str | None = None
+    monitoring_hints: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = Field(default=None, ge=0, le=100)
+    optimal_humidity_max: float | None = Field(default=None, ge=0, le=100)
+    # Brücke zur Erkennungs-Taxonomie (PestTaxon.slug, REQ-044) — verknüpft den
+    # Stammdatensatz mit der Bilderkennungs-Klasse (Symptom-Hint, Nützlings-Lookup).
+    detection_slug: str | None = Field(default=None, max_length=80)
+    # Kuratierte Referenzbilder (Object-Storage-Refs; Admin-gepflegt, NFR-013).
+    reference_image_refs: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

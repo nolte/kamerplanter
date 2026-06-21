@@ -9,6 +9,7 @@ import type {
   KarenzPeriod,
   Pest,
   PestCreate,
+  PestDetail,
   PestUpdate,
   Treatment,
   TreatmentApplication,
@@ -33,6 +34,11 @@ export async function listPests(
 
 export async function getPest(key: string): Promise<Pest> {
   const { data } = await globalClient.get<Pest>(`${BASE}/pests/${key}`);
+  return data;
+}
+
+export async function getPestDetail(key: string): Promise<PestDetail> {
+  const { data } = await globalClient.get<PestDetail>(`${BASE}/pests/${key}/detail`);
   return data;
 }
 

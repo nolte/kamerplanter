@@ -94,6 +94,7 @@ const WateringLogDetailPage = lazy(
 );
 // REQ-010 IPM
 const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
+const PestDetailPage = lazy(() => import('@/pages/pflanzenschutz/PestDetailPage'));
 const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPage'));
 const TreatmentListPage = lazy(
   () => import('@/pages/pflanzenschutz/TreatmentListPage'),
@@ -588,6 +589,14 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <PestListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="pflanzenschutz/pests/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PestDetailPage />
               </Suspense>
             }
           />

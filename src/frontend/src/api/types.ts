@@ -2247,6 +2247,8 @@ export type TreatmentType = 'cultural' | 'biological' | 'chemical' | 'mechanical
 export type IpmApplicationMethod = 'spray' | 'drench' | 'granular' | 'release' | 'cultural';
 export type DetectionDifficulty = 'easy' | 'medium' | 'hard';
 export type PressureLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+export type PestSeverity = 'low' | 'medium' | 'high';
+export type PlantPart = 'leaf' | 'stem' | 'root' | 'flower' | 'fruit';
 
 export interface Pest {
   key: string;
@@ -2258,6 +2260,16 @@ export interface Pest {
   optimal_temp_max: number | null;
   detection_difficulty: string;
   description: string | null;
+  damage_symptoms: string | null;
+  affected_plant_parts: PlantPart[];
+  host_plants: string[];
+  prevention_tips: string | null;
+  monitoring_hints: string | null;
+  severity: PestSeverity | null;
+  optimal_humidity_min: number | null;
+  optimal_humidity_max: number | null;
+  detection_slug: string | null;
+  reference_image_refs: string[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2271,6 +2283,16 @@ export interface PestCreate {
   optimal_temp_max?: number | null;
   detection_difficulty?: string;
   description?: string | null;
+  damage_symptoms?: string | null;
+  affected_plant_parts?: PlantPart[];
+  host_plants?: string[];
+  prevention_tips?: string | null;
+  monitoring_hints?: string | null;
+  severity?: PestSeverity | null;
+  optimal_humidity_min?: number | null;
+  optimal_humidity_max?: number | null;
+  detection_slug?: string | null;
+  reference_image_refs?: string[];
 }
 
 export interface PestUpdate {
@@ -2282,6 +2304,32 @@ export interface PestUpdate {
   optimal_temp_max?: number | null;
   detection_difficulty?: string;
   description?: string | null;
+  damage_symptoms?: string | null;
+  affected_plant_parts?: PlantPart[];
+  host_plants?: string[];
+  prevention_tips?: string | null;
+  monitoring_hints?: string | null;
+  severity?: PestSeverity | null;
+  optimal_humidity_min?: number | null;
+  optimal_humidity_max?: number | null;
+  detection_slug?: string | null;
+  reference_image_refs?: string[];
+}
+
+export interface Beneficial {
+  key: string;
+  slug: string;
+  common_name: string;
+  scientific_name: string;
+  description: string | null;
+  preys_on: string[];
+}
+
+export interface PestDetail {
+  pest: Pest;
+  treatments: Treatment[];
+  beneficials: Beneficial[];
+  detection_symptom_hint: string | null;
 }
 
 export interface Disease {

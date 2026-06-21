@@ -7,13 +7,14 @@ Kategorie: Schädlingsmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 1.1 (Karenz-Gate für detachte PlantInstances, ADR-001)
+Version: 1.2 (Schädlings-Detailseite + erweiterte Pest-Stammdaten)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-06-21 | **Schädlings-Detailseite:** `pests`-Stammdaten um Detailfelder erweitert (`damage_symptoms`, `affected_plant_parts`, `host_plants`, `prevention_tips`, `monitoring_hints`, `severity`, `optimal_humidity_min/max`, `reference_image_refs`) sowie `detection_slug` als Brücke zur Erkennungs-Taxonomie (REQ-044 `PestTaxon.slug`). Neuer aggregierter Endpoint `GET /ipm/pests/{key}/detail` (Stammdaten + Gegenmaßnahmen nach IPM-Hierarchie + passende Nützlinge + Schadbild-Hinweis). Frontend-Detailseite `pflanzenschutz/pests/:key`, verlinkt aus der Schädlings-Liste und dem Erkennungs-Dialog (REQ-044). Kuratierte Referenzbilder via Admin-Upload (Object-Storage, NFR-013); Galerie anfangs leer. Alle neuen Felder optional → abwärtskompatibel zu bestehenden Seeds. |
 | 1.1 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `to_plant`-Edge um Snapshot-Felder `inherited_from_run` + `inherited_at` erweitert. `SafetyIntervalValidator.collect_relevant_treatments()` ergänzt — sammelt direkte, run-aktive und geerbte Treatments und dedupliziert über `_key` (Re-attach-sicher). AQL-Lookup im Repository-Layer dokumentiert. |
 | 1.0 | (vorher) | Erstversion. |
 
@@ -40,6 +41,7 @@ Das System unterscheidet zwischen:
 ### Document Collections:
 - **`pests`** - Schädlingstyp (z.B. Spinnmilbe, Blattlaus, Thripse)
   - Felder: `scientific_name`, `common_name`, `lifecycle_days`, `optimal_temp_range`, `detection_difficulty`
+  - **Detailseiten-Felder (v1.2, alle optional):** `damage_symptoms` (Schadbild-Beschreibung), `affected_plant_parts` (`leaf`|`stem`|`root`|`flower`|`fruit`), `host_plants`, `prevention_tips`, `monitoring_hints`, `severity` (`low`|`medium`|`high`), `optimal_humidity_min`/`optimal_humidity_max`, `reference_image_refs` (kuratierte Referenzbilder als Object-Storage-Refs, NFR-013), `detection_slug` (Brücke zur REQ-044-Erkennungs-Taxonomie `PestTaxon.slug` — verknüpft den Stammdatensatz mit der Bilderkennungs-Klasse für Schadbild-Hinweis und Nützlings-Lookup)
 - **`diseases`** - Krankheitserreger (z.B. Echter Mehltau, Botrytis)
   - Felder: `pathogen_type: ['fungal', 'bacterial', 'viral']`, `incubation_period`, `environmental_triggers`
 - **`symptoms`** - Visuelles/physisches Anzeichen
@@ -796,6 +798,12 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Snapshot-Immutability (ADR-001 Frage 2):** Korrektur eines Run-Treatments (z.B. `applied_at` ändern) propagiert NICHT auf bestehende geerbte Edges. Anwender muss die geerbte Edge separat editieren.
 - [ ] **Migrations-Task (ADR-001 Frage 4):** Beim REQ-013-v2.0-Rollout läuft ein einmaliger Celery-Task, der für alle bestehenden detachten PlantInstances rückwirkend Snapshots erzeugt. Idempotent (mehrfacher Lauf erzeugt keine Duplikate).
 <!-- /Quelle: ADR-001 / W-009 -->
+<!-- Quelle: REQ-010 v1.2 — Schädlings-Detailseite -->
+- [ ] **Schädlings-Detailseite:** Eine eigene Seite (`pflanzenschutz/pests/:key`) zeigt pro Schädling Steckbrief (Schadbild, betroffene Pflanzenteile, Wirtspflanzen, Lebenszyklus, Temperatur-/Feuchtebereich, Schweregrad), kuratierte Referenzbilder (Galerie; sauberer Leer-Zustand wenn keine vorhanden), Gegenmaßnahmen nach IPM-Hierarchie gruppiert (kulturell → biologisch → mechanisch → chemisch, mit sichtbarer Karenzzeit) sowie passende Nützlinge.
+- [ ] **Aggregierter Endpoint:** `GET /ipm/pests/{key}/detail` liefert Stammdaten + nach IPM-Hierarchie sortierte Gegenmaßnahmen + Nützlinge (über `detection_slug` → `preys_on`) + Schadbild-Hinweis aus der REQ-044-Erkennungs-Taxonomie. 404 bei unbekanntem Schlüssel.
+- [ ] **Verlinkung:** Schädlings-Liste (Zeilen-Klick, Desktop + Mobile) und der REQ-044-Erkennungs-Dialog (Link „Mehr über diesen Schädling" via `matched_pest_key`) führen auf die Detailseite.
+- [ ] **Abwärtskompatibilität:** Alle neuen `pests`-Felder sind optional; bestehende Seeds ohne Detailfelder bleiben gültig und die Detailseite blendet leere Abschnitte aus.
+<!-- /Quelle: REQ-010 v1.2 -->
 
 ### Testszenarien:
 

@@ -450,7 +450,8 @@
       "confidenceLabel": "Übereinstimmung: {{value}} %",
       "feedbackConfirmAriaLabel": "Fund als korrekt bestätigen",
       "feedbackWrongAriaLabel": "Fund als falsch markieren",
-      "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen"
+      "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen",
+      "viewPestDetail": "Mehr über diesen Schädling"
     },
     "plantIdentification": {
       "title": "KI-Pflanzenerkennung",
@@ -3648,6 +3649,39 @@
         "bloomLabel": "Blüte",
         "tasks": "Aufgaben"
       }
+    },
+    "pestDetail": {
+      "back": "Zurück zur Liste",
+      "loadError": "Die Schädlingsdaten konnten nicht geladen werden.",
+      "notFound": "Schädling nicht gefunden.",
+      "sectionImages": "Bilder",
+      "noImages": "Für diesen Schädling sind noch keine Referenzbilder hinterlegt.",
+      "imageAlt": "Referenzbild: {{name}}",
+      "sectionProfile": "Steckbrief",
+      "damageSymptoms": "Schadbild",
+      "affectedParts": "Betroffene Pflanzenteile",
+      "hostPlants": "Typische Wirtspflanzen",
+      "tempRange": "Optimaler Temperaturbereich",
+      "humidityRange": "Optimale Luftfeuchte",
+      "sectionTreatments": "Gegenmaßnahmen",
+      "treatmentsIntro": "Maßnahmen nach dem integrierten Pflanzenschutz (IPM): vorbeugende und schonende Verfahren zuerst, chemische Mittel zuletzt.",
+      "noTreatments": "Für diesen Schädling sind noch keine Gegenmaßnahmen hinterlegt.",
+      "activeIngredient": "Wirkstoff",
+      "karenzDays": "Karenzzeit: {{days}} Tage",
+      "sectionBeneficials": "Nützlinge",
+      "beneficialsIntro": "Diese Nützlinge fressen den Schädling und helfen, den Befall natürlich zu regulieren.",
+      "sectionPrevention": "Vorbeugung & Monitoring",
+      "preventionTips": "Vorbeugung",
+      "monitoringHints": "Monitoring",
+      "severity": "Schadpotenzial",
+      "pageIntro": "Dieser Schädlingssteckbrief fasst Schadbild, Lebenszyklus, Gegenmassnahmen nach IPM-Hierarchie und passende Nützlinge zusammen.",
+      "sectionProfileIntro": "Erkennungsmerkmale, betroffene Pflanzenteile, typische Wirtspflanzen und Umgebungsbedingungen, unter denen sich der Schädling wohlfühlt.",
+      "sectionImagesIntro": "Referenzbilder helfen bei der Bestimmung. Kuratierte Bilder werden schrittweise ergänzt.",
+      "sectionBeneficialsIntro2": "Nützlinge sind natürliche Fressfeinde des Schädlings. Ihr Einsatz ist die schonendste Bekämpfungsmethode (biologisch/IPM-Stufe 2).",
+      "sectionPreventionIntro": "Vorbeugung ist günstiger als Bekämpfung. Regelmässiges Monitoring erkennt Befälle früh.",
+      "ipmTooltipHint": "IPM = Integrierter Pflanzenschutz",
+      "karenzTooltipHint": "Karenzzeit = Sicherheitsabstand bis zur Ernte",
+      "beneficialScientificName": "Wissenschaftlicher Name"
     }
   },
   "tankAlerts": {
@@ -4151,7 +4185,10 @@
       "insect": "Insekt",
       "mite": "Milbe",
       "nematode": "Nematode",
-      "mollusk": "Weichtier"
+      "mollusk": "Weichtier",
+      "arachnid": "Spinnentier",
+      "gastropod": "Schnecke",
+      "mammal": "Säugetier"
     },
     "pathogenType": {
       "fungal": "Pilzlich",
@@ -4362,6 +4399,18 @@
       "dormancy": "Ruhephase",
       "early_flower": "Frühblüte",
       "late_flower": "Spätblüte"
+    },
+    "plantPart": {
+      "leaf": "Blatt",
+      "stem": "Stängel",
+      "root": "Wurzel",
+      "flower": "Blüte",
+      "fruit": "Frucht"
+    },
+    "pestSeverity": {
+      "low": "Gering",
+      "medium": "Mittel",
+      "high": "Hoch"
     }
   },
   "sensorChart": {
@@ -4475,6 +4524,21 @@
       "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf Ihrem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
       "beginnerTip": "Für die meisten Installationen ist 'local_embedding' die richtige Wahl.",
       "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrierter Pflanzenschutz — Vorbeugung vor Chemie",
+      "long": "Dreistufiger Ansatz: 1) Vorbeugen (gesunde Pflanzen, Hygiene), 2) Beobachten (regelmässig kontrollieren), 3) Eingreifen (Nützlinge vor Spritzmitteln). Chemische Mittel sind immer der letzte Schritt.",
+      "beginnerTip": "Gesunde Pflanzen werden seltener krank. Regelmässig nach Schädlingen schauen reicht für den Anfang."
+    },
+    "karenzzeit": {
+      "short": "Sicherheitsabstand zwischen letzter Behandlung und Ernte",
+      "long": "Nach dem Einsatz chemischer Pflanzenschutzmittel muss eine Mindestzeit vergehen, bevor die Ernte verzehrt werden darf. Die Dauer steht auf dem Produktetikett und ist gesetzlich vorgeschrieben.",
+      "beginnerTip": "Nie ernten, wenn eine Karenzzeit läuft. Das System warnt dich automatisch."
+    },
+    "nuetzlinge": {
+      "short": "Natürliche Fressfeinde von Schädlingen",
+      "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
+      "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
     }
   }
 }

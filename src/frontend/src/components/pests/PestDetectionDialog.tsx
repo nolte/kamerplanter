@@ -1,5 +1,6 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -45,6 +46,7 @@ interface PestDetectionDialogProps {
  */
 export default function PestDetectionDialog({ open, onClose, plantKey }: PestDetectionDialogProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { level } = useExpertiseLevel();
   const status = useAppSelector((s) => s.pestDetection.status);
@@ -111,6 +113,14 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
       dispatch(fetchPestDetectionHistory({ plantKey }));
     }
   }, [dispatch, result, plantKey]);
+
+  const handleViewPest = useCallback(
+    (pestKey: string) => {
+      handleClose();
+      navigate(`/pflanzenschutz/pests/${pestKey}`);
+    },
+    [handleClose, navigate],
+  );
 
   const directFindings = useMemo(
     () => (result?.findings ?? []).filter((f) => f.bounding_box != null),
@@ -310,6 +320,17 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
                             {t('pages.pests.confidence')}: {Math.round(f.confidence * 100)}&nbsp;%
                           </Typography>
                         </Stack>
+                        {f.matched_pest_key && (
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => handleViewPest(f.matched_pest_key as string)}
+                            data-testid="pest-finding-detail-link"
+                            sx={{ px: 0, mb: f.category !== 'beneficial' ? 1 : 0 }}
+                          >
+                            {t('pages.pests.viewPestDetail')}
+                          </Button>
+                        )}
                         {f.category !== 'beneficial' && (
                           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                             <Button

@@ -7,6 +7,25 @@ pests:
     optimal_temp_min: 25.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    detection_slug: spider_mite
+    severity: high
+    optimal_humidity_min: 30.0
+    optimal_humidity_max: 50.0
+    damage_symptoms: >-
+      Helle Sprenkelung (Sprenkelflecken) auf der Blattoberseite, feine Gespinste
+      an Blattunterseite und Triebspitzen, später Bronzefärbung und Blattfall.
+      Der Befall eskaliert schnell bei trocken-warmer Luft.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Zimmerpflanzen (Ficus, Dieffenbachia)
+      - Gemüse (Gurke, Tomate, Bohne)
+      - Zierpflanzen
+    prevention_tips: >-
+      Luftfeuchte über 50 % halten, Pflanzen regelmäßig abduschen, Neuzugänge in
+      Quarantäne kontrollieren und Trockenstress vermeiden.
+    monitoring_hints: >-
+      Blattunterseiten mit der Lupe auf bewegliche Punkte und Gespinste prüfen,
+      Klopfprobe über weißem Papier, erste Sprenkel früh erkennen.
 
   - scientific_name: Aphis gossypii
     common_name: Aphids
@@ -15,6 +34,26 @@ pests:
     optimal_temp_min: 20.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    detection_slug: aphid
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      Klebriger Honigtau auf den Blättern mit nachfolgendem schwarzem Rußtau,
+      gekräuselte und deformierte Triebspitzen, sichtbare Kolonien und weiße
+      Häutungshüllen. Blattläuse übertragen zudem Pflanzenviren.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - nahezu alle Zier- und Nutzpflanzen
+      - Paprika
+      - Gurke
+      - Rosen
+    prevention_tips: >-
+      Stickstoff-Überdüngung vermeiden, Nützlinge fördern, Neuzugänge
+      kontrollieren und Gelbtafeln zur Frühwarnung aushängen.
+    monitoring_hints: >-
+      Triebspitzen und Knospen auf Kolonien prüfen, Gelbtafeln zur
+      Flugüberwachung nutzen und auf Ameisen achten, die Läuse „melken".
 
   - scientific_name: Frankliniella occidentalis
     common_name: Thrips
@@ -23,6 +62,26 @@ pests:
     optimal_temp_min: 20.0
     optimal_temp_max: 28.0
     detection_difficulty: hard
+    detection_slug: thrips_frankliniella
+    severity: high
+    optimal_humidity_min: 40.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      Silbrig-graue Saugflecken mit schwarzen Kotpünktchen auf den Blättern,
+      deformierte und verkrüppelte Blätter und Blüten. Überträgt Tospoviren
+      (z. B. das Tomatenbronzefleckenvirus, TSWV).
+    affected_plant_parts: [leaf, flower]
+    host_plants:
+      - Zierpflanzen
+      - Paprika
+      - Gurke
+      - Zimmerpflanzen
+    prevention_tips: >-
+      Blaue Klebetafeln vorbeugend aushängen, Neuzugänge in Quarantäne halten
+      und Unkraut als Wirtspflanze entfernen.
+    monitoring_hints: >-
+      Blaue Klebetafeln auswerten, Blüten über weißem Papier ausschütteln und
+      die Blattoberseite auf Saugflecken prüfen.
 
   - scientific_name: Bradysia spp.
     common_name: Fungus Gnats
@@ -31,6 +90,25 @@ pests:
     optimal_temp_min: 20.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    detection_slug: fungus_gnat
+    severity: medium
+    optimal_humidity_min: 60.0
+    optimal_humidity_max: 90.0
+    damage_symptoms: >-
+      Kleine schwarze Mücken laufen und fliegen über dem Substrat; weiße Larven
+      mit schwarzem Kopf fressen im Wurzelbereich feine Wurzeln und die
+      Stängelbasis — besonders kritisch bei Jungpflanzen und Stecklingen.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Jungpflanzen
+      - Stecklinge
+      - Zimmerpflanzen in dauerfeuchtem Substrat
+    prevention_tips: >-
+      Substratoberfläche zwischen den Wassergaben abtrocknen lassen, nicht
+      überwässern, mineralische Abdeckung aufbringen und Gelbtafeln auslegen.
+    monitoring_hints: >-
+      Gelbtafeln flach auf das Substrat legen, Kartoffelscheiben-Test für Larven
+      und adulte Mücken beim Gießen aufscheuchen.
 
   - scientific_name: Trialeurodes vaporariorum
     common_name: Whitefly
@@ -39,6 +117,26 @@ pests:
     optimal_temp_min: 22.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    detection_slug: whitefly
+    severity: medium
+    optimal_humidity_min: 60.0
+    optimal_humidity_max: 80.0
+    damage_symptoms: >-
+      Beim Berühren steigen weiße Fliegen in einer Wolke auf; Larven und Puppen
+      sitzen an der Blattunterseite. Honigtau und Rußtau, Vergilbung und
+      Schwächung der Pflanze. Die Weiße Fliege überträgt Viren.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Tomate
+      - Gurke
+      - Paprika
+      - Zierpflanzen (Fuchsie, Pelargonie)
+    prevention_tips: >-
+      Gelbtafeln aushängen, Neuzugänge kontrollieren und Schlupfwespen
+      (Encarsia formosa) frühzeitig einsetzen.
+    monitoring_hints: >-
+      Gelbtafeln zur Flugüberwachung nutzen, Blattunterseiten auf Larven und
+      Puppen prüfen und Pflanzen zum Aufscheuchen leicht schütteln.
 
   - scientific_name: Trichoplusia ni
     common_name: Caterpillar
@@ -55,6 +153,26 @@ pests:
     optimal_temp_min: 22.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    detection_slug: mealybug
+    severity: high
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      Weiße, wattige Wachsausscheidungen in Blattachseln, an Trieben und
+      Blattunterseiten; Honigtau und Rußtau, Wuchsstörungen und Vergilbung.
+      Durch den Wachsschutz schwer zu bekämpfen.
+    affected_plant_parts: [leaf, stem, root]
+    host_plants:
+      - Kakteen und Sukkulenten
+      - Orchideen
+      - Ficus
+      - Zitruspflanzen
+    prevention_tips: >-
+      Neuzugänge gründlich kontrollieren und in Quarantäne halten, nicht zu warm
+      und trocken überwintern und Blattachseln regelmäßig prüfen.
+    monitoring_hints: >-
+      Blattachseln und Triebgrund mit der Lupe absuchen, auf weiße Watte und
+      klebrige Stellen achten und Wurzelhals sowie Topfrand kontrollieren.
 
   - scientific_name: Coccoidea (Überfamilie)
     common_name: Scale Insects
@@ -919,6 +1037,11 @@ treatments:
       birds). Monitoring and mass-trapping function.
 
 pest_treatments:
+  # Cultural-tier coverage for the detail page (main indoor pests) so the
+  # IPM hierarchy (cultural → biological → mechanical → chemical) is complete.
+  - [Environmental Control, Spider Mites]
+  - [Environmental Control, Fungus Gnats]
+
   # Existing mappings
   - [Phytoseiulus persimilis, Spider Mites]
   - [Pyrethrin, Spider Mites]
