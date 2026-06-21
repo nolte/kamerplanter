@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -133,6 +133,15 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
     }
   }, [status]);
 
+  // Derive a live-region message that only changes on meaningful state transitions
+  // so screen readers are not flooded on every 5 s polling tick (UI-NFR-002 R-011).
+  const liveMessage = useMemo(() => {
+    if (loading) return t('pages.admin.pestRecognition.loading');
+    if (startError) return t('pages.admin.pestRecognition.acquireError');
+    if (polling) return t('pages.admin.pestRecognition.acquireRunningAriaLabel');
+    return '';
+  }, [loading, startError, polling, t]);
+
   return (
     <Card variant="outlined" sx={{ gridColumn }} data-testid="pest-recognition-admin-card">
       <CardContent sx={{ px: 2, pt: 2, '&:last-child': { pb: 2 } }}>
@@ -144,8 +153,22 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
           {t('pages.admin.pestRecognition.sectionHelper')}
         </Typography>
 
+        {/* ARIA live region — announces job-state transitions to screen readers (UI-NFR-002 R-011). */}
+        <Box
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+        >
+          {liveMessage}
+        </Box>
+
         {loading && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }} aria-busy="true">
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+            aria-busy="true"
+            aria-label={t('pages.admin.pestRecognition.loading')}
+          >
             <Skeleton variant="rounded" height={28} width={180} />
             <Skeleton variant="text" />
             <Skeleton variant="text" width="60%" />
@@ -166,12 +189,15 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
 
         {!loading && !failed && status?.feature_enabled && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-testid="pest-recognition-details">
+            {/* Status chips — color + icon + explicit aria-label; info is never conveyed
+                through colour alone (UI-NFR-002 R-018). */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               <Chip
                 size="small"
                 color="success"
                 icon={<CheckCircleIcon aria-hidden="true" />}
                 label={t('pages.admin.pestRecognition.chipActive')}
+                aria-label={t('pages.admin.pestRecognition.chipActiveAriaLabel')}
               />
               {status.service_ready ? (
                 <Chip
@@ -179,6 +205,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                   color="success"
                   icon={<CheckCircleIcon aria-hidden="true" />}
                   label={t('pages.admin.pestRecognition.chipServiceReady')}
+                  aria-label={t('pages.admin.pestRecognition.chipServiceReadyAriaLabel')}
                   data-testid="pest-recognition-chip-ready"
                 />
               ) : (
@@ -187,6 +214,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                   color="warning"
                   icon={<WarningAmberIcon aria-hidden="true" />}
                   label={t('pages.admin.pestRecognition.chipServiceUnreachable')}
+                  aria-label={t('pages.admin.pestRecognition.chipServiceUnreachableAriaLabel')}
                   data-testid="pest-recognition-chip-unreachable"
                 />
               )}
@@ -195,6 +223,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                 variant="outlined"
                 icon={<BugReportIcon aria-hidden="true" />}
                 label={t('pages.admin.pestRecognition.chipIndexCount', { count: status.index_count })}
+                aria-label={t('pages.admin.pestRecognition.chipIndexCountAriaLabel', { count: status.index_count })}
                 data-testid="pest-recognition-chip-count"
               />
             </Box>
@@ -211,7 +240,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                 size="small"
                 startIcon={
                   starting || polling ? (
-                    <CircularProgress size={16} color="inherit" />
+                    <CircularProgress size={16} color="inherit" aria-label={t('pages.admin.pestRecognition.acquireRunning')} />
                   ) : (
                     <PlayArrowIcon aria-hidden="true" />
                   )
@@ -219,6 +248,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                 onClick={handleStart}
                 disabled={starting || polling || !status.service_ready}
                 aria-busy={starting || polling}
+                aria-describedby="pest-acquire-hint"
                 sx={{ minHeight: 44 }}
                 data-testid="pest-recognition-acquire-button"
               >
@@ -226,7 +256,12 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                   ? t('pages.admin.pestRecognition.acquireRunning')
                   : t('pages.admin.pestRecognition.acquireStart')}
               </Button>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography
+                id="pest-acquire-hint"
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
                 {t('pages.admin.pestRecognition.acquireHint')}
               </Typography>
               {startError && (
@@ -276,6 +311,19 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
     [entry.label, images],
   );
 
+  // Explicit usable status text for screen readers — never conveyed by colour alone (UI-NFR-002 R-018).
+  const usableAriaLabel = entry.usable
+    ? t('pages.admin.pestRecognition.classUsableAriaLabel', {
+        name: entry.common_name,
+        active: entry.active,
+        target: entry.target,
+      })
+    : t('pages.admin.pestRecognition.classNotUsableAriaLabel', {
+        name: entry.common_name,
+        active: entry.active,
+        target: entry.target,
+      });
+
   return (
     <Accordion
       disableGutters
@@ -285,7 +333,13 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
       data-testid={`pest-class-${entry.label}`}
       sx={{ '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}
     >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
+      {/* aria-label on AccordionSummary gives screen readers a meaningful name for the
+          expand button instead of the raw button-role with no label (UI-NFR-002 R-007). */}
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        aria-label={t('pages.admin.pestRecognition.classExpandAriaLabel', { name: entry.common_name })}
+        sx={{ px: 0 }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: '100%', pr: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1, minWidth: 120 }}>
             {entry.common_name}
@@ -296,29 +350,52 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
             label={t(`enums.pestCategory.${entry.category}`)}
             color={entry.category === 'beneficial' ? 'success' : 'default'}
           />
+          {/* Count text: visible colour cue + screen-reader accessible aria-label
+              so the active/target ratio is never status-by-colour only. */}
           <Typography
             variant="caption"
             color={entry.usable ? 'success.main' : 'text.secondary'}
+            aria-label={usableAriaLabel}
             data-testid={`pest-class-count-${entry.label}`}
           >
             {entry.active}/{entry.target}
           </Typography>
           {entry.usable ? (
-            <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} aria-hidden="true" />
+            <CheckCircleIcon
+              sx={{ fontSize: 16, color: 'success.main' }}
+              aria-label={t('pages.admin.pestRecognition.usableLabel')}
+            />
           ) : (
-            <WarningAmberIcon sx={{ fontSize: 16, color: 'text.disabled' }} aria-hidden="true" />
+            <WarningAmberIcon
+              sx={{ fontSize: 16, color: 'text.disabled' }}
+              aria-label={t('pages.admin.pestRecognition.notUsableLabel')}
+            />
           )}
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ px: 0 }}>
-        {loadingImages && <Skeleton variant="rounded" height={80} />}
+        {loadingImages && (
+          <Skeleton
+            variant="rounded"
+            height={80}
+            aria-label={t('pages.admin.pestRecognition.galleryLoading')}
+          />
+        )}
         {!loadingImages && images != null && images.length === 0 && (
           <Typography variant="body2" color="text.secondary" data-testid={`pest-class-empty-${entry.label}`}>
             {t('pages.admin.pestRecognition.galleryEmpty')}
           </Typography>
         )}
         {!loadingImages && images != null && images.length > 0 && (
-          <ImageList cols={3} gap={6} sx={{ m: 0 }} data-testid={`pest-class-gallery-${entry.label}`}>
+          // Responsive columns: 2 on mobile (xs), 3 on tablet+ (sm+).
+          // 2 columns on xs gives larger tap targets (~48 % of card width each)
+          // which comfortably exceeds the 44 px minimum (UI-NFR-001 R-004).
+          <ImageList
+            cols={3}
+            gap={6}
+            sx={{ m: 0, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' } }}
+            data-testid={`pest-class-gallery-${entry.label}`}
+          >
             {images.map((img) => (
               <ImageListItem key={img.id} data-testid="pest-reference-image">
                 <img
@@ -326,7 +403,7 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
                   alt={t('pages.admin.pestRecognition.imageAlt', { name: entry.common_name })}
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  style={{ borderRadius: 4, aspectRatio: '1 / 1', objectFit: 'cover' }}
+                  style={{ borderRadius: 4, aspectRatio: '1 / 1', objectFit: 'cover', width: '100%' }}
                 />
                 <ImageListItemBar
                   subtitle={buildCaption(img)}
