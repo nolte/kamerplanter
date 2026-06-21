@@ -18,6 +18,7 @@ ArangoDB. Coverage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -419,6 +420,93 @@ class TestSetPromotion:
     def test_promote_unknown_returns_none(self):
         service, _repo, _attachments, _ipm = _service()
         assert service.set_promotion(contribution_key="missing", promote=True, admin_user_key="a") is None
+
+
+class TestPromotionRecognitionHook:
+    """REQ-010 P2 — the promotion transition dispatches the index/retract task.
+
+    The hook is feature-flagged (``pest_detection_enabled``) and only fires on a
+    real status transition. We patch ``settings`` + the task module's ``.delay``
+    so no broker / inference service is touched.
+    """
+
+    @pytest.mark.asyncio
+    async def test_promote_dispatches_index_task(self, monkeypatch):
+        import app.tasks.pest_image_tasks as task_mod
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        index_delay = MagicMock()
+        retract_delay = MagicMock()
+        monkeypatch.setattr(task_mod.index_promoted_pest_image_task, "delay", index_delay)
+        monkeypatch.setattr(task_mod.retract_promoted_pest_image_task, "delay", retract_delay)
+
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+
+        index_delay.assert_called_once_with(key)
+        retract_delay.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_demote_dispatches_retract_task(self, monkeypatch):
+        import app.tasks.pest_image_tasks as task_mod
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        index_delay = MagicMock()
+        retract_delay = MagicMock()
+        monkeypatch.setattr(task_mod.index_promoted_pest_image_task, "delay", index_delay)
+        monkeypatch.setattr(task_mod.retract_promoted_pest_image_task, "delay", retract_delay)
+
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+        index_delay.reset_mock()
+
+        service.set_promotion(contribution_key=key, promote=False, admin_user_key="admin1")
+
+        retract_delay.assert_called_once_with(key)
+        index_delay.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_feature_flag_off_does_not_dispatch(self, monkeypatch):
+        import app.tasks.pest_image_tasks as task_mod
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", False)
+        index_delay = MagicMock()
+        monkeypatch.setattr(task_mod.index_promoted_pest_image_task, "delay", index_delay)
+
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+
+        index_delay.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_idempotent_promote_does_not_redispatch(self, monkeypatch):
+        import app.tasks.pest_image_tasks as task_mod
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        index_delay = MagicMock()
+        monkeypatch.setattr(task_mod.index_promoted_pest_image_task, "delay", index_delay)
+
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+        # A second promote is a no-op transition → no re-dispatch.
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin2")
+
+        index_delay.assert_called_once_with(key)
 
 
 class TestResolvePromotedContent:

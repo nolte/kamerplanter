@@ -109,8 +109,9 @@ class PestDetectionInferenceClient:
     ) -> dict[str, Any]:
         """Index one few-shot prototype (the service embeds the image).
 
-        Used by the dataset-acquisition pipeline (WP-3 cold start). Only the
-        embedding + provenance are stored service-side; no image is persisted.
+        Used by the dataset-acquisition pipeline (WP-3 cold start) and the
+        REQ-010 promotion hook. Only the embedding + provenance are stored
+        service-side; no image is persisted.
         """
         data = {
             "label": label,
@@ -133,3 +134,31 @@ class PestDetectionInferenceClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def retract_prototype(self, *, label: str, source: str, source_record_id: str) -> int:
+        """Deactivate every prototype matching a provenance (idempotent).
+
+        The inference-service offers no "delete-one-by-provenance" route, so the
+        retract is expressed via the curation primitive: list the class's
+        prototypes, match those whose ``source`` + ``source_record_id`` identify
+        the retracted contribution, and deactivate each via
+        :meth:`set_prototype_active` (``is_active=False``) — which is exactly the
+        curation gate a demoted user image must fall back behind. Returns the
+        number of prototypes deactivated (``0`` when none matched, e.g. the
+        upsert never reached the index or was already deactivated).
+        """
+        listing = self.list_prototypes(label)
+        deactivated = 0
+        for proto in listing.get("images", []):
+            if proto.get("source") != source or proto.get("source_record_id") != source_record_id:
+                continue
+            if not proto.get("is_active", True):
+                continue
+            self.set_prototype_active(
+                label,
+                int(proto["id"]),
+                is_active=False,
+                reason="contribution_demoted",
+            )
+            deactivated += 1
+        return deactivated

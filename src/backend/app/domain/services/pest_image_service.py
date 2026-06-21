@@ -233,22 +233,46 @@ class PestImageService:
         return self._to_view(updated, self._resolve_mime(updated.attachment_id, updated.tenant_key), is_own=False)
 
     def _on_promotion_changed(self, contribution: PestImageContribution, *, promoted: bool) -> None:
-        """Hook for the Phase-2 recognition wiring (REQ-010 P2 recognition).
+        """Recognition-index wiring for a promotion transition (REQ-010 P2).
 
         When a contribution is promoted it becomes globally visible and is a
         candidate reference image for the few-shot pest-recognition index
-        (REQ-029-A / inference-service ``/pest/*`` + pgvector embeddings); when
-        demoted it must be retracted from that index. The embedding/inference
-        anschluss is intentionally out of scope here — this method is the single,
-        clearly-named seam to add ``celery.send_task(...)`` / an
-        ``IPestRecognitionIndex`` call without touching promotion logic.
+        (REQ-029-A / inference-service ``/pest/reference`` + pgvector
+        embeddings); when demoted it must be retracted from that index.
 
-        TODO(REQ-010 P2 recognition): enqueue index upsert on promote / index
-        retract on demote, keyed by ``contribution.attachment_id`` +
-        ``contribution.pest_key``.
+        The actual indexing runs **async** in a Celery task so the admin
+        promotion response is never blocked and a recognition-service hiccup can
+        never fail the moderation request — only the embedding + provenance are
+        stored service-side (no pixel persists, REQ-044 §8). Default-Privacy:
+        nothing is dispatched while ``pest_detection_enabled`` is off; the task
+        re-checks the flag too, so this gate is belt-and-suspenders.
         """
+        from app.config.settings import settings
+
+        if not settings.pest_detection_enabled:
+            logger.info(
+                "pest_image_recognition_hook_skipped",
+                contribution_id=contribution.key,
+                pest_key=contribution.pest_key,
+                action="index_upsert" if promoted else "index_retract",
+                reason="pest_detection_disabled",
+            )
+            return
+
+        if contribution.key is None:
+            return
+
+        # Imported lazily to keep the service free of a hard Celery dependency
+        # (tests construct the service with in-memory doubles only).
+        from app.tasks.pest_image_tasks import (
+            index_promoted_pest_image_task,
+            retract_promoted_pest_image_task,
+        )
+
+        task = index_promoted_pest_image_task if promoted else retract_promoted_pest_image_task
+        task.delay(contribution.key)
         logger.info(
-            "pest_image_recognition_hook_pending",
+            "pest_image_recognition_hook_dispatched",
             contribution_id=contribution.key,
             pest_key=contribution.pest_key,
             attachment_id=contribution.attachment_id,

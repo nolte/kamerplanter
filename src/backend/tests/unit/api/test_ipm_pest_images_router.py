@@ -38,18 +38,22 @@ def _view(
     mime: str = "image/jpeg",
     renderable: bool = True,
     caption: str | None = "hi",
+    is_own: bool = True,
+    tenant_key: str = "t1",
+    contributed_by: str = "u1",
+    status: PestImageStatus = PestImageStatus.PRIVATE,
 ) -> PestImageView:
     contribution = PestImageContribution(
         _key=key,
-        tenant_key="t1",
+        tenant_key=tenant_key,
         pest_key=pest_key,
         attachment_id=attachment_id,
-        contributed_by="u1",
+        contributed_by=contributed_by,
         caption=caption,
-        status=PestImageStatus.PRIVATE,
+        status=status,
         created_at=datetime.now(UTC),
     )
-    return PestImageView(contribution=contribution, mime_type=mime, has_thumbnail=renderable)
+    return PestImageView(contribution=contribution, mime_type=mime, has_thumbnail=renderable, is_own=is_own)
 
 
 class _FakeService:
@@ -90,6 +94,33 @@ class TestResponseMapping:
         resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
 
         assert resp[0].thumbnail_uri is None
+
+    def test_own_contribution_exposes_contributor(self):
+        """SEC-002 — the caller's own contribution keeps ``contributed_by`` set."""
+        service = _FakeService(list_views=[_view(is_own=True, contributed_by="u1")])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert resp[0].is_own is True
+        assert resp[0].contributed_by == "u1"
+
+    def test_foreign_promoted_contribution_hides_contributor(self):
+        """SEC-002 — a foreign promoted image must not disclose the contributor (PII)."""
+        foreign = _view(
+            key="pic-foreign",
+            is_own=False,
+            tenant_key="t-other",
+            contributed_by="u-other",
+            status=PestImageStatus.PROMOTED,
+        )
+        service = _FakeService(list_views=[foreign])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert resp[0].is_own is False
+        assert resp[0].contributed_by is None
+        # The global content URI is still returned so the image renders.
+        assert resp[0].uri == "/api/v1/ipm/pest-images/pic-foreign"
 
 
 class TestDelete:

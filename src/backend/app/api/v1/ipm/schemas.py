@@ -310,6 +310,10 @@ class PestImageResponse(BaseModel):
     thumbnail_uri: str | None = None
     status: PestImageStatus
     caption: str | None = None
-    contributed_by: str
+    # SEC-002 — only set for the caller's own contributions (``is_own=True``).
+    # For foreign promoted images it is ``None``: a contributor's identity is PII
+    # and must not be disclosed to other tenants' members. Full provenance stays
+    # in the platform-admin moderation response.
+    contributed_by: str | None = None
     created_at: datetime | None = None
     is_own: bool

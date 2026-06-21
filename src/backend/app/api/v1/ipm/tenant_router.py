@@ -86,7 +86,11 @@ def _pest_image_response(view: PestImageView, tenant_slug: str) -> PestImageResp
         thumbnail_uri=thumbnail_uri,
         status=contribution.status,
         caption=contribution.caption,
-        contributed_by=contribution.contributed_by,
+        # SEC-002 — never disclose a *foreign* contributor's identity to normal
+        # tenant members. ``contributed_by`` is PII; for promoted images of
+        # other tenants (``is_own=False``) the full provenance stays behind the
+        # platform-admin moderation endpoint (``PestContributionModerationItem``).
+        contributed_by=contribution.contributed_by if view.is_own else None,
         created_at=contribution.created_at,
         is_own=view.is_own,
     )

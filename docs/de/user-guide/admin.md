@@ -378,6 +378,24 @@ Als Platform-Admin kannst du einzelne Referenzbilder nach einem **Sichttest abw�
 
 ---
 
+## Nutzer-Schädlingsbilder freigeben (Moderation)
+
+Nutzer können in der [Schädlings-Detailseite](pest-detail.md) eigene Fotos zu einem Schädling beitragen. Diese Bilder sind zunächst **privat** (nur für den jeweiligen Garten/Mandanten sichtbar). Als Platform-Admin kannst du besonders gute Aufnahmen **global freigeben**.
+
+Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schädlingsbilder"**:
+
+1. Wähle den betreffenden Schädling aus.
+2. Du siehst alle beigesteuerten Bilder **aller Mandanten** mit Vorschau, Herkunft (Nutzer/Mandant/Datum) und Status (privat/global).
+3. Mit **Freigeben** wird ein Bild auf `global` gesetzt — es ist dann für alle Nutzer in der Galerie sichtbar (über einen globalen, schreibgeschützten Auslieferungspfad, der ausschließlich freigegebene Bilder bereitstellt). **Zurücknehmen** macht die Freigabe rückgängig (mit Bestätigung).
+
+!!! note "Wirkung auf die KI-Erkennung"
+    Wenn die [Schädlingserkennung](#schaedlingserkennung-aktivieren) aktiv ist (`PEST_DETECTION_ENABLED=true`), wird ein freigegebenes Bild zusätzlich als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index aufgenommen — sofern der Schädling eine Erkennungsklasse (`detection_slug`) hat. Es wird nur das Embedding samt Herkunft gespeichert, **kein Originalbild**. Das Zurücknehmen deaktiviert die Referenz wieder.
+
+!!! warning "Datenschutz"
+    Beigesteuerte Bilder werden beim Löschen eines Nutzers oder Mandanten vollständig entfernt (Dokument **und** Bilddatei). Standortdaten (EXIF) werden bereits beim Hochladen entfernt.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Wer kann die Plattform-Admin-Rolle vergeben?"

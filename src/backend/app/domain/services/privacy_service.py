@@ -1,7 +1,10 @@
 """Service orchestrator for REQ-025 privacy & data subject rights."""
 
+from __future__ import annotations
+
 import secrets
 from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -25,6 +28,7 @@ from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
+from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
@@ -48,6 +52,9 @@ from app.domain.models.privacy import (
     RightInfo,
 )
 from app.domain.models.user import User
+
+if TYPE_CHECKING:
+    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
 logger = structlog.get_logger()
 
@@ -101,6 +108,8 @@ class PrivacyService:
         membership_repo: IMembershipRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
+        ipm_repo: IIpmRepository | None = None,
+        pest_inference_client: PestDetectionInferenceClient | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -129,6 +138,13 @@ class PrivacyService:
         # the object-storage sweep; their bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage rule, this repo drops the docs.
         self._pest_image_repo = pest_image_repo
+        # SEC-001 — a promoted contribution also has a DINOv2 embedding in the
+        # recognition index (``source="user_contributed"``). It must be retracted
+        # before the link documents are dropped (the label is resolved from the
+        # contribution's pest while it still exists). Both optional so non-erasure
+        # callers stay unaffected; the retract is a no-op when either is unwired.
+        self._ipm_repo = ipm_repo
+        self._pest_inference_client = pest_inference_client
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -741,10 +757,17 @@ class PrivacyService:
         ``user_pest_reference_images`` storage-cleanup rule; this removes the
         accompanying link documents (no legal retention basis — a *promoted*
         contribution is deleted too). No-op when the repo is not wired.
+
+        SEC-001: a *promoted* contribution also has a DINOv2 embedding in the
+        recognition index. Its provenance label is resolved from the
+        contribution's pest, so the retract must run **before** the link
+        documents are dropped (afterwards ``pest_key`` is gone). Best-effort —
+        an inference-service error never aborts the erasure.
         """
         if self._pest_image_repo is None:
             return 0
         contributions = self._pest_image_repo.list_for_user(user_key)
+        self._retract_promoted_pest_image_embeddings(contributions, erasure_scope="user")
         removed = 0
         for c in contributions:
             if c.key is not None and self._pest_image_repo.delete(c.key, c.tenant_key):
@@ -755,6 +778,25 @@ class PrivacyService:
             removed=removed,
         )
         return removed
+
+    def _retract_promoted_pest_image_embeddings(self, contributions, erasure_scope: str) -> None:  # type: ignore[no-untyped-def]
+        """SEC-001 — retract promoted contributions' recognition-index embeddings.
+
+        No-op when the inference client or IPM repo are not wired (the retract
+        cannot resolve a label without the pest record). Best-effort.
+        """
+        if self._pest_inference_client is None or self._ipm_repo is None:
+            return
+        from app.domain.services.pest_image_recognition_cleanup import (
+            retract_promoted_contributions,
+        )
+
+        retract_promoted_contributions(
+            list(contributions),
+            inference_client=self._pest_inference_client,
+            ipm_repo=self._ipm_repo,
+            erasure_scope=erasure_scope,
+        )
 
     async def _run_storage_cleanup(self, user_key: str) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.

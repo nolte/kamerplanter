@@ -2348,7 +2348,9 @@ export interface PestImage {
   thumbnail_uri: string | null;
   status: PestImageStatus;
   caption: string | null;
-  contributed_by: string;
+  // SEC-002 — only set for the caller's own contributions. For foreign promoted
+  // images the backend returns null (a contributor's identity is PII).
+  contributed_by: string | null;
   created_at: string | null;
   is_own: boolean;
 }
@@ -4348,4 +4350,42 @@ export interface PestCurationImageList {
   count: number;
   active_count: number;
   images: PestCurationImage[];
+}
+
+// ── REQ-010 — user-contributed pest image moderation (global promotion) ──
+
+/**
+ * A single user-contributed pest image as seen by a platform admin for
+ * cross-tenant moderation. `content_uri` / `thumbnail_uri` point at the global
+ * content endpoint so the admin can preview the pixels regardless of which
+ * tenant owns them. Mirrors the backend `PestContributionModerationItem`.
+ */
+export interface PestContribution {
+  id: string;
+  pest_key: string;
+  attachment_id: string;
+  content_uri: string;
+  thumbnail_uri: string | null;
+  status: PestImageStatus;
+  caption: string | null;
+  tenant_key: string;
+  contributed_by: string;
+  created_at: string | null;
+  promoted_at: string | null;
+  promoted_by: string | null;
+}
+
+export interface PestContributionList {
+  pest_key: string;
+  count: number;
+  promoted_count: number;
+  images: PestContribution[];
+}
+
+export interface PromotePestContributionResponse {
+  id: string;
+  pest_key: string;
+  status: PestImageStatus;
+  promoted_at: string | null;
+  promoted_by: string | null;
 }
