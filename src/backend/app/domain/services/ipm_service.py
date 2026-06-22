@@ -1,10 +1,12 @@
 from datetime import datetime
 
+from app.common.enums import TreatmentType
 from app.common.exceptions import NotFoundError, ResistanceWarningError
 from app.domain.engines.inspection_scheduler import InspectionScheduler
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.interfaces.ipm_repository import IIpmRepository
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -12,6 +14,20 @@ from app.domain.models.ipm import (
     Treatment,
     TreatmentApplication,
 )
+from app.domain.models.pest_taxonomy import get_taxon
+
+# IPM-Hierarchie für die Gegenmaßnahmen-Reihenfolge auf der Detailseite
+# (REQ-010 DoD „Kultur > Biologisch > Chemisch"; mechanisch vor chemisch).
+_IPM_HIERARCHY: dict[TreatmentType, int] = {
+    TreatmentType.CULTURAL: 0,
+    TreatmentType.BIOLOGICAL: 1,
+    TreatmentType.MECHANICAL: 2,
+    TreatmentType.CHEMICAL: 3,
+}
+
+
+def _ipm_rank(treatment: Treatment) -> int:
+    return _IPM_HIERARCHY.get(treatment.treatment_type, 99)
 
 
 class IpmService:
@@ -38,6 +54,15 @@ class IpmService:
             raise NotFoundError("Pest", key)
         return pest
 
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: str) -> list[str]:
+        """Return a tenant's inspection photo attachment ids for a given pest.
+
+        REQ-010 — feeds the pest detail gallery with the real photos of the
+        tenant's own inspections in which this pest was detected. Strictly
+        tenant-scoped and deduplicated (newest inspection first).
+        """
+        return self._repo.get_inspection_photo_refs_for_pest(tenant_key, pest_key)
+
     def create_pest(self, pest: Pest) -> Pest:
         return self._repo.create_pest(pest)
 
@@ -46,12 +71,28 @@ class IpmService:
         allowed = {
             "scientific_name",
             "common_name",
+            "common_name_de",
             "pest_type",
             "lifecycle_days",
             "optimal_temp_min",
             "optimal_temp_max",
             "detection_difficulty",
             "description",
+            "description_de",
+            "damage_symptoms",
+            "damage_symptoms_de",
+            "affected_plant_parts",
+            "host_plants",
+            "host_plants_de",
+            "prevention_tips",
+            "prevention_tips_de",
+            "monitoring_hints",
+            "monitoring_hints_de",
+            "severity",
+            "optimal_humidity_min",
+            "optimal_humidity_max",
+            "detection_slug",
+            "reference_image_refs",
         }
         for field, value in data.items():
             if field in allowed:
@@ -61,6 +102,27 @@ class IpmService:
     def delete_pest(self, key: str) -> bool:
         self.get_pest(key)
         return self._repo.delete_pest(key)
+
+    def get_pest_detail(self, key: str) -> dict:
+        """Aggregierte Detailansicht: Stammdaten + Gegenmaßnahmen (nach
+        IPM-Hierarchie) + passende Nützlinge + Schadbild-Hinweis (REQ-044)."""
+        pest = self.get_pest(key)
+        # Defensiv nach _key deduplizieren (falls mehrfache identische
+        # targets_pest-Edges existieren) und nach IPM-Hierarchie sortieren.
+        unique = {t.key: t for t in self._repo.get_treatments_for_pest(key)}
+        treatments = sorted(unique.values(), key=_ipm_rank)
+        beneficials: list[Beneficial] = []
+        symptom_hint: str | None = None
+        if pest.detection_slug:
+            beneficials = self._repo.get_beneficials_for_pest_slug(pest.detection_slug)
+            taxon = get_taxon(pest.detection_slug)
+            symptom_hint = taxon.symptom_hint_de if taxon else None
+        return {
+            "pest": pest,
+            "treatments": treatments,
+            "beneficials": beneficials,
+            "detection_symptom_hint": symptom_hint,
+        }
 
     # ── Disease CRUD ──
 
@@ -114,6 +176,7 @@ class IpmService:
         existing = self.get_treatment(key)
         allowed = {
             "name",
+            "name_de",
             "treatment_type",
             "active_ingredient",
             "application_method",
@@ -121,11 +184,30 @@ class IpmService:
             "dosage_per_liter",
             "protective_equipment",
             "description",
+            "description_de",
+            "how_to_apply",
+            "how_to_apply_de",
+            "mode_of_action",
+            "mode_of_action_de",
+            "precautions",
+            "precautions_de",
         }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
         return self._repo.update_treatment(key, existing)
+
+    def get_treatment_detail(self, key: str) -> dict:
+        """Aggregierte Behandlungs-Detailansicht: Stammdaten der Maßnahme +
+        die behandelten Schädlinge und Krankheiten (Reverse-Edges)."""
+        treatment = self.get_treatment(key)
+        pests = list({p.key: p for p in self._repo.get_pests_for_treatment(key)}.values())
+        diseases = list({d.key: d for d in self._repo.get_diseases_for_treatment(key)}.values())
+        return {
+            "treatment": treatment,
+            "targeted_pests": pests,
+            "targeted_diseases": diseases,
+        }
 
     def delete_treatment(self, key: str) -> bool:
         self.get_treatment(key)

@@ -1,8 +1,10 @@
 import client from '../client';
 import type {
   PestAcquireResponse,
+  PestContributionList,
   PestCurationImageList,
   PestRecognitionStatus,
+  PromotePestContributionResponse,
 } from '../types';
 
 /**
@@ -47,6 +49,53 @@ export async function setPestImageActive(
   const { data } = await client.patch<{ label: string; id: number; is_active: boolean }>(
     `${BASE}/${label}/images/${imageId}`,
     payload,
+  );
+  return data;
+}
+
+// ── REQ-010 — user-contributed pest image moderation (global promotion) ──
+//
+// Cross-tenant, platform-admin-only. Lets the admin review every tenant's
+// contributed photos for a pest and promote the good ones to global visibility.
+
+/**
+ * GET /admin/pests/{pestKey}/contributions — list ALL tenants' contributed
+ * images for a pest (cross-tenant moderation feed).
+ */
+export async function listPestContributions(pestKey: string): Promise<PestContributionList> {
+  const { data } = await client.get<PestContributionList>(`${BASE}/${pestKey}/contributions`);
+  return data;
+}
+
+/**
+ * PATCH /admin/pests/{pestKey}/contributions/{id} — promote/demote a single
+ * contribution to/from global visibility (idempotent).
+ */
+export async function setPestContributionPromotion(
+  pestKey: string,
+  contributionId: string,
+  promote: boolean,
+): Promise<PromotePestContributionResponse> {
+  const { data } = await client.patch<PromotePestContributionResponse>(
+    `${BASE}/${pestKey}/contributions/${contributionId}`,
+    { promote },
+  );
+  return data;
+}
+
+/**
+ * PATCH /admin/pests/{pestKey}/contributions/{id} — deselect (hide) / re-include
+ * a contributed image in the gallery (REQ-010 curation). Pure visibility: it
+ * does NOT touch the recognition index (only promote/demote does). Idempotent.
+ */
+export async function setPestContributionActive(
+  pestKey: string,
+  contributionId: string,
+  isActive: boolean,
+): Promise<PromotePestContributionResponse> {
+  const { data } = await client.patch<PromotePestContributionResponse>(
+    `${BASE}/${pestKey}/contributions/${contributionId}`,
+    { is_active: isActive },
   );
   return data;
 }

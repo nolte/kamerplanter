@@ -98,7 +98,7 @@ If pests or damage patterns are detected, you will see:
 - **Name of the pest** (common name and, where available, species name)
 - **Detection mode**: "Insect found" or "Damage pattern"
 - **Confidence level** in percent — how certain the system is
-- **IPM link**: if the detected pest is known in the pest management master data, a direct link appears
+- **IPM link**: if the detected pest is known in the pest management master data, a direct link appears along with a **More about this pest** link leading to the [pest detail page](pest-detail.md) with fact sheet, reference images, and control measures
 
 !!! warning "Read the confidence level critically"
     Under real-world conditions, detection rates range from around 60–70 % depending on pest type and image quality. The system displays the confidence level transparently. High values (>75 %) indicate a clear finding; low values should prompt your own visual inspection.
@@ -228,6 +228,7 @@ After revoking, only the local adapter is used (if enabled), or the button is hi
 ## See Also
 
 - [Pest Management (IPM)](pest-management.md) — Inspections, treatments, pre-harvest intervals
+- [Pest Detail Page](pest-detail.md) — fact sheet, reference images, control measures, and beneficials per pest
 - [Identify Plant by Photo](plant-identification.md) — Species identification for unknown plants
 - [Privacy (GDPR)](privacy.md) — Consents and data subject rights
 - [Plant Photo Gallery](plant-photos.md) — Saving photos for a plant

@@ -337,6 +337,23 @@ def get_ipm_service() -> IpmService:
     )
 
 
+def get_pest_image_repo():
+    from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
+
+    return ArangoPestImageRepository(get_db())
+
+
+def get_pest_image_service():
+    from app.domain.services.pest_image_service import PestImageService
+
+    return PestImageService(
+        repo=get_pest_image_repo(),
+        attachment_service=get_attachment_service(),
+        ipm_service=get_ipm_service(),
+        inference_client=get_pest_inference_client(),
+    )
+
+
 def get_harvest_repo() -> ArangoHarvestRepository:
     return ArangoHarvestRepository(get_db())
 
@@ -494,6 +511,9 @@ def get_tenant_service() -> TenantService:
         storage_adapter=get_object_storage(),
         attachment_repo=get_attachment_repo(),
         reference_index_store=get_reference_index_store(),
+        pest_image_repo=get_pest_image_repo(),
+        ipm_repo=get_ipm_repo(),
+        pest_inference_client=get_pest_inference_client(),
     )
 
 
@@ -937,6 +957,9 @@ def get_privacy_service():
         attachment_repo=get_attachment_repo(),
         membership_repo=get_membership_repo(),
         reference_index_store=get_reference_index_store(),
+        pest_image_repo=get_pest_image_repo(),
+        ipm_repo=get_ipm_repo(),
+        pest_inference_client=get_pest_inference_client(),
     )
 
 
@@ -977,15 +1000,21 @@ def get_reference_image_repo():
     return ArangoReferenceImageRepository(get_db())
 
 
+def get_pest_inference_client():
+    """REQ-044 — HTTP client for the self-hosted pest-inference service."""
+    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+
+    return PestDetectionInferenceClient(settings.inference_service_url)
+
+
 def get_pest_dataset_acquisition_service():
     """REQ-044 WP-3 — cold-start few-shot prototype acquisition (no credentials)."""
     from app.data_access.external.gbif_media_client import GBIFMediaClient
-    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
     from app.domain.services.pest_dataset_acquisition import PestDatasetAcquisitionService
 
     return PestDatasetAcquisitionService(
         media_client=GBIFMediaClient(),
-        inference=PestDetectionInferenceClient(settings.inference_service_url),
+        inference=get_pest_inference_client(),
     )
 
 

@@ -9,11 +9,14 @@ import type {
   KarenzPeriod,
   Pest,
   PestCreate,
+  PestDetail,
+  PestImage,
   PestUpdate,
   Treatment,
   TreatmentApplication,
   TreatmentApplicationCreate,
   TreatmentCreate,
+  TreatmentDetail,
   TreatmentUpdate,
 } from '../types';
 
@@ -34,6 +37,53 @@ export async function listPests(
 export async function getPest(key: string): Promise<Pest> {
   const { data } = await globalClient.get<Pest>(`${BASE}/pests/${key}`);
   return data;
+}
+
+export async function getPestDetail(key: string): Promise<PestDetail> {
+  const { data } = await globalClient.get<PestDetail>(`${BASE}/pests/${key}/detail`);
+  return data;
+}
+
+// ── Pest reference images (tenant-scoped, user-contributed) ─────────────
+
+/**
+ * List a pest's reference images for the caller's tenant.
+ *
+ * `includeInactive` is a platform-admin-only curation flag: it additionally
+ * returns *deselected* contribution / recognition tiles (the backend silently
+ * ignores it for non-admins, so it is safe to send). Omitted by default so a
+ * normal request stays a plain `GET …/images` (active-only).
+ */
+export async function listPestImages(
+  pestKey: string,
+  options?: { includeInactive?: boolean },
+): Promise<PestImage[]> {
+  const params = options?.includeInactive ? { include_inactive: true } : undefined;
+  const { data } = await tenantClient.get<PestImage[]>(
+    `${BASE}/pests/${pestKey}/images`,
+    params ? { params } : undefined,
+  );
+  return data;
+}
+
+export async function contributePestImage(
+  pestKey: string,
+  file: File,
+  caption?: string,
+): Promise<PestImage> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (caption) formData.append('caption', caption);
+  const { data } = await tenantClient.post<PestImage>(
+    `${BASE}/pests/${pestKey}/images`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
+export async function deletePestImage(pestKey: string, imageId: string): Promise<void> {
+  await tenantClient.delete(`${BASE}/pests/${pestKey}/images/${imageId}`);
 }
 
 export async function createPest(payload: PestCreate): Promise<Pest> {
@@ -104,6 +154,11 @@ export async function listTreatments(
 
 export async function getTreatment(key: string): Promise<Treatment> {
   const { data } = await globalClient.get<Treatment>(`${BASE}/treatments/${key}`);
+  return data;
+}
+
+export async function getTreatmentDetail(key: string): Promise<TreatmentDetail> {
+  const { data } = await globalClient.get<TreatmentDetail>(`${BASE}/treatments/${key}/detail`);
   return data;
 }
 

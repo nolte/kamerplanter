@@ -55,7 +55,7 @@ Bewerte die Befallsstärke:
 
 ### Schritt 3: Schädlinge oder Krankheiten dokumentieren
 
-Wenn du einen Befall entdeckt hast, wähle aus der Liste:
+Wenn du einen Befall entdeckt hast, wähle aus der Liste. Klicke auf den Namen eines Schädlings, um die [Schädlings-Detailseite](pest-detail.md) mit Steckbrief, Referenzbildern und Gegenmaßnahmen aufzurufen.
 
 **Häufige Schädlinge:**
 - Spinnmilben (Tetranychus urticae)
@@ -176,6 +176,9 @@ Unter **Pflanzenschutz → Befallshistorie** siehst du, welche Schädlinge und K
 
 ## Siehe auch
 
+- [Schädlings-Detailseite](pest-detail.md) — Steckbrief, Referenzbilder, IPM-Gegenmaßnahmen und Nützlinge pro Schädling
+- [Behandlungs-Detailseite](treatment-detail.md) — Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für ein konkretes Behandlungsmittel
+- [Schädlingserkennung per Foto](pest-detection.md) — Foto hochladen und automatisch einschätzen lassen
 - [Ernte](harvest.md)
 - [Aufgaben](tasks.md)
 - [Standorte und Substrate](locations-substrates.md)

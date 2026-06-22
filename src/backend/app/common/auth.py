@@ -56,6 +56,21 @@ def get_current_tenant(
     )
 
 
+def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
+    """True when ``user_key`` is a platform admin (admin membership in ``platform``).
+
+    Mirrors :func:`require_platform_admin` but returns a boolean instead of
+    raising, so a tenant-scoped endpoint can *conditionally* unlock admin-only
+    behaviour (e.g. the "show deselected images" curation view) without changing
+    its access for normal members. In light mode (REQ-027) the sole anonymous
+    system user is the operator and is treated as platform admin.
+    """
+    if settings.kamerplanter_mode == "light":
+        return True
+    membership = tenant_service.get_membership(user_key, "platform")
+    return bool(membership and membership.is_active and membership.role == TenantRole.ADMIN)
+
+
 def require_platform_admin(
     user: User = Depends(get_current_user),
     tenant_service: TenantService = Depends(get_tenant_service),
@@ -66,10 +81,7 @@ def require_platform_admin(
     anonymous system user exists — that user is the sole operator and therefore
     treated as platform admin.
     """
-    if settings.kamerplanter_mode == "light":
-        return user
-    membership = tenant_service.get_membership(user.key, "platform")
-    if not membership or not membership.is_active or membership.role != TenantRole.ADMIN:
+    if not is_platform_admin(tenant_service, user.key or ""):
         raise ForbiddenError("Platform admin role required.")
     return user
 

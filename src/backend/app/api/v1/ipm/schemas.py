@@ -1,40 +1,91 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+from app.common.enums import PestImageStatus, PestSeverity, PlantPart
 
 
 class PestCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    common_name_de: str | None = None
     pest_type: str = "insect"
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
     optimal_temp_max: float | None = None
     detection_difficulty: str = "medium"
     description: str | None = None
+    description_de: str | None = None
+    damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
+    affected_plant_parts: list[PlantPart] = Field(default_factory=list)
+    host_plants: list[str] = Field(default_factory=list)
+    host_plants_de: list[str] = Field(default_factory=list)
+    prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
+    monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] = Field(default_factory=list)
 
 
 class PestUpdate(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
+    common_name_de: str | None = None
     pest_type: str | None = None
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
     optimal_temp_max: float | None = None
     detection_difficulty: str | None = None
     description: str | None = None
+    description_de: str | None = None
+    damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
+    affected_plant_parts: list[PlantPart] | None = None
+    host_plants: list[str] | None = None
+    host_plants_de: list[str] | None = None
+    prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
+    monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] | None = None
 
 
 class PestResponse(BaseModel):
     key: str
     scientific_name: str
     common_name: str
+    common_name_de: str | None = None
     pest_type: str
     lifecycle_days: int | None = None
     optimal_temp_min: float | None = None
     optimal_temp_max: float | None = None
     detection_difficulty: str
     description: str | None = None
+    description_de: str | None = None
+    damage_symptoms: str | None = None
+    damage_symptoms_de: str | None = None
+    affected_plant_parts: list[PlantPart] = Field(default_factory=list)
+    host_plants: list[str] = Field(default_factory=list)
+    host_plants_de: list[str] = Field(default_factory=list)
+    prevention_tips: str | None = None
+    prevention_tips_de: str | None = None
+    monitoring_hints: str | None = None
+    monitoring_hints_de: str | None = None
+    severity: PestSeverity | None = None
+    optimal_humidity_min: float | None = None
+    optimal_humidity_max: float | None = None
+    detection_slug: str | None = None
+    reference_image_refs: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -74,6 +125,7 @@ class DiseaseResponse(BaseModel):
 
 class TreatmentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    name_de: str | None = None
     treatment_type: str
     active_ingredient: str | None = None
     application_method: str = "spray"
@@ -81,10 +133,18 @@ class TreatmentCreate(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str] = Field(default_factory=list)
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
 
 
 class TreatmentUpdate(BaseModel):
     name: str | None = None
+    name_de: str | None = None
     treatment_type: str | None = None
     active_ingredient: str | None = None
     application_method: str | None = None
@@ -92,11 +152,19 @@ class TreatmentUpdate(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str] | None = None
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
 
 
 class TreatmentResponse(BaseModel):
     key: str
     name: str
+    name_de: str | None = None
     treatment_type: str
     active_ingredient: str | None = None
     application_method: str
@@ -104,6 +172,13 @@ class TreatmentResponse(BaseModel):
     dosage_per_liter: float | None = None
     protective_equipment: list[str]
     description: str | None = None
+    description_de: str | None = None
+    how_to_apply: str | None = None
+    how_to_apply_de: str | None = None
+    mode_of_action: str | None = None
+    mode_of_action_de: str | None = None
+    precautions: str | None = None
+    precautions_de: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -158,6 +233,47 @@ class TreatmentApplicationResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class BeneficialResponse(BaseModel):
+    key: str
+    slug: str
+    common_name: str
+    scientific_name: str
+    description: str | None = None
+    preys_on: list[str] = Field(default_factory=list)
+
+
+class PestDetailResponse(BaseModel):
+    """Aggregierte Schädlings-Detailseite (REQ-010).
+
+    Bündelt Stammdaten + Gegenmaßnahmen (nach IPM-Hierarchie sortiert:
+    cultural → biological → mechanical → chemical) + passende Nützlinge +
+    den Schadbild-Hinweis aus der Erkennungs-Taxonomie (REQ-044).
+    """
+
+    pest: PestResponse
+    treatments: list[TreatmentResponse] = Field(default_factory=list)
+    beneficials: list[BeneficialResponse] = Field(default_factory=list)
+    detection_symptom_hint: str | None = None
+
+
+class TreatmentTargetRef(BaseModel):
+    """Schlanke Referenz auf einen behandelten Schädling/eine Krankheit."""
+
+    key: str
+    common_name: str
+    common_name_de: str | None = None
+    scientific_name: str
+
+
+class TreatmentDetailResponse(BaseModel):
+    """Aggregierte Behandlungs-Detailseite (REQ-010) — Stammdaten der Maßnahme
+    plus die Schädlinge und Krankheiten, gegen die sie eingesetzt wird."""
+
+    treatment: TreatmentResponse
+    targeted_pests: list[TreatmentTargetRef] = Field(default_factory=list)
+    targeted_diseases: list[TreatmentTargetRef] = Field(default_factory=list)
+
+
 class KarenzPeriodResponse(BaseModel):
     active_ingredient: str | None = None
     treatment_name: str | None = None
@@ -169,3 +285,58 @@ class KarenzPeriodResponse(BaseModel):
 class HarvestSafetyResponse(BaseModel):
     can_harvest: bool
     blocking_treatments: list[dict] = Field(default_factory=list)
+
+
+class PestImageResponse(BaseModel):
+    """REQ-010 — a user-contributed pest reference image.
+
+    ``uri`` / ``thumbnail_uri`` are fully-qualified content URLs whose shape
+    depends on ``is_own``:
+
+    * ``is_own=True`` (the caller's own tenant) → tenant-scoped attachment URIs
+      (``/api/v1/t/{slug}/attachments/{id}[/thumbnails/{size}]``);
+    * ``is_own=False`` (a *promoted* image of another tenant) → the global,
+      read-only content endpoint
+      (``/api/v1/ipm/pest-images/{id}[/thumbnails/{size}]``).
+
+    ``thumbnail_uri`` is ``None`` for non-renderable attachments. Foreign images
+    are only ever returned when ``status == promoted`` (strict isolation for
+    private images).
+    """
+
+    id: str
+    pest_key: str
+    attachment_id: str
+    uri: str
+    thumbnail_uri: str | None = None
+    # ``status`` only applies to curated contributions. Inspection- and
+    # recognition-sourced photos carry no contribution lifecycle, so it is
+    # ``None`` there.
+    status: PestImageStatus | None = None
+    caption: str | None = None
+    # SEC-002 — only set for the caller's own contributions (``is_own=True``).
+    # For foreign promoted images it is ``None``: a contributor's identity is PII
+    # and must not be disclosed to other tenants' members. Full provenance stays
+    # in the platform-admin moderation response.
+    contributed_by: str | None = None
+    created_at: datetime | None = None
+    is_own: bool
+    # REQ-010 curation state. ``True`` for every tile returned in the default
+    # gallery; only the platform-admin "show deselected" view (``include_inactive``)
+    # ever returns ``False`` tiles, which the UI dims with a "deselected" badge.
+    # ``inspection`` photos are always ``True`` (they belong to an inspection and
+    # are never curated); ``recognition`` / ``contribution`` reflect their source.
+    is_active: bool = True
+    # Provenance of the gallery tile:
+    #   * ``"contribution"`` — a curated, deletable/promotable user upload;
+    #   * ``"inspection"``   — a read-only photo of one of the tenant's own
+    #     inspections in which this pest was detected (no delete/promote);
+    #   * ``"recognition"``  — a read-only, GLOBAL reference image of the pest's
+    #     few-shot recognition index (REQ-044). ``uri`` is the external,
+    #     CC-licensed ``source_url`` (no pixel is stored), ``thumbnail_uri`` is
+    #     ``None``, ``is_own`` is ``False`` and the tile is never deletable.
+    source: Literal["contribution", "inspection", "recognition"] = "contribution"
+    # Only set for ``source == "recognition"`` (CC-BY attribution / license must
+    # be surfaced next to the externally-hosted image). ``None`` otherwise.
+    attribution: str | None = None
+    license: str | None = None

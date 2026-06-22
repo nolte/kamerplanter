@@ -378,6 +378,27 @@ As a platform admin you can **deselect individual reference images** after a vis
 
 ---
 
+## Approving user pest photos (moderation)
+
+On the [pest detail page](pest-detail.md), users can contribute their own photos for a pest. These images are **private** at first (visible only to that user's garden/tenant). As a platform admin you can **promote** especially good shots to be globally visible.
+
+Moderation lives in the admin area, in the **"Contributed pest images"** card:
+
+1. Select the pest in question.
+2. You see all contributed images **across all tenants** with a preview, provenance (user/tenant/date) and status (private/global).
+3. **Promote** sets an image to `global` — it then appears in the gallery for all users (served through a global, read-only delivery path that exposes promoted images only). **Demote** reverts it (with confirmation).
+
+!!! tip "Deselect directly on the detail page"
+    As a platform admin you can also curate images **directly on the [pest detail page](pest-detail.md)**: the **"Show deselected"** switch reveals deactivated images too, and per image you can **deselect** it (deactivate instead of delete) or **re-include** it. This applies to recognition reference images and to contributed images. Regular users only ever see active images. Deselecting is reversible; a pure gallery deselection leaves the recognition index untouched.
+
+!!! note "Effect on AI recognition"
+    When [pest recognition](#enabling-pest-recognition) is active (`PEST_DETECTION_ENABLED=true`), a promoted image is additionally fed into the recognition index as a few-shot reference (`source=user_contributed`) — provided the pest has a recognition class (`detection_slug`). Only the embedding and its provenance are stored, **never the original image**. Demoting retracts the reference.
+
+!!! warning "Data protection"
+    Contributed images are removed completely when a user or tenant is deleted (document **and** image file). Location data (EXIF) is stripped on upload.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Who can assign the platform-admin role?"

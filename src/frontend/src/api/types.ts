@@ -2247,17 +2247,35 @@ export type TreatmentType = 'cultural' | 'biological' | 'chemical' | 'mechanical
 export type IpmApplicationMethod = 'spray' | 'drench' | 'granular' | 'release' | 'cultural';
 export type DetectionDifficulty = 'easy' | 'medium' | 'hard';
 export type PressureLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+export type PestSeverity = 'low' | 'medium' | 'high';
+export type PlantPart = 'leaf' | 'stem' | 'root' | 'flower' | 'fruit';
 
 export interface Pest {
   key: string;
   scientific_name: string;
   common_name: string;
+  common_name_de: string | null;
   pest_type: string;
   lifecycle_days: number | null;
   optimal_temp_min: number | null;
   optimal_temp_max: number | null;
   detection_difficulty: string;
   description: string | null;
+  description_de: string | null;
+  damage_symptoms: string | null;
+  damage_symptoms_de: string | null;
+  affected_plant_parts: PlantPart[];
+  host_plants: string[];
+  host_plants_de: string[];
+  prevention_tips: string | null;
+  prevention_tips_de: string | null;
+  monitoring_hints: string | null;
+  monitoring_hints_de: string | null;
+  severity: PestSeverity | null;
+  optimal_humidity_min: number | null;
+  optimal_humidity_max: number | null;
+  detection_slug: string | null;
+  reference_image_refs: string[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2271,6 +2289,16 @@ export interface PestCreate {
   optimal_temp_max?: number | null;
   detection_difficulty?: string;
   description?: string | null;
+  damage_symptoms?: string | null;
+  affected_plant_parts?: PlantPart[];
+  host_plants?: string[];
+  prevention_tips?: string | null;
+  monitoring_hints?: string | null;
+  severity?: PestSeverity | null;
+  optimal_humidity_min?: number | null;
+  optimal_humidity_max?: number | null;
+  detection_slug?: string | null;
+  reference_image_refs?: string[];
 }
 
 export interface PestUpdate {
@@ -2282,6 +2310,73 @@ export interface PestUpdate {
   optimal_temp_max?: number | null;
   detection_difficulty?: string;
   description?: string | null;
+  damage_symptoms?: string | null;
+  affected_plant_parts?: PlantPart[];
+  host_plants?: string[];
+  prevention_tips?: string | null;
+  monitoring_hints?: string | null;
+  severity?: PestSeverity | null;
+  optimal_humidity_min?: number | null;
+  optimal_humidity_max?: number | null;
+  detection_slug?: string | null;
+  reference_image_refs?: string[];
+}
+
+export interface Beneficial {
+  key: string;
+  slug: string;
+  common_name: string;
+  scientific_name: string;
+  description: string | null;
+  preys_on: string[];
+}
+
+export interface PestDetail {
+  pest: Pest;
+  treatments: Treatment[];
+  beneficials: Beneficial[];
+  detection_symptom_hint: string | null;
+}
+
+export type PestImageStatus = 'private' | 'promoted';
+
+/**
+ * Provenance of a pest detail gallery tile:
+ * - `contribution` — a curated, deletable/promotable user upload;
+ * - `inspection`   — a read-only photo of one of the tenant's own inspections
+ *   in which this pest was detected (no delete/promote);
+ * - `recognition`  — a read-only, GLOBAL reference image of the pest's few-shot
+ *   recognition index (REQ-044). The `uri` is the external, CC-licensed
+ *   `source_url` (no local pixel); render it via a native `<img>` and show the
+ *   `attribution` / `license` next to it (CC-BY obligation).
+ */
+export type PestImageSource = 'contribution' | 'inspection' | 'recognition';
+
+export interface PestImage {
+  id: string;
+  pest_key: string;
+  attachment_id: string;
+  uri: string;
+  thumbnail_uri: string | null;
+  // null for inspection- and recognition-sourced photos (no contribution lifecycle).
+  status: PestImageStatus | null;
+  caption: string | null;
+  // SEC-002 — only set for the caller's own contributions. For foreign promoted
+  // images the backend returns null (a contributor's identity is PII).
+  contributed_by: string | null;
+  created_at: string | null;
+  is_own: boolean;
+  // REQ-010 curation state. Always true for tiles in the default gallery; only
+  // the platform-admin "show deselected" view ever returns false tiles (dimmed
+  // with a "deselected" badge). Defaults to true for back-compat with older
+  // payloads that predate the field.
+  is_active?: boolean;
+  // Defaults to 'contribution' for back-compat with older payloads.
+  source?: PestImageSource;
+  // Only set for `source === 'recognition'` — the CC-BY attribution / license of
+  // the externally-hosted image, surfaced as a caption (null otherwise).
+  attribution?: string | null;
+  license?: string | null;
 }
 
 export interface Disease {
@@ -2320,6 +2415,7 @@ export interface DiseaseUpdate {
 export interface Treatment {
   key: string;
   name: string;
+  name_de: string | null;
   treatment_type: string;
   active_ingredient: string | null;
   application_method: string;
@@ -2327,12 +2423,20 @@ export interface Treatment {
   dosage_per_liter: number | null;
   protective_equipment: string[];
   description: string | null;
+  description_de: string | null;
+  how_to_apply: string | null;
+  how_to_apply_de: string | null;
+  mode_of_action: string | null;
+  mode_of_action_de: string | null;
+  precautions: string | null;
+  precautions_de: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
 
 export interface TreatmentCreate {
   name: string;
+  name_de?: string | null;
   treatment_type: string;
   active_ingredient?: string | null;
   application_method?: string;
@@ -2340,10 +2444,18 @@ export interface TreatmentCreate {
   dosage_per_liter?: number | null;
   protective_equipment?: string[];
   description?: string | null;
+  description_de?: string | null;
+  how_to_apply?: string | null;
+  how_to_apply_de?: string | null;
+  mode_of_action?: string | null;
+  mode_of_action_de?: string | null;
+  precautions?: string | null;
+  precautions_de?: string | null;
 }
 
 export interface TreatmentUpdate {
   name?: string;
+  name_de?: string | null;
   treatment_type?: string;
   active_ingredient?: string | null;
   application_method?: string;
@@ -2351,6 +2463,26 @@ export interface TreatmentUpdate {
   dosage_per_liter?: number | null;
   protective_equipment?: string[];
   description?: string | null;
+  description_de?: string | null;
+  how_to_apply?: string | null;
+  how_to_apply_de?: string | null;
+  mode_of_action?: string | null;
+  mode_of_action_de?: string | null;
+  precautions?: string | null;
+  precautions_de?: string | null;
+}
+
+export interface TreatmentTargetRef {
+  key: string;
+  common_name: string;
+  common_name_de: string | null;
+  scientific_name: string;
+}
+
+export interface TreatmentDetail {
+  treatment: Treatment;
+  targeted_pests: TreatmentTargetRef[];
+  targeted_diseases: TreatmentTargetRef[];
 }
 
 export interface Inspection {
@@ -4242,4 +4374,44 @@ export interface PestCurationImageList {
   count: number;
   active_count: number;
   images: PestCurationImage[];
+}
+
+// ── REQ-010 — user-contributed pest image moderation (global promotion) ──
+
+/**
+ * A single user-contributed pest image as seen by a platform admin for
+ * cross-tenant moderation. `content_uri` / `thumbnail_uri` point at the global
+ * content endpoint so the admin can preview the pixels regardless of which
+ * tenant owns them. Mirrors the backend `PestContributionModerationItem`.
+ */
+export interface PestContribution {
+  id: string;
+  pest_key: string;
+  attachment_id: string;
+  content_uri: string;
+  thumbnail_uri: string | null;
+  status: PestImageStatus;
+  caption: string | null;
+  tenant_key: string;
+  contributed_by: string;
+  created_at: string | null;
+  promoted_at: string | null;
+  promoted_by: string | null;
+}
+
+export interface PestContributionList {
+  pest_key: string;
+  count: number;
+  promoted_count: number;
+  images: PestContribution[];
+}
+
+export interface PromotePestContributionResponse {
+  id: string;
+  pest_key: string;
+  status: PestImageStatus;
+  // REQ-010 curation state — false once a platform admin deselects the image.
+  is_active: boolean;
+  promoted_at: string | null;
+  promoted_by: string | null;
 }

@@ -55,7 +55,7 @@ Rate the infestation level:
 
 ### Step 3: Document Pests or Diseases
 
-If you have found infestation, select from the list:
+If you have found infestation, select from the list. Click on the name of a pest to open the [pest detail page](pest-detail.md) with its fact sheet, reference images, and control measures.
 
 **Common pests:**
 - Spider mites (Tetranychus urticae)
@@ -176,6 +176,9 @@ Under **Pest Management → Infestation History** you see which pests and diseas
 
 ## See Also
 
+- [Pest Detail Page](pest-detail.md) — fact sheet, reference images, IPM control measures, and beneficials per pest
+- [Treatment Detail Page](treatment-detail.md) — mode of action, dosage, pre-harvest interval, and safety information for a specific product
+- [Pest Detection by Photo](pest-detection.md) — upload a photo and get an automated assessment
 - [Harvest](harvest.md)
 - [Tasks](tasks.md)
 - [Locations and Substrates](locations-substrates.md)

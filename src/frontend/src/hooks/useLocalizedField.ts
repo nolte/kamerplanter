@@ -11,12 +11,13 @@ export function useLocalizedField() {
   const { i18n } = useTranslation();
 
   return useCallback(
-    <T extends Record<string, unknown>>(obj: T, field: string): string => {
+    <T extends object>(obj: T, field: string): string => {
+      const rec = obj as Record<string, unknown>;
       if (i18n.language === 'de') {
-        const deValue = obj[`${field}_de`];
+        const deValue = rec[`${field}_de`];
         if (typeof deValue === 'string' && deValue) return deValue;
       }
-      const value = obj[field];
+      const value = rec[field];
       return typeof value === 'string' ? value : '';
     },
     [i18n.language],

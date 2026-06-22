@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -12,6 +13,7 @@ import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTreatments } from '@/store/slices/ipmSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
+import { useLocalizedField } from '@/hooks/useLocalizedField';
 import type { Treatment } from '@/api/types';
 import TreatmentCreateDialog from './TreatmentCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
@@ -27,6 +29,8 @@ const treatmentTypeColor: Record<string, ChipColor> = {
 
 export default function TreatmentListPage() {
   const { t } = useTranslation();
+  const l = useLocalizedField();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { treatments, loading } = useAppSelector((s) => s.ipm);
   const [createOpen, setCreateOpen] = useState(false);
@@ -42,7 +46,8 @@ export default function TreatmentListPage() {
     {
       id: 'name',
       label: t('pages.ipm.treatmentName'),
-      render: (r) => r.name,
+      render: (r) => l(r, 'name'),
+      searchValue: (r) => l(r, 'name'),
     },
     {
       id: 'treatmentType',
@@ -120,6 +125,7 @@ export default function TreatmentListPage() {
         rows={treatments}
         loading={loading}
         getRowKey={(r) => r.key}
+        onRowClick={(r) => navigate(`/pflanzenschutz/treatments/${r.key}`)}
         emptyActionLabel={t('pages.ipm.createTreatment')}
         onEmptyAction={() => setCreateOpen(true)}
         emptyIllustration={kamiIpm}

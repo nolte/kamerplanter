@@ -98,7 +98,7 @@ Wurden Schädlinge oder Schadmuster erkannt, siehst du:
 - **Name des Schädlings** (Allgemeinname und ggf. Artname)
 - **Erkennungsmodus**: „Tier erkannt" oder „Schadbild"
 - **Einschätzungsstärke** in Prozent — wie sicher das System ist
-- **Mapping zum IPM-System**: wenn der erkannte Schädling in den Pflanzenschutz-Stammdaten bekannt ist, erscheint ein Direktlink
+- **Mapping zum IPM-System**: wenn der erkannte Schädling in den Pflanzenschutz-Stammdaten bekannt ist, erscheint ein Direktlink sowie der Link **Mehr über diesen Schädling**, der dich zur [Schädlings-Detailseite](pest-detail.md) mit Steckbrief, Referenzbildern und Gegenmaßnahmen führt
 
 !!! warning "Einschätzungsstärke kritisch lesen"
     Unter realen Bedingungen liegen die Erkennungsraten je nach Schädlingsart und Bildqualität bei rund 60–70 %. Das System zeigt die Einschätzungsstärke transparent an. Hohe Werte (>75 %) sprechen für einen klaren Befund; niedrige Werte sollten zur eigenen Sichtprüfung animieren.
@@ -228,6 +228,7 @@ Nach dem Widerruf wird ausschließlich der lokale Adapter verwendet (sofern akti
 ## Siehe auch
 
 - [Pflanzenschutz (IPM)](pest-management.md) — Inspektionen, Behandlungen, Karenzzeiten
+- [Schädlings-Detailseite](pest-detail.md) — Steckbrief, Referenzbilder, Gegenmaßnahmen und Nützlinge pro Schädling
 - [Pflanze per Foto identifizieren](plant-identification.md) — Artbestimmung unbekannter Pflanzen
 - [Datenschutz & DSGVO](privacy.md) — Einwilligungen und Betroffenenrechte
 - [Pflanzenfoto-Galerie](plant-photos.md) — Fotos zur Pflanze speichern

@@ -457,6 +457,14 @@ class EfficacyRating(StrEnum):
     INEFFECTIVE = "ineffective"
 
 
+class PestSeverity(StrEnum):
+    """Schadpotenzial eines Schädlings (REQ-010 — Detailseite)."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 # ── REQ-007 Harvest ──
 
 
@@ -781,6 +789,22 @@ class AttachmentCategory(StrEnum):
     ID_RECOGNITION = "id_recognition"
     TENANT_EXPORT = "tenant_export"
     PLANT = "plant"
+    # REQ-010 — user-contributed reference photos for a global pest (Phase 1:
+    # tenant-private gallery; Phase 2 may promote selected images globally).
+    PEST_REFERENCE = "pest_reference"
+
+
+class PestImageStatus(StrEnum):
+    """REQ-010 — lifecycle state of a user-contributed pest reference image.
+
+    Phase 1 only ever uses ``PRIVATE`` (the image stays inside the contributing
+    tenant). ``PROMOTED`` is reserved for the later global-curation phase, where
+    an admin may surface a tenant image as a global reference — the model field
+    exists now so no migration is needed when that phase ships.
+    """
+
+    PRIVATE = "private"
+    PROMOTED = "promoted"
 
 
 class PestFindingCategory(StrEnum):

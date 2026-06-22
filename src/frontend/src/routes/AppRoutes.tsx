@@ -94,9 +94,13 @@ const WateringLogDetailPage = lazy(
 );
 // REQ-010 IPM
 const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
+const PestDetailPage = lazy(() => import('@/pages/pflanzenschutz/PestDetailPage'));
 const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPage'));
 const TreatmentListPage = lazy(
   () => import('@/pages/pflanzenschutz/TreatmentListPage'),
+);
+const TreatmentDetailPage = lazy(
+  () => import('@/pages/pflanzenschutz/TreatmentDetailPage'),
 );
 // REQ-007 Harvest
 const HarvestBatchListPage = lazy(
@@ -592,6 +596,14 @@ export const router = createBrowserRouter(
             }
           />
           <Route
+            path="pflanzenschutz/pests/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PestDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="pflanzenschutz/diseases"
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
@@ -604,6 +616,14 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <TreatmentListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="pflanzenschutz/treatments/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <TreatmentDetailPage />
               </Suspense>
             }
           />

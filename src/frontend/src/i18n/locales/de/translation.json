@@ -450,7 +450,12 @@
       "confidenceLabel": "Übereinstimmung: {{value}} %",
       "feedbackConfirmAriaLabel": "Fund als korrekt bestätigen",
       "feedbackWrongAriaLabel": "Fund als falsch markieren",
-      "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen"
+      "feedbackBeneficialAriaLabel": "Als Nützling kennzeichnen",
+      "viewPestDetail": "Mehr über diesen Schädling",
+      "addToGallery": "Dieses Foto zur Galerie hinzufügen",
+      "addToGalleryAriaLabel": "Dieses Foto zur Galerie von {{name}} hinzufügen",
+      "addToGallerySuccess": "Foto wurde zur Galerie hinzugefügt.",
+      "addToGalleryError": "Das Foto konnte nicht zur Galerie hinzugefügt werden."
     },
     "plantIdentification": {
       "title": "KI-Pflanzenerkennung",
@@ -629,6 +634,36 @@
         "curationError": "Aktion fehlgeschlagen.",
         "hideDeselected": "Abgewählte ausblenden",
         "lowCoverageWarning": "Nur {{count}} aktive Bilder — mindestens {{min}} werden für zuverlässige Erkennung benötigt."
+      },
+      "pestContributions": {
+        "section": "Beigesteuerte Bilder moderieren",
+        "sectionHelper": "Nutzer steuern private Schädlingsfotos in ihrem Mandanten bei. Wähle einen Schädling und gib besonders gute Bilder global frei – freigegebene Bilder werden allen Mandanten als Referenz angezeigt und fließen in die Erkennung ein.",
+        "selectPestLabel": "Schädling auswählen",
+        "selectPestHelper": "Zeigt alle mandantenübergreifend beigesteuerten Bilder dieses Schädlings.",
+        "pestsUnavailable": "Die Schädlingsliste konnte nicht geladen werden.",
+        "loading": "Bilder werden geladen …",
+        "contributionsUnavailable": "Die beigesteuerten Bilder konnten nicht geladen werden.",
+        "empty": "Für diesen Schädling wurden noch keine Bilder beigesteuert.",
+        "summary": "{{count}} beigesteuerte Bilder, davon {{promoted}} global freigegeben.",
+        "listAriaLabel": "Beigesteuerte Bilder für {{name}}",
+        "imageAlt": "Beigesteuertes Bild für {{name}}",
+        "provenance": "Von {{user}} · Mandant {{tenant}} · {{date}}",
+        "statusGlobal": "Global",
+        "statusGlobalAriaLabel": "Status: global freigegeben",
+        "statusPrivate": "Privat",
+        "statusPrivateAriaLabel": "Status: privat (nur im eigenen Mandanten sichtbar)",
+        "promoteButton": "Freigeben",
+        "promoteTooltip": "Bild global für alle Mandanten freigeben",
+        "promoteAria": "Beigesteuertes Bild für {{name}} global freigeben",
+        "promoteSuccess": "Bild global freigegeben.",
+        "demoteButton": "Zurücknehmen",
+        "demoteTooltip": "Globale Freigabe zurücknehmen",
+        "demoteAria": "Globale Freigabe des Bildes für {{name}} zurücknehmen",
+        "demoteSuccess": "Freigabe zurückgenommen.",
+        "demoteConfirmTitle": "Freigabe zurücknehmen?",
+        "demoteConfirmMessage": "Das Bild ist danach nicht mehr global sichtbar und wird aus der Erkennung entfernt. Es bleibt für den beisteuernden Mandanten erhalten.",
+        "actionError": "Aktion fehlgeschlagen.",
+        "actionBusy": "Aktion wird ausgeführt …"
       },
       "recognition": {
         "section": "Self-Hosted-Erkennung (DINOv2)",
@@ -3648,6 +3683,96 @@
         "bloomLabel": "Blüte",
         "tasks": "Aufgaben"
       }
+    },
+    "pestDetail": {
+      "back": "Zurück zur Liste",
+      "loadError": "Die Schädlingsdaten konnten nicht geladen werden.",
+      "notFound": "Schädling nicht gefunden.",
+      "sectionImages": "Bilder",
+      "noImages": "Für diesen Schädling sind noch keine Referenzbilder hinterlegt.",
+      "imageAlt": "Referenzbild: {{name}}",
+      "sectionProfile": "Steckbrief",
+      "damageSymptoms": "Schadbild",
+      "affectedParts": "Betroffene Pflanzenteile",
+      "hostPlants": "Typische Wirtspflanzen",
+      "tempRange": "Optimaler Temperaturbereich",
+      "humidityRange": "Optimale Luftfeuchte",
+      "sectionTreatments": "Gegenmaßnahmen",
+      "treatmentsIntro": "Maßnahmen nach dem integrierten Pflanzenschutz (IPM): vorbeugende und schonende Verfahren zuerst, chemische Mittel zuletzt.",
+      "noTreatments": "Für diesen Schädling sind noch keine Gegenmaßnahmen hinterlegt.",
+      "activeIngredient": "Wirkstoff",
+      "karenzDays": "Karenzzeit: {{days}} Tage",
+      "sectionBeneficials": "Nützlinge",
+      "beneficialsIntro": "Diese Nützlinge fressen den Schädling und helfen, den Befall natürlich zu regulieren.",
+      "sectionPrevention": "Vorbeugung & Monitoring",
+      "preventionTips": "Vorbeugung",
+      "monitoringHints": "Monitoring",
+      "severity": "Schadpotenzial",
+      "pageIntro": "Dieser Schädlingssteckbrief fasst Schadbild, Lebenszyklus, Gegenmassnahmen nach IPM-Hierarchie und passende Nützlinge zusammen.",
+      "sectionProfileIntro": "Erkennungsmerkmale, betroffene Pflanzenteile, typische Wirtspflanzen und Umgebungsbedingungen, unter denen sich der Schädling wohlfühlt.",
+      "sectionImagesIntro": "Referenzbilder helfen bei der Bestimmung. Kuratierte Bilder werden schrittweise ergänzt.",
+      "sectionBeneficialsIntro2": "Nützlinge sind natürliche Fressfeinde des Schädlings. Ihr Einsatz ist die schonendste Bekämpfungsmethode (biologisch/IPM-Stufe 2).",
+      "sectionPreventionIntro": "Vorbeugung ist günstiger als Bekämpfung. Regelmässiges Monitoring erkennt Befälle früh.",
+      "ipmTooltipHint": "IPM = Integrierter Pflanzenschutz",
+      "karenzTooltipHint": "Karenzzeit = Sicherheitsabstand bis zur Ernte",
+      "beneficialScientificName": "Wissenschaftlicher Name",
+      "contributeButton": "Eigenes Foto beitragen",
+      "contributeTitle": "Eigenes Foto beitragen",
+      "contributeIntro": "Lade ein Foto hoch oder nimm eines mit der Kamera auf. Es erscheint in deiner privaten Galerie zu diesem Schädling; EXIF-Standortdaten werden automatisch entfernt.",
+      "contributeUploading": "Wird hochgeladen …",
+      "contributeError": "Das Bild konnte nicht hochgeladen werden.",
+      "contributeLightBlocked": "Im anonymen Modus können keine eigenen Bilder beigesteuert werden.",
+      "captionLabel": "Bildbeschreibung (optional)",
+      "imageDelete": "Bild löschen",
+      "imageGlobal": "Dieses Bild ist global freigegeben und für alle Nutzer sichtbar.",
+      "imageGlobalShort": "Global",
+      "imageFromInspection": "Dieses Foto stammt aus einer deiner Inspektionen, bei der dieser Schädling erkannt wurde.",
+      "imageFromInspectionShort": "Aus Inspektion",
+      "imageFromInspectionAlt": "Inspektionsfoto: {{name}}",
+      "imageFromRecognition": "Globales Referenzbild aus der Schädlingserkennung (externe Quelle, CC-Lizenz).",
+      "imageFromRecognitionShort": "Referenz",
+      "imageFromRecognitionAlt": "Referenzbild der Erkennung: {{name}}",
+      "noImagesLight": "Im anonymen Modus sind keine eigenen Bilder verfügbar.",
+      "imageDeleteConfirmTitle": "Bild löschen?",
+      "imageDeleteConfirmMessage": "Dieses Referenzbild wird unwiderruflich gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.",
+      "imageDeleteSuccess": "Bild wurde gelöscht.",
+      "showDeselected": "Abgewählte einblenden",
+      "imageDeselect": "Bild abwählen",
+      "imageReactivate": "Bild wieder aufnehmen",
+      "imageDeselected": "Bild wurde abgewählt und ist nicht mehr sichtbar.",
+      "imageReactivated": "Bild wurde wieder aufgenommen.",
+      "imageDeselectError": "Das Bild konnte nicht aktualisiert werden.",
+      "imageDeselectedBadge": "Abgewählt",
+      "contributeSuccess": "Dein Foto wurde erfolgreich hochgeladen."
+    },
+    "treatmentDetail": {
+      "back": "Zurück zur Liste",
+      "loadError": "Die Behandlungsdaten konnten nicht geladen werden.",
+      "notFound": "Behandlung nicht gefunden.",
+      "sectionFacts": "Eckdaten",
+      "applicationMethod": "Anwendungsart",
+      "dosagePerLiter": "Dosierung pro Liter",
+      "karenz": "Karenzzeit",
+      "karenzDaysValue": "{{days}} Tage bis zur Ernte",
+      "karenzNone": "Keine Karenzzeit",
+      "protectiveEquipment": "Schutzausrüstung",
+      "sectionHowToApply": "Anwendung",
+      "sectionModeOfAction": "Wirkweise",
+      "sectionPrecautions": "Sicherheitshinweise",
+      "sectionTargets": "Wirkt gegen",
+      "sectionTargetsIntro": "Schädlinge und Krankheiten, gegen die diese Maßnahme eingesetzt wird.",
+      "targetedPests": "Schädlinge",
+      "targetedDiseases": "Krankheiten",
+      "pageIntro": "Hier findest du alle Details zu dieser Pflanzenschutzmaßnahme — Wirkstoff, Dosierung, Anwendungshinweise und Sicherheitsinformationen.",
+      "activeIngredient": "Wirkstoff",
+      "karenzDays": "Karenzzeit: {{days}} Tage",
+      "sectionFactsIntro": "Die wichtigsten Eckdaten auf einen Blick: Anwendungsart, Wirkstoff, empfohlene Dosierung und die gesetzlich vorgeschriebene Karenzzeit bis zur Ernte.",
+      "sectionHowToApplyIntro": "Schritt-für-Schritt-Anleitung zur sachgerechten Anwendung dieser Maßnahme.",
+      "sectionModeOfActionIntro": "Erklärt, wie diese Maßnahme im Körper des Schädlings oder an der Krankheit wirkt.",
+      "sectionPrecautionsIntro": "Wichtige Hinweise zu Schutzmaßnahmen, sicherem Umgang und Umweltschutz.",
+      "targetedPestsIntro": "Diese Schädlinge lassen sich mit der Maßnahme bekämpfen — klicke auf einen Namen für Details.",
+      "targetedDiseasesIntro": "Diese Pflanzenkrankheiten lassen sich mit dieser Maßnahme behandeln oder eindämmen.",
+      "viewPestDetail": "Details anzeigen"
     }
   },
   "tankAlerts": {
@@ -4151,7 +4276,10 @@
       "insect": "Insekt",
       "mite": "Milbe",
       "nematode": "Nematode",
-      "mollusk": "Weichtier"
+      "mollusk": "Weichtier",
+      "arachnid": "Spinnentier",
+      "gastropod": "Schnecke",
+      "mammal": "Säugetier"
     },
     "pathogenType": {
       "fungal": "Pilzlich",
@@ -4362,6 +4490,18 @@
       "dormancy": "Ruhephase",
       "early_flower": "Frühblüte",
       "late_flower": "Spätblüte"
+    },
+    "plantPart": {
+      "leaf": "Blatt",
+      "stem": "Stängel",
+      "root": "Wurzel",
+      "flower": "Blüte",
+      "fruit": "Frucht"
+    },
+    "pestSeverity": {
+      "low": "Gering",
+      "medium": "Mittel",
+      "high": "Hoch"
     }
   },
   "sensorChart": {
@@ -4475,6 +4615,21 @@
       "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf Ihrem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
       "beginnerTip": "Für die meisten Installationen ist 'local_embedding' die richtige Wahl.",
       "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrierter Pflanzenschutz — Vorbeugung vor Chemie",
+      "long": "Dreistufiger Ansatz: 1) Vorbeugen (gesunde Pflanzen, Hygiene), 2) Beobachten (regelmässig kontrollieren), 3) Eingreifen (Nützlinge vor Spritzmitteln). Chemische Mittel sind immer der letzte Schritt.",
+      "beginnerTip": "Gesunde Pflanzen werden seltener krank. Regelmässig nach Schädlingen schauen reicht für den Anfang."
+    },
+    "karenzzeit": {
+      "short": "Sicherheitsabstand zwischen letzter Behandlung und Ernte",
+      "long": "Nach dem Einsatz chemischer Pflanzenschutzmittel muss eine Mindestzeit vergehen, bevor die Ernte verzehrt werden darf. Die Dauer steht auf dem Produktetikett und ist gesetzlich vorgeschrieben.",
+      "beginnerTip": "Nie ernten, wenn eine Karenzzeit läuft. Das System warnt dich automatisch."
+    },
+    "nuetzlinge": {
+      "short": "Natürliche Fressfeinde von Schädlingen",
+      "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
+      "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -12,6 +13,7 @@ import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPests } from '@/store/slices/ipmSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
+import { useLocalizedField } from '@/hooks/useLocalizedField';
 import type { Pest } from '@/api/types';
 import PestCreateDialog from './PestCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
@@ -26,6 +28,8 @@ const difficultyColor: Record<string, ChipColor> = {
 
 export default function PestListPage() {
   const { t } = useTranslation();
+  const l = useLocalizedField();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
   const [createOpen, setCreateOpen] = useState(false);
@@ -46,7 +50,8 @@ export default function PestListPage() {
     {
       id: 'commonName',
       label: t('pages.ipm.commonName'),
-      render: (r) => r.common_name,
+      render: (r) => l(r, 'common_name'),
+      searchValue: (r) => l(r, 'common_name'),
     },
     {
       id: 'pestType',
@@ -117,6 +122,7 @@ export default function PestListPage() {
         rows={pests}
         loading={loading}
         getRowKey={(r) => r.key}
+        onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
         emptyActionLabel={t('pages.ipm.createPest')}
         onEmptyAction={() => setCreateOpen(true)}
         emptyIllustration={kamiIpm}
@@ -125,7 +131,7 @@ export default function PestListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
-            subtitle={r.common_name}
+            subtitle={l(r, 'common_name')}
             chips={
               <>
                 <Chip

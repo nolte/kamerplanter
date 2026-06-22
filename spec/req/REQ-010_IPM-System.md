@@ -7,13 +7,16 @@ Kategorie: Schädlingsmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 1.1 (Karenz-Gate für detachte PlantInstances, ADR-001)
+Version: 1.4 (Nutzer-beigesteuerte Schädlings-Referenzbilder: Upload/Kamera, Freigabe, Erkennung)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-06-21 | **Nutzer-beigesteuerte Schädling-Referenzbilder:** Nutzer können eigene Fotos zu einem Schädling beitragen — per Datei-Upload oder Kamera (`ImageCapturePanel`). Neues Modell `PestImageContribution` (Collection `pest_image_contributions`, tenant-scoped) + Bilder als echte Attachments via `AttachmentService` (EXIF-Strip, Virus-Scan, Magic-Byte, SHA-256-Dedup; `AttachmentCategory.PEST_REFERENCE`). **Phase 1 (privat):** Endpoints `POST/GET/DELETE /api/v1/t/{slug}/ipm/pests/{key}/images`; eigene Bilder sofort in der privaten Galerie sichtbar/löschbar; strikte Tenant-Isolation; Light-Modus blockiert. **Phase 2 (Freigabe/global/Erkennung):** `status` (private/promoted); Admin-Moderation `GET/PATCH /api/v1/admin/pests/{key}/contributions` (Platform-Admin, cross-tenant); globaler read-only Content-Endpoint `GET /api/v1/ipm/pest-images/{id}[/thumbnails/{size}]` liefert NUR `promoted` (sonst 404) — tenant-Liste zeigt eigene + fremde promoted; bei Freigabe wird das Bild als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index (REQ-044 inference-service) aufgenommen. **DSGVO:** `pest_image_contributions` + `pest_reference`-Attachments im ErasureEngine (Tenant- und User-Löschung). |
+| 1.3 | 2026-06-21 | **Behandlungs-Detailseite + durchgängig mehrsprachige IPM-Inhalte:** `treatments`-Stammdaten mehrsprachig (Muster `name`/`name_de` über `useLocalizedField`; `name` bleibt englischer Edge-Schlüssel) und detailliert — neue Feldpaare `description(_de)`, `how_to_apply(_de)` (Anwendung), `mode_of_action(_de)` (Wirkweise), `precautions(_de)` (Sicherheitshinweise). Neuer aggregierter Endpoint `GET /ipm/treatments/{key}/detail` (Maßnahme + behandelte Schädlinge/Krankheiten via Reverse-`targets_pest`/`targets_disease`-Edges, dedupliziert). Frontend-Detailseite `pflanzenschutz/treatments/:key`, verlinkt aus der Behandlungs-Liste und aus den Gegenmaßnahmen der Schädlings-Detailseite. Alle 40 Treatment-Seeds in `ipm.yaml` vollständig DE+EN. **Auch die `pests`-Profil-Freitextfelder mehrsprachig** (`damage_symptoms(_de)`, `host_plants(_de)`, `prevention_tips(_de)`, `monitoring_hints(_de)`; Basis = EN, `_de` = Deutsch) sowie **`common_name(_de)`** (deutscher Name für Titel/Liste/Chips). **Gegenmaßnahmen auf der Schädlings-Detailseite zeigen je eine kurze, lokalisierte Wirkbeschreibung** (description/mode_of_action) statt nur des Namens. **Alle 33 Schädlinge im Seed** mit `common_name_de` versehen und mit vollständigen mehrsprachigen Detaildaten angereichert (Schadbild, Pflanzenteile, Wirtspflanzen, Prävention, Monitoring, Schweregrad). Alle neuen Felder optional → abwärtskompatibel. |
+| 1.2 | 2026-06-21 | **Schädlings-Detailseite:** `pests`-Stammdaten um Detailfelder erweitert (`damage_symptoms`, `affected_plant_parts`, `host_plants`, `prevention_tips`, `monitoring_hints`, `severity`, `optimal_humidity_min/max`, `reference_image_refs`) sowie `detection_slug` als Brücke zur Erkennungs-Taxonomie (REQ-044 `PestTaxon.slug`). Neuer aggregierter Endpoint `GET /ipm/pests/{key}/detail` (Stammdaten + Gegenmaßnahmen nach IPM-Hierarchie + passende Nützlinge + Schadbild-Hinweis). Frontend-Detailseite `pflanzenschutz/pests/:key`, verlinkt aus der Schädlings-Liste und dem Erkennungs-Dialog (REQ-044). Kuratierte Referenzbilder via Admin-Upload (Object-Storage, NFR-013); Galerie anfangs leer. Alle neuen Felder optional → abwärtskompatibel zu bestehenden Seeds. |
 | 1.1 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `to_plant`-Edge um Snapshot-Felder `inherited_from_run` + `inherited_at` erweitert. `SafetyIntervalValidator.collect_relevant_treatments()` ergänzt — sammelt direkte, run-aktive und geerbte Treatments und dedupliziert über `_key` (Re-attach-sicher). AQL-Lookup im Repository-Layer dokumentiert. |
 | 1.0 | (vorher) | Erstversion. |
 
@@ -40,12 +43,15 @@ Das System unterscheidet zwischen:
 ### Document Collections:
 - **`pests`** - Schädlingstyp (z.B. Spinnmilbe, Blattlaus, Thripse)
   - Felder: `scientific_name`, `common_name`, `lifecycle_days`, `optimal_temp_range`, `detection_difficulty`
+  - **Detailseiten-Felder (v1.2, alle optional):** `damage_symptoms` (Schadbild-Beschreibung), `affected_plant_parts` (`leaf`|`stem`|`root`|`flower`|`fruit`), `host_plants`, `prevention_tips`, `monitoring_hints`, `severity` (`low`|`medium`|`high`), `optimal_humidity_min`/`optimal_humidity_max`, `reference_image_refs` (kuratierte Referenzbilder als Object-Storage-Refs, NFR-013), `detection_slug` (Brücke zur REQ-044-Erkennungs-Taxonomie `PestTaxon.slug` — verknüpft den Stammdatensatz mit der Bilderkennungs-Klasse für Schadbild-Hinweis und Nützlings-Lookup)
+    - **v1.3 mehrsprachig:** die Freitextfelder `damage_symptoms`, `host_plants`, `prevention_tips`, `monitoring_hints` (sowie `description`) haben `_de`-Varianten (Basisfeld = EN-Fallback, `_de` = Deutsch; Anzeige über `useLocalizedField`).
 - **`diseases`** - Krankheitserreger (z.B. Echter Mehltau, Botrytis)
   - Felder: `pathogen_type: ['fungal', 'bacterial', 'viral']`, `incubation_period`, `environmental_triggers`
 - **`symptoms`** - Visuelles/physisches Anzeichen
   - Felder: `description`, `severity_level`, `affected_plant_part: ['leaf', 'stem', 'root', 'flower']`
 - **`treatments`** - Gegenmaßnahme
   - Felder: `type: ['cultural', 'biological', 'chemical', 'mechanical']`, `active_ingredient`, `application_method`, `safety_interval_days`
+  - **Mehrsprachig + Detailseiten-Felder (v1.3, alle optional):** `name` (englisch, stabiler Edge-Schlüssel) + `name_de` (deutsche Anzeige); `description(_de)`, `how_to_apply(_de)` (Anwendung), `mode_of_action(_de)` (Wirkweise), `precautions(_de)` (Sicherheits-/Vorsichtshinweise). Anzeige-Sprachwahl im Frontend über `useLocalizedField` (DE → `_de`, sonst englisches Basisfeld als Fallback). Inhalte vollständig seed-getrieben (`ipm.yaml`).
 - **`beneficial_organisms`** - Nützling
   - Felder: `species`, `target_pests`, `release_rate_per_m2`, `establishment_time_days`
 - **`inspections`** - Befallskontrolle
@@ -796,6 +802,26 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Snapshot-Immutability (ADR-001 Frage 2):** Korrektur eines Run-Treatments (z.B. `applied_at` ändern) propagiert NICHT auf bestehende geerbte Edges. Anwender muss die geerbte Edge separat editieren.
 - [ ] **Migrations-Task (ADR-001 Frage 4):** Beim REQ-013-v2.0-Rollout läuft ein einmaliger Celery-Task, der für alle bestehenden detachten PlantInstances rückwirkend Snapshots erzeugt. Idempotent (mehrfacher Lauf erzeugt keine Duplikate).
 <!-- /Quelle: ADR-001 / W-009 -->
+<!-- Quelle: REQ-010 v1.2 — Schädlings-Detailseite -->
+- [ ] **Schädlings-Detailseite:** Eine eigene Seite (`pflanzenschutz/pests/:key`) zeigt pro Schädling Steckbrief (Schadbild, betroffene Pflanzenteile, Wirtspflanzen, Lebenszyklus, Temperatur-/Feuchtebereich, Schweregrad), kuratierte Referenzbilder (Galerie; sauberer Leer-Zustand wenn keine vorhanden), Gegenmaßnahmen nach IPM-Hierarchie gruppiert (kulturell → biologisch → mechanisch → chemisch, mit sichtbarer Karenzzeit) sowie passende Nützlinge.
+- [ ] **Aggregierter Endpoint:** `GET /ipm/pests/{key}/detail` liefert Stammdaten + nach IPM-Hierarchie sortierte Gegenmaßnahmen + Nützlinge (über `detection_slug` → `preys_on`) + Schadbild-Hinweis aus der REQ-044-Erkennungs-Taxonomie. 404 bei unbekanntem Schlüssel.
+- [ ] **Verlinkung:** Schädlings-Liste (Zeilen-Klick, Desktop + Mobile) und der REQ-044-Erkennungs-Dialog (Link „Mehr über diesen Schädling" via `matched_pest_key`) führen auf die Detailseite.
+- [ ] **Abwärtskompatibilität:** Alle neuen `pests`-Felder sind optional; bestehende Seeds ohne Detailfelder bleiben gültig und die Detailseite blendet leere Abschnitte aus.
+<!-- /Quelle: REQ-010 v1.2 -->
+<!-- Quelle: REQ-010 v1.3 — Behandlungs-Detailseite + mehrsprachige Gegenmaßnahmen -->
+- [ ] **Mehrsprachige Gegenmaßnahmen:** Treatment-Namen und -Detailtexte liegen mehrsprachig vor (`name`/`name_de`, `description(_de)`, `how_to_apply(_de)`, `mode_of_action(_de)`, `precautions(_de)`); die UI zeigt die Sprache des Nutzers (DE → `_de`, sonst englisches Basisfeld). Inhalte stammen vollständig aus `ipm.yaml` (kein hartkodierter Fachtext im Code).
+- [ ] **Behandlungs-Detailseite:** Eine eigene Seite (`pflanzenschutz/treatments/:key`) zeigt pro Maßnahme Eckdaten (Anwendungsart, Wirkstoff, Dosierung, Karenzzeit, Schutzausrüstung), Anwendung, Wirkweise, Sicherheitshinweise sowie die behandelten Schädlinge (verlinkt) und Krankheiten.
+- [ ] **Aggregierter Endpoint:** `GET /ipm/treatments/{key}/detail` liefert die Maßnahme + die behandelten Schädlinge/Krankheiten (Reverse-Edges, dedupliziert). 404 bei unbekanntem Schlüssel.
+- [ ] **Verlinkung:** Behandlungs-Liste (Zeilen-Klick) und die Gegenmaßnahmen auf der Schädlings-Detailseite verlinken auf die Behandlungs-Detailseite; die behandelten Schädlinge dort verlinken zurück auf die Schädlings-Detailseite.
+- [ ] **Abwärtskompatibilität (Treatments):** Alle neuen `treatments`-Felder sind optional; `name` (englisch) bleibt unverändert als Edge-Schlüssel der `pest_treatments`/`disease_treatments`-Mappings.
+<!-- /Quelle: REQ-010 v1.3 -->
+<!-- Quelle: REQ-010 v1.4 — Nutzer-beigesteuerte Schädling-Referenzbilder -->
+- [ ] **Bild-Beitrag (Upload/Kamera):** Ein Nutzer kann zu einem Schädling eigene Fotos beitragen — per Datei-Upload oder Kamera. Bilder werden über den `AttachmentService` (EXIF-Strip, Virus-Scan, Magic-Byte, Dedup) gespeichert und erscheinen sofort in der privaten Galerie der Detailseite (tenant-scoped); eigene Bilder sind löschbar. Im Light-Modus nicht verfügbar.
+- [ ] **Tenant-Isolation:** Private Bilder eines Tenants sind für andere Tenants nicht sichtbar/löschbar.
+- [ ] **Globale Freigabe (Moderation):** Ein Platform-Admin kann beigesteuerte Bilder global freigeben (`status=promoted`); freigegebene Bilder werden für alle Nutzer über einen globalen, read-only Content-Endpoint sichtbar, der ausschließlich `promoted` ausliefert (private/unbekannt → 404).
+- [ ] **Erkennung:** Bei Freigabe wird das Bild als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index (REQ-044) aufgenommen, sofern der Schädling eine Erkennungsklasse (`detection_slug`) hat; nur Embedding/Provenienz, kein Originalpixel im Index.
+- [ ] **DSGVO:** Beigesteuerte Bilder (Dokumente + Attachment-Bytes) werden bei Tenant- und Nutzer-Löschung vollständig entfernt.
+<!-- /Quelle: REQ-010 v1.4 -->
 
 ### Testszenarien:
 

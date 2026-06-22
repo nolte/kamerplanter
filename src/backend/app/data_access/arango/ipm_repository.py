@@ -6,6 +6,7 @@ from app.common.types import DiseaseKey, PestKey, TreatmentKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
+from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
     Inspection,
@@ -183,6 +184,28 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         total = next(count_cursor, 0)
         return items, total
 
+    def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
+        # Strict tenant isolation: only the calling tenant's inspections are
+        # scanned. ``pest_key in detected_pest_keys`` selects the inspections
+        # that documented this pest. Photo refs are flattened newest-first and
+        # deduplicated in Python so the first (newest) occurrence wins.
+        query = (
+            f"FOR doc IN {col.INSPECTIONS} "
+            f"FILTER doc.tenant_key == @tenant_key "
+            f"FILTER @pest_key IN doc.detected_pest_keys "
+            f"SORT doc.inspected_at DESC "
+            f"RETURN doc.photo_refs"
+        )
+        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "pest_key": pest_key})
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for refs in cursor:
+            for ref in refs or []:
+                if ref and ref not in seen:
+                    seen.add(ref)
+                    ordered.append(ref)
+        return ordered
+
     # ── TreatmentApplication ──
 
     def create_treatment_application(self, app: TreatmentApplication) -> TreatmentApplication:
@@ -284,12 +307,48 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
 
     def get_treatments_for_pest(self, pest_key: PestKey) -> list[Treatment]:
         pest_id = f"{col.PESTS}/{pest_key}"
+        # COLLECT dedupliziert mehrfache identische targets_pest-Edges (entstehen,
+        # weil create_edge nicht idempotent ist und der Seed-Loader bei jedem Lauf
+        # eine neue Edge anlegt) — sonst erscheint dasselbe Treatment mehrfach.
         query = f"""
         FOR e IN {col.TARGETS_PEST}
             FILTER e._to == @pest_id
+            COLLECT from_id = e._from
             FOR t IN {col.TREATMENTS}
-                FILTER t._key == PARSE_IDENTIFIER(e._from).key
+                FILTER t._key == PARSE_IDENTIFIER(from_id).key
                 RETURN t
         """
         cursor = self._db.aql.execute(query, bind_vars={"pest_id": pest_id})
         return [Treatment(**self._from_doc(doc)) for doc in cursor]
+
+    def get_beneficials_for_pest_slug(self, slug: str) -> list[Beneficial]:
+        query = f"FOR b IN {col.BENEFICIALS} FILTER @slug IN b.preys_on RETURN b"
+        cursor = self._db.aql.execute(query, bind_vars={"slug": slug})
+        return [Beneficial(**self._from_doc(doc)) for doc in cursor]
+
+    def get_pests_for_treatment(self, treatment_key: TreatmentKey) -> list[Pest]:
+        treatment_id = f"{col.TREATMENTS}/{treatment_key}"
+        # COLLECT dedupliziert mehrfache identische targets_pest-Edges.
+        query = f"""
+        FOR e IN {col.TARGETS_PEST}
+            FILTER e._from == @treatment_id
+            COLLECT to_id = e._to
+            FOR p IN {col.PESTS}
+                FILTER p._id == to_id
+                RETURN p
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"treatment_id": treatment_id})
+        return [Pest(**self._from_doc(doc)) for doc in cursor]
+
+    def get_diseases_for_treatment(self, treatment_key: TreatmentKey) -> list[Disease]:
+        treatment_id = f"{col.TREATMENTS}/{treatment_key}"
+        query = f"""
+        FOR e IN {col.TARGETS_DISEASE}
+            FILTER e._from == @treatment_id
+            COLLECT to_id = e._to
+            FOR d IN {col.DISEASES}
+                FILTER d._id == to_id
+                RETURN d
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"treatment_id": treatment_id})
+        return [Disease(**self._from_doc(doc)) for doc in cursor]

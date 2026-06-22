@@ -2,271 +2,1424 @@
 pests:
   - scientific_name: Tetranychus urticae
     common_name: Spider Mites
+    common_name_de: Spinnmilben
     pest_type: arachnid
     lifecycle_days: 21
     optimal_temp_min: 25.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    detection_slug: spider_mite
+    severity: high
+    optimal_humidity_min: 30.0
+    optimal_humidity_max: 50.0
+    damage_symptoms: >-
+      Light stippling (speckled spots) on the upper leaf surface, fine webbing on
+      the leaf underside and shoot tips, later bronzing and leaf drop. The
+      infestation escalates quickly in dry, warm air.
+    damage_symptoms_de: >-
+      Helle Sprenkelung (Sprenkelflecken) auf der Blattoberseite, feine Gespinste
+      an Blattunterseite und Triebspitzen, später Bronzefärbung und Blattfall.
+      Der Befall eskaliert schnell bei trocken-warmer Luft.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Houseplants (Ficus, Dieffenbachia)
+      - Vegetables (cucumber, tomato, bean)
+      - Ornamental plants
+    host_plants_de:
+      - Zimmerpflanzen (Ficus, Dieffenbachia)
+      - Gemüse (Gurke, Tomate, Bohne)
+      - Zierpflanzen
+    prevention_tips: >-
+      Keep humidity above 50 %, rinse plants down regularly, quarantine and
+      inspect new arrivals, and avoid drought stress.
+    prevention_tips_de: >-
+      Luftfeuchte über 50 % halten, Pflanzen regelmäßig abduschen, Neuzugänge in
+      Quarantäne kontrollieren und Trockenstress vermeiden.
+    monitoring_hints: >-
+      Inspect leaf undersides with a magnifier for moving dots and webbing, do a
+      tap test over white paper, and spot the first speckling early.
+    monitoring_hints_de: >-
+      Blattunterseiten mit der Lupe auf bewegliche Punkte und Gespinste prüfen,
+      Klopfprobe über weißem Papier, erste Sprenkel früh erkennen.
 
   - scientific_name: Aphis gossypii
-    common_name: Cotton Aphid  # Baumwoll-/Gurkenblattlaus
+    common_name: Cotton Aphid
+    common_name_de: Baumwoll-/Gurkenblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 20.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    detection_slug: aphid
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      Sticky honeydew on the leaves followed by black sooty mould, curled and
+      deformed shoot tips, visible colonies and white moulting skins. Aphids also
+      transmit plant viruses.
+    damage_symptoms_de: >-
+      Klebriger Honigtau auf den Blättern mit nachfolgendem schwarzem Rußtau,
+      gekräuselte und deformierte Triebspitzen, sichtbare Kolonien und weiße
+      Häutungshüllen. Blattläuse übertragen zudem Pflanzenviren.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - nearly all ornamental and crop plants
+      - Pepper
+      - Cucumber
+      - Roses
+    host_plants_de:
+      - nahezu alle Zier- und Nutzpflanzen
+      - Paprika
+      - Gurke
+      - Rosen
+    prevention_tips: >-
+      Avoid over-fertilising with nitrogen, encourage beneficial insects, inspect
+      new arrivals, and hang yellow sticky traps for early warning.
+    prevention_tips_de: >-
+      Stickstoff-Überdüngung vermeiden, Nützlinge fördern, Neuzugänge
+      kontrollieren und Gelbtafeln zur Frühwarnung aushängen.
+    monitoring_hints: >-
+      Check shoot tips and buds for colonies, use yellow sticky traps for flight
+      monitoring, and watch for ants that "milk" the aphids.
+    monitoring_hints_de: >-
+      Triebspitzen und Knospen auf Kolonien prüfen, Gelbtafeln zur
+      Flugüberwachung nutzen und auf Ameisen achten, die Läuse „melken".
 
   - scientific_name: Frankliniella occidentalis
-    common_name: Western Flower Thrips  # Kalifornischer Blütenthrips
+    common_name: Western Flower Thrips
+    common_name_de: Kalifornischer Blütenthrips
     pest_type: insect
     lifecycle_days: 18
     optimal_temp_min: 20.0
     optimal_temp_max: 28.0
     detection_difficulty: hard
+    detection_slug: thrips_frankliniella
+    severity: high
+    optimal_humidity_min: 40.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      Silvery-grey feeding spots with tiny black faecal specks on the leaves,
+      deformed and crippled leaves and flowers. Transmits tospoviruses (e.g.
+      tomato spotted wilt virus, TSWV).
+    damage_symptoms_de: >-
+      Silbrig-graue Saugflecken mit schwarzen Kotpünktchen auf den Blättern,
+      deformierte und verkrüppelte Blätter und Blüten. Überträgt Tospoviren
+      (z. B. das Tomatenbronzefleckenvirus, TSWV).
+    affected_plant_parts: [leaf, flower]
+    host_plants:
+      - Ornamental plants
+      - Pepper
+      - Cucumber
+      - Houseplants
+    host_plants_de:
+      - Zierpflanzen
+      - Paprika
+      - Gurke
+      - Zimmerpflanzen
+    prevention_tips: >-
+      Hang blue sticky traps preventively, quarantine new arrivals, and remove
+      weeds that serve as host plants.
+    prevention_tips_de: >-
+      Blaue Klebetafeln vorbeugend aushängen, Neuzugänge in Quarantäne halten
+      und Unkraut als Wirtspflanze entfernen.
+    monitoring_hints: >-
+      Evaluate blue sticky traps, shake flowers out over white paper, and check
+      the upper leaf surface for feeding spots.
+    monitoring_hints_de: >-
+      Blaue Klebetafeln auswerten, Blüten über weißem Papier ausschütteln und
+      die Blattoberseite auf Saugflecken prüfen.
 
   - scientific_name: Bradysia spp.
     common_name: Fungus Gnats
+    common_name_de: Trauermücken
     pest_type: insect
     lifecycle_days: 28
     optimal_temp_min: 20.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    detection_slug: fungus_gnat
+    severity: medium
+    optimal_humidity_min: 60.0
+    optimal_humidity_max: 90.0
+    damage_symptoms: >-
+      Small black flies walk and fly over the substrate; white larvae with a
+      black head feed on fine roots and the stem base in the root zone —
+      especially critical for young plants and cuttings.
+    damage_symptoms_de: >-
+      Kleine schwarze Mücken laufen und fliegen über dem Substrat; weiße Larven
+      mit schwarzem Kopf fressen im Wurzelbereich feine Wurzeln und die
+      Stängelbasis — besonders kritisch bei Jungpflanzen und Stecklingen.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Young plants
+      - Cuttings
+      - Houseplants in permanently moist substrate
+    host_plants_de:
+      - Jungpflanzen
+      - Stecklinge
+      - Zimmerpflanzen in dauerfeuchtem Substrat
+    prevention_tips: >-
+      Let the substrate surface dry out between waterings, do not overwater,
+      apply a mineral top dressing, and lay out yellow sticky traps.
+    prevention_tips_de: >-
+      Substratoberfläche zwischen den Wassergaben abtrocknen lassen, nicht
+      überwässern, mineralische Abdeckung aufbringen und Gelbtafeln auslegen.
+    monitoring_hints: >-
+      Lay yellow sticky traps flat on the substrate, use the potato-slice test
+      for larvae, and stir up adult flies when watering.
+    monitoring_hints_de: >-
+      Gelbtafeln flach auf das Substrat legen, Kartoffelscheiben-Test für Larven
+      und adulte Mücken beim Gießen aufscheuchen.
 
   - scientific_name: Trialeurodes vaporariorum
-    common_name: Greenhouse Whitefly  # Weiße Fliege (Gewächshaus)
+    common_name: Greenhouse Whitefly
+    common_name_de: Weiße Fliege (Gewächshaus)
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    detection_slug: whitefly
+    severity: medium
+    optimal_humidity_min: 60.0
+    optimal_humidity_max: 80.0
+    damage_symptoms: >-
+      When touched, white flies rise up in a cloud; larvae and pupae sit on the
+      leaf underside. Honeydew and sooty mould, yellowing and weakening of the
+      plant. The whitefly transmits viruses.
+    damage_symptoms_de: >-
+      Beim Berühren steigen weiße Fliegen in einer Wolke auf; Larven und Puppen
+      sitzen an der Blattunterseite. Honigtau und Rußtau, Vergilbung und
+      Schwächung der Pflanze. Die Weiße Fliege überträgt Viren.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Tomato
+      - Cucumber
+      - Pepper
+      - Ornamental plants (fuchsia, pelargonium)
+    host_plants_de:
+      - Tomate
+      - Gurke
+      - Paprika
+      - Zierpflanzen (Fuchsie, Pelargonie)
+    prevention_tips: >-
+      Hang yellow sticky traps, inspect new arrivals, and introduce parasitic
+      wasps (Encarsia formosa) early.
+    prevention_tips_de: >-
+      Gelbtafeln aushängen, Neuzugänge kontrollieren und Schlupfwespen
+      (Encarsia formosa) frühzeitig einsetzen.
+    monitoring_hints: >-
+      Use yellow sticky traps for flight monitoring, check leaf undersides for
+      larvae and pupae, and gently shake plants to stir them up.
+    monitoring_hints_de: >-
+      Gelbtafeln zur Flugüberwachung nutzen, Blattunterseiten auf Larven und
+      Puppen prüfen und Pflanzen zum Aufscheuchen leicht schütteln.
 
   - scientific_name: Trichoplusia ni
-    common_name: Cabbage Looper  # Gemüseeule (Raupe)
+    common_name: Cabbage Looper
+    common_name_de: Gemüseeule (Raupe)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
     optimal_temp_max: 28.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Irregular feeding holes and window-pane feeding on leaves, later complete
+      defoliation; dark green frass pellets reveal the caterpillars, which often
+      sit camouflaged on the leaf underside.
+    damage_symptoms_de: >-
+      Unregelmäßige Fraßlöcher und Fensterfraß an den Blättern, später
+      Kahlfraß; dunkelgrüne Kotkrümel verraten die Raupen, die oft getarnt an
+      der Blattunterseite sitzen.
+    affected_plant_parts: [leaf, flower, fruit]
+    host_plants:
+      - Cabbage and other brassicas
+      - Lettuce
+      - Tomato
+      - Many ornamental plants
+    host_plants_de:
+      - Kohl und andere Kreuzblütler
+      - Salat
+      - Tomate
+      - Viele Zierpflanzen
+    prevention_tips: >-
+      Cover crops with insect netting, remove eggs and young caterpillars by
+      hand, and encourage birds and parasitic wasps as natural enemies.
+    prevention_tips_de: >-
+      Kulturen mit Insektennetz abdecken, Eier und junge Raupen absammeln und
+      Vögel sowie Schlupfwespen als natürliche Gegenspieler fördern.
+    monitoring_hints: >-
+      Check leaf undersides for egg clusters and frass, inspect plants weekly,
+      and look for feeding damage at dusk when caterpillars are active.
+    monitoring_hints_de: >-
+      Blattunterseiten auf Eigelege und Kot prüfen, Pflanzen wöchentlich
+      kontrollieren und in der Dämmerung auf Fraßspuren achten, wenn die Raupen
+      aktiv sind.
 
   - scientific_name: Pseudococcus longispinus
-    common_name: Long-tailed Mealybug  # Lange Schmierlaus
+    common_name: Long-tailed Mealybug
+    common_name_de: Lange Schmierlaus
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 22.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    detection_slug: mealybug
+    severity: high
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 70.0
+    damage_symptoms: >-
+      White, cottony wax secretions in leaf axils, on shoots and leaf undersides;
+      honeydew and sooty mould, growth disorders and yellowing. Hard to control
+      due to the protective wax.
+    damage_symptoms_de: >-
+      Weiße, wattige Wachsausscheidungen in Blattachseln, an Trieben und
+      Blattunterseiten; Honigtau und Rußtau, Wuchsstörungen und Vergilbung.
+      Durch den Wachsschutz schwer zu bekämpfen.
+    affected_plant_parts: [leaf, stem, root]
+    host_plants:
+      - Cacti and succulents
+      - Orchids
+      - Ficus
+      - Citrus plants
+    host_plants_de:
+      - Kakteen und Sukkulenten
+      - Orchideen
+      - Ficus
+      - Zitruspflanzen
+    prevention_tips: >-
+      Inspect new arrivals thoroughly and keep them in quarantine, overwinter
+      neither too warm nor too dry, and check leaf axils regularly.
+    prevention_tips_de: >-
+      Neuzugänge gründlich kontrollieren und in Quarantäne halten, nicht zu warm
+      und trocken überwintern und Blattachseln regelmäßig prüfen.
+    monitoring_hints: >-
+      Search leaf axils and shoot bases with a magnifier, watch for white cottony
+      wax and sticky spots, and check the root collar and pot rim.
+    monitoring_hints_de: >-
+      Blattachseln und Triebgrund mit der Lupe absuchen, auf weiße Watte und
+      klebrige Stellen achten und Wurzelhals sowie Topfrand kontrollieren.
 
   - scientific_name: Coccoidea (Überfamilie)
     common_name: Scale Insects
+    common_name_de: Schildläuse
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 20.0
     optimal_temp_max: 30.0
     detection_difficulty: hard
+    severity: high
+    optimal_humidity_min: 40.0
+    optimal_humidity_max: 60.0
+    damage_symptoms: >-
+      Brown or waxy humps on stems, leaf veins and undersides that barely move;
+      sticky honeydew with sooty mould, yellowing and stunted growth weaken the
+      plant over time.
+    damage_symptoms_de: >-
+      Braune oder wachsige Höcker an Stängeln, Blattadern und -unterseiten, die
+      sich kaum bewegen; klebriger Honigtau mit Rußtau, Vergilbung und
+      Kümmerwuchs schwächen die Pflanze mit der Zeit.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Citrus plants
+      - Ficus and other houseplants
+      - Orchids
+      - Ferns
+    host_plants_de:
+      - Zitruspflanzen
+      - Ficus und andere Zimmerpflanzen
+      - Orchideen
+      - Farne
+    prevention_tips: >-
+      Inspect and quarantine new arrivals, avoid dry overwintering and heat
+      stress, and wipe leaves regularly to catch early infestations.
+    prevention_tips_de: >-
+      Neuzugänge kontrollieren und in Quarantäne halten, trockene Überwinterung
+      und Hitzestress vermeiden und Blätter regelmäßig abwischen, um einen
+      frühen Befall zu erkennen.
+    monitoring_hints: >-
+      Scan stems and leaf veins with a magnifier for stationary humps, check for
+      sticky honeydew, and gently lift a scale to confirm it is a live insect.
+    monitoring_hints_de: >-
+      Stängel und Blattadern mit der Lupe auf unbewegliche Höcker absuchen, auf
+      klebrigen Honigtau achten und einen Schild vorsichtig anheben, um ein
+      lebendes Tier zu bestätigen.
 
   - scientific_name: Phyllotreta spp.
     common_name: Flea Beetle
+    common_name_de: Erdflöhe
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 20.0
     optimal_temp_max: 27.0
     detection_difficulty: easy
+    severity: medium
+    damage_symptoms: >-
+      Many small round shot-holes in young leaves; the tiny beetles jump away
+      when disturbed. Seedlings can be killed outright in warm, dry weather.
+    damage_symptoms_de: >-
+      Viele kleine, runde Löcher (Lochfraß) in jungen Blättern; die winzigen
+      Käfer springen bei Störung weg. Sämlinge können bei warm-trockenem Wetter
+      ganz absterben.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Radish and rocket
+      - Cabbage and other brassicas
+      - Turnip
+      - Mustard greens
+    host_plants_de:
+      - Radieschen und Rucola
+      - Kohl und andere Kreuzblütler
+      - Rübe
+      - Senfblätter
+    prevention_tips: >-
+      Keep the soil moist, sow under insect netting, and avoid bare dusty beds;
+      a thin mulch and regular watering deter the beetles.
+    prevention_tips_de: >-
+      Boden feucht halten, unter Insektennetz aussäen und staubige Kahlbeete
+      vermeiden; eine dünne Mulchschicht und regelmäßiges Gießen halten die
+      Käfer fern.
+    monitoring_hints: >-
+      Inspect young leaves for shot-holes on warm dry days, watch for jumping
+      beetles, and use yellow sticky traps laid near the soil.
+    monitoring_hints_de: >-
+      Junge Blätter an warm-trockenen Tagen auf Lochfraß prüfen, auf springende
+      Käfer achten und bodennah ausgelegte Gelbtafeln nutzen.
 
   - scientific_name: Arion vulgaris
-    common_name: Spanish Slug  # Spanische Wegschnecke
+    common_name: Spanish Slug
+    common_name_de: Spanische Wegschnecke
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 10.0
     optimal_temp_max: 20.0
     detection_difficulty: easy
+    severity: high
+    optimal_humidity_min: 80.0
+    optimal_humidity_max: 100.0
+    damage_symptoms: >-
+      Large ragged holes eaten from leaf edges and inward, whole seedlings
+      cleared overnight, and tell-tale silvery slime trails on leaves and soil.
+    damage_symptoms_de: >-
+      Große, ausgefranste Löcher vom Blattrand nach innen, über Nacht komplett
+      abgefressene Sämlinge und verräterische silbrige Schleimspuren auf
+      Blättern und Boden.
+    affected_plant_parts: [leaf, stem, fruit]
+    host_plants:
+      - Lettuce and salad greens
+      - Hostas
+      - Strawberries
+      - Young vegetable seedlings
+    host_plants_de:
+      - Salat und Blattgemüse
+      - Funkien (Hosta)
+      - Erdbeeren
+      - Junge Gemüsesämlinge
+    prevention_tips: >-
+      Water in the morning rather than evening, keep beds tidy and free of
+      hiding places, use slug collars or barriers, and encourage hedgehogs and
+      ground beetles.
+    prevention_tips_de: >-
+      Morgens statt abends gießen, Beete aufgeräumt und ohne Verstecke halten,
+      Schneckenkragen oder Barrieren einsetzen und Igel sowie Laufkäfer fördern.
+    monitoring_hints: >-
+      Search at dusk or after rain with a torch, lay out boards as traps and
+      check underneath in the morning, and follow slime trails to nests.
+    monitoring_hints_de: >-
+      In der Dämmerung oder nach Regen mit Taschenlampe absuchen, Bretter als
+      Fallen auslegen und morgens darunter kontrollieren sowie Schleimspuren zu
+      den Verstecken verfolgen.
 
   - scientific_name: Meloidogyne spp.
-    common_name: Root-knot Nematode  # Wurzelgallenälchen
+    common_name: Root-knot Nematode
+    common_name_de: Wurzelgallenälchen
     pest_type: nematode
     lifecycle_days: 30
     optimal_temp_min: 20.0
     optimal_temp_max: 30.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Knotty galls and swellings on the roots, above ground stunted growth,
+      wilting in midday heat despite moist soil, and yellowing — symptoms are
+      easily mistaken for nutrient deficiency.
+    damage_symptoms_de: >-
+      Knotige Gallen und Verdickungen an den Wurzeln, oberirdisch Kümmerwuchs,
+      Welke in der Mittagshitze trotz feuchten Bodens und Vergilbung — die
+      Symptome werden leicht mit Nährstoffmangel verwechselt.
+    affected_plant_parts: [root]
+    host_plants:
+      - Tomato
+      - Cucumber
+      - Carrot
+      - Many vegetables and ornamentals
+    host_plants_de:
+      - Tomate
+      - Gurke
+      - Möhre
+      - Viele Gemüse- und Zierpflanzen
+    prevention_tips: >-
+      Practise crop rotation, grow resistant cultivars, plant marigolds (Tagetes)
+      as a catch crop, and use only clean, sterilised substrate.
+    prevention_tips_de: >-
+      Fruchtfolge einhalten, resistente Sorten anbauen, Tagetes als Fangpflanze
+      setzen und nur sauberes, sterilisiertes Substrat verwenden.
+    monitoring_hints: >-
+      Lift suspect plants and inspect the roots for galls, watch for unexplained
+      wilting and stunting in patches, and keep records per bed for rotation.
+    monitoring_hints_de: >-
+      Verdächtige Pflanzen ausgraben und die Wurzeln auf Gallen prüfen, auf
+      unerklärliche Welke und Kümmerwuchs in Nestern achten und je Beet für die
+      Fruchtfolge Buch führen.
 
   # --- Outdoor-focused pests (new) ---
 
   - scientific_name: Pieris brassicae
     common_name: Large Cabbage White  # Großer Kohlweißling
+    common_name_de: Großer Kohlweißling
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Yellow-black gregarious caterpillars eat coarse holes and skeletonise
+      outer cabbage leaves, leaving heavy green-black frass; severe infestations
+      can strip plants down to the leaf veins.
+    damage_symptoms_de: >-
+      Gelb-schwarze, gesellig fressende Raupen verursachen groben Lochfraß und
+      Skelettierfraß an den äußeren Kohlblättern und hinterlassen reichlich
+      grün-schwarzen Kot; bei starkem Befall bleiben nur die Blattadern.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Kale
+      - Broccoli and cauliflower
+      - Nasturtium
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Grünkohl
+      - Brokkoli und Blumenkohl
+      - Kapuzinerkresse
+    prevention_tips: >-
+      Cover brassicas with insect netting from planting, scrape off the bright
+      yellow egg clusters on leaf undersides, and encourage parasitic wasps.
+    prevention_tips_de: >-
+      Kohl von Anfang an mit Insektennetz abdecken, die leuchtend gelben
+      Eigelege an den Blattunterseiten abkratzen und Schlupfwespen fördern.
+    monitoring_hints: >-
+      Inspect leaf undersides for yellow egg clusters from late spring, watch
+      for white butterflies flying over the bed, and check weekly for young
+      caterpillars.
+    monitoring_hints_de: >-
+      Ab dem Spätfrühjahr die Blattunterseiten auf gelbe Eigelege prüfen, auf
+      weiße Falter über dem Beet achten und wöchentlich nach jungen Raupen
+      suchen.
 
   - scientific_name: Pieris rapae
     common_name: Small Cabbage White  # Kleiner Kohlweißling
+    common_name_de: Kleiner Kohlweißling
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Solitary velvety-green caterpillars bore deep into cabbage hearts and eat
+      irregular holes; they are well camouflaged along the leaf veins and foul
+      the heads with frass.
+    damage_symptoms_de: >-
+      Einzeln lebende, samtgrüne Raupen bohren sich tief in die Kohlherzen und
+      fressen unregelmäßige Löcher; sie sind entlang der Blattadern gut getarnt
+      und verschmutzen die Köpfe mit Kot.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Kohlrabi
+      - Radish
+      - Nasturtium
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Kohlrabi
+      - Radieschen
+      - Kapuzinerkresse
+    prevention_tips: >-
+      Use insect netting over brassica beds, plant strongly scented companions,
+      and remove the well-hidden caterpillars by hand before they reach the
+      heart.
+    prevention_tips_de: >-
+      Kohlbeete mit Insektennetz schützen, stark duftende Mischkulturpartner
+      pflanzen und die gut versteckten Raupen vor dem Erreichen des Herzens
+      absammeln.
+    monitoring_hints: >-
+      Look closely along leaf veins and into the heart for camouflaged
+      caterpillars, watch for small white butterflies, and check for fresh
+      frass.
+    monitoring_hints_de: >-
+      Entlang der Blattadern und im Herzen gezielt nach getarnten Raupen suchen,
+      auf kleine weiße Falter achten und auf frischen Kot prüfen.
 
   - scientific_name: Leptinotarsa decemlineata
     common_name: Colorado Potato Beetle  # Kartoffelkäfer
+    common_name_de: Kartoffelkäfer
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: high
+    damage_symptoms: >-
+      Yellow-black striped beetles and fat red-orange larvae feed voraciously on
+      potato foliage and can defoliate whole plants; orange egg clusters sit on
+      the leaf undersides.
+    damage_symptoms_de: >-
+      Gelb-schwarz gestreifte Käfer und dicke rot-orange Larven fressen gierig
+      am Kartoffellaub und können ganze Pflanzen kahl fressen; orange Eigelege
+      sitzen an den Blattunterseiten.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Potato
+      - Aubergine
+      - Tomato
+      - Other nightshades
+    host_plants_de:
+      - Kartoffel
+      - Aubergine
+      - Tomate
+      - Andere Nachtschattengewächse
+    prevention_tips: >-
+      Rotate potato beds widely each year, inspect plants from emergence and
+      collect beetles, larvae and egg clusters by hand, and use straw mulch to
+      hinder migrating adults.
+    prevention_tips_de: >-
+      Kartoffelbeete jährlich weit wechseln, Pflanzen ab dem Auflaufen
+      kontrollieren und Käfer, Larven und Eigelege absammeln sowie Strohmulch
+      einsetzen, um zuwandernde Käfer zu bremsen.
+    monitoring_hints: >-
+      From emergence check leaf undersides for orange egg clusters and young
+      larvae, and act early before populations explode.
+    monitoring_hints_de: >-
+      Ab dem Auflaufen die Blattunterseiten auf orange Eigelege und junge Larven
+      prüfen und früh eingreifen, bevor die Population explodiert.
 
   - scientific_name: Cydia pomonella
     common_name: Codling Moth  # Apfelwickler
+    common_name_de: Apfelwickler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 16.0
     optimal_temp_max: 26.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Caterpillars tunnel into the fruit and feed on the core, leaving a
+      frass-filled entry hole; affected apples and pears ripen early, drop
+      prematurely and are inedible ("wormy" fruit).
+    damage_symptoms_de: >-
+      Raupen bohren sich in die Frucht und fressen am Kerngehäuse und
+      hinterlassen ein kotgefülltes Einbohrloch; befallene Äpfel und Birnen
+      reifen vorzeitig, fallen früh ab und sind ungenießbar („wurmstichig").
+    affected_plant_parts: [fruit]
+    host_plants:
+      - Apple
+      - Pear
+      - Quince
+      - Walnut
+    host_plants_de:
+      - Apfel
+      - Birne
+      - Quitte
+      - Walnuss
+    prevention_tips: >-
+      Hang corrugated cardboard trap belts around the trunk to catch larvae,
+      collect and dispose of fallen fruit, and apply granulovirus or Trichogramma
+      wasps at the right time.
+    prevention_tips_de: >-
+      Wellpappe-Fanggürtel um den Stamm legen, um Larven abzufangen, Fallobst
+      einsammeln und entsorgen sowie Granulovirus oder Trichogramma-Schlupfwespen
+      zum richtigen Zeitpunkt einsetzen.
+    monitoring_hints: >-
+      Hang pheromone traps from blossom time to time the flight peaks, inspect
+      fruit for entry holes, and base treatment on degree-day forecasts.
+    monitoring_hints_de: >-
+      Pheromonfallen ab der Blüte aufhängen, um die Flughöhepunkte zu erfassen,
+      Früchte auf Einbohrlöcher prüfen und die Behandlung an
+      Temperatursummen-Prognosen ausrichten.
 
   - scientific_name: Acrolepiopsis assectella
     common_name: Leek Moth  # Lauchmotte
+    common_name_de: Lauchmotte
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Caterpillars mine into leaves and shafts, leaving translucent windows and
+      lengthwise tunnels; secondary rot follows, and onion bulbs may be hollowed
+      out from within.
+    damage_symptoms_de: >-
+      Raupen minieren in Blätter und Schäfte und hinterlassen durchscheinende
+      Fenster und Längsgänge; Folgefäulnis tritt auf, und Zwiebeln können von
+      innen ausgehöhlt werden.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Leek
+      - Onion
+      - Garlic
+      - Chives
+    host_plants_de:
+      - Lauch (Porree)
+      - Zwiebel
+      - Knoblauch
+      - Schnittlauch
+    prevention_tips: >-
+      Cover allium beds with insect netting during the moth flight, rotate
+      crops, and remove infested leaves promptly to break the cycle.
+    prevention_tips_de: >-
+      Lauchgewächse während des Mottenflugs mit Insektennetz abdecken,
+      Fruchtfolge einhalten und befallene Blätter zeitnah entfernen, um den
+      Zyklus zu unterbrechen.
+    monitoring_hints: >-
+      Use pheromone traps to time the flights, hold leaves against the light to
+      spot mines, and check for caterpillars inside the shafts.
+    monitoring_hints_de: >-
+      Pheromonfallen zur Flugüberwachung nutzen, Blätter gegen das Licht halten,
+      um Minen zu erkennen, und die Schäfte auf Raupen prüfen.
 
   - scientific_name: Psila rosae
     common_name: Carrot Rust Fly  # Möhrenfliege
+    common_name_de: Möhrenfliege
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      Larvae bore rust-brown tunnels through the roots, foliage turns reddish and
+      stunted, and the cracked, tunnelled roots rot in storage and become
+      inedible.
+    damage_symptoms_de: >-
+      Larven fressen rostbraune Gänge durch die Wurzeln, das Laub verfärbt sich
+      rötlich und bleibt kümmerlich, und die rissigen, durchbohrten Wurzeln
+      faulen im Lager und werden ungenießbar.
+    affected_plant_parts: [root]
+    host_plants:
+      - Carrot
+      - Parsnip
+      - Celery
+      - Parsley
+    host_plants_de:
+      - Möhre
+      - Pastinake
+      - Sellerie
+      - Petersilie
+    prevention_tips: >-
+      Cover beds with insect netting at least 60 cm high, sow late to dodge the
+      first flight, thin in the evening, and avoid bruising the foliage that
+      attracts the flies.
+    prevention_tips_de: >-
+      Beete mit mindestens 60 cm hohem Insektennetz abdecken, spät säen, um den
+      ersten Flug zu umgehen, abends ausdünnen und das Laub nicht verletzen, das
+      die Fliegen anlockt.
+    monitoring_hints: >-
+      Hang yellow sticky traps to detect the flight, watch for reddish stunted
+      foliage, and pull sample roots to check for rust-brown tunnels.
+    monitoring_hints_de: >-
+      Gelbtafeln zur Flugerkennung aushängen, auf rötlich-kümmerliches Laub
+      achten und Probewurzeln ziehen, um auf rostbraune Gänge zu prüfen.
 
   - scientific_name: Delia antiqua
     common_name: Onion Fly  # Zwiebelfliege
+    common_name_de: Zwiebelfliege
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      White maggots feed on the roots and bore into the bulb base; young plants
+      wilt and yellow, while older bulbs rot and collapse, often with secondary
+      bacterial soft rot.
+    damage_symptoms_de: >-
+      Weiße Maden fressen an den Wurzeln und bohren sich in den Zwiebelboden;
+      junge Pflanzen welken und vergilben, ältere Zwiebeln faulen und brechen
+      zusammen, oft mit bakterieller Folgefäule.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Onion
+      - Shallot
+      - Leek
+      - Garlic
+    host_plants_de:
+      - Zwiebel
+      - Schalotte
+      - Lauch (Porree)
+      - Knoblauch
+    prevention_tips: >-
+      Use insect netting, rotate alliums, prefer onion sets over seed, and
+      interplant with carrots whose scent confuses the flies.
+    prevention_tips_de: >-
+      Insektennetz verwenden, Zwiebelgewächse in der Fruchtfolge wechseln,
+      Steckzwiebeln statt Saat bevorzugen und mit Möhren mischen, deren Duft die
+      Fliegen verwirrt.
+    monitoring_hints: >-
+      Hang yellow sticky traps to time the flight, watch for wilting yellowing
+      seedlings, and lift suspect plants to check for white maggots.
+    monitoring_hints_de: >-
+      Gelbtafeln zur Flugüberwachung aushängen, auf welkende, vergilbende
+      Sämlinge achten und verdächtige Pflanzen ziehen, um auf weiße Maden zu
+      prüfen.
 
   - scientific_name: Delia radicum
     common_name: Cabbage Root Fly  # Kohlfliege
+    common_name_de: Kohlfliege
     pest_type: insect
     lifecycle_days: 55
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      White maggots gnaw the roots and bore into the stem base; plants wilt in
+      sunshine, the outer leaves turn bluish-purple, and young transplants
+      collapse and die.
+    damage_symptoms_de: >-
+      Weiße Maden benagen die Wurzeln und bohren sich in die Stängelbasis;
+      Pflanzen welken bei Sonnenschein, die äußeren Blätter färben sich
+      bläulich-violett und junge Setzlinge brechen zusammen und sterben.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Cabbage (all types)
+      - Kohlrabi
+      - Radish
+      - Turnip
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Kohlrabi
+      - Radieschen
+      - Rübe
+    prevention_tips: >-
+      Fit cabbage collars around transplants, use insect netting, rotate
+      brassicas, and earth up stems to encourage new roots above the damage.
+    prevention_tips_de: >-
+      Kohlkragen um die Setzlinge legen, Insektennetz verwenden, Kohl in der
+      Fruchtfolge wechseln und Stängel anhäufeln, um neue Wurzeln oberhalb des
+      Schadens zu fördern.
+    monitoring_hints: >-
+      Watch newly set transplants for midday wilting and bluish leaves, hang
+      yellow sticky traps to time the flight, and check the root collar for
+      maggots.
+    monitoring_hints_de: >-
+      Frisch gesetzte Setzlinge auf Mittagswelke und bläuliche Blätter
+      beobachten, Gelbtafeln zur Flugüberwachung aushängen und den Wurzelhals
+      auf Maden prüfen.
 
   - scientific_name: Rhagoletis cerasi
     common_name: Cherry Fruit Fly  # Kirschfruchtfliege
+    common_name_de: Kirschfruchtfliege
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 16.0
     optimal_temp_max: 25.0
     detection_difficulty: hard
+    severity: high
+    damage_symptoms: >-
+      A single white maggot develops in each ripening cherry, leaving the flesh
+      soft, brown and rotten around the stone; affected fruit is "maggoty" and
+      unmarketable.
+    damage_symptoms_de: >-
+      In jeder reifenden Kirsche entwickelt sich eine weiße Made, die das
+      Fruchtfleisch um den Stein weich, braun und faul macht; befallene Früchte
+      sind „madig" und nicht vermarktbar.
+    affected_plant_parts: [fruit]
+    host_plants:
+      - Sweet cherry
+      - Sour cherry
+      - Honeysuckle (wild host)
+    host_plants_de:
+      - Süßkirsche
+      - Sauerkirsche
+      - Heckenkirsche (Wildwirt)
+    prevention_tips: >-
+      Hang yellow sticky traps from late May to monitor and reduce flies, grow
+      early-ripening cultivars that escape the flight, and remove fallen fruit.
+    prevention_tips_de: >-
+      Ab Ende Mai Gelbtafeln aufhängen, um Fliegen zu überwachen und zu
+      reduzieren, frühreifende Sorten anbauen, die dem Flug entgehen, und
+      Fallobst entfernen.
+    monitoring_hints: >-
+      Hang yellow sticky traps when fruit starts to colour; once the first flies
+      are caught the egg-laying window has begun and yellowing fruit is at risk.
+    monitoring_hints_de: >-
+      Gelbtafeln aufhängen, sobald die Früchte Farbe annehmen; mit den ersten
+      gefangenen Fliegen beginnt die Eiablage, und sich gelb färbende Früchte
+      sind gefährdet.
 
   - scientific_name: Cydalima perspectalis
     common_name: Box Tree Moth  # Buchsbaumzünsler
+    common_name_de: Buchsbaumzünsler
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Green-black striped caterpillars skeletonise the leaves and gnaw the bark
+      inside dense webbing; box bushes turn brown from the inside out and can be
+      killed within weeks.
+    damage_symptoms_de: >-
+      Grün-schwarz gestreifte Raupen skelettieren die Blätter und benagen die
+      Rinde innerhalb dichter Gespinste; Buchsbäume verbräunen von innen nach
+      außen und können innerhalb weniger Wochen absterben.
+    affected_plant_parts: [leaf, stem]
+    host_plants:
+      - Box (Buxus sempervirens)
+      - Other Buxus species
+    host_plants_de:
+      - Buchsbaum (Buxus sempervirens)
+      - Andere Buxus-Arten
+    prevention_tips: >-
+      Hang pheromone traps to detect the flight, spray Bacillus thuringiensis on
+      young caterpillars, and shear bushes to expose and disturb the webs.
+    prevention_tips_de: >-
+      Pheromonfallen zur Flugerkennung aufhängen, junge Raupen mit Bacillus
+      thuringiensis behandeln und die Sträucher schneiden, um die Gespinste
+      freizulegen und zu stören.
+    monitoring_hints: >-
+      Part the foliage and inspect the bush interior for webbing, frass and
+      green caterpillars, and use pheromone traps from spring to time the
+      generations.
+    monitoring_hints_de: >-
+      Das Laub teilen und das Strauchinnere auf Gespinste, Kot und grüne Raupen
+      prüfen sowie ab dem Frühjahr Pheromonfallen nutzen, um die Generationen zu
+      erfassen.
 
   - scientific_name: Anthonomus rubi
     common_name: Strawberry Blossom Weevil  # Erdbeerblütenstecher
+    common_name_de: Erdbeerblütenstecher
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 14.0
     optimal_temp_max: 22.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      The weevil lays an egg in a flower bud and then partly snips through the
+      stalk, so the bud wilts and hangs or drops; each lost bud means one fewer
+      fruit.
+    damage_symptoms_de: >-
+      Der Käfer legt ein Ei in eine Blütenknospe und knickt dann den Stiel an,
+      sodass die Knospe welkt, hängt oder abfällt; jede verlorene Knospe bedeutet
+      eine Frucht weniger.
+    affected_plant_parts: [flower]
+    host_plants:
+      - Strawberry
+      - Raspberry
+      - Blackberry
+    host_plants_de:
+      - Erdbeere
+      - Himbeere
+      - Brombeere
+    prevention_tips: >-
+      Remove and destroy the drooping snipped buds to break the cycle, keep beds
+      weed-free, and rotate strawberry plantings away from old infested sites.
+    prevention_tips_de: >-
+      Die hängenden, angeknickten Knospen entfernen und vernichten, um den Zyklus
+      zu unterbrechen, Beete unkrautfrei halten und Erdbeeren von alten
+      Befallsflächen weg pflanzen.
+    monitoring_hints: >-
+      At flowering, look for wilted hanging buds with a snipped stalk and check
+      for the small dark weevils on the plants in the morning.
+    monitoring_hints_de: >-
+      Zur Blüte nach welken, hängenden Knospen mit angeknicktem Stiel suchen und
+      morgens die kleinen dunklen Käfer auf den Pflanzen kontrollieren.
 
   - scientific_name: Otiorhynchus sulcatus
     common_name: Black Vine Weevil  # Dickmaulrüssler
+    common_name_de: Dickmaulrüssler
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 12.0
     optimal_temp_max: 24.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Adults bite typical U-shaped notches into leaf edges at night; the far
+      worse damage comes from white C-shaped grubs that eat the roots, causing
+      sudden wilting and plant death.
+    damage_symptoms_de: >-
+      Käfer fressen nachts typische bogenförmige Buchten in die Blattränder; der
+      weit schlimmere Schaden stammt von weißen, c-förmigen Larven, die die
+      Wurzeln fressen und plötzliches Welken und Absterben verursachen.
+    affected_plant_parts: [leaf, root]
+    host_plants:
+      - Rhododendron and azalea
+      - Container plants and pot perennials
+      - Strawberry
+      - Yew and conifers
+    host_plants_de:
+      - Rhododendron und Azalee
+      - Kübelpflanzen und Topfstauden
+      - Erdbeere
+      - Eibe und Nadelgehölze
+    prevention_tips: >-
+      Apply parasitic nematodes (Heterorhabditis) to the soil in late summer,
+      collect adults at night, and inspect the root balls of new container
+      plants.
+    prevention_tips_de: >-
+      Im Spätsommer parasitische Nematoden (Heterorhabditis) in den Boden
+      ausbringen, Käfer nachts absammeln und die Wurzelballen neuer
+      Kübelpflanzen kontrollieren.
+    monitoring_hints: >-
+      Look for nightly U-shaped leaf notches as an early warning, search for
+      adults after dark with a torch, and check the root ball of wilting potted
+      plants for grubs.
+    monitoring_hints_de: >-
+      Nächtliche bogenförmige Blattbuchten als Frühwarnung beachten, nachts mit
+      Taschenlampe nach Käfern suchen und bei welkenden Topfpflanzen den
+      Wurzelballen auf Larven prüfen.
 
   - scientific_name: Aleyrodes proletella
     common_name: Cabbage Whitefly  # Kohlmottenschildlaus
+    common_name_de: Kohlmottenschildlaus
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 80.0
+    damage_symptoms: >-
+      Clouds of small white flies rise from the leaf undersides when disturbed;
+      honeydew and black sooty mould soil the outer leaves and reduce the quality
+      of cabbage and kale.
+    damage_symptoms_de: >-
+      Wolken kleiner weißer Fliegen steigen bei Störung von den Blattunterseiten
+      auf; Honigtau und schwarzer Rußtau verschmutzen die äußeren Blätter und
+      mindern die Qualität von Kohl und Grünkohl.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Kale
+      - Brussels sprouts
+      - Cabbage
+      - Other brassicas
+    host_plants_de:
+      - Grünkohl
+      - Rosenkohl
+      - Kohl
+      - Andere Kreuzblütler
+    prevention_tips: >-
+      Clear old brassica stalks that harbour overwintering adults, rotate crops,
+      use insect netting, and hose down heavily infested leaf undersides.
+    prevention_tips_de: >-
+      Alte Kohlstrünke mit überwinternden Tieren entfernen, Fruchtfolge
+      einhalten, Insektennetz verwenden und stark befallene Blattunterseiten
+      abspritzen.
+    monitoring_hints: >-
+      Tap plants and watch for the white cloud, use yellow sticky traps for
+      flight monitoring, and check leaf undersides for scale-like larvae.
+    monitoring_hints_de: >-
+      Pflanzen anstoßen und auf die weiße Wolke achten, Gelbtafeln zur
+      Flugüberwachung nutzen und Blattunterseiten auf schildförmige Larven
+      prüfen.
 
   - scientific_name: Agriotes spp.
     common_name: Wireworm  # Drahtwurm
+    common_name_de: Drahtwurm (Larve des Schnellkäfers)
     pest_type: insect
     lifecycle_days: 1460
     optimal_temp_min: 10.0
     optimal_temp_max: 22.0
     detection_difficulty: hard
+    severity: medium
+    damage_symptoms: >-
+      Tough orange-brown larvae bore narrow tunnels into tubers and roots and
+      sever seedling stems below ground; potatoes show round holes and seedlings
+      wilt and die in patches.
+    damage_symptoms_de: >-
+      Zähe, orange-braune Larven bohren schmale Gänge in Knollen und Wurzeln und
+      durchtrennen Sämlingsstängel unter der Erde; Kartoffeln zeigen runde Löcher
+      und Sämlinge welken und sterben nesterweise.
+    affected_plant_parts: [root, stem]
+    host_plants:
+      - Potato
+      - Carrot
+      - Lettuce
+      - Cereals and grassland crops
+    host_plants_de:
+      - Kartoffel
+      - Möhre
+      - Salat
+      - Getreide und Grünlandkulturen
+    prevention_tips: >-
+      Cultivate the soil to expose larvae to predators, avoid planting straight
+      after grass, keep beds weed-free, and rotate susceptible crops.
+    prevention_tips_de: >-
+      Den Boden bearbeiten, um Larven Fressfeinden auszusetzen, nicht direkt nach
+      Grasland anbauen, Beete unkrautfrei halten und anfällige Kulturen in der
+      Fruchtfolge wechseln.
+    monitoring_hints: >-
+      Bury halved potato or carrot baits and dig them up after a few days to
+      count larvae, and watch for wilting seedlings in patches.
+    monitoring_hints_de: >-
+      Halbierte Kartoffel- oder Möhrenköder vergraben und nach einigen Tagen
+      ausgraben, um Larven zu zählen, und auf nesterweise welkende Sämlinge
+      achten.
 
   - scientific_name: Ostrinia nubilalis
     common_name: European Corn Borer  # Maiszünsler
+    common_name_de: Maiszünsler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 18.0
     optimal_temp_max: 30.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Caterpillars bore into stalks and cobs, leaving frass at the tunnel
+      entrances; tunnelled stalks snap in wind and the bore holes open the door
+      to Fusarium ear rot.
+    damage_symptoms_de: >-
+      Raupen bohren sich in Stängel und Kolben und hinterlassen Kot an den
+      Eingängen; durchbohrte Stängel knicken bei Wind, und die Bohrlöcher öffnen
+      Fusarium-Kolbenfäule Tür und Tor.
+    affected_plant_parts: [stem, fruit]
+    host_plants:
+      - Maize / sweetcorn
+      - Pepper
+      - Hops
+      - Tall ornamental grasses
+    host_plants_de:
+      - Mais / Zuckermais
+      - Paprika
+      - Hopfen
+      - Hohe Ziergräser
+    prevention_tips: >-
+      Shred and incorporate maize stubble after harvest to destroy overwintering
+      larvae, rotate crops, and release Trichogramma wasps against the eggs.
+    prevention_tips_de: >-
+      Maisstoppeln nach der Ernte häckseln und einarbeiten, um überwinternde
+      Larven zu vernichten, Fruchtfolge einhalten und Trichogramma-Schlupfwespen
+      gegen die Eier einsetzen.
+    monitoring_hints: >-
+      Use light or pheromone traps to time the flight, inspect stalks and leaf
+      axils for egg clusters and frass, and target young caterpillars before
+      they bore in.
+    monitoring_hints_de: >-
+      Licht- oder Pheromonfallen zur Flugüberwachung nutzen, Stängel und
+      Blattachseln auf Eigelege und Kot prüfen und junge Raupen vor dem
+      Einbohren bekämpfen.
 
   - scientific_name: Myzus persicae
     common_name: Green Peach Aphid  # Grüne Pfirsichblattlaus
+    common_name_de: Grüne Pfirsichblattlaus
     pest_type: insect
     lifecycle_days: 12
     optimal_temp_min: 18.0
     optimal_temp_max: 26.0
     detection_difficulty: easy
+    severity: high
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 75.0
+    damage_symptoms: >-
+      Pale green aphids cluster on shoot tips and leaf undersides, causing
+      curled leaves, honeydew and sooty mould; this species is a leading vector
+      of many damaging plant viruses.
+    damage_symptoms_de: >-
+      Hellgrüne Blattläuse sammeln sich an Triebspitzen und Blattunterseiten und
+      verursachen eingerollte Blätter, Honigtau und Rußtau; diese Art ist ein
+      führender Überträger vieler schädlicher Pflanzenviren.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - Peach (winter host)
+      - Potato and pepper
+      - Lettuce and spinach
+      - Many ornamentals and vegetables
+    host_plants_de:
+      - Pfirsich (Winterwirt)
+      - Kartoffel und Paprika
+      - Salat und Spinat
+      - Viele Zier- und Gemüsepflanzen
+    prevention_tips: >-
+      Avoid excess nitrogen, encourage ladybirds and lacewings, hang yellow
+      sticky traps, and remove virus-infected plants promptly.
+    prevention_tips_de: >-
+      Stickstoff-Überschuss vermeiden, Marienkäfer und Florfliegen fördern,
+      Gelbtafeln aushängen und virusbefallene Pflanzen rasch entfernen.
+    monitoring_hints: >-
+      Check shoot tips and leaf undersides for colonies, use yellow sticky traps
+      to track winged migrants, and act early to limit virus spread.
+    monitoring_hints_de: >-
+      Triebspitzen und Blattunterseiten auf Kolonien prüfen, Gelbtafeln zur
+      Erfassung geflügelter Wanderer nutzen und früh eingreifen, um die
+      Virusausbreitung zu begrenzen.
 
   - scientific_name: Macrosiphum euphorbiae
     common_name: Potato Aphid  # Kartoffelblattlaus
+    common_name_de: Kartoffelblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 75.0
+    damage_symptoms: >-
+      Large pink or green aphids colonise shoot tips and leaf undersides,
+      sucking sap and weakening growth; honeydew, sooty mould and virus
+      transmission add to the damage.
+    damage_symptoms_de: >-
+      Große rosa oder grüne Blattläuse besiedeln Triebspitzen und
+      Blattunterseiten, saugen Saft und schwächen das Wachstum; Honigtau, Rußtau
+      und Virusübertragung verstärken den Schaden.
+    affected_plant_parts: [leaf, stem, flower]
+    host_plants:
+      - Potato
+      - Tomato
+      - Lettuce
+      - Roses and many ornamentals
+    host_plants_de:
+      - Kartoffel
+      - Tomate
+      - Salat
+      - Rosen und viele Zierpflanzen
+    prevention_tips: >-
+      Encourage natural enemies, avoid lush over-fertilised growth, inspect new
+      plants, and hang yellow sticky traps for early warning.
+    prevention_tips_de: >-
+      Natürliche Gegenspieler fördern, üppigen, überdüngten Wuchs vermeiden,
+      neue Pflanzen kontrollieren und Gelbtafeln zur Frühwarnung aushängen.
+    monitoring_hints: >-
+      Inspect shoot tips and leaf undersides for the large aphids, watch for
+      honeydew and ants, and use yellow sticky traps for winged migrants.
+    monitoring_hints_de: >-
+      Triebspitzen und Blattunterseiten auf die großen Läuse prüfen, auf
+      Honigtau und Ameisen achten und Gelbtafeln für geflügelte Wanderer nutzen.
 
   - scientific_name: Mamestra brassicae
     common_name: Cabbage Moth  # Kohleule
+    common_name_de: Kohleule
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: high
+    damage_symptoms: >-
+      Caterpillars eat holes in the outer leaves, then bore deep into the cabbage
+      heart and contaminate it with wet frass; the soiled hearts rot and become
+      unsaleable.
+    damage_symptoms_de: >-
+      Raupen fressen Löcher in die äußeren Blätter, bohren sich dann tief ins
+      Kohlherz und verschmutzen es mit nassem Kot; die verunreinigten Herzen
+      faulen und werden unverkäuflich.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Lettuce
+      - Spinach
+      - Many vegetables
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Salat
+      - Spinat
+      - Viele Gemüsearten
+    prevention_tips: >-
+      Cover beds with insect netting, control young caterpillars with Bacillus
+      thuringiensis before they enter the heart, and remove crop residues that
+      shelter pupae.
+    prevention_tips_de: >-
+      Beete mit Insektennetz abdecken, junge Raupen mit Bacillus thuringiensis
+      bekämpfen, bevor sie ins Herz wandern, und Ernterückstände entfernen, die
+      Puppen Schutz bieten.
+    monitoring_hints: >-
+      Use pheromone or light traps to time the flight, check leaf undersides and
+      hearts for caterpillars and frass, and treat while caterpillars are still
+      small.
+    monitoring_hints_de: >-
+      Pheromon- oder Lichtfallen zur Flugüberwachung nutzen, Blattunterseiten und
+      Herzen auf Raupen und Kot prüfen und behandeln, solange die Raupen noch
+      klein sind.
 
   - scientific_name: Plutella xylostella
     common_name: Diamondback Moth  # Kohlschabe
+    common_name_de: Kohlschabe
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Small green caterpillars graze the lower leaf surface, leaving the upper
+      epidermis intact so a window-pane pattern of translucent spots and tiny
+      holes appears; heavy attacks riddle young plants.
+    damage_symptoms_de: >-
+      Kleine grüne Raupen schaben die Blattunterseite ab und lassen die obere
+      Epidermis stehen, sodass ein Fensterfraß-Muster aus durchscheinenden
+      Flecken und winzigen Löchern entsteht; bei starkem Befall sind Jungpflanzen
+      durchlöchert.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Cabbage (all types)
+      - Radish
+      - Rocket
+      - Other brassicas
+    host_plants_de:
+      - Kohl (alle Arten)
+      - Radieschen
+      - Rucola
+      - Andere Kreuzblütler
+    prevention_tips: >-
+      Use insect netting, rotate brassicas, encourage parasitic wasps, and apply
+      Bacillus thuringiensis to young caterpillars, as this moth resists many
+      insecticides.
+    prevention_tips_de: >-
+      Insektennetz verwenden, Kohl in der Fruchtfolge wechseln, Schlupfwespen
+      fördern und junge Raupen mit Bacillus thuringiensis behandeln, da diese
+      Motte gegen viele Insektizide resistent ist.
+    monitoring_hints: >-
+      Use pheromone traps to follow the flight, check leaf undersides for the
+      small green caterpillars, and watch for the typical window-pane feeding.
+    monitoring_hints_de: >-
+      Pheromonfallen zur Flugverfolgung nutzen, Blattunterseiten auf die kleinen
+      grünen Raupen prüfen und auf den typischen Fensterfraß achten.
 
   # --- Aquatic pests (Nymphaea) ---
 
   - scientific_name: Rhopalosiphum nymphaeae
     common_name: Water Lily Aphid  # Seerosenblattlaus
+    common_name_de: Seerosenblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
     optimal_temp_max: 28.0
     detection_difficulty: easy
+    severity: medium
+    damage_symptoms: >-
+      Dark aphid colonies cover floating leaves, buds and flowers; sucked leaves
+      yellow and rot, buds fail to open, and a sticky honeydew film spreads over
+      the water surface.
+    damage_symptoms_de: >-
+      Dunkle Blattlauskolonien überziehen Schwimmblätter, Knospen und Blüten;
+      besaugte Blätter vergilben und faulen, Knospen öffnen sich nicht, und ein
+      klebriger Honigtaufilm breitet sich auf der Wasseroberfläche aus.
+    affected_plant_parts: [leaf, flower]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Other pond plants
+      - Marginal aquatic plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Andere Teichpflanzen
+      - Uferpflanzen
+    prevention_tips: >-
+      Hose the aphids off the leaves into the water for fish to eat, avoid
+      nutrient-rich water, and never use insecticides that would poison the pond.
+    prevention_tips_de: >-
+      Die Läuse mit einem Wasserstrahl ins Wasser spülen, damit Fische sie
+      fressen, nährstoffreiches Wasser vermeiden und niemals Insektizide
+      einsetzen, die den Teich vergiften würden.
+    monitoring_hints: >-
+      Inspect floating leaves and flower buds for dark colonies from late
+      spring, and watch for sticky honeydew on the water as an early sign.
+    monitoring_hints_de: >-
+      Ab dem Spätfrühjahr Schwimmblätter und Blütenknospen auf dunkle Kolonien
+      prüfen und auf klebrigen Honigtau auf dem Wasser als frühes Zeichen achten.
 
   - scientific_name: Galerucella nymphaeae
     common_name: Water Lily Leaf Beetle  # Seerosenblattkäfer
+    common_name_de: Seerosenblattkäfer
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 16.0
     optimal_temp_max: 26.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Adults and dark larvae gnaw elongated slots and channels in the floating
+      leaves; the damaged tissue rots, leaves disintegrate and the plant loses
+      vigour and flowering.
+    damage_symptoms_de: >-
+      Käfer und dunkle Larven benagen längliche Schlitze und Rinnen in den
+      Schwimmblättern; das geschädigte Gewebe fault, die Blätter zerfallen und
+      die Pflanze verliert an Kraft und Blühfreude.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Pondweed
+      - Other floating-leaf plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Laichkraut
+      - Andere Schwimmblattpflanzen
+    prevention_tips: >-
+      Remove and dispose of heavily eaten leaves and the orange egg clusters on
+      them, and encourage fish and waterfowl that feed on the larvae.
+    prevention_tips_de: >-
+      Stark zerfressene Blätter samt den orange Eigelegen entfernen und
+      entsorgen und Fische sowie Wasservögel fördern, die sich von den Larven
+      ernähren.
+    monitoring_hints: >-
+      Inspect the upper side of floating leaves for slot feeding and orange egg
+      clusters, and look for the small brown beetles and dark larvae on the
+      pads.
+    monitoring_hints_de: >-
+      Die Oberseite der Schwimmblätter auf Schlitzfraß und orange Eigelege
+      prüfen und nach den kleinen braunen Käfern und dunklen Larven auf den
+      Blättern suchen.
 
   - scientific_name: Elophila nymphaeata
     common_name: Brown China-mark Moth  # Seerosenzünsler
+    common_name_de: Seerosenzünsler
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
     detection_difficulty: medium
+    severity: medium
+    damage_symptoms: >-
+      Caterpillars cut oval pieces out of floating leaves and bind them into a
+      protective case; the leaves become holed and ragged, and the characteristic
+      cut-out cases drift on the water.
+    damage_symptoms_de: >-
+      Raupen schneiden ovale Stücke aus den Schwimmblättern und spinnen sie zu
+      einer schützenden Hülle zusammen; die Blätter werden durchlöchert und
+      zerfetzt, und die typischen ausgeschnittenen Hüllen treiben auf dem Wasser.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Water lily (Nymphaea)
+      - Pondweed
+      - Frogbit and other floating-leaf plants
+    host_plants_de:
+      - Seerose (Nymphaea)
+      - Laichkraut
+      - Froschbiss und andere Schwimmblattpflanzen
+    prevention_tips: >-
+      Skim off the floating leaf cases and damaged pads, and encourage fish and
+      water birds that prey on the caterpillars; avoid pond insecticides.
+    prevention_tips_de: >-
+      Die treibenden Blatthüllen und beschädigten Blätter abschöpfen und Fische
+      sowie Wasservögel fördern, die die Raupen fressen; Teichinsektizide
+      vermeiden.
+    monitoring_hints: >-
+      Watch for oval holes in floating leaves and small leaf cases drifting on
+      the surface, and turn cases over to find the caterpillar inside.
+    monitoring_hints_de: >-
+      Auf ovale Löcher in den Schwimmblättern und kleine, auf der Oberfläche
+      treibende Blatthüllen achten und die Hüllen umdrehen, um die Raupe darin zu
+      finden.
 
 diseases:
   - scientific_name: Erysiphe spp.
@@ -516,78 +1669,381 @@ diseases:
 treatments:
   # Cultural (4) — existing
   - name: Crop Rotation
+    name_de: Fruchtfolge
     treatment_type: cultural
     application_method: cultural
     description: "Rotate plant families to break pest/disease cycles"
+    description_de: "Pflanzenfamilien im Beet wechseln, um Schädlings- und Krankheitszyklen zu unterbrechen."
+    how_to_apply: >-
+      Avoid growing the same plant family in the same bed for 3-4 years.
+      Follow a heavy-feeder → medium-feeder → light-feeder → green-manure
+      sequence and keep a written rotation plan per bed.
+    how_to_apply_de: >-
+      Dieselbe Pflanzenfamilie 3-4 Jahre nicht im selben Beet anbauen.
+      Reihenfolge Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung
+      einhalten und je Beet einen Fruchtfolgeplan führen.
+    mode_of_action: >-
+      Soil-borne pests and pathogens that specialise on one plant family
+      starve without their host, breaking their population build-up.
+    mode_of_action_de: >-
+      Bodenbürtige Schädlinge und Erreger, die auf eine Pflanzenfamilie
+      spezialisiert sind, finden keinen Wirt mehr und ihre Populationen
+      brechen zusammen.
+    precautions: >-
+      Group plants by botanical family, not by appearance — tomato and
+      potato share a family. Combine with green manure to maintain soil
+      health.
+    precautions_de: >-
+      Pflanzen nach botanischer Familie gruppieren, nicht nach Aussehen —
+      Tomate und Kartoffel gehören zur selben Familie. Mit Gründüngung
+      kombinieren, um die Bodengesundheit zu erhalten.
 
   - name: Sanitation
+    name_de: Hygiene und Bestandspflege
     treatment_type: cultural
     application_method: cultural
     description: "Remove dead plant material and debris"
+    description_de: "Abgestorbene Pflanzenteile und Ernterückstände entfernen, um Schädlingen und Erregern den Unterschlupf zu nehmen."
+    how_to_apply: >-
+      Regularly remove fallen leaves, dead foliage, diseased plant parts
+      and fruit mummies. Dispose of infected material in household waste,
+      not compost. Clean tools and pots between uses.
+    how_to_apply_de: >-
+      Laub, abgestorbene Blätter, kranke Pflanzenteile und Fruchtmumien
+      regelmäßig entfernen. Befallenes Material in den Hausmüll geben, nicht
+      kompostieren. Werkzeuge und Töpfe zwischendurch reinigen.
+    mode_of_action: >-
+      Removing infected debris eliminates the overwintering sites and
+      reservoirs from which pests and spores re-infest healthy plants.
+    mode_of_action_de: >-
+      Das Entfernen befallener Rückstände beseitigt Überwinterungsorte und
+      Erregerreservoire, von denen aus gesunde Pflanzen neu befallen werden.
+    precautions: >-
+      Never compost diseased material — many spores survive composting.
+      Disinfect cutting tools with alcohol between infected plants to avoid
+      spreading pathogens.
+    precautions_de: >-
+      Krankes Material nie kompostieren — viele Sporen überleben den
+      Kompost. Schneidwerkzeuge zwischen befallenen Pflanzen mit Alkohol
+      desinfizieren, um Erreger nicht zu verschleppen.
 
   - name: Resistant Varieties
+    name_de: Resistente Sorten
     treatment_type: cultural
     application_method: cultural
     description: "Use disease-resistant cultivars"
+    description_de: "Krankheitsresistente oder -tolerante Sorten verwenden, um Befall von vornherein zu vermeiden."
+    how_to_apply: >-
+      Select cultivars labelled resistant or tolerant to the diseases
+      common in your area (e.g. late-blight-tolerant tomatoes, mildew-
+      resistant cucumbers). Check seed catalogue resistance codes.
+    how_to_apply_de: >-
+      Sorten wählen, die als resistent oder tolerant gegen die bei dir
+      verbreiteten Krankheiten ausgewiesen sind (z. B. krautfäuletolerante
+      Tomaten, mehltauresistente Gurken). Resistenzcodes im Saatgutkatalog
+      beachten.
+    mode_of_action: >-
+      Genetic resistance lets the plant block or limit pathogen infection,
+      so disease pressure stays low without any spraying.
+    mode_of_action_de: >-
+      Genetische Resistenz erlaubt der Pflanze, den Erreger abzuwehren oder
+      einzudämmen, sodass der Befallsdruck ohne Spritzung niedrig bleibt.
+    precautions: >-
+      Resistance is rarely absolute and can be overcome over time — combine
+      with crop rotation and hygiene rather than relying on it alone.
+    precautions_de: >-
+      Resistenz ist selten vollständig und kann mit der Zeit überwunden
+      werden — mit Fruchtfolge und Hygiene kombinieren, nicht allein darauf
+      verlassen.
 
   - name: Environmental Control
+    name_de: Klimasteuerung
     treatment_type: cultural
     application_method: cultural
     description: "Adjust temperature, humidity, and ventilation"
+    description_de: "Temperatur, Luftfeuchte und Belüftung so steuern, dass Schädlinge und Pilze keine günstigen Bedingungen finden."
+    how_to_apply: >-
+      Increase ventilation and air circulation, avoid wetting foliage in
+      the evening, keep humidity below disease-favouring levels and provide
+      adequate plant spacing.
+    how_to_apply_de: >-
+      Belüftung und Luftzirkulation erhöhen, Blätter abends nicht benetzen,
+      die Luftfeuchte unter krankheitsfördernden Werten halten und
+      ausreichende Pflanzabstände einhalten.
+    mode_of_action: >-
+      Most fungal diseases need leaf wetness and high humidity to
+      germinate; drier, well-ventilated conditions stop spore germination
+      and slow pest reproduction.
+    mode_of_action_de: >-
+      Die meisten Pilzkrankheiten brauchen Blattnässe und hohe Luftfeuchte
+      zum Keimen; trockenere, gut belüftete Bedingungen verhindern die
+      Sporenkeimung und bremsen die Schädlingsvermehrung.
+    precautions: >-
+      Avoid cold draughts on sensitive tropical plants and do not let
+      temperatures drop too low when reducing humidity.
+    precautions_de: >-
+      Kalte Zugluft an empfindlichen Tropenpflanzen vermeiden und die
+      Temperatur beim Absenken der Luftfeuchte nicht zu stark abfallen
+      lassen.
 
   # Biological (3) — existing
   - name: Phytoseiulus persimilis
+    name_de: Raubmilbe (Phytoseiulus persimilis)
     treatment_type: biological
     application_method: release
     description: "Predatory mite for spider mite control"
+    description_de: "Räuberische Milbe zur biologischen Bekämpfung von Spinnmilben."
+    how_to_apply: >-
+      Release onto affected plants at the first sign of spider mites,
+      typically 5-20 mites per m² or per infested plant. Repeat after
+      2-3 weeks if needed. Works best at 20-28°C and >60% humidity.
+    how_to_apply_de: >-
+      Bei den ersten Spinnmilben auf die befallenen Pflanzen ausbringen,
+      meist 5-20 Raubmilben pro m² bzw. pro befallene Pflanze. Bei Bedarf
+      nach 2-3 Wochen wiederholen. Optimal bei 20-28 °C und >60 % Luftfeuchte.
+    mode_of_action: >-
+      An obligate predator that actively hunts and consumes all spider mite
+      stages (eggs, larvae, adults), collapsing the pest population.
+    mode_of_action_de: >-
+      Spezialisierter Räuber, der alle Spinnmilben-Stadien (Eier, Larven,
+      adulte Tiere) aktiv jagt und frisst und so die Schädlingspopulation
+      zusammenbrechen lässt.
+    precautions: >-
+      Do not combine with broad-spectrum insecticides, which kill the
+      predatory mites. Once the prey is gone the predator dies out, so
+      release before infestations get severe.
+    precautions_de: >-
+      Nicht mit Breitband-Insektiziden kombinieren, diese töten die
+      Raubmilben. Ist die Beute aufgebraucht, stirbt der Räuber ab — daher
+      vor starkem Befall ausbringen.
 
   - name: Encarsia formosa
+    name_de: Schlupfwespe (Encarsia formosa)
     treatment_type: biological
     application_method: release
     description: "Parasitic wasp for whitefly control"
+    description_de: "Parasitische Schlupfwespe zur biologischen Bekämpfung der Weißen Fliege."
+    how_to_apply: >-
+      Hang cards with parasitised whitefly pupae among the plants, 1-3
+      wasps per m² every 1-2 weeks, starting preventively when first
+      whiteflies appear. Best at >18°C with good light.
+    how_to_apply_de: >-
+      Kärtchen mit parasitierten Weiße-Fliege-Puppen zwischen die Pflanzen
+      hängen, 1-3 Wespen pro m² alle 1-2 Wochen, vorbeugend ab den ersten
+      Weißen Fliegen beginnen. Optimal bei >18 °C und gutem Licht.
+    mode_of_action: >-
+      The wasp lays its eggs inside whitefly larvae; the developing wasp
+      consumes the host from within, turning the larva black before a new
+      wasp emerges.
+    mode_of_action_de: >-
+      Die Wespe legt ihre Eier in die Larven der Weißen Fliege; die
+      heranwachsende Wespe frisst den Wirt von innen auf, die Larve färbt
+      sich schwarz, bevor eine neue Wespe schlüpft.
+    precautions: >-
+      Incompatible with broad-spectrum and many systemic insecticides.
+      Yellow sticky traps used nearby will also catch the wasps — keep
+      them out of release zones.
+    precautions_de: >-
+      Unverträglich mit Breitband- und vielen systemischen Insektiziden.
+      Gelbtafeln in der Nähe fangen auch die Wespen — daher aus den
+      Freilassungszonen fernhalten.
 
   - name: Bacillus thuringiensis (Bt)
+    name_de: Bacillus thuringiensis (Bt)
     treatment_type: biological
     application_method: spray
     description: "Biological insecticide for caterpillar control"
+    description_de: "Biologisches Insektizid auf Bakterienbasis zur Bekämpfung von Raupen."
+    how_to_apply: >-
+      Spray onto foliage so that young, actively feeding caterpillars
+      ingest it. Apply in the evening (UV-sensitive) and repeat every
+      7-10 days during egg hatch. Targets young larvae most effectively.
+    how_to_apply_de: >-
+      Auf das Blattwerk spritzen, sodass junge, fressende Raupen es
+      aufnehmen. Abends ausbringen (UV-empfindlich) und während des
+      Larvenschlupfs alle 7-10 Tage wiederholen. Wirkt am besten gegen
+      junge Larven.
+    mode_of_action: >-
+      Bt produces protein crystals that, once eaten, destroy the
+      caterpillar's gut lining; the larva stops feeding within hours and
+      dies in 1-3 days.
+    mode_of_action_de: >-
+      Bt bildet Eiweißkristalle, die nach dem Fraß die Darmwand der Raupe
+      zerstören; die Larve stellt binnen Stunden das Fressen ein und stirbt
+      in 1-3 Tagen.
+    precautions: >-
+      Only works against caterpillars that ingest it — useless against
+      sucking pests. Reapply after rain. Selective and harmless to bees and
+      most beneficials; still avoid spraying open blossoms.
+    precautions_de: >-
+      Wirkt nur gegen Raupen, die es fressen — nutzlos gegen saugende
+      Schädlinge. Nach Regen erneut ausbringen. Selektiv und schonend für
+      Bienen und die meisten Nützlinge; offene Blüten trotzdem nicht
+      bespritzen.
 
   # Mechanical (2) — existing
   - name: Sticky Traps
+    name_de: Gelb- und Blautafeln (Leimtafeln)
     treatment_type: mechanical
     application_method: cultural
     description: "Yellow/blue sticky traps for flying insects"
+    description_de: "Gelbe und blaue Leimtafeln zum Fang fliegender Insekten."
+    how_to_apply: >-
+      Hang yellow traps just above the canopy for whitefly, fungus gnats
+      and aphids; blue traps for thrips. Use 1-4 traps per plant or per
+      few m². Replace when the surface is full.
+    how_to_apply_de: >-
+      Gelbtafeln knapp über dem Bestand für Weiße Fliege, Trauermücken und
+      Blattläuse aufhängen; Blautafeln für Thripse. 1-4 Tafeln je Pflanze
+      bzw. je wenige m² verwenden. Bei voller Klebefläche austauschen.
+    mode_of_action: >-
+      The trap colour mimics flowers/foliage and attracts flying insects,
+      which stick to the adhesive and die — reducing the breeding
+      population.
+    mode_of_action_de: >-
+      Die Tafelfarbe ahmt Blüten bzw. Blattwerk nach und lockt fliegende
+      Insekten an, die am Leim kleben bleiben und sterben — das reduziert
+      die fortpflanzungsfähige Population.
+    precautions: >-
+      Mainly a monitoring and mass-trapping aid, not a stand-alone cure.
+      Avoid hanging near beneficial-insect releases, as the traps catch
+      them too.
+    precautions_de: >-
+      Vor allem Monitoring- und Massenfanghilfe, keine alleinige Lösung.
+      Nicht in der Nähe von Nützlings-Freilassungen aufhängen, da die
+      Tafeln auch diese fangen.
 
   - name: Hand Removal
+    name_de: Absammeln von Hand
     treatment_type: mechanical
     application_method: cultural
     description: "Manual removal of pests"
+    description_de: "Schädlinge wie Raupen, Käfer oder Schnecken von Hand absammeln und entfernen."
+    how_to_apply: >-
+      Inspect plants regularly, especially leaf undersides, and pick off
+      caterpillars, beetles, snails or egg clusters by hand. Drop them in
+      soapy water. Evening checks catch night-active slugs.
+    how_to_apply_de: >-
+      Pflanzen regelmäßig kontrollieren, besonders die Blattunterseiten,
+      und Raupen, Käfer, Schnecken oder Eigelege von Hand absammeln. In
+      Seifenwasser geben. Abendkontrollen erwischen nachtaktive Nacktschnecken.
+    mode_of_action: >-
+      Physically removing pests and egg clusters directly lowers the
+      population and prevents the next generation from hatching.
+    mode_of_action_de: >-
+      Das mechanische Entfernen von Schädlingen und Eigelegen senkt die
+      Population unmittelbar und verhindert das Schlüpfen der nächsten
+      Generation.
+    precautions: >-
+      Wear gloves with stinging or irritant pests. Best for small plant
+      counts and light infestations; impractical at large scale.
+    precautions_de: >-
+      Bei brennenden oder reizenden Schädlingen Handschuhe tragen. Eignet
+      sich für wenige Pflanzen und leichten Befall; bei großen Beständen
+      unpraktisch.
 
   # Chemical (3) — existing
   - name: Pyrethrin
+    name_de: Pyrethrin
     treatment_type: chemical
     active_ingredient: pyrethrin
     application_method: spray
     safety_interval_days: 7
     dosage_per_liter: 1.0
     protective_equipment: [gloves, mask]
+    description: "Fast-acting natural insecticide from chrysanthemum flowers against many sucking and chewing pests."
+    description_de: "Schnell wirkendes natürliches Insektizid aus Chrysanthemenblüten gegen viele saugende und beißende Schädlinge."
+    how_to_apply: >-
+      Spray thoroughly onto pests including leaf undersides at 1 ml/L.
+      Apply in the evening when bees are inactive. Repeat after 7-10 days
+      as it has little residual effect.
+    how_to_apply_de: >-
+      Gründlich auf die Schädlinge sprühen, auch auf Blattunterseiten, mit
+      1 ml/L. Abends ausbringen, wenn Bienen nicht fliegen. Da es kaum
+      Dauerwirkung hat, nach 7-10 Tagen wiederholen.
+    mode_of_action: >-
+      A contact neurotoxin that overstimulates the insect nervous system,
+      causing rapid paralysis ("knockdown") and death.
+    mode_of_action_de: >-
+      Ein Kontakt-Nervengift, das das Nervensystem der Insekten überreizt
+      und zu rascher Lähmung ("Knockdown") und Tod führt.
+    precautions: >-
+      Highly toxic to bees and aquatic life — never spray flowering plants
+      during bee flight. Broad-spectrum, so it also harms beneficials.
+      Observe the 7-day pre-harvest interval (Karenzzeit).
+    precautions_de: >-
+      Hochgiftig für Bienen und Wasserorganismen — blühende Pflanzen nie
+      während des Bienenflugs spritzen. Breitbandwirkung, schadet daher auch
+      Nützlingen. Die Wartezeit (Karenzzeit) von 7 Tagen einhalten.
 
   - name: Neem Oil
+    name_de: Niemöl (Neemöl)
     treatment_type: biological
     active_ingredient: azadirachtin
     application_method: spray
     safety_interval_days: 3
     dosage_per_liter: 5.0
     protective_equipment: [gloves]
+    description: "Plant-based insecticide from the neem tree against aphids, whitefly, spider mites and thrips."
+    description_de: "Pflanzliches Insektizid aus dem Niembaum gegen Blattläuse, Weiße Fliege, Spinnmilben und Thripse."
+    how_to_apply: >-
+      Mix 5 ml/L with a little soap as emulsifier and spray onto all plant
+      surfaces, including leaf undersides. Apply in the evening every 7
+      days until the infestation subsides.
+    how_to_apply_de: >-
+      5 ml/L mit etwas Seife als Emulgator mischen und auf alle
+      Pflanzenflächen sprühen, auch Blattunterseiten. Abends alle 7 Tage
+      anwenden, bis der Befall zurückgeht.
+    mode_of_action: >-
+      Azadirachtin acts as a feeding deterrent and disrupts moulting and
+      reproduction; the oil also smothers soft-bodied pests on contact.
+    mode_of_action_de: >-
+      Azadirachtin wirkt fraßhemmend und stört Häutung und Fortpflanzung;
+      das Öl erstickt zudem weichhäutige Schädlinge bei direktem Kontakt.
+    precautions: >-
+      Do not spray in strong sun or above 30°C (leaf burn). Mildly harmful
+      to bees while wet — apply in the evening. Keep the 3-day pre-harvest
+      interval.
+    precautions_de: >-
+      Nicht bei starker Sonne oder über 30 °C spritzen (Blattverbrennung).
+      Solange feucht leicht bienengefährlich — abends anwenden. Die Wartezeit
+      von 3 Tagen einhalten.
 
   - name: Spinosad
+    name_de: Spinosad
     treatment_type: chemical
     active_ingredient: spinosad
     application_method: spray
     safety_interval_days: 14
     dosage_per_liter: 0.5
     protective_equipment: [gloves, mask, goggles]
+    description: "Microbial-derived insecticide highly effective against thrips, caterpillars and leaf miners."
+    description_de: "Aus Bodenbakterien gewonnenes Insektizid, hochwirksam gegen Thripse, Raupen und Minierfliegen."
+    how_to_apply: >-
+      Spray 0.5 ml/L evenly onto foliage, covering leaf undersides. Apply
+      in the evening and limit to a few applications per cycle to slow
+      resistance. Re-treat after 7-10 days if needed.
+    how_to_apply_de: >-
+      0,5 ml/L gleichmäßig auf das Laub sprühen, Blattunterseiten
+      einbeziehen. Abends ausbringen und zur Resistenzvermeidung auf wenige
+      Anwendungen je Kultur begrenzen. Bei Bedarf nach 7-10 Tagen wiederholen.
+    mode_of_action: >-
+      Acts on insect nerve receptors after contact and ingestion, causing
+      paralysis and death within 1-2 days.
+    mode_of_action_de: >-
+      Wirkt nach Kontakt und Fraß auf die Nervenrezeptoren der Insekten und
+      führt binnen 1-2 Tagen zu Lähmung und Tod.
+    precautions: >-
+      Toxic to bees while spray is wet — apply in the evening, never on
+      open blossom. Rotate with other modes of action to prevent
+      resistance. Observe the 14-day pre-harvest interval.
+    precautions_de: >-
+      Solange die Spritzbrühe feucht ist bienengiftig — abends anwenden, nie
+      auf offene Blüten. Zur Resistenzvermeidung mit anderen Wirkmechanismen
+      abwechseln. Die Wartezeit von 14 Tagen einhalten.
 
   - name: Phosphonate (Phosphorous Acid)
+    name_de: Phosphonat (Phosphonsäure)
     treatment_type: chemical
     active_ingredient: phosphorous acid
     application_method: drench
@@ -599,8 +2055,38 @@ treatments:
       and Peronospora. Disrupts oomycete phospholipid synthesis. Applied
       as root drench (3 ml/L) or foliar spray (1.5 ml/L). Not effective
       against true fungi.
+    description_de: >-
+      Gegen Oomyceten (Pythium, Phytophthora, Peronospora) wirksames
+      Mittel. Stört die Phospholipid-Synthese der Oomyceten. Als
+      Wurzelgießung (3 ml/L) oder Blattspritzung (1,5 ml/L). Gegen echte
+      Pilze unwirksam.
+    how_to_apply: >-
+      Apply as a root drench at 3 ml/L or foliar spray at 1.5 ml/L,
+      preventively or at first symptoms. The plant takes it up systemically;
+      repeat per label, typically every 2-4 weeks.
+    how_to_apply_de: >-
+      Als Wurzelgießung mit 3 ml/L oder Blattspritzung mit 1,5 ml/L
+      ausbringen, vorbeugend oder bei ersten Symptomen. Die Pflanze nimmt es
+      systemisch auf; nach Etikett wiederholen, meist alle 2-4 Wochen.
+    mode_of_action: >-
+      Moves systemically in the plant (up and down), directly inhibiting
+      oomycete phospholipid synthesis and boosting the plant's own defence
+      response.
+    mode_of_action_de: >-
+      Wandert systemisch in der Pflanze (auf- und abwärts), hemmt direkt die
+      Phospholipid-Synthese der Oomyceten und stärkt die pflanzeneigene
+      Abwehr.
+    precautions: >-
+      Not effective against true fungi (e.g. powdery mildew, botrytis).
+      Wear goggles when mixing the acidic concentrate. Observe the 21-day
+      pre-harvest interval on food crops.
+    precautions_de: >-
+      Gegen echte Pilze (z. B. Echter Mehltau, Grauschimmel) unwirksam.
+      Beim Ansetzen des sauren Konzentrats Schutzbrille tragen. Bei
+      Nutzpflanzen die Wartezeit von 21 Tagen einhalten.
 
   - name: Steinernema feltiae (Nematodes)
+    name_de: Nematoden (Steinernema feltiae)
     treatment_type: biological
     application_method: drench
     description: >-
@@ -608,8 +2094,38 @@ treatments:
       (Bradysia spp.). Applied as drench at 250,000 nematodes per m2.
       Optimal soil temperature 12-25°C. Apply in the evening or on
       overcast days (UV-sensitive). Effective within 2-3 days.
+    description_de: >-
+      Nützliche Nematoden zur biologischen Bekämpfung von Trauermücken-
+      Larven (Bradysia spp.). Als Gießung mit 250.000 Nematoden pro m².
+      Optimale Bodentemperatur 12-25 °C. Abends oder an bewölkten Tagen
+      ausbringen (UV-empfindlich). Wirkt innerhalb von 2-3 Tagen.
+    how_to_apply: >-
+      Dissolve in water and water onto moist substrate at 250,000 per m².
+      Keep the soil moist for 1-2 weeks afterwards. Apply in the evening;
+      repeat after 1-2 weeks if larvae persist.
+    how_to_apply_de: >-
+      In Wasser auflösen und mit 250.000 pro m² auf feuchtes Substrat
+      gießen. Den Boden danach 1-2 Wochen feucht halten. Abends ausbringen;
+      bei anhaltendem Larvenbefall nach 1-2 Wochen wiederholen.
+    mode_of_action: >-
+      The nematodes seek out fungus gnat larvae in the soil, enter them and
+      release symbiotic bacteria that kill the larva within a few days.
+    mode_of_action_de: >-
+      Die Nematoden suchen Trauermücken-Larven im Boden, dringen in sie ein
+      und setzen symbiotische Bakterien frei, die die Larve binnen weniger
+      Tage töten.
+    precautions: >-
+      Use the living product promptly and never combine with hot water or
+      chemical drenches. Avoid UV exposure and let soil temperature stay
+      above 12°C. Harmless to people, pets and plants.
+    precautions_de: >-
+      Das lebende Produkt rasch verwenden und nie mit heißem Wasser oder
+      chemischen Gießmitteln kombinieren. UV-Licht meiden und die
+      Bodentemperatur über 12 °C halten. Unschädlich für Mensch, Haustier
+      und Pflanze.
 
   - name: Insecticidal Soap (Potassium Salts)
+    name_de: Kaliseife (Schmierseife)
     treatment_type: biological
     active_ingredient: potassium salts of fatty acids
     application_method: spray
@@ -621,11 +2137,41 @@ treatments:
       whitefly, mealybug, spider mites, thrips). Disrupts cell membranes
       on contact. No residual activity — must contact pest directly.
       Safe for beneficial insects once dry. Repeat every 5-7 days.
+    description_de: >-
+      Kontakt-Insektizid gegen weichhäutige Insekten (Blattläuse, Weiße
+      Fliege, Wollläuse, Spinnmilben, Thripse). Zerstört bei Kontakt die
+      Zellmembranen. Keine Dauerwirkung — muss den Schädling direkt treffen.
+      Nach dem Antrocknen schonend für Nützlinge. Alle 5-7 Tage wiederholen.
+    how_to_apply: >-
+      Spray 10 ml/L so it directly wets the pests, especially leaf
+      undersides. Coverage is everything — it only works on contact.
+      Repeat every 5-7 days until the infestation clears.
+    how_to_apply_de: >-
+      10 ml/L so spritzen, dass die Schädlinge direkt benetzt werden, vor
+      allem an den Blattunterseiten. Die Benetzung ist entscheidend — es
+      wirkt nur bei Kontakt. Alle 5-7 Tage wiederholen, bis der Befall weg ist.
+    mode_of_action: >-
+      The fatty-acid salts dissolve the protective wax layer and disrupt the
+      cell membranes of soft-bodied insects, causing dehydration and
+      collapse.
+    mode_of_action_de: >-
+      Die Fettsäuresalze lösen die schützende Wachsschicht und zerstören die
+      Zellmembranen weichhäutiger Insekten, was zu Austrocknung und Tod
+      führt.
+    precautions: >-
+      Can scorch sensitive plants — test on a few leaves first and avoid
+      strong sun. Safe for beneficials once dry. Keep the short 1-day
+      pre-harvest interval.
+    precautions_de: >-
+      Kann empfindliche Pflanzen verbrennen — erst an wenigen Blättern testen
+      und starke Sonne meiden. Nach dem Antrocknen nützlingsschonend. Die
+      kurze Wartezeit von 1 Tag einhalten.
 
   # --- New treatments ---
 
   # Biological — beneficial organisms
   - name: Trichogramma spp. (Egg Parasitoids)
+    name_de: Trichogramma-Schlupfwespen (Eiparasiten)
     treatment_type: biological
     application_method: release
     description: >-
@@ -634,8 +2180,37 @@ treatments:
       cards with parasitized eggs, 3-5 releases at 7-day intervals.
       100,000-200,000 wasps per 1,000 m². Effective against cabbage
       white, codling moth, and corn borer.
+    description_de: >-
+      Trichogramma-Schlupfwespen — winzige Schlupfwespen, die ihre Eier in
+      die Eier von Schadschmetterlingen (Pieris, Cydia, Ostrinia) legen. Als
+      Kärtchen mit parasitierten Eiern, 3-5 Freilassungen im 7-Tage-Abstand,
+      100.000-200.000 Wespen pro 1.000 m². Wirkt gegen Kohlweißling,
+      Apfelwickler und Maiszünsler.
+    how_to_apply: >-
+      Hang or place the parasitised-egg cards in the crop at the start of
+      the pest's egg-laying period, timed via pheromone traps. Make 3-5
+      releases at weekly intervals.
+    how_to_apply_de: >-
+      Die Kärtchen mit parasitierten Eiern zu Beginn der Eiablage des
+      Schädlings im Bestand aufhängen oder auslegen, zeitlich über
+      Pheromonfallen abgestimmt. 3-5 Freilassungen im Wochenabstand.
+    mode_of_action: >-
+      The wasp lays its eggs inside the pest's eggs; the developing wasp
+      consumes the egg contents, so the pest caterpillar never hatches.
+    mode_of_action_de: >-
+      Die Wespe legt ihre Eier in die Eier des Schädlings; die heranwachsende
+      Wespe frisst den Eiinhalt auf, sodass die Schadraupe gar nicht erst
+      schlüpft.
+    precautions: >-
+      Timing is critical — release at egg-laying, not after caterpillars
+      hatch. Do not combine with insecticides, which kill the wasps.
+    precautions_de: >-
+      Der Zeitpunkt ist entscheidend — zur Eiablage freilassen, nicht erst
+      nach dem Raupenschlupf. Nicht mit Insektiziden kombinieren, diese töten
+      die Wespen.
 
   - name: Heterorhabditis bacteriophora (Nematodes)
+    name_de: Nematoden (Heterorhabditis bacteriophora)
     treatment_type: biological
     application_method: drench
     description: >-
@@ -645,8 +2220,37 @@ treatments:
       temperature 12-25°C. Apply in evening or overcast conditions
       (UV-sensitive). Larvae die within 48-72 hours. Best applied
       Aug-Oct when larvae are actively feeding.
+    description_de: >-
+      Nützliche Nematoden zur biologischen Bekämpfung der Larven des
+      Dickmaulrüsslers (Otiorhynchus sulcatus) und anderer bodenlebender
+      Engerlinge. Als Gießung mit 500.000 Nematoden pro m². Optimale
+      Bodentemperatur 12-25 °C. Abends oder bei Bewölkung ausbringen
+      (UV-empfindlich). Larven sterben binnen 48-72 Stunden. Am besten von
+      August bis Oktober, wenn die Larven aktiv fressen.
+    how_to_apply: >-
+      Dissolve in water and drench onto moist soil at 500,000 per m², ideally
+      Aug-Oct. Keep the soil moist for 1-2 weeks. Apply in the evening to
+      avoid UV.
+    how_to_apply_de: >-
+      In Wasser auflösen und mit 500.000 pro m² auf feuchten Boden gießen,
+      idealerweise August bis Oktober. Den Boden 1-2 Wochen feucht halten.
+      Abends ausbringen, um UV zu vermeiden.
+    mode_of_action: >-
+      The nematodes penetrate the weevil grubs and release symbiotic
+      bacteria that kill the larva within 2-3 days.
+    mode_of_action_de: >-
+      Die Nematoden dringen in die Rüsslerlarven ein und setzen symbiotische
+      Bakterien frei, die die Larve binnen 2-3 Tagen töten.
+    precautions: >-
+      Use the living product promptly, keep soil above 12°C and avoid mixing
+      with chemicals. Harmless to people, pets and plants.
+    precautions_de: >-
+      Das lebende Produkt rasch verwenden, den Boden über 12 °C halten und
+      nicht mit Chemikalien mischen. Unschädlich für Mensch, Haustier und
+      Pflanze.
 
   - name: Amblyseius swirskii
+    name_de: Raubmilbe (Amblyseius swirskii)
     treatment_type: biological
     application_method: release
     description: >-
@@ -655,8 +2259,37 @@ treatments:
       conditions: 20-28°C, >60% RH. Also feeds on pollen as
       alternative food source, allowing preventive establishment.
       Compatible with most biological control agents.
+    description_de: >-
+      Raubmilbe, wirksam gegen Thripslarven und Eier/Larven der Weißen
+      Fliege. Ausbringrate 50-100 pro m². Optimal bei 20-28 °C und >60 %
+      Luftfeuchte. Frisst auch Pollen als Ausweichnahrung, sodass eine
+      vorbeugende Etablierung möglich ist. Verträglich mit den meisten
+      anderen Nützlingen.
+    how_to_apply: >-
+      Sprinkle from sachets or bulk material onto the foliage, 50-100 per m²,
+      preventively or at first thrips/whitefly signs. Slow-release sachets
+      keep populations going for weeks.
+    how_to_apply_de: >-
+      Aus Tütchen oder als Streumaterial mit 50-100 pro m² auf das Laub
+      ausbringen, vorbeugend oder bei ersten Thrips-/Weiße-Fliege-Anzeichen.
+      Depot-Tütchen erhalten die Population über Wochen.
+    mode_of_action: >-
+      The predatory mite eats thrips larvae and whitefly eggs and young
+      larvae; pollen as alternative food lets it persist even at low pest
+      levels.
+    mode_of_action_de: >-
+      Die Raubmilbe frisst Thripslarven sowie Eier und Junglarven der Weißen
+      Fliege; Pollen als Ausweichnahrung lässt sie auch bei geringem
+      Schädlingsdruck überdauern.
+    precautions: >-
+      Needs warmth (>20°C) and humidity above 60% to thrive. Do not combine
+      with broad-spectrum insecticides.
+    precautions_de: >-
+      Braucht Wärme (>20 °C) und über 60 % Luftfeuchte, um zu gedeihen. Nicht
+      mit Breitband-Insektiziden kombinieren.
 
   - name: Chrysoperla carnea (Lacewing Larvae)
+    name_de: Florfliegen-Larven (Chrysoperla carnea)
     treatment_type: biological
     application_method: release
     description: >-
@@ -665,8 +2298,34 @@ treatments:
       spider mites. Each larva consumes 200-500 aphids during
       development. Release rate: 5-10 larvae per m². Larvae active
       for 2-3 weeks. Can be applied to specific hotspots.
+    description_de: >-
+      Florfliegen-Larven — gefräßige Räuber von Blattläusen, wirksam auch
+      gegen kleine Raupen, Wollläuse, Thripse und Spinnmilben. Jede Larve
+      frisst während ihrer Entwicklung 200-500 Blattläuse. Ausbringrate
+      5-10 Larven pro m². Larven 2-3 Wochen aktiv. Gezielt an Befallsnestern
+      einsetzbar.
+    how_to_apply: >-
+      Distribute the larvae directly onto aphid colonies, 5-10 per m². Best
+      at 15-25°C. A single release usually suffices for a localised hotspot.
+    how_to_apply_de: >-
+      Die Larven direkt auf die Blattlauskolonien verteilen, 5-10 pro m².
+      Optimal bei 15-25 °C. Für ein örtliches Befallsnest reicht meist eine
+      Freilassung.
+    mode_of_action: >-
+      The predatory larvae seize aphids and other soft-bodied pests with
+      their sickle-shaped jaws and suck them dry.
+    mode_of_action_de: >-
+      Die Räuberlarven packen Blattläuse und andere weichhäutige Schädlinge
+      mit ihren sichelförmigen Zangen und saugen sie aus.
+    precautions: >-
+      Avoid ant activity, which protects aphids from the larvae. Do not use
+      alongside insecticides.
+    precautions_de: >-
+      Ameisenaktivität meiden, da Ameisen die Blattläuse vor den Larven
+      schützen. Nicht zusammen mit Insektiziden einsetzen.
 
   - name: Adalia bipunctata (Two-Spot Ladybird)
+    name_de: Zweipunkt-Marienkäfer (Adalia bipunctata)
     treatment_type: biological
     application_method: release
     description: >-
@@ -675,8 +2334,37 @@ treatments:
       during development. Release rate: 5-20 per m² depending on
       infestation level. Adults may fly away in outdoor settings;
       larval releases are more reliable for targeted control.
+    description_de: >-
+      Marienkäfer — klassische biologische Blattlausbekämpfung. Sowohl
+      adulte Tiere als auch Larven fressen Blattläuse. Eine Larve frisst
+      während ihrer Entwicklung bis zu 400 Blattläuse. Ausbringrate je nach
+      Befall 5-20 pro m². Adulte fliegen im Freiland oft ab;
+      Larvenfreilassungen sind für die gezielte Bekämpfung zuverlässiger.
+    how_to_apply: >-
+      Release larvae directly onto aphid colonies, 5-20 per m². Larvae stay
+      put and feed reliably; use larvae rather than adults for targeted
+      control.
+    how_to_apply_de: >-
+      Larven direkt auf die Blattlauskolonien ausbringen, 5-20 pro m². Larven
+      bleiben am Ort und fressen zuverlässig; für gezielte Bekämpfung Larven
+      statt adulte Käfer verwenden.
+    mode_of_action: >-
+      Both larvae and adults are voracious aphid predators that rapidly
+      reduce dense colonies.
+    mode_of_action_de: >-
+      Sowohl Larven als auch adulte Käfer sind gefräßige Blattlausräuber, die
+      dichte Kolonien rasch reduzieren.
+    precautions: >-
+      Control ants first, as they defend aphids. Adults released outdoors
+      often disperse — prefer larval releases. Do not combine with
+      insecticides.
+    precautions_de: >-
+      Zuerst Ameisen eindämmen, da sie Blattläuse verteidigen. Im Freiland
+      freigelassene Adulte fliegen oft ab — Larvenfreilassungen bevorzugen.
+      Nicht mit Insektiziden kombinieren.
 
   - name: Bacillus subtilis
+    name_de: Bacillus subtilis
     treatment_type: biological
     active_ingredient: bacillus subtilis
     application_method: spray
@@ -690,8 +2378,38 @@ treatments:
       effective — spray every 7-10 days. Safe for beneficial insects.
       No harvest waiting period (Karenzzeit). Approved for organic
       farming.
+    description_de: >-
+      Biologisches Fungizid gegen Echten Mehltau, Grauschimmel und
+      verschiedene bodenbürtige Erreger. Besiedelt die Pflanzenoberfläche
+      und verdrängt Schadpilze. Vorbeugende Anwendung am wirksamsten — alle
+      7-10 Tage spritzen. Nützlingsschonend. Keine Wartezeit (Karenzzeit).
+      Für den ökologischen Anbau zugelassen.
+    how_to_apply: >-
+      Spray 2 ml/L (or per label) onto all surfaces preventively or at first
+      symptoms, repeating every 7-10 days. Best applied before disease takes
+      hold.
+    how_to_apply_de: >-
+      2 ml/L (oder nach Etikett) vorbeugend oder bei ersten Symptomen auf
+      alle Flächen sprühen, alle 7-10 Tage wiederholen. Am besten anwenden,
+      bevor die Krankheit Fuß fasst.
+    mode_of_action: >-
+      The beneficial bacterium colonises leaf and root surfaces, outcompeting
+      pathogens for space and nutrients and producing antifungal compounds.
+    mode_of_action_de: >-
+      Das nützliche Bakterium besiedelt Blatt- und Wurzeloberflächen,
+      verdrängt Erreger im Wettbewerb um Platz und Nährstoffe und bildet
+      pilzhemmende Stoffe.
+    precautions: >-
+      Largely preventive — limited curative effect on established infections.
+      Store cool and use before expiry to keep the bacteria viable. Safe for
+      bees and beneficials; no pre-harvest interval.
+    precautions_de: >-
+      Überwiegend vorbeugend — begrenzte Heilwirkung bei bestehendem Befall.
+      Kühl lagern und vor Ablauf verbrauchen, damit die Bakterien lebensfähig
+      bleiben. Schonend für Bienen und Nützlinge; keine Wartezeit.
 
   - name: Trichoderma harzianum
+    name_de: Trichoderma harzianum
     treatment_type: biological
     active_ingredient: trichoderma harzianum
     application_method: drench
@@ -704,9 +2422,38 @@ treatments:
       Rhizoctonia, and other soil pathogens. Apply as drench or mix
       into growing media. Preventive use most effective. Also promotes
       root growth. Approved for organic farming.
+    description_de: >-
+      Biologisches Boden-Fungizid. Nützlicher Pilz, der die Wurzelzone
+      besiedelt und die Wurzeln gegen Fusarium, Pythium, Rhizoctonia und
+      andere Bodenerreger schützt. Als Gießung anwenden oder ins Substrat
+      mischen. Vorbeugend am wirksamsten. Fördert zudem das Wurzelwachstum.
+      Für den ökologischen Anbau zugelassen.
+    how_to_apply: >-
+      Apply as a soil drench at 1 g/L or mix into the growing medium at
+      potting/sowing. Use preventively; reapply every few weeks during the
+      growing season.
+    how_to_apply_de: >-
+      Als Bodengießung mit 1 g/L anwenden oder beim Topfen/Aussäen ins
+      Substrat mischen. Vorbeugend einsetzen; während der Saison alle paar
+      Wochen wiederholen.
+    mode_of_action: >-
+      The beneficial fungus colonises the root zone, parasitises and
+      outcompetes soil pathogens, and stimulates stronger root growth.
+    mode_of_action_de: >-
+      Der nützliche Pilz besiedelt die Wurzelzone, parasitiert und verdrängt
+      Bodenerreger und regt ein kräftigeres Wurzelwachstum an.
+    precautions: >-
+      Preventive rather than curative. Do not combine with chemical
+      fungicides, which kill the beneficial fungus. Store cool to keep spores
+      viable.
+    precautions_de: >-
+      Eher vorbeugend als heilend. Nicht mit chemischen Fungiziden
+      kombinieren, diese töten den Nützlingspilz. Kühl lagern, damit die
+      Sporen lebensfähig bleiben.
 
   # Chemical — fungicides
   - name: Copper Fungicide (Bordeaux Mixture)
+    name_de: Kupferpräparat (Bordeauxbrühe)
     treatment_type: chemical
     active_ingredient: copper sulfate + calcium hydroxide
     application_method: spray
@@ -721,8 +2468,41 @@ treatments:
       IMPORTANT: Copper accumulates in soil; max 3 kg Cu/ha/year
       (EU organic limit). Do not apply above 25°C or in direct
       sunlight (phytotoxicity risk). Harmful to aquatic organisms.
+    description_de: >-
+      Kupferpräparat (Bordeauxbrühe) — breit wirkendes Kontakt-Fungizid
+      gegen Falschen Mehltau, Kraut- und Knollenfäule, Feuerbrand,
+      Bakterienkrebs und viele weitere Pilz- und Bakterienkrankheiten. Nur
+      vorbeugend — heilt bestehenden Befall nicht. WICHTIG: Kupfer reichert
+      sich im Boden an; max. 3 kg Cu/ha/Jahr (EU-Öko-Grenze). Nicht über
+      25 °C oder bei direkter Sonne anwenden (Verbrennungsgefahr).
+      Wassergefährdend.
+    how_to_apply: >-
+      Spray 5 g/L evenly onto dry foliage preventively, before infection
+      periods (wet weather). Apply in cool conditions, not in direct sun,
+      and reapply after rain.
+    how_to_apply_de: >-
+      5 g/L vorbeugend gleichmäßig auf trockenes Laub spritzen, vor
+      Infektionsperioden (Nasswetter). Bei kühlen Bedingungen anwenden, nicht
+      in direkter Sonne, und nach Regen erneuern.
+    mode_of_action: >-
+      Copper ions form a protective film on the surface and denature
+      pathogen enzymes, stopping fungal and bacterial spores from
+      germinating.
+    mode_of_action_de: >-
+      Kupferionen bilden einen Schutzfilm auf der Oberfläche und denaturieren
+      Erreger-Enzyme, sodass Pilz- und Bakteriensporen nicht keimen können.
+    precautions: >-
+      Copper accumulates in soil and harms aquatic life — stay within the
+      3 kg Cu/ha/year limit and keep away from water. Wear gloves, mask and
+      goggles. Observe the 21-day pre-harvest interval.
+    precautions_de: >-
+      Kupfer reichert sich im Boden an und schadet Wasserorganismen — die
+      Grenze von 3 kg Cu/ha/Jahr einhalten und von Gewässern fernhalten.
+      Handschuhe, Maske und Schutzbrille tragen. Die Wartezeit von 21 Tagen
+      einhalten.
 
   - name: Sulfur (Wettable)
+    name_de: Netzschwefel
     treatment_type: chemical
     active_ingredient: elemental sulfur
     application_method: spray
@@ -736,8 +2516,36 @@ treatments:
       above 30°C (leaf burn risk) or within 14 days of oil-based
       sprays. Approved for organic farming. Harmful to predatory
       mites — maintain distance from biocontrol releases.
+    description_de: >-
+      Netzschwefel — Kontakt-Fungizid vor allem gegen Echten Mehltau. Wirkt
+      auch gegen Rost, Apfelschorf und einige Milben. Vorbeugend im
+      7-10-Tage-Abstand anwenden. NICHT über 30 °C (Verbrennungsgefahr) oder
+      innerhalb von 14 Tagen nach ölhaltigen Spritzungen ausbringen. Für den
+      ökologischen Anbau zugelassen. Schädlich für Raubmilben — Abstand zu
+      Nützlings-Freilassungen halten.
+    how_to_apply: >-
+      Spray 3 g/L preventively every 7-10 days at temperatures below 30°C.
+      Cover both leaf surfaces. Reapply after rain.
+    how_to_apply_de: >-
+      3 g/L vorbeugend alle 7-10 Tage bei Temperaturen unter 30 °C spritzen.
+      Beide Blattseiten benetzen. Nach Regen erneuern.
+    mode_of_action: >-
+      Sulfur releases vapour that inhibits spore germination and fungal
+      metabolism on the leaf surface.
+    mode_of_action_de: >-
+      Schwefel setzt Dampf frei, der die Sporenkeimung und den Pilzstoffwechsel
+      auf der Blattoberfläche hemmt.
+    precautions: >-
+      Do not apply above 30°C or within 14 days of oil sprays (leaf burn).
+      Harmful to predatory mites — keep away from biocontrol areas. Keep the
+      7-day pre-harvest interval.
+    precautions_de: >-
+      Nicht über 30 °C oder innerhalb von 14 Tagen nach Ölspritzungen
+      anwenden (Blattverbrennung). Schädlich für Raubmilben — von
+      Nützlingsbereichen fernhalten. Die Wartezeit von 7 Tagen einhalten.
 
   - name: Potassium Bicarbonate
+    name_de: Kaliumhydrogencarbonat
     treatment_type: biological
     active_ingredient: potassium bicarbonate
     application_method: spray
@@ -750,9 +2558,37 @@ treatments:
       germination. Very low toxicity, no harvest waiting period.
       Apply every 7-10 days. Can cause leaf burn at high
       concentrations on sensitive plants. Approved for organic farming.
+    description_de: >-
+      Kaliumhydrogencarbonat — mildes Fungizid gegen Echten Mehltau. Ändert
+      den pH-Wert der Blattoberfläche und hemmt so die Sporenkeimung. Sehr
+      geringe Toxizität, keine Wartezeit. Alle 7-10 Tage anwenden. Kann bei
+      empfindlichen Pflanzen in hoher Konzentration Blattverbrennungen
+      verursachen. Für den ökologischen Anbau zugelassen.
+    how_to_apply: >-
+      Spray 5 g/L onto affected foliage at first signs of mildew, repeating
+      every 7-10 days. Has some curative effect on early powdery mildew.
+    how_to_apply_de: >-
+      5 g/L bei ersten Mehltau-Anzeichen auf das befallene Laub sprühen, alle
+      7-10 Tage wiederholen. Hat bei frühem Echtem Mehltau eine gewisse
+      Heilwirkung.
+    mode_of_action: >-
+      Raises the pH on the leaf surface and dehydrates mildew spores,
+      stopping germination and halting early colonies.
+    mode_of_action_de: >-
+      Erhöht den pH-Wert auf der Blattoberfläche und trocknet Mehltausporen
+      aus, sodass die Keimung stoppt und frühe Kolonien zum Stillstand kommen.
+    precautions: >-
+      Can scorch sensitive plants at high doses — test first and avoid strong
+      sun. Very low toxicity, safe for beneficials and no pre-harvest
+      interval.
+    precautions_de: >-
+      Kann empfindliche Pflanzen bei hoher Dosis verbrennen — erst testen und
+      starke Sonne meiden. Sehr geringe Toxizität, nützlingsschonend und ohne
+      Wartezeit.
 
   # Mechanical — barriers and traps
   - name: Crop Protection Netting (0.8mm)
+    name_de: Kulturschutznetz (0,8 mm)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -762,8 +2598,37 @@ treatments:
       Install immediately after sowing/transplanting. Edges must be
       buried or weighted to prevent entry. Remove for pollinator
       access on flowering crops. Reusable for multiple seasons.
+    description_de: >-
+      Kulturschutznetz — engmaschiges Netz (0,8 mm Maschenweite) als
+      physische Barriere gegen Kohlweißling, Möhrenfliege, Kohlfliege,
+      Zwiebelfliege, Lauchmotte und Erdflöhe. Direkt nach Aussaat/Pflanzung
+      auflegen. Ränder eingraben oder beschweren, um das Eindringen zu
+      verhindern. Bei Blühkulturen für Bestäuber abnehmen. Über mehrere
+      Saisons wiederverwendbar.
+    how_to_apply: >-
+      Lay the net over hoops or directly on the crop right after sowing or
+      planting, and bury or weight all edges so no insects can crawl under.
+    how_to_apply_de: >-
+      Das Netz direkt nach Aussaat oder Pflanzung über Bügel oder direkt auf
+      die Kultur legen und alle Ränder eingraben oder beschweren, damit keine
+      Insekten darunter kriechen.
+    mode_of_action: >-
+      A purely physical barrier — the mesh is too fine for the pest insects
+      to pass, so they cannot reach the crop to feed or lay eggs.
+    mode_of_action_de: >-
+      Eine rein physische Barriere — die Maschen sind zu fein für die
+      Schadinsekten, sodass diese die Kultur weder zum Fraß noch zur Eiablage
+      erreichen.
+    precautions: >-
+      Remove during flowering of insect-pollinated crops so bees can reach
+      the blossoms. Make sure no pests are trapped underneath before closing.
+    precautions_de: >-
+      Bei insektenbestäubten Kulturen während der Blüte abnehmen, damit Bienen
+      an die Blüten gelangen. Vor dem Schließen sicherstellen, dass keine
+      Schädlinge darunter eingeschlossen sind.
 
   - name: Pheromone Trap (Codling Moth)
+    name_de: Pheromonfalle (Apfelwickler)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -772,8 +2637,37 @@ treatments:
       per 3-5 trees at head height (1.5-2m) from May to September.
       Replace pheromone lures every 6-8 weeks. Primarily a monitoring
       tool — combine with other methods for effective control.
+    description_de: >-
+      Pheromonfalle Apfelwickler — artspezifische Lockstofffalle zum
+      Monitoring und Massenfang von Cydia pomonella. 1 Falle je 3-5 Bäume in
+      Kopfhöhe (1,5-2 m) von Mai bis September aufhängen. Pheromon-Dispenser
+      alle 6-8 Wochen erneuern. Vor allem Monitoring-Werkzeug — für wirksame
+      Bekämpfung mit anderen Methoden kombinieren.
+    how_to_apply: >-
+      Hang one trap per 3-5 trees at 1.5-2 m from May to September. Replace
+      the lure every 6-8 weeks and check weekly to time other measures.
+    how_to_apply_de: >-
+      Eine Falle je 3-5 Bäume in 1,5-2 m Höhe von Mai bis September aufhängen.
+      Den Lockstoff alle 6-8 Wochen erneuern und wöchentlich kontrollieren, um
+      weitere Maßnahmen zeitlich abzustimmen.
+    mode_of_action: >-
+      The synthetic female sex pheromone lures male moths onto the sticky
+      surface, where they are caught — disrupting mating and signalling peak
+      flight.
+    mode_of_action_de: >-
+      Das synthetische weibliche Sexualpheromon lockt männliche Falter auf die
+      Klebefläche, wo sie gefangen werden — das stört die Paarung und zeigt
+      den Flughöhepunkt an.
+    precautions: >-
+      Mainly for monitoring and timing, not full control on its own. Use the
+      catch peak to time Bt or granulovirus sprays.
+    precautions_de: >-
+      Vor allem zur Überwachung und Terminierung, allein keine vollständige
+      Bekämpfung. Den Fanghöhepunkt nutzen, um Bt- oder Granulovirus-
+      Spritzungen zu terminieren.
 
   - name: Pheromone Trap (Cherry Fruit Fly)
+    name_de: Pheromonfalle (Kirschfruchtfliege)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -781,8 +2675,34 @@ treatments:
       ammonium attractant for Rhagoletis cerasi monitoring and mass
       trapping. Hang in tree canopy from mid-May. 4-6 traps per tree
       for mass trapping. Check weekly and replace when covered.
+    description_de: >-
+      Pheromonfalle Kirschfruchtfliege — gelbe Leimtafeln mit
+      Ammonium-Lockstoff zum Monitoring und Massenfang von Rhagoletis cerasi.
+      Ab Mitte Mai in die Baumkrone hängen. Für den Massenfang 4-6 Fallen je
+      Baum. Wöchentlich kontrollieren und bei Belegung austauschen.
+    how_to_apply: >-
+      Hang yellow sticky traps with the ammonium lure in the sunny side of
+      the canopy from mid-May, 4-6 per tree for mass trapping. Check weekly
+      and replace when full.
+    how_to_apply_de: >-
+      Gelbe Leimtafeln mit Ammonium-Lockstoff ab Mitte Mai auf der Sonnenseite
+      der Krone aufhängen, für den Massenfang 4-6 je Baum. Wöchentlich
+      kontrollieren und bei Belegung austauschen.
+    mode_of_action: >-
+      The yellow colour and ammonium scent attract the flies onto the sticky
+      surface before they lay eggs in the ripening cherries.
+    mode_of_action_de: >-
+      Die gelbe Farbe und der Ammonium-Duft locken die Fliegen auf die
+      Klebefläche, bevor sie ihre Eier in die reifenden Kirschen ablegen.
+    precautions: >-
+      Most effective on early/mid-season cherries; combine with netting on
+      heavily infested trees. Replace promptly once fully covered.
+    precautions_de: >-
+      Am wirksamsten bei früh und mittel reifenden Kirschen; bei starkem
+      Befall mit Netzen kombinieren. Bei voller Belegung umgehend austauschen.
 
   - name: Slug Fence (Copper Barrier)
+    name_de: Schneckenzaun (Kupferband)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -791,8 +2711,38 @@ treatments:
       beds or individual plant groups. Height minimum 5cm. Keep
       vegetation from bridging the barrier. Effective but requires
       ensuring no slugs are already inside the protected area.
+    description_de: >-
+      Schneckenzaun (Kupferband) — Kupferbarrieren, die Schnecken durch eine
+      galvanische Reaktion mit dem Schneckenschleim abwehren. Um Hochbeete
+      oder einzelne Pflanzengruppen anbringen. Mindesthöhe 5 cm. Keine
+      Pflanzen über die Barriere hinwegwachsen lassen. Wirksam, erfordert aber
+      sicherzustellen, dass keine Schnecken bereits im geschützten Bereich
+      sind.
+    how_to_apply: >-
+      Fix the copper strip around the bed edge at least 5 cm high. Keep the
+      top edge clean and stop leaves or stems from bridging it.
+    how_to_apply_de: >-
+      Das Kupferband mindestens 5 cm hoch um den Beetrand anbringen. Die
+      Oberkante sauber halten und verhindern, dass Blätter oder Stängel sie
+      überbrücken.
+    mode_of_action: >-
+      Contact between the copper and the slug's slime creates a small
+      electric charge the slug avoids, keeping it out of the protected bed.
+    mode_of_action_de: >-
+      Der Kontakt zwischen Kupfer und Schneckenschleim erzeugt eine schwache
+      elektrische Ladung, die die Schnecke meidet und so vom geschützten Beet
+      fernhält.
+    precautions: >-
+      Make sure no slugs or eggs are already inside before fencing.
+      Plants and weeds touching both sides create a bridge that defeats the
+      barrier.
+    precautions_de: >-
+      Vor dem Einzäunen sicherstellen, dass innen keine Schnecken oder Eier
+      sind. Pflanzen und Unkraut, die beide Seiten berühren, bilden eine
+      Brücke und heben die Wirkung auf.
 
   - name: Slug Pellets (Ferric Phosphate)
+    name_de: Schneckenkorn (Eisen-III-Phosphat)
     treatment_type: biological
     active_ingredient: iron(III) phosphate
     application_method: granular
@@ -805,8 +2755,36 @@ treatments:
       Safe for hedgehogs, pets, and soil organisms. Breaks down into
       iron and phosphate — natural soil components. Reapply after
       heavy rain.
+    description_de: >-
+      Schneckenkorn (Eisen-III-Phosphat) — für den ökologischen Anbau
+      zugelassene Schneckenbekämpfung. Schnecken stellen nach der Aufnahme
+      sofort das Fressen ein und sterben binnen 3-6 Tagen. 5 g/m² gleichmäßig
+      ausbringen. Unschädlich für Igel, Haustiere und Bodenorganismen. Zerfällt
+      zu Eisen und Phosphat — natürliche Bodenbestandteile. Nach starkem Regen
+      erneuern.
+    how_to_apply: >-
+      Scatter 5 g/m² thinly and evenly over the soil around vulnerable plants
+      in the evening, when slugs are active. Reapply after heavy rain.
+    how_to_apply_de: >-
+      5 g/m² abends, wenn Schnecken aktiv sind, dünn und gleichmäßig über den
+      Boden um gefährdete Pflanzen streuen. Nach starkem Regen erneuern.
+    mode_of_action: >-
+      The ferric phosphate damages the slug's digestive cells after
+      ingestion; the slug stops feeding at once and retreats to die,
+      usually unseen.
+    mode_of_action_de: >-
+      Das Eisen-III-Phosphat schädigt nach der Aufnahme die Verdauungszellen
+      der Schnecke; sie stellt sofort das Fressen ein und zieht sich zum
+      Sterben zurück, meist unsichtbar.
+    precautions: >-
+      Safe for hedgehogs, pets and soil life, but do not over-apply — scatter
+      thinly. Keep pellets off edible plant parts.
+    precautions_de: >-
+      Schonend für Igel, Haustiere und Bodenleben, aber nicht überdosieren —
+      dünn ausstreuen. Korn nicht auf essbare Pflanzenteile bringen.
 
   - name: Granulovirus (CpGV)
+    name_de: Apfelwickler-Granulovirus (CpGV)
     treatment_type: biological
     application_method: spray
     safety_interval_days: 0
@@ -817,8 +2795,37 @@ treatments:
       within 3-5 days. Apply at egg hatching (monitor with pheromone
       traps). 3-4 applications at 8-day intervals. Harmless to all
       non-target organisms. Approved for organic farming.
+    description_de: >-
+      Apfelwickler-Granulovirus — hochspezifisches biologisches Insektizid
+      gegen Larven des Apfelwicklers (Cydia pomonella). Die Larven nehmen die
+      Viruspartikel auf der behandelten Fruchtoberfläche auf und sterben binnen
+      3-5 Tagen. Zum Larvenschlupf anwenden (Monitoring mit Pheromonfallen).
+      3-4 Anwendungen im 8-Tage-Abstand. Unschädlich für alle Nichtziel-
+      Organismen. Für den ökologischen Anbau zugelassen.
+    how_to_apply: >-
+      Spray onto the fruit surface at egg hatch (timed with pheromone traps),
+      preferably in the evening (UV-sensitive). Make 3-4 applications at
+      8-day intervals.
+    how_to_apply_de: >-
+      Zum Larvenschlupf (über Pheromonfallen terminiert) auf die
+      Fruchtoberfläche spritzen, möglichst abends (UV-empfindlich). 3-4
+      Anwendungen im 8-Tage-Abstand.
+    mode_of_action: >-
+      The larva eats virus particles while biting into the fruit; the virus
+      multiplies inside and kills it within 3-5 days, before it bores deep.
+    mode_of_action_de: >-
+      Die Larve nimmt beim Anbohren der Frucht Viruspartikel auf; das Virus
+      vermehrt sich in ihr und tötet sie binnen 3-5 Tagen, bevor sie tief
+      eindringt.
+    precautions: >-
+      Extremely specific and harmless to all non-target organisms. Apply in
+      the evening and reapply after rain, as UV degrades the virus.
+    precautions_de: >-
+      Äußerst spezifisch und unschädlich für alle Nichtziel-Organismen. Abends
+      anwenden und nach Regen erneuern, da UV-Licht das Virus abbaut.
 
   - name: Kaolin Clay (Surround)
+    name_de: Kaolin-Tonerde
     treatment_type: mechanical
     application_method: spray
     description: >-
@@ -828,8 +2835,35 @@ treatments:
       fly, apple sawfly, and many other pests. Also reduces sunburn
       on fruit. Apply before pest flight begins. Reapply after rain.
       Washes off at harvest. Approved for organic farming.
+    description_de: >-
+      Kaolin-Tonerde — Partikelfilm-Technologie. Bildet eine weiße Schutzschicht
+      auf Früchten und Blättern, die Fraß und Eiablage der Schädlinge
+      abschreckt. Wirkt gegen Apfelwickler, Kirschfruchtfliege, Apfelsägewespe
+      und viele weitere Schädlinge. Reduziert zudem Sonnenbrand an Früchten. Vor
+      Beginn des Schädlingsflugs anwenden. Nach Regen erneuern. Wird zur Ernte
+      abgewaschen. Für den ökologischen Anbau zugelassen.
+    how_to_apply: >-
+      Spray a fine white film over fruit and leaves before pest flight begins,
+      building up 2-3 coats. Reapply after rain and wash fruit at harvest.
+    how_to_apply_de: >-
+      Vor Beginn des Schädlingsflugs einen feinen weißen Film über Früchte und
+      Blätter sprühen, in 2-3 Lagen aufbauen. Nach Regen erneuern und Früchte
+      zur Ernte abwaschen.
+    mode_of_action: >-
+      The white mineral film irritates and disorients pests and masks the
+      plant, so they avoid feeding and egg-laying on it.
+    mode_of_action_de: >-
+      Der weiße Mineralfilm irritiert und verwirrt die Schädlinge und tarnt die
+      Pflanze, sodass sie Fraß und Eiablage darauf meiden.
+    precautions: >-
+      Purely physical and non-toxic, but the white coating is conspicuous —
+      it washes off at harvest. Reapply after rain to keep coverage.
+    precautions_de: >-
+      Rein physisch und ungiftig, aber der weiße Belag ist auffällig — er wird
+      zur Ernte abgewaschen. Nach Regen erneuern, um die Bedeckung zu erhalten.
 
   - name: Beer Trap (Slug)
+    name_de: Bierfalle (Schnecken)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -839,8 +2873,38 @@ treatments:
       slugs from surrounding area — use in combination with barriers,
       not as sole control method. Place at bed edges, not in the
       middle of plantings.
+    description_de: >-
+      Bierfalle — einfache Schneckenfalle aus flachen, in den Boden
+      eingelassenen Behältern, die mit Bier gefüllt werden. Der Hefegeruch
+      lockt Schnecken an. Alle 2-3 Tage leeren und neu füllen. Hinweis: Lockt
+      auch Schnecken aus der Umgebung an — mit Barrieren kombinieren, nicht als
+      alleinige Bekämpfung. An den Beeträndern aufstellen, nicht mitten in den
+      Pflanzungen.
+    how_to_apply: >-
+      Sink a shallow container so its rim sits about 2 cm above ground, fill
+      with beer and empty/refill every 2-3 days. Place at bed edges.
+    how_to_apply_de: >-
+      Einen flachen Behälter so eingraben, dass der Rand etwa 2 cm über dem
+      Boden steht, mit Bier füllen und alle 2-3 Tage leeren/neu füllen. An den
+      Beeträndern aufstellen.
+    mode_of_action: >-
+      The fermenting yeast scent lures slugs in; they fall into the liquid
+      and drown.
+    mode_of_action_de: >-
+      Der gärende Hefegeruch lockt die Schnecken an; sie fallen in die
+      Flüssigkeit und ertrinken.
+    precautions: >-
+      The rim above ground level prevents ground beetles (slug predators)
+      from falling in. As it also draws slugs from outside, pair with
+      barriers and place at bed edges, not among plants.
+    precautions_de: >-
+      Der über den Boden ragende Rand verhindert, dass Laufkäfer (Schnecken-
+      Fressfeinde) hineinfallen. Da sie auch Schnecken von außen anlockt, mit
+      Barrieren kombinieren und an den Beeträndern aufstellen, nicht zwischen
+      den Pflanzen.
 
   - name: Horticultural Oil (Mineral Oil)
+    name_de: Weißöl (Paraffinöl)
     treatment_type: chemical
     active_ingredient: paraffin oil
     application_method: spray
@@ -854,8 +2918,38 @@ treatments:
       fruit trees against overwintering eggs. Summer application at
       1-1.5% with caution (phytotoxicity risk above 25°C). Do NOT
       combine with sulfur sprays (14-day gap minimum).
+    description_de: >-
+      Paraffinöl — erstickendes Kontakt-Insektizid/Akarizid gegen
+      Schildläuse, Wollläuse, Eier der Weißen Fliege und überwinternde
+      Schädlingsstadien. Winteranwendung (Ruhephase) mit 2-3 % an Obstbäumen
+      gegen überwinternde Eier. Sommeranwendung mit 1-1,5 % unter Vorsicht
+      (Verbrennungsgefahr über 25 °C). NICHT mit Schwefelspritzungen
+      kombinieren (mindestens 14 Tage Abstand).
+    how_to_apply: >-
+      Spray to fully coat pests, leaf undersides and bark. Use 2-3% on
+      dormant fruit trees in winter, 1-1.5% in summer below 25°C. Repeat
+      after 10-14 days if needed.
+    how_to_apply_de: >-
+      So spritzen, dass Schädlinge, Blattunterseiten und Rinde vollständig
+      benetzt sind. Im Winter 2-3 % an ruhenden Obstbäumen, im Sommer 1-1,5 %
+      unter 25 °C. Bei Bedarf nach 10-14 Tagen wiederholen.
+    mode_of_action: >-
+      The oil film coats and blocks the pests' breathing pores (spiracles),
+      smothering scale, mealybug and overwintering eggs.
+    mode_of_action_de: >-
+      Der Ölfilm überzieht und verschließt die Atemöffnungen (Stigmen) der
+      Schädlinge und erstickt so Schild- und Wollläuse sowie überwinternde
+      Eier.
+    precautions: >-
+      Do not apply above 25°C or in strong sun (leaf burn), and keep at least
+      14 days from sulfur sprays. Observe the 7-day pre-harvest interval.
+    precautions_de: >-
+      Nicht über 25 °C oder bei starker Sonne anwenden (Blattverbrennung) und
+      mindestens 14 Tage Abstand zu Schwefelspritzungen halten. Die Wartezeit
+      von 7 Tagen einhalten.
 
   - name: Diatomaceous Earth
+    name_de: Kieselgur (Diatomeenerde)
     treatment_type: mechanical
     application_method: granular
     description: >-
@@ -866,10 +2960,40 @@ treatments:
       bases or on leaves. Loses effectiveness when wet — reapply
       after rain. Wear mask during application (respiratory irritant).
       Approved for organic farming.
+    description_de: >-
+      Kieselgur — Pulver aus fossilen Kieselalgen, das den Chitinpanzer von
+      Insekten durch Abrieb beschädigt und sie austrocknet. Wirkt gegen
+      kriechende Insekten: Erdflöhe, Ameisen, Schnecken (teilweise) und
+      diverse Vorratsschädlinge. Als Staub um die Pflanzenbasis oder auf die
+      Blätter geben. Verliert nass die Wirkung — nach Regen erneuern. Bei der
+      Anwendung Maske tragen (reizt die Atemwege). Für den ökologischen Anbau
+      zugelassen.
+    how_to_apply: >-
+      Dust a thin dry layer around plant bases or onto foliage where crawling
+      pests travel. Apply in dry weather; reapply after rain or watering.
+    how_to_apply_de: >-
+      Eine dünne trockene Schicht um die Pflanzenbasis oder auf das Laub
+      stäuben, wo kriechende Schädlinge entlangwandern. Bei trockenem Wetter
+      anwenden; nach Regen oder Gießen erneuern.
+    mode_of_action: >-
+      The microscopically sharp particles abrade the insect's waxy cuticle so
+      it loses water and dries out.
+    mode_of_action_de: >-
+      Die mikroskopisch scharfen Partikel reiben die wächserne Außenhaut der
+      Insekten auf, sodass diese Wasser verlieren und austrocknen.
+    precautions: >-
+      Wear a dust mask — the fine powder irritates airways. Apply targeted
+      and sparingly, as it can also harm beneficial ground insects. Only
+      works while dry.
+    precautions_de: >-
+      Eine Staubmaske tragen — das feine Pulver reizt die Atemwege. Gezielt und
+      sparsam anwenden, da es auch nützliche Bodeninsekten schädigen kann.
+      Wirkt nur im trockenen Zustand.
 
   # --- Dracaena / indoor treatments ---
 
   - name: Rubbing Alcohol Swab (70%)
+    name_de: Spiritus-Betupfen (70 %)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -877,8 +3001,34 @@ treatments:
       with cotton swab. Dissolves the waxy coating and kills on contact.
       Test on a small leaf area first to check for phytotoxicity. No
       safety interval (ornamental use only).
+    description_de: >-
+      70%igen Isopropylalkohol mit einem Wattestäbchen direkt auf Wollläuse
+      und Schildläuse tupfen. Löst die Wachsschicht und tötet bei Kontakt.
+      Vorab an einer kleinen Blattstelle auf Verträglichkeit testen. Keine
+      Wartezeit (nur für Zierpflanzen).
+    how_to_apply: >-
+      Dip a cotton swab in 70% isopropyl alcohol and dab each mealybug or
+      scale directly. Repeat weekly until no new pests appear; ideal for a
+      few houseplants.
+    how_to_apply_de: >-
+      Ein Wattestäbchen in 70%igen Isopropylalkohol tauchen und jede Woll-
+      oder Schildlaus direkt betupfen. Wöchentlich wiederholen, bis keine
+      neuen Schädlinge mehr auftreten; ideal für wenige Zimmerpflanzen.
+    mode_of_action: >-
+      The alcohol dissolves the protective waxy coating and dries out the
+      soft-bodied pest on contact.
+    mode_of_action_de: >-
+      Der Alkohol löst die schützende Wachsschicht und trocknet den
+      weichhäutigen Schädling bei Kontakt aus.
+    precautions: >-
+      Test on one leaf first — alcohol can damage sensitive foliage.
+      Ornamental use only, not on plants intended for eating.
+    precautions_de: >-
+      Erst an einem Blatt testen — Alkohol kann empfindliches Laub schädigen.
+      Nur für Zierpflanzen, nicht für zum Verzehr bestimmte Pflanzen.
 
   - name: Bacillus thuringiensis israelensis (Bti)
+    name_de: Bacillus thuringiensis israelensis (Bti)
     treatment_type: biological
     active_ingredient: Bti toxin
     application_method: drench
@@ -889,18 +3039,72 @@ treatments:
       Diptera larvae but harmless to plants, pets, and beneficial
       insects. Products: Gnatrol WDG, Solbac. Apply 2-3 times at
       weekly intervals for best results.
+    description_de: >-
+      Biologische Bekämpfung von Trauermücken-Larven (Bradysia spp.). Über
+      das Gießwasser ausgebracht. Bti bildet Eiweißkristalle, die für
+      Zweiflügler-Larven giftig, für Pflanzen, Haustiere und Nützlinge aber
+      unschädlich sind. Produkte: Gnatrol WDG, Solbac. Für beste Ergebnisse
+      2-3 Mal im Wochenabstand anwenden.
+    how_to_apply: >-
+      Mix into the irrigation water and water the substrate so larvae in the
+      soil ingest it. Apply 2-3 times at weekly intervals to cover the
+      hatching cycle.
+    how_to_apply_de: >-
+      Ins Gießwasser mischen und das Substrat gießen, sodass die Larven im
+      Boden es aufnehmen. 2-3 Mal im Wochenabstand anwenden, um den
+      Schlupfzyklus abzudecken.
+    mode_of_action: >-
+      Bti protein crystals destroy the gut lining of fungus gnat larvae after
+      ingestion, killing them within a couple of days.
+    mode_of_action_de: >-
+      Die Bti-Eiweißkristalle zerstören nach der Aufnahme die Darmwand der
+      Trauermücken-Larven und töten sie binnen weniger Tage.
+    precautions: >-
+      Specific to Diptera larvae and harmless to plants, pets and
+      beneficials. Use the living product before expiry; no pre-harvest
+      interval.
+    precautions_de: >-
+      Spezifisch für Zweiflügler-Larven und unschädlich für Pflanzen,
+      Haustiere und Nützlinge. Das lebende Produkt vor Ablauf verwenden; keine
+      Wartezeit.
 
   # --- Aquatic treatments (Nymphaea) ---
 
   - name: Submerge Leaves (Aphid Removal)
+    name_de: Blätter untertauchen (Blattlaus-Entfernung)
     treatment_type: mechanical
     application_method: cultural
     description: >-
       Push infested water lily leaves briefly underwater (10-15 sec).
       Aphids fall off and are eaten by fish. Fully aquatic-safe, no
       chemicals involved. Repeat weekly during infestation.
+    description_de: >-
+      Befallene Seerosenblätter kurz untertauchen (10-15 Sek.). Die
+      Blattläuse werden abgespült und von den Fischen gefressen. Vollständig
+      gewässerverträglich, ohne Chemie. Bei Befall wöchentlich wiederholen.
+    how_to_apply: >-
+      Gently hold the infested floating leaves under the water surface for
+      10-15 seconds with your hand or a stick. Repeat weekly while aphids
+      persist.
+    how_to_apply_de: >-
+      Die befallenen Schwimmblätter mit der Hand oder einem Stock vorsichtig
+      10-15 Sekunden unter die Wasseroberfläche drücken. Bei anhaltendem
+      Befall wöchentlich wiederholen.
+    mode_of_action: >-
+      Submerging washes the aphids off the leaf; in a stocked pond the fish
+      then eat them.
+    mode_of_action_de: >-
+      Das Untertauchen spült die Blattläuse vom Blatt; in einem besetzten
+      Teich fressen die Fische sie anschließend.
+    precautions: >-
+      Fully water-safe with no chemicals. Do not submerge for long, to avoid
+      damaging the leaves.
+    precautions_de: >-
+      Völlig gewässerverträglich und chemiefrei. Nicht zu lange untertauchen,
+      um die Blätter nicht zu schädigen.
 
   - name: Remove Infested Leaves (Aquatic)
+    name_de: Befallene Blätter entfernen (Wasserpflanzen)
     treatment_type: cultural
     application_method: cultural
     description: >-
@@ -908,8 +3112,34 @@ treatments:
       and dispose in household waste (not compost). Reduces pest and
       pathogen reservoir. Fully aquatic-safe. The primary treatment
       method for pond plants where chemical treatments are prohibited.
+    description_de: >-
+      Stark befallene oder kranke Wasserpflanzenblätter am Stiel abschneiden
+      und im Hausmüll entsorgen (nicht kompostieren). Verringert das
+      Schädlings- und Erregerreservoir. Vollständig gewässerverträglich. Die
+      wichtigste Maßnahme bei Teichpflanzen, wo chemische Mittel verboten sind.
+    how_to_apply: >-
+      Cut off heavily infested or diseased leaves at the base of the stalk
+      and remove them from the pond. Dispose in household waste, never compost.
+    how_to_apply_de: >-
+      Stark befallene oder kranke Blätter am Stielansatz abschneiden und aus
+      dem Teich entfernen. Im Hausmüll entsorgen, nie kompostieren.
+    mode_of_action: >-
+      Removing affected foliage directly cuts the pest and pathogen population
+      and stops it spreading to healthy growth.
+    mode_of_action_de: >-
+      Das Entfernen befallener Blätter senkt die Schädlings- und
+      Erregerpopulation unmittelbar und verhindert die Ausbreitung auf
+      gesunde Triebe.
+    precautions: >-
+      Do not remove too many leaves at once, as water plants need foliage to
+      stay healthy. Keep cut material out of the water and compost.
+    precautions_de: >-
+      Nicht zu viele Blätter auf einmal entfernen, da Wasserpflanzen Laub zum
+      Gesundbleiben brauchen. Schnittgut aus dem Wasser und vom Kompost
+      fernhalten.
 
   - name: Yellow Sticky Traps (Pond Edge)
+    name_de: Gelbtafeln (Teichrand)
     treatment_type: mechanical
     application_method: cultural
     description: >-
@@ -917,8 +3147,36 @@ treatments:
       edge. Catches flying water lily aphids and beetles. Do NOT place
       directly over water (risk of trapping beneficial insects and
       birds). Monitoring and mass-trapping function.
+    description_de: >-
+      Gelbtafeln 30-50 cm über der Wasseroberfläche am Teichrand anbringen.
+      Fängt fliegende Seerosen-Blattläuse und Käfer. NICHT direkt über dem
+      Wasser platzieren (Gefahr, Nützlinge und Vögel zu fangen).
+      Monitoring- und Massenfangfunktion.
+    how_to_apply: >-
+      Mount yellow sticky traps 30-50 cm above the water at the pond edge,
+      not over open water. Check weekly and replace when covered.
+    how_to_apply_de: >-
+      Gelbtafeln 30-50 cm über dem Wasser am Teichrand anbringen, nicht über
+      offenem Wasser. Wöchentlich kontrollieren und bei Belegung austauschen.
+    mode_of_action: >-
+      The yellow colour attracts flying aphids and beetles onto the sticky
+      surface, where they are caught.
+    mode_of_action_de: >-
+      Die gelbe Farbe lockt fliegende Blattläuse und Käfer auf die
+      Klebefläche, wo sie gefangen werden.
+    precautions: >-
+      Keep traps away from open water to avoid catching beneficial insects
+      and birds. A monitoring and mass-trapping aid, not a stand-alone cure.
+    precautions_de: >-
+      Tafeln vom offenen Wasser fernhalten, um Nützlinge und Vögel nicht zu
+      fangen. Monitoring- und Massenfanghilfe, keine alleinige Lösung.
 
 pest_treatments:
+  # Cultural-tier coverage for the detail page (main indoor pests) so the
+  # IPM hierarchy (cultural → biological → mechanical → chemical) is complete.
+  - [Environmental Control, Spider Mites]
+  - [Environmental Control, Fungus Gnats]
+
   # Existing mappings
   - [Phytoseiulus persimilis, Spider Mites]
   - [Pyrethrin, Spider Mites]

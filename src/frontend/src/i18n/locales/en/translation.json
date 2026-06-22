@@ -450,7 +450,12 @@
       "confidenceLabel": "Match: {{value}} %",
       "feedbackConfirmAriaLabel": "Confirm finding as correct",
       "feedbackWrongAriaLabel": "Mark finding as incorrect",
-      "feedbackBeneficialAriaLabel": "Mark as beneficial insect"
+      "feedbackBeneficialAriaLabel": "Mark as beneficial insect",
+      "viewPestDetail": "More about this pest",
+      "addToGallery": "Add this photo to the gallery",
+      "addToGalleryAriaLabel": "Add this photo to the gallery of {{name}}",
+      "addToGallerySuccess": "Photo added to the gallery.",
+      "addToGalleryError": "The photo could not be added to the gallery."
     },
     "plantIdentification": {
       "title": "AI Plant Recognition",
@@ -629,6 +634,36 @@
         "curationError": "Action failed.",
         "hideDeselected": "Hide deselected",
         "lowCoverageWarning": "Only {{count}} active images — at least {{min}} are needed for reliable detection."
+      },
+      "pestContributions": {
+        "section": "Moderate contributed images",
+        "sectionHelper": "Users contribute private pest photos inside their tenant. Pick a pest and promote the best images to global visibility — promoted images are shown to every tenant as a reference and feed the recognition index.",
+        "selectPestLabel": "Select pest",
+        "selectPestHelper": "Shows all cross-tenant contributed images for this pest.",
+        "pestsUnavailable": "The pest list could not be loaded.",
+        "loading": "Loading images …",
+        "contributionsUnavailable": "The contributed images could not be loaded.",
+        "empty": "No images have been contributed for this pest yet.",
+        "summary": "{{count}} contributed images, {{promoted}} of them promoted globally.",
+        "listAriaLabel": "Contributed images for {{name}}",
+        "imageAlt": "Contributed image for {{name}}",
+        "provenance": "By {{user}} · tenant {{tenant}} · {{date}}",
+        "statusGlobal": "Global",
+        "statusGlobalAriaLabel": "Status: promoted globally",
+        "statusPrivate": "Private",
+        "statusPrivateAriaLabel": "Status: private (visible only within its own tenant)",
+        "promoteButton": "Promote",
+        "promoteTooltip": "Promote image globally for all tenants",
+        "promoteAria": "Promote contributed image for {{name}} globally",
+        "promoteSuccess": "Image promoted globally.",
+        "demoteButton": "Revoke",
+        "demoteTooltip": "Revoke global promotion",
+        "demoteAria": "Revoke global promotion of the image for {{name}}",
+        "demoteSuccess": "Promotion revoked.",
+        "demoteConfirmTitle": "Revoke promotion?",
+        "demoteConfirmMessage": "The image will no longer be globally visible and is removed from the recognition index. It remains available to the contributing tenant.",
+        "actionError": "Action failed.",
+        "actionBusy": "Action in progress …"
       },
       "recognition": {
         "section": "Self-hosted recognition (DINOv2)",
@@ -3647,6 +3682,96 @@
         "bloomLabel": "Bloom",
         "tasks": "Tasks"
       }
+    },
+    "pestDetail": {
+      "back": "Back to list",
+      "loadError": "The pest data could not be loaded.",
+      "notFound": "Pest not found.",
+      "sectionImages": "Images",
+      "noImages": "No reference images have been added for this pest yet.",
+      "imageAlt": "Reference image: {{name}}",
+      "sectionProfile": "Profile",
+      "damageSymptoms": "Damage symptoms",
+      "affectedParts": "Affected plant parts",
+      "hostPlants": "Typical host plants",
+      "tempRange": "Optimal temperature range",
+      "humidityRange": "Optimal humidity",
+      "sectionTreatments": "Countermeasures",
+      "treatmentsIntro": "Measures follow integrated pest management (IPM): preventive and gentle methods first, chemical agents last.",
+      "noTreatments": "No countermeasures have been added for this pest yet.",
+      "activeIngredient": "Active ingredient",
+      "karenzDays": "Pre-harvest interval: {{days}} days",
+      "sectionBeneficials": "Beneficial organisms",
+      "beneficialsIntro": "These beneficial organisms prey on the pest and help regulate the infestation naturally.",
+      "sectionPrevention": "Prevention & monitoring",
+      "preventionTips": "Prevention",
+      "monitoringHints": "Monitoring",
+      "severity": "Severity",
+      "pageIntro": "This pest profile summarises damage symptoms, lifecycle, countermeasures following the IPM hierarchy, and matching beneficial organisms.",
+      "sectionProfileIntro": "Identification features, affected plant parts, typical host plants, and the environmental conditions under which the pest thrives.",
+      "sectionImagesIntro": "Reference images help with identification. Curated images are added incrementally.",
+      "sectionBeneficialsIntro2": "Beneficial organisms are natural predators of the pest. Their use is the most gentle control method (biological / IPM tier 2).",
+      "sectionPreventionIntro": "Prevention is cheaper than control. Regular monitoring detects infestations early.",
+      "ipmTooltipHint": "IPM = Integrated Pest Management",
+      "karenzTooltipHint": "Pre-harvest interval = mandatory waiting time before harvest",
+      "beneficialScientificName": "Scientific name",
+      "contributeButton": "Contribute a photo",
+      "contributeTitle": "Contribute your photo",
+      "contributeIntro": "Upload a photo or take one with your camera. It appears in your private gallery for this pest; EXIF location data is removed automatically.",
+      "contributeUploading": "Uploading …",
+      "contributeError": "The image could not be uploaded.",
+      "contributeLightBlocked": "Contributing your own images is not available in anonymous mode.",
+      "captionLabel": "Image caption (optional)",
+      "imageDelete": "Delete image",
+      "imageGlobal": "This image is approved globally and visible to all users.",
+      "imageGlobalShort": "Global",
+      "imageFromInspection": "This photo comes from one of your inspections in which this pest was detected.",
+      "imageFromInspectionShort": "From inspection",
+      "imageFromInspectionAlt": "Inspection photo: {{name}}",
+      "imageFromRecognition": "Global reference image from pest recognition (external source, CC-licensed).",
+      "imageFromRecognitionShort": "Reference",
+      "imageFromRecognitionAlt": "Recognition reference image: {{name}}",
+      "noImagesLight": "Your own images are not available in anonymous mode.",
+      "imageDeleteConfirmTitle": "Delete image?",
+      "imageDeleteConfirmMessage": "This reference image will be permanently deleted. This action cannot be undone.",
+      "imageDeleteSuccess": "Image deleted.",
+      "showDeselected": "Show deselected",
+      "imageDeselect": "Deselect image",
+      "imageReactivate": "Re-include image",
+      "imageDeselected": "Image deselected and is no longer visible.",
+      "imageReactivated": "Image re-included.",
+      "imageDeselectError": "The image could not be updated.",
+      "imageDeselectedBadge": "Deselected",
+      "contributeSuccess": "Your photo was uploaded successfully."
+    },
+    "treatmentDetail": {
+      "back": "Back to list",
+      "loadError": "The treatment data could not be loaded.",
+      "notFound": "Treatment not found.",
+      "sectionFacts": "Key facts",
+      "applicationMethod": "Application method",
+      "dosagePerLiter": "Dosage per litre",
+      "karenz": "Pre-harvest interval",
+      "karenzDaysValue": "{{days}} days before harvest",
+      "karenzNone": "No pre-harvest interval",
+      "protectiveEquipment": "Protective equipment",
+      "sectionHowToApply": "How to apply",
+      "sectionModeOfAction": "Mode of action",
+      "sectionPrecautions": "Safety notes",
+      "sectionTargets": "Effective against",
+      "sectionTargetsIntro": "Pests and diseases this measure is used against.",
+      "targetedPests": "Pests",
+      "targetedDiseases": "Diseases",
+      "pageIntro": "Find all details about this plant protection measure here — active ingredient, dosage, application instructions and safety information.",
+      "activeIngredient": "Active ingredient",
+      "karenzDays": "Pre-harvest interval: {{days}} days",
+      "sectionFactsIntro": "Key facts at a glance: application method, active ingredient, recommended dosage and the legally required pre-harvest interval.",
+      "sectionHowToApplyIntro": "Step-by-step guide for the correct application of this measure.",
+      "sectionModeOfActionIntro": "Explains how this measure works on the pest or disease.",
+      "sectionPrecautionsIntro": "Important notes on protective measures, safe handling and environmental protection.",
+      "targetedPestsIntro": "These pests can be controlled with this measure — click on a name for details.",
+      "targetedDiseasesIntro": "These plant diseases can be treated or contained with this measure.",
+      "viewPestDetail": "View details"
     }
   },
   "tankAlerts": {
@@ -4150,7 +4275,10 @@
       "insect": "Insect",
       "mite": "Mite",
       "nematode": "Nematode",
-      "mollusk": "Mollusk"
+      "mollusk": "Mollusk",
+      "arachnid": "Arachnid",
+      "gastropod": "Gastropod",
+      "mammal": "Mammal"
     },
     "pathogenType": {
       "fungal": "Fungal",
@@ -4361,6 +4489,18 @@
       "dormancy": "Dormancy",
       "early_flower": "Early Flower",
       "late_flower": "Late Flower"
+    },
+    "plantPart": {
+      "leaf": "Leaf",
+      "stem": "Stem",
+      "root": "Root",
+      "flower": "Flower",
+      "fruit": "Fruit"
+    },
+    "pestSeverity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     }
   },
   "sensorChart": {
@@ -4474,6 +4614,21 @@
       "long": "An adapter is the software layer that converts a plant photo into comparable numerical values (features). 'local_embedding' means: this happens on your own server using the DINOv2 model, without any external services.",
       "beginnerTip": "For most installations 'local_embedding' is the right choice.",
       "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrated Pest Management — prevention before chemicals",
+      "long": "Three-tier approach: 1) Prevent (healthy plants, hygiene), 2) Monitor (check regularly), 3) Intervene (beneficials before pesticides). Chemical agents are always the last resort.",
+      "beginnerTip": "Healthy plants get pests less often. Regular inspection is enough for starters."
+    },
+    "karenzzeit": {
+      "short": "Mandatory waiting time between last treatment and harvest",
+      "long": "After applying chemical plant protection products, a minimum period must pass before the harvest may be consumed. The duration is printed on the product label and required by law.",
+      "beginnerTip": "Never harvest when a pre-harvest interval is active. The system will warn you automatically."
+    },
+    "nuetzlinge": {
+      "short": "Natural enemies of pest organisms",
+      "long": "Beneficial organisms (e.g. ladybirds, lacewings, parasitic wasps, predatory mites) feed on or parasitise pests. Their deliberate use is biological pest control and protects people and the environment.",
+      "beginnerTip": "Ladybirds against aphids is the best-known example. In greenhouses, beneficials can be purchased and released."
     }
   }
 }

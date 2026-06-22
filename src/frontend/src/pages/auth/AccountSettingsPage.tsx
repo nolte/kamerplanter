@@ -102,6 +102,7 @@ import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import { PestRecognitionAdminCard } from '@/components/admin/PestRecognitionAdminCard';
+import { PestContributionsAdminCard } from '@/components/admin/PestContributionsAdminCard';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -1285,6 +1286,11 @@ export default function AccountSettingsPage() {
               read-only and degrades to a discreet hint when the feature is off. */}
           <RecognitionStatusCard gridColumn="1 / -1" />
           <PestRecognitionAdminCard gridColumn="1 / -1" />
+          {/* REQ-010 / SEC-003 — moderate user-contributed pest photos and
+              promote the good ones to global visibility. Defense-in-depth: only
+              rendered for platform admins (the ``ha`` tab is not admin-gated like
+              the ``platform`` tab; the backend already enforces the same gate). */}
+          {isPlatformAdmin && <PestContributionsAdminCard gridColumn="1 / -1" />}
         </Box>
       )}
 

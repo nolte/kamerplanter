@@ -59,6 +59,9 @@ $defs:
         type: string
       common_name:
         type: string
+      common_name_de:
+        type: string
+        description: "Deutsche Anzeige-Variante des common_name"
       pest_type:
         type: string
         enum: [insect, arachnid, gastropod, nematode, mammal]
@@ -72,6 +75,54 @@ $defs:
       detection_difficulty:
         type: string
         enum: [easy, medium, hard]
+      description:
+        type: string
+      description_de:
+        type: string
+      damage_symptoms:
+        type: string
+        description: "Schadbild-/Symptombeschreibung (EN) für die Detailseite"
+      damage_symptoms_de:
+        type: string
+      affected_plant_parts:
+        type: array
+        items:
+          type: string
+          enum: [leaf, stem, root, flower, fruit]
+      host_plants:
+        type: array
+        items:
+          type: string
+      host_plants_de:
+        type: array
+        items:
+          type: string
+      prevention_tips:
+        type: string
+      prevention_tips_de:
+        type: string
+      monitoring_hints:
+        type: string
+      monitoring_hints_de:
+        type: string
+      severity:
+        type: string
+        enum: [low, medium, high]
+      optimal_humidity_min:
+        type: number
+        minimum: 0
+        maximum: 100
+      optimal_humidity_max:
+        type: number
+        minimum: 0
+        maximum: 100
+      detection_slug:
+        type: string
+        description: "Brücke zur Erkennungs-Taxonomie (PestTaxon.slug, REQ-044)"
+      reference_image_refs:
+        type: array
+        items:
+          type: string
     required: [scientific_name, common_name, pest_type, lifecycle_days,
                optimal_temp_min, optimal_temp_max, detection_difficulty]
     additionalProperties: false
@@ -126,10 +177,30 @@ $defs:
     properties:
       name:
         type: string
+        description: "Englischer Name — stabiler Schlüssel für pest_treatments-Edges"
+      name_de:
+        type: string
+        description: "Deutsche Anzeige-Variante"
       treatment_type:
         type: string
         enum: [cultural, biological, chemical, mechanical]
       active_ingredient:
+        type: string
+      description:
+        type: string
+      description_de:
+        type: string
+      how_to_apply:
+        type: string
+      how_to_apply_de:
+        type: string
+      mode_of_action:
+        type: string
+      mode_of_action_de:
+        type: string
+      precautions:
+        type: string
+      precautions_de:
         type: string
       application_method:
         type: string

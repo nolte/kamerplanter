@@ -79,7 +79,13 @@ class TestErasurePhase0:
         finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
         assert finalised == 1
-        storage.delete_for_user.assert_awaited_once_with(tenant_key="t-1", user_key="u-1", scope="user_personal")
+        # Two hard-delete scopes run per tenant: personal attachments and
+        # REQ-010 pest reference images (both have no retention obligation).
+        hard_delete_scopes = {c.kwargs["scope"] for c in storage.delete_for_user.await_args_list}
+        assert hard_delete_scopes == {"user_personal", "user_pest_reference_images"}
+        for call in storage.delete_for_user.await_args_list:
+            assert call.kwargs["tenant_key"] == "t-1"
+            assert call.kwargs["user_key"] == "u-1"
         attachment_repo.anonymize_user_metadata.assert_called_once()
         storage.strip_exif_for_user.assert_awaited_once_with(
             tenant_key="t-1", user_key="u-1", scope="user_diary_attachments"
@@ -87,6 +93,7 @@ class TestErasurePhase0:
         assert erasure.status == "completed"
         assert "user_personal" in erasure.storage_cleanup_scopes
         assert "user_diary_attachments" in erasure.storage_cleanup_scopes
+        assert "user_pest_reference_images" in erasure.storage_cleanup_scopes
 
     async def test_phase05_reference_index_cleanup_called(self):
         """AK-OS-05 — user-contributed embeddings cleanup runs before delete."""
@@ -179,8 +186,9 @@ class TestErasurePhase0:
         """
         erasure = ErasureRequest(key="er-retry", user_key="u-retry", status="scheduled")
         storage = MagicMock()
-        # First delete attempt fails, second succeeds.
-        storage.delete_for_user = AsyncMock(side_effect=[RuntimeError("S3 down"), 0])
+        # Run 1 aborts on the first hard-delete scope (1 call). Run 2 succeeds
+        # across both hard-delete scopes (user_personal + pest reference images).
+        storage.delete_for_user = AsyncMock(side_effect=[RuntimeError("S3 down"), 0, 0])
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0
@@ -209,8 +217,9 @@ class TestErasurePhase0:
         finalised_run2 = await svc.execute_scheduled_erasures(datetime.now(UTC))
         assert finalised_run2 == 1
         assert erasure.status == "completed"
-        # The same erasure key was processed across both runs (once each).
-        assert storage.delete_for_user.await_count == 2
+        # Run 1 aborts on the first scope (1 call); run 2 completes both
+        # hard-delete scopes (2 calls) ⇒ 3 total.
+        assert storage.delete_for_user.await_count == 3
 
     async def test_phase05_failure_marks_partially_completed(self):
         """AK-OS-05 — Phase 0.5 failure ⇒ partially_completed (retryable)."""
@@ -265,13 +274,15 @@ class TestErasurePhase0:
 
         scopes = await svc.run_user_storage_erasure("u-helper")
 
-        storage.delete_for_user.assert_awaited_once_with(tenant_key="t-x", user_key="u-helper", scope="user_personal")
+        hard_delete_scopes = {c.kwargs["scope"] for c in storage.delete_for_user.await_args_list}
+        assert hard_delete_scopes == {"user_personal", "user_pest_reference_images"}
         storage.strip_exif_for_user.assert_awaited_once_with(
             tenant_key="t-x", user_key="u-helper", scope="user_diary_attachments"
         )
         ref_store.delete_user_contributions.assert_awaited_once_with(tenant_key=None, user_key="u-helper")
         assert "user_personal" in scopes
         assert "user_diary_attachments" in scopes
+        assert "user_pest_reference_images" in scopes
 
     async def test_runs_per_tenant_for_multi_tenant_user(self):
         """A user in several tenants is cleaned up in each tenant's storage."""

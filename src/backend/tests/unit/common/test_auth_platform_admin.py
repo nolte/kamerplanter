@@ -57,7 +57,9 @@ def test_require_platform_admin_full_mode_allows_platform_admin(monkeypatch):
 
 
 def test_is_platform_admin_true_in_light_mode(monkeypatch):
-    monkeypatch.setattr(users_mod.settings, "kamerplanter_mode", "light")
+    # ``_is_platform_admin`` is the shared ``auth.is_platform_admin`` (re-exported
+    # by the users router), so the mode flag lives on ``auth.settings``.
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "light")
     tenant_service = MagicMock()
 
     assert users_mod._is_platform_admin(tenant_service, "system-user") is True
@@ -65,7 +67,7 @@ def test_is_platform_admin_true_in_light_mode(monkeypatch):
 
 
 def test_is_platform_admin_full_mode_follows_membership(monkeypatch):
-    monkeypatch.setattr(users_mod.settings, "kamerplanter_mode", "full")
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     tenant_service = MagicMock()
     tenant_service.get_membership.return_value = _membership(TenantRole.ADMIN)
     assert users_mod._is_platform_admin(tenant_service, "u1") is True
