@@ -132,10 +132,12 @@ _BENEFICIALS: list[PestTaxon] = [
     PestTaxon(
         slug="parasitoid_wasp",
         category=PestFindingCategory.BENEFICIAL,
-        common_name_de="Schlupfwespen",
+        common_name_de="Schlupfwespe (Encarsia formosa)",
         scientific_name="Encarsia formosa",
         gbif_taxon_key="1365418",
-        preys_on=["whitefly", "aphid"],
+        # Encarsia formosa parasitiert ausschliesslich Weisse Fliege, nicht
+        # Blattlaeuse (dafuer waeren Aphidius-Arten zustaendig).
+        preys_on=["whitefly"],
     ),
 ]
 
