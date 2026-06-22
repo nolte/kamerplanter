@@ -46,7 +46,7 @@ pests:
     common_name: Cotton Aphid
     common_name_de: Baumwoll-/Gurkenblattlaus
     pest_type: insect
-    lifecycle_days: 14
+    lifecycle_days: 10
     optimal_temp_min: 20.0
     optimal_temp_max: 25.0
     detection_difficulty: easy
@@ -129,6 +129,50 @@ pests:
     monitoring_hints_de: >-
       Blaue Klebetafeln auswerten, Blüten über weißem Papier ausschütteln und
       die Blattoberseite auf Saugflecken prüfen.
+
+  - scientific_name: Echinothrips americanus
+    common_name: Echinothrips
+    common_name_de: Bunter Blütenthrips
+    pest_type: insect
+    lifecycle_days: 20
+    optimal_temp_min: 22.0
+    optimal_temp_max: 28.0
+    detection_difficulty: medium
+    detection_slug: thrips_echinothrips
+    severity: medium
+    optimal_humidity_min: 50.0
+    optimal_humidity_max: 80.0
+    damage_symptoms: >-
+      Silvery-bronze feeding patches with tiny black faecal specks on the upper
+      leaf surface; unlike flower thrips it sits openly on the leaf, produces no
+      honeydew and is a poor flyer, so sticky traps catch it badly.
+    damage_symptoms_de: >-
+      Silbrig-bronzene Saugflächen mit winzigen schwarzen Kotpünktchen auf der
+      Blattoberseite; anders als Blütenthripse sitzt er offen auf dem Blatt,
+      bildet keinen Honigtau und ist flugträge, weshalb Klebetafeln ihn schlecht
+      erfassen.
+    affected_plant_parts: [leaf]
+    host_plants:
+      - Houseplants (Anthurium, Dieffenbachia, Begonia)
+      - Ornamental plants
+      - Pepper and cucumber
+    host_plants_de:
+      - Zimmerpflanzen (Anthurium, Dieffenbachia, Begonie)
+      - Zierpflanzen
+      - Paprika und Gurke
+    prevention_tips: >-
+      Quarantine and inspect new arrivals closely, introduce predatory mites
+      (Amblyseius swirskii) early, and rinse the leaves regularly.
+    prevention_tips_de: >-
+      Neuzugänge in Quarantäne gründlich kontrollieren, Raubmilben (Amblyseius
+      swirskii) frühzeitig einsetzen und die Blätter regelmäßig abduschen.
+    monitoring_hints: >-
+      Inspect the upper leaf surface with a magnifier for the dark thrips and
+      feeding patches; because it barely flies, leaf checks beat sticky traps.
+    monitoring_hints_de: >-
+      Die Blattoberseite mit der Lupe auf die dunklen Thripse und Saugflächen
+      prüfen; da er kaum fliegt, sind Blattkontrollen aussagekräftiger als
+      Klebetafeln.
 
   - scientific_name: Bradysia spp.
     common_name: Fungus Gnats
@@ -218,7 +262,7 @@ pests:
 
   - scientific_name: Trichoplusia ni
     common_name: Cabbage Looper
-    common_name_de: Gemüseeule (Raupe)
+    common_name_de: Kohlsilbereule
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
@@ -315,12 +359,13 @@ pests:
     optimal_humidity_max: 60.0
     damage_symptoms: >-
       Brown or waxy humps on stems, leaf veins and undersides that barely move;
-      sticky honeydew with sooty mould, yellowing and stunted growth weaken the
-      plant over time.
+      soft scales excrete sticky honeydew with sooty mould (armoured scales do
+      not), and yellowing and stunted growth weaken the plant over time.
     damage_symptoms_de: >-
       Braune oder wachsige Höcker an Stängeln, Blattadern und -unterseiten, die
-      sich kaum bewegen; klebriger Honigtau mit Rußtau, Vergilbung und
-      Kümmerwuchs schwächen die Pflanze mit der Zeit.
+      sich kaum bewegen; Schild- und Schmierläuse scheiden klebrigen Honigtau mit
+      Rußtau aus (Deckelschildläuse nicht), und Vergilbung und Kümmerwuchs
+      schwächen die Pflanze mit der Zeit.
     affected_plant_parts: [leaf, stem]
     host_plants:
       - Citrus plants
@@ -3182,20 +3227,20 @@ pest_treatments:
   - [Pyrethrin, Spider Mites]
   - [Neem Oil, Spider Mites]
   - [Insecticidal Soap (Potassium Salts), Spider Mites]
-  - [Neem Oil, Aphids]
-  - [Pyrethrin, Aphids]
-  - [Insecticidal Soap (Potassium Salts), Aphids]
-  - [Sticky Traps, Thrips]
-  - [Spinosad, Thrips]
+  - [Neem Oil, Cotton Aphid]
+  - [Pyrethrin, Cotton Aphid]
+  - [Insecticidal Soap (Potassium Salts), Cotton Aphid]
+  - [Sticky Traps, Western Flower Thrips]
+  - [Spinosad, Western Flower Thrips]
   - [Sticky Traps, Fungus Gnats]
   - [Steinernema feltiae (Nematodes), Fungus Gnats]
-  - [Encarsia formosa, Whitefly]
-  - [Sticky Traps, Whitefly]
-  - [Insecticidal Soap (Potassium Salts), Whitefly]
-  - [Bacillus thuringiensis (Bt), Caterpillar]
-  - [Neem Oil, Mealybug]
-  - [Insecticidal Soap (Potassium Salts), Mealybug]
-  - [Hand Removal, Slug]
+  - [Encarsia formosa, Greenhouse Whitefly]
+  - [Sticky Traps, Greenhouse Whitefly]
+  - [Insecticidal Soap (Potassium Salts), Greenhouse Whitefly]
+  - [Bacillus thuringiensis (Bt), Cabbage Looper]
+  - [Neem Oil, Long-tailed Mealybug]
+  - [Insecticidal Soap (Potassium Salts), Long-tailed Mealybug]
+  - [Hand Removal, Spanish Slug]
 
   # New mappings — outdoor pests
   - [Bacillus thuringiensis (Bt), Large Cabbage White]
@@ -3245,21 +3290,24 @@ pest_treatments:
   - [Bacillus thuringiensis (Bt), Diamondback Moth]
   - [Spinosad, Diamondback Moth]
   - [Crop Protection Netting (0.8mm), Diamondback Moth]
-  - [Amblyseius swirskii, Thrips]
-  - [Amblyseius swirskii, Whitefly]
-  - [Chrysoperla carnea (Lacewing Larvae), Aphids]
-  - [Adalia bipunctata (Two-Spot Ladybird), Aphids]
+  - [Amblyseius swirskii, Western Flower Thrips]
+  - [Amblyseius swirskii, Echinothrips]
+  - [Spinosad, Echinothrips]
+  - [Insecticidal Soap (Potassium Salts), Echinothrips]
+  - [Amblyseius swirskii, Greenhouse Whitefly]
+  - [Chrysoperla carnea (Lacewing Larvae), Cotton Aphid]
+  - [Adalia bipunctata (Two-Spot Ladybird), Cotton Aphid]
   - [Crop Protection Netting (0.8mm), Flea Beetle]
   - [Diatomaceous Earth, Flea Beetle]
-  - [Slug Pellets (Ferric Phosphate), Slug]
-  - [Slug Fence (Copper Barrier), Slug]
-  - [Beer Trap (Slug), Slug]
+  - [Slug Pellets (Ferric Phosphate), Spanish Slug]
+  - [Slug Fence (Copper Barrier), Spanish Slug]
+  - [Beer Trap (Slug), Spanish Slug]
   - [Horticultural Oil (Mineral Oil), Scale Insects]
-  - [Horticultural Oil (Mineral Oil), Mealybug]
-  - [Chrysoperla carnea (Lacewing Larvae), Mealybug]
+  - [Horticultural Oil (Mineral Oil), Long-tailed Mealybug]
+  - [Chrysoperla carnea (Lacewing Larvae), Long-tailed Mealybug]
 
   # Dracaena pest treatment edges
-  - [Rubbing Alcohol Swab (70%), Mealybug]
+  - [Rubbing Alcohol Swab (70%), Long-tailed Mealybug]
   - [Rubbing Alcohol Swab (70%), Scale Insects]
   - [Bacillus thuringiensis israelensis (Bti), Fungus Gnats]
   - [Diatomaceous Earth, Fungus Gnats]
