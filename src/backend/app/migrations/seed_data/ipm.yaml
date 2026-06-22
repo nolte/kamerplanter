@@ -43,8 +43,8 @@ pests:
       Klopfprobe über weißem Papier, erste Sprenkel früh erkennen.
 
   - scientific_name: Aphis gossypii
-    common_name: Aphids
-    common_name_de: Blattläuse
+    common_name: Cotton Aphid
+    common_name_de: Baumwoll-/Gurkenblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 20.0
@@ -87,8 +87,8 @@ pests:
       Flugüberwachung nutzen und auf Ameisen achten, die Läuse „melken".
 
   - scientific_name: Frankliniella occidentalis
-    common_name: Thrips
-    common_name_de: Thripse (Fransenflügler)
+    common_name: Western Flower Thrips
+    common_name_de: Kalifornischer Blütenthrips
     pest_type: insect
     lifecycle_days: 18
     optimal_temp_min: 20.0
@@ -173,8 +173,8 @@ pests:
       und adulte Mücken beim Gießen aufscheuchen.
 
   - scientific_name: Trialeurodes vaporariorum
-    common_name: Whitefly
-    common_name_de: Weiße Fliege
+    common_name: Greenhouse Whitefly
+    common_name_de: Weiße Fliege (Gewächshaus)
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0
@@ -217,8 +217,8 @@ pests:
       Puppen prüfen und Pflanzen zum Aufscheuchen leicht schütteln.
 
   - scientific_name: Trichoplusia ni
-    common_name: Caterpillar
-    common_name_de: Raupen (Eulenraupen)
+    common_name: Cabbage Looper
+    common_name_de: Gemüseeule (Raupe)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
@@ -259,8 +259,8 @@ pests:
       aktiv sind.
 
   - scientific_name: Pseudococcus longispinus
-    common_name: Mealybug
-    common_name_de: Schmier-/Wollläuse
+    common_name: Long-tailed Mealybug
+    common_name_de: Lange Schmierlaus
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 22.0
@@ -389,8 +389,8 @@ pests:
       Käfer achten und bodennah ausgelegte Gelbtafeln nutzen.
 
   - scientific_name: Arion vulgaris
-    common_name: Slug
-    common_name_de: Nacktschnecke (Spanische Wegschnecke)
+    common_name: Spanish Slug
+    common_name_de: Spanische Wegschnecke
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 10.0
@@ -433,8 +433,8 @@ pests:
       den Verstecken verfolgen.
 
   - scientific_name: Meloidogyne spp.
-    common_name: Nematode
-    common_name_de: Nematoden (Wurzelgallenälchen)
+    common_name: Root-knot Nematode
+    common_name_de: Wurzelgallenälchen
     pest_type: nematode
     lifecycle_days: 30
     optimal_temp_min: 20.0
