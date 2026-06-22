@@ -9,7 +9,7 @@ pests:
     detection_difficulty: medium
 
   - scientific_name: Aphis gossypii
-    common_name: Aphids
+    common_name: Cotton Aphid  # Baumwoll-/Gurkenblattlaus
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 20.0
@@ -17,7 +17,7 @@ pests:
     detection_difficulty: easy
 
   - scientific_name: Frankliniella occidentalis
-    common_name: Thrips
+    common_name: Western Flower Thrips  # Kalifornischer Blütenthrips
     pest_type: insect
     lifecycle_days: 18
     optimal_temp_min: 20.0
@@ -33,7 +33,7 @@ pests:
     detection_difficulty: easy
 
   - scientific_name: Trialeurodes vaporariorum
-    common_name: Whitefly
+    common_name: Greenhouse Whitefly  # Weiße Fliege (Gewächshaus)
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0
@@ -41,7 +41,7 @@ pests:
     detection_difficulty: easy
 
   - scientific_name: Trichoplusia ni
-    common_name: Caterpillar
+    common_name: Cabbage Looper  # Gemüseeule (Raupe)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
@@ -49,7 +49,7 @@ pests:
     detection_difficulty: medium
 
   - scientific_name: Pseudococcus longispinus
-    common_name: Mealybug
+    common_name: Long-tailed Mealybug  # Lange Schmierlaus
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 22.0
@@ -73,7 +73,7 @@ pests:
     detection_difficulty: easy
 
   - scientific_name: Arion vulgaris
-    common_name: Slug
+    common_name: Spanish Slug  # Spanische Wegschnecke
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 10.0
@@ -81,7 +81,7 @@ pests:
     detection_difficulty: easy
 
   - scientific_name: Meloidogyne spp.
-    common_name: Nematode
+    common_name: Root-knot Nematode  # Wurzelgallenälchen
     pest_type: nematode
     lifecycle_days: 30
     optimal_temp_min: 20.0
