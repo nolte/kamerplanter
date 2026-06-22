@@ -1,0 +1,29 @@
+# Fixture für Szenario 3 — KORREKT: fachlich einwandfreier Eintrag.
+# Erwartet: keine 🔴/🟠-Befunde (Weiße Fliege ist Phloemsauger → Honigtau/Rußtau
+# korrekt; Gelbtafeln korrektes Monitoring; Indoor/Gewächshaus-Einordnung stimmig).
+pests:
+  - scientific_name: Trialeurodes vaporariorum
+    common_name: Greenhouse Whitefly
+    common_name_de: Weiße Fliege
+    pest_type: insect
+    lifecycle_days: 30
+    optimal_temp_min: 22.0
+    optimal_temp_max: 28.0
+    optimal_humidity_min: 60.0
+    optimal_humidity_max: 80.0
+    detection_difficulty: easy
+    detection_slug: whitefly
+    severity: medium
+    affected_plant_parts: [leaf]
+    host_plants_de:
+      - Zimmerpflanzen
+      - Gewächshausgemüse (Tomate, Gurke, Paprika)
+    damage_symptoms_de: >-
+      Aufsteigende weiße Fliegen beim Berühren, Larven an der Blattunterseite,
+      Honigtau und nachfolgender Rußtau auf unteren Blättern.
+    prevention_tips_de: >-
+      Neuzugänge in Quarantäne kontrollieren, Gelbtafeln früh aufhängen,
+      Nützlinge (Encarsia formosa) im Gewächshaus einsetzen.
+    monitoring_hints_de: >-
+      Gelbtafeln über dem Bestand aufhängen und Blattunterseiten auf Larven
+      kontrollieren; Pflanzen schütteln und auffliegende Tiere zählen.

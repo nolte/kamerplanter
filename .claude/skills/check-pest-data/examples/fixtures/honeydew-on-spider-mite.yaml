@@ -1,0 +1,21 @@
+# Fixture für Szenario 1 — FEHLERHAFT: Honigtau bei Zellsauger.
+# Erwartet: 🔴 Dimension C (Spinnmilbe excretiert keinen Honigtau).
+pests:
+  - scientific_name: Tetranychus urticae
+    common_name: Spider Mites
+    common_name_de: Gemeine Spinnmilbe
+    pest_type: arachnid
+    lifecycle_days: 21
+    optimal_temp_min: 25.0
+    optimal_temp_max: 30.0
+    optimal_humidity_min: 30.0
+    optimal_humidity_max: 50.0
+    detection_difficulty: medium
+    detection_slug: spider_mite
+    severity: high
+    affected_plant_parts: [leaf, stem]
+    damage_symptoms_de: >-
+      Helle Sprenkelung der Blattoberseite, dazu Honigtau und Rußtau auf den
+      Blättern sowie klebrige Beläge.   # ← FEHLER: Honigtau/Rußtau
+    monitoring_hints_de: >-
+      Blattunterseiten mit der Lupe auf bewegliche Punkte und Gespinste prüfen.

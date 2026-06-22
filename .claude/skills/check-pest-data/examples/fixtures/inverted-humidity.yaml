@@ -1,0 +1,23 @@
+# Fixture für Szenario 2 — FEHLERHAFT: invertierte Luftfeuchte-Ökologie.
+# Erwartet: 🔴 Dimension B/F (trockene Luft fördert Spinnmilben; Tipp widerspricht
+# dem Optimum und der korrekten Indoor-Massnahme "Luftfeuchte erhöhen").
+pests:
+  - scientific_name: Tetranychus urticae
+    common_name: Spider Mites
+    common_name_de: Gemeine Spinnmilbe
+    pest_type: arachnid
+    lifecycle_days: 21
+    optimal_temp_min: 25.0
+    optimal_temp_max: 30.0
+    optimal_humidity_min: 80.0   # ← FEHLER: hohe RH ist nicht ihr Optimum
+    optimal_humidity_max: 95.0   # ← FEHLER
+    detection_difficulty: medium
+    detection_slug: spider_mite
+    severity: high
+    affected_plant_parts: [leaf, stem]
+    damage_symptoms_de: >-
+      Helle Sprenkelung der Blattoberseite, feine Gespinste an der
+      Blattunterseite, später Bronzefärbung.
+    prevention_tips_de: >-
+      Luftfeuchte niedrig halten, damit sich die Milben nicht wohlfühlen.
+      # ← FEHLER: korrekt wäre Luftfeuchte ERHÖHEN
