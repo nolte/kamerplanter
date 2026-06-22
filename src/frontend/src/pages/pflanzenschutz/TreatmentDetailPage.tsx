@@ -81,8 +81,7 @@ export default function TreatmentDetailPage() {
       modeOfAction: detail ? l(detail.treatment, 'mode_of_action') : null,
       precautions: detail ? l(detail.treatment, 'precautions') : null,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detail],
+    [detail, l],
   );
 
   if (loading) {
@@ -353,7 +352,7 @@ export default function TreatmentDetailPage() {
                     <Box component="li" key={d.key} sx={{ listStyle: 'none' }}>
                       <Chip
                         icon={<LocalHospitalIcon />}
-                        label={d.common_name}
+                        label={l(d, 'common_name')}
                         size="small"
                         variant="outlined"
                       />
