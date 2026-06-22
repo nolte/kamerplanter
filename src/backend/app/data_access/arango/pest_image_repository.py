@@ -39,10 +39,16 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
             return None
         return PestImageContribution(**doc)
 
-    def list_for_pest(self, tenant_key: str, pest_key: str) -> list[PestImageContribution]:
+    def list_for_pest(
+        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+    ) -> list[PestImageContribution]:
+        # ``is_active != false`` keeps legacy documents (no field) visible by
+        # treating a missing flag as active. Only an explicit ``false`` hides a
+        # deselected image from the default gallery.
         query = """
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key AND c.pest_key == @pest_key
+          FILTER @include_inactive OR c.is_active != false
           SORT c.created_at DESC
           RETURN c
         """
@@ -50,6 +56,7 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
             "@collection": self._collection_name,
             "tenant_key": tenant_key,
             "pest_key": pest_key,
+            "include_inactive": include_inactive,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
@@ -96,10 +103,11 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
 
-    def list_promoted_for_pest(self, pest_key: str) -> list[PestImageContribution]:
+    def list_promoted_for_pest(self, pest_key: str, *, include_inactive: bool = False) -> list[PestImageContribution]:
         query = """
         FOR c IN @@collection
           FILTER c.pest_key == @pest_key AND c.status == @status
+          FILTER @include_inactive OR c.is_active != false
           SORT c.created_at DESC
           RETURN c
         """
@@ -107,6 +115,7 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
             "@collection": self._collection_name,
             "pest_key": pest_key,
             "status": PestImageStatus.PROMOTED.value,
+            "include_inactive": include_inactive,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
@@ -121,6 +130,14 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
             promoted_at = None
             promoted_by = None
         updated = existing.model_copy(update={"status": status, "promoted_at": promoted_at, "promoted_by": promoted_by})
+        doc = BaseArangoRepository.update(self, key, updated)
+        return PestImageContribution(**doc)
+
+    def set_active(self, key: str, is_active: bool) -> PestImageContribution | None:
+        existing = self.get_by_key(key)
+        if existing is None:
+            return None
+        updated = existing.model_copy(update={"is_active": is_active})
         doc = BaseArangoRepository.update(self, key, updated)
         return PestImageContribution(**doc)
 

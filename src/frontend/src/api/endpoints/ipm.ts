@@ -46,8 +46,23 @@ export async function getPestDetail(key: string): Promise<PestDetail> {
 
 // ── Pest reference images (tenant-scoped, user-contributed) ─────────────
 
-export async function listPestImages(pestKey: string): Promise<PestImage[]> {
-  const { data } = await tenantClient.get<PestImage[]>(`${BASE}/pests/${pestKey}/images`);
+/**
+ * List a pest's reference images for the caller's tenant.
+ *
+ * `includeInactive` is a platform-admin-only curation flag: it additionally
+ * returns *deselected* contribution / recognition tiles (the backend silently
+ * ignores it for non-admins, so it is safe to send). Omitted by default so a
+ * normal request stays a plain `GET …/images` (active-only).
+ */
+export async function listPestImages(
+  pestKey: string,
+  options?: { includeInactive?: boolean },
+): Promise<PestImage[]> {
+  const params = options?.includeInactive ? { include_inactive: true } : undefined;
+  const { data } = await tenantClient.get<PestImage[]>(
+    `${BASE}/pests/${pestKey}/images`,
+    params ? { params } : undefined,
+  );
   return data;
 }
 

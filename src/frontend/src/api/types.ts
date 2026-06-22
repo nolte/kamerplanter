@@ -2366,6 +2366,11 @@ export interface PestImage {
   contributed_by: string | null;
   created_at: string | null;
   is_own: boolean;
+  // REQ-010 curation state. Always true for tiles in the default gallery; only
+  // the platform-admin "show deselected" view ever returns false tiles (dimmed
+  // with a "deselected" badge). Defaults to true for back-compat with older
+  // payloads that predate the field.
+  is_active?: boolean;
   // Defaults to 'contribution' for back-compat with older payloads.
   source?: PestImageSource;
   // Only set for `source === 'recognition'` — the CC-BY attribution / license of
@@ -4405,6 +4410,8 @@ export interface PromotePestContributionResponse {
   id: string;
   pest_key: string;
   status: PestImageStatus;
+  // REQ-010 curation state — false once a platform admin deselects the image.
+  is_active: boolean;
   promoted_at: string | null;
   promoted_by: string | null;
 }

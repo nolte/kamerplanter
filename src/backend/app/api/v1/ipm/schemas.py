@@ -321,6 +321,12 @@ class PestImageResponse(BaseModel):
     contributed_by: str | None = None
     created_at: datetime | None = None
     is_own: bool
+    # REQ-010 curation state. ``True`` for every tile returned in the default
+    # gallery; only the platform-admin "show deselected" view (``include_inactive``)
+    # ever returns ``False`` tiles, which the UI dims with a "deselected" badge.
+    # ``inspection`` photos are always ``True`` (they belong to an inspection and
+    # are never curated); ``recognition`` / ``contribution`` reflect their source.
+    is_active: bool = True
     # Provenance of the gallery tile:
     #   * ``"contribution"`` — a curated, deletable/promotable user upload;
     #   * ``"inspection"``   — a read-only photo of one of the tenant's own

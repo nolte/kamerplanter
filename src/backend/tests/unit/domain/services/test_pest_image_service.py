@@ -52,8 +52,14 @@ class _FakePestImageRepo:
             return None
         return c
 
-    def list_for_pest(self, tenant_key: str, pest_key: str) -> list[PestImageContribution]:
-        return [c for c in self.store.values() if c.tenant_key == tenant_key and c.pest_key == pest_key]
+    def list_for_pest(
+        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+    ) -> list[PestImageContribution]:
+        return [
+            c
+            for c in self.store.values()
+            if c.tenant_key == tenant_key and c.pest_key == pest_key and (include_inactive or c.is_active)
+        ]
 
     def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
         return [c for c in self.store.values() if c.tenant_key == tenant_key]
@@ -67,8 +73,12 @@ class _FakePestImageRepo:
     def list_all_for_pest(self, pest_key: str) -> list[PestImageContribution]:
         return [c for c in self.store.values() if c.pest_key == pest_key]
 
-    def list_promoted_for_pest(self, pest_key: str) -> list[PestImageContribution]:
-        return [c for c in self.store.values() if c.pest_key == pest_key and c.status == PestImageStatus.PROMOTED]
+    def list_promoted_for_pest(self, pest_key: str, *, include_inactive: bool = False) -> list[PestImageContribution]:
+        return [
+            c
+            for c in self.store.values()
+            if c.pest_key == pest_key and c.status == PestImageStatus.PROMOTED and (include_inactive or c.is_active)
+        ]
 
     def set_status(self, key, status, promoted_by):
         c = self.store.get(key)
@@ -80,6 +90,14 @@ class _FakePestImageRepo:
             promoted_at = None
             promoted_by = None
         updated = c.model_copy(update={"status": status, "promoted_at": promoted_at, "promoted_by": promoted_by})
+        self.store[key] = updated
+        return updated
+
+    def set_active(self, key, is_active):
+        c = self.store.get(key)
+        if c is None:
+            return None
+        updated = c.model_copy(update={"is_active": is_active})
         self.store[key] = updated
         return updated
 
@@ -561,6 +579,102 @@ class TestPromotionRecognitionHook:
         service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin2")
 
         index_delay.assert_called_once_with(key)
+
+
+class TestSetActive:
+    """REQ-010 — platform-admin deselect / re-include curation (display only)."""
+
+    @pytest.mark.asyncio
+    async def test_deselect_hides_from_default_gallery(self):
+        service, repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+
+        updated = service.set_active(contribution_key=key, is_active=False, admin_user_key="admin1")
+
+        assert updated is not None
+        assert updated.contribution.is_active is False
+        assert repo.store[key].is_active is False
+        # Default gallery now excludes it; the admin curation view still sees it.
+        assert service.list_for_pest("t1", "p1") == []
+        assert len(service.list_for_pest("t1", "p1", include_inactive=True)) == 1
+
+    @pytest.mark.asyncio
+    async def test_reactivate_restores_to_default_gallery(self):
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_active(contribution_key=key, is_active=False, admin_user_key="admin1")
+
+        service.set_active(contribution_key=key, is_active=True, admin_user_key="admin1")
+
+        assert len(service.list_for_pest("t1", "p1")) == 1
+
+    @pytest.mark.asyncio
+    async def test_deselect_does_not_touch_recognition_index(self, monkeypatch):
+        """Deselecting a promoted contribution is display-only — no index dispatch."""
+        import app.tasks.pest_image_tasks as task_mod
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        index_delay = MagicMock()
+        retract_delay = MagicMock()
+        monkeypatch.setattr(task_mod.index_promoted_pest_image_task, "delay", index_delay)
+        monkeypatch.setattr(task_mod.retract_promoted_pest_image_task, "delay", retract_delay)
+
+        service, _repo, _attachments, _ipm = _service()
+        view = await _contribute(service, tenant_key="t1")
+        key = view.contribution.key
+        service.set_promotion(contribution_key=key, promote=True, admin_user_key="admin1")
+        index_delay.reset_mock()
+
+        service.set_active(contribution_key=key, is_active=False, admin_user_key="admin1")
+
+        # Neither index nor retract task fires — curation is pure visibility.
+        index_delay.assert_not_called()
+        retract_delay.assert_not_called()
+
+    def test_unknown_returns_none(self):
+        service, _repo, _attachments, _ipm = _service()
+        assert service.set_active(contribution_key="missing", is_active=False, admin_user_key="a") is None
+
+
+class TestIncludeInactiveRecognition:
+    """REQ-010 — admin curation view also surfaces deselected recognition rows."""
+
+    def test_include_inactive_queries_all_prototypes(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        rows = [
+            {"id": 1, "source_url": "https://e/1.jpg", "is_active": True},
+            {"id": 2, "source_url": "https://e/2.jpg", "is_active": False},
+        ]
+        client = _FakeInferenceClient(images=rows)
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        views = service.list_recognition_images_for_pest("p1", include_inactive=True)
+
+        # active_only=False when include_inactive=True (admin sees deselected too).
+        assert client.calls == [("spider_mites", False)]
+        assert [(v.prototype_id, v.is_active) for v in views] == [(1, True), (2, False)]
+
+    def test_default_queries_active_only(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        client = _FakeInferenceClient(images=[{"id": 1, "source_url": "https://e/1.jpg"}])
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        service.list_recognition_images_for_pest("p1")
+
+        assert client.calls == [("spider_mites", True)]
 
 
 class TestResolvePromotedContent:

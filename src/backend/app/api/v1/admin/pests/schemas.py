@@ -95,12 +95,25 @@ class PestContributionModerationList(BaseModel):
 
 
 class PromotePestContributionRequest(BaseModel):
-    promote: bool
+    """Moderation mutation for a single contribution (both fields optional).
+
+    * ``promote`` — toggle global visibility (the recognition-index seam);
+    * ``is_active`` — REQ-010 curation: deselect (hide) / re-include the image
+      in the gallery *without* touching the recognition index.
+
+    Both may be sent together or independently; an all-``None`` body is a no-op
+    (idempotent). ``promote`` stays optional for backward compatibility with the
+    original promote-only contract.
+    """
+
+    promote: bool | None = None
+    is_active: bool | None = None
 
 
 class PromotePestContributionResponse(BaseModel):
     id: str
     pest_key: str
     status: PestImageStatus
+    is_active: bool = True
     promoted_at: datetime | None = None
     promoted_by: str | None = None

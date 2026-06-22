@@ -32,6 +32,7 @@ def _view(
     promoted_by: str | None = None,
     promoted_at: datetime | None = None,
     renderable: bool = True,
+    is_active: bool = True,
 ) -> PestImageView:
     contribution = PestImageContribution(
         _key=key,
@@ -42,16 +43,19 @@ def _view(
         status=status,
         promoted_by=promoted_by,
         promoted_at=promoted_at,
+        is_active=is_active,
         created_at=datetime.now(UTC),
     )
     return PestImageView(contribution=contribution, mime_type="image/jpeg", has_thumbnail=renderable, is_own=False)
 
 
 class _FakeService:
-    def __init__(self, *, list_views=None, promote_view="__unset__"):
+    def __init__(self, *, list_views=None, promote_view="__unset__", active_view="__unset__"):
         self._list_views = list_views or []
         self._promote_view = promote_view
+        self._active_view = active_view
         self.promote_args = None
+        self.active_args = None
 
     def list_all_for_pest(self, pest_key):
         return list(self._list_views)
@@ -61,6 +65,12 @@ class _FakeService:
         if self._promote_view == "__unset__":
             return None
         return self._promote_view
+
+    def set_active(self, *, contribution_key, is_active, admin_user_key):
+        self.active_args = (contribution_key, is_active, admin_user_key)
+        if self._active_view == "__unset__":
+            return None
+        return self._active_view
 
 
 class TestListContributions:
@@ -131,3 +141,90 @@ class TestSetPromotion:
                 user=_admin(),
                 service=service,
             )
+
+
+class TestSetActive:
+    """REQ-010 — deselect / re-include a contribution via the same PATCH endpoint."""
+
+    def test_is_active_false_calls_set_active(self):
+        view = _view(is_active=False)
+        service = _FakeService(active_view=view)
+
+        resp = admin_pests_router.set_pest_contribution_promotion(
+            "p1",
+            "pic1",
+            PromotePestContributionRequest(is_active=False),
+            user=_admin(),
+            service=service,
+        )
+
+        assert resp.id == "pic1"
+        assert resp.is_active is False
+        # Only the curation path ran — promotion untouched.
+        assert service.active_args == ("pic1", False, "admin1")
+        assert service.promote_args is None
+
+    def test_is_active_true_reactivates(self):
+        view = _view(is_active=True)
+        service = _FakeService(active_view=view)
+
+        resp = admin_pests_router.set_pest_contribution_promotion(
+            "p1",
+            "pic1",
+            PromotePestContributionRequest(is_active=True),
+            user=_admin(),
+            service=service,
+        )
+
+        assert resp.is_active is True
+        assert service.active_args == ("pic1", True, "admin1")
+
+    def test_promote_and_is_active_together(self):
+        promoted = _view(status=PestImageStatus.PROMOTED, promoted_by="admin1", promoted_at=datetime.now(UTC))
+        final = _view(
+            status=PestImageStatus.PROMOTED, promoted_by="admin1", promoted_at=datetime.now(UTC), is_active=False
+        )
+        service = _FakeService(promote_view=promoted, active_view=final)
+
+        resp = admin_pests_router.set_pest_contribution_promotion(
+            "p1",
+            "pic1",
+            PromotePestContributionRequest(promote=True, is_active=False),
+            user=_admin(),
+            service=service,
+        )
+
+        # Both paths ran; the final view reflects the curation flag.
+        assert service.promote_args == ("pic1", True, "admin1")
+        assert service.active_args == ("pic1", False, "admin1")
+        assert resp.status == PestImageStatus.PROMOTED
+        assert resp.is_active is False
+
+    def test_unknown_contribution_on_is_active_raises_404(self):
+        service = _FakeService(active_view="__unset__")
+
+        with pytest.raises(NotFoundError):
+            admin_pests_router.set_pest_contribution_promotion(
+                "p1",
+                "missing",
+                PromotePestContributionRequest(is_active=False),
+                user=_admin(),
+                service=service,
+            )
+
+    def test_empty_body_raises_validation_error(self):
+        from app.common.exceptions import ValidationError
+
+        service = _FakeService()
+
+        with pytest.raises(ValidationError):
+            admin_pests_router.set_pest_contribution_promotion(
+                "p1",
+                "pic1",
+                PromotePestContributionRequest(),
+                user=_admin(),
+                service=service,
+            )
+        # Neither mutation was attempted.
+        assert service.promote_args is None
+        assert service.active_args is None

@@ -3735,6 +3735,13 @@
       "imageDeleteConfirmTitle": "Delete image?",
       "imageDeleteConfirmMessage": "This reference image will be permanently deleted. This action cannot be undone.",
       "imageDeleteSuccess": "Image deleted.",
+      "showDeselected": "Show deselected",
+      "imageDeselect": "Deselect image",
+      "imageReactivate": "Re-include image",
+      "imageDeselected": "Image deselected and is no longer visible.",
+      "imageReactivated": "Image re-included.",
+      "imageDeselectError": "The image could not be updated.",
+      "imageDeselectedBadge": "Deselected",
       "contributeSuccess": "Your photo was uploaded successfully."
     },
     "treatmentDetail": {

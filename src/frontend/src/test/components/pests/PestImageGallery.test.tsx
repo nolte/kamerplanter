@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
 import PestImageGallery from '@/components/pests/PestImageGallery';
-import { renderWithProviders } from '../../helpers';
+import { createTestStore, renderWithProviders } from '../../helpers';
 import type { PestImage } from '@/api/types';
 
 vi.mock('@/api/endpoints/ipm', () => ({
@@ -11,6 +11,27 @@ vi.mock('@/api/endpoints/ipm', () => ({
   deletePestImage: vi.fn(),
 }));
 import { listPestImages, deletePestImage } from '@/api/endpoints/ipm';
+
+vi.mock('@/api/endpoints/adminPestRecognition', () => ({
+  setPestContributionActive: vi.fn(),
+  setPestImageActive: vi.fn(),
+}));
+import { setPestContributionActive, setPestImageActive } from '@/api/endpoints/adminPestRecognition';
+
+/**
+ * A store whose auth slice marks the user as a platform admin. Only
+ * `auth.user.is_platform_admin` is read by `usePlatformAdmin`; the rest of the
+ * slice is filled from the reducer's initial state.
+ */
+function adminStore() {
+  return createTestStore({
+    auth: {
+      user: { is_platform_admin: true },
+      isAuthenticated: true,
+      isLoading: false,
+    },
+  });
+}
 
 // AuthImage does an authenticated fetch — stub it to a plain img for the test.
 vi.mock('@/components/common/AuthImage', () => ({
@@ -233,4 +254,126 @@ describe('PestImageGallery', () => {
     expect(screen.getAllByTestId('pest-image-delete')).toHaveLength(1);
   });
 
+  describe('platform-admin curation', () => {
+    beforeEach(() => {
+      vi.mocked(setPestContributionActive).mockResolvedValue({
+        id: 'c1',
+        pest_key: 'p1',
+        status: 'private',
+        is_active: false,
+        promoted_at: null,
+        promoted_by: null,
+      });
+      vi.mocked(setPestImageActive).mockResolvedValue({ label: 'spider_mites', id: 7, is_active: false });
+    });
+
+    it('does NOT show curation controls for a non-admin user', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'c1', source: 'contribution', is_own: false, status: 'promoted' }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+      await screen.findByTestId('pest-detail-gallery');
+      expect(screen.queryByTestId('pest-gallery-show-deselected')).toBeNull();
+      expect(screen.queryByTestId('pest-image-deselect')).toBeNull();
+    });
+
+    it('shows the "show deselected" toggle and a deselect button for an admin', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'c1', source: 'contribution', is_own: false, status: 'promoted' }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, { store: adminStore() });
+
+      await screen.findByTestId('pest-detail-gallery');
+      expect(screen.getByTestId('pest-gallery-show-deselected')).toBeInTheDocument();
+      expect(screen.getByTestId('pest-image-deselect')).toBeInTheDocument();
+    });
+
+    it('reloads with include_inactive when the admin enables the toggle', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'c1', source: 'contribution', is_own: false, status: 'promoted' }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, { store: adminStore() });
+
+      await screen.findByTestId('pest-detail-gallery');
+      // Default load: active-only, plain single-arg call.
+      expect(listPestImages).toHaveBeenCalledWith('p1');
+
+      await userEvent.click(screen.getByTestId('pest-gallery-show-deselected'));
+      await waitFor(() =>
+        expect(listPestImages).toHaveBeenCalledWith('p1', { includeInactive: true }),
+      );
+    });
+
+    it('deselects a contribution via the admin contributions endpoint', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'c1', source: 'contribution', is_own: false, status: 'promoted' }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, { store: adminStore() });
+
+      await screen.findByTestId('pest-detail-gallery');
+      await userEvent.click(screen.getByTestId('pest-image-deselect'));
+
+      await waitFor(() => expect(setPestContributionActive).toHaveBeenCalledWith('p1', 'c1', false));
+      // The recognition endpoint must NOT be used for a contribution tile.
+      expect(setPestImageActive).not.toHaveBeenCalled();
+    });
+
+    it('deselects a recognition tile via the inference-service endpoint', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({
+          id: 'recognition:7',
+          source: 'recognition',
+          status: null,
+          is_own: false,
+          contributed_by: null,
+          uri: 'https://example.org/ref/7.jpg',
+          thumbnail_uri: null,
+          attribution: 'Jane Doe',
+          license: 'CC0',
+        }),
+      ]);
+      renderWithProviders(
+        <PestImageGallery pestKey="p1" pestName="Spinnmilbe" detectionSlug="spider_mites" />,
+        { store: adminStore() },
+      );
+
+      await screen.findByTestId('pest-detail-gallery');
+      await userEvent.click(screen.getByTestId('pest-image-deselect'));
+
+      await waitFor(() =>
+        expect(setPestImageActive).toHaveBeenCalledWith('spider_mites', 7, {
+          is_active: false,
+          reason: expect.any(String),
+        }),
+      );
+      // The contributions endpoint must NOT be used for a recognition tile.
+      expect(setPestContributionActive).not.toHaveBeenCalled();
+    });
+
+    it('does not offer a deselect control for inspection photos', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'a-insp', status: null, source: 'inspection', is_own: true, contributed_by: null }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, { store: adminStore() });
+
+      await screen.findByTestId('pest-detail-gallery');
+      expect(screen.getByTestId('pest-image-inspection')).toBeInTheDocument();
+      // Inspection tiles are not curatable — no deselect, no delete.
+      expect(screen.queryByTestId('pest-image-deselect')).toBeNull();
+      expect(screen.queryByTestId('pest-image-delete')).toBeNull();
+    });
+
+    it('dims a deselected tile and shows a badge in the admin inactive view', async () => {
+      vi.mocked(listPestImages).mockResolvedValue([
+        img({ id: 'c1', source: 'contribution', is_own: false, status: 'promoted', is_active: false }),
+      ]);
+      renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />, { store: adminStore() });
+
+      await screen.findByTestId('pest-detail-gallery');
+      expect(screen.getByTestId('pest-image-deselected-badge')).toBeInTheDocument();
+      // A deselected tile offers a re-include action (its own deselect button label flips).
+      expect(screen.getByTestId('pest-image-deselect')).toBeInTheDocument();
+    });
+  });
 });

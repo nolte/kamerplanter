@@ -53,6 +53,11 @@ class PestImageView:
     has_thumbnail: bool
     is_own: bool = True
 
+    @property
+    def is_active(self) -> bool:
+        """Curation state of the underlying contribution (deselected → ``False``)."""
+        return self.contribution.is_active
+
 
 @dataclass(frozen=True)
 class PestInspectionImageView:
@@ -89,6 +94,10 @@ class PestRecognitionImageView:
     source_url: str
     attribution: str | None = None
     license: str | None = None
+    # Curation state of the inference-service prototype. Always ``True`` in the
+    # default (active-only) gallery; may be ``False`` in the admin curation view
+    # (``include_inactive=True``), where deselected prototypes are surfaced too.
+    is_active: bool = True
 
 
 @dataclass(frozen=True)
@@ -166,7 +175,7 @@ class PestImageService:
         )
         return self._to_view(created, attachment.mime_type)
 
-    def list_for_pest(self, tenant_key: str, pest_key: str) -> list[PestImageView]:
+    def list_for_pest(self, tenant_key: str, pest_key: str, *, include_inactive: bool = False) -> list[PestImageView]:
         """Return the combined gallery for a pest from the tenant's perspective.
 
         Two sources are merged:
@@ -179,12 +188,16 @@ class PestImageService:
         An own contribution that is itself promoted stays ``is_own=True`` (it
         keeps its tenant URI). The two sources are deduplicated by contribution
         key so a promoted own image never appears twice. Newest first.
+
+        ``include_inactive`` is a platform-admin-only curation flag (the API
+        enforces the privilege): when ``True`` deselected contributions are
+        returned too (dimmed in the UI); the default hides them for everyone.
         """
-        own = self._repo.list_for_pest(tenant_key, pest_key)
+        own = self._repo.list_for_pest(tenant_key, pest_key, include_inactive=include_inactive)
         own_keys = {c.key for c in own}
         foreign_promoted = [
             c
-            for c in self._repo.list_promoted_for_pest(pest_key)
+            for c in self._repo.list_promoted_for_pest(pest_key, include_inactive=include_inactive)
             if c.tenant_key != tenant_key and c.key not in own_keys
         ]
 
@@ -228,7 +241,9 @@ class PestImageService:
             )
         return views
 
-    def list_recognition_images_for_pest(self, pest_key: str) -> list[PestRecognitionImageView]:
+    def list_recognition_images_for_pest(
+        self, pest_key: str, *, include_inactive: bool = False
+    ) -> list[PestRecognitionImageView]:
         """Return the GLOBAL recognition reference images of a pest (read-only).
 
         REQ-010 / REQ-044 — surfaces the *active* few-shot prototype provenances
@@ -262,7 +277,7 @@ class PestImageService:
             return []
 
         try:
-            payload = self._inference_client.list_prototypes(detection_slug, active_only=True)
+            payload = self._inference_client.list_prototypes(detection_slug, active_only=not include_inactive)
         except Exception as exc:  # noqa: BLE001 — best-effort: a recognition outage must not break the gallery
             logger.warning(
                 "pest_recognition_images_unavailable",
@@ -285,6 +300,8 @@ class PestImageService:
                     source_url=source_url,
                     attribution=row.get("attribution"),
                     license=row.get("license"),
+                    # Missing flag (active-only payload) → active.
+                    is_active=bool(row.get("is_active", True)),
                 )
             )
         return views
@@ -365,6 +382,34 @@ class PestImageService:
         if existing.status != updated.status:
             self._on_promotion_changed(updated, promoted=promote)
 
+        return self._to_view(updated, self._resolve_mime(updated.attachment_id, updated.tenant_key), is_own=False)
+
+    def set_active(self, *, contribution_key: str, is_active: bool, admin_user_key: str) -> PestImageView | None:
+        """Deselect / re-include a contribution from the gallery (idempotent).
+
+        Pure display curation: deactivating a *promoted* contribution hides it
+        from the gallery but leaves the recognition index untouched (only the
+        promote/demote path mutates the index — see
+        :meth:`_on_promotion_changed`). Returns the updated view, or ``None``
+        when the contribution is unknown.
+        """
+        existing = self._repo.get_by_key(contribution_key)
+        if existing is None:
+            return None
+
+        updated = self._repo.set_active(contribution_key, is_active)
+        if updated is None:
+            return None
+
+        if existing.is_active != updated.is_active:
+            logger.info(
+                "pest_image_active_changed",
+                contribution_id=contribution_key,
+                tenant_key=updated.tenant_key,
+                pest_key=updated.pest_key,
+                is_active=updated.is_active,
+                admin_user_key=admin_user_key,
+            )
         return self._to_view(updated, self._resolve_mime(updated.attachment_id, updated.tenant_key), is_own=False)
 
     def _on_promotion_changed(self, contribution: PestImageContribution, *, promoted: bool) -> None:

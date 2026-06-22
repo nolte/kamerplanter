@@ -35,6 +35,12 @@ class PestImageContribution(BaseModel):
     # PRIVATE on upload; a platform admin may PROMOTE it to global visibility
     # (Phase 2 curation). Promotion is the gate for cross-tenant pixel access.
     status: PestImageStatus = PestImageStatus.PRIVATE
+    # REQ-010 curation — a platform admin may *deselect* (hide) an image instead
+    # of deleting it. Deselected images stay catalogued (audit / re-include) but
+    # are excluded from the default gallery for everyone. Backward compatible:
+    # documents written before this field default to ``True`` (Pydantic default),
+    # so an existing contribution remains visible.
+    is_active: bool = True
     # Promotion audit (set on PRIVATE → PROMOTED, cleared on demotion). Records
     # the platform-admin user_key and the moment of the global release.
     promoted_at: datetime | None = None

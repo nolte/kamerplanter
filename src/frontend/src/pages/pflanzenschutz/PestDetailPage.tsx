@@ -211,7 +211,11 @@ export default function PestDetailPage() {
           <Typography variant="h6" gutterBottom>
             {t('pages.pestDetail.sectionImages')}
           </Typography>
-          <PestImageGallery pestKey={pest.key} pestName={l(pest, 'common_name')} />
+          <PestImageGallery
+            pestKey={pest.key}
+            pestName={l(pest, 'common_name')}
+            detectionSlug={pest.detection_slug ?? null}
+          />
         </CardContent>
       </Card>
 

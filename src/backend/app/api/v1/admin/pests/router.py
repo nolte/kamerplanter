@@ -24,7 +24,7 @@ from app.api.v1.admin.pests.schemas import (
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_pest_image_service
 from app.common.enums import PestImageStatus
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.config.settings import settings
 from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 from app.domain.models.pest_taxonomy import PEST_TAXONOMY
@@ -171,19 +171,44 @@ def set_pest_contribution_promotion(
     user: User = Depends(require_platform_admin),
     service: PestImageService = Depends(get_pest_image_service),
 ) -> PromotePestContributionResponse:
-    """Promote / demote a contribution to/from global visibility (idempotent)."""
-    view = service.set_promotion(
-        contribution_key=contribution_id,
-        promote=body.promote,
-        admin_user_key=user.key,
-    )
+    """Promote/demote AND/OR deselect/re-include a contribution (idempotent).
+
+    ``promote`` toggles global visibility (and seeds the recognition index);
+    ``is_active`` is pure gallery curation (deselect without touching the index).
+    Either or both may be sent; an unknown contribution yields 404. When both are
+    sent the promotion is applied first, then the curation flag.
+    """
+    view: PestImageView | None = None
+
+    if body.promote is not None:
+        view = service.set_promotion(
+            contribution_key=contribution_id,
+            promote=body.promote,
+            admin_user_key=user.key,
+        )
+        if view is None:
+            raise NotFoundError("PestImageContribution", contribution_id)
+
+    if body.is_active is not None:
+        view = service.set_active(
+            contribution_key=contribution_id,
+            is_active=body.is_active,
+            admin_user_key=user.key,
+        )
+        if view is None:
+            raise NotFoundError("PestImageContribution", contribution_id)
+
     if view is None:
-        raise NotFoundError("PestImageContribution", contribution_id)
+        # Neither field provided — nothing to do. Reject rather than silently
+        # mutating (e.g. re-activating) the contribution.
+        raise ValidationError("Provide 'promote' and/or 'is_active'.")
+
     contribution = view.contribution
     return PromotePestContributionResponse(
         id=contribution.key or "",
         pest_key=contribution.pest_key,
         status=contribution.status,
+        is_active=contribution.is_active,
         promoted_at=contribution.promoted_at,
         promoted_by=contribution.promoted_by,
     )

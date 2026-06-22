@@ -20,8 +20,8 @@ from app.api.v1.ipm.schemas import (
     TreatmentApplicationCreate,
     TreatmentApplicationResponse,
 )
-from app.common.auth import get_current_tenant
-from app.common.dependencies import get_ipm_service, get_pest_image_service
+from app.common.auth import get_current_tenant, is_platform_admin
+from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.core.permissions import Action
 from app.domain.models.ipm import Inspection, TreatmentApplication
@@ -34,6 +34,7 @@ from app.domain.services.pest_image_service import (
     PestInspectionImageView,
     PestRecognitionImageView,
 )
+from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/ipm", tags=["ipm"])
 
@@ -99,6 +100,7 @@ def _pest_image_response(view: PestImageView, tenant_slug: str) -> PestImageResp
         contributed_by=contribution.contributed_by if view.is_own else None,
         created_at=contribution.created_at,
         is_own=view.is_own,
+        is_active=contribution.is_active,
         source="contribution",
     )
 
@@ -150,6 +152,7 @@ def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -
         contributed_by=None,
         created_at=None,
         is_own=False,
+        is_active=view.is_active,
         source="recognition",
         attribution=view.attribution,
         license=view.license,
@@ -285,8 +288,13 @@ async def contribute_pest_image(
 @router.get("/pests/{pest_key}/images", response_model=list[PestImageResponse])
 def list_pest_images(
     pest_key: str,
+    # Plain ``False`` default (not ``Query(False)``) so the house-style direct
+    # call in unit tests gets a real boolean and the admin gate short-circuits;
+    # FastAPI still exposes it as the ``?include_inactive=`` query parameter.
+    include_inactive: bool = False,
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: PestImageService = Depends(get_pest_image_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
 ) -> list[PestImageResponse]:
     """List reference images for a pest from the caller's tenant perspective.
 
@@ -305,8 +313,17 @@ def list_pest_images(
     only the calling tenant's inspections are scanned. An attachment that is
     already surfaced as a contribution is not repeated as an inspection tile
     (contribution provenance wins).
+
+    ``include_inactive`` is a platform-admin-only curation flag: it additionally
+    returns *deselected* contribution / recognition tiles (dimmed in the UI).
+    It is silently ignored for non-admins (forced to ``False``) — a normal
+    member only ever sees active images, never a 403.
     """
-    views = service.list_for_pest(ctx.tenant_key, pest_key)
+    # Curation override is platform-admin-only; force it off for everyone else
+    # (display-only privilege — no 403, just the default active-only behaviour).
+    effective_include_inactive = include_inactive and is_platform_admin(tenant_service, ctx.user_key)
+
+    views = service.list_for_pest(ctx.tenant_key, pest_key, include_inactive=effective_include_inactive)
     responses = [_pest_image_response(v, ctx.tenant_slug) for v in views]
 
     contributed_attachment_ids = {r.attachment_id for r in responses}
@@ -319,7 +336,7 @@ def list_pest_images(
 
     # REQ-044 — append the global recognition reference images last. Different
     # source (external CC-licensed URLs, no local pixel), so no dedup needed.
-    recognition_views = service.list_recognition_images_for_pest(pest_key)
+    recognition_views = service.list_recognition_images_for_pest(pest_key, include_inactive=effective_include_inactive)
     responses.extend(_recognition_image_response(v, pest_key) for v in recognition_views)
     return responses
 

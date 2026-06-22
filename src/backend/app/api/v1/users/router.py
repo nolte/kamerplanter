@@ -8,9 +8,8 @@ from app.api.v1.auth.schemas import (
 )
 from app.api.v1.users.schemas import ChangePasswordRequest, ProfileUpdateRequest
 from app.common.auth import get_current_user
+from app.common.auth import is_platform_admin as _is_platform_admin
 from app.common.dependencies import get_auth_service, get_tenant_service, get_user_service
-from app.common.enums import TenantRole
-from app.config.settings import settings
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.user import User, UserProfileUpdate
 from app.domain.services.auth_service import AuthService
@@ -18,19 +17,6 @@ from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-def _is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
-    """True when the user has an active admin membership in the platform tenant.
-
-    In light mode (REQ-027) the sole anonymous system user is the operator and is
-    treated as platform admin (mirrors ``require_platform_admin``), so admin-only
-    UI such as reference-image curation is available.
-    """
-    if settings.kamerplanter_mode == "light":
-        return True
-    membership = tenant_service.get_membership(user_key, "platform")
-    return bool(membership and membership.is_active and membership.role == TenantRole.ADMIN)
 
 
 @router.get("/me", response_model=UserProfileResponse)

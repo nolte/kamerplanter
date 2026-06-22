@@ -388,6 +388,9 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
 2. Du siehst alle beigesteuerten Bilder **aller Mandanten** mit Vorschau, Herkunft (Nutzer/Mandant/Datum) und Status (privat/global).
 3. Mit **Freigeben** wird ein Bild auf `global` gesetzt — es ist dann für alle Nutzer in der Galerie sichtbar (über einen globalen, schreibgeschützten Auslieferungspfad, der ausschließlich freigegebene Bilder bereitstellt). **Zurücknehmen** macht die Freigabe rückgängig (mit Bestätigung).
 
+!!! tip "Abwählen direkt auf der Detailseite"
+    Als Platform-Admin kannst du Bilder auch **direkt auf der [Schädlings-Detailseite](pest-detail.md)** kuratieren: Mit dem Schalter **„Abgewählte einblenden"** werden auch deaktivierte Bilder sichtbar, und je Bild kannst du es **abwählen** (deaktivieren statt löschen) bzw. **wieder aufnehmen**. Das gilt für Erkennungs-Referenzbilder und für beigesteuerte Bilder. Normale Nutzer sehen ausschließlich aktive Bilder. Abwählen ist reversibel; der Erkennungs-Index bleibt von einer reinen Galerie-Abwahl unberührt.
+
 !!! note "Wirkung auf die KI-Erkennung"
     Wenn die [Schädlingserkennung](#schaedlingserkennung-aktivieren) aktiv ist (`PEST_DETECTION_ENABLED=true`), wird ein freigegebenes Bild zusätzlich als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index aufgenommen — sofern der Schädling eine Erkennungsklasse (`detection_slug`) hat. Es wird nur das Embedding samt Herkunft gespeichert, **kein Originalbild**. Das Zurücknehmen deaktiviert die Referenz wieder.
 

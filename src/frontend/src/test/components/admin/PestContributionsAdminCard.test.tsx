@@ -123,6 +123,7 @@ describe('PestContributionsAdminCard', () => {
       id: 'c1',
       pest_key: 'p1',
       status: 'promoted',
+      is_active: true,
       promoted_at: '2026-06-21T12:00:00Z',
       promoted_by: 'admin',
     });
@@ -149,6 +150,7 @@ describe('PestContributionsAdminCard', () => {
       id: 'c1',
       pest_key: 'p1',
       status: 'private',
+      is_active: true,
       promoted_at: null,
       promoted_by: null,
     });

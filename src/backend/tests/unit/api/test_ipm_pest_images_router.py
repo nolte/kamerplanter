@@ -90,14 +90,18 @@ class _FakeService:
         self._recognition_views = recognition_views or []
         self._delete_result = delete_result
         self.delete_args: tuple | None = None
+        self.list_include_inactive: bool | None = None
+        self.recognition_include_inactive: bool | None = None
 
-    def list_for_pest(self, tenant_key, pest_key):
+    def list_for_pest(self, tenant_key, pest_key, *, include_inactive=False):
+        self.list_include_inactive = include_inactive
         return list(self._list_views)
 
     def list_inspection_images_for_pest(self, tenant_key, pest_key):
         return list(self._inspection_views)
 
-    def list_recognition_images_for_pest(self, pest_key):
+    def list_recognition_images_for_pest(self, pest_key, *, include_inactive=False):
+        self.recognition_include_inactive = include_inactive
         return list(self._recognition_views)
 
     async def delete(self, tenant_key, user_key, contribution_key):
@@ -269,6 +273,77 @@ class TestRecognitionImages:
         resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
 
         assert [r.source for r in resp] == ["contribution"]
+
+
+class _FakeTenantService:
+    """Minimal stand-in for the platform-admin membership lookup."""
+
+    def __init__(self, *, admin: bool) -> None:
+        self._admin = admin
+
+    def get_membership(self, user_key, tenant_key):
+        if not self._admin:
+            return None
+        from app.core.permissions import TenantRole as _Role
+        from app.domain.models.membership import Membership
+
+        return Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role=_Role.ADMIN,
+            is_active=True,
+        )
+
+
+class TestIncludeInactiveGating:
+    """REQ-010 — only a platform admin may unlock the deselected-image view."""
+
+    def test_admin_include_inactive_is_passed_through(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+        service = _FakeService(list_views=[_view(is_own=True)], recognition_views=[_recognition_view()])
+        tenant_service = _FakeTenantService(admin=True)
+
+        tenant_router.list_pest_images(
+            "p1",
+            include_inactive=True,
+            ctx=_ctx(),
+            service=service,
+            tenant_service=tenant_service,
+        )
+
+        # The admin's request unlocks the inactive rows for BOTH sources.
+        assert service.list_include_inactive is True
+        assert service.recognition_include_inactive is True
+
+    def test_non_admin_include_inactive_is_forced_off(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+        service = _FakeService(list_views=[_view(is_own=True)], recognition_views=[_recognition_view()])
+        tenant_service = _FakeTenantService(admin=False)
+
+        # A normal member asking for inactive images is silently downgraded — no 403.
+        tenant_router.list_pest_images(
+            "p1",
+            include_inactive=True,
+            ctx=_ctx(),
+            service=service,
+            tenant_service=tenant_service,
+        )
+
+        assert service.list_include_inactive is False
+        assert service.recognition_include_inactive is False
+
+    def test_default_request_never_includes_inactive(self):
+        service = _FakeService(list_views=[_view(is_own=True)])
+
+        # The house-style direct call (no include_inactive, no tenant_service)
+        # must default to active-only and never touch the admin gate.
+        tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert service.list_include_inactive is False
 
 
 class TestDelete:
