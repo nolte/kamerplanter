@@ -25,6 +25,16 @@ class PestTaxon(BaseModel):
     common_name_de: str
     scientific_name: str
     gbif_taxon_key: str | None = None
+    # Optional explicit iNaturalist taxon id. GBIF keys are NOT iNat ids, so the
+    # iNaturalist client resolves the id by scientific name at runtime; setting
+    # it here pins the mapping and avoids the lookup (more robust for ambiguous
+    # family-level names). Left None → resolve-by-name (cached per process).
+    inat_taxon_id: int | None = None
+    # Optional iNaturalist lifeStage annotation value (e.g. "Larva") used to
+    # target larvae instead of adults — critical for the beneficial-larvae gap
+    # (ladybird/lacewing/hoverfly). None → no lifeStage filter.
+    # See spec/analysis/pest-image-sources-analysis.md §4.1 / §8.
+    inat_life_stage: str | None = None
     # Bezug zu pests-Slugs (nur bei category == BENEFICIAL relevant, WP-8).
     preys_on: list[str] = Field(default_factory=list)
     # Kurze Schadbild-Beschreibung (Modus-2-Symptom, WP-4.1).
@@ -103,6 +113,7 @@ _BENEFICIALS: list[PestTaxon] = [
         common_name_de="Marienkäfer (inkl. Larven)",
         scientific_name="Coccinellidae",
         gbif_taxon_key="7782",
+        inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
         preys_on=["aphid", "spider_mite", "mealybug"],
     ),
     PestTaxon(
@@ -111,6 +122,7 @@ _BENEFICIALS: list[PestTaxon] = [
         common_name_de="Florfliegen (Larven)",
         scientific_name="Chrysopidae",
         gbif_taxon_key="9265",
+        inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
         preys_on=["aphid", "spider_mite", "thrips_frankliniella"],
     ),
     PestTaxon(
@@ -119,6 +131,7 @@ _BENEFICIALS: list[PestTaxon] = [
         common_name_de="Schwebfliegen (Larven)",
         scientific_name="Syrphidae",
         gbif_taxon_key="6920",
+        inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
         preys_on=["aphid"],
     ),
     PestTaxon(

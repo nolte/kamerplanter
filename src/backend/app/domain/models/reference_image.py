@@ -14,20 +14,39 @@ from pydantic import BaseModel, Field
 class ReferenceLicense(StrEnum):
     """Normalised license classes relevant for reference-image reuse.
 
-    Only ``CC0`` and ``CC_BY`` are accepted for indexing (REQ-029-A §4.1).
-    ``CC_BY_NC`` (non-commercial), ``CC_BY_SA`` (share-alike) and ``UNKNOWN``
-    are rejected — the default-safe stance from REQ-029-A §4.4.
+    ``CC0`` and ``CC_BY`` are always accepted for indexing (REQ-029-A §4.1).
+    ``CC_BY_NC`` (non-commercial) is accepted *conditionally* — only while the
+    application runs non-commercially (see ``ACCEPTED_LICENSES_NONCOMMERCIAL``
+    and ``is_acceptable``; pest-image-sources-analysis.md §4.3).
+
+    The remaining classes — ``CC_BY_SA`` (share-alike copyleft), ``CC_BY_ND``
+    (no-derivatives), ``CC_BY_NC_SA``, ``CC_BY_NC_ND`` and ``UNKNOWN`` — stay
+    rejected unconditionally. Copyleft/no-derivative obligations create
+    redistribution risk regardless of commercial use, so the non-commercial
+    flag never relaxes them.
     """
 
     CC0 = "CC0"
     CC_BY = "CC-BY"
     CC_BY_NC = "CC-BY-NC"
     CC_BY_SA = "CC-BY-SA"
+    CC_BY_ND = "CC-BY-ND"
+    CC_BY_NC_SA = "CC-BY-NC-SA"
+    CC_BY_NC_ND = "CC-BY-NC-ND"
     UNKNOWN = "unknown"
 
 
-#: Licenses whose images may be embedded and indexed.
+#: Licenses whose images may always be embedded and indexed (commercial-safe).
 ACCEPTED_LICENSES: frozenset[ReferenceLicense] = frozenset({ReferenceLicense.CC0, ReferenceLicense.CC_BY})
+
+#: Additional licenses acceptable ONLY while the application runs
+#: non-commercially. CC-BY-NC is redistributable-with-attribution for
+#: non-commercial use; ``is_acceptable(..., allow_noncommercial=True)`` gates it.
+#: NEVER add a copyleft (-SA) or no-derivatives (-ND) class here — those stay
+#: rejected even non-commercially (pest-image-sources-analysis.md §4.3).
+ACCEPTED_LICENSES_NONCOMMERCIAL: frozenset[ReferenceLicense] = ACCEPTED_LICENSES | frozenset(
+    {ReferenceLicense.CC_BY_NC}
+)
 
 
 class MediaCandidate(BaseModel):

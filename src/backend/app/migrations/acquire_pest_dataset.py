@@ -1,12 +1,15 @@
 """REQ-044 WP-3 — operator CLI to build the few-shot pest prototype index.
 
-Run once the inference service is deployed and reachable. Pulls CC0/CC-BY
-images per pest/symptom/beneficial class from GBIF (public occurrence search,
-no credentials), indexes the frozen-DINOv2 prototypes service-side, and writes
-an attribution manifest (CC-BY compliance) — no images are persisted.
+Run once the inference service is deployed and reachable. Pulls CC0/CC-BY (and,
+when the application runs non-commercially, CC-BY-NC) images per
+pest/symptom/beneficial class from the configured sources (GBIF + iNaturalist +
+iDigBio; public APIs, no credentials), indexes the frozen-DINOv2 prototypes
+service-side, and writes an attribution manifest (CC-BY(-NC) compliance) — no
+images are persisted.
 
 Usage:
-    python -m app.migrations.acquire_pest_dataset [--manifest PATH] [--class SLUG]
+    python -m app.migrations.acquire_pest_dataset \\
+        [--manifest PATH] [--class SLUG] [--source KEY ...]
 """
 
 import argparse
@@ -34,9 +37,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Acquire a single class (slug) instead of all.",
     )
+    parser.add_argument(
+        "--source",
+        dest="sources",
+        action="append",
+        default=None,
+        choices=["gbif", "inaturalist", "idigbio"],
+        help="Restrict to one or more media sources (repeatable). Defaults to the configured set.",
+    )
     args = parser.parse_args(argv)
 
-    service = get_pest_dataset_acquisition_service()
+    service = get_pest_dataset_acquisition_service(source_keys=args.sources)
 
     if args.class_slug:
         taxon = get_taxon(args.class_slug)

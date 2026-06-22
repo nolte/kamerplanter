@@ -1007,13 +1007,39 @@ def get_pest_inference_client():
     return PestDetectionInferenceClient(settings.inference_service_url)
 
 
-def get_pest_dataset_acquisition_service():
+def _build_pest_media_source(source_key: str):
+    """REQ-044 WP-3 — instantiate one pest media source by its settings key."""
+    from app.data_access.external.gbif_pest_media_source import GBIFPestMediaSource
+    from app.data_access.external.idigbio_media_client import IDigBioMediaClient
+    from app.data_access.external.inaturalist_media_client import INaturalistMediaClient
+
+    factories = {
+        GBIFPestMediaSource.source_key: GBIFPestMediaSource,
+        INaturalistMediaClient.source_key: INaturalistMediaClient,
+        IDigBioMediaClient.source_key: IDigBioMediaClient,
+    }
+    factory = factories.get(source_key)
+    if factory is None:
+        raise ValueError(f"Unknown pest media source: {source_key!r} (known: {sorted(factories)})")
+    return factory()
+
+
+def get_pest_media_sources(source_keys: list[str] | None = None):
+    """REQ-044 WP-3 — build the configured pest media sources in priority order.
+
+    ``source_keys`` overrides ``settings.pest_reference_sources`` (e.g. the CLI
+    ``--source`` filter for testing a single source).
+    """
+    keys = source_keys if source_keys is not None else settings.pest_reference_sources
+    return [_build_pest_media_source(key) for key in keys]
+
+
+def get_pest_dataset_acquisition_service(source_keys: list[str] | None = None):
     """REQ-044 WP-3 — cold-start few-shot prototype acquisition (no credentials)."""
-    from app.data_access.external.gbif_media_client import GBIFMediaClient
     from app.domain.services.pest_dataset_acquisition import PestDatasetAcquisitionService
 
     return PestDatasetAcquisitionService(
-        media_client=GBIFMediaClient(),
+        sources=get_pest_media_sources(source_keys),
         inference=get_pest_inference_client(),
     )
 
