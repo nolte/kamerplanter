@@ -2344,9 +2344,13 @@ export type PestImageStatus = 'private' | 'promoted';
  * Provenance of a pest detail gallery tile:
  * - `contribution` — a curated, deletable/promotable user upload;
  * - `inspection`   — a read-only photo of one of the tenant's own inspections
- *   in which this pest was detected (no delete/promote).
+ *   in which this pest was detected (no delete/promote);
+ * - `recognition`  — a read-only, GLOBAL reference image of the pest's few-shot
+ *   recognition index (REQ-044). The `uri` is the external, CC-licensed
+ *   `source_url` (no local pixel); render it via a native `<img>` and show the
+ *   `attribution` / `license` next to it (CC-BY obligation).
  */
-export type PestImageSource = 'contribution' | 'inspection';
+export type PestImageSource = 'contribution' | 'inspection' | 'recognition';
 
 export interface PestImage {
   id: string;
@@ -2354,7 +2358,7 @@ export interface PestImage {
   attachment_id: string;
   uri: string;
   thumbnail_uri: string | null;
-  // null for inspection-sourced photos (no contribution lifecycle).
+  // null for inspection- and recognition-sourced photos (no contribution lifecycle).
   status: PestImageStatus | null;
   caption: string | null;
   // SEC-002 — only set for the caller's own contributions. For foreign promoted
@@ -2364,6 +2368,10 @@ export interface PestImage {
   is_own: boolean;
   // Defaults to 'contribution' for back-compat with older payloads.
   source?: PestImageSource;
+  // Only set for `source === 'recognition'` — the CC-BY attribution / license of
+  // the externally-hosted image, surfaced as a caption (null otherwise).
+  attribution?: string | null;
+  license?: string | null;
 }
 
 export interface Disease {

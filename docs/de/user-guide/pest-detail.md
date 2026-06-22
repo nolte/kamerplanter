@@ -35,6 +35,8 @@ Der Steckbrief oben auf der Seite fasst die wichtigsten Fakten zum Schädling in
 
 Unterhalb des Steckbriefs zeigt die Galerie kuratierte Fotos des Schädlings sowie typischer Schadbilder. Die Bilder stammen aus lizenzierten Quellen und werden vom Betreiber der Kamerplanter-Instanz gepflegt.
 
+Sofern die [Schädlingserkennung](pest-detection.md) aktiv ist und für diesen Schädling Referenzbilder im Erkennungs-Index hinterlegt sind, erscheinen diese ebenfalls in der Galerie — gekennzeichnet mit **„Referenz"** und mit Quellenangabe/Lizenz (z. B. CC-BY). Sie sind schreibgeschützt und werden von extern (z. B. GBIF/iNaturalist) geladen.
+
 !!! note "Anfangs leer — wächst mit dem System"
     Eine frisch eingerichtete Instanz hat noch keine Referenzbilder. Der Betreiber befüllt die Galerie schrittweise — zunächst mit den häufigsten Schädlingen. Wenn Bilder fehlen, siehst du den Hinweis „Noch keine Referenzbilder vorhanden".
 

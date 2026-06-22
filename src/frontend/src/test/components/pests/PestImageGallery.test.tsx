@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
@@ -147,6 +147,90 @@ describe('PestImageGallery', () => {
     // Contribution tile keeps its delete button; inspection tile does not.
     expect(screen.getAllByTestId('pest-image-delete')).toHaveLength(1);
     expect(screen.getByTestId('pest-image-inspection')).toBeInTheDocument();
+  });
+
+  it('renders a recognition reference image as a native <img> with attribution and no delete', async () => {
+    // Recognition tiles are GLOBAL, external, read-only — a native <img> (not
+    // AuthImage), with a CC-BY attribution/license caption and no delete chrome.
+    vi.mocked(listPestImages).mockResolvedValue([
+      img({
+        id: 'recognition:7',
+        source: 'recognition',
+        status: null,
+        is_own: false,
+        contributed_by: null,
+        uri: 'https://example.org/ref/7.jpg',
+        thumbnail_uri: null,
+        attribution: 'Jane Doe / iNaturalist',
+        license: 'CC-BY 4.0',
+      }),
+    ]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+    await screen.findByTestId('pest-detail-gallery');
+    const recognitionImg = screen.getByTestId('pest-image-recognition');
+    // The external CC-licensed URL is used directly; privacy referrer policy set.
+    expect(recognitionImg).toHaveAttribute('src', 'https://example.org/ref/7.jpg');
+    expect(recognitionImg).toHaveAttribute('referrerpolicy', 'no-referrer');
+    expect(recognitionImg).toHaveAttribute('loading', 'lazy');
+    // CC-BY obligation: attribution + license shown next to the image.
+    const attribution = screen.getByTestId('pest-image-attribution');
+    expect(attribution).toHaveTextContent('Jane Doe / iNaturalist');
+    expect(attribution).toHaveTextContent('CC-BY 4.0');
+    // Read-only: no delete button, no global badge.
+    expect(screen.queryByTestId('pest-image-delete')).toBeNull();
+    expect(screen.queryByTestId('pest-image-global')).toBeNull();
+  });
+
+  it('hides a recognition tile whose external image fails to load', async () => {
+    vi.mocked(listPestImages).mockResolvedValue([
+      img({
+        id: 'recognition:9',
+        source: 'recognition',
+        status: null,
+        is_own: false,
+        contributed_by: null,
+        uri: 'https://example.org/dead-link.jpg',
+        thumbnail_uri: null,
+        attribution: 'Someone',
+        license: 'CC0',
+      }),
+    ]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+    await screen.findByTestId('pest-detail-gallery');
+    const recognitionImg = screen.getByTestId('pest-image-recognition');
+    // Simulate a dead/hotlink-blocked external image.
+    fireEvent.error(recognitionImg);
+    // The broken tile is removed entirely (no broken image shown).
+    await waitFor(() => expect(screen.queryByTestId('pest-image-recognition')).toBeNull());
+  });
+
+  it('mixes recognition tiles with contribution and inspection tiles', async () => {
+    vi.mocked(listPestImages).mockResolvedValue([
+      img({ id: 'c1', source: 'contribution', is_own: true }),
+      img({ id: 'a-insp', status: null, source: 'inspection', is_own: true, contributed_by: null }),
+      img({
+        id: 'recognition:7',
+        source: 'recognition',
+        status: null,
+        is_own: false,
+        contributed_by: null,
+        uri: 'https://example.org/ref/7.jpg',
+        thumbnail_uri: null,
+        attribution: 'Jane Doe',
+        license: 'CC0',
+      }),
+    ]);
+    renderWithProviders(<PestImageGallery pestKey="p1" pestName="Spinnmilbe" />);
+
+    const gallery = await screen.findByTestId('pest-detail-gallery');
+    // AuthImage-backed tiles: contribution + inspection (recognition uses native <img>).
+    expect(within(gallery).getAllByTestId('pest-detail-image')).toHaveLength(2);
+    expect(screen.getByTestId('pest-image-recognition')).toBeInTheDocument();
+    expect(screen.getByTestId('pest-image-inspection')).toBeInTheDocument();
+    // Only the own contribution is deletable.
+    expect(screen.getAllByTestId('pest-image-delete')).toHaveLength(1);
   });
 
 });

@@ -350,6 +350,7 @@ def get_pest_image_service():
         repo=get_pest_image_repo(),
         attachment_service=get_attachment_service(),
         ipm_service=get_ipm_service(),
+        inference_client=get_pest_inference_client(),
     )
 
 

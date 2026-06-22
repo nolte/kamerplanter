@@ -28,6 +28,8 @@ from app.domain.services.ipm_service import IpmService
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+
 logger = structlog.get_logger()
 
 # REQ-010 — thumbnail rendition surfaced to the gallery. Must be one of
@@ -70,6 +72,26 @@ class PestInspectionImageView:
 
 
 @dataclass(frozen=True)
+class PestRecognitionImageView:
+    """A read-only, GLOBAL reference image of the pest's recognition index.
+
+    REQ-010 / REQ-044 — surfaces the *active* few-shot prototype provenances of
+    a pest's detection class. Unlike contributions / inspections **no pixel is
+    stored locally**: the image lives at an external, CC-licensed ``source_url``
+    (GBIF / iNaturalist / Wikimedia). It is never the calling tenant's data
+    (``is_own=False``), never deletable, and the CC-BY ``attribution`` /
+    ``license`` must be displayed next to the image. ``prototype_id`` is the
+    inference-service row id and yields the stable client key
+    (``recognition:{prototype_id}``).
+    """
+
+    prototype_id: int
+    source_url: str
+    attribution: str | None = None
+    license: str | None = None
+
+
+@dataclass(frozen=True)
 class PestImageContent:
     """The resolved bytes-source for serving a (promoted) contribution globally."""
 
@@ -85,10 +107,15 @@ class PestImageService:
         repo: IPestImageRepository,
         attachment_service: AttachmentService,
         ipm_service: IpmService,
+        inference_client: PestDetectionInferenceClient | None = None,
     ) -> None:
         self._repo = repo
         self._attachments = attachment_service
         self._ipm = ipm_service
+        # Optional: only wired when the recognition index may be queried. The
+        # gallery degrades gracefully (no recognition tiles) when it is ``None``
+        # or the ``pest_detection_enabled`` feature flag is off.
+        self._inference_client = inference_client
 
     async def contribute(
         self,
@@ -197,6 +224,67 @@ class PestImageService:
                     attachment_id=attachment_id,
                     mime_type=mime_type,
                     has_thumbnail=can_render(mime_type),
+                )
+            )
+        return views
+
+    def list_recognition_images_for_pest(self, pest_key: str) -> list[PestRecognitionImageView]:
+        """Return the GLOBAL recognition reference images of a pest (read-only).
+
+        REQ-010 / REQ-044 — surfaces the *active* few-shot prototype provenances
+        of the pest's detection class (``Pest.detection_slug``). The pest is
+        validated to exist first (consistent 404 with the other gallery paths).
+
+        Best-effort and privacy-gated: an empty list is returned — never an
+        error — when
+
+        * the pest carries no ``detection_slug`` (it is not part of the
+          recognition taxonomy);
+        * no inference client is wired or ``pest_detection_enabled`` is off
+          (Default-Privacy);
+        * the inference-service is unreachable / errors (the client itself
+          already swallows ``httpx`` errors into an empty payload, but any
+          unexpected error is caught here too so a recognition hiccup can never
+          break the rest of the gallery).
+
+        Only rows that actually carry an external ``source_url`` are surfaced (no
+        pixel is ever stored locally). Newest-/index-order is preserved as
+        returned by the inference-service.
+        """
+        pest = self._ipm.get_pest(pest_key)
+        detection_slug = pest.detection_slug
+        if not detection_slug:
+            return []
+
+        from app.config.settings import settings
+
+        if self._inference_client is None or not settings.pest_detection_enabled:
+            return []
+
+        try:
+            payload = self._inference_client.list_prototypes(detection_slug, active_only=True)
+        except Exception as exc:  # noqa: BLE001 — best-effort: a recognition outage must not break the gallery
+            logger.warning(
+                "pest_recognition_images_unavailable",
+                pest_key=pest_key,
+                detection_slug=detection_slug,
+                error=str(exc),
+            )
+            return []
+
+        views: list[PestRecognitionImageView] = []
+        for row in payload.get("images", []):
+            source_url = row.get("source_url")
+            prototype_id = row.get("id")
+            if not source_url or prototype_id is None:
+                # No external URL → nothing to render (no pixel is stored).
+                continue
+            views.append(
+                PestRecognitionImageView(
+                    prototype_id=int(prototype_id),
+                    source_url=source_url,
+                    attribution=row.get("attribution"),
+                    license=row.get("license"),
                 )
             )
         return views
@@ -439,4 +527,5 @@ __all__ = [
     "PestImageService",
     "PestImageView",
     "PestInspectionImageView",
+    "PestRecognitionImageView",
 ]

@@ -32,6 +32,7 @@ from app.domain.services.pest_image_service import (
     PestImageService,
     PestImageView,
     PestInspectionImageView,
+    PestRecognitionImageView,
 )
 
 router = APIRouter(prefix="/ipm", tags=["ipm"])
@@ -125,6 +126,33 @@ def _inspection_image_response(view: PestInspectionImageView, pest_key: str, ten
         created_at=None,
         is_own=True,
         source="inspection",
+    )
+
+
+def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -> PestImageResponse:
+    """Map a global recognition reference image onto the shared gallery response.
+
+    REQ-010 / REQ-044 — the image is hosted externally (CC-licensed
+    ``source_url``); no pixel is stored locally, so ``uri`` is that external URL,
+    ``thumbnail_uri`` is ``None`` and ``attachment_id`` is empty. It is always
+    global / read-only (``is_own=False``, no contribution lifecycle) and the
+    CC-BY ``attribution`` / ``license`` travel with it. The stable client key is
+    ``recognition:{prototype_id}`` (disjoint from contribution / attachment ids).
+    """
+    return PestImageResponse(
+        id=f"recognition:{view.prototype_id}",
+        pest_key=pest_key,
+        attachment_id="",
+        uri=view.source_url,
+        thumbnail_uri=None,
+        status=None,
+        caption=None,
+        contributed_by=None,
+        created_at=None,
+        is_own=False,
+        source="recognition",
+        attribution=view.attribution,
+        license=view.license,
     )
 
 
@@ -267,7 +295,11 @@ def list_pest_images(
     * the tenant's own contributions (tenant attachment URIs, ``is_own``);
     * all globally-promoted contributions of other tenants (global content URIs);
     * read-only photos of the tenant's own inspections in which this pest was
-      detected (``source == "inspection"``).
+      detected (``source == "inspection"``);
+    * the GLOBAL, read-only recognition reference images of the pest's detection
+      class (``source == "recognition"``), hosted externally (CC-licensed
+      ``source_url``); appended best-effort — an inference-service outage or a
+      pest without ``detection_slug`` simply yields none.
 
     Foreign *private* contributions are never returned (strict isolation), and
     only the calling tenant's inspections are scanned. An attachment that is
@@ -284,6 +316,11 @@ def list_pest_images(
         for v in inspection_views
         if v.attachment_id not in contributed_attachment_ids
     )
+
+    # REQ-044 — append the global recognition reference images last. Different
+    # source (external CC-licensed URLs, no local pixel), so no dedup needed.
+    recognition_views = service.list_recognition_images_for_pest(pest_key)
+    responses.extend(_recognition_image_response(v, pest_key) for v in recognition_views)
     return responses
 
 

@@ -27,7 +27,11 @@ from app.common.exceptions import NotFoundError
 from app.domain.models.attachment import Attachment
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
-from app.domain.services.pest_image_service import PestImageContent, PestImageService
+from app.domain.services.pest_image_service import (
+    PestImageContent,
+    PestImageService,
+    PestRecognitionImageView,
+)
 
 
 class _FakePestImageRepo:
@@ -186,8 +190,10 @@ class _FakeAttachmentService:
 
 
 class _FakeIpmService:
-    def __init__(self, known_pests: set[str]) -> None:
+    def __init__(self, known_pests: set[str], detection_slugs: dict[str, str] | None = None) -> None:
         self._known = known_pests
+        # Maps pest_key → detection_slug for recognition tests (absent → None).
+        self._detection_slugs = detection_slugs or {}
         self.get_pest_calls: list[str] = []
         # Maps (tenant_key, pest_key) → ordered, deduplicated attachment ids,
         # mirroring ArangoIpmRepository.get_inspection_photo_refs_for_pest.
@@ -198,18 +204,43 @@ class _FakeIpmService:
         self.get_pest_calls.append(key)
         if key not in self._known:
             raise NotFoundError("Pest", key)
-        return Pest(_key=key, scientific_name="Tetranychus urticae", common_name="Spider Mites")
+        return Pest(
+            _key=key,
+            scientific_name="Tetranychus urticae",
+            common_name="Spider Mites",
+            detection_slug=self._detection_slugs.get(key),
+        )
 
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: str) -> list[str]:
         self.inspection_calls.append((tenant_key, pest_key))
         return list(self.inspection_photo_refs.get((tenant_key, pest_key), []))
 
 
-def _service(*, known_pests: set[str] | None = None):
+class _FakeInferenceClient:
+    """Mimics the slice of PestDetectionInferenceClient the service uses."""
+
+    def __init__(self, *, images: list[dict] | None = None, raises: Exception | None = None) -> None:
+        self._images = images or []
+        self._raises = raises
+        self.calls: list[tuple[str, bool]] = []
+
+    def list_prototypes(self, label: str, *, limit: int = 200, active_only: bool = False) -> dict:
+        self.calls.append((label, active_only))
+        if self._raises is not None:
+            raise self._raises
+        return {"label": label, "count": len(self._images), "active_count": len(self._images), "images": self._images}
+
+
+def _service(
+    *,
+    known_pests: set[str] | None = None,
+    detection_slugs: dict[str, str] | None = None,
+    inference_client: _FakeInferenceClient | None = None,
+):
     repo = _FakePestImageRepo()
     attachments = _FakeAttachmentService()
-    ipm = _FakeIpmService(known_pests if known_pests is not None else {"p1"})
-    service = PestImageService(repo, attachments, ipm)  # type: ignore[arg-type]
+    ipm = _FakeIpmService(known_pests if known_pests is not None else {"p1"}, detection_slugs)
+    service = PestImageService(repo, attachments, ipm, inference_client)  # type: ignore[arg-type]
     return service, repo, attachments, ipm
 
 
@@ -686,3 +717,127 @@ class TestListInspectionImagesForPest:
     def test_empty_when_no_inspection_photos(self):
         service, _repo, _attachments, _ipm = _service()
         assert service.list_inspection_images_for_pest("t1", "p1") == []
+
+
+class TestListRecognitionImagesForPest:
+    """REQ-010 / REQ-044 — global recognition reference images in the gallery.
+
+    The feature is flag-gated (``pest_detection_enabled``) and best-effort: a
+    missing ``detection_slug``, a disabled flag, a missing client or any client
+    error all yield an empty list — never an exception — so the rest of the
+    gallery keeps working.
+    """
+
+    _ROWS = [
+        {
+            "id": 7,
+            "source_url": "https://example.org/gbif/7.jpg",
+            "license": "CC-BY 4.0",
+            "attribution": "Jane Doe / iNaturalist",
+            "source": "gbif",
+            "is_active": True,
+        },
+        {
+            "id": 8,
+            "source_url": "https://example.org/inat/8.jpg",
+            "license": "CC0",
+            "attribution": None,
+            "source": "inaturalist",
+            "is_active": True,
+        },
+    ]
+
+    def test_appends_active_recognition_images(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        client = _FakeInferenceClient(images=self._ROWS)
+        service, _repo, _attachments, ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        views = service.list_recognition_images_for_pest("p1")
+
+        # Pest validated first; client queried with the detection slug, active only.
+        assert ipm.get_pest_calls == ["p1"]
+        assert client.calls == [("spider_mites", True)]
+        assert [v.prototype_id for v in views] == [7, 8]
+        assert views[0].source_url == "https://example.org/gbif/7.jpg"
+        assert views[0].attribution == "Jane Doe / iNaturalist"
+        assert views[0].license == "CC-BY 4.0"
+        assert isinstance(views[0], PestRecognitionImageView)
+
+    def test_empty_when_pest_has_no_detection_slug(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        client = _FakeInferenceClient(images=self._ROWS)
+        # No detection_slug mapping → pest is not part of the recognition taxonomy.
+        service, _repo, _attachments, _ipm = _service(inference_client=client)
+
+        assert service.list_recognition_images_for_pest("p1") == []
+        # The client is never even queried.
+        assert client.calls == []
+
+    def test_empty_when_feature_disabled(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", False)
+        client = _FakeInferenceClient(images=self._ROWS)
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        assert service.list_recognition_images_for_pest("p1") == []
+        assert client.calls == []
+
+    def test_empty_when_no_client_wired(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        service, _repo, _attachments, _ipm = _service(detection_slugs={"p1": "spider_mites"})
+
+        assert service.list_recognition_images_for_pest("p1") == []
+
+    def test_client_error_degrades_gracefully(self, monkeypatch):
+        """A recognition-service outage must NOT raise — the gallery keeps working."""
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        client = _FakeInferenceClient(raises=RuntimeError("inference service down"))
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        assert service.list_recognition_images_for_pest("p1") == []
+
+    def test_rows_without_source_url_are_skipped(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        rows = [
+            {"id": 1, "source_url": None, "license": "CC0"},  # no external URL → skip
+            {"id": 2, "source_url": "https://example.org/2.jpg", "license": "CC0"},
+        ]
+        client = _FakeInferenceClient(images=rows)
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=client,
+        )
+
+        views = service.list_recognition_images_for_pest("p1")
+
+        assert [v.prototype_id for v in views] == [2]
+
+    def test_unknown_pest_raises(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        client = _FakeInferenceClient(images=self._ROWS)
+        service, _repo, _attachments, _ipm = _service(known_pests=set(), inference_client=client)
+
+        with pytest.raises(NotFoundError):
+            service.list_recognition_images_for_pest("ghost")

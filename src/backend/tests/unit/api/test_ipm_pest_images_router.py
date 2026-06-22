@@ -18,7 +18,11 @@ from app.common.exceptions import NotFoundError
 from app.core.permissions import TenantRole
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.tenant_context import TenantContext
-from app.domain.services.pest_image_service import PestImageView, PestInspectionImageView
+from app.domain.services.pest_image_service import (
+    PestImageView,
+    PestInspectionImageView,
+    PestRecognitionImageView,
+)
 
 
 def _ctx(tenant_slug: str = "my-garden", tenant_key: str = "t1", user_key: str = "u1") -> TenantContext:
@@ -64,10 +68,26 @@ def _inspection_view(*, attachment_id: str = "att-i1", renderable: bool = True) 
     )
 
 
+def _recognition_view(
+    *,
+    prototype_id: int = 7,
+    source_url: str = "https://example.org/ref/7.jpg",
+    attribution: str | None = "Jane Doe / iNaturalist",
+    license_: str | None = "CC-BY 4.0",
+) -> PestRecognitionImageView:
+    return PestRecognitionImageView(
+        prototype_id=prototype_id,
+        source_url=source_url,
+        attribution=attribution,
+        license=license_,
+    )
+
+
 class _FakeService:
-    def __init__(self, *, list_views=None, inspection_views=None, delete_result=True):
+    def __init__(self, *, list_views=None, inspection_views=None, recognition_views=None, delete_result=True):
         self._list_views = list_views or []
         self._inspection_views = inspection_views or []
+        self._recognition_views = recognition_views or []
         self._delete_result = delete_result
         self.delete_args: tuple | None = None
 
@@ -76,6 +96,9 @@ class _FakeService:
 
     def list_inspection_images_for_pest(self, tenant_key, pest_key):
         return list(self._inspection_views)
+
+    def list_recognition_images_for_pest(self, pest_key):
+        return list(self._recognition_views)
 
     async def delete(self, tenant_key, user_key, contribution_key):
         self.delete_args = (tenant_key, user_key, contribution_key)
@@ -188,6 +211,64 @@ class TestInspectionImages:
         resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
 
         assert resp[0].thumbnail_uri is None
+
+
+class TestRecognitionImages:
+    """REQ-010 / REQ-044 — global recognition reference images appended read-only."""
+
+    def test_recognition_image_mapped_as_external_read_only_source(self):
+        service = _FakeService(recognition_views=[_recognition_view(prototype_id=7)])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert len(resp) == 1
+        item = resp[0]
+        assert item.source == "recognition"
+        # Stable, namespaced client key — disjoint from contribution/attachment ids.
+        assert item.id == "recognition:7"
+        # The external CC-licensed URL is the uri; no local pixel, no thumbnail.
+        assert item.uri == "https://example.org/ref/7.jpg"
+        assert item.thumbnail_uri is None
+        assert item.attachment_id == ""
+        # Global, read-only: not own, no contribution lifecycle / contributor.
+        assert item.is_own is False
+        assert item.status is None
+        assert item.contributed_by is None
+        # CC-BY attribution / license travel with the tile.
+        assert item.attribution == "Jane Doe / iNaturalist"
+        assert item.license == "CC-BY 4.0"
+
+    def test_recognition_appended_after_contributions_and_inspections(self):
+        service = _FakeService(
+            list_views=[_view(attachment_id="att-c1")],
+            inspection_views=[_inspection_view(attachment_id="att-i1")],
+            recognition_views=[_recognition_view(prototype_id=9)],
+        )
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert [(r.source, r.id) for r in resp] == [
+            ("contribution", "pic1"),
+            ("inspection", "att-i1"),
+            ("recognition", "recognition:9"),
+        ]
+
+    def test_recognition_without_license_is_still_mapped(self):
+        service = _FakeService(recognition_views=[_recognition_view(prototype_id=5, attribution=None, license_=None)])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert resp[0].attribution is None
+        assert resp[0].license is None
+
+    def test_no_recognition_images_when_service_returns_none(self):
+        # Mirrors a pest without detection_slug / a disabled feature / an outage:
+        # the service yields an empty list and only the other sources remain.
+        service = _FakeService(list_views=[_view(attachment_id="att-c1")], recognition_views=[])
+
+        resp = tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
+
+        assert [r.source for r in resp] == ["contribution"]
 
 
 class TestDelete:

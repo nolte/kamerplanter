@@ -309,8 +309,8 @@ class PestImageResponse(BaseModel):
     attachment_id: str
     uri: str
     thumbnail_uri: str | None = None
-    # ``status`` only applies to curated contributions. Inspection-sourced photos
-    # (``source == "inspection"``) carry no contribution lifecycle, so it is
+    # ``status`` only applies to curated contributions. Inspection- and
+    # recognition-sourced photos carry no contribution lifecycle, so it is
     # ``None`` there.
     status: PestImageStatus | None = None
     caption: str | None = None
@@ -324,5 +324,13 @@ class PestImageResponse(BaseModel):
     # Provenance of the gallery tile:
     #   * ``"contribution"`` — a curated, deletable/promotable user upload;
     #   * ``"inspection"``   — a read-only photo of one of the tenant's own
-    #     inspections in which this pest was detected (no delete/promote).
-    source: Literal["contribution", "inspection"] = "contribution"
+    #     inspections in which this pest was detected (no delete/promote);
+    #   * ``"recognition"``  — a read-only, GLOBAL reference image of the pest's
+    #     few-shot recognition index (REQ-044). ``uri`` is the external,
+    #     CC-licensed ``source_url`` (no pixel is stored), ``thumbnail_uri`` is
+    #     ``None``, ``is_own`` is ``False`` and the tile is never deletable.
+    source: Literal["contribution", "inspection", "recognition"] = "contribution"
+    # Only set for ``source == "recognition"`` (CC-BY attribution / license must
+    # be surfaced next to the externally-hosted image). ``None`` otherwise.
+    attribution: str | None = None
+    license: str | None = None

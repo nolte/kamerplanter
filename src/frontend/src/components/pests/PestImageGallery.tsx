@@ -12,6 +12,7 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import SearchIcon from '@mui/icons-material/Search';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AuthImage from '@/components/common/AuthImage';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import PestImageContributeDialog from './PestImageContributeDialog';
@@ -39,9 +40,25 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
   /** ID of the image pending deletion — null means the dialog is closed. */
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  /**
+   * Ids of recognition tiles whose external (CC-licensed) image failed to load
+   * (dead link / hotlink-blocked). Such tiles are hidden so a broken image is
+   * never shown — the externally-hosted URL has no local fallback.
+   */
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(() => new Set());
+
+  const handleImageError = useCallback((imageId: string) => {
+    setBrokenIds((prev) => {
+      if (prev.has(imageId)) return prev;
+      const next = new Set(prev);
+      next.add(imageId);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setBrokenIds(new Set());
     try {
       setImages(await listPestImages(pestKey));
     } catch {
@@ -141,6 +158,73 @@ export default function PestImageGallery({ pestKey, pestName }: PestImageGallery
             // Inspection-sourced photos are read-only: no delete, a dedicated
             // provenance badge instead of the global/own contribution chrome.
             const isInspection = img.source === 'inspection';
+            // Recognition tiles are GLOBAL, read-only reference images hosted
+            // externally (CC-licensed source_url) — rendered via a native <img>
+            // (no auth, no local pixel), with an attribution/license caption.
+            const isRecognition = img.source === 'recognition';
+
+            if (isRecognition) {
+              // A dead / hotlink-blocked external image is hidden entirely so a
+              // broken image is never shown (no local fallback exists).
+              if (brokenIds.has(img.id)) return null;
+              const captionParts = [img.attribution, img.license].filter(
+                (part): part is string => Boolean(part),
+              );
+              return (
+                <Box key={img.id} role="listitem" sx={{ position: 'relative' }}>
+                  <Box
+                    component="img"
+                    src={img.uri}
+                    alt={t('pages.pestDetail.imageFromRecognitionAlt', { name: pestName })}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={() => handleImageError(img.id)}
+                    data-testid="pest-image-recognition"
+                    sx={{
+                      borderRadius: 1,
+                      width: '100%',
+                      height: 140,
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                  <Tooltip title={t('pages.pestDetail.imageFromRecognition')}>
+                    <Chip
+                      icon={<AutoAwesomeIcon />}
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                      label={t('pages.pestDetail.imageFromRecognitionShort')}
+                      aria-label={t('pages.pestDetail.imageFromRecognition')}
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        cursor: 'default',
+                        bgcolor: 'background.paper',
+                      }}
+                    />
+                  </Tooltip>
+                  {captionParts.length > 0 && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="p"
+                      data-testid="pest-image-attribution"
+                      sx={{
+                        mt: 0.25,
+                        lineHeight: 1.2,
+                        wordBreak: 'break-word',
+                        display: 'block',
+                      }}
+                    >
+                      {captionParts.join(' · ')}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            }
+
             return (
               <Box key={img.id} role="listitem" sx={{ position: 'relative' }}>
                 <AuthImage

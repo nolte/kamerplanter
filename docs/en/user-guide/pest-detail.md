@@ -35,6 +35,8 @@ The fact sheet at the top of the page summarises the most important information 
 
 Below the fact sheet, the gallery shows curated photos of the pest and of typical damage patterns. Images come from licensed sources and are maintained by the operator of the Kamerplanter instance.
 
+If [pest recognition](pest-detection.md) is active and reference images for this pest exist in the recognition index, they appear in the gallery too — marked **"Reference"** and shown with their source/licence (e.g. CC-BY). They are read-only and loaded from external sources (e.g. GBIF/iNaturalist).
+
 !!! note "Empty at first — grows with the system"
     A freshly set up instance does not yet have any reference images. The operator populates the gallery gradually — starting with the most common pests. If images are missing, you will see the message "No reference images available yet".
 
