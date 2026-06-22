@@ -261,6 +261,7 @@ pests:
       Puppen prüfen und Pflanzen zum Aufscheuchen leicht schütteln.
 
   - scientific_name: Trichoplusia ni
+    detection_slug: cabbage_looper
     common_name: Cabbage Looper
     common_name_de: Kohlsilbereule
     pest_type: insect
@@ -347,6 +348,7 @@ pests:
       klebrige Stellen achten und Wurzelhals sowie Topfrand kontrollieren.
 
   - scientific_name: Coccoidea (Überfamilie)
+    detection_slug: scale_insect
     common_name: Scale Insects
     common_name_de: Schildläuse
     pest_type: insect
@@ -393,6 +395,7 @@ pests:
       lebendes Tier zu bestätigen.
 
   - scientific_name: Phyllotreta spp.
+    detection_slug: flea_beetle
     common_name: Flea Beetle
     common_name_de: Erdflöhe
     pest_type: insect
@@ -434,6 +437,7 @@ pests:
       Käfer achten und bodennah ausgelegte Gelbtafeln nutzen.
 
   - scientific_name: Arion vulgaris
+    detection_slug: spanish_slug
     common_name: Spanish Slug
     common_name_de: Spanische Wegschnecke
     pest_type: gastropod
@@ -478,6 +482,7 @@ pests:
       den Verstecken verfolgen.
 
   - scientific_name: Meloidogyne spp.
+    detection_slug: root_knot_nematode
     common_name: Root-knot Nematode
     common_name_de: Wurzelgallenälchen
     pest_type: nematode
@@ -522,6 +527,7 @@ pests:
   # --- Outdoor-focused pests (new) ---
 
   - scientific_name: Pieris brassicae
+    detection_slug: large_cabbage_white
     common_name: Large Cabbage White  # Großer Kohlweißling
     common_name_de: Großer Kohlweißling
     pest_type: insect
@@ -565,6 +571,7 @@ pests:
       suchen.
 
   - scientific_name: Pieris rapae
+    detection_slug: small_cabbage_white
     common_name: Small Cabbage White  # Kleiner Kohlweißling
     common_name_de: Kleiner Kohlweißling
     pest_type: insect
@@ -609,6 +616,7 @@ pests:
       auf kleine weiße Falter achten und auf frischen Kot prüfen.
 
   - scientific_name: Leptinotarsa decemlineata
+    detection_slug: colorado_potato_beetle
     common_name: Colorado Potato Beetle  # Kartoffelkäfer
     common_name_de: Kartoffelkäfer
     pest_type: insect
@@ -652,6 +660,7 @@ pests:
       prüfen und früh eingreifen, bevor die Population explodiert.
 
   - scientific_name: Cydia pomonella
+    detection_slug: codling_moth
     common_name: Codling Moth  # Apfelwickler
     common_name_de: Apfelwickler
     pest_type: insect
@@ -696,6 +705,7 @@ pests:
       Temperatursummen-Prognosen ausrichten.
 
   - scientific_name: Acrolepiopsis assectella
+    detection_slug: leek_moth
     common_name: Leek Moth  # Lauchmotte
     common_name_de: Lauchmotte
     pest_type: insect
@@ -738,6 +748,7 @@ pests:
       um Minen zu erkennen, und die Schäfte auf Raupen prüfen.
 
   - scientific_name: Psila rosae
+    detection_slug: carrot_fly
     common_name: Carrot Rust Fly  # Möhrenfliege
     common_name_de: Möhrenfliege
     pest_type: insect
@@ -781,6 +792,7 @@ pests:
       achten und Probewurzeln ziehen, um auf rostbraune Gänge zu prüfen.
 
   - scientific_name: Delia antiqua
+    detection_slug: onion_fly
     common_name: Onion Fly  # Zwiebelfliege
     common_name_de: Zwiebelfliege
     pest_type: insect
@@ -824,6 +836,7 @@ pests:
       prüfen.
 
   - scientific_name: Delia radicum
+    detection_slug: cabbage_root_fly
     common_name: Cabbage Root Fly  # Kohlfliege
     common_name_de: Kohlfliege
     pest_type: insect
@@ -868,6 +881,7 @@ pests:
       auf Maden prüfen.
 
   - scientific_name: Rhagoletis cerasi
+    detection_slug: cherry_fruit_fly
     common_name: Cherry Fruit Fly  # Kirschfruchtfliege
     common_name_de: Kirschfruchtfliege
     pest_type: insect
@@ -909,6 +923,7 @@ pests:
       sind gefährdet.
 
   - scientific_name: Cydalima perspectalis
+    detection_slug: box_tree_moth
     common_name: Box Tree Moth  # Buchsbaumzünsler
     common_name_de: Buchsbaumzünsler
     pest_type: insect
@@ -949,6 +964,7 @@ pests:
       erfassen.
 
   - scientific_name: Anthonomus rubi
+    detection_slug: strawberry_blossom_weevil
     common_name: Strawberry Blossom Weevil  # Erdbeerblütenstecher
     common_name_de: Erdbeerblütenstecher
     pest_type: insect
@@ -989,6 +1005,7 @@ pests:
       morgens die kleinen dunklen Käfer auf den Pflanzen kontrollieren.
 
   - scientific_name: Otiorhynchus sulcatus
+    detection_slug: vine_weevil
     common_name: Black Vine Weevil  # Dickmaulrüssler
     common_name_de: Dickmaulrüssler
     pest_type: insect
@@ -1034,6 +1051,7 @@ pests:
       Wurzelballen auf Larven prüfen.
 
   - scientific_name: Aleyrodes proletella
+    detection_slug: cabbage_whitefly
     common_name: Cabbage Whitefly  # Kohlmottenschildlaus
     common_name_de: Kohlmottenschildlaus
     pest_type: insect
@@ -1079,6 +1097,7 @@ pests:
       prüfen.
 
   - scientific_name: Agriotes spp.
+    detection_slug: wireworm
     common_name: Wireworm  # Drahtwurm
     common_name_de: Drahtwurm (Larve des Schnellkäfers)
     pest_type: insect
@@ -1122,6 +1141,7 @@ pests:
       achten.
 
   - scientific_name: Ostrinia nubilalis
+    detection_slug: european_corn_borer
     common_name: European Corn Borer  # Maiszünsler
     common_name_de: Maiszünsler
     pest_type: insect
@@ -1166,6 +1186,7 @@ pests:
       Einbohren bekämpfen.
 
   - scientific_name: Myzus persicae
+    detection_slug: green_peach_aphid
     common_name: Green Peach Aphid  # Grüne Pfirsichblattlaus
     common_name_de: Grüne Pfirsichblattlaus
     pest_type: insect
@@ -1210,6 +1231,7 @@ pests:
       Virusausbreitung zu begrenzen.
 
   - scientific_name: Macrosiphum euphorbiae
+    detection_slug: potato_aphid
     common_name: Potato Aphid  # Kartoffelblattlaus
     common_name_de: Kartoffelblattlaus
     pest_type: insect
@@ -1253,6 +1275,7 @@ pests:
       Honigtau und Ameisen achten und Gelbtafeln für geflügelte Wanderer nutzen.
 
   - scientific_name: Mamestra brassicae
+    detection_slug: cabbage_moth
     common_name: Cabbage Moth  # Kohleule
     common_name_de: Kohleule
     pest_type: insect
@@ -1298,6 +1321,7 @@ pests:
       klein sind.
 
   - scientific_name: Plutella xylostella
+    detection_slug: diamondback_moth
     common_name: Diamondback Moth  # Kohlschabe
     common_name_de: Kohlschabe
     pest_type: insect
@@ -1344,6 +1368,7 @@ pests:
   # --- Aquatic pests (Nymphaea) ---
 
   - scientific_name: Rhopalosiphum nymphaeae
+    detection_slug: waterlily_aphid
     common_name: Water Lily Aphid  # Seerosenblattlaus
     common_name_de: Seerosenblattlaus
     pest_type: insect
@@ -1384,6 +1409,7 @@ pests:
       prüfen und auf klebrigen Honigtau auf dem Wasser als frühes Zeichen achten.
 
   - scientific_name: Galerucella nymphaeae
+    detection_slug: waterlily_leaf_beetle
     common_name: Water Lily Leaf Beetle  # Seerosenblattkäfer
     common_name_de: Seerosenblattkäfer
     pest_type: insect
@@ -1426,6 +1452,7 @@ pests:
       Blättern suchen.
 
   - scientific_name: Elophila nymphaeata
+    detection_slug: brown_china_mark
     common_name: Brown China-mark Moth  # Seerosenzünsler
     common_name_de: Seerosenzünsler
     pest_type: insect
