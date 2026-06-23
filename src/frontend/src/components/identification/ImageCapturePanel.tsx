@@ -223,13 +223,15 @@ export default function ImageCapturePanel({
               border: '2px dashed',
               borderColor: dragActive ? 'primary.main' : 'divider',
               borderRadius: 2,
-              p: { xs: 3, sm: 4 },
+              // Compact vertical padding on sm+ to reduce dialog height when
+              // embedded inside a fixed-height Dialog (e.g. PestDetectionDialog).
+              p: { xs: 3, sm: 3 },
               textAlign: 'center',
               cursor: disabled ? 'default' : 'pointer',
               bgcolor: dragActive ? 'action.hover' : 'transparent',
               transition: 'background-color 0.15s, border-color 0.15s',
               opacity: disabled ? 0.6 : 1,
-              minHeight: { xs: 100, sm: 120 },
+              minHeight: { xs: 100, sm: 100 },
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -284,9 +286,12 @@ export default function ImageCapturePanel({
             direction={{ xs: 'column', sm: 'row' }}
             spacing={1}
             useFlexGap
-            sx={{ mt: 2, flexWrap: 'wrap' }}
+            sx={{ mt: 2 }}
           >
-            {/* (b) Smartphone rear camera — always offered (mobile-first primary CTA) */}
+            {/* (b) Smartphone rear camera — always offered (mobile-first primary CTA).
+                On xs: fullWidth (stacked). On sm+: flex:1 so all buttons share the
+                row equally without each claiming 100% width (which would force them
+                onto separate lines and inflate the dialog height). */}
             <Button
               component="label"
               variant={level === 'beginner' ? 'contained' : 'outlined'}
@@ -294,7 +299,12 @@ export default function ImageCapturePanel({
               disabled={disabled || processing}
               fullWidth
               data-testid="capture-mobile-camera"
-              sx={{ minHeight: { xs: 56, sm: 44 } }}
+              sx={{
+                minHeight: { xs: 56, sm: 44 },
+                flex: { sm: 1 },
+                // fullWidth sets width:100%; override on sm+ so flex:1 can work
+                width: { sm: 'auto' },
+              }}
             >
               {t('pages.plantIdentification.takePhoto')}
               <input
@@ -311,7 +321,9 @@ export default function ImageCapturePanel({
             {/* (a) Desktop webcam — only when supported; tooltip steers mobile users away */}
             {webcam.isSupported && (
               <Tooltip title={t('pages.plantIdentification.webcamHint')} placement="top">
-                <span style={{ display: 'contents' }}>
+                {/* span wrapper needed because Tooltip requires a single forwardRef
+                    child; display:flex keeps the Button inside filling the span. */}
+                <span style={{ display: 'flex', flex: 1 }}>
                   <Button
                     variant="outlined"
                     startIcon={<CameraAltIcon />}
@@ -319,7 +331,11 @@ export default function ImageCapturePanel({
                     disabled={disabled || processing || webcam.isStarting}
                     fullWidth
                     data-testid="capture-webcam-start"
-                    sx={{ minHeight: { xs: 56, sm: 44 } }}
+                    sx={{
+                      minHeight: { xs: 56, sm: 44 },
+                      flex: { sm: 1 },
+                      width: { sm: 'auto' },
+                    }}
                   >
                     {t('pages.plantIdentification.webcam.start')}
                   </Button>
@@ -335,7 +351,11 @@ export default function ImageCapturePanel({
               disabled={disabled || processing}
               fullWidth
               data-testid="capture-upload"
-              sx={{ minHeight: { xs: 56, sm: 44 } }}
+              sx={{
+                minHeight: { xs: 56, sm: 44 },
+                flex: { sm: 1 },
+                width: { sm: 'auto' },
+              }}
             >
               {t('pages.plantIdentification.uploadPhoto')}
               <input
