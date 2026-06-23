@@ -143,7 +143,7 @@ pyyaml==6.0.3
     # via uvicorn
 pywebpush==2.3.0
     # via kamerplanter-backend (pyproject.toml)
-redis==8.0.0
+redis==8.0.1
     # via kamerplanter-backend (pyproject.toml)
 requests==2.34.2
     # via
