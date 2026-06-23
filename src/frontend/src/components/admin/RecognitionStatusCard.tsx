@@ -19,6 +19,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import MemoryIcon from '@mui/icons-material/Memory';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import { visuallyHidden } from '@mui/utils';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { getRecognitionStatus, startRecognitionAcquisition } from '@/api/endpoints/adminSettings';
 import type { RecognitionStatus } from '@/api/types';
@@ -171,7 +172,7 @@ export function RecognitionStatusCard({ gridColumn }: RecognitionStatusCardProps
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+          sx={visuallyHidden}
         >
           {liveMessage}
         </Box>

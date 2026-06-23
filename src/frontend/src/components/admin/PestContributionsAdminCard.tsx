@@ -15,6 +15,7 @@ import Tooltip from '@mui/material/Tooltip';
 import PestControlIcon from '@mui/icons-material/PestControl';
 import PublicIcon from '@mui/icons-material/Public';
 import LockIcon from '@mui/icons-material/Lock';
+import { visuallyHidden } from '@mui/utils';
 import AuthImage from '@/components/common/AuthImage';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
@@ -180,7 +181,7 @@ export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdmi
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+          sx={visuallyHidden}
           data-testid="pest-contributions-live-region"
         >
           {busyId !== null

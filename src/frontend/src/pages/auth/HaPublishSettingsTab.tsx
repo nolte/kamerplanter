@@ -21,6 +21,7 @@ import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
+import { visuallyHidden } from '@mui/utils';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useNotification } from '@/hooks/useNotification';
@@ -285,7 +286,7 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
       <Box
         aria-live="polite"
         aria-atomic="true"
-        sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+        sx={visuallyHidden}
       >
         {selected.size > 0
           ? t('haPublish.manage.bulkSelected', { count: selected.size })

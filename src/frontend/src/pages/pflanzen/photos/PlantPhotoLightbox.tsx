@@ -13,6 +13,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import { visuallyHidden } from '@mui/utils';
 import { formatDate } from '@/utils/formatting';
 import AuthImage from '@/components/common/AuthImage';
 import type { PlantPhoto } from '@/api/endpoints/plantPhotos';
@@ -117,18 +118,7 @@ export default function PlantPhotoLightbox({
     >
       {/* Visually hidden title satisfies aria-labelledby for screen readers
           without disturbing the visual black-background photo layout. */}
-      <DialogTitle
-        id="lightbox-dialog-title"
-        sx={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          overflow: 'hidden',
-          clip: 'rect(0 0 0 0)',
-          clipPath: 'inset(50%)',
-          whiteSpace: 'nowrap',
-        }}
-      >
+      <DialogTitle id="lightbox-dialog-title" sx={visuallyHidden}>
         {t('pages.plantPhotos.lightboxTitle')}
       </DialogTitle>
 
