@@ -11,6 +11,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CloseIcon from '@mui/icons-material/Close';
+import { visuallyHidden } from '@mui/utils';
 import { useWebcamCapture } from '@/hooks/useWebcamCapture';
 import { normalizeImage, type NormalizeImageOptions } from '@/utils/imageNormalization';
 import type { ExperienceLevel } from '@/api/types';
@@ -118,19 +119,11 @@ export default function ImageCapturePanel({
   return (
     <Box data-testid="image-capture-panel">
       {/* aria-live region: announces processing state to screen readers (UI-NFR-002 R-011).
-          clipPath replaces the deprecated clip property. */}
-      <Box
-        aria-live="polite"
-        aria-atomic="true"
-        sx={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          overflow: 'hidden',
-          clipPath: 'inset(50%)',
-          whiteSpace: 'nowrap',
-        }}
-      >
+          Uses MUI's visuallyHidden (real 1px values). NOTE: in the `sx` prop
+          `width: 1` resolves to 100% (not 1px), so a hand-rolled visually-hidden
+          box with `width: 1` would size to 100% and, being position:absolute,
+          overflow its dialog and spawn spurious scroll bars. */}
+      <Box aria-live="polite" aria-atomic="true" sx={visuallyHidden}>
         {processing ? t('pages.plantIdentification.processingImage') : ''}
       </Box>
 
@@ -140,17 +133,7 @@ export default function ImageCapturePanel({
           {/* webcam-preview-hint is the visually hidden description for the video
               element — screen readers announce it via aria-describedby so the user
               understands what the live feed is showing (UI-NFR-002 R-012). */}
-          <span
-            id="webcam-preview-hint"
-            style={{
-              position: 'absolute',
-              width: 1,
-              height: 1,
-              overflow: 'hidden',
-              clipPath: 'inset(50%)',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <span id="webcam-preview-hint" style={visuallyHidden}>
             {t('pages.plantIdentification.webcam.livePreviewHint')}
           </span>
           <Box

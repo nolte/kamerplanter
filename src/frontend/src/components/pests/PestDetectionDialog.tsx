@@ -168,11 +168,7 @@ export default function PestDetectionDialog({ open, onClose, plantKey }: PestDet
       aria-describedby={descId}
     >
       <DialogTitle id={titleId}>{t('pages.pests.title')}</DialogTitle>
-      {/* overflowX hidden: when the content is taller than the dialog, the
-          vertical scrollbar shaves ~15px off the content width, which would
-          otherwise push full-width children past the right edge and add a
-          spurious horizontal scrollbar. Nothing here is meant to scroll sideways. */}
-      <DialogContent dividers sx={{ overflowX: 'hidden' }}>
+      <DialogContent dividers>
         {/* Hidden accessible description for screen readers */}
         <Typography id={descId} sx={{ display: 'none' }}>
           {t('pages.pests.dialogDescription')}
