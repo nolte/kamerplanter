@@ -307,7 +307,6 @@ export default function PlantIdentificationDialog({
           disabled={busy}
           aria-label={t('common.close')}
           data-testid="identification-dialog-close"
-          edge="end"
           size="large"
         >
           <CloseIcon />
