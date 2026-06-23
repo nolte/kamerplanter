@@ -52,6 +52,8 @@ function pest(overrides: Partial<Pest> = {}): Pest {
     optimal_humidity_max: null,
     detection_slug: null,
     reference_image_refs: [],
+    has_reference_images: false,
+    reference_image_count: 0,
     created_at: null,
     updated_at: null,
     ...overrides,

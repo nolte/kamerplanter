@@ -86,6 +86,13 @@ class PestResponse(BaseModel):
     optimal_humidity_max: float | None = None
     detection_slug: str | None = None
     reference_image_refs: list[str] = Field(default_factory=list)
+    # REQ-044 — whether the pest's recognition class (``detection_slug``) has
+    # usable few-shot reference images indexed. Always ``False`` while pest
+    # detection is disabled (Default-Privacy master switch ``pest_detection_enabled``)
+    # or when the pest carries no ``detection_slug``. ``reference_image_count`` is
+    # the number of *active* indexed prototypes (0 when none / feature off).
+    has_reference_images: bool = False
+    reference_image_count: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

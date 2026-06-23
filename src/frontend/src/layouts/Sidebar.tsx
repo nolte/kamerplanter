@@ -28,6 +28,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import HistoryIcon from '@mui/icons-material/History';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
 import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
@@ -226,6 +227,11 @@ export default function Sidebar({ open }: SidebarProps) {
       header: t('nav.pflanzenschutz'),
       sectionKey: 'pflanzenschutz',
       items: [
+        {
+          label: t('nav.pestDetection'),
+          path: '/pflanzenschutz/erkennung',
+          icon: <PestControlIcon />,
+        },
         {
           label: t('nav.pests'),
           path: '/pflanzenschutz/pests',

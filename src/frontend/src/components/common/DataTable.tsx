@@ -60,6 +60,17 @@ interface DataTableProps<T> {
   stickyHeader?: boolean;
   mobileCardRenderer?: (row: T) => ReactNode;
   mobileBreakpoint?: 'sm' | 'md';
+  /**
+   * When `true` the DataTable knows that external column-filters are active and
+   * that an empty `rows` array means "no matches" rather than "no data at all".
+   * This swaps the generic EmptyState for the same "no results" view used by
+   * the built-in text search so the user gets a meaningful empty state with a
+   * "reset filters" CTA instead of the "create your first entry" illustration.
+   */
+  hasActiveColumnFilters?: boolean;
+  /** Called when the user clicks the "reset filters" CTA in the column-filter
+   *  empty state. Typically clears both the DataTable search and column filters. */
+  onResetColumnFilters?: () => void;
 }
 
 function defaultSearchExtractor<T>(row: T, col: Column<T>): string {
@@ -101,6 +112,8 @@ export default function DataTable<T>({
   stickyHeader = true,
   mobileCardRenderer,
   mobileBreakpoint = 'sm',
+  hasActiveColumnFilters = false,
+  onResetColumnFilters,
 }: DataTableProps<T>) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -199,6 +212,33 @@ export default function DataTable<T>({
 
   if (loading) {
     return <LoadingSkeleton variant="table" />;
+  }
+
+  // Empty state: external column-filters produced zero matches.
+  // Shown when the caller passes hasActiveColumnFilters=true and rows is empty.
+  // We show the same "no search results" treatment (icon + reset CTA) rather than
+  // the "create your first entry" illustration which would be misleading.
+  if (rows.length === 0 && hasActiveColumnFilters) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          py: 6,
+          gap: 1,
+        }}
+        data-testid="no-column-filter-results"
+      >
+        <SearchOffIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+        <Typography color="text.secondary">{t('table.noFilterResults')}</Typography>
+        {onResetColumnFilters && (
+          <Button size="small" onClick={onResetColumnFilters}>
+            {t('table.resetFilters')}
+          </Button>
+        )}
+      </Box>
+    );
   }
 
   // Empty state: no source data at all (before any filtering)

@@ -61,6 +61,10 @@ const CalculationsPage = lazy(() => import('@/pages/pflanzen/CalculationsPage'))
 const PlantIdentificationPage = lazy(
   () => import('@/pages/ki-recognition/PlantIdentificationPage'),
 );
+// REQ-044 Schädlingserkennung (global, plant-agnostic)
+const PestIdentificationPage = lazy(
+  () => import('@/pages/ki-recognition/PestIdentificationPage'),
+);
 const PlantingRunListPage = lazy(
   () => import('@/pages/durchlaeufe/PlantingRunListPage'),
 );
@@ -582,6 +586,16 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <WateringLogDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-044 Schädlingserkennung (global, plant-agnostic) */}
+          <Route
+            path="pflanzenschutz/erkennung"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PestIdentificationPage />
               </Suspense>
             }
           />

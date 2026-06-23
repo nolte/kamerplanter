@@ -7,10 +7,16 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import HelpTooltip from '@/components/common/HelpTooltip';
@@ -54,11 +60,17 @@ export default function PestDetailPage() {
   const { t, i18n } = useTranslation();
   const l = useLocalizedField();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { key = '' } = useParams<{ key: string }>();
 
   const [detail, setDetail] = useState<PestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Collapsible image panel: `null` follows the responsive default (collapsed on
+  // mobile, expanded on desktop); once the user toggles, their choice sticks.
+  const [imagesExpanded, setImagesExpanded] = useState<boolean | null>(null);
+  const imagesOpen = imagesExpanded ?? !isMobile;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -205,17 +217,61 @@ export default function PestDetailPage() {
         </Typography>
       )}
 
-      {/* User-contributed reference image gallery (upload or camera) */}
+      {/* User-contributed reference image gallery (upload or camera) —
+          collapsible because it can get long on mobile (default: collapsed on
+          mobile, expanded on desktop). */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            {t('pages.pestDetail.sectionImages')}
-          </Typography>
-          <PestImageGallery
-            pestKey={pest.key}
-            pestName={l(pest, 'common_name')}
-            detectionSlug={pest.detection_slug ?? null}
-          />
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setImagesExpanded(!imagesOpen)}
+            aria-expanded={imagesOpen}
+            aria-controls="pest-detail-images-panel"
+            aria-label={t('pages.pestDetail.sectionImagesToggle')}
+            data-testid="pest-detail-images-toggle"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              gap: 1,
+              p: 0,
+              border: 0,
+              background: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              font: 'inherit',
+              textAlign: 'left',
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+                borderRadius: 1,
+              },
+            }}
+          >
+            <Typography variant="h6" component="span">
+              {t('pages.pestDetail.sectionImages')}
+            </Typography>
+            <IconButton
+              component="span"
+              size="small"
+              aria-hidden="true"
+              sx={{ pointerEvents: 'none' }}
+            >
+              {imagesOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
+          <Collapse in={imagesOpen} timeout="auto" unmountOnExit>
+            <Box id="pest-detail-images-panel" sx={{ pt: 1 }}>
+              <PestImageGallery
+                pestKey={pest.key}
+                pestName={l(pest, 'common_name')}
+                detectionSlug={pest.detection_slug ?? null}
+              />
+            </Box>
+          </Collapse>
         </CardContent>
       </Card>
 

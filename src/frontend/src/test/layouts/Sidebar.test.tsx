@@ -31,4 +31,22 @@ describe('Sidebar — REQ-042 module overrides vs. experience level', () => {
     });
     expect(screen.queryByTestId('nav-/ernte/batches')).toBeNull();
   });
+
+  it('shows the global pest-detection entry for an expert by default', () => {
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithExpertise('expert'),
+    });
+    expect(screen.getByTestId('nav-/pflanzenschutz/erkennung')).toBeInTheDocument();
+  });
+
+  it('hides the pest-detection entry when the AI module is disabled via override', () => {
+    // The entry belongs to the AI module (more specific navPath than the ipm
+    // module's /pflanzenschutz prefix), so disabling AI must hide it while the
+    // sibling pest-list entry (ipm module) stays visible.
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithModuleOverrides('expert', { ai: 'disabled' }),
+    });
+    expect(screen.queryByTestId('nav-/pflanzenschutz/erkennung')).toBeNull();
+    expect(screen.getByTestId('nav-/pflanzenschutz/pests')).toBeInTheDocument();
+  });
 });

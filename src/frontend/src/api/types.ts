@@ -2276,6 +2276,13 @@ export interface Pest {
   optimal_humidity_max: number | null;
   detection_slug: string | null;
   reference_image_refs: string[];
+  /**
+   * REQ-044 — whether the pest's recognition class has usable few-shot
+   * reference images indexed. Always `false` while pest detection is disabled.
+   */
+  has_reference_images: boolean;
+  /** REQ-044 — number of active indexed reference prototypes (0 when none). */
+  reference_image_count: number;
   created_at: string | null;
   updated_at: string | null;
 }
