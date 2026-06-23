@@ -35,6 +35,38 @@ def pest_detection_status(
     return PestDetectionStatusResponse(**service.get_status())
 
 
+@router.post("/detect", response_model=PestDetectionResponse)
+async def detect_pests_global(
+    image: UploadFile,
+    language: str = Form("de"),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PestDetectionService = Depends(get_pest_detection_service),
+) -> PestDetectionResponse:
+    """Detect pests/symptoms in a photo without binding to a plant (REQ-044 §7).
+
+    Plant-agnostic entry point for the standalone pest-detection page. The image
+    recognition is identical to the plant-bound flow — only the plant binding is
+    dropped (``plant_instance_key=None``), so no IPM inspection is suggested and
+    the result is not attached to any plant history. The detection is still
+    persisted (so the returned ``key`` powers HITL feedback) and always carries a
+    disclaimer. Same feature gate, adapter resolution and consent rules as the
+    plant-bound endpoint.
+    """
+    content_type = (image.content_type or "").lower().strip()
+    if content_type not in _ALLOWED_CONTENT_TYPES:
+        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+
+    image_data = await image.read()
+    result = service.detect_pests(
+        image_data,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        plant_instance_key=None,
+        language=language,
+    )
+    return PestDetectionResponse(**result)
+
+
 @router.post("/plants/{plant_key}/detect", response_model=PestDetectionResponse)
 async def detect_pests(
     plant_key: str,

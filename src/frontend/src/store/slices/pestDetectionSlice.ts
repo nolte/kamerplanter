@@ -82,6 +82,18 @@ export const detectPests = createAsyncThunk<
   }
 });
 
+export const detectPestsGlobal = createAsyncThunk<
+  PestDetectionResult,
+  { image: File; language?: string },
+  { rejectValue: RejectValue }
+>('pestDetection/detectGlobal', async ({ image, language }, { rejectWithValue }) => {
+  try {
+    return await api.detectPestsGlobal(image, language);
+  } catch (err) {
+    return rejectWithValue(toRejectValue(err));
+  }
+});
+
 export const fetchPestDetectionHistory = createAsyncThunk<
   PestDetectionResult[],
   { plantKey: string; limit?: number }
@@ -171,6 +183,22 @@ const pestDetectionSlice = createSlice({
         state.result = action.payload;
       })
       .addCase(detectPests.rejected, (state, action) => {
+        state.detecting = false;
+        state.error = action.payload?.message ?? action.error.message ?? 'Detection failed';
+        state.errorCode = action.payload?.code ?? null;
+      })
+      // ── global detect (plant-agnostic) — shares the in-flight result state ──
+      .addCase(detectPestsGlobal.pending, (state) => {
+        state.detecting = true;
+        state.error = null;
+        state.errorCode = null;
+        state.result = null;
+      })
+      .addCase(detectPestsGlobal.fulfilled, (state, action) => {
+        state.detecting = false;
+        state.result = action.payload;
+      })
+      .addCase(detectPestsGlobal.rejected, (state, action) => {
         state.detecting = false;
         state.error = action.payload?.message ?? action.error.message ?? 'Detection failed';
         state.errorCode = action.payload?.code ?? null;

@@ -138,7 +138,10 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
   smart_home: def('smart_home', 'automation', 'expert', false, ['/smart-home']),
 
   // ── AI ──
-  ai: def('ai', 'ai', 'intermediate', false, ['/pflanzen/identifikation']),
+  ai: def('ai', 'ai', 'intermediate', false, [
+    '/pflanzen/identifikation',
+    '/pflanzenschutz/erkennung',
+  ]),
 };
 
 /** Ordered list of non-core categories for grouping in the settings dialog. */
@@ -156,9 +159,22 @@ export const MODULE_CATEGORIES: string[] = [
 /**
  * Resolve which module owns a given navigation path. A path is owned when it
  * equals one of a module's navPaths or is a sub-path thereof.
+ *
+ * When several navPaths match (e.g. `/pflanzenschutz` owned by `ipm` and the
+ * more specific `/pflanzenschutz/erkennung` owned by `ai`), the longest — i.e.
+ * most specific — navPath wins, so a nested path can belong to a different
+ * module than its parent prefix.
  */
 export function findModuleByPath(path: string): ModuleDefinition | undefined {
-  return Object.values(moduleCatalog).find((m) =>
-    m.navPaths.some((p) => path === p || path.startsWith(p + '/')),
-  );
+  let best: ModuleDefinition | undefined;
+  let bestLength = -1;
+  for (const m of Object.values(moduleCatalog)) {
+    for (const p of m.navPaths) {
+      if ((path === p || path.startsWith(p + '/')) && p.length > bestLength) {
+        best = m;
+        bestLength = p.length;
+      }
+    }
+  }
+  return best;
 }

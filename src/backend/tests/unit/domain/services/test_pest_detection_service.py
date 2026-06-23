@@ -172,6 +172,50 @@ class TestDetectDispatch:
         assert result["is_confident"] is False
 
 
+class TestGlobalDetect:
+    """REQ-044 §7 — plant-agnostic detect (plant_instance_key=None)."""
+
+    def test_global_detection_persists_without_plant(self) -> None:
+        adapter = _StubAdapter(findings=[_symptom("spider_mite", 0.6)])
+        pest_repo = _FakePestRepo()
+        svc = _service(adapter, pest_repo=pest_repo)
+        result = svc.detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key=None)
+        # The detection is persisted (so feedback has a key) but bound to no plant.
+        assert result["key"]
+        assert result["plant_instance_key"] is None
+        assert len(pest_repo.created) == 1
+        assert pest_repo.created[0].plant_instance_key is None
+        # Same image-recognition path: pest mapping still happens.
+        assert result["findings"][0]["matched_pest_key"] == "pest_spider_mite"
+
+    def test_global_detection_still_carries_disclaimer(self) -> None:
+        result = _service(_StubAdapter(findings=[])).detect_pests(
+            _jpeg(), tenant_key="t1", user_key="u1", plant_instance_key=None
+        )
+        assert result["disclaimer"].strip()
+
+    def test_feedback_on_global_detection(self) -> None:
+        adapter = _StubAdapter(findings=[_symptom("spider_mite", 0.6)])
+        pest_repo = _FakePestRepo()
+        svc = _service(adapter, pest_repo=pest_repo)
+        det = svc.detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key=None)
+        updated = svc.submit_feedback(det["key"], tenant_key="t1", finding_label="spider_mite", confirmed=True)
+        assert updated["feedback"][0]["finding_label"] == "spider_mite"
+        assert updated["feedback"][0]["confirmed"] is True
+
+    def test_global_feature_disabled_raises(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "pest_detection_enabled", False)
+        with pytest.raises(FeatureNotConfiguredError):
+            _service(_StubAdapter()).detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key=None)
+
+    def test_global_cloud_adapter_without_consent_raises_403(self) -> None:
+        adapter = _StubAdapter(key="kindwise_pest", requires_consent="pest_detection_cloud", external=True)
+        svc = _service(adapter, consent_granted=None)
+        with pytest.raises(ConsentRequiredError) as exc:
+            svc.detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key=None)
+        assert exc.value.status_code == 403
+
+
 class TestDisclaimerInvariant:
     @pytest.mark.parametrize("findings", [[], [_symptom("spider_mite", 0.6)], [_symptom("x", 0.1)]])
     def test_disclaimer_never_empty(self, findings) -> None:

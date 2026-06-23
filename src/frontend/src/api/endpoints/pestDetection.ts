@@ -39,6 +39,22 @@ export async function detectPests(
   return data;
 }
 
+/** POST /t/{slug}/pests/detect — plant-agnostic image upload (REQ-044 §7). */
+export async function detectPestsGlobal(
+  image: File,
+  language = 'de',
+): Promise<PestDetectionResult> {
+  const formData = new FormData();
+  formData.append('image', image);
+  formData.append('language', language);
+  const { data } = await tenantClient.post<PestDetectionResult>(
+    `${BASE}/detect`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
 /** GET /t/{slug}/pests/plants/{plantKey}/history?limit=N. */
 export async function listPestDetectionHistory(
   plantKey: string,

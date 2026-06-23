@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
 import PestDetailPage from '@/pages/pflanzenschutz/PestDetailPage';
 import { renderWithProviders } from '../helpers';
@@ -47,6 +47,8 @@ function makePest(overrides: Partial<Pest> = {}): Pest {
     optimal_humidity_max: 50,
     detection_slug: 'spider_mite',
     reference_image_refs: [],
+    has_reference_images: false,
+    reference_image_count: 0,
     created_at: null,
     updated_at: null,
     ...overrides,
@@ -172,6 +174,65 @@ describe('PestDetailPage', () => {
     // i18n is set to 'de' in beforeEach → the _de variant wins.
     expect(await screen.findByText('Helle Sprenkelung der Blattoberseite (DE).')).toBeInTheDocument();
     expect(screen.queryByText('Light speckling on the leaf surface.')).toBeNull();
+  });
+
+  describe('collapsible image panel', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('expands the image gallery by default on desktop', async () => {
+      vi.mocked(getPestDetail).mockResolvedValue(makeDetail());
+      renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+      const toggle = await screen.findByTestId('pest-detail-images-toggle');
+      // Desktop default (no matchMedia → isMobile=false) → panel open.
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByTestId('pest-image-gallery-stub')).toBeInTheDocument();
+    });
+
+    it('collapses the image gallery by default on mobile', async () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn().mockReturnValue({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+        } as unknown as MediaQueryList),
+      );
+      vi.mocked(getPestDetail).mockResolvedValue(makeDetail());
+      renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+      const toggle = await screen.findByTestId('pest-detail-images-toggle');
+      // Mobile default → panel collapsed (Collapse unmounts the content).
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByTestId('pest-image-gallery-stub')).toBeNull();
+    });
+
+    it('toggles the image gallery open when the header is clicked on mobile', async () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn().mockReturnValue({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+        } as unknown as MediaQueryList),
+      );
+      vi.mocked(getPestDetail).mockResolvedValue(makeDetail());
+      renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+      const toggle = await screen.findByTestId('pest-detail-images-toggle');
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await userEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await waitFor(() =>
+        expect(screen.getByTestId('pest-image-gallery-stub')).toBeInTheDocument(),
+      );
+    });
   });
 
   it('shows a localized summary explaining how each countermeasure works', async () => {

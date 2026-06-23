@@ -43,6 +43,7 @@ import {
   setPestImageActive,
   startPestAcquisition,
 } from '@/api/endpoints/adminPestRecognition';
+import { visuallyHidden } from '@mui/utils';
 import { useNotification } from '@/hooks/useNotification';
 import type { PestCoverageEntry, PestCurationImage, PestRecognitionStatus } from '@/api/types';
 
@@ -181,7 +182,7 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+          sx={visuallyHidden}
         >
           {liveMessage}
         </Box>

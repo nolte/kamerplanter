@@ -1,18 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import {
+  ColumnFilterBar,
+  type ColumnFilterDef,
+} from '@/components/common/ColumnFilterBar';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPests } from '@/store/slices/ipmSlice';
+import { fetchPestDetectionStatus } from '@/store/slices/pestDetectionSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
+import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import type { Pest } from '@/api/types';
 import PestCreateDialog from './PestCreateDialog';
@@ -26,20 +33,135 @@ const difficultyColor: Record<string, ChipColor> = {
   hard: 'error',
 };
 
+// Filterable enum domains. Keep these aligned with `enums.pestType.*` /
+// `enums.detectionDifficulty.*` so option labels resolve via i18n.
+const PEST_TYPE_VALUES = [
+  'insect',
+  'mite',
+  'nematode',
+  'mollusk',
+  'arachnid',
+  'gastropod',
+  'mammal',
+] as const;
+const DIFFICULTY_VALUES = ['easy', 'medium', 'hard'] as const;
+
+// URL query-param names owned by the column filters (comma-separated values).
+const FILTER_PEST_TYPE = 'pest_type';
+const FILTER_DIFFICULTY = 'difficulty';
+const FILTER_RECOGNITION = 'recognition';
+const FILTER_IDS = [FILTER_PEST_TYPE, FILTER_DIFFICULTY, FILTER_RECOGNITION] as const;
+
 export default function PestListPage() {
   const { t } = useTranslation();
   const l = useLocalizedField();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
+  const detectionStatus = useAppSelector((s) => s.pestDetection.status);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({
     defaultSort: { column: 'scientificName', direction: 'asc' },
   });
+  const columnFilters = useColumnFilters(FILTER_IDS);
 
   useEffect(() => {
     dispatch(fetchPests({}));
   }, [dispatch]);
+
+  useEffect(() => {
+    if (detectionStatus == null) {
+      dispatch(fetchPestDetectionStatus());
+    }
+  }, [dispatch, detectionStatus]);
+
+  // REQ-044 — only surface the "recognition available" marker while the pest
+  // detection feature is actually enabled (master switch `pest_detection_enabled`,
+  // mirrored by the tenant status endpoint's `available` flag). When the feature
+  // is off, the backend already reports `has_reference_images=false`, but we
+  // additionally hide the marker/column so the UI never hints at a disabled feature.
+  const recognitionEnabled = detectionStatus?.available === true;
+
+  // Available filter controls. The recognition filter is only offered while the
+  // detection feature is enabled (mirrors the conditional recognition column).
+  const filterDefs: ColumnFilterDef[] = useMemo(() => {
+    const defs: ColumnFilterDef[] = [
+      {
+        id: FILTER_PEST_TYPE,
+        label: t('pages.ipm.pestType'),
+        options: PEST_TYPE_VALUES.map((v) => ({
+          value: v,
+          label: t(`enums.pestType.${v}`),
+        })),
+      },
+      {
+        id: FILTER_DIFFICULTY,
+        label: t('pages.ipm.detectionDifficulty'),
+        options: DIFFICULTY_VALUES.map((v) => ({
+          value: v,
+          label: t(`enums.detectionDifficulty.${v}`),
+        })),
+      },
+    ];
+    if (recognitionEnabled) {
+      defs.push({
+        id: FILTER_RECOGNITION,
+        label: t('pages.ipm.recognitionColumn'),
+        options: [
+          { value: 'yes', label: t('common.yes') },
+          { value: 'no', label: t('common.no') },
+        ],
+      });
+    }
+    return defs;
+  }, [t, recognitionEnabled]);
+
+  // Client-side filtering: the page loads the full pest list up front
+  // (`fetchPests({})`), so we can apply the multi-select column filters in a
+  // memo before handing the rows to the (also client-side) DataTable. The
+  // free-text search/sort/pagination remain DataTable's responsibility.
+  const filteredPests = useMemo(() => {
+    const types = columnFilters.values[FILTER_PEST_TYPE] ?? [];
+    const difficulties = columnFilters.values[FILTER_DIFFICULTY] ?? [];
+    const recognition = recognitionEnabled
+      ? columnFilters.values[FILTER_RECOGNITION] ?? []
+      : [];
+    if (types.length === 0 && difficulties.length === 0 && recognition.length === 0) {
+      return pests;
+    }
+    return pests.filter((p) => {
+      if (types.length > 0 && !types.includes(p.pest_type)) return false;
+      if (difficulties.length > 0 && !difficulties.includes(p.detection_difficulty)) {
+        return false;
+      }
+      if (recognition.length > 0) {
+        const flag = p.has_reference_images ? 'yes' : 'no';
+        if (!recognition.includes(flag)) return false;
+      }
+      return true;
+    });
+  }, [pests, columnFilters.values, recognitionEnabled]);
+
+  const recognitionColumn: Column<Pest> = {
+    id: 'recognition',
+    label: t('pages.ipm.recognitionColumn'),
+    render: (r) =>
+      r.has_reference_images ? (
+        <Tooltip title={t('pages.ipm.recognitionAvailableTooltip')}>
+          <Chip
+            icon={<CameraAltOutlinedIcon />}
+            label={t('pages.ipm.recognitionAvailable')}
+            size="small"
+            color="info"
+            variant="outlined"
+            data-testid="recognition-chip"
+          />
+        </Tooltip>
+      ) : null,
+    searchable: false,
+    sortable: false,
+    hideBelowBreakpoint: 'md',
+  };
 
   const columns: Column<Pest>[] = [
     {
@@ -87,16 +209,7 @@ export default function PestListPage() {
       ),
       searchValue: (r) => t(`enums.detectionDifficulty.${r.detection_difficulty}`),
     },
-    {
-      // UI-NFR-018 R-002/R-019/R-020: Origin column (secondary, hidden below md)
-      // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
-      id: 'origin',
-      label: t('common.origin.filterLabel'),
-      render: (r) => <OriginChip origin={(r as unknown as { origin?: DataOrigin }).origin} />,
-      hideBelowBreakpoint: 'md',
-      sortable: false,
-      searchable: false,
-    },
+    ...(recognitionEnabled ? [recognitionColumn] : []),
   ];
 
   return (
@@ -117,9 +230,10 @@ export default function PestListPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.ipm.pestListIntro')}
       </Typography>
+      <ColumnFilterBar filters={filterDefs} state={columnFilters} />
       <DataTable
         columns={columns}
-        rows={pests}
+        rows={filteredPests}
         loading={loading}
         getRowKey={(r) => r.key}
         onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
@@ -128,6 +242,8 @@ export default function PestListPage() {
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.pestsTitle')}
+        hasActiveColumnFilters={columnFilters.activeCount > 0}
+        onResetColumnFilters={columnFilters.clearAll}
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
@@ -144,6 +260,15 @@ export default function PestListPage() {
                   size="small"
                   color={difficultyColor[r.detection_difficulty] ?? 'default'}
                 />
+                {recognitionEnabled && r.has_reference_images && (
+                  <Chip
+                    icon={<CameraAltOutlinedIcon />}
+                    label={t('pages.ipm.recognitionAvailable')}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                  />
+                )}
               </>
             }
             fields={[

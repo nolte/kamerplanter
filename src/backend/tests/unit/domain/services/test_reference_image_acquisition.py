@@ -29,6 +29,13 @@ from app.domain.services.reference_image_service import ReferenceImageService
         ("CC_BY_NC_4_0", ReferenceLicense.CC_BY_NC),
         ("http://creativecommons.org/licenses/by-sa/4.0/", ReferenceLicense.CC_BY_SA),
         ("CC_BY_SA_4_0", ReferenceLicense.CC_BY_SA),
+        ("http://creativecommons.org/licenses/by-nd/4.0/", ReferenceLicense.CC_BY_ND),
+        ("CC_BY_ND_4_0", ReferenceLicense.CC_BY_ND),
+        # Compound NC variants must NOT collapse to CC-BY-NC / CC-BY.
+        ("http://creativecommons.org/licenses/by-nc-sa/4.0/", ReferenceLicense.CC_BY_NC_SA),
+        ("CC_BY_NC_SA_4_0", ReferenceLicense.CC_BY_NC_SA),
+        ("http://creativecommons.org/licenses/by-nc-nd/4.0/", ReferenceLicense.CC_BY_NC_ND),
+        ("CC_BY_NC_ND_4_0", ReferenceLicense.CC_BY_NC_ND),
         ("", ReferenceLicense.UNKNOWN),
         (None, ReferenceLicense.UNKNOWN),
         ("All rights reserved", ReferenceLicense.UNKNOWN),
@@ -39,11 +46,34 @@ def test_normalize_license(raw, expected):
 
 
 def test_only_cc0_and_ccby_acceptable():
+    # Default (commercial-safe) stance: CC0/CC-BY only.
     assert is_acceptable(ReferenceLicense.CC0)
     assert is_acceptable(ReferenceLicense.CC_BY)
     assert not is_acceptable(ReferenceLicense.CC_BY_NC)
     assert not is_acceptable(ReferenceLicense.CC_BY_SA)
     assert not is_acceptable(ReferenceLicense.UNKNOWN)
+
+
+def test_ccbync_acceptable_only_with_noncommercial_flag():
+    # CC-BY-NC is gated behind the non-commercial flag.
+    assert not is_acceptable(ReferenceLicense.CC_BY_NC, allow_noncommercial=False)
+    assert is_acceptable(ReferenceLicense.CC_BY_NC, allow_noncommercial=True)
+    # CC0/CC-BY stay acceptable regardless of the flag.
+    assert is_acceptable(ReferenceLicense.CC0, allow_noncommercial=True)
+    assert is_acceptable(ReferenceLicense.CC_BY, allow_noncommercial=True)
+
+
+def test_copyleft_and_noderivatives_rejected_even_noncommercially():
+    # -SA / -ND obligations persist even non-commercially → never acceptable.
+    for blocked in (
+        ReferenceLicense.CC_BY_SA,
+        ReferenceLicense.CC_BY_ND,
+        ReferenceLicense.CC_BY_NC_SA,
+        ReferenceLicense.CC_BY_NC_ND,
+        ReferenceLicense.UNKNOWN,
+    ):
+        assert not is_acceptable(blocked, allow_noncommercial=True)
+        assert not is_acceptable(blocked, allow_noncommercial=False)
 
 
 # ── Acquisition pipeline ────────────────────────────────────────────────

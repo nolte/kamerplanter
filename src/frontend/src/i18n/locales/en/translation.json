@@ -310,7 +310,14 @@
     "noSearchResults": "No results found for your search",
     "resetFilters": "Reset filters",
     "sortedBy": "Sorted by",
-    "searchPlaceholder": "Search table..."
+    "searchPlaceholder": "Search table...",
+    "activeFilters": "{{count}} filter active",
+    "activeFilters_other": "{{count}} filters active",
+    "clearFilters": "Reset filters",
+    "noFilterResults": "No entries match the selected filters.",
+    "filterGroupLabel": "Column filters",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -336,6 +343,7 @@
     "wateringEvents": "Watering Events",
     "nutrientCalculations": "Nutrient Calculations",
     "pflanzenschutz": "Plant Protection",
+    "pestDetection": "Detect pest",
     "pests": "Pests",
     "diseases": "Diseases",
     "treatments": "Treatments",
@@ -456,6 +464,11 @@
       "addToGalleryAriaLabel": "Add this photo to the gallery of {{name}}",
       "addToGallerySuccess": "Photo added to the gallery.",
       "addToGalleryError": "The photo could not be added to the gallery."
+    },
+    "pestIdentification": {
+      "title": "Detect a pest by photo",
+      "pageIntro": "Photograph a pest, a damage symptom or an insect and use image recognition to find out what it most likely is — independent of any specific plant. The result is an estimate and does not replace expert knowledge.",
+      "plantHint": "To document a finding on a specific plant, use “Check for pests” on that plant's detail page."
     },
     "plantIdentification": {
       "title": "AI Plant Recognition",
@@ -2982,6 +2995,9 @@
       "optimalTempMax": "Optimal Temp Max (°C)",
       "optimalTempHelper": "Optimal temperature range for development and reproduction",
       "detectionDifficulty": "Detection Difficulty",
+      "recognitionColumn": "Image Recognition",
+      "recognitionAvailable": "Recognition available",
+      "recognitionAvailableTooltip": "Reference images are available for this pest's automatic image recognition.",
       "description": "Description",
       "incubationPeriodDays": "Incubation Period (Days)",
       "incubationPeriodDaysHelper": "Time from infection to symptom appearance",
@@ -3688,6 +3704,7 @@
       "loadError": "The pest data could not be loaded.",
       "notFound": "Pest not found.",
       "sectionImages": "Images",
+      "sectionImagesToggle": "Toggle images section",
       "noImages": "No reference images have been added for this pest yet.",
       "imageAlt": "Reference image: {{name}}",
       "sectionProfile": "Profile",

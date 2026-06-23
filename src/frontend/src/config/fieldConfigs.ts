@@ -181,6 +181,7 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/pflanzen/calculations': 'expert',
   '/duengung/feeding-events': 'expert',
   '/duengung/calculations': 'expert',
+  '/pflanzenschutz/erkennung': 'expert',
   '/pflanzenschutz/pests': 'expert',
   '/pflanzenschutz/diseases': 'expert',
   '/pflanzenschutz/treatments': 'expert',

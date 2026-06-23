@@ -9,8 +9,9 @@ filtering happen in :mod:`app.domain.services.reference_image_license`.
 import structlog
 from httpx import Client, HTTPStatusError, RequestError
 
-from app.common.exceptions import ExternalSourceError, RateLimitError
+from app.common.exceptions import ExternalSourceError, RateLimitError, ValidationError
 from app.common.text import strip_html
+from app.common.url_safety import validate_server_side_url
 from app.config.settings import settings
 from app.domain.models.reference_image import MediaCandidate
 from app.domain.services.reference_image_license import normalize_license
@@ -52,7 +53,7 @@ class GBIFMediaClient:
         except RateLimitError:
             raise
         except (HTTPStatusError, RequestError) as exc:
-            raise ExternalSourceError(f"GBIF occurrence search failed: {exc}") from exc
+            raise ExternalSourceError("gbif", f"occurrence search failed: {exc}") from exc
 
         candidates: list[MediaCandidate] = []
         for occ in payload.get("results", []):
@@ -80,15 +81,27 @@ class GBIFMediaClient:
         return candidates
 
     def download(self, url: str) -> bytes:
-        """Download a single image; raises on transport errors or oversize."""
+        """Download a single image; raises on transport errors, SSRF or oversize.
+
+        The occurrence-media URL is supplied by the GBIF response and dialed
+        server-side, so it passes the shared SSRF guard first (https + a public,
+        routable address; blocks loopback/RFC1918/link-local incl. the cloud
+        metadata 169.254.169.254). Redirects are NOT followed.
+        """
         try:
-            response = self._client.get(url)
+            validate_server_side_url(url, field="gbif_media_url")
+        except ValidationError as exc:
+            raise ExternalSourceError("gbif", f"image url rejected by SSRF guard: {exc}") from exc
+        try:
+            response = self._client.get(url, follow_redirects=False)
             response.raise_for_status()
         except (HTTPStatusError, RequestError) as exc:
-            raise ExternalSourceError(f"Image download failed: {exc}") from exc
+            raise ExternalSourceError("gbif", f"image download failed: {exc}") from exc
+        if response.is_redirect:
+            raise ExternalSourceError("gbif", f"image url redirected; not followed (SSRF guard): {url}")
         data = response.content
         if len(data) > _MAX_DOWNLOAD_BYTES:
-            raise ExternalSourceError(f"Image exceeds {_MAX_DOWNLOAD_BYTES} bytes")
+            raise ExternalSourceError("gbif", f"image exceeds {_MAX_DOWNLOAD_BYTES} bytes")
         return data
 
     def close(self) -> None:

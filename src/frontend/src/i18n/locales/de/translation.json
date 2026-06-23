@@ -310,7 +310,14 @@
     "noSearchResults": "Keine Ergebnisse für Ihre Suche gefunden",
     "resetFilters": "Filter zurücksetzen",
     "sortedBy": "Sortiert nach",
-    "searchPlaceholder": "Tabelle durchsuchen..."
+    "searchPlaceholder": "Tabelle durchsuchen...",
+    "activeFilters": "{{count}} Filter aktiv",
+    "activeFilters_other": "{{count}} Filter aktiv",
+    "clearFilters": "Filter zurücksetzen",
+    "noFilterResults": "Keine Einträge entsprechen den gewählten Filtern.",
+    "filterGroupLabel": "Spaltenfilter",
+    "showFilters": "Filter einblenden",
+    "hideFilters": "Filter ausblenden"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -336,6 +343,7 @@
     "wateringEvents": "Gießvorgänge",
     "nutrientCalculations": "Nährstoff-Berechnungen",
     "pflanzenschutz": "Pflanzenschutz",
+    "pestDetection": "Schädling erkennen",
     "pests": "Schädlinge",
     "diseases": "Krankheiten",
     "treatments": "Behandlungen",
@@ -456,6 +464,11 @@
       "addToGalleryAriaLabel": "Dieses Foto zur Galerie von {{name}} hinzufügen",
       "addToGallerySuccess": "Foto wurde zur Galerie hinzugefügt.",
       "addToGalleryError": "Das Foto konnte nicht zur Galerie hinzugefügt werden."
+    },
+    "pestIdentification": {
+      "title": "Schädling per Foto erkennen",
+      "pageIntro": "Fotografiere einen Schädling, ein Schadbild oder ein Insekt und finde per Bilderkennung heraus, worum es sich vermutlich handelt — unabhängig von einer bestimmten Pflanze. Das Ergebnis ist eine Einschätzung und ersetzt keine Fachkenntnis.",
+      "plantHint": "Um einen Befund an einer bestimmten Pflanze zu dokumentieren, nutze „Auf Schädlinge prüfen\" auf der Detailseite der Pflanze."
     },
     "plantIdentification": {
       "title": "KI-Pflanzenerkennung",
@@ -2983,6 +2996,9 @@
       "optimalTempMax": "Opt. Temperatur max (°C)",
       "optimalTempHelper": "Optimaler Temperaturbereich fur Entwicklung und Vermehrung",
       "detectionDifficulty": "Erkennungsschwierigkeit",
+      "recognitionColumn": "Bilderkennung",
+      "recognitionAvailable": "Erkennung verfugbar",
+      "recognitionAvailableTooltip": "Fur diesen Schadling liegen Referenzbilder fur die automatische Bilderkennung vor.",
       "description": "Beschreibung",
       "incubationPeriodDays": "Inkubationszeit (Tage)",
       "incubationPeriodDaysHelper": "Zeit von der Infektion bis zum Auftreten von Symptomen",
@@ -3689,6 +3705,7 @@
       "loadError": "Die Schädlingsdaten konnten nicht geladen werden.",
       "notFound": "Schädling nicht gefunden.",
       "sectionImages": "Bilder",
+      "sectionImagesToggle": "Bilder-Bereich ein-/ausklappen",
       "noImages": "Für diesen Schädling sind noch keine Referenzbilder hinterlegt.",
       "imageAlt": "Referenzbild: {{name}}",
       "sectionProfile": "Steckbrief",

@@ -18,6 +18,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SaveIcon from '@mui/icons-material/Save';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
+import { visuallyHidden } from '@mui/utils';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
@@ -1255,18 +1256,7 @@ function BarRow({
         <Box
           aria-live="polite"
           data-testid={`bar-live-${periodIdx}-${kind}`}
-          sx={{
-            gridColumn: '1 / -1',
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            p: 0,
-            m: -1,
-            overflow: 'hidden',
-            clip: 'rect(0 0 0 0)',
-            whiteSpace: 'nowrap',
-            border: 0,
-          }}
+          sx={{ ...visuallyHidden, gridColumn: '1 / -1' }}
         >
           {announcement}
         </Box>

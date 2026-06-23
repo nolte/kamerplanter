@@ -127,6 +127,27 @@ class Settings(BaseSettings):
     pest_reference_min_usable: int = 30  # target accepted prototypes per class
     pest_reference_min_dimension: int = 256  # px on the shorter edge
     pest_reference_max_aspect_ratio: float = 2.5
+    # Accept CC-BY-NC images in addition to CC0/CC-BY. Reversible by design.
+    #
+    # ONLY permissible while the application is operated NON-COMMERCIALLY: CC-BY-NC
+    # is redistributable-with-attribution for non-commercial use, which is the
+    # current operating assumption. Upon any COMMERCIALISATION this MUST be set to
+    # False — CC-BY-NC is then no longer redistributable and would taint the
+    # embedding index. Copyleft (-SA) / no-derivatives (-ND) variants stay
+    # rejected regardless of this flag. See
+    # spec/analysis/pest-image-sources-analysis.md §4.3.
+    pest_reference_allow_noncommercial: bool = True
+    # Active acquisition sources and their priority order (first = highest).
+    # Configurable so a single source can be enabled/disabled or reordered
+    # without code changes; the orchestrator iterates them in this order.
+    pest_reference_sources: list[str] = ["gbif", "inaturalist", "idigbio"]
+    # iNaturalist direct API (per-photo license + lifeStage annotation filter).
+    inaturalist_base_url: str = "https://api.inaturalist.org/v1"
+    inaturalist_http_timeout: int = 30
+    inaturalist_per_page: int = 100  # iNat hard cap is 200; stay polite
+    # iDigBio media search (specimen-biased; live-pest yield is thin, §4.1).
+    idigbio_base_url: str = "https://search.idigbio.org/v2"
+    idigbio_http_timeout: int = 30
 
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"

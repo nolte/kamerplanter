@@ -18,7 +18,8 @@ from app.api.v1.ipm.schemas import (
     TreatmentUpdate,
 )
 from app.common.auth import get_current_user
-from app.common.dependencies import get_ipm_service
+from app.common.dependencies import get_ipm_service, get_pest_inference_client
+from app.config.settings import settings
 from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
     Disease,
@@ -32,8 +33,40 @@ from app.domain.services.ipm_service import IpmService
 router = APIRouter(prefix="/ipm", tags=["ipm"], dependencies=[Depends(get_current_user)])
 
 
-def _pest_response(p: Pest) -> PestResponse:
-    return PestResponse(key=p.key or "", **p.model_dump(exclude={"key"}))
+def _reference_image_counts() -> dict[str, int]:
+    """Bundle the few-shot reference-image coverage per ``detection_slug``.
+
+    REQ-044 — returns a ``{detection_slug: active_prototype_count}`` map loaded in
+    a SINGLE call to the inference service (no N+1 over the pest list). The map is
+    keyed by the recognition class slug (``PestTaxon.slug``), which a pest links
+    to via its ``detection_slug``. Returns ``{}`` while pest detection is disabled
+    (Default-Privacy master switch) or the service is unreachable — in both cases
+    every pest reports ``has_reference_images=False``.
+    """
+    if not settings.pest_detection_enabled:
+        return {}
+    coverage_rows = get_pest_inference_client().coverage()
+    counts: dict[str, int] = {}
+    for row in coverage_rows:
+        label = row.get("label")
+        if not label:
+            continue
+        # "active" = curated, recognition-usable prototypes; fall back to the
+        # total only if the service omits the active count.
+        counts[label] = int(row.get("active", row.get("total", 0)))
+    return counts
+
+
+def _pest_response(p: Pest, ref_counts: dict[str, int] | None = None) -> PestResponse:
+    count = 0
+    if ref_counts and p.detection_slug:
+        count = ref_counts.get(p.detection_slug, 0)
+    return PestResponse(
+        key=p.key or "",
+        has_reference_images=count > 0,
+        reference_image_count=count,
+        **p.model_dump(exclude={"key"}),
+    )
 
 
 def _disease_response(d: Disease) -> DiseaseResponse:
@@ -73,7 +106,8 @@ def list_pests(
     service: IpmService = Depends(get_ipm_service),
 ):
     pests, _ = service.list_pests(offset, limit)
-    return [_pest_response(p) for p in pests]
+    ref_counts = _reference_image_counts()
+    return [_pest_response(p, ref_counts) for p in pests]
 
 
 @router.post("/pests", response_model=PestResponse, status_code=201)
@@ -87,7 +121,7 @@ def create_pest(body: PestCreate, service: IpmService = Depends(get_ipm_service)
 def get_pest_detail(key: str, service: IpmService = Depends(get_ipm_service)):
     detail = service.get_pest_detail(key)
     return PestDetailResponse(
-        pest=_pest_response(detail["pest"]),
+        pest=_pest_response(detail["pest"], _reference_image_counts()),
         treatments=[_treatment_response(t) for t in detail["treatments"]],
         beneficials=[_beneficial_response(b) for b in detail["beneficials"]],
         detection_symptom_hint=detail["detection_symptom_hint"],
@@ -96,7 +130,7 @@ def get_pest_detail(key: str, service: IpmService = Depends(get_ipm_service)):
 
 @router.get("/pests/{key}", response_model=PestResponse)
 def get_pest(key: str, service: IpmService = Depends(get_ipm_service)):
-    return _pest_response(service.get_pest(key))
+    return _pest_response(service.get_pest(key), _reference_image_counts())
 
 
 @router.put("/pests/{key}", response_model=PestResponse)

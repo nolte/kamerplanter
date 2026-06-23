@@ -21,6 +21,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/Lock';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
+import { visuallyHidden } from '@mui/utils';
 import { useSnackbar } from 'notistack';
 
 import { useAppDispatch } from '@/store/hooks';
@@ -148,7 +149,7 @@ export default function ModulesSettingsTab() {
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+        sx={visuallyHidden}
       >
         {isSearchActive &&
           t('modules.manage.searchResultsAria', { count: totalMatchCount, query: search })}
