@@ -46,7 +46,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-coverage==7.14.2
+coverage==7.14.3
     # via pytest-cov
 cryptography==49.0.0
     # via
@@ -149,7 +149,7 @@ pytokens==0.4.1
     # via black
 pyyaml==6.0.3
     # via uvicorn
-redis==8.0.0
+redis==8.0.1
     # via kamerplanter-backend (pyproject.toml)
 requests==2.34.2
     # via
