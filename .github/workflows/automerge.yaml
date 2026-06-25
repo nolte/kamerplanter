@@ -30,7 +30,7 @@ jobs:
     # to that guard and triggers release-drafter normally.
     # Backwards compatibility: when `vars.PORTFOLIO_APP_ID` is unset, the
     # reusable falls back to `secrets.token` (GITHUB_TOKEN).
-    uses: nolte/gh-plumbing/.github/workflows/reusable-automerge.yaml@v1.1.24
+    uses: nolte/gh-plumbing/.github/workflows/reusable-automerge.yaml@v1.1.25
     with:
       app-id: ${{ vars.PORTFOLIO_APP_ID }}
     secrets:
