@@ -271,6 +271,19 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
 
+        # Defensive guard: never surface tasks whose plant_instance was removed
+        # (soft-delete via ``removed_on``) or no longer exists. Task generators or
+        # legacy data created before the removal-cascade can leave such orphans
+        # behind; the cascade only deletes a snapshot at removal time, so the queue
+        # must re-filter rather than trust that orphans never exist.
+        query += (
+            f" LET _plant = doc.entity_type == 'plant_instance'"
+            f" ? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', doc.entity_key))"
+            f" : null"
+            f" FILTER doc.entity_type != 'plant_instance'"
+            f" OR (_plant != null AND _plant.removed_on == null)"
+        )
+
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
         query += f" SORT doc.due_date ASC LIMIT {offset}, {limit} RETURN doc"
 
