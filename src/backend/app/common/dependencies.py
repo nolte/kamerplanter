@@ -158,6 +158,7 @@ def get_plant_instance_service() -> PlantInstanceService:
         phase_seq_repo=get_phase_sequence_repo(),
         task_repo=get_task_repo(),
         species_repo=get_species_repo(),
+        planting_run_repo=get_planting_run_repo(),
         photo_cleanup=_cascade_plant_photo_cleanup,
     )
 

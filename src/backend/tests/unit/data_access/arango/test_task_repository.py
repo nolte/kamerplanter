@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.domain.models.task import Task
 
 
 @pytest.fixture
@@ -68,3 +69,40 @@ class TestRemovedPlantGuard:
 
         list_query = mock_db.aql.execute.call_args_list[0].args[0]
         assert "doc.entity_type != 'plant_instance'" in list_query
+
+
+class TestGetTasksForRun:
+    def test_filters_on_planting_run_key(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.get_tasks_for_run("run-1")
+
+        query = mock_db.aql.execute.call_args.args[0]
+        bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert "doc.planting_run_key == @run_key" in query
+        assert bind["run_key"] == "run-1"
+
+    def test_optional_status_filter(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.get_tasks_for_run("run-1", status="pending")
+
+        query = mock_db.aql.execute.call_args.args[0]
+        bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert "doc.status == @status" in query
+        assert bind["status"] == "pending"
+
+
+class TestPlantingRunKeyPersisted:
+    """Regression guard: ``planting_run_key`` must be a declared model field.
+
+    It used to be missing, so Pydantic's default ``extra='ignore'`` silently
+    dropped it on construction and it was never written to the document — which
+    left watering/feeding tasks unattributable to their run.
+    """
+
+    def test_field_survives_model_dump(self):
+        task = Task(name="watering", planting_run_key="run-1")
+
+        assert task.planting_run_key == "run-1"
+        assert task.model_dump(by_alias=True)["planting_run_key"] == "run-1"

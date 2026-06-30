@@ -85,3 +85,87 @@ class TestRemovePlantTaskCleanup:
 
         assert result is self.plant
         self.task_repo.get_tasks_for_plant.assert_called_once_with("plant-1")
+
+
+class TestRemovePlantRunTaskCleanup:
+    """Watering/feeding tasks hang off the planting run, not the instance.
+
+    They are cleaned up only once the run has no active instances left, since a
+    run may contain several plants and keeps needing those tasks while any
+    sibling is still growing.
+    """
+
+    def setup_method(self):
+        self.plant_repo = MagicMock()
+        self.site_repo = MagicMock()
+        self.rotation = MagicMock()
+        self.companion = MagicMock()
+        self.task_repo = MagicMock()
+        self.run_repo = MagicMock()
+
+        self.plant = MagicMock()
+        self.plant.slot_key = None
+        self.plant_repo.get_by_key.return_value = self.plant
+        self.plant_repo.update.return_value = self.plant
+        # Isolate the run-scoped path: the plant-scoped cascade finds nothing.
+        self.task_repo.get_tasks_for_plant.return_value = []
+
+    def _service(self) -> PlantInstanceService:
+        return PlantInstanceService(
+            self.plant_repo,
+            self.site_repo,
+            self.rotation,
+            self.companion,
+            task_repo=self.task_repo,
+            planting_run_repo=self.run_repo,
+        )
+
+    @staticmethod
+    def _run(key: str = "run-1") -> MagicMock:
+        run = MagicMock()
+        run.key = key
+        return run
+
+    def test_deletes_open_run_tasks_when_no_active_siblings(self):
+        self.run_repo.get_runs_for_plant.return_value = [self._run("run-1")]
+        # Every instance of the run is removed (the just-removed plant carries
+        # removed_on); only open run tasks should be deleted, history kept.
+        self.run_repo.get_run_plants.return_value = [
+            {"_key": "plant-1", "removed_on": "2026-06-30"},
+        ]
+        self.task_repo.get_tasks_for_run.return_value = [
+            _make_task("w-open", "pending"),
+            _make_task("w-done", "completed"),
+        ]
+        service = self._service()
+
+        service.remove_plant("plant-1")
+
+        deleted = {c.args[0] for c in self.task_repo.delete_task.call_args_list}
+        assert deleted == {"w-open"}
+
+    def test_keeps_run_tasks_while_active_sibling_remains(self):
+        self.run_repo.get_runs_for_plant.return_value = [self._run("run-1")]
+        self.run_repo.get_run_plants.return_value = [
+            {"_key": "plant-1", "removed_on": "2026-06-30"},
+            {"_key": "plant-2", "removed_on": None},  # still active
+        ]
+        service = self._service()
+
+        service.remove_plant("plant-1")
+
+        self.task_repo.get_tasks_for_run.assert_not_called()
+        self.task_repo.delete_task.assert_not_called()
+
+    def test_without_run_repo_run_cleanup_is_noop(self):
+        service = PlantInstanceService(
+            self.plant_repo,
+            self.site_repo,
+            self.rotation,
+            self.companion,
+            task_repo=self.task_repo,
+        )
+
+        result = service.remove_plant("plant-1")
+
+        assert result is self.plant

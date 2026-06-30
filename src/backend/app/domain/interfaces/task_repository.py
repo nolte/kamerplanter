@@ -98,6 +98,9 @@ class ITaskRepository(ABC):
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]: ...
 
     @abstractmethod
+    def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]: ...
+
+    @abstractmethod
     def get_tasks_for_entity(
         self,
         entity_type: str,

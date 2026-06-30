@@ -9,6 +9,7 @@ from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
@@ -28,6 +29,7 @@ class PlantInstanceService:
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         task_repo: ITaskRepository | None = None,
         species_repo: ISpeciesRepository | None = None,
+        planting_run_repo: IPlantingRunRepository | None = None,
         photo_cleanup: Callable[[PlantInstance], None] | None = None,
     ) -> None:
         self._repo = plant_repo
@@ -38,6 +40,7 @@ class PlantInstanceService:
         self._phase_seq_repo = phase_seq_repo
         self._task_repo = task_repo
         self._species_repo = species_repo
+        self._run_repo = planting_run_repo
         # REQ-034 §2.1 / AC-08 — cascade gallery-photo deletion when an instance
         # is removed. Injected to avoid a service→service import cycle; no-op
         # when unwired (keeps the service usable in photo-less contexts).
@@ -118,6 +121,10 @@ class PlantInstanceService:
         # Remove the now-obsolete open tasks of this plant from the queue.
         # Completed/skipped/failed tasks are kept as history.
         self._delete_open_tasks_for_plant(key)
+        # Watering/feeding tasks hang off the planting run, not the instance, so
+        # they are cleaned up separately — but only once the run has no active
+        # instances left (a run may contain several plants).
+        self._delete_orphaned_run_tasks(key)
 
         if plant.slot_key:
             slot = self._site_repo.get_slot_by_key(plant.slot_key)
@@ -145,6 +152,33 @@ class PlantInstanceService:
             if task.key and task.status in self._OPEN_TASK_STATUSES:
                 self._task_repo.delete_task(task.key)
                 deleted += 1
+        return deleted
+
+    def _delete_orphaned_run_tasks(self, key: PlantID) -> int:
+        """Delete open run-level tasks (watering/feeding) orphaned by this removal.
+
+        These tasks carry ``planting_run_key`` instead of a plant ``entity_key``,
+        so ``_delete_open_tasks_for_plant`` cannot reach them. A planting run can
+        contain several instances, so its tasks only become obsolete once every
+        instance in the run is removed; while any sibling is still active the run
+        keeps generating and needing them. No-op when either repository is unwired.
+        """
+        if self._task_repo is None or self._run_repo is None:
+            return 0
+        deleted = 0
+        for run in self._run_repo.get_runs_for_plant(key):
+            if not run.key:
+                continue
+            # ``get_run_plants`` returns the run's non-detached instances; the
+            # just-removed plant is among them with ``removed_on`` set, so a run
+            # with any remaining active instance is detected here and skipped.
+            siblings = self._run_repo.get_run_plants(run.key)
+            if any(s.get("removed_on") is None for s in siblings):
+                continue
+            for task in self._task_repo.get_tasks_for_run(run.key):
+                if task.key and task.status in self._OPEN_TASK_STATUSES:
+                    self._task_repo.delete_task(task.key)
+                    deleted += 1
         return deleted
 
     def get_plants_in_slot(self, slot_key: SlotKey) -> list[PlantInstance]:

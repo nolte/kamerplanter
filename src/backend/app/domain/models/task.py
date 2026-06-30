@@ -111,6 +111,11 @@ class Task(BaseModel):
     category: TaskCategory = TaskCategory.MAINTENANCE
     entity_key: str | None = None
     entity_type: str | None = None
+    # Watering/feeding tasks are scoped to a planting run rather than a single
+    # plant_instance (a run can contain several instances). Declared explicitly
+    # so the value survives ``model_dump`` and is actually persisted — without
+    # it Pydantic's default ``extra='ignore'`` silently dropped the field.
+    planting_run_key: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     status: TaskStatus = TaskStatus.PENDING

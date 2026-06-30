@@ -354,6 +354,16 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
+    def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]:
+        query = f"FOR doc IN {col.TASKS} FILTER doc.planting_run_key == @run_key"
+        bind_vars: dict = {"run_key": run_key}
+        if status:
+            query += " FILTER doc.status == @status"
+            bind_vars["status"] = status
+        query += " SORT doc.due_date ASC RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
     def get_tasks_for_entity(
         self,
         entity_type: str,
