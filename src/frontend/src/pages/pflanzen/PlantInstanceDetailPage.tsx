@@ -2337,6 +2337,8 @@ export default function PlantInstanceDetailPage() {
           plantInstanceKey={key}
           readOnly={!!plant?.removed_on}
           onCoverChange={() => setCoverVersion((v) => v + 1)}
+          speciesKey={plant?.species_key}
+          scientificName={species?.scientific_name}
         />
       )}
 

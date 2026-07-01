@@ -5,9 +5,11 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { visuallyHidden } from '@mui/utils';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
@@ -23,6 +25,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useSpeciesReferenceImages } from '@/hooks/useSpeciesReferenceImages';
+import ReferenceImageGrid from '@/components/common/ReferenceImageGrid';
 import {
   listPlantPhotos,
   setCoverPhoto,
@@ -41,6 +45,14 @@ interface PlantPhotoGalleryProps {
   readOnly?: boolean;
   /** Notify the parent page when the cover photo may have changed (info-tab preview). */
   onCoverChange?: () => void;
+  /**
+   * Species of this instance. When set, the external CC-BY/CC0 reference images
+   * of that species are shown read-only in a separate section below the user's
+   * own photos. No request is made when omitted.
+   */
+  speciesKey?: string | null;
+  /** Scientific name of the species — used for reference-image alt/aria labels. */
+  scientificName?: string;
 }
 
 /**
@@ -56,12 +68,20 @@ export default function PlantPhotoGallery({
   plantInstanceKey,
   readOnly = false,
   onCoverChange,
+  speciesKey,
+  scientificName,
 }: PlantPhotoGalleryProps) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const { canEdit } = useTenantPermissions();
   const canWrite = canEdit && !readOnly;
+
+  // External CC-BY/CC0 example images of the species (read-only, own section).
+  // Only fetched when the instance has an assigned species; an empty result
+  // (species without images / inference-service down) hides the section.
+  const { images: referenceImages, loading: referenceImagesLoading } =
+    useSpeciesReferenceImages(speciesKey);
 
   const [photos, setPhotos] = useState<PlantPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,8 +206,13 @@ export default function PlantPhotoGallery({
         }}
       >
         <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {t('pages.plantPhotos.sectionTitle')}
+          <Typography
+            component="h2"
+            variant="subtitle1"
+            sx={{ fontWeight: 600 }}
+            data-testid="own-photos-section-title"
+          >
+            {t('pages.plantPhotos.ownSectionTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantPhotos.intro')}
@@ -412,6 +437,42 @@ export default function PlantPhotoGallery({
               </Card>
             );
           })}
+        </Box>
+      )}
+
+      {/* aria-live region: the reference-images section below appears
+          asynchronously after the (already-rendered) own-photos grid, so
+          screen-reader users get no other cue that new content just showed up.
+          Announce it once loading finishes and images are actually available
+          (UI-NFR-002 R-011). Visually hidden — no layout impact. */}
+      {!referenceImagesLoading && referenceImages.length > 0 && (
+        <Box aria-live="polite" aria-atomic="true" sx={visuallyHidden}>
+          {t('pages.plantPhotos.referenceSectionAnnounced')}
+        </Box>
+      )}
+
+      {/* Reference images of the species (REQ-029-A) — read-only, clearly
+          separated from the user's own photos. Hidden entirely when the species
+          has no images or the inference-service is unreachable (empty list). */}
+      {referenceImages.length > 0 && (
+        <Box sx={{ mt: 4 }} data-testid="reference-images-section">
+          <Divider sx={{ mb: 3 }} />
+          <Typography
+            component="h2"
+            variant="subtitle1"
+            sx={{ fontWeight: 600 }}
+            data-testid="reference-images-section-title"
+          >
+            {t('pages.plantPhotos.referenceSectionTitle')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.plantPhotos.referenceIntro')}
+          </Typography>
+          <ReferenceImageGrid
+            images={referenceImages}
+            scientificName={scientificName}
+            ariaLabel={t('pages.plantPhotos.referenceSectionTitle')}
+          />
         </Box>
       )}
 

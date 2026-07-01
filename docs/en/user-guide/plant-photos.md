@@ -17,7 +17,7 @@ Every plant instance in Kamerplanter can have its own photo gallery. This lets y
 2. Click on the plant whose gallery you want to open.
 3. Select the **Photos** tab.
 
-You will see all uploaded photos as thumbnail images. If no photo has been uploaded yet, a neutral placeholder is shown.
+You will see two separate sections: at the top, **Your own photos** — the images you have uploaded for this plant yourself — and, if available, **Reference images of the species** below them (see [Viewing Reference Images of the Species](#viewing-reference-images-of-the-species)). If no own photo has been uploaded yet, a neutral placeholder is shown.
 
 ---
 
@@ -176,6 +176,36 @@ The photo, all preview versions, and the link to the plant are removed completel
 
 ---
 
+## Viewing Reference Images of the Species
+
+Below your own photos, another section may appear: **Reference images of the species**. These are **example images of the plant species** — not your own plant, but typical shots from public image archives (GBIF, Wikimedia Commons). They come from the same image collection used by the recognition engine for comparison, and they help you compare your plant against typical specimens of the species — for example, to check whether the leaf shape or flower colour matches the expected species.
+
+!!! note "What is a reference image?"
+    A **reference image** is an example photo of a plant species from a public, license-clean source (GBIF, Wikimedia Commons) — licensed either **CC0** (public domain, no attribution required) or **CC-BY** (free to use, attribution required). It shows an arbitrary, typical specimen of the species, never your own plant.
+
+### When does the section appear?
+
+- Your plant instance must have a **species** assigned (the "Species" field on the detail page is filled in).
+- Reference images must already exist for that species in the system.
+
+If either condition is not met, the section simply stays **hidden** — no error message or empty box is shown. Your own photo gallery works completely independently of this.
+
+### Viewing licence and attribution
+
+Hovering over a reference image (or tapping it briefly on mobile) reveals an info icon at the bottom of the image. It shows you:
+
+- the **attribution** (author/source), where the licence requires it,
+- the **licence** (e.g. "CC-BY 4.0" or "CC0"),
+- for some images, the depicted **plant organ** (e.g. leaf, flower, fruit, bark).
+
+!!! note "Why is the attribution shown? (CC-BY)"
+    The **CC-BY licence** ("Creative Commons – Attribution") allows free use of an image but requires that the author be credited. Kamerplanter therefore displays this information directly on the image. Images under **CC0** are in the public domain — no attribution is required, though it may still be shown if the source provides one.
+
+!!! tip "Read-only — cannot be edited"
+    You can only **view** reference images. They cannot be edited, deleted, or set as a cover photo — those actions are only possible with your own photos (see above). Which reference images stay active for a species is decided exclusively by a platform admin on the master-data species page (see [Curating Reference Images](reference-image-curation.md)).
+
+---
+
 ## Optional Contribution to Plant Recognition
 
 Kamerplanter makes it possible to contribute a photo of a correctly identified plant as an additional reference for the **self-hosted plant recognition** system (DINOv2). This is voluntary, curated, and only active with your explicit consent.
@@ -211,7 +241,16 @@ Revocation takes effect immediately for all future photo uploads. Already-create
 ## Frequently Asked Questions
 
 ??? question "Why don't I see a Photos tab on my plant?"
-    The Photos tab always appears on the detail page of a plant *instance*. If it is missing, check that you have opened a **plant instance** (not the species page under Master Data). Species pages show reference images from public databases, not a personal gallery.
+    The Photos tab always appears on the detail page of a plant *instance*. If it is missing, check that you have opened a **plant instance** (not the species page under Master Data).
+
+??? question "Why don't I see 'Reference images of the species' on my plant?"
+    There are two possible reasons: either your plant does not yet have a **species** assigned (the "Species" field on the detail page is empty), or no reference images exist yet for the assigned species. In either case, the section is simply hidden — your own photo gallery is unaffected and keeps working normally.
+
+??? question "Do the reference images show my own plant?"
+    No. Reference images show **other, typical specimens** of the plant species from public image archives (GBIF, Wikimedia Commons) — not your own specimen. They serve as a comparison basis, e.g. to check leaf shape or flower colour. Your own photos are found exclusively in the "Your own photos" section above.
+
+??? question "Can I delete or edit a reference image?"
+    No, reference images are **view-only** for regular users. Whether a reference image stays active for recognition or is deselected is decided exclusively by a platform admin on the master-data species page — see [Curating Reference Images](reference-image-curation.md).
 
 ??? question "Are my photos stored permanently?"
     Yes — this is the key difference from [identifying a plant by photo](plant-identification.md), where the photo is intentionally discarded after analysis. Gallery photos are stored permanently in the storage backend configured by the operator (local filesystem or S3). You can delete any photo individually.
@@ -244,7 +283,8 @@ Revocation takes effect immediately for all future photo uploads. Already-create
 
 ## See Also
 
-- [Managing Master Data](plant-management.md) — Reference images for plant species (not instance photos)
+- [Managing Master Data](plant-management.md) — Assigning a species to a plant instance
+- [Curating Reference Images](reference-image-curation.md) — Admin guide: which reference images are active
 - [Identify a Plant by Photo](plant-identification.md) — Determine the species of an unknown plant
 - [Privacy (GDPR)](privacy.md) — EXIF handling, deletion behaviour, consents
 - [Configure Storage](object-storage.md) — Operator documentation for the storage backend

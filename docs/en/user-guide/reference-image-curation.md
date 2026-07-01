@@ -175,6 +175,7 @@ Request body (reactivate):
 ## See Also
 
 - [Identify Plant by Photo](plant-identification.md) — End-user guide
+- [Plant Photo Gallery](plant-photos.md) — how users see reference images of the species in their own photo gallery
 - [Setting Up Plant Identification](../deployment/inference-service.md) — Populating and updating the reference index
 - [Platform Admin Area](admin.md) — Overview of all admin functions
 - [Service Accounts](../api/service-accounts.md) — Automated API access
