@@ -80,11 +80,11 @@ iniconfig==2.3.0
     # via pytest
 kombu==5.6.2
     # via celery
-librt==0.11.0
+librt==0.12.0
     # via mypy
 limits==5.8.0
     # via slowapi
-markdownify==1.2.2
+markdownify==1.2.3
     # via kamerplanter-backend (pyproject.toml)
 mypy==2.1.0
     # via kamerplanter-backend (pyproject.toml)
