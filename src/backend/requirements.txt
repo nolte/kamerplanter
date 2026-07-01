@@ -66,7 +66,7 @@ dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via pydantic
-fastapi==0.138.2
+fastapi==0.139.0
     # via kamerplanter-backend (pyproject.toml)
 frozenlist==1.8.0
     # via
