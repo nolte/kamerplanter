@@ -26,7 +26,24 @@ vi.mock('@/components/identification/ImageCapturePanel', () => ({
 
 const PLANT_KEY = 'plant-1';
 const TENANT = 'test-tenant';
+const SPECIES_KEY = 'sp-basil';
 const PHOTOS_URL = `/api/v1/t/${TENANT}/plant-instances/${PLANT_KEY}/photos`;
+// Reference images are a global (non-tenant-scoped) species resource.
+const REFERENCE_URL = `/api/v1/species/${SPECIES_KEY}/reference-images`;
+
+/** Registers a reference-image response and records how often it was requested. */
+function mockReferenceImages(
+  images: { source_url: string; license?: string | null; attribution?: string | null; organ?: string | null; source?: string | null }[],
+): { calls: () => number } {
+  let count = 0;
+  server.use(
+    http.get(REFERENCE_URL, () => {
+      count += 1;
+      return HttpResponse.json({ species_key: SPECIES_KEY, count: images.length, images });
+    }),
+  );
+  return { calls: () => count };
+}
 // AuthImage fetches every rendition through the authenticated client as a blob.
 const ATTACHMENT_THUMB_URL = `/api/v1/t/${TENANT}/attachments/:id/thumbnails/:px`;
 
@@ -590,6 +607,78 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
       expect(screen.queryByTestId('plant-photo-assess')).not.toBeInTheDocument();
       // ...but sees the persisted verdict.
       expect(screen.getByTestId('quality-badge-fair')).toBeInTheDocument();
+    });
+  });
+
+  describe('species reference images (REQ-029-A)', () => {
+    const refImage = (overrides: Partial<{ source_url: string; license: string | null; attribution: string | null; organ: string | null }> = {}) => ({
+      source_url: overrides.source_url ?? 'https://example.org/leaf.jpg',
+      license: overrides.license ?? 'CC-BY',
+      attribution: overrides.attribution ?? 'Jane Doe',
+      organ: overrides.organ ?? 'leaf',
+      source: 'gbif',
+    });
+
+    it('renders the own-photos and reference-images sections separately when references exist', async () => {
+      mockList([photo('a', true)], 'a');
+      mockReferenceImages([
+        refImage({ source_url: 'https://example.org/leaf.jpg' }),
+        refImage({ source_url: 'https://example.org/flower.jpg', organ: 'flower', license: 'CC0', attribution: null }),
+      ]);
+      renderWithProviders(
+        <PlantPhotoGallery plantInstanceKey={PLANT_KEY} speciesKey={SPECIES_KEY} scientificName="Ocimum basilicum" />,
+        { store: storeWithRole('grower') },
+      );
+
+      // Own photos section header is present with the user's own photo grid.
+      await waitFor(() => expect(screen.getByTestId('own-photos-section-title')).toBeInTheDocument());
+      expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument();
+
+      // The clearly separated reference-images section appears with its own header.
+      const refSection = await screen.findByTestId('reference-images-section');
+      expect(within(refSection).getByTestId('reference-images-section-title')).toBeInTheDocument();
+      expect(within(refSection).getAllByTestId('reference-image-item')).toHaveLength(2);
+      // Legally required CC-BY attribution caption is rendered.
+      expect(within(refSection).getByText('© Jane Doe · CC-BY')).toBeInTheDocument();
+    });
+
+    it('hides the reference-images section when the list is empty', async () => {
+      mockList([photo('a', true)], 'a');
+      mockReferenceImages([]);
+      renderWithProviders(
+        <PlantPhotoGallery plantInstanceKey={PLANT_KEY} speciesKey={SPECIES_KEY} scientificName="Ocimum basilicum" />,
+        { store: storeWithRole('grower') },
+      );
+
+      await waitFor(() => expect(screen.getByTestId('own-photos-section-title')).toBeInTheDocument());
+      // Give the async reference fetch a chance to resolve, then assert it stays hidden.
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.queryByTestId('reference-images-section')).not.toBeInTheDocument();
+    });
+
+    it('does not request reference images when the instance has no species_key', async () => {
+      mockList([photo('a', true)], 'a');
+      const ref = mockReferenceImages([refImage()]);
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      // No species → no reference section and, crucially, no API call.
+      expect(screen.queryByTestId('reference-images-section')).not.toBeInTheDocument();
+      expect(ref.calls()).toBe(0);
+    });
+
+    it('requests reference images exactly once when a species_key is provided', async () => {
+      mockList([photo('a', true)], 'a');
+      const ref = mockReferenceImages([refImage()]);
+      renderWithProviders(
+        <PlantPhotoGallery plantInstanceKey={PLANT_KEY} speciesKey={SPECIES_KEY} />,
+        { store: storeWithRole('grower') },
+      );
+
+      await waitFor(() => expect(screen.getByTestId('reference-images-section')).toBeInTheDocument());
+      expect(ref.calls()).toBe(1);
     });
   });
 });

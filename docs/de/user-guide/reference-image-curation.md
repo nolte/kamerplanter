@@ -175,6 +175,7 @@ Zum Wieder-Aufnehmen:
 ## Siehe auch
 
 - [Pflanze per Foto identifizieren](plant-identification.md) — Endnutzer-Anleitung
+- [Pflanzenfoto-Galerie](plant-photos.md) — wie Nutzer Referenzbilder der Art in der eigenen Foto-Galerie sehen
 - [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md) — Referenz-Index befüllen und aktualisieren
 - [Plattform-Admin-Bereich](admin.md) — Übersicht aller Admin-Funktionen
 - [Service Accounts](../api/service-accounts.md) — Automatisierter API-Zugriff

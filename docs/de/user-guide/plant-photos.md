@@ -17,7 +17,7 @@ Jede Pflanzeninstanz in Kamerplanter kann eine eigene Fotogalerie haben. So erke
 2. Klicke auf die gewünschte Pflanze, um die Detailseite zu öffnen.
 3. Wähle den Tab **Fotos**.
 
-Dort siehst du alle bisher hochgeladenen Fotos als Vorschaubilder (Thumbnails). Noch kein Foto vorhanden? Ein neutraler Platzhalter zeigt dir den leeren Zustand.
+Dort siehst du zwei getrennte Bereiche: oben deine **Eigenen Fotos** — die Bilder, die du selbst zu dieser Pflanze hochgeladen hast — und, sofern vorhanden, darunter die **Referenzbilder der Art** (siehe [Referenzbilder der Art ansehen](#referenzbilder-der-art-ansehen)). Noch kein eigenes Foto vorhanden? Ein neutraler Platzhalter zeigt dir den leeren Zustand.
 
 ---
 
@@ -176,6 +176,36 @@ Das Foto, alle Vorschauversionen und die Verknüpfung mit der Pflanze werden vol
 
 ---
 
+## Referenzbilder der Art ansehen
+
+Unterhalb deiner eigenen Fotos kann ein weiterer Bereich erscheinen: **Referenzbilder der Art**. Das sind **Beispielbilder der Pflanzenart** — nicht deine eigene Pflanze, sondern typische Aufnahmen aus öffentlichen Bildarchiven (GBIF, Wikimedia Commons). Sie stammen aus demselben Bildbestand, den auch die Bilderkennung zum Vergleich nutzt, und helfen dir, deine Pflanze mit typischen Exemplaren der Art abzugleichen — zum Beispiel um zu prüfen, ob Blattform oder Blütenfarbe zur erwarteten Art passen.
+
+!!! note "Was ist ein Referenzbild?"
+    Ein **Referenzbild** ist ein Beispielfoto einer Pflanzenart aus einer öffentlichen, lizenzfreien Quelle (GBIF, Wikimedia Commons) — lizenziert unter **CC0** (gemeinfrei, keine Nennung nötig) oder **CC-BY** (frei nutzbar, Urheber muss genannt werden). Es zeigt ein beliebiges, typisches Exemplar der Art, niemals deine eigene Pflanze.
+
+### Wann erscheint der Abschnitt?
+
+- Deiner Pflanzeninstanz muss eine **Art** zugewiesen sein (Feld „Art" auf der Detailseite ausgefüllt).
+- Zu dieser Art müssen im System bereits Referenzbilder vorhanden sein.
+
+Ist eine dieser Bedingungen nicht erfüllt, bleibt der Abschnitt **einfach unsichtbar** — es erscheint keine Fehlermeldung oder ein leerer Kasten. Deine eigene Foto-Galerie funktioniert davon vollkommen unabhängig.
+
+### Lizenz und Urheber einsehen
+
+Fährst du mit der Maus über ein Referenzbild (oder tippst kurz darauf), erscheint das Info-Symbol unten am Bild. Es zeigt dir:
+
+- den **Urheber** des Bildes (Attribution), sofern die Lizenz das vorschreibt,
+- die **Lizenz** (z. B. „CC-BY 4.0" oder „CC0"),
+- bei manchen Bildern zusätzlich das abgebildete **Pflanzenorgan** (z. B. Blatt, Blüte, Frucht, Rinde).
+
+!!! note "Warum wird der Urheber genannt? (CC-BY)"
+    Die **CC-BY-Lizenz** ("Creative Commons – Namensnennung") erlaubt die freie Nutzung eines Bildes, verpflichtet aber dazu, den Urheber zu nennen. Kamerplanter zeigt diese Angabe deshalb direkt am Bild an. Bilder unter **CC0** sind gemeinfrei — hier ist keine Namensnennung erforderlich, sie kann aber trotzdem angezeigt werden, wenn die Quelle einen Urheber ausweist.
+
+!!! tip "Read-only — keine Bearbeitung möglich"
+    Referenzbilder kannst du dir nur **ansehen**. Sie lassen sich nicht bearbeiten, löschen oder als Titelbild setzen — das ist ausschließlich mit deinen eigenen Fotos möglich (siehe oben). Wer welche Referenzbilder für eine Art aktiv sind, entscheidet ausschließlich ein Platform-Admin über die Stammdaten-Artenseite (siehe [Referenzbilder kuratieren](reference-image-curation.md)).
+
+---
+
 ## Optionaler Datenbeitrag zur Bilderkennung
 
 Kamerplanter ermöglicht es, ein Foto einer korrekt bestimmten Pflanze als zusätzliche Referenz für die **self-hosted Bilderkennung** (DINOv2) beizusteuern. Das ist freiwillig, kuratiert und nur mit deiner ausdrücklichen Einwilligung aktiv.
@@ -211,7 +241,16 @@ Der Widerruf gilt sofort für alle zukünftigen Foto-Uploads. Bereits erzeugte M
 ## Häufige Fragen
 
 ??? question "Warum sehe ich keinen Tab „Fotos" an meiner Pflanze?"
-    Der Tab erscheint immer auf der Detailseite einer Pflanzeninstanz. Falls er fehlt, prüfe, ob du eine **Pflanzeninstanz** geöffnet hast (nicht die Artseite unter Stammdaten). Artseiten zeigen Referenzbilder aus öffentlichen Datenbanken, aber keine persönliche Galerie.
+    Der Tab erscheint immer auf der Detailseite einer Pflanzeninstanz. Falls er fehlt, prüfe, ob du eine **Pflanzeninstanz** geöffnet hast (nicht die Artseite unter Stammdaten).
+
+??? question "Warum sehe ich keine „Referenzbilder der Art" bei meiner Pflanze?"
+    Dafür gibt es zwei mögliche Gründe: Entweder ist deiner Pflanze noch keine **Art** zugewiesen (Feld „Art" auf der Detailseite leer), oder zu der zugewiesenen Art sind im System noch keine Referenzbilder hinterlegt. In beiden Fällen bleibt der Abschnitt einfach ausgeblendet — deine eigene Foto-Galerie ist davon nicht betroffen und funktioniert normal weiter.
+
+??? question "Zeigen die Referenzbilder meine eigene Pflanze?"
+    Nein. Referenzbilder zeigen **fremde, typische Exemplare** der Pflanzenart aus öffentlichen Bildarchiven (GBIF, Wikimedia Commons) — nicht dein eigenes Exemplar. Sie dienen als Vergleichsgrundlage, z. B. um Blattform oder Blütenfarbe abzugleichen. Deine eigenen Fotos findest du ausschließlich im Bereich „Eigene Fotos" oberhalb.
+
+??? question "Kann ich ein Referenzbild löschen oder bearbeiten?"
+    Nein, Referenzbilder sind für normale Nutzer **nur zum Ansehen** bestimmt (read-only). Ob ein Referenzbild für die Bilderkennung aktiv bleibt oder abgewählt wird, entscheidet ausschließlich ein Platform-Admin auf der Stammdaten-Artenseite — siehe [Referenzbilder kuratieren](reference-image-curation.md).
 
 ??? question "Werden meine Fotos gespeichert?"
     Ja — das ist der Unterschied zur [Pflanzenerkennung per Foto](plant-identification.md), bei der das Foto bewusst nicht gespeichert wird. Galerie-Fotos werden dauerhaft in dem vom Betreiber konfigurierten Speicher abgelegt (lokales Dateisystem oder S3). Du kannst jedes Foto einzeln löschen.
@@ -244,7 +283,8 @@ Der Widerruf gilt sofort für alle zukünftigen Foto-Uploads. Bereits erzeugte M
 
 ## Siehe auch
 
-- [Stammdaten verwalten](plant-management.md) — Referenzbilder für Pflanzenarten (nicht Instanzfotos)
+- [Stammdaten verwalten](plant-management.md) — Art einer Pflanzeninstanz zuweisen
+- [Referenzbilder kuratieren](reference-image-curation.md) — Admin-Doku: welche Referenzbilder aktiv sind
 - [Pflanze per Foto identifizieren](plant-identification.md) — Art unbekannter Pflanzen bestimmen
 - [Datenschutz (DSGVO)](privacy.md) — EXIF-Behandlung, Löschverhalten, Einwilligungen
 - [Speicher konfigurieren](object-storage.md) — Betreiber-Dokumentation zum Storage-Backend

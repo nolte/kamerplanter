@@ -1569,7 +1569,11 @@
     "plantPhotos": {
       "tabTitle": "Photos",
       "sectionTitle": "Photo gallery",
+      "ownSectionTitle": "Your own photos",
       "intro": "Your own photos of this plant – capture its growth over time and recognise it at a glance in the overview.",
+      "referenceSectionTitle": "Reference images of the species",
+      "referenceIntro": "Example images of this plant species from public image archives (GBIF, Wikimedia), which are also used by the image recognition. They show the species in general – not your own plant. CC-BY images include an attribution.",
+      "referenceSectionAnnounced": "Reference images of the species have loaded and are shown below your own photos.",
       "addPhoto": "Add photo",
       "addPhotoFirst": "Add first photo",
       "upload": "Save photo",

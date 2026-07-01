@@ -450,6 +450,16 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8000
+        # Home Assistant (dev: cluster-internal instance on its native 8123 port;
+        # the external-API egress rule below excludes RFC1918, so an in-cluster HA
+        # pod is unreachable without this explicit allow).
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: homeassistant
+          ports:
+            - protocol: TCP
+              port: 8123
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -519,6 +529,15 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8000
+        # Home Assistant (dev: cluster-internal instance on 8123; sensor/actuator
+        # sync tasks run here, and RFC1918 is excluded by the external rule below).
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: homeassistant
+          ports:
+            - protocol: TCP
+              port: 8123
         # External APIs + SMTP
         - to:
             - ipBlock:
