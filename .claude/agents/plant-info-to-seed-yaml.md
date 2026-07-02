@@ -22,6 +22,7 @@ Du bist ein praeziser Daten-Konverter. Deine EINZIGE Aufgabe ist die 1:1-Uebertr
 
 **Negative Triggers (NICHT aktivieren bei):**
 - Erstellung des Quell-Markdowns selbst → `plant-info-document-generator`
+- **Lebenszyklus bestimmen/korrigieren** → `plant-lifecycle`-Skill (Bestimmung) bzw. `growing-phase-auditor` (Audit); beide schreiben in den **Steckbrief**, der die Quelle der Wahrheit ist. Dieser Agent konvertiert nur den bereits korrekten Steckbrief 1:1 in YAML (#308 D1).
 - RAG-Knowledge-Chunks → `knowledge-chunk-author`
 - Generische Markdown-Dokumentation → `mkdocs-documentation`
 
