@@ -102,6 +102,14 @@ tuber_formation     Pfirsich    #FFCC80
 corm_ripening       Pfirsich    #FFCC80
 ```
 
+<!-- Spec-Audit 2026-07-01 B2: Diese Palette ist ein reiner ANZEIGE-Katalog und
+umfasst absichtlich mehr Namen als das kanonische `PhaseType`-Literal der
+State-Machine (REQ-003, Abschnitt 3). Namen ohne Entsprechung in REQ-003
+`growth_phases` (u. a. climbing, mature, budding, pre_bloom, recovery, sprouting,
+tuber_formation, corm_ripening, establishment) sind Display-only-Bezeichner bzw.
+Stress-Phase-Annotationen und dürfen NICHT als steuernde Phasen interpretiert
+werden. R-007 (Hash-Fallback für unbekannte Namen) deckt den Rest ab. -->
+
 | # | Regel | Stufe |
 |---|-------|-------|
 | R-007 | Unbekannte Phasennamen MÜSSEN über einen deterministischen Hash-Algorithmus eine Farbe aus einer Fallback-Palette erhalten, sodass dieselbe Phase immer dieselbe Farbe bekommt. | MUSS |

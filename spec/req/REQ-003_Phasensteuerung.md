@@ -7,14 +7,15 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.7 (Phase A: Blüh-Strategie monokarp/polykarp, Lebensdauer-in-Kultur)
+Version: 2.8 (Spec-Audit D-Umsetzung: kanonisches PhaseType, Biennial-Zyklus, monokarpe Terminal-Transition, Juvenil-Skip, Post-Harvest-Handoff)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 2.7 | 2026-06-15 | **Phase A — Lebenszyklus-Felder (Plan WP-3/WP-4):** `LifecycleConfig.flowering_strategy` (`monocarpic`/`polycarpic`) als eigene Reproduktions-Achse — „blüht einmal, stirbt dann" (Agave, viele Bambusse) auch bei mehrjährigem Wuchs. `cultivation_cycle_type` trennt die Kultur-Praxis von der botanischen `cycle_type`. Beide optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §2.1/§2.2. |
+| 2.8 | 2026-07-02 | **Spec-Audit D-Umsetzung (vollständige Lebenszyklus-Abbildung über Arten):** (1) **B1/D2** — kanonisches `PhaseType`-Literal um `germination`, `rooting` + `bolting` ergänzt (17 Werte), einzige maßgebliche Phasen-Wertliste. (2) **D6** — monokarpe Terminal-Transition: `flowering_strategy=monocarpic` (REQ-001) erzwingt terminale Nach-Blüte-Seneszenz statt `is_cycle_restart`. (3) **D1** — Biennial-Lebenszyklus: `CyclicLifecycleEngine` (ehem. `PerennialCycleEngine`) unterstützt `cycle_type IN ('perennial','biennial')`; Biennial-Phasentemplate (Jahr 1 → Dormanz → Jahr 2 Schossen/Blüte/Samen → terminal). (4) **D4** — Juvenil-Skip als maturity-gated `conditional`-Transition (mehrwertige `next_phase` + `required_conditions`). (5) **D3** — expliziter Post-Harvest-Handoff Lifecycle→REQ-008-Batch. Quelle: Spec-Audit-Findings B1/D1–D6 + `.audits/phase-0-drift-findings.md`. |
+| 2.7 | 2026-06-15 | **Phase A — Lebenszyklus-Felder (Plan WP-3/WP-4):** `LifecycleConfig.flowering_strategy` (`monocarpic`/`polycarpic`) als eigene Reproduktions-Achse — „blüht einmal, stirbt dann" (Agave, viele Bambusse) auch bei mehrjährigem Wuchs. `cultivation_cycle_type` trennt die Kultur-Praxis von der botanischen `cycle_type`. Beide optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §2.1/§2.2. _(v2.8: Felder in REQ-001 v4.5 im Body umgesetzt; Phasen-Logik hier ergänzt.)_ |
 | 2.6 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** `requirement_profiles` um `vpd_threshold_kpa` + `vpd_sensitivity` (artspezifische VPD-Schwelle als echter Automatik-Trigger), `photosynthesis_temp_opt_c` (T_opt getrennt vom Tag-Zielwert) und `far_red_fraction` (phytochrom-prädiktive Shade-Avoidance-Metrik, ableitbar aus `light_spectrum`) erweitert. Quelle: `spec/analysis/plant-profile-completeness-research.md`. |
 | 2.5 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** SeasonalCycle um `sensor_aggregates`, `aggregate_computed_at`, `aggregate_computed_by`, `aggregate_source_retention_horizon`, `aggregate_config` erweitert. Neue `SensorAggregateEngine` mit avg/min/max/p10/p90 für Quantile-Sensoren und sum/avg_per_day für DLI. Celery-Task `compute_seasonal_aggregates_task` triggert beim Saisonende. Lazy Re-Computation bei Sensor-Drift. Backfill-Migration für bestehende Saisons. |
 | 2.4 | 2026-04-27 | **W-003 Fix (Run-Membership-Guard):** Direkter Phasenwechsel auf einer `PlantInstance`, die Mitglied eines aktiven `PlantingRun` ist (`run_contains` mit `detached_at = null`, `run.status = 'active'`), wird abgelehnt. `PhaseTransitionEngine.assert_transition_allowed()` führt einen AQL-Lookup durch und wirft `RunMembershipConflictError` → API liefert HTTP 409 mit strukturiertem Fehler-Body. Batch-Phasenwechsel ist All-or-Nothing. Drei neue DoD-Punkte (§6). |
@@ -59,7 +60,7 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 ### Dokumentsammlungen (Collections):
 - **`growth_phases`** - Wachstumsphase
   - Properties:
-    - `name: str` (z.B. "vegetative", "flowering", "dormancy", "ripening" — Werte aus PhaseName-Enum: germination, seedling, vegetative, flowering, flushing, dormancy, harvest)
+    - `name: str` (z.B. "vegetative", "flowering", "dormancy", "ripening"). **Kanonischer Wertebereich = `PhaseType`-Literal (siehe Abschnitt 3, „TransitionTriggerType / PhaseType").** <!-- Spec-Audit 2026-07-02 B1: Diese Prosa-Liste war früher eine abweichende 7er-Teilmenge. Maßgeblich ist das kanonische `PhaseType`-Literal (17 Werte, inkl. der 2026-07-02 ergänzten `germination`, `rooting` und `bolting`). `harvest` ist dort bewusst NICHT enthalten (= Ernte-Event REQ-007, keine Phase); `drying`/`curing` sind Post-Harvest-Batch-Zustände (REQ-008), keine `growth_phases`. -->
     - `display_name: str` (z.B. "Vegetative Wachstumsphase")
     - `typical_duration_days: int`
     - `sequence_order: int`
@@ -110,6 +111,14 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
     - `notification_before_days: int` (Warnung vor Auto-Transition)
     - `is_cycle_restart: bool` — Transition startet einen neuen saisonalen Zyklus
       (erlaubt Rückwärts-Transition bei Dauerkulturen, z.B. Seneszenz → Dormanz)
+      <!-- Spec-Audit 2026-07-01 C1: Dieselbe zyklische Wiederholung wird auf der
+           Nährstoff-/Visualisierungs-Ebene als Integer `cycle_restart_from_sequence`
+           auf dem `NutrientPlan` modelliert (REQ-004, Feld
+           `NutrientPlan.cycle_restart_from_sequence` = `sequence_order` der
+           Wiederhol-Startphase). Beide Darstellungen MÜSSEN konsistent sein: die
+           Phase, ab der `NutrientPlan.cycle_restart_from_sequence` zurückspringt,
+           entspricht dem `next_phase`-Ziel der Transition mit `is_cycle_restart=true`.
+           UI-NFR-016/020 rendern aus dem REQ-004-Feld. -->
 
 - **`phase_histories`** - Historie für Analysen
   - Properties:
@@ -1030,15 +1039,23 @@ class MaturityStage(str, Enum):
     PRODUCTIVE = "productive"     # Voller Ertrag
     DECLINING = "declining"       # Ertragsrückgang (Alter)
 
-class PerennialCycleEngine(BaseModel):
-    """Verwaltet jährlich wiederkehrende Phasenzyklen für Dauerkulturen"""
+# Spec-Audit 2026-07-02 D1: verallgemeinert von PerennialCycleEngine auf zyklische UND
+# begrenzt-zyklische (biennale) Lebenszyklen. `cycle_type` nicht mehr auf 'perennial' fixiert.
+class CyclicLifecycleEngine(BaseModel):
+    """Verwaltet wiederkehrende Phasenzyklen für Dauerkulturen UND den begrenzten
+    Zwei-Jahres-Zyklus biennaler Arten (Jahr 1 vegetativ → Dormanz → Jahr 2
+    Neuaustrieb → Schossen → Blüte → Samenreife → terminal). Bienniale sind monokarp:
+    nach der Blüte/Samenreife im zweiten Jahr endet der Lebenszyklus (KEIN is_cycle_restart)."""
 
     plant_id: str
-    cycle_type: Literal['perennial']
+    cycle_type: Literal['perennial', 'biennial'] = 'perennial'
     current_season_number: int = Field(ge=1)
     planted_year: int
     first_bearing_year: Optional[int] = None  # Ab wann Ertrag erwartet
     expected_productive_years: Optional[int] = None
+    # Spec-Audit 2026-07-02 D1: begrenzt-zyklische Semantik (Bienniale).
+    max_seasons: Optional[int] = None       # None = unbegrenzt (perennial); 2 = biennial (terminal nach Saison 2)
+    terminal_after_flowering: bool = False  # True bei biennial/monokarp: Blüte→Samen→terminal statt Neustart
 
     def get_maturity_stage(self, current_year: int) -> MaturityStage:
         """Bestimmt Reifegrad basierend auf Pflanzenalter"""
@@ -1062,7 +1079,24 @@ class PerennialCycleEngine(BaseModel):
         """
         Prüft ob der saisonale Zyklus neu starten soll.
         Returns: (should_restart, reason)
+
+        Spec-Audit 2026-07-02 D1/D6: Terminale Guard für begrenzt-zyklische und monokarpe
+        Lebenszyklen. Bienniale (max_seasons=2) und monokarpe Arten
+        (terminal_after_flowering=True) starten nach dem Blüh-/Samenzyklus NICHT neu,
+        sondern gehen in eine terminale Seneszenz — auch wenn eine Transition-Regel
+        fälschlich is_cycle_restart trüge.
         """
+        # D1: Biennial/begrenzter Zyklus — nach der letzten erlaubten Saison kein Neustart.
+        if self.max_seasons is not None and self.current_season_number >= self.max_seasons:
+            return False, (
+                f"Terminaler Lebenszyklus: letzte Saison {self.current_season_number} "
+                f"von {self.max_seasons} erreicht (biennial/begrenzt) — kein Neustart, "
+                f"Übergang in terminale Seneszenz"
+            )
+        # D6: Monokarp — nach Blüte/Samenreife terminal, kein Neustart.
+        if self.terminal_after_flowering and current_phase in ('flowering', 'fruit_development', 'ripening'):
+            return False, "Monokarpe Art: blüht einmal, terminale Seneszenz nach Samenreife"
+
         if transition_rule and transition_rule.get('is_cycle_restart'):
             return True, f"Saisonaler Neustart: Saison {self.current_season_number + 1}"
         return False, "Kein Zyklus-Neustart"
@@ -1126,6 +1160,12 @@ class PerennialCycleEngine(BaseModel):
                 }
         """, bind_vars={'plant_id': self.plant_id})
         return list(cursor)
+
+
+# Spec-Audit 2026-07-02 D1: Rückwärtskompatibler Alias — vor dem Audit hieß die Klasse
+# PerennialCycleEngine (perennial-Sonderfall: max_seasons=None, terminal_after_flowering=False).
+# Bestehende Referenzen bleiben gültig.
+PerennialCycleEngine = CyclicLifecycleEngine
 ```
 
 **Erweiterung des PhaseTransitionEngine für Dauerkulturen:**
@@ -1303,9 +1343,19 @@ class NutrientProfileDefinition(BaseModel):
         return v
 
 TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']
-PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy', 'flushing',
-                    'bud_break', 'fruit_development', 'senescence', 'hardening_off',
-                    'acclimatization', 'active_growth', 'maintenance', 'repotting_recovery']
+# Spec-Audit 2026-07-02 B1/D2: Kanonisches Phasen-Vokabular. `germination` und `rooting`
+# ergänzt, damit beide Lebenszyklus-Eintrittspunkte abgedeckt sind (Samen bzw. vegetative
+# Vermehrung). Dies ist die EINZIGE maßgebliche Phasen-Wertliste; die frühere 7er-Prosa-Liste
+# und die UI-NFR-016-Anzeige-Palette leiten sich hiervon ab. `harvest` ist KEINE Phase,
+# sondern ein Ernte-Event (REQ-007); `drying`/`curing` sind Post-Harvest-Batch-Zustände (REQ-008).
+PhaseType = Literal['germination', 'rooting', 'seedling', 'vegetative', 'bolting', 'flowering',
+                    'ripening', 'dormancy', 'flushing', 'bud_break', 'fruit_development', 'senescence',
+                    'hardening_off', 'acclimatization', 'active_growth', 'maintenance',
+                    'repotting_recovery']
+# germination: generative Keimung — Eintritt bei Samenvermehrung (seed_sowing/bulbil/tissue_culture, REQ-017 §D2)
+# rooting: Einwurzelung vegetativer Vermehrung (Steckling/Ableger/Veredlung) — KANONISCH statt
+#          der Synonyme 'Bewurzelung'/'Einwurzelung' bzw. 'seedling-für-Stecklinge' (REQ-017 §D2)
+# bolting: Schossen — Streckung/Blütenstandsbildung im 2. Jahr biennaler Arten (Biennial-Template, §D1)
 # hardening_off: Abhärtungsphase (Stress-Phase, s. Abschnitt "Stress-Phasen")
 # acclimatization, active_growth, maintenance, repotting_recovery: Zimmerpflanzen-Phasen (REQ-020)
 
@@ -1338,6 +1388,102 @@ MaturityStage = Literal['juvenile', 'productive', 'declining']
 Transition `senescence → dormancy` hat `is_cycle_restart: true` und startet eine neue Saison.
 
 Für immergrüne Dauerkulturen (z.B. Zitrus) entfällt `senescence`; `dormancy` kann optional sein.
+
+<!-- Spec-Audit 2026-07-02 D1: Biennial-Template -->
+**Standard-Phasen für Bienniale (Biennial-Template):**
+
+Bienniale (Karotte, Petersilie, Sellerie, Rote Bete, Fingerhut) durchlaufen einen **begrenzten
+Zwei-Saison-Zyklus** und sind **monokarp**: Blüte und Samenreife erfolgen erst im zweiten Jahr,
+danach stirbt die Pflanze. Der `CyclicLifecycleEngine` bildet dies mit `cycle_type='biennial'`,
+`max_seasons=2`, `terminal_after_flowering=True` ab.
+
+| Phase | `sequence_order` | `season` | `is_recurring` | `typical_duration_days` | `allows_harvest` | Beschreibung |
+|---|---|---|---|---|---|---|
+| `germination` | 0 | 1 | `false` | 14 | `false` | Keimung (Jahr 1) |
+| `seedling` | 1 | 1 | `false` | 21 | `false` | Jungpflanze |
+| `vegetative` | 2 | 1 | `false` | 90 | `true` | Blatt-/Speicherorgan-Aufbau. **Ernte-Fenster für Wurzel-/Blattgemüse (Jahr 1) — siehe Kultur-Hinweis unten** |
+| `dormancy` | 3 | 1→2 | `false` | 90 (Vernalisation) | `false` | Überwinterung; **Kältestunden erfüllen `vernalization_required` (REQ-001)** — Voraussetzung fürs Schossen |
+| `bud_break` | 4 | 2 | `false` | 14 | `false` | Neuaustrieb (Jahr 2) |
+| `bolting` | 5 | 2 | `false` | 21 | `false` | Schossen (Streckungswachstum, Blütenstandsbildung) |
+| `flowering` | 6 | 2 | `false` | 30 | `false` | Blüte, Bestäubung |
+| `ripening` | 7 | 2 | `false` | 45 | `true` | Samenreife (**Ernte = Saatgut**) |
+| `senescence` | 8 | 2 | `false` | 14 | `false` | **`is_terminal: true`, `allows_disposal: true`** — Pflanze stirbt (monokarp) |
+
+- Transition `ripening → senescence` ist **terminal** (`is_cycle_restart: false`); `should_restart_cycle()`
+  gibt für Bienniale nach `max_seasons=2` bzw. `terminal_after_flowering` **kein** Neustart zurück.
+- Neu im Vokabular: **`bolting`** (Schossen) ist eine biennial-/schossgefährdete-Kultur-Phase; sie ist als
+  optionaler Phasenwert zu führen (Anzeige-Katalog UI-NFR-016). Kann bei nicht-schossrelevanten Bienalen entfallen.
+
+> **Kultur-Hinweis (Karotte & Co. — verknüpft `cultivation_cycle_type`, REQ-001 §D2/A2):** Wird ein
+> Bienniale für das **Speicherorgan** (Wurzel, Knolle, Blatt) angebaut, endet die Kultur mit der Ernte in
+> **Saison 1** (Phase `vegetative`, `allows_harvest: true`) — die Pflanze wird als Einjährige geführt
+> (`cultivation_cycle_type='annual'`, botanische `cycle_type='biennial'`), der Jahr-2-Blüh-/Samenpfad
+> entfällt. Nur bei **Saatgutgewinnung** (oder Zierwert der Blüte) wird der volle Zwei-Jahres-Zyklus
+> durchlaufen. Damit ist der frühere Widerspruch (Karotte `cycle_type='biennial'`, aber Phasen enden bei
+> harvest; `vernalization_required=true` ohne gatende Phase) aufgelöst: die `dormancy`-Phase (seq 3) ist
+> die vernalisationsgatende Phase, und `cultivation_cycle_type` entscheidet, ob Saison 2 überhaupt läuft.
+
+<!-- Spec-Audit 2026-07-02 D4: Maturity-gated Phasenverzweigung (Juvenil-Skip) -->
+**Reifegrad-abhängige Phasenverzweigung (Juvenil-Skip):**
+
+Die Standard-`next_phase`-Kante ist einwertig — dadurch konnte der in **Szenario 5** (juveniler
+Apfelbaum) geforderte Skip der reproduktiven Phasen bisher nicht strukturell abgebildet werden. Auflösung:
+`next_phase` wird **mehrwertig** zugelassen und über `required_conditions` der zugehörigen
+`phase_transition_rules` disambiguiert. Die Engine wählt aus den ausgehenden `next_phase`-Kanten die
+erste, deren `required_conditions` erfüllt sind (deterministische Reihenfolge nach
+`phase_transition_rules.priority`, höchste zuerst; die bedingungslose Default-Kante zuletzt).
+
+Beispiel Dauerkultur-Phase `vegetative` mit zwei ausgehenden Kanten:
+
+| Ziel-Phase | `trigger_type` | `required_conditions` | Bedeutung |
+|---|---|---|---|
+| `senescence` | `conditional` | `{"maturity_stage": "juvenile"}` | Juvenil: reproduktive Phasen (`flowering`/`fruit_development`/`ripening`) überspringen |
+| `flowering` | `time_based`/`gdd_based` | – (Default) | Produktiv/declining: regulärer Blühpfad |
+
+- Der Reifegrad kommt aus `CyclicLifecycleEngine.get_maturity_stage()`; `juvenile` (Pflanzenalter <
+  `first_bearing_year`) ⇒ Skip-Kante, sonst Default-Kante. Der bisher nur im Test unterstellte Skip ist
+  damit als maschinenlesbare Regel spezifiziert.
+- Die Rückwärts-Sperre bleibt unberührt: `senescence` hat höheres `sequence_order` als `vegetative`; der
+  anschließende `senescence → dormancy`-Neustart ist wie gehabt über `is_cycle_restart` gedeckt.
+- Erweiterung des `phase_transition_rules`-Modells: neues optionales Feld
+  `priority: int = 0` (höhere Zahl = früher geprüft) zur deterministischen Auswahl bei mehreren
+  ausgehenden Kanten.
+
+<!-- Spec-Audit 2026-07-02 D3: Post-Harvest-Handoff (Lifecycle → REQ-008-Batch) -->
+**Post-Harvest-Handoff (Lifecycle → REQ-008):**
+
+Trocknung/Curing/Lagerung sind bewusst **keine** `growth_phases`, sondern Post-Harvest-Zustände am
+`batch` (REQ-008). Damit der Lebenszyklus dennoch lückenlos („kontinuierlich") ist, definiert dieser
+Abschnitt den expliziten Übergabepunkt statt einer stillen Trennung:
+
+- Erreicht eine Phase mit `allows_harvest: true` das Ernte-Event (REQ-007), erzeugt die Ernte einen
+  `batch` (REQ-008); die Post-Harvest-Verantwortung für das geerntete Material (drying → curing → aging
+  → storage) geht auf REQ-008 über. **Das Ernte-Event ist die Brücke, nicht eine Phase.**
+- Was mit der **Pflanze** danach geschieht, hängt vom Archetyp ab:
+  - **annuell / biennial / monokarp:** Transition auf `senescence` (`is_terminal: true`,
+    `allows_disposal: true`) — Lebenszyklus endet.
+  - **perennial (polykarp):** `ripening → senescence → dormancy` mit `is_cycle_restart: true` — die
+    Pflanze lebt weiter; nur das geerntete Material wandert in den Post-Harvest-Batch.
+  - **kontinuierliche Ernte** (cut & come again — Salat/Kräuter, REQ-007 `harvest_pattern='continuous'`):
+    die Pflanze verbleibt in `vegetative`/`ripening`; jede Teil-Ernte erzeugt einen eigenen Batch **ohne**
+    Phasenwechsel.
+- Cross-Ref: die Phase-Filter-Chips `drying`/`curing` (Listenansicht, DoD) sind Anzeige-Aliasse für den
+  Batch-Zustand, keine `growth_phase` (siehe B1).
+
+<!-- Spec-Audit 2026-07-02 D7: Bulb-Geophyt-Zyklus an seasonal_cycles/dormancy angebunden -->
+**Knollen-/Zwiebelgeophyten-Zyklus (Bulb-Geophyten):**
+
+Für `growth_habit='bulb_geophyte'` (Dahlie, Gladiole, Tulpe) war der Jahreszyklus
+dig → dry → store → pre-sprout bisher nur in `OverwinteringProfile.tuber_status` (REQ-022) geführt und
+von `GrowthPhase`/`seasonal_cycles` entkoppelt. Anbindung:
+
+- Die **Lager-/Ruheperiode** (`tuber_status='stored'`) entspricht der `dormancy`-GrowthPhase des
+  jeweiligen `seasonal_cycles`-Eintrags. `dig_store` (REQ-022 Winter-Pfad B, D5) ist die **verlagerte**
+  Ausprägung dieser `dormancy` — kein separater, konkurrierender Zyklus.
+- `pre_sprouting`/Vortreiben (REQ-022 `tuber_status`) entspricht dem `bud_break` der Folgesaison; die Transition
+  `dormancy (= Lager) → bud_break (= Austrieb)` trägt `is_cycle_restart: true` (perennierender Geophyt).
+- Damit ist der D7-Bruch geschlossen: die `tuber_status`-Übergänge (REQ-022) und die Saison-Phasen
+  (REQ-003) beschreiben denselben Zyklus auf zwei Ebenen und müssen konsistent sein (analog D5-Invariante).
 
 ## 4. Authentifizierung & Autorisierung
 
@@ -1387,7 +1533,7 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Rückwärts-Transition:** Verhinderung (Blüte → Vegi nicht erlaubt)
 - [ ] **Multi-Phase-Harvests:** Support für kontinuierliche Ernte (z.B. Salat, Kräuter)
 <!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2 -->
-- [ ] **Listenansicht-Filter:** PlantInstance-Liste bietet Phase-Filter (Enum-Chip-Gruppe: germination, seedling, vegetative, flowering, harvest, drying, curing) und Standort-Filter (Site-Dropdown); URL-Parameter `?phase=...&site_key=...`
+- [ ] **Listenansicht-Filter:** PlantInstance-Liste bietet Phase-Filter (Enum-Chip-Gruppe aus dem kanonischen `PhaseType`-Literal; `drying`/`curing` sind Post-Harvest-Zustände aus REQ-008 und nur als Anzeige-Chips zulässig, keine `growth_phases`) und Standort-Filter (Site-Dropdown); URL-Parameter `?phase=...&site_key=...` <!-- Spec-Audit 2026-07-01 B1 -->
 - [ ] **Tablet-Spaltenprioritäten:** PlantInstance-ListPage blendet auf Tablet (≤1024px) Instanz-ID und Entfernt-am aus; nur Name, Sorte, Phase bleiben sichtbar (UI-NFR-010 §8.1)
 - [ ] **Dashboard-Integration:** Visuelle Phase-Indikatoren mit Fortschrittsbalken
 - [ ] **Notification-System:** Push bei anstehenden Auto-Transitions

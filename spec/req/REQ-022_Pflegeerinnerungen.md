@@ -7,8 +7,15 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.5 (Run-Owned CareProfile mit Detach-Snapshot, W-010)
+Version: 2.6 (Konsistenz-Invariante D5: Winter-Pfade dormancy vs. OverwinteringProfile)
 ```
+
+## Versionshistorie
+
+| Version | Datum | Änderung |
+|---------|-------|----------|
+| ≤ 2.5 | — | Historie bis einschließlich 2.5 nicht tabellarisch geführt; Stand 2.5: Run-Owned CareProfile mit Detach-Snapshot (W-010) |
+| 2.6 | 2026-07-02 | Konsistenz-Invariante D5 (Spec-Audit D5): zwei sich gegenseitig ausschließende Winter-Pfade (winterhart in-situ → `dormancy`-Phase REQ-003 vs. frostempfindlich verlagert → `OverwinteringProfile.winter_action`); Ableitung aus `frost_sensitivity` (REQ-001) + Winterhärtezone (REQ-039); REQ-039 in Abhängigkeiten ergänzt |
 
 ## 1. Business Case
 
@@ -258,6 +265,70 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `created_at: datetime`
     - `updated_at: datetime`
 
+<!-- Spec-Audit 2026-07-02 D5 -->
+#### Konsistenz-Invariante D5: Winter-Pfad (dormancy vs. OverwinteringProfile)
+
+Die Überwinterung existiert im System in zwei Darstellungen, die konsistent gehalten werden
+MÜSSEN: der `dormancy`-GrowthPhase aus der Phasensteuerung (REQ-003: `GrowthPhase name='dormancy'`
+mit `is_recurring`, `LifecycleConfig.dormancy_required`, `seasonal_cycles.chill_hours_accumulated`)
+und dem hier definierten `OverwinteringProfile`. Damit diese beiden Winter-Darstellungen nicht
+divergieren, gilt die folgende Invariante:
+
+**Es gibt genau zwei sich gegenseitig ausschließende Winter-Pfade pro PlantInstance/Run:**
+
+1. **Pfad A — Winterhart, in-situ:** Die Pflanze verbleibt am Standort und betritt die
+   `dormancy`-GrowthPhase (REQ-003) mit regulärer Kältestunden-Akkumulation
+   (`chill_hours_accumulated`). Zulässig, wenn die Winterhärte der Art für die Standort-Klimazone
+   ausreicht (Winterhärte-Ampel **grün** oder **gelb**, siehe §"Winterhärte-Ampel" bzw.
+   `evaluate_winter_hardiness` in REQ-039). `OverwinteringProfile.winter_action` MUSS dann aus
+   `{'none', 'mulch', 'fleece', 'earth_up', 'wrap'}` stammen (in-situ-Schutzmaßnahmen);
+   `move_indoors` und `dig_store` sind auf Pfad A **unzulässig**.
+2. **Pfad B — Frostempfindlich, verlagert:** `OverwinteringProfile.winter_action` steuert die
+   Verlagerung bzw. Einlagerung (`move_indoors` ins Winterquartier oder `dig_store` für Knollen).
+   Die Pflanze durchläuft **keine** reguläre Freiland-`dormancy`-Kältephase — es werden KEINE
+   Freiland-Kältestunden (`chill_hours_accumulated`) erwartet oder akkumuliert. Stattdessen findet
+   eine **geschützte Ruhe** im Winterquartier (bzw. im Knollenlager) statt, deren Bedingungen die
+   `winter_quarter_*`-/`storage_*`-Felder beschreiben. Verlangt die Art laut
+   `LifecycleConfig.dormancy_required` (REQ-003) eine Ruhephase, wird diese als geschützte Ruhe im
+   Winterquartier abgebildet, nicht als Freiland-Dormanz.
+
+**Ableitung des Pfads:** Der Winter-Pfad leitet sich deterministisch aus
+`Species.frost_sensitivity` (REQ-001) und der Winterhärtezone des Standorts (REQ-039,
+`evaluate_winter_hardiness`) ab:
+
+| Ampel (REQ-039) | typ. `frost_sensitivity` | Winter-Pfad | zulässige `winter_action` | `dormancy`-Phase (REQ-003) |
+|-----------------|--------------------------|-------------|---------------------------|----------------------------|
+| grün | `hardy` | A (in-situ) | `none` | Freiland-Dormanz mit Kältestunden |
+| gelb | `half_hardy` / Zonendifferenz ≤ 1 | A (in-situ + Schutz) | `mulch`, `fleece`, `earth_up`, `wrap` | Freiland-Dormanz mit Kältestunden |
+| rot | `tender` / Zonendifferenz > 1 | B (verlagert) | `move_indoors`, `dig_store` | KEINE Freiland-Dormanz; geschützte Ruhe im Winterquartier/Lager |
+
+**Widerspruchsverbot:** `dormancy`-Phase (REQ-003) und `OverwinteringProfile.winter_action` dürfen
+sich NIE widersprechen. Insbesondere:
+
+- Eine PlantInstance mit `winter_action IN ('move_indoors', 'dig_store')` darf NICHT gleichzeitig
+  eine Freiland-`dormancy`-Kältephase (Kältestunden-Erwartung am Außenstandort) führen — z.B. darf
+  ein frostempfindlicher Kübel-Kandidat (`frost_sensitivity='tender'`, "zieht nach drinnen") keine
+  offene `chill_hours_accumulated`-Erwartung im Freien behalten.
+- Umgekehrt darf eine Pflanze auf Pfad A (Ampel grün/gelb, Freiland-Dormanz) kein
+  `winter_action IN ('move_indoors', 'dig_store')` tragen.
+- Validierung: `PATCH`/`POST` auf das OverwinteringProfile sowie die automatische Profil-Generierung
+  (`auto_generated=true`) MÜSSEN die Pfad-Zuordnung gegen die Ampel prüfen und bei Widerspruch mit
+  HTTP 422 ablehnen (manuelle Overrides erfordern explizite Bestätigung und werden als bewusste
+  Nutzerentscheidung protokolliert). Die `CareReminderEngine` generiert Winterschutz- bzw.
+  Einräum-Erinnerungen ausschließlich passend zum abgeleiteten Pfad.
+
+**Zuordnungs-Beispiele:**
+
+- *Apfelbaum* (`hardy`, Zone passt) → Pfad A: bleibt draußen, `dormancy`-Phase mit
+  Kältestunden-Akkumulation, `winter_action='none'`.
+- *Feige* (Zone 8 nötig, Standort 7b, `half_hardy`) → Pfad A mit Schutz: Freiland-Dormanz,
+  `winter_action='wrap'` oder `'fleece'`.
+- *Dahlie* (`tender`, `hardiness_rating='dig_and_store'`) → Pfad B: `winter_action='dig_store'`,
+  keine Freiland-Dormanz; Ruhe als Knollenlager (`tuber_status='stored'`, `winter_watering='none'`).
+- *Zitrone im Kübel* (`tender`) → Pfad B: `winter_action='move_indoors'`, geschützte Ruhe im
+  Winterquartier (5–12 °C), keine Freiland-Kältestunden.
+<!-- /Spec-Audit 2026-07-02 D5 -->
+
 ### Edges:
 
 ```
@@ -435,6 +506,14 @@ Das System berechnet pro PlantInstance eine Winterhärte-Ampel basierend auf:
 - **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min <= site.climate_zone` — Kein Handlungsbedarf. **Keine Winterschutz-Erinnerungen generieren.**
 - **Schutz nötig (gelb):** `frost_sensitivity == 'half_hardy'` ODER Hardiness-Zone knapp (Differenz <= 1 Zone) — Mulch/Vlies/Anhäufeln empfohlen
 - **Muss rein (rot):** `frost_sensitivity == 'tender'` ODER Hardiness-Zone deutlich zu niedrig (Differenz > 1) — Winterquartier oder Ausgraben
+
+<!-- Spec-Audit 2026-07-02 D5 -->
+> **Pfad-Bindung (Invariante D5):** Das Ampel-Ergebnis bestimmt verbindlich den Winter-Pfad gemäß
+> §"Konsistenz-Invariante D5": grün/gelb → Pfad A (in-situ, `dormancy`-Phase nach REQ-003 mit
+> Kältestunden), rot → Pfad B (verlagert via `OverwinteringProfile.winter_action`, keine
+> Freiland-Dormanz). Ampel, `winter_action` und `dormancy`-Phasenlogik dürfen einander nie
+> widersprechen.
+<!-- /Spec-Audit 2026-07-02 D5 -->
 
 <!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 **Winterschutz-Guard für frostharte Pflanzen:**
@@ -1688,7 +1767,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 |---------|-----|-------------|
 | REQ-006 | Nutzt | Task/TaskService/TaskRepository — alle Erinnerungen als Tasks gespeichert |
 | REQ-001 | Liest | Species + BotanicalFamily für CareProfile-Auto-Generierung (care_style-Mapping) |
-| REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults |
+| REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults; `dormancy`-GrowthPhase + `LifecycleConfig.dormancy_required` + `chill_hours_accumulated` für die Winter-Pfad-Konsistenz (Invariante D5) <!-- Spec-Audit 2026-07-02 D5 --> |
+| REQ-039 | Liest | Winterhärtezone des Standorts + `evaluate_winter_hardiness` (Ampel) als Ableitungsbasis für den Winter-Pfad (Invariante D5) und die Winterhärte-Ampel <!-- Spec-Audit 2026-07-02 D5 --> |
 | REQ-020 | Liest | Zimmerpflanzen-Phasen (acclimatization, active_growth, maintenance, repotting_recovery) für DORMANCY_PHASES |
 | REQ-021 | Erweitert | Einsteiger-Pflegekarte: "Nächste Aktion"-Zeile + Navigations-Tiering |
 | REQ-004 | Liest | NutrientPlan.watering_schedule für Gießplan-Guard (Duplikat-Vermeidung: Pflanzen mit aktivem Schedule erhalten keine WATERING/FERTILIZING Reminders) |
