@@ -123,7 +123,7 @@ nutrient_plans:
         ml_per_liter: 2.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 12
     week_end: 14
@@ -267,7 +267,7 @@ nutrient_plans:
       drench_params:
         volume_per_feeding_liters: 0.1
       fertilizer_dosages: []
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 25
     week_end: 28
@@ -413,7 +413,7 @@ nutrient_plans:
       - product_name: PK 13-14
         ml_per_liter: 0.75
         optional: true
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 4
     week_start: 27
     week_end: 30
@@ -579,7 +579,7 @@ nutrient_plans:
       drench_params:
         volume_per_feeding_liters: 0.1
       fertilizer_dosages: []
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 12
     week_end: 12
@@ -727,7 +727,7 @@ nutrient_plans:
         ml_per_liter: 1.25
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 13
     week_end: 16
@@ -892,7 +892,7 @@ nutrient_plans:
       - product_name: PK 13-14
         ml_per_liter: 0.5
         optional: true
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 5
     week_start: 13
     week_end: 20
@@ -919,7 +919,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 6
     week_start: 21
     week_end: 22
@@ -1075,7 +1075,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 4
     week_start: 27
     week_end: 34
@@ -1216,7 +1216,7 @@ nutrient_plans:
       - product_name: Sugar Royal
         ml_per_liter: 0.5
         optional: true
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 4
     week_start: 11
     week_end: 16
@@ -1240,7 +1240,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 17
     week_end: 18
@@ -1364,7 +1364,7 @@ nutrient_plans:
         ml_per_liter: 2.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 4
     week_start: 15
     week_end: 18
@@ -1536,7 +1536,7 @@ nutrient_plans:
       - product_name: PK 13-14
         ml_per_liter: 0.5
         optional: true
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 5
     week_start: 23
     week_end: 28
@@ -1562,7 +1562,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 6
     week_start: 29
     week_end: 30
@@ -1691,7 +1691,7 @@ nutrient_plans:
         ml_per_liter: 2.5
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 4
     week_start: 25
     week_end: 36
@@ -1981,7 +1981,7 @@ nutrient_plans:
       - product_name: Terra Bloom
         ml_per_liter: 1.5
         optional: true
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 3
     week_start: 5
     week_end: 5
@@ -2126,7 +2126,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 4
     week_start: 23
     week_end: 28
@@ -2150,7 +2150,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 5
     week_start: 29
     week_end: 30
@@ -2277,7 +2277,7 @@ nutrient_plans:
         ml_per_liter: 2.5
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 4
     week_start: 9
     week_end: 10
@@ -2599,7 +2599,7 @@ nutrient_plans:
       - product_name: Sugar Royal
         ml_per_liter: 1.0
         optional: true
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 5
     week_start: 29
     week_end: 30
@@ -2625,7 +2625,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 6
     week_start: 31
     week_end: 32
@@ -2764,7 +2764,7 @@ nutrient_plans:
         ml_per_liter: 2.5
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 4
     week_start: 21
     week_end: 22
@@ -2953,7 +2953,7 @@ nutrient_plans:
       - product_name: Sugar Royal
         ml_per_liter: 1.0
         optional: true
-  - phase_name: harvest
+  - phase_name: ripening
     sequence_order: 5
     week_start: 13
     week_end: 20
@@ -2980,7 +2980,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: harvest
+  - phase_name: flushing
     sequence_order: 6
     week_start: 21
     week_end: 22

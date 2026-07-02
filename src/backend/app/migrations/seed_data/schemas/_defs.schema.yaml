@@ -65,7 +65,7 @@ $defs:
 
   phase_name:
     type: string
-    enum: [germination, seedling, vegetative, flowering, flushing, dormancy, harvest,
+    enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
            sprouting, budding, fruiting, ripening, senescence, corm_ripening,
            active_growth, winter_rest, cool_rest, summer_rest,
            shaft_growth, sprout_formation, flowering_fruit, tuber_formation,

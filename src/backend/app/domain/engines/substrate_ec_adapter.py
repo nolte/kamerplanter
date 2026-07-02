@@ -74,7 +74,7 @@ _PHASE_KEY_MAP: dict[str, str] = {
     PhaseName.SEEDLING.value: "seedling",
     PhaseName.VEGETATIVE.value: "vegetative",
     PhaseName.FLOWERING.value: "flowering",
-    PhaseName.HARVEST.value: "flowering",
+    PhaseName.RIPENING.value: "flowering",
     PhaseName.FLUSHING.value: "flowering",
     PhaseName.DORMANCY.value: "vegetative",
 }

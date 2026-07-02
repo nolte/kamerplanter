@@ -31,7 +31,7 @@ class TestValidateCompleteness:
             _make_entry(phase_name=PhaseName.FLOWERING, sequence_order=4, week_start=8, week_end=12),
             _make_entry(phase_name=PhaseName.FLUSHING, sequence_order=5, week_start=12, week_end=14),
             _make_entry(phase_name=PhaseName.DORMANCY, sequence_order=6, week_start=14, week_end=16),
-            _make_entry(phase_name=PhaseName.HARVEST, sequence_order=7, week_start=16, week_end=18),
+            _make_entry(phase_name=PhaseName.RIPENING, sequence_order=7, week_start=16, week_end=18),
         ]
         result = validator.validate_completeness(entries)
         assert result["complete"] is True
@@ -71,7 +71,7 @@ class TestValidateCompleteness:
             _make_entry(phase_name=PhaseName.SEEDLING, sequence_order=2, week_start=4, week_end=8),
             _make_entry(phase_name=PhaseName.VEGETATIVE, sequence_order=3, week_start=8, week_end=16),
             _make_entry(phase_name=PhaseName.FLOWERING, sequence_order=4, week_start=16, week_end=24),
-            _make_entry(phase_name=PhaseName.HARVEST, sequence_order=5, week_start=24, week_end=28),
+            _make_entry(phase_name=PhaseName.RIPENING, sequence_order=5, week_start=24, week_end=28),
             _make_entry(phase_name=PhaseName.FLUSHING, sequence_order=6, week_start=28, week_end=30),
             _make_entry(phase_name=PhaseName.VEGETATIVE, sequence_order=7, week_start=30, week_end=40),
             _make_entry(phase_name=PhaseName.DORMANCY, sequence_order=8, week_start=40, week_end=52),
@@ -108,7 +108,7 @@ class TestValidateCompleteness:
             _make_entry(phase_name=PhaseName.SEEDLING, sequence_order=2, week_start=2, week_end=4),
             _make_entry(phase_name=PhaseName.VEGETATIVE, sequence_order=3, week_start=4, week_end=8),
             _make_entry(phase_name=PhaseName.FLOWERING, sequence_order=4, week_start=8, week_end=12),
-            _make_entry(phase_name=PhaseName.HARVEST, sequence_order=5, week_start=12, week_end=14),
+            _make_entry(phase_name=PhaseName.RIPENING, sequence_order=5, week_start=12, week_end=14),
         ]
         result = validator.validate_completeness(entries)
         assert result["complete"] is True

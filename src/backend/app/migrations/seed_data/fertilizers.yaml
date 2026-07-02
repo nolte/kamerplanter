@@ -536,7 +536,7 @@ nutrient_plans:
             ml_per_liter: 0.5
 
       # ── 6. Ernte / Flush (Week 14-16) ──────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 15
         week_end: 17
@@ -763,7 +763,7 @@ nutrient_plans:
             ml_per_liter: 0.5
 
       # ── 6. Ernte / Flush (Week 15-17) ──────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 15
         week_end: 17
@@ -1136,7 +1136,7 @@ nutrient_plans:
                 ml_per_liter: 2.0
 
       # ── 6. Ernte / Flush (Week 15-17) ──────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 15
         week_end: 17

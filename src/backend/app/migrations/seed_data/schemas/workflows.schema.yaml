@@ -74,7 +74,7 @@ $defs:
       trigger_phase:
         type: string
         enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
-               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+               sprouting, budding, fruiting, ripening, senescence, corm_ripening]
       days_offset:
         type: integer
         minimum: 0

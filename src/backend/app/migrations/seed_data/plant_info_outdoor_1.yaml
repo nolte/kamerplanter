@@ -1303,7 +1303,7 @@ growth_phases:
         s_ppm: 40
         fe_ppm: 3
 
-    - name: harvest
+    - name: ripening
       sequence_order: 5
       is_terminal: true
       allows_harvest: true
@@ -1455,7 +1455,7 @@ growth_phases:
         s_ppm: 45
         fe_ppm: 3
 
-    - name: harvest
+    - name: ripening
       sequence_order: 5
       is_terminal: true
       allows_harvest: true
@@ -1682,7 +1682,7 @@ growth_phases:
         s_ppm: 30
         fe_ppm: 3
 
-    - name: harvest
+    - name: ripening
       sequence_order: 4
       is_terminal: true
       allows_harvest: true

@@ -318,7 +318,7 @@ nutrient_plans:
                 ml_per_liter: 1.0
 
       # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 12
         week_end: 13
@@ -504,7 +504,7 @@ nutrient_plans:
                 ml_per_liter: 1.0
 
       # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 12
         week_end: 13
@@ -651,7 +651,7 @@ nutrient_plans:
                 ml_per_liter: 1.0
                 optional: true
 
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 5
         week_start: 23
         week_end: 28
@@ -870,7 +870,7 @@ nutrient_plans:
               - product_name: "Pure Zym"
                 ml_per_liter: 1.0
 
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 5
         week_start: 17
         week_end: 18
@@ -1153,7 +1153,7 @@ nutrient_plans:
                 ml_per_liter: 1.0
                 optional: true
 
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 5
         week_start: 17
         week_end: 22
@@ -1321,7 +1321,7 @@ nutrient_plans:
                 ml_per_liter: 0.5
                 optional: true
 
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 5
         week_start: 18
         week_end: 26

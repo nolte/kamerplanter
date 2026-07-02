@@ -430,13 +430,16 @@ class WaterSource(StrEnum):
 
 
 class PhaseName(StrEnum):
+    # Nutrient-plan / EC phase vocabulary. `harvest` was retired as a phase
+    # (issue #306): feeding harvest phases → `ripening`, 0-0-0 flush → `flushing`.
+    # `harvest` survives only as an activity/task category, not a phase.
     GERMINATION = "germination"
     SEEDLING = "seedling"
     VEGETATIVE = "vegetative"
     FLOWERING = "flowering"
+    RIPENING = "ripening"
     FLUSHING = "flushing"
     DORMANCY = "dormancy"
-    HARVEST = "harvest"
 
 
 # ── REQ-010 IPM ──

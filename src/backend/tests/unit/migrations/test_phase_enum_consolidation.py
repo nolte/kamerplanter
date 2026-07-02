@@ -30,9 +30,11 @@ CANONICAL = (
     "bud_break",
     "fruit_development",
     "winter_rest",
-    "harvest",
     "repotting_recovery",
 )
+# `harvest` was retired as a phase (issue #306) — it must NOT appear in the phase enum
+# (it remains valid only as an activity/task category, not a growth phase).
+RETIRED = ("harvest",)
 
 
 def _text(name: str) -> str:
@@ -45,10 +47,12 @@ def _load(name: str) -> dict:
 
 def test_defs_is_the_single_phase_name_source() -> None:
     enum = _load("_defs")["$defs"]["phase_name"]["enum"]
-    assert len(enum) == 53
+    assert len(enum) == 52
     assert len(enum) == len(set(enum)), "phase_name enum has duplicates"
     for value in CANONICAL:
         assert value in enum, f"canonical phase '{value}' missing from _defs phase_name"
+    for value in RETIRED:
+        assert value not in enum, f"retired phase '{value}' must not be in _defs phase_name"
 
 
 @pytest.mark.parametrize("name", CONSUMERS)
@@ -61,12 +65,17 @@ def test_consumer_schemas_reference_shared_enum(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", REDUCED)
-def test_reduced_task_phase_enums_untouched(name: str) -> None:
-    # activities/workflows keep their reduced inline subset — deliberately out of
-    # scope for the consolidation (issue #307).
+def test_reduced_task_phase_enums_not_consolidated(name: str) -> None:
+    # activities/workflows keep their reduced inline phase subset (not $ref'd to _defs) —
+    # deliberately out of scope for the #307 consolidation. The `harvest` phase was still
+    # retired from them (issue #306); `harvest` as an activity/task category stays.
     text = _text(name)
     assert PHASE_REF not in text, f"{name}.schema.yaml should keep its reduced inline enum"
     assert "germination" in text
+    # the reduced *phase* enum (starts germination…dormancy) must not carry the retired
+    # `harvest` phase; the separate activity/task-category enum may still list `harvest`.
+    assert "dormancy, harvest" not in text, f"retired `harvest` phase still in {name} reduced enum"
+    assert "harvest, sprouting" not in text, f"retired `harvest` phase still in {name} reduced enum"
 
 
 def test_phase_name_ref_resolves_and_enforces() -> None:
@@ -87,7 +96,7 @@ def test_phase_name_ref_resolves_and_enforces() -> None:
     )
 
     resolved = registry.resolver().lookup(PHASE_REF)
-    assert len(resolved.contents["enum"]) == 53
+    assert len(resolved.contents["enum"]) == 52
 
     # The plant_info phase_entry.name must accept a valid phase and reject an
     # invalid one through the resolved $ref.
