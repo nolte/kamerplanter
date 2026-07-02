@@ -127,11 +127,26 @@ $defs:
       nutrient_demand_level:
         type: string
         enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+      green_manure_suitable:
+        type: boolean
+        description: "Whether the species is suitable as green manure / cover crop."
       green_manure:
         type: boolean
+        description: "DEPRECATED — use green_manure_suitable. Retained for backward compatibility."
       # Pruning
+      pruning_type:
+        type: [string, "null"]
+        description: "Pruning strategy keyword (e.g. none, deadheading, rejuvenation)."
+      pruning_months:
+        type: array
+        items:
+          type: integer
+          minimum: 1
+          maximum: 12
+        description: "Recommended pruning months (1–12)."
       pruning:
         type: object
+        description: "DEPRECATED — use pruning_type/pruning_months. Retained for backward compatibility."
         properties:
           pruning_required:
             type: boolean
@@ -147,6 +162,31 @@ $defs:
         enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
                succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
         description: "Broad category for UI grouping"
+      # ── Ernteverhalten (REQ-007) ──
+      harvest_pattern:
+        type: [string, "null"]
+        enum: [single, continuous, perennial, null]
+        description: "Lifetime harvest pattern — distinct from the per-event HarvestType."
+      harvested_part:
+        type: [string, "null"]
+        enum: [fruit, seed, leaf, root, tuber, bulb, flower_bud, flower, stem, whole_plant, null]
+        description: "Harvested plant part. Orthogonal to harvest_pattern."
+      climacteric:
+        type: [string, "null"]
+        enum: [climacteric, non_climacteric, atypical, null]
+        description: "Post-harvest ripening behaviour of fruit (third value for genuine borderline cases)."
+      # ── Toxizität & Allergene (REQ-001) ──
+      toxicity:
+        $ref: "#/$defs/toxicity"
+      allergen_info:
+        $ref: "#/$defs/allergen_info"
+      toxicity_severity:
+        type: [string, "null"]
+        description: "Flat legacy toxicity severity (low/moderate/high) — a DIFFERENT scale from
+          toxicity.severity. Kept as an un-mapped passthrough; do not conflate with toxicity.severity."
+      # ── Saatgut / Keimung (REQ-001, REQ-006) ──
+      seed_profile:
+        $ref: "#/$defs/seed_profile"
     required: [scientific_name, common_names, family, genus, growth_habit, root_type]
     additionalProperties: true
 
@@ -202,6 +242,18 @@ $defs:
         type: integer
         minimum: 0
         maximum: 100
+      # ── VPD (REQ-003, review finding B6) ──
+      # vpd_target_kpa is the canonical field used across the data (300×); vpd_range
+      # is retained as an optional legacy alternative and no longer required.
+      vpd_target_kpa:
+        type: number
+        minimum: 0
+      vpd_threshold_kpa:
+        type: [number, "null"]
+        minimum: 0
+      vpd_sensitivity:
+        type: [string, "null"]
+        enum: [low, medium, high, null]
       vpd_range:
         type: array
         items:
@@ -209,7 +261,53 @@ $defs:
         minItems: 2
         maxItems: 2
     required: [light_ppfd_target, photoperiod_hours, temperature_day_c, temperature_night_c,
-               humidity_day_percent, humidity_night_percent, vpd_range]
+               humidity_day_percent, humidity_night_percent]
+    additionalProperties: false
+
+  toxicity:
+    type: object
+    description: "Canonical toxicity object (REQ-001). Distinct from the flat toxicity_severity passthrough."
+    properties:
+      is_toxic_cats: { type: boolean }
+      is_toxic_dogs: { type: boolean }
+      is_toxic_children: { type: boolean }
+      toxic_parts:
+        type: array
+        items: { type: string }
+      toxic_compounds:
+        type: array
+        items: { type: string }
+      severity:
+        type: [string, "null"]
+        enum: [none, mild, moderate, severe, null]
+    additionalProperties: false
+
+  allergen_info:
+    type: object
+    properties:
+      contact_allergen: { type: boolean }
+      pollen_allergen: { type: boolean }
+    additionalProperties: false
+
+  seed_profile:
+    type: object
+    description: "Sowing / germination metadata (REQ-001, REQ-006). All fields optional."
+    properties:
+      germination_temp_min_c: { type: [number, "null"] }
+      germination_temp_max_c: { type: [number, "null"] }
+      sowing_depth_cm: { type: [number, "null"], minimum: 0 }
+      days_to_germination: { type: [integer, "null"], minimum: 0 }
+      seed_viability_years: { type: [integer, "null"], minimum: 0 }
+      light_germination:
+        type: [string, "null"]
+        enum: [light, dark, indifferent, null]
+      pretreatment:
+        type: array
+        items:
+          type: string
+          enum: [cold_stratification, warm_stratification, scarification, presoak]
+      thousand_seed_weight_g: { type: [number, "null"], minimum: 0 }
+      sowing_density_per_m2: { type: [number, "null"], minimum: 0 }
     additionalProperties: false
 
   nutrient_profile:

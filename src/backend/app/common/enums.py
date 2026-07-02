@@ -134,6 +134,37 @@ class DtmReference(StrEnum):
     TRANSPLANT = "transplant"
 
 
+class ToxicitySeverity(StrEnum):
+    """Severity of a species' toxicity (REQ-001 — toxicity object).
+
+    Distinct from the flat ``Species.toxicity_severity`` passthrough, which uses a
+    different scale (low/moderate/high) and is intentionally not auto-mapped onto
+    this canonical enum.
+    """
+
+    NONE = "none"
+    MILD = "mild"
+    MODERATE = "moderate"
+    SEVERE = "severe"
+
+
+class LightGermination(StrEnum):
+    """Light requirement for seed germination (REQ-001 seed_profile, REQ-006 sowing)."""
+
+    LIGHT = "light"  # light germinator (Lichtkeimer) — do not cover the seed
+    DARK = "dark"  # dark germinator (Dunkelkeimer) — cover the seed
+    INDIFFERENT = "indifferent"
+
+
+class SeedPretreatment(StrEnum):
+    """Pre-sowing seed treatment to break dormancy (REQ-001 seed_profile)."""
+
+    COLD_STRATIFICATION = "cold_stratification"
+    WARM_STRATIFICATION = "warm_stratification"
+    SCARIFICATION = "scarification"
+    PRESOAK = "presoak"
+
+
 class StressTolerance(StrEnum):
     LOW = "low"
     MEDIUM = "medium"

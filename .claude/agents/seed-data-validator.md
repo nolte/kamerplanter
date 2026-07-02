@@ -246,6 +246,8 @@ Die Schemas verwenden **JSON Schema Draft 2020-12** im YAML-Format und referenzi
 
 Die YAML-Schemas unter `schemas/` muessen mit den tatsaechlichen Seed-Daten und den Pydantic-Modellen synchron sein. Diese Phase prueft die Schemas und erweitert sie bei Bedarf **bevor** die eigentliche Datenvalidierung stattfindet.
 
+> **Verbindliches Drift-Gate:** Diese Phase ist der zentrale Schutz gegen Schema-vs-Daten- und Template-vs-Schema-Drift (siehe `spec/analysis/seed-pipeline-agent-review.md`). Jedes in den YAML-Daten vorkommende Feld MUSS als Schema-`property` existieren — reine `additionalProperties: true`-Duldung eines Kern-Attributs ist ein `[SCHEMA-FIELD-MISSING]`-Finding, kein „ok". Bekannte Alt-Drifts, die hier auffallen müssen: `pruning_type`/`pruning_months` vs. totes `pruning`-Objekt, `green_manure_suitable` vs. `green_manure`, `toxicity`/`toxicity_severity`, `vpd_target_kpa` vs. `vpd_range`.
+
 ### 0.1 Schema-Abdeckung pruefen
 
 Fuer jede YAML-Seed-Datei pruefe:
@@ -332,25 +334,28 @@ Nach der Erweiterung pruefe alle Schemas auf:
 
 Fuer jede YAML-Datei pruefe:
 
-1. **Pflichtfelder vorhanden** — Gleiche gegen die Pydantic-Modelle in `src/backend/app/domain/models/` ab:
-   - Species: `scientific_name`, `common_name_de`, `common_name_en`, `family_key`, `plant_type`
-   - Cultivar: `name`, `species_key`
+1. **Pflichtfelder vorhanden** — Gleiche gegen die Pydantic-Modelle in `src/backend/app/domain/models/` UND die Seed-Schemas ab (die Feldnamen des Seed-Layers, NICHT veraltete DB-Aliase):
+   - Species: `scientific_name`, `common_names` (Array), `genus`, `growth_habit`, `root_type` (Family via `new_species_family_map`)
+   - Cultivar: `name` (+ `species_name`)
    - Fertilizer: `name`, `manufacturer`, `npk_n`, `npk_p`, `npk_k`, `form`
    - NutrientPlan: `name`, `phases` (mit EC/pH pro Phase)
-   - GrowthPhase: `name`, `phase_type`, `typical_duration_days`
-   - Pest/Disease: `scientific_name` oder `common_name_de`, `category`
-   - Treatment: `name`, `active_ingredient`, `treatment_type`
+   - GrowthPhase (`phase_entry`): `name`, `display_name`, `duration_days`, `sequence_order`, `stress_tolerance`, `allows_harvest`, `is_terminal`
+   - Pest: `scientific_name`, `common_name`, `pest_type`; Disease: `name`, `pathogen_type`
+   - Treatment: `name`, `treatment_type`
    - StarterKit: `name`, `difficulty`, `species_keys`
    - LocationType: `name`, `icon`
    - Activity: `name`, `category`
 
-2. **Enum-Werte gueltig** — Pruefe alle Enum-Felder gegen die definierten Enums in den Models:
-   - `plant_type`: ANNUAL, PERENNIAL, BIENNIAL, etc.
-   - `phase_type`: GERMINATION, SEEDLING, VEGETATIVE, FLOWERING, HARVEST, DORMANCY, etc.
+2. **Enum-Werte gueltig** — Pruefe alle Enum-Felder gegen die definierten Enums in `_defs.schema.yaml`/den Models (Seed-Layer-Werte, kleingeschrieben):
+   - `growth_habit`: herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte (12 Werte)
+   - `root_type`: fibrous, taproot, tuberous, bulbous, corm
+   - `plant_category`: indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant, succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber
+   - `phase_entry.name`: germination, seedling, vegetative, flowering, harvest, dormancy, … (voller Enum in `plant_info.schema.yaml`)
    - `form` (Fertilizer): LIQUID, GRANULAR, POWDER, etc.
    - `difficulty`: BEGINNER, INTERMEDIATE, EXPERT
-   - `nutrient_demand_level`: LOW, MEDIUM, HIGH
-   - `frost_sensitivity`: NONE, LOW, MEDIUM, HIGH, VERY_HIGH
+   - `nutrient_demand_level`: heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer
+   - `frost_sensitivity`: sensitive, moderate, hardy, very_hardy
+   - `pathogen_type`: fungal, bacterial, viral, physiological, oomycete, protist
 
 3. **Datentypen korrekt** — Numerische Felder sind Zahlen (nicht Strings), Booleans sind `true`/`false`, Listen sind Listen.
 
@@ -381,30 +386,31 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 
 **Kern-Pflichtfelder (muessen immer vorhanden sein):**
 - [ ] `scientific_name` (Binomialnomenklatur)
-- [ ] `common_name_de` und `common_name_en`
-- [ ] `family_key` (referenziert botanische Familie)
-- [ ] `plant_type` (ANNUAL/PERENNIAL/BIENNIAL)
+- [ ] `common_names` (Array, ≥1)
+- [ ] `genus` + Familienzuordnung via `new_species_family_map`
+- [ ] `growth_habit`, `root_type`
+- [ ] `plant_category` (UI-Gruppierung); Lebenszyklus via `lifecycle_configs.cycle_type`
 
 **Indoor-relevante Felder (sollen vorhanden sein fuer Indoor-Pflanzen):**
-- [ ] `light_min_ppfd` und/oder `light_max_ppfd` (PPFD, nicht nur Lux!)
-- [ ] `temp_min_c` und `temp_max_c`
-- [ ] `humidity_min_percent` und/oder `humidity_max_percent`
-- [ ] `substrate_types` oder Substratempfehlung
-- [ ] `toxicity_human`, `toxicity_cat`, `toxicity_dog` (REQ-001 v5.0)
-- [ ] `frost_sensitivity` (REQ-001 v5.0)
-
-**Outdoor-relevante Felder (sollen vorhanden sein fuer Outdoor-Pflanzen):**
-- [ ] `sowing_direct_month_start`/`end` oder `sowing_indoor_month_start`/`end`
-- [ ] `harvest_months`
-- [ ] `nutrient_demand_level`
-- [ ] `hardiness_zone_min`/`max`
+- [ ] Licht/Temperatur/Luftfeuchte/VPD je Phase in `growth_phases[].requirement_profile` (`light_ppfd_target`, `temperature_day_c`/`_night_c`, `humidity_day_percent`/`_night_percent`, `vpd_target_kpa`) — NICHT auf Species-Ebene
+- [ ] Physiologie: `photosynthesis_type`, `shade_tolerance`, `light_compensation_point_ppfd_min/max`
+- [ ] `toxicity` (Objekt: `is_toxic_cats/dogs/children`, `severity`) + `allergen_info`
 - [ ] `frost_sensitivity`
 
+**Outdoor-relevante Felder (sollen vorhanden sein fuer Outdoor-Pflanzen):**
+- [ ] `sowing_indoor_weeks_before_last_frost` / `sowing_outdoor_after_last_frost_days` / `direct_sow_months`
+- [ ] `harvest_months`, `harvest_pattern`, `harvested_part`
+- [ ] `nutrient_demand_level`, `green_manure_suitable`, `base_temp`
+- [ ] `hardiness_zones`, `frost_sensitivity`, `salt_tolerance_class`, `waterlogging_tolerance`
+- [ ] `pruning_type` / `pruning_months`
+
+**Saatgut-Felder (fuer samenvermehrte Arten, REQ — siehe seed-pipeline-agent-review B7):**
+- [ ] `seed_profile` (`germination_temp_min_c/max_c`, `sowing_depth_cm`, `days_to_germination`, `seed_viability_years`, `light_germination`, `pretreatment`)
+
 **Erweiterte Felder (nice-to-have):**
-- [ ] `growth_rate`
-- [ ] `max_height_cm` / `max_width_cm`
-- [ ] `life_form` (Epiphyt, Lithophyt, terrestrisch)
-- [ ] `pruning_info`
+- [ ] `mature_height_cm` / `mature_width_cm` / `spacing_cm`
+- [ ] `effective_root_depth_cm`, `soil_ph_preference`
+- [ ] `propagation_configs` (strukturiert, nicht deprecated `propagation_methods`)
 
 ### 2.2 Fertilizer-Vollstaendigkeit (gegen Spec REQ-004)
 
@@ -431,6 +437,7 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] Biologische Behandlungsmethoden vorhanden (Nuetzlinge, Neemoel, Kaliseife)
 - [ ] Karenzzeiten (`safety_interval_days`) bei chemischen Mitteln
 - [ ] `[AGROBIO-CHECK]` Wissenschaftliche Namen der Schaedlinge/Krankheiten korrekt?
+- [ ] `[AGROBIO-CHECK]` `pathogen_type` korrekt: *Phytophthora* (Kraut-/Braunfaeule), Falscher Mehltau und *Pythium* sind `oomycete` (Stramenopila), NICHT `fungal`. Echter Mehltau/Botrytis/Fusarium sind `fungal`.
 
 ### 2.5 Starter-Kit-Vollstaendigkeit (gegen Spec REQ-020)
 

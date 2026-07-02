@@ -77,6 +77,16 @@ Das Feld `propagation_notes` ist ein fachlicher Freitext und hält praxisnahes V
 
 **Befüllung:** Alle 183 Arten mit gepflegten Vermehrungsmethoden in den Seed-Daten sind mit einem Hinweistext versehen.
 
+> **Hinweis (strukturierte Vermehrung):** Die Flatfelder `propagation_methods`/`propagation_months`/`propagation_notes` sind zugunsten von `propagation_configs` (eine Config je Methode mit eigenem Timing, Holzreife, Schwierigkeit und Notizen; REQ-017) **abgekündigt**. Beim Import werden Flatwerte adaptiert. Neue Daten verwenden `propagation_configs`.
+
+#### Species — Feld `toxicity` / `allergen_info`
+
+Das Objektfeld `toxicity` erfasst die Giftigkeit einer Art getrennt für Katzen, Hunde und Kinder (`is_toxic_cats`/`is_toxic_dogs`/`is_toxic_children`), die betroffenen Pflanzenteile (`toxic_parts`), die verantwortlichen Wirkstoffe (`toxic_compounds`) sowie den Schweregrad (`severity`: `none`/`mild`/`moderate`/`severe`). `allergen_info` ergänzt Kontakt- und Pollenallergen-Flags. Das flache Passthrough-Feld `toxicity_severity` (`low`/`moderate`/`high`) bleibt aus historischen Daten erhalten und wird **nicht** auf `toxicity.severity` gemappt. Alle Felder sind optional (`null`, wenn nicht gepflegt).
+
+#### Species — Feld `seed_profile`
+
+Das Objektfeld `seed_profile` bündelt echte Saatgut-/Keim-Metadaten für samenvermehrte Arten: Keimtemperatur-Bereich (`germination_temp_min_c`/`_max_c`), Saattiefe (`sowing_depth_cm`), Tage bis Keimung (`days_to_germination`), Keimfähigkeitsdauer (`seed_viability_years`), Licht-/Dunkelkeimung (`light_germination`: `light`/`dark`/`indifferent`), Vorbehandlung (`pretreatment`: `cold_stratification`/`warm_stratification`/`scarification`/`presoak`), Tausendkornmasse (`thousand_seed_weight_g`) und Aussaatdichte (`sowing_density_per_m2`). Alle Felder sind optional; rein vegetativ vermehrte Arten lassen das Objekt leer (`null`).
+
 ---
 
 ### Standorte und Infrastruktur (REQ-002, REQ-019)

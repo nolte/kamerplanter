@@ -77,7 +77,7 @@ src/backend/app/migrations/seed_data/schemas/species.schema.yaml
 ```
 
 Merke dir:
-1. **Alle Enum-Werte** — growth_habit, root_type, phase_name, frost_sensitivity, photoperiod_type, cycle_type, container_suitable, nutrient_demand_level, plant_trait, pest_type, pathogen_type, treatment_type, application_method, substrate_type
+1. **Alle Enum-Werte** — growth_habit (12 Werte), root_type (fibrous/taproot/tuberous/bulbous/corm), phase_name, frost_sensitivity (sensitive/moderate/hardy/very_hardy), photoperiod_type, cycle_type, container_suitable, nutrient_demand_level, plant_category, harvest_pattern, harvested_part, climacteric, propagation method + wood_stage, shade_tolerance, waterlogging_tolerance, salt_tolerance_class, photosynthesis_type, light_germination, seed_profile.pretreatment, toxicity.severity, plant_trait, pest_type, pathogen_type (fungal/bacterial/viral/physiological/**oomycete**/protist), treatment_type, application_method, substrate_type
 2. **Pflichtfelder** — species: `[scientific_name, common_names, genus, growth_habit, root_type]`, cultivar: `[name]`, phase_entry: `[name, display_name, duration_days, sequence_order, stress_tolerance, allows_harvest, is_terminal]`
 3. **Feldtypen** — hardiness_zones: array of strings "Xa"/"Xb", allelopathy_score: number -1..1, bloom_months/harvest_months: array of integers 1..12
 
@@ -164,6 +164,8 @@ Erzeuge die YAML-Datei strikt nach dem plant_info.schema.yaml Format.
 | half-hardy | moderate | frost_sensitivity |
 | hardy | hardy | frost_sensitivity |
 | fully hardy | very_hardy | frost_sensitivity |
+| rhizomatous (Alt-Doku) | tuberous | root_type (+ `# ENUM-MISMATCH`-Kommentar) |
+| aerial (Alt-Doku) | fibrous | root_type (+ `# ENUM-MISMATCH`-Kommentar) |
 | easy (Stresstoleranz) | low | stress_tolerance |
 | Keimung / germination | germination | phase_name |
 | Saemling / seedling | seedling | phase_name |
@@ -178,6 +180,8 @@ Erzeuge die YAML-Datei strikt nach dem plant_info.schema.yaml Format.
 | Aktives Wachstum | active_growth | phase_name |
 
 ### YAML-Struktur-Template
+
+> **Vollständigkeits-Pflicht:** Dieses Template ist die **vollständige** Feldreferenz, keine Auswahl. Für JEDE `KA-Feld`-Zeile im Quelldokument MUSS das entsprechende YAML-Feld erzeugt werden — insbesondere die Physiologie-, Ernteverhalten-, Toxizitäts- und `seed_profile`-Felder dürfen NICHT weggelassen werden, nur weil sie im Beispiel kompakt wirken. Fehlt ein Wert in der Quelle → `# MISSING`-Kommentar (nicht stillschweigend auslassen).
 
 ```yaml
 # Source: spec/knowledge/plants/<filename>.md
@@ -236,6 +240,57 @@ new_species:
     balcony_suitable: <enum>
     greenhouse_recommended: <bool>
     support_required: <bool>
+    base_temp: <float>
+    plant_category: <enum>
+    green_manure_suitable: <bool>
+    pruning_type: <string|null>
+    pruning_months: [<int>]
+    # ── Ernteverhalten (REQ-007) ──
+    harvest_pattern: <single|continuous|perennial|null>
+    harvested_part: <fruit|seed|leaf|root|tuber|bulb|flower_bud|flower|stem|whole_plant|null>
+    climacteric: <climacteric|non_climacteric|atypical|null>
+    # ── Vermehrung (REQ-017) — strukturiert, EINE Config je Methode ──
+    propagation_configs:
+      - method: <enum>          # seed|cutting|leaf_cutting|division|rhizome_division|bulb|bulbil|tuber|offset|runner|grafting|layering|air_layering|water_propagation|tissue_culture|spore|self_seeding
+        months: [<int>]
+        wood_stage: <softwood|semi_hardwood|hardwood|herbaceous|null>
+        difficulty: <easy|moderate|difficult|null>
+        notes: <string|null>
+    # ── Umgebungs-Physiologie (REQ-001 v4.2) — NICHT weglassen ──
+    photosynthesis_type: <c3|c4|cam|null>
+    light_compensation_point_ppfd_min: <int|null>
+    light_compensation_point_ppfd_max: <int|null>
+    shade_tolerance: <deep_shade|shade|partial_shade|full_sun|null>
+    effective_root_depth_cm: <int|null>
+    waterlogging_tolerance: <sensitive|moderate|tolerant|null>
+    salt_tolerance_class: <sensitive|moderately_sensitive|moderately_tolerant|tolerant|null>
+    salt_tolerance_ece_threshold_ds_m: <float|null>
+    salt_tolerance_slope_pct: <float|null>
+    soil_ph_preference:
+      min_ph: <float>
+      max_ph: <float>
+    # ── Toxizität & Allergene ──
+    toxicity:
+      is_toxic_cats: <bool>
+      is_toxic_dogs: <bool>
+      is_toxic_children: <bool>
+      toxic_parts: [<string>]
+      toxic_compounds: [<string>]
+      severity: <none|mild|moderate|severe>
+    allergen_info:
+      contact_allergen: <bool>
+      pollen_allergen: <bool>
+    # ── Saatgut & Keimung (nur samenvermehrte Arten) ──
+    seed_profile:
+      germination_temp_min_c: <float|null>
+      germination_temp_max_c: <float|null>
+      sowing_depth_cm: <float|null>
+      days_to_germination: <int|null>
+      seed_viability_years: <int|null>
+      light_germination: <light|dark|indifferent|null>
+      pretreatment: [<cold_stratification|warm_stratification|scarification|presoak>]
+      thousand_seed_weight_g: <float|null>
+      sowing_density_per_m2: <float|null>
 
 # OR if species exists in species.yaml:
 species_enrichment:
@@ -264,13 +319,20 @@ growth_phases:
       is_terminal: <bool>
       requirement_profile:
         light_ppfd_target: <int>
+        dli_target_mol: <float>
         temperature_day_c: <float>
         temperature_night_c: <float>
         humidity_day_percent: <int>
         humidity_night_percent: <int>
         vpd_target_kpa: <float>
+        vpd_threshold_kpa: <float>
+        vpd_sensitivity: <low|medium|high>
+        photosynthesis_temp_opt_c: <float>
+        far_red_fraction: <float>
         photoperiod_hours: <float>
         co2_ppm: <int>
+        irrigation_frequency_days: <int>
+        irrigation_volume_ml_per_plant: <int>
       nutrient_profile:
         npk_ratio: [<N>, <P>, <K>]
         target_ec_ms: <float>

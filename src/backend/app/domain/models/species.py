@@ -10,13 +10,16 @@ from app.common.enums import (
     GrowthHabit,
     HarvestedPart,
     HarvestPattern,
+    LightGermination,
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
     PropagationDifficulty,
     PropagationMethod,
     RootType,
+    SeedPretreatment,
     Suitability,
+    ToxicitySeverity,
     WateringMethod,
     WoodStage,
 )
@@ -158,6 +161,67 @@ class PropagationConfig(BaseModel):
         return sorted(set(v))
 
 
+class Toxicity(BaseModel):
+    """Canonical toxicity profile of a species (REQ-001 — pet/child safety).
+
+    Consumed by the Species model so that toxicity data is no longer lost on
+    import. The flat ``Species.toxicity_severity`` field uses a *different* scale
+    (low/moderate/high) and is intentionally kept separate — the two must not be
+    conflated or auto-mapped.
+    """
+
+    is_toxic_cats: bool = False
+    is_toxic_dogs: bool = False
+    is_toxic_children: bool = False
+    toxic_parts: list[str] = Field(default_factory=list)
+    toxic_compounds: list[str] = Field(default_factory=list)
+    severity: ToxicitySeverity | None = None
+
+
+class AllergenInfo(BaseModel):
+    """Allergen properties of a species (REQ-001 — contact / pollen allergens)."""
+
+    contact_allergen: bool = False
+    pollen_allergen: bool = False
+
+
+class SeedProfile(BaseModel):
+    """Sowing / germination metadata for a species (REQ-001, REQ-006).
+
+    Fills the seed-attribute gap (review finding B7): standard, documented seed
+    parameters that drive sowing tasks and calendar hints. Every field is
+    optional — an empty profile is valid and no values are ever invented when the
+    source data lacks them.
+    """
+
+    germination_temp_min_c: float | None = Field(
+        default=None, description="Minimum soil temperature for reliable germination (Celsius)."
+    )
+    germination_temp_max_c: float | None = Field(
+        default=None, description="Maximum soil temperature for reliable germination (Celsius)."
+    )
+    sowing_depth_cm: float | None = Field(default=None, ge=0, description="Recommended sowing depth in cm.")
+    days_to_germination: int | None = Field(
+        default=None, ge=0, description="Typical number of days from sowing to emergence."
+    )
+    seed_viability_years: int | None = Field(
+        default=None, ge=0, description="Years the seed stays viable under proper storage."
+    )
+    light_germination: LightGermination | None = Field(
+        default=None, description="Light requirement for germination (light/dark/indifferent germinator)."
+    )
+    pretreatment: list[SeedPretreatment] = Field(
+        default_factory=list,
+        description="Pre-sowing dormancy-breaking treatments (stratification/scarification/presoak).",
+    )
+    thousand_seed_weight_g: float | None = Field(
+        default=None, ge=0, description="Thousand-seed weight (TKG) in grams — for sowing-density conversion."
+    )
+    sowing_density_per_m2: float | None = Field(
+        default=None, ge=0, description="Recommended sowing density in seeds per square metre."
+    )
+
+
 class Species(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str
@@ -191,6 +255,27 @@ class Species(BaseModel):
     green_manure_suitable: bool = False
     pruning_months: list[int] = Field(default_factory=list)
     pruning_type: str | None = None
+    # ── Toxizität & Allergene (REQ-001) ──
+    toxicity: Toxicity | None = Field(
+        default=None,
+        description="Canonical toxicity profile (pet/child safety). Consumed on import so the "
+        "structured toxicity data is no longer lost.",
+    )
+    allergen_info: AllergenInfo | None = Field(
+        default=None,
+        description="Contact / pollen allergen properties.",
+    )
+    toxicity_severity: str | None = Field(
+        default=None,
+        description="Flat legacy toxicity severity (low/moderate/high) — a DIFFERENT scale from "
+        "toxicity.severity. Kept as an un-mapped passthrough; do not conflate with toxicity.severity.",
+    )
+    # ── Saatgut / Keimung (REQ-001, REQ-006) ──
+    seed_profile: SeedProfile | None = Field(
+        default=None,
+        description="Sowing / germination metadata (temperature, depth, viability, light/dark "
+        "germination, dormancy pretreatment, TKG, density). Optional; empty when unresearched.",
+    )
     traits: list[str] = Field(default_factory=list)
     # ── Vermehrung (REQ-017) — structured per-method configs ──
     # Replaces the former flat propagation_methods/months/notes/difficulty fields
