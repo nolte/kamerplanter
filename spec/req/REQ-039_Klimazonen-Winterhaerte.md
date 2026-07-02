@@ -7,8 +7,8 @@ Kategorie: Standorte & Pflege
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB (Geo-Index), Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.1
-Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-022 (Überwinterung/Winterhärte-Ampel), REQ-005 (Frostwarnung), REQ-015-A (Aussaatkalender)
+Version: 1.2
+Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-003 (Phasensteuerung/Dormanz), REQ-022 (Überwinterung/Winterhärte-Ampel), REQ-005 (Frostwarnung), REQ-015-A (Aussaatkalender)
 ```
 
 ## Versionshistorie
@@ -17,6 +17,7 @@ Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-022 (Überwinterung
 |---------|-------|----------|
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration von frostline (awesome-agriculture) + DACH-Adaption |
 | 1.1 | 2026-06-20 | Lizenz-Schärfung: USDA/PHZM-Daten proprietär/US-only (nicht eingecheckt), DWD (GeoNutzV) + Open-Meteo (CC-BY-4.0) als kanonische DACH-Datenbasis |
+| 1.2 | 2026-07-02 | Spec-Audit D5: REQ-003 (Phasensteuerung/Dormanz) als Abhängigkeit aufgenommen; Notiz, dass die Winterhärte-/Klimazonen-Daten den Dormanz-Eintritt (REQ-003 `dormancy`) bzw. die Überwinterungs-Entscheidung (REQ-022 `OverwinteringProfile`, Invariante D5) speisen |
 
 ## 1. Business Case
 
@@ -201,6 +202,10 @@ def evaluate_winter_hardiness(
 
 > Diese Funktion ersetzt die in REQ-022 inline beschriebene String-Vergleichslogik durch einen Zonen-numerischen Vergleich. REQ-022 `CareReminderEngine` ruft sie auf; die `hardy`-Kurzschluss-Regel (keine Winterschutz-Erinnerungen) bleibt unverändert.
 
+<!-- Spec-Audit 2026-07-02 D5 -->
+> **Winter-Pfad-Speisung (Invariante D5, REQ-022):** Die hier abgeleitete Winterhärte-/Klimazonen-Bewertung speist die verbindliche **Winter-Pfad-Entscheidung**: Ergebnis **grün/gelb** → die Pflanze verbleibt in-situ und betritt die `dormancy`-GrowthPhase (REQ-003, Kältestunden-Akkumulation `chill_hours_accumulated`); Ergebnis **rot** → Überwinterungs-Entscheidung via `OverwinteringProfile.winter_action` (REQ-022, `move_indoors`/`dig_store`) mit geschützter Ruhe statt Freiland-Dormanz. Beide Winter-Darstellungen (REQ-003-Dormanz vs. REQ-022-OverwinteringProfile) dürfen einander nie widersprechen — Details in REQ-022 §"Konsistenz-Invariante D5".
+<!-- /Spec-Audit 2026-07-02 D5 -->
+
 ### Adapter: `FrostlineUsAdapter` (optional, US-Standorte)
 
 Folgt dem etablierten External-Adapter-Pattern (ABC in `domain/interfaces/`, Implementierung in `data_access/external/`, Registrierung via `AdapterRegistry` — analog REQ-011).
@@ -305,7 +310,8 @@ Daraus leitet Kamerplanter die Zonen selbst ab; eine fertige freie DACH-Winterh�
 |---------|-----------|
 | **REQ-001** | Liefert `Species.hardiness_zones` + `frost_sensitivity` (Vergleichsbasis). Kein neues Feld nötig. |
 | **REQ-002** | `Site` wird um `hardiness_zone`-Felder erweitert; nutzt vorhandene `gps_coordinates` + Geo-Index. `climate_zone` bleibt rückwärtskompatibel. |
-| **REQ-022** | Winterhärte-Ampel + Überwinterungs-Erinnerungen konsumieren `evaluate_winter_hardiness` und die abgeleitete Zone. REQ-039 ersetzt die inline-String-Vergleichslogik. |
+| **REQ-003** | Die abgeleitete Zone + Ampel speisen die Winter-Pfad-Entscheidung: grün/gelb → Eintritt in die `dormancy`-GrowthPhase in-situ (Kältestunden-Akkumulation), rot → keine Freiland-Dormanz, sondern Überwinterung nach REQ-022 (Invariante D5). <!-- Spec-Audit 2026-07-02 D5 --> |
+| **REQ-022** | Winterhärte-Ampel + Überwinterungs-Erinnerungen konsumieren `evaluate_winter_hardiness` und die abgeleitete Zone. REQ-039 ersetzt die inline-String-Vergleichslogik. Das Ampel-Ergebnis bindet zugleich den Winter-Pfad (Invariante D5, REQ-022): rot → `OverwinteringProfile.winter_action`, grün/gelb → in-situ-Dormanz (REQ-003). <!-- Spec-Audit 2026-07-02 D5 --> |
 | **REQ-005** | Stellt die Wetter-/Klima-Adapter (DWD, Open-Meteo) bereit, deren Historie die Klimanormale liefert. Frost-Richtwerte ergänzen die Frostwarnung als Fallback ohne Live-Wetter. |
 | **REQ-015-A** | `typical_last_frost_md` / `typical_first_frost_md` der Zone befüllen die Frosttermin-Defaults (`last_frost_date_avg` etc.), wenn nicht manuell gesetzt. |
 | **REQ-011** | Adapter-/Registry-Pattern wird wiederverwendet. |

@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.4 (Phase A: growth_habit erweitert, Lebensdauer botanisch vs. in Kultur)
+Version: 4.5 (Spec-Audit D-Umsetzung: GrowthHabit real erweitert, cultivation_cycle_type + FloweringStrategy im Body)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -15,7 +15,8 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 4.4 | 2026-06-15 | **Phase A — additive Stammdaten-Felder (Plan WP-1/WP-3):** `GrowthHabit`-Enum auf die reale botanische Bandbreite erweitert (+`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`). Lebensdauer-Split: `LifecycleConfig.cultivation_cycle_type` (Kultur-Praxis) ergänzt `cycle_type` (botanisch) — bildet „einjährig in Kultur"/tender perennial ab. Alle Felder optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §1.2/§2.1. |
+| 4.5 | 2026-07-02 | **Spec-Audit D-Umsetzung (WP-1/WP-3/WP-4):** Die in v4.4 angekündigten Felder sind nun tatsächlich im Body definiert. `GrowthHabit`-Enum real erweitert (12 Werte: +`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`) — beide `growth_habit`-Literal-Stellen mitgezogen. `LifecycleConfig.cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis vs. botanisch) + abgeleitetes `grown_as_annual`-Flag. Neuer Enum `FloweringStrategy` (`monocarpic`/`polycarpic`) + `LifecycleConfig.flowering_strategy` (Voraussetzung für monokarpe Terminal-Transition REQ-003 §D6, Bulb-Geophyt-Zyklus §D7). Alle Felder optional, non-breaking. Quelle: Spec-Audit `.audits/spec-audit/lifecycle-audit-report.md` §D6/§D7 + datenmodell-Plan WP-1/3/4. |
+| 4.4 | 2026-06-15 | **Phase A — additive Stammdaten-Felder (Plan WP-1/WP-3):** `GrowthHabit`-Enum auf die reale botanische Bandbreite erweitert (+`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`). Lebensdauer-Split: `LifecycleConfig.cultivation_cycle_type` (Kultur-Praxis) ergänzt `cycle_type` (botanisch) — bildet „einjährig in Kultur"/tender perennial ab. Alle Felder optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §1.2/§2.1. _(v4.5: tatsächlich im Body umgesetzt.)_ |
 | 4.3 | 2026-06-15 | **Vermehrung strukturiert (ADR-004, Plan WP-5):** Die flachen Species-Felder `propagation_methods`/`propagation_months`/`propagation_notes`/`propagation_difficulty` werden durch ein strukturiertes Feld `propagation_configs: list[PropagationConfig]` ersetzt — Zeitfenster (`months`), Reifegrad (`wood_stage`), Schwierigkeit (`difficulty`) und Hinweise (`notes`) je Methode statt je Art. `PropagationMethod`-Enum-Drift zu REQ-017 geschlossen (+`air_layering`, `tissue_culture`, `bulbil`, `water_propagation`; jetzt 17 Werte); `PropagationDifficulty`- und `WoodStage`-Enums neu. **Breaking Change** (API + Frontend mitgezogen); Seeder adaptiert flache Altdaten rückwärtskompatibel. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §3.3. |
 | 4.2 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** Neue physiologische Steuer-Felder auf Species: `light_compensation_point_ppfd_min/max` (LCP für Standort-Eignungscheck), `shade_tolerance`, `photosynthesis_type` (C3/C4/CAM-Modifikator), `effective_root_depth_cm` + `waterlogging_tolerance` (Wurzelzone/Crop-Steering), `salt_tolerance_class/_ece_threshold_ds_m/_slope_pct` (Maas-Hoffman), optionaler `soil_ph_preference`-Override (ergänzt Family-Default, gated Mikronährstoff-Verfügbarkeit REQ-004). Quelle: `spec/analysis/plant-profile-completeness-research.md` (Deep-Research, adversarial verifiziert). |
 | 4.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext + Export):** `parent_species_key` als optionales Feld auf Species (KI-Genus-Fallback REQ-031 §4.2). `revision`-Feld + `promoted_at` + `promoted_from_tenant` auf Species/Cultivar. Promotion-Workflow als atomare AQL-Transaktion mit Optimistic Locking spezifiziert. Cultivars werden NICHT automatisch mit Species mitpromoted (Workshop-Entscheidung). Neue Collection `promotion_audit_log` (5J Retention, NFR-011 R-19). |
@@ -76,7 +77,7 @@ Zusätzlich erfasst das System:
     - `genus: str`
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
     - `native_habitat: str`
-    - `growth_habit: Literal['herb', 'shrub', 'tree', 'vine', 'groundcover']`
+    - `growth_habit: GrowthHabit` (herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte — Wuchsform; steuert Stütz-/Pflanztiefe-/Bewässerungs-Defaults) <!-- Spec-Audit 2026-07-02 A3 -->
     - `root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']` — `rhizomatous`: Rhizom-bildend (Calathea, Ingwer, Iris, viele Farne); `aerial`: Luftwurzeln/hemiepiphytisch (Monstera, Philodendron, Orchideen). Optional ergänzend: `root_adaptations: list[str]` für Arten mit Mehrfachzuweisung (z.B. Monstera hat Faserwurzeln UND Luftwurzeln).
     - `root_adaptations: list[str]` (z.B. `["aerial", "epiphytic", "stoloniferous"]` — ergänzende Wurzelanpassungen über den Primärtyp hinaus)
     - `allelopathy_score: float` (-1.0 = stark hemmend, 0 = neutral, 1.0 = fördernd) — generelle allelopathische Tendenz der Art. Hinweis: Allelopathische Wirkungen sind stark partnerabhängig (z.B. *Juglans nigra* hemmt *Solanum lycopersicum*, aber kaum *Phaseolus vulgaris*). Die paarspezifischen `compatible_with`/`incompatible_with`-Edges sind die autoritativen Daten; dieser Score dient nur als Erstindikator.
@@ -163,6 +164,9 @@ Zusätzlich erfasst das System:
     - `vernalization_min_days: Optional[int]`
     - `photoperiod_type: Literal['short_day', 'long_day', 'day_neutral']`
     - `critical_day_length_hours: Optional[float]`
+    <!-- Spec-Audit 2026-07-02 A1/A2 + D6: Lebenszyklus-Felder umgesetzt (datenmodell-pflanzeneigenschaften-plan.md WP-3/WP-4). -->
+    - `cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis-Lebensdauer; überschreibt die **botanische** `cycle_type` für Überwinterungs- und Saison-Ende-Hinweise. Beispiel: Tomate botanisch `perennial`, in Kultur `annual`. Abgeleitetes Read-Flag `grown_as_annual = cultivation_cycle_type == 'annual' and cycle_type != 'annual'`. `null` = Kultur folgt der botanischen `cycle_type`.)
+    - `flowering_strategy: Optional[FloweringStrategy]` (Reproduktions-Achse `monocarpic`/`polycarpic`, orthogonal zu `cycle_type`. `monocarpic` = „blüht einmal, stirbt danach" (Agave, viele Bambusse; **alle Bienniale sind monokarp**) auch bei mehrjährigem Wuchs → erzwingt eine terminale Nach-Blüte-Transition, siehe REQ-003 §Monokarp-Terminal (D6). `polycarpic` = blüht wiederholt über mehrere Saisons. `null` = unspezifiziert.)
 
 - **`:GrowthPhase`** - Wachstumsphase
   - Properties:
@@ -1009,7 +1013,7 @@ class SpeciesDefinition(BaseModel):
     cycle_type: Literal['annual', 'biennial', 'perennial']
     photoperiod_type: Literal['short_day', 'long_day', 'day_neutral']
     hardiness_zones: list[str] = Field(min_items=1)
-    growth_habit: Literal['herb', 'shrub', 'tree', 'vine', 'groundcover']
+    growth_habit: GrowthHabit  # Spec-Audit 2026-07-02 A3: erweitert (12 Werte, s. GrowthHabit-Enum)
     root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']
     root_adaptations: list[str] = Field(
         default_factory=list,
@@ -1227,11 +1231,22 @@ from typing import Literal, Optional
 from enum import Enum
 
 class GrowthHabit(str, Enum):
+    # Spec-Audit 2026-07-02 A3/D7: Erweitert auf die reale botanische Bandbreite
+    # (datenmodell-pflanzeneigenschaften-plan.md WP-1). Ermöglicht Bulb-Geophyten
+    # (Dahlie/Tulpe), Gräser, Sukkulenten, Farne etc. einen korrekten Habitus —
+    # Voraussetzung für den D7-Knollenzyklus (siehe REQ-003, seasonal_cycles).
     HERB = "herb"
     SHRUB = "shrub"
+    SUBSHRUB = "subshrub"        # Halbstrauch (Lavendel, Salbei, Thymian)
     TREE = "tree"
     VINE = "vine"
     GROUNDCOVER = "groundcover"
+    GRASS = "grass"              # Süß-/Ziergräser (Poaceae)
+    SUCCULENT = "succulent"      # Sukkulenten/Kakteen (CAM, Wasserspeicherung)
+    BULB_GEOPHYTE = "bulb_geophyte"  # Zwiebel-/Knollengeophyt (Tulpe, Dahlie, Gladiole)
+    FERN = "fern"               # Farne (sporenbildend, kein Blütenzyklus)
+    AQUATIC = "aquatic"         # Wasser-/Sumpfpflanzen (Seerose)
+    EPIPHYTE = "epiphyte"       # Aufsitzerpflanzen (viele Orchideen, Tillandsien)
 
 class RootType(str, Enum):
     FIBROUS = "fibrous"
@@ -1256,6 +1271,12 @@ class CultivarPhotoperiodType(str, Enum):
 
 CycleType = Literal['annual', 'biennial', 'perennial']
 NutrientDemand = Literal['light', 'medium', 'heavy']
+
+# Spec-Audit 2026-07-02 A1/WP-4: Blüh-Strategie (Reproduktions-Achse), orthogonal zu CycleType.
+class FloweringStrategy(str, Enum):
+    """Ob eine Pflanze einmal oder wiederholt blüht — unabhängig von der Lebensdauer."""
+    MONOCARPIC = "monocarpic"   # blüht einmal, stirbt danach (Agave, Bambus, alle Bienniale)
+    POLYCARPIC = "polycarpic"   # blüht wiederholt über mehrere Saisons
 
 class RootDepth(str, Enum):
     """Typische Wurzeltiefe einer Pflanzenfamilie"""

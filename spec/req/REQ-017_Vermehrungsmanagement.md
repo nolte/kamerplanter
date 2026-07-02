@@ -7,8 +7,16 @@ Kategorie: Pflanzenvermehrung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.3 (Code-Reconciliation: PropagationMethod-Enum in common/enums.py auf das hier spezifizierte Vokabular angeglichen — air_layering/tissue_culture/bulbil/water_propagation; ADR-004)
+Version: 1.4 (Spec-Audit D2: vollständige Phasen-Eintrittsmatrix für alle 12 PropagationMethod-Werte; Naming-Vereinheitlichung Steckling-Start auf kanonisches `rooting`)
 ```
+
+<!-- Spec-Audit 2026-07-02 D2 -->
+## Änderungshistorie
+
+| Version | Datum | Änderung |
+|---------|-------|----------|
+| 1.4 | 2026-07-02 | **Spec-Audit D2:** Vollständige **Phasen-Eintrittsmatrix** ergänzt (§5), die jedem der 12 `PropagationMethod`-Werte genau einen Lebenszyklus-Eintrittspunkt mit fachlicher Begründung zuordnet — zuvor waren nur `seed_sowing → germination` und `cutting → seedling` definiert, die übrigen 10 Methoden hatten keinen Eintrittspunkt. **Naming-Vereinheitlichung:** Der Steckling-/Einwurzelungs-Start heißt kanonisch **`rooting`** (ersetzt `seedling` in diesem Dokument); `Bewurzelung` (REQ-003) und `Einwurzelung` (Knowledge-Base-Steckbriefe) sind Synonyme. Der Phasenwert `rooting` wird parallel in REQ-003 zum kanonischen `PhaseType`-Literal ergänzt und hier nur referenziert. |
+| 1.3 | — | Code-Reconciliation: PropagationMethod-Enum in `common/enums.py` auf das hier spezifizierte Vokabular angeglichen — air_layering/tissue_culture/bulbil/water_propagation; ADR-004. |
 
 ## 1. Business Case
 
@@ -1504,13 +1512,35 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species, Cultivar, BotanicalFamily für Veredelungs-Kompatibilität und Spezies-spezifische Defaults
 - REQ-002 (Standort): Location/Slot für Platzierung von Stecklingen und Mutterpflanzen
-- REQ-003 (Phasensteuerung): Vermehrung erzeugt PlantInstances in `germination`-Phase; Stecklinge starten in `seedling`
+- REQ-003 (Phasensteuerung): Vermehrung erzeugt PlantInstances, deren Eintritts-Phase von der `PropagationMethod` abhängt — siehe **Phasen-Eintrittsmatrix** unten. Der kanonische Phasenwert für den Einwurzelungs-Eintritt vegetativer Vermehrung heißt **`rooting`** (Synonyme: `Bewurzelung` in REQ-003, `Einwurzelung` in den Knowledge-Base-Steckbriefen; das kanonische `PhaseType`-Literal `rooting` wird in REQ-003 geführt). <!-- Spec-Audit 2026-07-02 D2 -->
+
+<!-- Spec-Audit 2026-07-02 D2 -->
+#### Phasen-Eintrittsmatrix (Vermehrungsmethode → Lebenszyklus-Eintrittspunkt)
+
+Jede `PropagationMethod` erzeugt PlantInstances in genau einer definierten Eintritts-Phase. Der Wert richtet sich nach dem entwicklungsbiologischen Ausgangszustand des übertragenen Gewebes:
+
+| PropagationMethod | Eintritts-Phase | Fachliche Begründung |
+|-------------------|-----------------|----------------------|
+| `seed_sowing` | `germination` | Generative Vermehrung — Embryo muss aus dem Saatgut keimen; klassischer Keimungs-Startpunkt. |
+| `cutting` | `rooting` | Vegetatives Triebstück ohne eigene Wurzeln → muss zunächst adventive Wurzeln bilden (Einwurzelung). |
+| `leaf_cutting` | `rooting` | Blatt/Blattteil ohne Wurzeln — Adventivknospen und -wurzeln müssen sich neu bilden. |
+| `stem_section` | `rooting` | Blattloser Stammabschnitt ohne Wurzeln — Neubewurzelung und Austrieb erforderlich. |
+| `water_propagation` | `rooting` | Steckling/Ableger bewurzelt in Wasser; Einwurzelung läuft, bevor auf Substrat akklimatisiert wird. |
+| `division` | `vegetative` | Reifes, bereits bewurzeltes und beblättertes Teilstück (Wurzelstock/Rhizom) — überspringt die Einwurzelung, wächst unmittelbar vegetativ weiter. |
+| `offset` | `vegetative` | Kindel/Ableger besitzt am Muttertrieb bereits eigene Wurzeln oder Wurzelansätze → keine Neubewurzelung nötig, direkter vegetativer Start. |
+| `layering` | `rooting` | Absenker bewurzelt am Muttertrieb; nach dem Trennen liegt eine junge, gerade erst etablierte Bewurzelung vor → Eintritt in `rooting`, danach Übergang nach `vegetative`. |
+| `air_layering` | `rooting` | Abmoosen bildet Wurzeln am Stamm im Moosballen; nach dem Abtrennen ist die Bewurzelung frisch und muss sich im Substrat etablieren → `rooting`, danach `vegetative`. |
+| `bulbil` | `germination` | Brutzwiebel/Brutknöllchen ist ein asexuelles Speicherorgan, das wie ein Sämling neu austreibt (Wurzel- und Sprossaustrieb aus Ruhezustand) → Eintritt analog zur Keimung in `germination`. |
+| `grafting` | `rooting` | Die Unterlage ist bereits etabliert und bewurzelt, doch der kritische Startprozess ist die Verwachsung der Veredlungsstelle (Kallus-/Kambiumverbindung). Diese Etablierungsphase wird auf `rooting` abgebildet; nach erfolgreicher Verwachsung Übergang nach `vegetative`. |
+| `tissue_culture` | `germination` | In-vitro-Explantat durchläuft nach der Deflaskung eine Keim-/Akklimatisierungsphase (Ex-vitro-Anpassung) → Eintritt in `germination`, danach `rooting`/`vegetative`. |
+
+**Folgetransitionen:** Methoden mit `rooting`-Eintritt gehen nach abgeschlossener Bewurzelung bzw. Verwachsung regulär nach `vegetative` über (Phasen-Engine gemäß REQ-003). `division`/`offset` starten direkt in `vegetative`. `bulbil`/`tissue_culture` durchlaufen nach `germination` denselben Weg wie Sämlinge (`germination → rooting/seedling-Äquivalent → vegetative`, gemäß REQ-003-Phasenkette).
 - REQ-010 (IPM): Virusstatus-Tracking, Werkzeugsterilisation, Quarantäne-Empfehlungen
 - REQ-013 (Pflanzdurchlauf): PropagationBatch übergibt Ergebnis-Pflanzen an PlantingRun
 - REQ-019 (Substratverwaltung): SubstrateBatch-Referenz für Bewurzelungsmedium-Rückverfolgbarkeit
 
 **Wird benötigt von:**
-- REQ-003 (Phasensteuerung): **MITTEL** — Phase-Start hängt von Vermehrungsmethode ab (Samen = Germination, Steckling = Seedling)
+- REQ-003 (Phasensteuerung): **MITTEL** — Phase-Start hängt von Vermehrungsmethode ab (siehe Phasen-Eintrittsmatrix: `seed_sowing` = `germination`, `cutting` = `rooting`, `division`/`offset` = `vegetative` etc.) <!-- Spec-Audit 2026-07-02 D2 -->
 - REQ-006 (Aufgabenplanung): **MITTEL** — Stecklingnahme-Tasks basierend auf Mutterpflanzen-Erholungszeit
 - REQ-007 (Erntemanagement): **NIEDRIG** — Samen-Ernte für Saatgut-Gewinnung (REQ-008 seed_saving)
 - REQ-009 (Dashboard): **NIEDRIG** — Mutterpflanzen-Status-Widget, aktive Batches
@@ -1586,7 +1616,7 @@ WHEN: PATCH /api/v1/propagation/events/prop_evt_001/outcome
 THEN:
   - success_rate automatisch berechnet: 0.8 (80%)
   - failure_count: 2
-  - 8 neue PlantInstances angelegt (in seedling-Phase)
+  - 8 neue PlantInstances angelegt (in rooting-Phase — Cannabis-Stecklinge, method=cutting; siehe Phasen-Eintrittsmatrix §5)
   - resulted_in-Edges zu allen 8 Pflanzen
   - descended_from-Edges (relationship: "clone", generation: Mutter+1)
 ```
