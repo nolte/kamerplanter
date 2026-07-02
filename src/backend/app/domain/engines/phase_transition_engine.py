@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from app.common.enums import CycleType
+from app.common.enums import CycleType, TerminationCause, TerminationType
 from app.common.exceptions import PhaseTransitionError
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
@@ -64,6 +64,15 @@ class PhaseTransitionEngine:
 
         return target_sequence_order == lifecycle.cycle_restart_phase_order
 
+    def _is_reversion(self, current_phase_key: str | None, target_phase_key: str) -> bool:
+        """E3: a controlled backward transition explicitly allowed by a transition
+        rule with ``is_reversion=True`` (e.g. re-vegging, mother-plant upkeep) — no
+        cycle-restart semantics."""
+        if not current_phase_key:
+            return False
+        rules = self._phase_repo.get_transition_rules(current_phase_key)
+        return any(r.to_phase_key == target_phase_key and r.is_reversion for r in rules)
+
     def validate_transition(self, plant_key: str, target_phase_key: str, *, force: bool = False) -> list[str]:
         """Validate if transition is allowed. Returns list of warnings (empty = OK)."""
         warnings: list[str] = []
@@ -88,6 +97,8 @@ class PhaseTransitionEngine:
                     target_phase.sequence_order,
                 ):
                     warnings.append(f"Perennial cycle restart: {current_phase.name} → {target_phase.name}")
+                elif self._is_reversion(plant.current_phase_key, target_phase_key):
+                    warnings.append(f"Controlled reversion: {current_phase.name} → {target_phase.name}")
                 elif force:
                     warnings.append(f"Forced backward transition: {current_phase.name} → {target_phase.name}")
                 else:
@@ -170,7 +181,60 @@ class PhaseTransitionEngine:
         )
         self._phase_repo.create_phase_history(new_history)
 
+        # Count controlled reversions (E3) — re-vegging etc.
+        if self._is_reversion(plant.current_phase_key, target_phase_key):
+            plant.reversion_count += 1
+
         # Update plant
         plant.current_phase_key = target_phase_key
         plant.current_phase_started_at = now
+        return self._plant_repo.update(plant_key, plant)
+
+    def terminate(
+        self,
+        plant_key: str,
+        termination_type: TerminationType,
+        *,
+        termination_cause: TerminationCause | None = None,
+        on_date: date | None = None,
+    ) -> PlantInstance:
+        """E5: end a plant's lifecycle, distinguishing planned end from unplanned loss.
+
+        ``died`` (unplanned) freezes the current growth phase — the open phase-history
+        entry is closed at the time of death and NO transition to ``senescence`` happens,
+        so failure analytics can attribute the loss to the phase it occurred in.
+        ``harvested``/``senesced`` are the planned ends; ``cancelled`` is a user abort.
+        ``termination_cause`` is only meaningful for ``died``.
+        """
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None:
+            raise PhaseTransitionError(f"Plant '{plant_key}' not found")
+        if termination_cause is not None and termination_type != TerminationType.DIED:
+            raise PhaseTransitionError("termination_cause is only valid for termination_type='died'")
+
+        now = datetime.now(UTC)
+        # Freeze the current phase: close the open phase-history entry, no new transition.
+        for h in self._phase_repo.get_phase_history(plant_key):
+            if h.exited_at is None:
+                duration = None
+                if plant.current_phase_started_at:
+                    duration = (now - plant.current_phase_started_at).days
+                self._phase_repo.update_phase_history(
+                    h.key or "",
+                    PhaseHistory(
+                        key=h.key,
+                        plant_instance_key=h.plant_instance_key,
+                        phase_key=h.phase_key,
+                        phase_name=h.phase_name,
+                        entered_at=h.entered_at,
+                        exited_at=now,
+                        actual_duration_days=duration,
+                        transition_reason=termination_type.value,
+                        cycle_number=h.cycle_number,
+                    ),
+                )
+
+        plant.termination_type = termination_type
+        plant.termination_cause = termination_cause
+        plant.removed_on = on_date or now.date()
         return self._plant_repo.update(plant_key, plant)

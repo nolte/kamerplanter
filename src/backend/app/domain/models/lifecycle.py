@@ -4,7 +4,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.common.enums import CycleType, FloweringStrategy, PhotoperiodType, StressTolerance
+from app.common.enums import (
+    CycleType,
+    FloweringStrategy,
+    GrowthDeterminacy,
+    PhotoperiodType,
+    StressTolerance,
+)
 
 
 class GrowthPhase(BaseModel):
@@ -42,6 +48,13 @@ class LifecycleConfig(BaseModel):
     flowering_strategy: FloweringStrategy | None = Field(
         default=None,
         description="monocarpic = flowers once then dies (agave, many bamboos); polycarpic = repeated.",
+    )
+    # ── Wuchs-Determiniertheit (REQ-003 E4) — orthogonal to lifespan/flowering ──
+    growth_determinacy: GrowthDeterminacy | None = Field(
+        default=None,
+        description="indeterminate species stay in a stable productive phase (fruiting/flowering_fruit, "
+        "recurring) with concurrent veg/flower/fruit growth (harvest_pattern='continuous'); determinate "
+        "follows the linear path to a terminal phase. None = treat as determinate.",
     )
     typical_lifespan_years: int | None = None
     dormancy_required: bool = False

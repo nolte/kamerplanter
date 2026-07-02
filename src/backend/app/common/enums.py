@@ -176,6 +176,45 @@ class TransitionTriggerType(StrEnum):
     MANUAL = "manual"
     EVENT_BASED = "event_based"
     CONDITIONAL = "conditional"
+    GDD_BASED = "gdd_based"
+    # ── REQ-003 Lifecycle-Audit II (E1/E2) ──
+    PHOTOPERIOD_BASED = "photoperiod_based"
+    VERNALIZATION_BASED = "vernalization_based"
+
+
+class GrowthDeterminacy(StrEnum):
+    """Whether a species finishes at a terminal phase or keeps a stable
+    productive phase with concurrent growth/flower/fruit (REQ-003 E4)."""
+
+    DETERMINATE = "determinate"
+    INDETERMINATE = "indeterminate"
+    SEMI_DETERMINATE = "semi_determinate"
+
+
+class TerminationType(StrEnum):
+    """How a plant instance's lifecycle ended (REQ-003 E5). Distinguishes the
+    planned end (harvested/senesced) from an unplanned loss (died) and a user
+    cancellation."""
+
+    HARVESTED = "harvested"
+    SENESCED = "senesced"
+    DIED = "died"
+    CANCELLED = "cancelled"
+
+
+class TerminationCause(StrEnum):
+    """Cause of an unplanned plant loss — only set when termination_type='died'
+    (REQ-003 E5). Feeds survival-rate / failure-cause analytics."""
+
+    DISEASE = "disease"
+    PEST = "pest"
+    FROST = "frost"
+    HEAT = "heat"
+    DROUGHT = "drought"
+    WATERLOGGING = "waterlogging"
+    NEGLECT = "neglect"
+    MECHANICAL = "mechanical"
+    UNKNOWN = "unknown"
 
 
 class SiteType(StrEnum):
