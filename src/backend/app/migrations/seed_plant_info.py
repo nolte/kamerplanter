@@ -27,6 +27,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
+    FloweringStrategy,
     FrostTolerance,
     GrowthHabit,
     PathogenType,
@@ -337,6 +338,11 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
     new_species_family_map: dict[str, str] = yaml_data.get("new_species_family_map", {})
     species_enrichment = _build_enrichment(yaml_data)
     lifecycle_configs = _build_lifecycle_configs(yaml_data)
+    # flowering_strategy / cultivation_cycle_type live in species.yaml/lifecycle_overrides
+    # (the authoritative source, applied first by seed_data.py). This loader must NOT
+    # clobber them when it updates a lifecycle, and must apply them for plant_info-only
+    # new species — so we consult the same override map here.
+    lifecycle_overrides: dict[str, dict[str, Any]] = load_yaml("species.yaml").get("lifecycle_overrides", {}) or {}
     phase_data = _build_phase_data(yaml_data)
     cultivar_data: dict[str, list[dict[str, Any]]] = yaml_data.get("cultivars", {})
     companion_compatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("compatible", [])
@@ -450,6 +456,9 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         vernal_days = lc_cfg["vernalization_min_days"]
         critical = lc_cfg["critical_day_length_hours"]
         restart_order = lc_cfg.get("cycle_restart_phase_order")
+        _ov = lifecycle_overrides.get(sci_name, {})
+        _ov_cult = _ov.get("cultivation_cycle_type")
+        _ov_flower = _ov.get("flowering_strategy")
 
         existing_lc = lifecycle_repo.get_lifecycle_by_species(sp_key)
         if existing_lc:
@@ -473,6 +482,12 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                     vernalization_min_days=vernal_days,
                     critical_day_length_hours=critical,
                     cycle_restart_phase_order=restart_order,
+                    # Preserve the override-driven fields seed_data.py already set;
+                    # this loader does not manage them and must not reset them to None.
+                    cultivation_cycle_type=(CycleType(_ov_cult) if _ov_cult else existing_lc.cultivation_cycle_type),
+                    flowering_strategy=(
+                        FloweringStrategy(_ov_flower) if _ov_flower else existing_lc.flowering_strategy
+                    ),
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
@@ -593,6 +608,10 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 vernalization_min_days=vernal_days,
                 critical_day_length_hours=critical,
                 cycle_restart_phase_order=restart_order,
+                # Apply override-driven fields for plant_info-only species that
+                # seed_data.py never created (no existing lifecycle to inherit from).
+                cultivation_cycle_type=CycleType(_ov_cult) if _ov_cult else None,
+                flowering_strategy=FloweringStrategy(_ov_flower) if _ov_flower else None,
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""

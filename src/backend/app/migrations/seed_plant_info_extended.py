@@ -26,6 +26,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
+    FloweringStrategy,
     FrostTolerance,
     GrowthHabit,
     NutrientDemandLevel,
@@ -351,6 +352,10 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
     new_species_family_map: dict[str, str] = yaml_data.get("new_species_family_map", {})
     species_enrichment = _build_enrichment(yaml_data)
     lifecycle_configs = _build_lifecycle_configs(yaml_data)
+    # flowering_strategy / cultivation_cycle_type live in species.yaml/lifecycle_overrides
+    # (authoritative, applied first by seed_data.py). Preserve/apply them here so this
+    # loader never resets them to None (see seed_plant_info.py for the same guard).
+    lifecycle_overrides: dict[str, dict[str, Any]] = load_yaml("species.yaml").get("lifecycle_overrides", {}) or {}
     phase_data = _build_phase_data(yaml_data)
     cultivar_data: dict[str, list[dict[str, Any]]] = yaml_data.get("cultivars", {})
     companion_compatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("compatible", [])
@@ -451,6 +456,9 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         vernal_days = lc_cfg.get("vernalization_min_days")
         critical = lc_cfg.get("critical_day_length_hours")
         restart_order = lc_cfg.get("cycle_restart_phase_order")
+        _ov = lifecycle_overrides.get(sci_name, {})
+        _ov_cult = _ov.get("cultivation_cycle_type")
+        _ov_flower = _ov.get("flowering_strategy")
 
         existing_lc = lifecycle_repo.get_lifecycle_by_species(sp_key)
         if existing_lc:
@@ -473,6 +481,10 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                     vernalization_min_days=vernal_days,
                     critical_day_length_hours=critical,
                     cycle_restart_phase_order=restart_order,
+                    cultivation_cycle_type=(CycleType(_ov_cult) if _ov_cult else existing_lc.cultivation_cycle_type),
+                    flowering_strategy=(
+                        FloweringStrategy(_ov_flower) if _ov_flower else existing_lc.flowering_strategy
+                    ),
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
@@ -606,6 +618,8 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 vernalization_min_days=vernal_days,
                 critical_day_length_hours=critical,
                 cycle_restart_phase_order=restart_order,
+                cultivation_cycle_type=CycleType(_ov_cult) if _ov_cult else None,
+                flowering_strategy=FloweringStrategy(_ov_flower) if _ov_flower else None,
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""

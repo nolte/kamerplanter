@@ -1127,7 +1127,7 @@
       "genus": "Gattung",
       "genusHelper": "Botanische Gattung, erster Teil des wissenschaftlichen Namens (z. B. 'Solanum')",
       "growthHabit": "Wuchsform",
-      "growthHabitHelper": "Typische Wuchsform der Art: Kraut, Strauch, Baum, Ranke oder Bodendecker",
+      "growthHabitHelper": "Typische Wuchsform der Art (u. a. Kraut, Strauch, Baum, Ranke, Gras, Sukkulente, Zwiebel-/Knollengeophyt, Farn, Epiphyt)",
       "rootType": "Wurzeltyp",
       "rootTypeHelper": "Wurzelsystem: Faserig, Pfahlwurzel, Knollig oder Zwiebel",
       "propagationMethods": "Vermehrungsart",
