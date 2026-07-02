@@ -159,7 +159,8 @@ $defs:
                leaf_phase, dry_storage, growth_bloom, young_palm, winter_dormancy,
                summer_dormancy, bulbil_establishment, spring_growth, autumn_growth_bloom,
                winter_hull_change, rest_phase, rest_after_bloom, bud_formation,
-               autumn_ripening, rooting, rest]
+               autumn_ripening, rooting, rest,
+               bolting, bud_break, fruit_development, acclimatization, maintenance, repotting_recovery]
       sequence_order:
         type: integer
         minimum: 1

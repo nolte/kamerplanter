@@ -466,16 +466,30 @@ Diese Pruefungen erfordern botanisches Fachwissen und sollen vom agrobiology-req
 
 Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall** muss der korrekte Wert durch 3 unabhaengige Quellen belegt werden, bevor eine Korrektur vorgeschlagen wird:
 
-| Parameter | Plausibler Bereich | Verdacht bei... |
-|-----------|-------------------|-----------------|
-| `temp_min_c` | -20 bis +15°C | Tropenpflanze mit <10°C |
-| `temp_max_c` | 20 bis 45°C | >50°C oder <15°C |
-| `humidity_min_percent` | 20 bis 80% | Tropenpflanze <40% |
-| `light_min_ppfd` | 5 bis 800 µmol/m²/s | Schattenpflanze >200 |
-| `ph_min` / `ph_max` | 4.0 bis 8.5 | Bereich <1.0 breit |
-| EC-Zielwert | 0.5 bis 4.0 mS/cm | >5.0 oder <0.3 |
-| NPK-Summe | 1 bis 50 | >60 oder =0 |
-| `typical_duration_days` | 3 bis 365 | Keimung >60d, Blüte >200d |
+> **ACHTUNG Feldnamen:** Umweltparameter liegen je **Phase** in `growth_phases[].requirement_profile`, NICHT auf Species-Ebene. Verwende die aktuellen Feldnamen (nicht die veralteten `temp_min_c`/`light_min_ppfd`/`ph_min`).
+
+| Parameter (KA-Feld) | Plausibler Bereich | Verdacht bei... |
+|---------------------|-------------------|-----------------|
+| `requirement_profile.temperature_day_c` | 5 bis 40°C | >45°C oder <5°C |
+| `requirement_profile.temperature_night_c` | 2 bis 32°C | > Tag-Temperatur |
+| `requirement_profile.humidity_day_percent` | 20 bis 95% | Tropenpflanze <40% |
+| `requirement_profile.light_ppfd_target` | 5 bis 1500 µmol/m²/s | Schattenpflanze >400; Starklichtpflanze <100 |
+| `requirement_profile.vpd_target_kpa` | 0.4 bis 1.6 kPa | <0.3 oder >1.8 |
+| `requirement_profile.co2_ppm` | 350 bis 1500 ppm | >2000 |
+| `soil_ph_preference.min_ph` / `max_ph` | 3.5 bis 8.5 | Bereich <0.5 oder >3.0 breit |
+| `nutrient_profile.target_ec_ms` | 0.3 bis 4.0 mS/cm | >5.0 oder <0.2 |
+| `nutrient_profile.npk_ratio` (Summe) | 1 bis 50 | >60 oder =0 |
+| `base_temp` (GDD) | 0 bis 15°C | >15 (nur extrem wärmeliebende) |
+| `duration_days` (phase_entry) | 1 bis 365 | Keimung >60d, Blüte >200d |
+| `effective_root_depth_cm` | 5 bis 300 | >400 (nur Bäume) |
+| `light_compensation_point_ppfd_min/max` | 2 bis 60 µmol/m²/s | min > max; >100 |
+| `salt_tolerance_ece_threshold_ds_m` | 0 bis 12 dS/m | >15 (nur Halophyten) |
+| `salt_tolerance_slope_pct` | 2 bis 35 %/dS/m | >50 |
+| **seed_profile:** `germination_temp_min_c`/`max_c` | 2 bis 40°C | min ≥ max; >40 |
+| **seed_profile:** `sowing_depth_cm` | 0 bis 10 cm | >10 (Ausnahmen: Zwiebeln/Knollen) |
+| **seed_profile:** `days_to_germination` | 1 bis 90 | >90 (Kaltkeimer/Gehölze möglich) |
+| **seed_profile:** `seed_viability_years` | 1 bis 20 | >20 |
+| **seed_profile:** `thousand_seed_weight_g` | 0.01 bis 2000 | =0 |
 | `safety_interval_days` | 0 bis 90 | >90 bei Bio-Mitteln |
 
 **Verifikations-Workflow bei Verdachtsfaellen:**
@@ -491,6 +505,16 @@ Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall**
 - Growth-Phase-Dauern: Summe aller Phasen pro Species plausibel fuer Gesamtkultur?
 - Companion Planting: Bidirektional? (A compatible_with B → B compatible_with A?)
 - `[AGROBIO-CHECK]` Stimmen EC-Bereiche mit den referenzierten Duenger-Konzentrationen ueberein?
+
+**Cross-Field-Konsistenz (Species — je Datensatz):**
+- `seed_profile.germination_temp_min_c` < `germination_temp_max_c` (min darf nicht ≥ max sein)
+- `seed_profile.light_germination = light` (Lichtkeimer) ⇒ `sowing_depth_cm` ≈ 0 (nicht bedecken) — Widerspruch bei tiefer Saat
+- `climacteric` gesetzt ⇒ `harvested_part = fruit` (Nachreife-Verhalten nur bei Frucht sinnvoll)
+- `harvest_pattern`/`harvested_part`/`allows_harvest` konsistent (z.B. `allows_harvest = false` ⇒ kein `harvested_part`)
+- `seed_profile` befuellt ⇒ `propagation_configs` enthaelt Methode `seed` (Saatgutdaten ohne Saat-Vermehrung ist widerspruechlich)
+- `salt_tolerance_class` ↔ `salt_tolerance_ece_threshold_ds_m` konsistent (Maas-Hoffman: `sensitive` ≈ <2, `moderately_sensitive` ≈ 2–4, `moderately_tolerant` ≈ 4–6, `tolerant` ≈ >6 dS/m)
+- `light_compensation_point_ppfd_min` ≤ `light_compensation_point_ppfd_max`
+- `shade_tolerance = full_sun` ⇒ hohe `light_ppfd_target` in Wachstumsphasen plausibel (kein Schattenpflanzen-Widerspruch)
 
 ---
 
