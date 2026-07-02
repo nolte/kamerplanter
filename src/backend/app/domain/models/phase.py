@@ -117,6 +117,22 @@ class PhaseTransitionRule(BaseModel):
     auto_transition_after_days: int | None = Field(default=None, ge=1)
     required_conditions: dict[str, float | int | str | bool] | None = None
     notification_before_days: int = Field(default=3, ge=0)
+    # ── REQ-003 Lifecycle-Audit II ──
+    priority: int = Field(
+        default=0,
+        description="D4: higher priority is evaluated first when several outgoing transitions are "
+        "possible (maturity-gated branching); the unconditional default edge should have priority 0.",
+    )
+    is_reversion: bool = Field(
+        default=False,
+        description="E3: allows a controlled backward transition (e.g. flowering → vegetative) WITHOUT "
+        "cycle-restart semantics — cannabis re-vegging, mother-plant upkeep, stress recovery.",
+    )
+    is_premature: bool = Field(
+        default=False,
+        description="E6: marks a stress-induced premature transition (vegetative → bolting) that ends the "
+        "harvest window early — distinct from the planned biennial bolting.",
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

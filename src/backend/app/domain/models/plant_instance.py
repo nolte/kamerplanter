@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import SubstrateType
+from app.common.enums import SubstrateType, TerminationCause, TerminationType
 
 
 class PlantInstance(BaseModel):
@@ -22,8 +22,24 @@ class PlantInstance(BaseModel):
     plant_name: str | None = None
     planted_on: date
     removed_on: date | None = None
+    # ── Lifecycle end (REQ-003 E5) — distinguishes planned end from unplanned loss ──
+    termination_type: TerminationType | None = Field(
+        default=None,
+        description="How the lifecycle ended: harvested/senesced (planned), died (unplanned loss), "
+        "cancelled (user aborted). None while the plant is alive.",
+    )
+    termination_cause: TerminationCause | None = Field(
+        default=None,
+        description="Cause of an unplanned loss — only set when termination_type='died'.",
+    )
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
+    # ── Controlled backward transitions (REQ-003 E3) ──
+    reversion_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of controlled phase reversions (e.g. re-vegging) this plant has undergone.",
+    )
     container_volume_liters: float | None = Field(
         default=None,
         ge=0.1,
