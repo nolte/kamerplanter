@@ -48,10 +48,13 @@ from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
+    AllergenInfo,
     Cultivar,
     PropagationConfig,
     SeasonalWateringAdjustment,
+    SeedProfile,
     Species,
+    Toxicity,
     WateringGuide,
 )
 from app.domain.models.substrate import Substrate
@@ -137,6 +140,28 @@ def _build_propagation_configs(source: dict[str, Any]) -> list[PropagationConfig
     ]
 
 
+def _build_toxicity(source: dict[str, Any]) -> Toxicity | None:
+    """Build a Toxicity model from a YAML ``toxicity`` object (or None)."""
+    tox = source.get("toxicity")
+    return Toxicity(**tox) if tox else None
+
+
+def _build_allergen_info(source: dict[str, Any]) -> AllergenInfo | None:
+    """Build an AllergenInfo model from a YAML ``allergen_info`` object (or None)."""
+    allergen = source.get("allergen_info")
+    return AllergenInfo(**allergen) if allergen else None
+
+
+def _build_seed_profile(source: dict[str, Any]) -> SeedProfile | None:
+    """Build a SeedProfile model from a YAML ``seed_profile`` object (or None).
+
+    Currently empty in the seed data — no values are invented; a missing block
+    maps to ``None`` (review finding B7 is a schema/model gap, not a data gap yet).
+    """
+    seed_prof = source.get("seed_profile")
+    return SeedProfile(**seed_prof) if seed_prof else None
+
+
 def _build_species(data: dict[str, Any]) -> list[Species]:
     """Construct Species models from YAML data."""
     species_list: list[Species] = []
@@ -179,6 +204,11 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 balcony_suitable=(Suitability(entry["balcony_suitable"]) if entry.get("balcony_suitable") else None),
                 greenhouse_recommended=entry.get("greenhouse_recommended", False),
                 support_required=entry.get("support_required", False),
+                # ── Toxizität, Allergene & Saatgut (REQ-001) ──
+                toxicity=_build_toxicity(entry),
+                allergen_info=_build_allergen_info(entry),
+                toxicity_severity=entry.get("toxicity_severity"),
+                seed_profile=_build_seed_profile(entry),
                 # ── Umgebungs-Physiologie (REQ-001 v4.2) ──
                 photosynthesis_type=entry.get("photosynthesis_type"),
                 light_compensation_point_ppfd_min=entry.get("light_compensation_point_ppfd_min"),
@@ -219,6 +249,12 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 continue
             if field == "watering_guide" and value is not None:
                 converted[field] = _build_watering_guide(value)
+            elif field == "toxicity" and value is not None:
+                converted[field] = Toxicity(**value)
+            elif field == "allergen_info" and value is not None:
+                converted[field] = AllergenInfo(**value)
+            elif field == "seed_profile" and value is not None:
+                converted[field] = SeedProfile(**value)
             elif field in enum_field_map and value is not None:
                 converted[field] = enum_field_map[field](value)
             else:

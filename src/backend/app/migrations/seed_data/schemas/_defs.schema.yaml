@@ -154,6 +154,18 @@ $defs:
     type: string
     enum: [indoor, outdoor, greenhouse]
 
+  toxicity_severity:
+    type: string
+    enum: [none, mild, moderate, severe]
+
+  light_germination:
+    type: string
+    enum: [light, dark, indifferent]
+
+  seed_pretreatment:
+    type: string
+    enum: [cold_stratification, warm_stratification, scarification, presoak]
+
   # ── Reusable Compound Types ───────────────────────────────────────────────
 
   range_string:
@@ -193,6 +205,52 @@ $defs:
       de: { type: string }
       en: { type: string }
     required: [de]
+    additionalProperties: false
+
+  # Canonical toxicity object (REQ-001). Do not confuse with the flat
+  # `toxicity_severity` passthrough on species, which uses a different scale.
+  toxicity:
+    type: object
+    properties:
+      is_toxic_cats: { type: boolean }
+      is_toxic_dogs: { type: boolean }
+      is_toxic_children: { type: boolean }
+      toxic_parts:
+        type: array
+        items: { type: string }
+      toxic_compounds:
+        type: array
+        items: { type: string }
+      severity:
+        $ref: "#/$defs/toxicity_severity"
+    additionalProperties: false
+
+  allergen_info:
+    type: object
+    properties:
+      contact_allergen: { type: boolean }
+      pollen_allergen: { type: boolean }
+    additionalProperties: false
+
+  # Sowing / germination metadata (REQ-001, REQ-006). All fields optional.
+  seed_profile:
+    type: object
+    properties:
+      germination_temp_min_c: { type: [number, "null"] }
+      germination_temp_max_c: { type: [number, "null"] }
+      sowing_depth_cm: { type: [number, "null"], minimum: 0 }
+      days_to_germination: { type: [integer, "null"], minimum: 0 }
+      seed_viability_years: { type: [integer, "null"], minimum: 0 }
+      light_germination:
+        oneOf:
+          - $ref: "#/$defs/light_germination"
+          - type: "null"
+      pretreatment:
+        type: array
+        items:
+          $ref: "#/$defs/seed_pretreatment"
+      thousand_seed_weight_g: { type: [number, "null"], minimum: 0 }
+      sowing_density_per_m2: { type: [number, "null"], minimum: 0 }
     additionalProperties: false
 
   watering_schedule:

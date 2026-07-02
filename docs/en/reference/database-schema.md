@@ -77,6 +77,16 @@ The `propagation_notes` field is an expert free-text field capturing practical p
 
 **Population:** All 183 species with populated propagation methods in the seed data include a notes text.
 
+> **Note (structured propagation):** The flat fields `propagation_methods`/`propagation_months`/`propagation_notes` are **deprecated** in favour of `propagation_configs` (one config per method with its own timing, wood stage, difficulty and notes; REQ-017). Flat values are adapted on import. New data uses `propagation_configs`.
+
+#### Species — field `toxicity` / `allergen_info`
+
+The `toxicity` object field captures a species' toxicity separately for cats, dogs and children (`is_toxic_cats`/`is_toxic_dogs`/`is_toxic_children`), the affected plant parts (`toxic_parts`), the responsible compounds (`toxic_compounds`) and the severity (`severity`: `none`/`mild`/`moderate`/`severe`). `allergen_info` adds contact- and pollen-allergen flags. The flat passthrough field `toxicity_severity` (`low`/`moderate`/`high`) is preserved from historical data and is **not** mapped onto `toxicity.severity`. All fields are optional (`null` when not maintained).
+
+#### Species — field `seed_profile`
+
+The `seed_profile` object field bundles genuine seed/germination metadata for seed-propagated species: germination temperature range (`germination_temp_min_c`/`_max_c`), sowing depth (`sowing_depth_cm`), days to germination (`days_to_germination`), seed viability in years (`seed_viability_years`), light/dark germination (`light_germination`: `light`/`dark`/`indifferent`), pretreatment (`pretreatment`: `cold_stratification`/`warm_stratification`/`scarification`/`presoak`), thousand-seed weight (`thousand_seed_weight_g`) and sowing density (`sowing_density_per_m2`). All fields are optional; purely vegetatively propagated species leave the object empty (`null`).
+
 ---
 
 ### Locations and Infrastructure (REQ-002, REQ-019)

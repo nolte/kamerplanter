@@ -321,6 +321,29 @@ $defs:
           min_ph: { type: number, minimum: 3, maximum: 9 }
           max_ph: { type: number, minimum: 3, maximum: 9 }
         required: [min_ph, max_ph]
+      # ── Pflege & Gründüngung (REQ-001) ──
+      green_manure_suitable:
+        type: boolean
+        description: "Whether the species is suitable as green manure / cover crop."
+      pruning_type:
+        type: [string, "null"]
+        description: "Pruning strategy keyword (e.g. none, deadheading, rejuvenation)."
+      pruning_months:
+        type: array
+        items: { type: integer, minimum: 1, maximum: 12 }
+        description: "Recommended pruning months (1–12)."
+      # ── Toxizität & Allergene (REQ-001) ──
+      toxicity:
+        $ref: "#/$defs/toxicity"
+      allergen_info:
+        $ref: "#/$defs/allergen_info"
+      toxicity_severity:
+        type: [string, "null"]
+        description: "Flat legacy toxicity severity (low/moderate/high) — a DIFFERENT scale from
+          toxicity.severity. Kept as an un-mapped passthrough; do not conflate with toxicity.severity."
+      # ── Saatgut / Keimung (REQ-001, REQ-006) ──
+      seed_profile:
+        $ref: "#/$defs/seed_profile"
     required: [scientific_name, common_names, genus, growth_habit, root_type]
     additionalProperties: true
 
@@ -367,6 +390,15 @@ $defs:
       propagation_notes:
         type: [string, "null"]
         description: "DEPRECATED flat notes — use propagation_configs[].notes."
+      toxicity:
+        $ref: "#/$defs/toxicity"
+      allergen_info:
+        $ref: "#/$defs/allergen_info"
+      toxicity_severity:
+        type: [string, "null"]
+        description: "Flat legacy toxicity severity passthrough (low/moderate/high)."
+      seed_profile:
+        $ref: "#/$defs/seed_profile"
     required: [scientific_name]
     additionalProperties: true
 
@@ -556,3 +588,49 @@ $defs:
       notes: { type: string }
     required: [name, treatment_type]
     additionalProperties: true
+
+  # Canonical toxicity object (REQ-001). Distinct from the flat toxicity_severity passthrough.
+  toxicity:
+    type: object
+    properties:
+      is_toxic_cats: { type: boolean }
+      is_toxic_dogs: { type: boolean }
+      is_toxic_children: { type: boolean }
+      toxic_parts:
+        type: array
+        items: { type: string }
+      toxic_compounds:
+        type: array
+        items: { type: string }
+      severity:
+        type: [string, "null"]
+        enum: [none, mild, moderate, severe, null]
+    additionalProperties: false
+
+  allergen_info:
+    type: object
+    properties:
+      contact_allergen: { type: boolean }
+      pollen_allergen: { type: boolean }
+    additionalProperties: false
+
+  # Sowing / germination metadata (REQ-001, REQ-006). All fields optional.
+  seed_profile:
+    type: object
+    properties:
+      germination_temp_min_c: { type: [number, "null"] }
+      germination_temp_max_c: { type: [number, "null"] }
+      sowing_depth_cm: { type: [number, "null"], minimum: 0 }
+      days_to_germination: { type: [integer, "null"], minimum: 0 }
+      seed_viability_years: { type: [integer, "null"], minimum: 0 }
+      light_germination:
+        type: [string, "null"]
+        enum: [light, dark, indifferent, null]
+      pretreatment:
+        type: array
+        items:
+          type: string
+          enum: [cold_stratification, warm_stratification, scarification, presoak]
+      thousand_seed_weight_g: { type: [number, "null"], minimum: 0 }
+      sowing_density_per_m2: { type: [number, "null"], minimum: 0 }
+    additionalProperties: false
