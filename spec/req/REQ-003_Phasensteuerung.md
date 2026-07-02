@@ -14,6 +14,7 @@ Version: 2.8 (Spec-Audit D-Umsetzung: kanonisches PhaseType, Biennial-Zyklus, mo
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.10 | 2026-07-02 | **Lifecycle-Vollständigkeits-Audit II E1–E8 (Trigger, nicht-lineare Pfade, Ausfall, Bewässerung, Nährstoffe):** (1) **E1** — `photoperiod_based`-Trigger (Blüh-Umschlag automatisierbar über `critical_day_length_hours`, Cannabis 12/12 / Kurz-Langtag). (2) **E2** — `vernalization_based`-Trigger (Kältestunden-Gate für Biennial-`bolting` / perennial-`bud_break`). (3) **E3** — `is_reversion`-Flag für kontrollierte Phasen-Umkehr / Re-Vegetation (`flowering → vegetative`, Cannabis-Re-Veg/Mutterpflanzen). (4) **E4** — `growth_determinacy` (determinate/indeterminate); indeterminate = stabile produktive Phase mit nebenläufigen Prozessen (bewusste Abstraktion, keine Parallel-Phasen). (5) **E5** — terminaler `plant_instance.status='dead'` + `termination_cause` (ungeplanter Verlust ≠ `cancelled`/`completed`; Phase eingefroren, Ausfall-Analytics). (6) **E6** — stressinduziertes vorzeitiges Schossen (`vegetative → bolting`, `is_premature`). (7) **E7** — Bewässerung über den Lebenszyklus (phasen-Regelwerk, ET/Sensor-Override, Ruhephasen minimal). (8) **E8** — Nährstoffbedarf über den Lebenszyklus (NPK/EC/pH je Phase, Feeder-Skalierung, pH-Gating, Flush/Dormanz kein Feed). Quelle: `spec/analysis/lifecycle-flow-completeness-audit.md`. |
 | 2.9 | 2026-07-02 | **Lifecycle-Vollständigkeits-Audit D8–D13 (Abgleich Vokabular ↔ Seed-Daten, 210 Arten):** (1) **D8** — `PhaseType` von 17 (Engine-Kern) auf **53 Werte** erweitert = deckungsgleich mit dem Seed-Schema-Enum `phase_entry.name`; Engine-Rollen-Mapping-Tabelle für alle 36 erweiterten Phasen. (2) **D9** — CAM-/Sukkulenten-(Doppel-)Ruhe-Template (`winter_rest`/`summer_rest`/`cool_rest`/`winter_hull_change`; 42× real, biologisch verschieden von perennial-`dormancy`). (3) **D10** — Kindel-Monokarpie-Template (Agave/Bromelie: terminale Blüte + klonale Fortführung via `pup_establishment` statt Zyklus-Neustart). (4) **D11** — Photoperioden-Zier-Induktion (`short_day_induction` → `bract_coloring`, Weihnachtsstern/Kalanchoe). (5) **D12** — Palme/Farn/feingranulare-Geophyten-Templates. (6) **D13** — `harvest`-Legacy-Migration + Schema-Enum-Sync (`_defs`/`plant_info`/`lifecycles`/`fertilizers` um die 6 Kern-Phasen `bolting`/`bud_break`/`fruit_development`/`acclimatization`/`maintenance`/`repotting_recovery` ergänzt). Quelle: `spec/analysis/lifecycle-flow-completeness-audit.md`. |
 | 2.8 | 2026-07-02 | **Spec-Audit D-Umsetzung (vollständige Lebenszyklus-Abbildung über Arten):** (1) **B1/D2** — kanonisches `PhaseType`-Literal um `germination`, `rooting` + `bolting` ergänzt (17 Werte), einzige maßgebliche Phasen-Wertliste. (2) **D6** — monokarpe Terminal-Transition: `flowering_strategy=monocarpic` (REQ-001) erzwingt terminale Nach-Blüte-Seneszenz statt `is_cycle_restart`. (3) **D1** — Biennial-Lebenszyklus: `CyclicLifecycleEngine` (ehem. `PerennialCycleEngine`) unterstützt `cycle_type IN ('perennial','biennial')`; Biennial-Phasentemplate (Jahr 1 → Dormanz → Jahr 2 Schossen/Blüte/Samen → terminal). (4) **D4** — Juvenil-Skip als maturity-gated `conditional`-Transition (mehrwertige `next_phase` + `required_conditions`). (5) **D3** — expliziter Post-Harvest-Handoff Lifecycle→REQ-008-Batch. Quelle: Spec-Audit-Findings B1/D1–D6 + `.audits/phase-0-drift-findings.md`. |
 | 2.7 | 2026-06-15 | **Phase A — Lebenszyklus-Felder (Plan WP-3/WP-4):** `LifecycleConfig.flowering_strategy` (`monocarpic`/`polycarpic`) als eigene Reproduktions-Achse — „blüht einmal, stirbt dann" (Agave, viele Bambusse) auch bei mehrjährigem Wuchs. `cultivation_cycle_type` trennt die Kultur-Praxis von der botanischen `cycle_type`. Beide optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §2.1/§2.2. _(v2.8: Felder in REQ-001 v4.5 im Body umgesetzt; Phasen-Logik hier ergänzt.)_ |
@@ -109,7 +110,7 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 
 - **`phase_transition_rules`** - Übergangslogik
   - Properties:
-    - `trigger_type: Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']`
+    - `trigger_type: Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based', 'photoperiod_based', 'vernalization_based']`
     - `auto_transition_after_days: Optional[int]`
     - `gdd_threshold: Optional[float]` — Growing Degree Days bis Transition (z.B. Tomate Transplant→Blüte: ~300 GDD). Biologisch akkurater als Kalendertage, da temperaturabhängig.
     - `gdd_base_temp_c: Optional[float]` — Basistemperatur für GDD-Berechnung (Tomate: 10°C, Mais: 10°C, Weizen: 0°C). GDD_tag = max(0, (T_max + T_min) / 2 - T_base)
@@ -1348,7 +1349,7 @@ class NutrientProfileDefinition(BaseModel):
             raise ValueError("NPK-Werte können nicht negativ sein")
         return v
 
-TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']
+TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based', 'photoperiod_based', 'vernalization_based']
 # Spec-Audit 2026-07-02 B1/D2: Kanonisches Phasen-Vokabular. `germination` und `rooting`
 # ergänzt, damit beide Lebenszyklus-Eintrittspunkte abgedeckt sind (Samen bzw. vegetative
 # Vermehrung). Dies ist die EINZIGE maßgebliche Phasen-Wertliste; die frühere 7er-Prosa-Liste
@@ -1631,6 +1632,134 @@ wird über Jahre gehalten und jährlich neu induziert):
   (`_defs`/`plant_info`/`lifecycles`/`fertilizers`, ebenfalls 53) sind ab dieser Version deckungsgleich. Die
   reduzierten Enums in `activities.schema.yaml`/`workflows.schema.yaml` (Task-Templates) bleiben bewusst auf
   der Kern-Teilmenge. `seed-data-validator` Phase 0.2 wacht über künftige Drift.
+
+<!-- Spec-Audit 2026-07-02 E1-E8: Lifecycle-Vollständigkeits-Audit II — Trigger-Vollständigkeit, nicht-lineare Pfade, Ausfallbehandlung, Bewässerung & Nährstoffbedarf über den Lebenszyklus. Quelle: spec/analysis/lifecycle-flow-completeness-audit.md -->
+## Lifecycle-Vollständigkeits-Audit II (E1–E8)
+
+D1–D13 schließen die Archetypen-/Phasen-Achse. Dieser Block schließt die verbleibenden Fragestellungen
+auf drei weiteren Achsen — **Trigger-Vollständigkeit** (E1/E2), **nicht-lineare Pfade** (E3/E4),
+**Ausnahme-/Ausfallbehandlung** (E5/E6) — und macht **Bewässerung** (E7) und **Nährstoffbedarf** (E8) als
+explizit lebenszyklus-getriebene Dimensionen vollständig.
+
+### E1 — Photoperiode als First-Class-Transition-Trigger
+
+Neuer `trigger_type='photoperiod_based'`. Der Übergang feuert, wenn die **effektive Photoperiode** die
+artspezifische kritische Tageslänge (`lifecycle_configs.critical_day_length_hours`, REQ-001) kreuzt:
+
+- **Kurztagpflanze** (`photoperiod_type='short_day'`): löst Blühinduktion aus, wenn Tageslänge < kritisch
+  (Cannabis 12/12, Weihnachtsstern, Chrysantheme, Kalanchoe → `flowering`/`short_day_induction`).
+- **Langtagpflanze** (`long_day`): löst aus, wenn Tageslänge > kritisch. `day_neutral`: kein Photo-Trigger.
+- **Quelle der Tageslänge:** Indoor aus dem Licht-Aktor/Schaltplan (REQ-018); Outdoor aus astronomischer
+  Tageslänge (Standort REQ-002 + Datum). Damit ist der Blüh-Umschlag automatisierbar statt nur `manual`.
+- **Abgrenzung:** Autoflower bleibt `time_based` (`autoflower_days_to_flower`, kein Photo-Trigger — G-009).
+
+### E2 — Vernalisation/Chill als expliziter Trigger
+
+Neuer `trigger_type='vernalization_based'`. Der Übergang feuert, wenn die akkumulierten **Kältestunden/
+Vernalisationstage** die Art-Anforderung (`vernalization_min_days`/Chill-Bedarf, REQ-001, `VernalizationTracker`)
+erreichen. Gate für: Biennial-`bolting` (D1, nach der `dormancy` in Saison 1→2) und perennial-`bud_break`
+(Obstgehölze mit Chill-Requirement). Ersetzt die bisher implizite `conditional`-Kodierung durch einen
+maschinenlesbaren, eigenen Trigger; `should_restart_cycle()`/`start_new_season(chill_hours=…)` bleiben die
+Datenquelle.
+
+### E3 — Bewusste Phasen-Umkehr / Re-Vegetation
+
+Neues Flag `phase_transition_rules.is_reversion: bool = false` — analog zu `is_cycle_restart`, aber **ohne**
+Saison-Neustart-Semantik. Es erlaubt eine **kontrollierte Rückwärts-Transition** (`sequence_order` sinkt),
+z.B. `flowering → vegetative`:
+
+- Anwendungsfälle: Cannabis-**Re-Vegging** (Blüte zurück in Veg, Mutterpflanzen-Erhalt), Stress-Rückfall,
+  Zierpflanzen-Verjüngungsschnitt.
+- Guard (`validate_transition`): Rückwärts bleibt gesperrt **außer** die Regel trägt `is_cycle_restart`
+  **oder** `is_reversion`. Reversion wird als Warnung protokolliert (kein stiller Rücksprung) und erhöht
+  einen `reversion_count` am `plant_instance` für die Historie.
+
+### E4 — Indeterminate / gleichzeitige Phasen (Design-Entscheidung)
+
+Neues Feld `lifecycle_configs.growth_determinacy: Literal['determinate','indeterminate','semi_determinate']`.
+Die State-Machine bleibt **single-current-phase** — indeterminate Arten (Tomate, Paprika, Gurke, viele
+Zimmerpflanzen) werden **nicht** über parallele Phasen abgebildet, sondern über eine **stabile produktive
+Phase**:
+
+- Bei `indeterminate` verweilt die Pflanze nach dem ersten Fruchtansatz dauerhaft in einer produktiven Phase
+  (`fruiting`/`flowering_fruit`, `is_recurring: true`), in der vegetatives Wachstum, Blüte und Fruchtansatz
+  **gleichzeitig** ablaufen — modelliert als **Eigenschaften der produktiven Phase**, nicht als eigene Phasen.
+  Ernte erfolgt kontinuierlich (`harvest_pattern='continuous'`, REQ-007), jede Teil-Ernte ohne Phasenwechsel.
+- Bei `determinate` gilt der lineare Pfad (…→ `flowering` → `fruit_development` → `ripening` → terminal).
+- Damit ist die scheinbare Lücke eine **bewusste Abstraktion**: die Nebenläufigkeit ist ein Phasen-Attribut,
+  keine fehlende Phase.
+
+### E5 — Ungeplantes Absterben / Verlust
+
+Der Lebenszyklus unterscheidet **planmäßiges Ende** (`senescence`, `is_terminal`) von **ungeplantem Verlust**.
+Das `PlantInstance`-Modell führt bisher nur ein undifferenziertes `removed_on: date` — es vermischt Ernte,
+Seneszenz, Tod und Abbruch. E5 ergänzt zwei Felder am `PlantInstance` (REQ-013):
+
+- `termination_type: Literal['harvested','senesced','died','cancelled'] | None` — **`died`** (ungeplant
+  abgestorben) ist die neue, bisher fehlende Ausprägung, klar getrennt von `harvested`/`senesced` (planmäßig)
+  und `cancelled` (User-Abbruch der Planung).
+- `termination_cause: Literal['disease','pest','frost','heat','drought','waterlogging','neglect','mechanical',
+  'unknown'] | None` — nur bei `termination_type='died'` gesetzt.
+- **Lifecycle-Interaktion:** Bei `died` wird die **aktuelle `growth_phase` eingefroren**
+  (`current_phase_started_at` bleibt, keine weiteren Transitions), die Pflanze geht **nicht** in `senescence`.
+  Offene Aufgaben/Erinnerungen werden geschlossen (analog Plant-Removal, vgl. #291).
+- **Analytics:** `termination_type`/`termination_cause` + die eingefrorene Phase speisen Überlebensraten und
+  Ausfallursachen-Auswertung (welche Phase/Ursache dominiert den Verlust).
+
+### E6 — Stressinduziertes (vorzeitiges) Schossen
+
+Abgrenzung zum **geplanten** Biennial-Schossen (D1): Blattgemüse (Salat, Spinat, Koriander, Rucola) kann unter
+Hitze-/Langtag-Stress **vorzeitig schossen** — ein unerwünschtes Ereignis, das das Ernte-Fenster beendet.
+Modelliert als optionale `conditional`/`photoperiod_based`-Transition `vegetative → bolting` mit
+`is_premature: true`:
+
+- `allows_harvest` der Vor-Phase bleibt bis zum Schossen gültig; das Schossen markiert das **Ende der
+  Marktreife** (Blattbitterkeit) → Task „ernten oder entfernen".
+- `is_premature: true` unterscheidet es im Verlauf/Analytics vom planmäßigen Biennial-`bolting` (Saison 2).
+
+### E7 — Bewässerung über den Lebenszyklus
+
+Bewässerung ist **phasengetrieben**: `requirement_profiles.irrigation_frequency_days` +
+`irrigation_volume_ml_per_plant` je Phase, `care_profiles.watering_method`
+(`soak`/`drench_and_drain`/`top_water`/`bottom_water`) und `winter_watering_multiplier` als saisonale Skalierung.
+Phasen-Regelwerk:
+
+| Phase(n) | Bewässerungsregime |
+|---|---|
+| `germination`, `seedling` | hohe Frequenz, kleines Volumen, gleichmäßig feucht (nicht nass) |
+| `vegetative`, `active_growth` | reguläres Intervall, Volumen nach Wurzeltiefe (`effective_root_depth_cm`) |
+| `flowering`, `fruit_development`, `ripening` | Volumen ggf. reduziert; gleichmäßig halten (Platzen/BER vermeiden) |
+| `flushing` | **nur Wasser** (Substrat-Entsalzung, Pre-Harvest) |
+| `dormancy`, `winter_rest`, `cool_rest`, `summer_rest` | **minimal/ausgesetzt** — Ruhephasen kein/kaum Wasser |
+| `dry_storage` (Geophyt) | trocken (kein Gießen) |
+| Stress-Phase `drought` | bewusstes Defizit (Terpen-/Stressfärbung-Induktion) |
+
+- **Dynamische Anpassung:** ET-basierte Bewässerung (REQ-037, Evapotranspiration) und Sensor-Feuchte (REQ-005)
+  überschreiben die statischen Phasen-Defaults; `waterlogging_tolerance` (REQ-001) begrenzt das Maximalvolumen.
+- **Cross-Ref:** Tank-/Ausbringungslogik REQ-014, Aktorik/Ventile REQ-018.
+
+### E8 — Nährstoffbedarf über den Lebenszyklus
+
+Nährstoffversorgung ist **phasengetrieben**: `nutrient_profiles.npk_ratio` + `target_ec_ms` + `target_ph` je
+Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
+(`heavy_feeder`/`medium_feeder`/`light_feeder`/`nitrogen_fixer`). Phasen-Regelwerk:
+
+| Phase(n) | NPK-Tendenz | EC | Hinweis |
+|---|---|---|---|
+| `germination`, `seedling` | sehr niedrig (0:0:0 → 1:1:1) | 0.0–0.6 | erste Tage nur Wasser; Salzempfindlichkeit |
+| `vegetative`, `active_growth` | **N-betont** (z.B. 3:1:2) | 1.2–1.8 | EC schrittweise steigern |
+| `flowering`, `fruit_development` | **P/K-betont** (z.B. 1:3:2) | 1.4–2.0 | N-Reduktion; Ca in Fruchtphase (BER) |
+| `ripening` | K-betont, N↓ (z.B. 0:1:2) | 0.8–1.2 | Ausreifung |
+| `flushing` | **0:0:0** (Flush erlaubt, validiert) | ~0 | Rest-Salze austragen |
+| `dormancy`, `winter_rest`, `summer_rest` | **keine Düngung** | – | Ruhephasen: Stoffwechsel reduziert |
+
+- **Feeder-Skalierung:** `heavy_feeder` (Tomate, Kohl) → oberes EC-Band + organische Grunddüngung
+  (g/m², REQ-004); `light_feeder`/`nitrogen_fixer` (Kräuter, Hülsenfrüchte) → unteres Band, N-Fixierer brauchen
+  wenig/keinen N-Zusatz.
+- **pH-Gating:** Mikronährstoff-Verfügbarkeit ist pH-abhängig (`soil_ph_preference`, REQ-001; die meisten
+  Mikros bei pH 6.0–6.5, Mo invers) — `target_ph` je Phase steuert die Aufnahme.
+- **Cross-Ref:** Mischreihenfolge/EC-net/Produkte REQ-004; organische Freiland-Flächendosierung REQ-004
+  (g/m², L/m²); Substrat-Adapter für EC (REQ-019).
 
 ## 4. Authentifizierung & Autorisierung
 
