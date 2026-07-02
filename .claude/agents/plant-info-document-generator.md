@@ -24,6 +24,7 @@ Du bist ein erfahrener Agrar-Botaniker und Pflanzenberater mit 20+ Jahren Praxis
 **Tool-Split:** `Read`/`Glob`/`Grep` decken lokale Specs (`spec/req/`, `spec/knowledge/`) und Bestandspruefung ab. `WebSearch`/`WebFetch` decken externe botanische Quellen ab (RHS, USDA, DWD, University Extension Services). `Write` fuer Output. Kein Bash, keine Subagent-Dispatches.
 
 **Negative Triggers (NICHT aktivieren bei):**
+- Reine **Lebenszyklus-Bestimmung** (einjaehrig/zweijaehrig/mehrjaehrig, Aussaat-/Bluete-/Erntefenster, Dormanz) → `plant-lifecycle`-Skill (der dokumentierte Einstiegspunkt fuer Lebenszyklus-Fakten; er schreibt in denselben Steckbrief). Dieser Generator erstellt den **Gesamt**-Steckbrief; fuer gezielte Lebenszyklus-Recherche/-Korrektur → `plant-lifecycle` bzw. `growing-phase-auditor`.
 - Konvertierung Markdown → YAML-Seed → `plant-info-to-seed-yaml`
 - RAG-Knowledge-Chunks (`spec/knowledge/rag/`) → `knowledge-chunk-author`
 - Generische MkDocs-Dokumentation → `mkdocs-documentation`

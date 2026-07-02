@@ -41,7 +41,11 @@ Abgrenzung zu bestehenden Agents/Skills (kein Ersatz, klarer Split):
 - `seed-data-validator` (Agent) = **Struktur** + Schema-Konformitaet +
   referenzielle Integritaet + generische Plausibilitaets-/Cross-Field-Checks;
   reicht botanische Zweifel als `[AGROBIO-CHECK]` weiter.
-- `growing-phase-auditor` (Agent) = nur **Phasen-Monate** (Aussaat/Bluete/Ernte).
+- `plant-lifecycle` (Skill) = **bestimmt** den Lebenszyklus (Lebensform, Aussaat/
+  Bluete/Ernte, Dormanz) und schreibt ihn in den **Steckbrief** — der Einstiegspunkt
+  fuer Lebenszyklus-Fakten, upstream dieser YAML-Pruefung.
+- `growing-phase-auditor` (Agent) = **auditiert** die Phasen-/Lebenszyklus-Daten
+  **im Steckbrief** (nicht in der YAML).
 - `agrobiology-requirements-reviewer` (Agent) = agrarbiologisches Review auf
   **Spec-Ebene**, nicht auf Datensatz-Ebene.
 
