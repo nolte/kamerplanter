@@ -14,6 +14,7 @@ Version: 2.8 (Spec-Audit D-Umsetzung: kanonisches PhaseType, Biennial-Zyklus, mo
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.9 | 2026-07-02 | **Lifecycle-Vollständigkeits-Audit D8–D13 (Abgleich Vokabular ↔ Seed-Daten, 210 Arten):** (1) **D8** — `PhaseType` von 17 (Engine-Kern) auf **53 Werte** erweitert = deckungsgleich mit dem Seed-Schema-Enum `phase_entry.name`; Engine-Rollen-Mapping-Tabelle für alle 36 erweiterten Phasen. (2) **D9** — CAM-/Sukkulenten-(Doppel-)Ruhe-Template (`winter_rest`/`summer_rest`/`cool_rest`/`winter_hull_change`; 42× real, biologisch verschieden von perennial-`dormancy`). (3) **D10** — Kindel-Monokarpie-Template (Agave/Bromelie: terminale Blüte + klonale Fortführung via `pup_establishment` statt Zyklus-Neustart). (4) **D11** — Photoperioden-Zier-Induktion (`short_day_induction` → `bract_coloring`, Weihnachtsstern/Kalanchoe). (5) **D12** — Palme/Farn/feingranulare-Geophyten-Templates. (6) **D13** — `harvest`-Legacy-Migration + Schema-Enum-Sync (`_defs`/`plant_info`/`lifecycles`/`fertilizers` um die 6 Kern-Phasen `bolting`/`bud_break`/`fruit_development`/`acclimatization`/`maintenance`/`repotting_recovery` ergänzt). Quelle: `spec/analysis/lifecycle-flow-completeness-audit.md`. |
 | 2.8 | 2026-07-02 | **Spec-Audit D-Umsetzung (vollständige Lebenszyklus-Abbildung über Arten):** (1) **B1/D2** — kanonisches `PhaseType`-Literal um `germination`, `rooting` + `bolting` ergänzt (17 Werte), einzige maßgebliche Phasen-Wertliste. (2) **D6** — monokarpe Terminal-Transition: `flowering_strategy=monocarpic` (REQ-001) erzwingt terminale Nach-Blüte-Seneszenz statt `is_cycle_restart`. (3) **D1** — Biennial-Lebenszyklus: `CyclicLifecycleEngine` (ehem. `PerennialCycleEngine`) unterstützt `cycle_type IN ('perennial','biennial')`; Biennial-Phasentemplate (Jahr 1 → Dormanz → Jahr 2 Schossen/Blüte/Samen → terminal). (4) **D4** — Juvenil-Skip als maturity-gated `conditional`-Transition (mehrwertige `next_phase` + `required_conditions`). (5) **D3** — expliziter Post-Harvest-Handoff Lifecycle→REQ-008-Batch. Quelle: Spec-Audit-Findings B1/D1–D6 + `.audits/phase-0-drift-findings.md`. |
 | 2.7 | 2026-06-15 | **Phase A — Lebenszyklus-Felder (Plan WP-3/WP-4):** `LifecycleConfig.flowering_strategy` (`monocarpic`/`polycarpic`) als eigene Reproduktions-Achse — „blüht einmal, stirbt dann" (Agave, viele Bambusse) auch bei mehrjährigem Wuchs. `cultivation_cycle_type` trennt die Kultur-Praxis von der botanischen `cycle_type`. Beide optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §2.1/§2.2. _(v2.8: Felder in REQ-001 v4.5 im Body umgesetzt; Phasen-Logik hier ergänzt.)_ |
 | 2.6 | 2026-06-11 | **Umgebungs-Physiologie (Plant-Profile Environmental Research):** `requirement_profiles` um `vpd_threshold_kpa` + `vpd_sensitivity` (artspezifische VPD-Schwelle als echter Automatik-Trigger), `photosynthesis_temp_opt_c` (T_opt getrennt vom Tag-Zielwert) und `far_red_fraction` (phytochrom-prädiktive Shade-Avoidance-Metrik, ableitbar aus `light_spectrum`) erweitert. Quelle: `spec/analysis/plant-profile-completeness-research.md`. |
@@ -45,6 +46,11 @@ Typische Phasen-Sequenzen:
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
 - **Autoflower (Cultivar-Level):** Keimung (3–5d) → Sämling (7–10d) → Vegetativ (14–21d) → Blüte (35–56d) → Ernte. Verkürzte Gesamtdauer (60–90 Tage). Übergang Vegi→Blüte ist zeitgesteuert (nach `autoflower_days_to_flower` Tagen), kein manueller/photoperiodischer Trigger. Lichtprofil bleibt durchgehend bei 20/4 oder 18/6 (kein Wechsel auf 12/12).
 <!-- /Quelle: G-009 -->
+<!-- Spec-Audit 2026-07-02 D8-D13: spezialisierte Archetypen -->
+- **Sukkulente/CAM (Indoor):** Aktivwachstum (Mär–Okt) → Kühl-trockene Winterruhe (`winter_rest`, Nov–Feb) ↻ — biologisch verschieden von perennial-`dormancy` (Template D9). Manche mit Sommerruhe (`summer_rest`).
+- **Kindel-Monokarp (Agave/Bromelie):** Jahre vegetativ (`juvenile → mature`) → einmalige terminale Blüte → Mutter stirbt; Fortführung über **Kindel** (`pup_establishment`, neue Instanz) statt Zyklus-Neustart (Template D10).
+- **Photoperioden-Zier (Weihnachtsstern/Kalanchoe):** Aktivwachstum → Kurztag-Induktion (`short_day_induction`) → Hochblattfärbung (`bract_coloring`) → Ruhe ↻ (Template D11).
+- **Palme/Farn/feingranulare Geophyten:** immergrün ohne Blüte bzw. sporen-/knollenbasiert — Etablierungs-, Wedel- und Speicherorgan-Phasen (Template D12).
 
 **Dauerkulturen-Modus (Perennial):**
 Mehrjährige Pflanzen (Obstbäume, Beerensträucher, Stauden) durchlaufen jährlich wiederkehrende
@@ -1348,10 +1354,32 @@ TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditio
 # Vermehrung). Dies ist die EINZIGE maßgebliche Phasen-Wertliste; die frühere 7er-Prosa-Liste
 # und die UI-NFR-016-Anzeige-Palette leiten sich hiervon ab. `harvest` ist KEINE Phase,
 # sondern ein Ernte-Event (REQ-007); `drying`/`curing` sind Post-Harvest-Batch-Zustände (REQ-008).
-PhaseType = Literal['germination', 'rooting', 'seedling', 'vegetative', 'bolting', 'flowering',
-                    'ripening', 'dormancy', 'flushing', 'bud_break', 'fruit_development', 'senescence',
-                    'hardening_off', 'acclimatization', 'active_growth', 'maintenance',
-                    'repotting_recovery']
+# Spec-Audit 2026-07-02 D8: Vollständiges Phasen-Vokabular. Die frühere 17er-Liste war der
+# Engine-KERN; die Seed-Daten (210 Arten) verwenden zusätzlich 36 archetyp-spezifische Phasen
+# (v.a. Sukkulenten-Ruhe `winter_rest` 42×). Beide sind jetzt EINE maßgebliche Liste (= Schema-Enum,
+# 53 Werte). Jede erweiterte Phase bildet für die State-Machine auf eine Kern-Phase ab — die
+# Engine-Rolle (is_recurring/is_terminal/allows_harvest/is_cycle_restart) steht in der Mapping-Tabelle
+# im Abschnitt "Lifecycle-Vollständigkeits-Audit D8–D13".
+PhaseType = Literal[
+    # ── Engine-Kern (17): Eintritt · Wachstum · Reproduktion · Ruhe · Zimmerpflanze ──
+    'germination', 'rooting', 'seedling', 'vegetative', 'bolting', 'flowering',
+    'ripening', 'dormancy', 'flushing', 'bud_break', 'fruit_development', 'senescence',
+    'hardening_off', 'acclimatization', 'active_growth', 'maintenance', 'repotting_recovery',
+    # ── Erweitert (36) — Reproduktions-/Blüte-Feinphasen (Zierpflanzen) ──
+    'pre_bloom', 'bud_formation', 'budding', 'growth_bloom', 'flowering_fruit', 'fruiting',
+    'autumn_growth_bloom', 'rest_after_bloom', 'bract_coloring', 'short_day_induction',
+    # ── Erweitert — Sukkulenten-/CAM-Ruhe (winter_rest 42× real) ──
+    'winter_rest', 'summer_rest', 'cool_rest', 'rest_phase', 'rest',
+    'winter_dormancy', 'summer_dormancy', 'winter_hull_change',
+    # ── Erweitert — Geophyten-Feinphasen (Knolle/Zwiebel/Korm) ──
+    'sprouting', 'sprout_formation', 'corm_ripening', 'tuber_formation',
+    'bulbil_establishment', 'dry_storage',
+    # ── Erweitert — Etablierung/Reifegrad/Sonderkultur (Palme, Farn, Kindel-Monokarp) ──
+    'establishment', 'pup_establishment', 'young_palm', 'shaft_growth', 'leaf_phase',
+    'juvenile', 'climbing', 'mature', 'recovery', 'spring_growth', 'autumn_ripening',
+    # ── Legacy — Daten-Altwert; KEINE Phase (Ernte = Event, REQ-007/B1); D13-Migration ──
+    'harvest',
+]
 # germination: generative Keimung — Eintritt bei Samenvermehrung (seed_sowing/bulbil/tissue_culture, REQ-017 §D2)
 # rooting: Einwurzelung vegetativer Vermehrung (Steckling/Ableger/Veredlung) — KANONISCH statt
 #          der Synonyme 'Bewurzelung'/'Einwurzelung' bzw. 'seedling-für-Stecklinge' (REQ-017 §D2)
@@ -1484,6 +1512,125 @@ von `GrowthPhase`/`seasonal_cycles` entkoppelt. Anbindung:
   `dormancy (= Lager) → bud_break (= Austrieb)` trägt `is_cycle_restart: true` (perennierender Geophyt).
 - Damit ist der D7-Bruch geschlossen: die `tuber_status`-Übergänge (REQ-022) und die Saison-Phasen
   (REQ-003) beschreiben denselben Zyklus auf zwei Ebenen und müssen konsistent sein (analog D5-Invariante).
+
+<!-- Spec-Audit 2026-07-02 D8-D13: Lifecycle-Vollständigkeits-Audit (Abgleich kanonisches Phasen-Vokabular ↔ Seed-Daten, 210 Arten). Quelle: spec/analysis/lifecycle-flow-completeness-audit.md -->
+## Lifecycle-Vollständigkeits-Audit (D8–D13)
+
+Die 17 Engine-Kern-Phasen bilden die gängigen Archetypen ab (annuell, biennial, perennial,
+Zimmerpflanze, Autoflower, Geophyt). Die Seed-Daten verwenden zusätzlich **36 archetyp-spezifische
+Phasen** — v.a. für Sukkulenten/CAM, Kindel-Monokarpe, Photoperioden-Zierpflanzen, Palmen, Farne und
+feingranulare Geophyten. Diese waren zuvor nicht im Vokabular geführt und ihre Abläufe nicht getemplatet.
+D8 schließt den Vokabular-Bruch (Reconciliation), D9–D13 ergänzen die fehlenden Flow-Templates.
+
+### D8 — Erweitertes Phasen-Vokabular: Engine-Rollen-Mapping
+
+Jede erweiterte Phase bildet für die State-Machine auf eine **Kern-Phase** ab (gleiche Transition-/
+Ressourcen-Semantik). Die Spalten `is_recurring`/`is_terminal`/`allows_harvest` sind die Default-Engine-
+Rolle; datensatzspezifische Overrides bleiben zulässig.
+
+| Erweiterte Phase | Engine-Rolle (Kern) | recurring | terminal | harvest | Archetyp / Template |
+|---|---|---|---|---|---|
+| `pre_bloom`, `bud_formation`, `budding` | `flowering` (Vorstufe) | – | – | – | Zierpflanze |
+| `growth_bloom`, `autumn_growth_bloom` | `active_growth`+`flowering` | ✓ | – | – | Zimmerpflanze/Staude (D11) |
+| `flowering_fruit` | `flowering`+`fruit_development` | – | – | – | Nutzpflanze |
+| `fruiting` | `fruit_development` | – | – | – | Nutzpflanze |
+| `rest_after_bloom` | `dormancy` | ✓ | – | – | Zierpflanze/Geophyt |
+| `short_day_induction`, `bract_coloring` | `flowering` (photoperiodisch) | ✓ | – | – | Photoperioden-Zier (D11) |
+| `winter_rest`, `cool_rest`, `rest_phase`, `rest`, `winter_dormancy` | `dormancy` (kühl-trocken) | ✓ | – | – | **CAM/Sukkulente (D9)** |
+| `summer_rest`, `summer_dormancy` | `dormancy` (Sommerruhe) | ✓ | – | – | Mediterran/CAM (D9) |
+| `winter_hull_change` | `dormancy` (Blattpaar-Erneuerung) | ✓ | – | – | Lithops/Mesemb (D9) |
+| `sprouting`, `sprout_formation` | `bud_break` | ✓ | – | – | Geophyt (D12) |
+| `corm_ripening` | `senescence` (Korm-Ausreife) | ✓ | – | – | Geophyt (D12) |
+| `tuber_formation` | `fruit_development` (Speicherorgan) | ✓ | – | – | Geophyt (D12) |
+| `bulbil_establishment` | `seedling`/`rooting` | – | – | – | Geophyt (Brutzwiebel, D12) |
+| `dry_storage` | `dormancy` (Lager, = D7) | ✓ | – | – | Geophyt (D12) |
+| `establishment` | `seedling`/`rooting` | – | – | – | Etablierung nach Pflanzung |
+| `pup_establishment` | `seedling` (Kindel) | – | – | – | **Kindel-Monokarp (D10)** |
+| `young_palm`, `shaft_growth` | `vegetative` | ✓ | – | – | **Palme (D12)** |
+| `leaf_phase` | `active_growth` | ✓ | – | – | **Farn (D12)** |
+| `juvenile` | `vegetative` (maturity=juvenile) | – | – | – | Reifegrad (D4) |
+| `climbing` | `vegetative` | ✓ | – | – | Kletterpflanze |
+| `mature` | `vegetative` (productive) | ✓ | – | – | Reifegrad |
+| `recovery` | `repotting_recovery`/`hardening_off` | – | – | – | Stress-Phase |
+| `spring_growth` | `active_growth`/`bud_break` | ✓ | – | – | Frühjahrsaustrieb |
+| `autumn_ripening` | `ripening` | ✓ | – | ✓ | Herbstreife |
+| `harvest` (Legacy) | `ripening` + Ernte-Event | – | – | ✓ | **D13-Migration** |
+
+### D9 — CAM-/Sukkulenten-(Doppel-)Ruhe-Template
+
+Kakteen, Sukkulenten und CAM-Pflanzen haben eine **kühl-trockene Ruhephase**, die biologisch von der
+perennial-`dormancy` (winterhart, Freiland) verschieden ist (temperaturinduziert, ~8–12 °C, nahezu kein
+Wasser; steuert Blühinduktion vieler Kakteen). Manche mediterrane/summergrün-invertierte Arten haben
+zusätzlich eine **Sommerruhe**.
+
+| Phase | `sequence_order` | `is_recurring` | Dauer (T) | `allows_harvest` | Beschreibung |
+|---|---|---|---|---|---|
+| `active_growth` | 0 | `true` | 210 (Mär–Okt) | `false` | Vegetationsperiode, reguläres Gießen/Düngen |
+| `flowering` | 1 | `true` | 21 (opt.) | `false` | Blüte (falls art-typisch; sonst entfällt) |
+| `winter_rest` | 2 | `true` | 120 (Nov–Feb) | `false` | Kühl-trockene Ruhe, ~8–12 °C, kein Dünger, minimal Wasser |
+
+- Transition `winter_rest → active_growth` trägt `is_cycle_restart: true` (perennierend). Für **Sommerruher**
+  (z.B. mediterrane Zwiebeln, manche Mesembs) `summer_rest` statt/zusätzlich zu `winter_rest`.
+- `winter_hull_change` (Lithops) ist eine **Ausprägung von `winter_rest`**: während der Ruhe wird das alte
+  Blattpaar resorbiert und ein neues gebildet — kein separater Zyklus, sondern Annotation der Ruhephase.
+
+### D10 — Kindel-Monokarpie-Template (Agave, Bromelie, manche Sukkulenten)
+
+Diese Arten wachsen **jahrelang rein vegetativ**, blühen **einmal terminal** und sterben danach
+(monokarp) — führen den Klon aber über **Kindel (`pups`)** fort. Modellierung:
+
+| Phase | `sequence_order` | `is_terminal` | Beschreibung |
+|---|---|---|---|
+| `pup_establishment` | 0 | `false` | Etablierung des Kindels (neue `plant_instance`) |
+| `juvenile` | 1 | `false` | Jahre-/dekadenlanges vegetatives Wachstum (kein Blühen) |
+| `mature` | 2 | `false` | Blühreif |
+| `flowering` | 3 | `false` | Einmalige terminale Blüte (Bromelie: über `bract_coloring`) |
+| `senescence` | 4 | **`true`** | Mutterrosette stirbt (`terminal_after_flowering: true`) |
+
+- **Kern-Unterschied zu D6 (generische Monokarpie):** Der Zyklus setzt sich **nicht** über `is_cycle_restart`
+  auf derselben Instanz fort, sondern über **neue klonale `plant_instances`** (die Kindel). Die
+  Mutter-Instanz ist terminal (`terminal_after_flowering: true`, `max_seasons` n/a); die Kindel werden als
+  eigene Pflanzen mit `descended_from`-Kante (REQ-017 Lineage) und Eintritt bei `pup_establishment` geführt.
+- Damit ist die scheinbare Kontinuität sauber abgebildet, ohne die Rückwärts-Sperre zu verletzen.
+
+### D11 — Photoperiodische Zier-Induktion (Weihnachtsstern, Kalanchoe)
+
+Kurztagpflanzen mit **induzierter Zierblüte/-hochblattfärbung**. Der Ablauf ist perennierend (die Pflanze
+wird über Jahre gehalten und jährlich neu induziert):
+
+| Phase | `sequence_order` | `is_recurring` | Trigger | Beschreibung |
+|---|---|---|---|---|
+| `active_growth` | 0 | `true` | – | Vegetatives Wachstum, Langtag/neutral |
+| `short_day_induction` | 1 | `true` | `event_based` (Photoperiode ≤ ~10 h, 6–8 Wochen) | Blühinduktion durch Kurztag (kritische Dunkelperiode) |
+| `bract_coloring` | 2 | `true` | `time_based` | Hochblatt-/Blütenfärbung (die „Blüte" im Zierwert) |
+| `rest_after_bloom` | 3 | `true` | – | Rückschnitt-/Ruhephase; danach `is_cycle_restart: true` |
+
+- `short_day_induction` nutzt die bestehende `photoperiod_hours`-Validierung (Werte < 8 h sind hier **kein**
+  Fehler, nur Warnung — bereits in `RequirementProfileDefinition.validate_photoperiod` vorgesehen).
+
+### D12 — Palme, Farn & feingranulare Geophyten
+
+- **Palme (immergrün, kein Blühen in Kultur):** `establishment`/`young_palm` (0, Etablierung) →
+  `shaft_growth` (1, Stammbildung) → `active_growth` (2, `is_recurring: true`). Kein `flowering`/`senescence`
+  im Innenraum-Zyklus; `dormancy` optional (kühle Überwinterung).
+- **Farn (sporenvermehrt, kein Blühen):** `rooting`/`establishment` (0) → `leaf_phase` (1, Wedelaustrieb,
+  `is_recurring: true`) → `rest`/`dormancy` (2, `is_recurring: true`) ↻. Vermehrung über Sporen (REQ-017),
+  nicht über die reproduktiven Phasen.
+- **Feingranulare Geophyten (Dahlie, Gladiole, Krokus):** `sprouting`/`sprout_formation` (= `bud_break`) →
+  `vegetative` → `flowering` → `tuber_formation`/`corm_ripening` (Speicherorgan-Aufbau/-Ausreife) →
+  `dry_storage`/`dormancy` (= D7-Lager) ↻. `bulbil_establishment` bildet den Brutzwiebel-Einstieg (analog
+  `pup_establishment`, eigene Instanz). Die D7-Anbindung (`tuber_status` ↔ `dormancy`) gilt unverändert.
+
+### D13 — `harvest`-Legacy & Schema-Synchronisation
+
+- **`harvest` ist keine Phase** (B1: Ernte ist ein Event, REQ-007). Der Wert existiert nur als Alt-Daten-
+  Ausprägung (wenige Datensätze) und bildet auf `ripening` (`allows_harvest: true`) + Ernte-Event ab. Ein
+  einmaliger Daten-Backfill migriert `name: harvest` → `ripening`; danach kann der Enum-Wert entfernt werden
+  (bis dahin bleibt er additiv im Schema geduldet, um bestehende Daten nicht zu brechen).
+- **Schema-Sync:** Das kanonische `PhaseType` (53 Werte) und der Seed-Schema-Enum `phase_entry.name`
+  (`_defs`/`plant_info`/`lifecycles`/`fertilizers`, ebenfalls 53) sind ab dieser Version deckungsgleich. Die
+  reduzierten Enums in `activities.schema.yaml`/`workflows.schema.yaml` (Task-Templates) bleiben bewusst auf
+  der Kern-Teilmenge. `seed-data-validator` Phase 0.2 wacht über künftige Drift.
 
 ## 4. Authentifizierung & Autorisierung
 
