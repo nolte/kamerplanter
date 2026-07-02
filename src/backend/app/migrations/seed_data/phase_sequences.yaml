@@ -75,18 +75,6 @@ phase_definitions:
     tags: [mature, pre-harvest]
     is_system: true
 
-  - name: harvest
-    display_name: Harvest
-    display_name_de: Ernte
-    description: Harvest-ready period
-    description_de: Ernteperiode
-    typical_duration_days: 30
-    stress_tolerance: high
-    watering_interval_days: 2
-    illustration: brand/illustrations/phases/timeline-kami-phase-harvest.svg
-    tags: [harvest, terminal]
-    is_system: true
-
   - name: dormancy
     display_name: Dormancy
     display_name_de: Winterruhe
@@ -208,7 +196,7 @@ phase_sequences:
         is_terminal: false
         allows_harvest: false
         is_recurring: true
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 3
         override_duration_days: 30
         is_terminal: false
@@ -255,7 +243,7 @@ phase_sequences:
         is_terminal: false
         allows_harvest: false
         is_recurring: true
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 4
         override_duration_days: 30
         is_terminal: false
@@ -336,7 +324,7 @@ phase_sequences:
         is_terminal: false
         allows_harvest: false
         is_recurring: true
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 4
         override_duration_days: 30
         is_terminal: false
@@ -410,7 +398,7 @@ phase_sequences:
         override_duration_days: 30
         is_terminal: false
         allows_harvest: false
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 3
         override_duration_days: 30
         is_terminal: false
@@ -461,15 +449,10 @@ phase_sequences:
       - phase_name: ripening
         sequence_order: 5
         is_terminal: false
-        allows_harvest: false
-        is_recurring: true
-      - phase_name: harvest
-        sequence_order: 6
-        is_terminal: false
         allows_harvest: true
         is_recurring: true
       - phase_name: senescence
-        sequence_order: 7
+        sequence_order: 6
         is_terminal: true
         allows_harvest: false
         is_recurring: true
@@ -506,7 +489,7 @@ phase_sequences:
         sequence_order: 4
         is_terminal: false
         allows_harvest: false
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 5
         is_terminal: true
         allows_harvest: true
@@ -533,7 +516,7 @@ phase_sequences:
         is_terminal: false
         allows_harvest: false
         is_recurring: true
-      - phase_name: harvest
+      - phase_name: ripening
         sequence_order: 2
         is_terminal: false
         allows_harvest: true

@@ -32,7 +32,7 @@ activities:
     recovery_days_by_species:
       cannabis: 7
     species_compatible: ["Cannabis", "Hanf"]
-    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    forbidden_phases: ["flowering", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
     tools_required: ["scissors", "gloves", "disinfectant"]
     estimated_duration_minutes: 5
     sort_order: 1
@@ -66,7 +66,7 @@ activities:
     recovery_days_by_species:
       cannabis: 7
     species_compatible: ["Cannabis", "Hanf"]
-    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    forbidden_phases: ["flowering", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
     tools_required: ["scissors", "gloves", "disinfectant"]
     estimated_duration_minutes: 5
     sort_order: 2
@@ -102,7 +102,7 @@ activities:
     recovery_days_by_species:
       cannabis: 7
     species_compatible: ["Cannabis", "Hanf"]
-    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    forbidden_phases: ["flowering", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
     tools_required: ["scissors", "plant ties", "gloves", "disinfectant"]
     estimated_duration_minutes: 15
     sort_order: 3
@@ -240,7 +240,7 @@ activities:
     recovery_days_default: 5
     species_compatible: ["Cannabis", "Hanf"]
     restricted_sub_phases: ["mid_flower", "late_flower"]
-    forbidden_phases: ["harvest", "ripening", "dormancy", "germination", "senescence"]
+    forbidden_phases: ["ripening", "dormancy", "germination", "senescence"]
     tools_required: ["scissors", "gloves"]
     estimated_duration_minutes: 20
     sort_order: 8
@@ -1239,7 +1239,7 @@ activities:
     stress_level: "low"
     skill_level: "beginner"
     recovery_days_default: 0
-    forbidden_phases: ["dormancy", "ripening", "harvest", "senescence"]
+    forbidden_phases: ["dormancy", "ripening", "senescence"]
     estimated_duration_minutes: 15
     sort_order: 50
     tags: ["outdoor", "seedling", "hardening"]
@@ -1275,7 +1275,7 @@ activities:
     skill_level: "intermediate"
     recovery_days_default: 2
     species_compatible: ["Apium", "Sellerie", "Celeriac"]
-    forbidden_phases: ["germination", "seedling", "harvest"]
+    forbidden_phases: ["germination", "seedling", "ripening"]
     tools_required: ["scissors"]
     estimated_duration_minutes: 10
     sort_order: 51
@@ -1313,7 +1313,7 @@ activities:
     skill_level: "intermediate"
     recovery_days_default: 1
     species_compatible: ["Apium", "Sellerie", "Celeriac"]
-    forbidden_phases: ["germination", "seedling", "harvest"]
+    forbidden_phases: ["germination", "seedling", "ripening"]
     tools_required: ["sharp knife"]
     estimated_duration_minutes: 15
     sort_order: 52

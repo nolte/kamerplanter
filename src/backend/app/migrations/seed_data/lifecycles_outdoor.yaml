@@ -745,7 +745,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -796,7 +796,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -847,7 +847,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -898,7 +898,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -957,7 +957,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 5
@@ -1016,7 +1016,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 5
@@ -1075,7 +1075,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 5
@@ -1134,7 +1134,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 5
@@ -1185,7 +1185,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -1244,7 +1244,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 5
@@ -1316,21 +1316,13 @@ lifecycles:
         typical_duration_days: 30
         sequence_order: 6
         stress_tolerance: "medium"
-        allows_harvest: false
-        is_terminal: false
-        is_recurring: true
-      - name: "harvest"
-        display_name: "Ernte"
-        typical_duration_days: 14
-        sequence_order: 7
-        stress_tolerance: "high"
         allows_harvest: true
         is_terminal: false
         is_recurring: true
       - name: "senescence"
         display_name: "Blattfall"
         typical_duration_days: 21
-        sequence_order: 8
+        sequence_order: 7
         stress_tolerance: "high"
         allows_harvest: false
         is_terminal: true
@@ -1382,7 +1374,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 60
         sequence_order: 5
@@ -1441,7 +1433,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 60
         sequence_order: 5
@@ -1500,7 +1492,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 60
         sequence_order: 5
@@ -1547,7 +1539,7 @@ lifecycles:
         stress_tolerance: "medium"
         allows_harvest: false
         is_terminal: false
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 30
         sequence_order: 4
@@ -1611,7 +1603,7 @@ lifecycles:
         stress_tolerance: "medium"
         allows_harvest: false
         is_terminal: false
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 30
         sequence_order: 6
@@ -1645,7 +1637,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 60
         sequence_order: 3
@@ -1700,7 +1692,7 @@ lifecycles:
         stress_tolerance: "medium"
         allows_harvest: false
         is_terminal: false
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Ernte"
         typical_duration_days: 21
         sequence_order: 4
@@ -1806,7 +1798,7 @@ lifecycles:
         allows_harvest: false
         is_terminal: false
         is_recurring: true
-      - name: "harvest"
+      - name: "ripening"
         display_name: "Schnitt"
         typical_duration_days: 30
         sequence_order: 5

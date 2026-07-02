@@ -187,7 +187,7 @@ nutrient_plans:
                 ml_per_liter: 1.0
 
       # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
-      - phase_name: harvest
+      - phase_name: flushing
         sequence_order: 6
         week_start: 12
         week_end: 13

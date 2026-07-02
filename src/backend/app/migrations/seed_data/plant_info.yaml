@@ -2039,7 +2039,7 @@ growth_phases:
         calcium_ppm: 180
         magnesium_ppm: 60
 
-    - name: harvest
+    - name: ripening
       display_name: "Ernte & Lagerung"
       duration_days: 28
       sequence_order: 5

@@ -1378,9 +1378,11 @@ PhaseType = Literal[
     # ── Erweitert — Etablierung/Reifegrad/Sonderkultur (Palme, Farn, Kindel-Monokarp) ──
     'establishment', 'pup_establishment', 'young_palm', 'shaft_growth', 'leaf_phase',
     'juvenile', 'climbing', 'mature', 'recovery', 'spring_growth', 'autumn_ripening',
-    # ── Legacy — Daten-Altwert; KEINE Phase (Ernte = Event, REQ-007/B1); D13-Migration ──
-    'harvest',
 ]
+# `harvest` ist bewusst KEINE Phase (Ernte = Event, REQ-007/B1). Der frühere Legacy-Altwert
+# wurde per D13-Migration (Issue #306) aus allen Seed-Daten und Enums entfernt: feedende
+# Ernte-Phasen → `ripening`, 0-0-0-Flush-Phasen → `flushing`; `harvest` bleibt nur als
+# Aktivitäts-/Task-Kategorie (nicht als Phase) erhalten.
 # germination: generative Keimung — Eintritt bei Samenvermehrung (seed_sowing/bulbil/tissue_culture, REQ-017 §D2)
 # rooting: Einwurzelung vegetativer Vermehrung (Steckling/Ableger/Veredlung) — KANONISCH statt
 #          der Synonyme 'Bewurzelung'/'Einwurzelung' bzw. 'seedling-für-Stecklinge' (REQ-017 §D2)
@@ -1624,10 +1626,13 @@ wird über Jahre gehalten und jährlich neu induziert):
 
 ### D13 — `harvest`-Legacy & Schema-Synchronisation
 
-- **`harvest` ist keine Phase** (B1: Ernte ist ein Event, REQ-007). Der Wert existiert nur als Alt-Daten-
-  Ausprägung (wenige Datensätze) und bildet auf `ripening` (`allows_harvest: true`) + Ernte-Event ab. Ein
-  einmaliger Daten-Backfill migriert `name: harvest` → `ripening`; danach kann der Enum-Wert entfernt werden
-  (bis dahin bleibt er additiv im Schema geduldet, um bestehende Daten nicht zu brechen).
+- **`harvest` ist keine Phase** (B1: Ernte ist ein Event, REQ-007). Der frühere Alt-Daten-Wert wurde per
+  Migration (Issue #306) vollständig entfernt und **NPK-abhängig** abgebildet: **feedende** Ernte-Phasen →
+  `ripening` (`allows_harvest: true`), **0-0-0-Flush**-Phasen (Nährpläne) → `flushing`. Wo eine eigene
+  `harvest`-Phase zwischen `ripening` und `senescence` stand (z.B. Obstgehölze, `phase_sequences`), wurde sie
+  entfernt und `ripening` das `allows_harvest`-Flag übertragen. `harvest` ist aus allen Phasen-Enums (`_defs`
+  → `plant_info`/`lifecycles`/`fertilizers` via `$ref`, plus die reduzierten `activities`/`workflows`-Enums)
+  entfernt; als **Aktivitäts-/Task-Kategorie** (Ernte-Task) bleibt `harvest` unverändert gültig.
 - **Schema-Sync:** Das kanonische `PhaseType` (53 Werte) und der Seed-Schema-Enum `phase_entry.name`
   (`_defs`/`plant_info`/`lifecycles`/`fertilizers`, ebenfalls 53) sind ab dieser Version deckungsgleich. Die
   reduzierten Enums in `activities.schema.yaml`/`workflows.schema.yaml` (Task-Templates) bleiben bewusst auf
