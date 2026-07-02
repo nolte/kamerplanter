@@ -16,6 +16,7 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
     tracker = VernalizationTracker()
 
     updated = 0
+    is_cold = tracker.is_cold_day(avg_temp_c)
     plants, _ = plant_repo.get_all(offset=0, limit=1000)
 
     for plant in plants:
@@ -27,15 +28,19 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
             if lifecycle is None or not lifecycle.vernalization_required:
                 continue
 
-            is_cold = tracker.is_cold_day(avg_temp_c)
             if is_cold:
+                # Accumulate + persist the chill day (REQ-003 E2). The
+                # vernalization_based trigger reads chill_days_accumulated.
+                plant.chill_days_accumulated += 1
+                plant_repo.update(plant.key or "", plant)
                 updated += 1
                 logger.info(
                     "vernalization_cold_day",
                     plant_key=plant.key,
                     avg_temp=avg_temp_c,
+                    chill_days=plant.chill_days_accumulated,
                 )
         except Exception as e:
             logger.error("vernalization_error", plant_key=plant.key, error=str(e))
 
-    return {"cold_day": tracker.is_cold_day(avg_temp_c), "plants_tracked": updated}
+    return {"cold_day": is_cold, "plants_tracked": updated}

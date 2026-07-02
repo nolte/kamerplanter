@@ -40,6 +40,13 @@ class PlantInstance(BaseModel):
         ge=0,
         description="Number of controlled phase reversions (e.g. re-vegging) this plant has undergone.",
     )
+    # ── Vernalisation accumulation (REQ-003 E2) ──
+    chill_days_accumulated: int = Field(
+        default=0,
+        ge=0,
+        description="Accumulated vernalisation cold days; gates the vernalization_based transition once "
+        "it reaches the species' vernalization_min_days.",
+    )
     container_volume_liters: float | None = Field(
         default=None,
         ge=0.1,
