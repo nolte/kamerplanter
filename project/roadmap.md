@@ -35,6 +35,7 @@ title: Pflanzenfoto-Galerie
 detail: fine
 outcomes: [O-2]
 target_sprint: 1
+mvp: true
 status: done
 ```
 
