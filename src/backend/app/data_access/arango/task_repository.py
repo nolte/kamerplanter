@@ -271,6 +271,19 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
 
+        # Defensive guard: never surface tasks whose plant_instance was removed
+        # (soft-delete via ``removed_on``) or no longer exists. Task generators or
+        # legacy data created before the removal-cascade can leave such orphans
+        # behind; the cascade only deletes a snapshot at removal time, so the queue
+        # must re-filter rather than trust that orphans never exist.
+        query += (
+            f" LET _plant = doc.entity_type == 'plant_instance'"
+            f" ? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', doc.entity_key))"
+            f" : null"
+            f" FILTER doc.entity_type != 'plant_instance'"
+            f" OR (_plant != null AND _plant.removed_on == null)"
+        )
+
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
         query += f" SORT doc.due_date ASC LIMIT {offset}, {limit} RETURN doc"
 
@@ -334,6 +347,16 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
         query = f"FOR doc IN {col.TASKS} FILTER doc.entity_type == 'plant_instance' AND doc.entity_key == @plant_key"
         bind_vars: dict = {"plant_key": plant_key}
+        if status:
+            query += " FILTER doc.status == @status"
+            bind_vars["status"] = status
+        query += " SORT doc.due_date ASC RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def get_tasks_for_run(self, run_key: str, status: str | None = None) -> list[Task]:
+        query = f"FOR doc IN {col.TASKS} FILTER doc.planting_run_key == @run_key"
+        bind_vars: dict = {"run_key": run_key}
         if status:
             query += " FILTER doc.status == @status"
             bind_vars["status"] = status
