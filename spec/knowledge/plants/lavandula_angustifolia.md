@@ -20,6 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- korrigiert von day_neutral: L. angustifolia ist fakultative Langtag-Pflanze (facultative long-day plant), Blüteförderung durch Tageslängen > ~12 h; belegt GPNmag/MSU Extension/PanAmSeed --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 5a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |

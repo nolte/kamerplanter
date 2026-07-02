@@ -24,6 +24,7 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | stoloniferous (Ausläufer) | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | — (nicht anwendbar) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
@@ -33,8 +34,8 @@
 | Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutraler Farn (photoperiod_type=day_neutral), kein echter Kurztag-/Langtag-Blüher → kein numerischer Stunden-Wert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhaerte-Detail | Halbfrosthart. Mindesttemperatur 5°C (Zimmerhaltung), optimal 16–24°C. Verträgt kurze Kälte bis 2°C, aber keine Dauertemperaturen unter 10°C. | `species.hardiness_detail` |
+| Frostempfindlichkeit | tender | `species.frost_sensitivity` |
+| Winterhaerte-Detail | Nicht frosthart (tender). Mindesttemperatur 5°C (kurzzeitig, Zimmerhaltung), optimal 16–24°C. Schäden setzen bereits ab ca. 7°C ein, unter 4°C drohen irreversible Schäden (Wedelbraunfärbung, Wurzelfäule); keine Dauertemperaturen unter 10°C. | `species.hardiness_detail` |
 | Heimat | Tropisches und subtropisches Amerika, Westafrika, Ozeanien — feuchte Wälder und Bachränder | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -362,3 +363,6 @@ Tiger Fern,Nephrolepis exaltata,"ornamental;variegated;yellow_green",clone
 12. [AERU/U Hertfordshire — Metaphycus helvolus](https://sitem.herts.ac.uk/aeru/bpdb/Reports/2258.htm) & [Wikipedia — Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Weichschildlaus-Parasitoid, Ausbringrate 5/m²
 13. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Trauermücken-Bodenraubmilbe, Ausbringrate 100–500/m²
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 -->
+14. [RHS — Nephrolepis exaltata](https://www.rhs.org.uk/plants/11508/nephrolepis-exaltata/details) — RHS Hardiness Rating H1b (Minimum +10 bis +15 °C, ganzjährig frostfreie/beheizte Kultur nötig) → `frost_sensitivity: tender`
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->

@@ -26,6 +26,7 @@
 | Kritische Tageslaenge (h) | -- (day_neutral / tagneutral -- kein Kurztag-/Langtag-Bluehverhalten; Bluete wird ueber Reife + Ethylen ausgeloest, nicht ueber Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial (Hinweis: Mutterpflanze ist monokarp -- stirbt nach einmaliger Bluete; das Pflanzensystem ist durch Kindel-Bildung perennial; cycle_type=perennial gilt fuer das Gesamtsystem) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 2-3 (Mutterpflanze; Kindel ueberdauern) | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
