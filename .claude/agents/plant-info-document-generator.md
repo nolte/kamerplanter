@@ -212,6 +212,7 @@ Jedes Pflanzendokument MUSS exakt diese Struktur haben. Alle Felder orientieren 
 | Direktsaat-Monate | {z.B. 5, 6} | `species.direct_sow_months` |
 | Erntemonate | {z.B. 7, 8, 9, 10} | `species.harvest_months` |
 | Blütemonate | {z.B. 5, 6, 7} | `species.bloom_months` |
+| Ernte erlaubt (Art wird geerntet) | {true/false} | `species.allows_harvest` |
 | Ernte-Muster (Lebensdauer) | {single/continuous/perennial} | `species.harvest_pattern` |
 | Geerntetes Pflanzenteil | {fruit/seed/leaf/root/tuber/bulb/flower_bud/flower/stem/whole_plant} | `species.harvested_part` |
 | Nachreife-Verhalten | {climacteric/non_climacteric/atypical} | `species.climacteric` |
@@ -309,6 +310,8 @@ Erzeuge **eine Zeile pro Vermehrungsmethode** (`species.propagation_configs[]`).
 | {z.B. Blüte} | {21–42} | 4 | false | false | medium |
 | {z.B. Reife} | {14–28} | 5 | true | true | high |
 
+**KA-Feld-Mapping (phase_entry):** Spalte → Feld für den Converter: Phasenname → `phase_entry.name` (Enum) + `phase_entry.display_name` (Freitext DE) · `Dauer (Tage)` → `phase_entry.duration_days` (erster Wert) · `Reihenfolge` → `phase_entry.sequence_order` · `Terminal` → `phase_entry.is_terminal` · `Ernte erlaubt` → `phase_entry.allows_harvest` · `Stresstoleranz` → `phase_entry.stress_tolerance`.
+
 ### 2.2 Phasen-Anforderungsprofile
 
 Für jede Phase ein Profil:
@@ -342,6 +345,8 @@ Für jede Phase ein Profil:
 | {Vegetativ} | {3:1:2} | {1.2–1.8} | {5.8–6.2} | {150} | {50} | {–} | {3} |
 | {Blüte} | {1:3:2} | {1.4–2.0} | {6.0–6.5} | {120} | {60} | {–} | {2} |
 | {Reife} | {0:1:2} | {0.8–1.2} | {6.0–6.5} | {80} | {40} | {–} | {1} |
+
+**KA-Feld-Mapping (nutrient_profile):** `NPK-Verhältnis` → `nutrient_profiles.npk_ratio` (als `[N, P, K]`) · `EC (mS)` → `nutrient_profiles.target_ec_ms` · `pH` → `nutrient_profiles.target_ph`.
 
 **Mikronährstoffe je Phase (ppm, optional — über Fe/B hinaus):** Die Bioverfügbarkeit ist pH-abhängig (die meisten Mikros bei pH 6,0–6,5 verfügbar; Mo umgekehrt). Nur eintragen wenn art-/phasenspezifisch belegt.
 
@@ -525,6 +530,27 @@ Erregertyp-Enum (`disease.pathogen_type`): `fungal`, `bacterial`, `viral`, `phys
 |-------------------|-----------|-------------------|---------|
 | {z.B. Solanaceae} | `shares_pest_risk` | {Phytophthora, Kartoffelkäfer} | `shares_pest_risk` |
 
+### 6.5 Botanische Familie — Stammdaten (`new_families`)
+
+> Die botanische Familie ist eine **eigene Entität** mit eigenen Stammdaten. Der Converter-`new_families`-Block verlangt diese Felder (Pflichtfelder), daher hier vollständig recherchieren — sonst bleibt die Familie unbefüllt.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Familienname | {z.B. Solanaceae} | `botanical_families.name` |
+| Volksname DE | {z.B. Nachtschattengewächse} | `botanical_families.common_name_de` |
+| Volksname EN | {z.B. Nightshades} | `botanical_families.common_name_en` |
+| Ordnung | {z.B. Solanales} | `botanical_families.order` |
+| Typischer Nährstoffbedarf | {heavy/medium/light} | `botanical_families.typical_nutrient_demand` |
+| Typische Frosttoleranz | {sensitive/moderate/hardy/very_hardy} | `botanical_families.frost_tolerance` |
+| Typische Wurzeltiefe | {shallow/medium/deep} | `botanical_families.typical_root_depth` |
+| Typische Wuchsformen | {Liste, z.B. herb, vine} | `botanical_families.typical_growth_forms` |
+| Bestäubungstyp | {insect/wind/self — Mehrfach möglich} | `botanical_families.pollination_type` |
+| Boden-pH-Vorzug (min–max) | {z.B. 6.0–7.0} | `botanical_families.soil_ph_preference` |
+| Fruchtfolge-Kategorie | {fruit/root/leaf/legume/allium/brassica/… — Schema-Enum} | `botanical_families.rotation_category` |
+| Familientypische Schädlinge | {Liste} | `botanical_families.common_pests` |
+| Familientypische Krankheiten | {Liste} | `botanical_families.common_diseases` |
+| Beschreibung | {Freitext} | `botanical_families.description` |
+
 ---
 
 ## 7. Ähnliche Arten & Alternativen
@@ -546,12 +572,32 @@ scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_hab
 {Solanum lycopersicum},{Tomate;Tomato},{Solanaceae},{Solanum},{annual},{day_neutral},{herb},{fibrous},{9a;9b;10a;10b;11a;11b},{-0.2},{Südamerika, Anden},{limited},{20},{30},{60–200},{40–60},{50},{no},{limited},{true},{true}
 ```
 
-### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
+### 8.2 Cultivars (bekannte Sorten)
+
+Für jede bekannte Sorte eine Zeile in dieser `KA-Feld`-Tabelle — **alle** Felder recherchieren, nicht nur Name/Traits:
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Sortenname | {z.B. San Marzano} | `cultivar.name` |
+| Elternart | {Solanum lycopersicum} | `cultivar.species_name` |
+| Züchter | {Freitext oder –} | `cultivar.breeder` |
+| Beschreibung | {Freitext} | `cultivar.description` |
+| Traits | {disease_resistant/high_yield/compact/heirloom/f1/… — Schema-Enum} | `cultivar.traits` |
+| Vermehrungstyp | {clone/seed/cutting/division/grafted} | `cultivar.seed_type` |
+| Lebenszyklus | {annual/biennial/perennial} | `cultivar.cycle_type` |
+| Photoperiode | {short_day/long_day/day_neutral} | `cultivar.photoperiod_type` |
+| Typischer Ertrag | {z.B. "4–6 kg/Pflanze"} | `cultivar.typical_yield` |
+| Tage bis Reife | {z.B. 75} | `cultivar.days_to_maturity` |
+| Geschmacksprofil | {Freitext, z.B. "süß-aromatisch, festfleischig"} | `cultivar.flavor_profile` |
+| Blütenfarbe | {Freitext} | `cultivar.flower_color` |
+| Fruchtfarbe | {Freitext, z.B. "tiefrot"} | `cultivar.fruit_color` |
+| Resistenzen | {Liste, z.B. Fusarium, Verticillium} | `cultivar.resistance_to` |
+
+**CSV-Variante (REQ-012):**
 
 ```csv
-name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resistances,seed_type
-{San Marzano},{Solanum lycopersicum},{–},{–},{determinate;paste_type},{75},{fusarium},{open_pollinated}
-{Moneymaker},{Solanum lycopersicum},{–},{1913},{indeterminate;high_yield},{80},{–},{open_pollinated}
+name,species_name,breeder,traits,seed_type,cycle_type,days_to_maturity,typical_yield,flavor_profile,flower_color,fruit_color,resistance_to
+{San Marzano},{Solanum lycopersicum},{–},{high_yield;heirloom},{open_pollinated},{annual},{75},{4–6 kg/Pflanze},{süß-aromatisch, festfleischig},{gelb},{tiefrot},{fusarium}
 ```
 
 ---
