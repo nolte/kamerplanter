@@ -202,6 +202,17 @@ class TerminationType(StrEnum):
     CANCELLED = "cancelled"
 
 
+class MaturityStage(StrEnum):
+    """Maturity stage of a perennial across its productive life (REQ-003 D-series).
+
+    Drives the juvenile-skip of reproductive phases and yield expectations.
+    """
+
+    JUVENILE = "juvenile"  # too young to bear (age < first_bearing_year)
+    PRODUCTIVE = "productive"
+    DECLINING = "declining"  # past the expected productive span
+
+
 class TerminationCause(StrEnum):
     """Cause of an unplanned plant loss — only set when termination_type='died'
     (REQ-003 E5). Feeds survival-rate / failure-cause analytics."""
