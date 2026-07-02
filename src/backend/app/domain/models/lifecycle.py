@@ -66,6 +66,25 @@ class LifecycleConfig(BaseModel):
         default=None,
         description="For perennials: sequence_order at which the cycle restarts after the terminal phase.",
     )
+    # ── Cyclic lifecycle bounds & maturity (REQ-003 D1/D4/D6/D10) ──
+    max_seasons: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of seasons before the cycle terminates (2 = biennial); None = unbounded "
+        "(polycarpic perennial). Defaults to 2 for BIENNIAL when unset.",
+    )
+    first_bearing_year: int | None = Field(
+        default=None,
+        ge=1,
+        le=30,
+        description="Earliest standing year a perennial bears a usable yield; below it the plant is juvenile "
+        "and reproductive phases are skipped (D4).",
+    )
+    expected_productive_years: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of productive years after first bearing; beyond it the plant is 'declining'.",
+    )
     phase_sequence_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
