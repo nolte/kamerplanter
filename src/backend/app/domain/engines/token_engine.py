@@ -3,8 +3,8 @@ import secrets
 import time
 import uuid
 
-from authlib.jose import jwt as authlib_jwt
-from authlib.jose.errors import DecodeError, ExpiredTokenError
+from authlib.jose import JsonWebToken
+from authlib.jose.errors import ExpiredTokenError, JoseError
 
 from app.domain.models.auth import TokenPair, TokenPayload
 
@@ -15,6 +15,11 @@ class TokenEngine:
     def __init__(self, secret_key: str, algorithm: str = "HS256") -> None:
         self._secret_key = secret_key
         self._algorithm = algorithm
+        # Bind decode/encode to a single-algorithm allowlist (SEC-B1): the
+        # instance rejects any token whose header ``alg`` is not the configured
+        # one (e.g. ``none`` / a swapped asymmetric alg), closing the
+        # algorithm-confusion surface instead of trusting the token header.
+        self._jwt = JsonWebToken([algorithm])
 
     def create_access_token(
         self,
@@ -34,7 +39,7 @@ class TokenEngine:
             "type": "access",
         }
         header = {"alg": self._algorithm}
-        token = authlib_jwt.encode(header, payload, self._secret_key)
+        token = self._jwt.encode(header, payload, self._secret_key)
         return TokenPair(
             access_token=token.decode("utf-8") if isinstance(token, bytes) else str(token),
             expires_in=expire_minutes * 60,
@@ -43,12 +48,21 @@ class TokenEngine:
     def decode_access_token(self, token: str) -> TokenPayload:
         """Decode and validate a JWT access token. Raises on invalid/expired."""
         try:
-            claims = authlib_jwt.decode(token, self._secret_key)
+            claims = self._jwt.decode(token, self._secret_key)
             claims.validate()
         except ExpiredTokenError as e:
             raise ValueError("Token has expired.") from e
-        except (DecodeError, Exception) as e:
+        except (JoseError, ValueError, KeyError) as e:
+            # ``JoseError`` is the authlib base for DecodeError / BadSignatureError
+            # / InvalidClaimError / UnsupportedAlgorithmError (alg=none). Catch it
+            # (plus ValueError/KeyError) instead of a bare ``Exception`` so genuine
+            # programming errors are not masked as "Invalid token.".
             raise ValueError("Invalid token.") from e
+
+        # SEC-B2: only access tokens grant API access — a refresh/session token
+        # (or any token minted with a different ``type``) must be rejected here.
+        if claims.get("type") != "access":
+            raise ValueError("Invalid token type.")
 
         return TokenPayload(
             sub=claims["sub"],
@@ -57,7 +71,7 @@ class TokenEngine:
             exp=claims["exp"],
             iat=claims["iat"],
             jti=claims["jti"],
-            type=claims.get("type", "access"),
+            type=claims["type"],
         )
 
     def create_refresh_token(self) -> tuple[str, str]:
