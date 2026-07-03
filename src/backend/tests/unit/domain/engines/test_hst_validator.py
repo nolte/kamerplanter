@@ -1,9 +1,10 @@
 """Unit tests for the HST (High Stress Training) validator engine."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
+from app.domain.engines import hst_validator as hst_module
 from app.domain.engines.hst_validator import (
     FORBIDDEN_ALL_FLOWER,
     FORBIDDEN_MID_FLOWER,
@@ -172,3 +173,42 @@ class TestRecoveryWindow:
 
         result2 = engine.validate("heavy-defoliation", "flowering", [])
         assert result2["can_perform"] is False
+
+
+class TestRecoveryTimezone:
+    """Regression DOM-2: tz-aware completed_at and local-time correctness."""
+
+    def test_tz_aware_completed_at_no_crash(self, engine):
+        """A tz-aware completed_at (as stored by the DB) must not crash against
+        the internally computed 'now' during the recovery comparison."""
+        tasks = [
+            {
+                "name": "topping",
+                "completed_at": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            }
+        ]
+        result = engine.validate("supercropping", "vegetative", tasks, species_name="cannabis")
+        # Cannabis recovery = 7d -> not recovered after 1 day, but NO TypeError.
+        assert result["recovery_status"]["recovered"] is False
+
+    def test_completed_at_none_is_skipped(self, engine):
+        """A None completed_at must be skipped defensively."""
+        tasks = [{"name": "topping", "completed_at": None}]
+        result = engine.validate("supercropping", "vegetative", tasks, species_name="cannabis")
+        # Nothing valid to recover from -> no recovery constraint.
+        assert result["recovery_status"] is None
+
+    def test_recovery_uses_utc_regardless_of_process_localtime(self, engine, monkeypatch):
+        """Regression DOM-2b: the recovery window must be computed in UTC and be
+        independent of the process local time. We pin 'now' to a fixed UTC moment
+        and assert a completed_at exactly recovery_days old counts as recovered."""
+        fixed_now = datetime(2026, 7, 3, 12, 0, 0, tzinfo=UTC)
+        monkeypatch.setattr(hst_module, "now_utc", lambda: fixed_now)
+
+        # Cannabis recovery = 7 days; completed exactly 7 days ago, expressed in a
+        # non-UTC offset (+02:00) as a client/DB might deliver it.
+        completed = (fixed_now - timedelta(days=7)).astimezone(timezone(timedelta(hours=2)))
+        tasks = [{"name": "topping", "completed_at": completed.isoformat()}]
+        result = engine.validate("supercropping", "vegetative", tasks, species_name="cannabis")
+        assert result["recovery_status"]["recovered"] is True
+        assert result["can_perform"] is True

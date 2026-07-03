@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.common.datetimes import now_utc
 from app.common.enums import TreatmentType
 from app.common.exceptions import NotFoundError, ResistanceWarningError
 from app.domain.engines.inspection_scheduler import InspectionScheduler
@@ -263,7 +264,7 @@ class IpmService:
         if not karenz_periods:
             return True, []
         if planned_date is None:
-            planned_date = datetime.now()
+            planned_date = now_utc()
         return self._safety.can_harvest(karenz_periods, planned_date)
 
     def get_karenz_periods(self, plant_key: str) -> list[dict]:

@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from app.common.datetimes import ensure_aware_utc
+
 
 class SafetyIntervalValidator:
     """Pure logic for Karenz/safety interval validation -- no DB access."""
@@ -23,14 +25,13 @@ class SafetyIntervalValidator:
             contains dicts with active_ingredient, safe_date, days_remaining.
         """
         blocking = []
+        planned = ensure_aware_utc(planned_harvest_date)
         for period in active_karenz_periods:
-            applied_at = period["applied_at"]
-            if isinstance(applied_at, str):
-                applied_at = datetime.fromisoformat(applied_at)
+            applied_at = ensure_aware_utc(period["applied_at"])
             safety_days = period["safety_interval_days"]
             safe_date = applied_at + timedelta(days=safety_days)
-            if safe_date > planned_harvest_date:
-                days_remaining = (safe_date - planned_harvest_date).days
+            if safe_date > planned:
+                days_remaining = (safe_date - planned).days
                 blocking.append(
                     {
                         "active_ingredient": period["active_ingredient"],
@@ -52,9 +53,7 @@ class SafetyIntervalValidator:
             return None
         latest = None
         for period in active_karenz_periods:
-            applied_at = period["applied_at"]
-            if isinstance(applied_at, str):
-                applied_at = datetime.fromisoformat(applied_at)
+            applied_at = ensure_aware_utc(period["applied_at"])
             safe_date = applied_at + timedelta(days=period["safety_interval_days"])
             if latest is None or safe_date > latest:
                 latest = safe_date

@@ -1,5 +1,4 @@
-from datetime import datetime
-
+from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
@@ -105,7 +104,7 @@ class HarvestService:
     def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
         """Create a harvest batch -- enforces Karenz-Gate."""
         batch.plant_key = plant_key
-        harvest_date = batch.harvest_date or datetime.now()
+        harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
 
         # KARENZ-GATE: check safety intervals
         can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date)

@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from app.common.datetimes import ensure_aware_utc, now_utc
+
 # Base inspection interval in days
 BASE_INTERVAL_DAYS = 7
 
@@ -43,13 +45,13 @@ class InspectionScheduler:
             The recommended next inspection datetime.
         """
         if last_inspection_at is None:
-            return datetime.now()
+            return now_utc()
 
         phase_mult = PHASE_MULTIPLIERS.get(current_phase, 1.0)
         pressure_mult = PRESSURE_MULTIPLIERS.get(pressure_level, 1.0)
 
         interval_days = max(1, BASE_INTERVAL_DAYS * phase_mult * pressure_mult)
-        return last_inspection_at + timedelta(days=interval_days)
+        return ensure_aware_utc(last_inspection_at) + timedelta(days=interval_days)
 
     def calculate_urgency(
         self,
@@ -62,10 +64,9 @@ class InspectionScheduler:
             Dict with is_overdue, days_until_due (negative if overdue),
             and urgency_level.
         """
-        if now is None:
-            now = datetime.now()
+        now = ensure_aware_utc(now) if now is not None else now_utc()
 
-        delta = (next_due - now).total_seconds() / 86400
+        delta = (ensure_aware_utc(next_due) - now).total_seconds() / 86400
         days_until = round(delta, 1)
 
         if days_until < 0:

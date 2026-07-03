@@ -1,6 +1,6 @@
 """Unit tests for the safety interval engine."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -140,8 +140,43 @@ class TestCanHarvest:
         planned = datetime(2026, 1, 10, 12, 0, 0)
         can, blocking = engine.can_harvest(periods, planned)
         assert can is False
+        # The engine normalizes to tz-aware UTC, so safe_date carries an offset.
         safe_date = datetime.fromisoformat(blocking[0]["safe_date"])
-        assert safe_date == datetime(2026, 1, 15, 12, 0, 0)
+        assert safe_date == datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
+
+    def test_tz_aware_applied_at_vs_naive_planned_date(self, engine):
+        """Regression DOM-1: a tz-aware applied_at (as stored by the DB, ISO with
+        +00:00 offset) must not crash with TypeError when compared against a naive
+        planned_harvest_date (as produced by the ipm_service default)."""
+        periods = [
+            {
+                "active_ingredient": "Spinosad",
+                # Exactly what the AQL query returns: ISO with +00:00 offset.
+                "applied_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+                "safety_interval_days": 21,
+            }
+        ]
+        naive_planned = datetime.now()  # naive, like the ipm_service default today
+        can, blocking = engine.can_harvest(periods, naive_planned)
+        assert can is False
+        assert len(blocking) == 1
+        assert blocking[0]["active_ingredient"] == "Spinosad"
+
+    def test_naive_applied_at_vs_aware_planned_date(self, engine):
+        """Regression DOM-1 (mirror): naive legacy applied_at vs a tz-aware
+        planned_harvest_date must also compare without TypeError."""
+        periods = [
+            {
+                "active_ingredient": "Pyrethrin",
+                # Legacy naive value (no offset), interpreted as UTC.
+                "applied_at": datetime.now() - timedelta(days=1),
+                "safety_interval_days": 14,
+            }
+        ]
+        aware_planned = datetime.now(UTC)
+        can, blocking = engine.can_harvest(periods, aware_planned)
+        assert can is False
+        assert len(blocking) == 1
 
     def test_days_remaining_calculated_correctly(self, engine):
         """days_remaining should be the difference between safe_date and planned."""
@@ -178,11 +213,11 @@ class TestEarliestSafeHarvestDate:
             },
         ]
         result = engine.earliest_safe_harvest_date(periods)
-        assert result == datetime(2026, 3, 11, 0, 0, 0)
+        assert result == datetime(2026, 3, 11, 0, 0, 0, tzinfo=UTC)
 
     def test_multiple_periods_returns_latest_safe_date(self, engine):
         """With multiple periods, the latest safe_date is the earliest safe harvest."""
-        now = datetime(2026, 3, 1, 0, 0, 0)
+        now = datetime(2026, 3, 1, 0, 0, 0, tzinfo=UTC)
         periods = [
             {
                 "active_ingredient": "A",
@@ -214,7 +249,7 @@ class TestEarliestSafeHarvestDate:
             },
         ]
         result = engine.earliest_safe_harvest_date(periods)
-        assert result == datetime(2026, 4, 6, 8, 0, 0)
+        assert result == datetime(2026, 4, 6, 8, 0, 0, tzinfo=UTC)
 
     def test_staggered_applications(self, engine):
         """Different application times with different intervals."""
@@ -232,4 +267,4 @@ class TestEarliestSafeHarvestDate:
         ]
         result = engine.earliest_safe_harvest_date(periods)
         # A safe_date = March 31, B safe_date = April 3
-        assert result == datetime(2026, 4, 3, 0, 0, 0)
+        assert result == datetime(2026, 4, 3, 0, 0, 0, tzinfo=UTC)
