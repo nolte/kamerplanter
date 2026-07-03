@@ -34,7 +34,7 @@
 | Kritische Tageslänge (h) | <!-- DATEN FEHLEN --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 7b, 8a, 8b, 9a, 9b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
+| Frostempfindlichkeit | tender <!-- Quelle: Growing-Phase-Audit 2026-07 — korrigiert von half_hardy → tender: RHS "Azaleas Indoors" klassifiziert Zimmerazaleen explizit als "Frost tender"; Bean's Trees and Shrubs Online (treesandshrubsonline.org) bestätigt R. simsii wild "of course very tender", Indica-Hybriden generell "tender" durch simsii-Abstammung; gardenerspath.com/homeplantsguide.com bestätigen unabhängig "not frost hardy"/"exposure to freezing temperatures, even for a short time, will kill the plant". 4 unabhängige Quellen konsistent. --> | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Im Topf frostempfindlich — überwintert kühl (5–10°C) aber frostfrei. Als Kübelpflanze. Die Kühle triggert die Knospenbildung. | `species.hardiness_detail` |
 | Heimat | China, Taiwan, Myanmar — subtropische Bergwälder | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
@@ -133,7 +133,7 @@
 | Blüte (Winter/Frühjahr) | 30–60 | 1 | false | false | low |
 | Erholung/Austrieb (Frühling) | 60–90 | 2 | false | false | medium |
 | Sommerwachstum (Draußen) | 120–150 | 3 | false | false | medium |
-| Knospenruhe (Herbst/Winter) | 60–90 | 4 | true | false | high |
+| Knospenruhe (Herbst/Winter) | 60–90 | 4 | false | false | high |
 
 ### 2.2 Phasen-Anforderungsprofile
 
@@ -252,7 +252,7 @@ Mittelzehrer. AUSSCHLIESSLICH Azaleen-/Rhododendron-Spezialdünger verwenden —
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | frost_free <!-- Quelle: Growing-Phase-Audit 2026-07 — korrigiert von needs_protection → frost_free: frostempfindliche (tender) Kübel-/Zimmerpflanze, die frostfrei drinnen (5–12°C, winter_action=move_indoors) überwintert wird; analog bereits korrigierter Präzedenzfälle im Korpus (gardenia_jasminoides, asparagus_setaceus, jasminum_polyanthum, pelargonium_zonale). --> | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | move_indoors | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | move_outdoors | `overwintering_profiles.spring_action` |
@@ -358,3 +358,9 @@ Rhododendron simsii,"Zimmerazalee;Indische Azalee;Topf-Azalee;Sims Azalea;Indian
 19. [Koppert — Encarsia formosa](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/encarsia-formosa/) — Schlupfwespe gegen Weiße Fliege, Ausbringrate
 20. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Schlupfwespe gegen Blattläuse, Ausbringrate/Etablierung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Growing-Phase-Audit 2026-07 -->
+21. [Trees and Shrubs Online (Bean's Trees and Shrubs Hardy in the British Isles) — Rhododendron simsii](https://www.treesandshrubsonline.org/articles/rhododendron/rhododendron-simsii/) — Wildart "of course very tender"; Indica-Hybriden durch simsii-Abstammung generell tender
+22. [Gardener's Path — How to Grow and Care for Florist's Azaleas Indoors](https://gardenerspath.com/plants/houseplants/grow-azaleas-indoors/) — frost-intolerant, Kältereiz-Anforderung (2 Monate 4–13°C) für Knospenbildung
+23. [Homeplantsguide.com — Indian Azalea (Rhododendron simsii) Growing and Care Guide](https://homeplantsguide.com/houseplants/rhododendron-simsii-grow-and-care.html) — "not frost hardy", USDA-Zonenangabe
+24. [REQ-003_Phasensteuerung.md, Spec-Audit 2026-07-02 D11](spec/req/REQ-003_Phasensteuerung.md) — Photoperiodische Zier-Induktions-Template (Weihnachtsstern/Kalanchoe-Analogon): perennierende/polykarpe Zierpflanzen mit Ruhephase führen `is_recurring: true`, NICHT `is_terminal: true` — Zyklus wird über `is_cycle_restart` fortgesetzt, nicht terminiert
+<!-- /Quelle: Growing-Phase-Audit 2026-07 -->

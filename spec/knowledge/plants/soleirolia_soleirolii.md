@@ -43,7 +43,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant (Zimmerpflanze) | `species.sowing_indoor_weeks_before_last_frost` |
-| Direktsaat-Monate | 3, 4, 5 (im Freiland, Mitteleuropa) | `species.direct_sow_months` |
+| Direktsaat-Monate | Entfällt (Vermehrung ausschließlich vegetativ — Teilung/Stecklinge, siehe §1.3; keine gängige Aussaatpraxis) [KORRIGIERT 2026-07: war "3, 4, 5" — inkonsistent mit `propagation_methods` (division; cutting_stem, kein seed) und mit dem Muster aller vergleichbaren vegetativ vermehrten Zimmer-/Terrarienpflanzen im Bestand (z.B. Fittonia albivenis, Ceropegia woodii); siehe Audit-Quellen] | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
 | Blütemonate | 4, 5, 6, 7 (winzige, unscheinbare Blüten) | `species.bloom_months` |
 
@@ -345,3 +345,7 @@ Soleirolia soleirolii,Bubikopf;Baby's Tears;Mind-Your-Own-Business,Urticaceae,So
 16. [UC IPM — Fungus Gnats](https://ipm.ucanr.edu/home-and-landscape/fungus-gnats/) — Nematoden-/Raubmilben-Ausbringung gegen Trauermückenlarven
 17. [Sound Horticulture — Aphidius colemani / Aphidoletes aphidimyza Tech Sheets](https://soundhorticulture.com/pages/aphids) — Ausbringraten und Etablierungszeit Blattlaus-Nützlinge
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+18. [Plantura — Bubikopf Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/bubikopf/bubikopf-pflanzenportrait) — Blütezeit April–Juni, Vermehrung ausschließlich Teilung/Stecklinge, "bedingt winterhart"
+19. [Zimmerpflanzen-FAQ — Soleirolia soleirolii](https://zimmerpflanzen-faq.de/soleirolia-soleirolii/) — Vermehrung ausschließlich Teilung/Stecklinge (kein Saatgut)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
