@@ -492,12 +492,15 @@ lifecycle_configs:
     critical_day_length_hours: null
 
   "Viola x wittrockiana":
-    cycle_type: biennial
+    # Botanically a short-lived perennial, not a true biennial (growing-phase-auditor
+    # 2026-07; RHS/MissouriBG/UC-ANR). Grown as an annual → cultivation_cycle_type in
+    # species.yaml/lifecycle_overrides. No obligate cold requirement.
+    cycle_type: perennial
     photoperiod_type: day_neutral
-    typical_lifespan_years: null
+    typical_lifespan_years: 2
     dormancy_required: false
-    vernalization_required: true
-    vernalization_min_days: 30
+    vernalization_required: false
+    vernalization_min_days: null
     critical_day_length_hours: null
 
   "Petunia x hybrida":

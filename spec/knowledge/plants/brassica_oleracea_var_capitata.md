@@ -19,7 +19,7 @@
 | Ordnung | Brassicales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
-| Lebenszyklus | annual (Sommerkohl); biennial (Herbst-/Winterkohl) | `lifecycle_configs.cycle_type` |
+| Lebenszyklus | biennial (Kopfbildung im 1. Jahr; Bluete/Samenbildung im 2. Jahr nach Vernalisation; wird ueberwiegend als einjaehrig kultiviert -- Kopf wird i.d.R. vor dem Schossen geerntet) | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | biennial | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
@@ -28,7 +28,7 @@
 | GDD-Basistemperatur (°C) | 4–5 (kuehlliebende Brassica; Richtwert Cole-Crops 4.4°C) | `species.base_temp` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | true | `lifecycle_configs.vernalization_required` |
-| Vernalisation Mindest-Tage | 10–15 (bei 2–10°C; vollstaendig ~3 Wochen) | `lifecycle_configs.vernalization_min_days` |
+| Vernalisation Mindest-Tage | 42 (6–8 Wochen bei 2–10°C fuer Standard-Sorten; sortenabhaengig 7–140 Tage / 1–20 Wochen -- fruehe Sorten ab ca. 10–14 Tagen bereits schossanfaellig, Lagersorten bis 20 Wochen) | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslaenge (h) | — <!-- DATEN FEHLEN: kein praeziser Schwellenwert belegt; Bluete/Schossen ist vernalisationsabhaengig (Kaelte) und wird danach durch Langtag gefoerdert. Kopfbildung selbst ist tagneutral. --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 1a; 2a; 2b; 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
@@ -507,3 +507,9 @@ Dithmarscher Fruehkohl,Brassica oleracea var. capitata f. alba,60–75,early;com
 15. MSU Extension — Bolting in spring vegetables: Vernalisation + Langtag-Foerderung des Schossens — https://www.canr.msu.edu/news/bolting-in-spring-vegetables
 16. "Plants in Action" (Australian Society of Plant Scientists) — Lichtkompensationspunkt C3-Blaetter ~10–50 µmol/m²/s — https://www.rseco.org/content/114-light-and-co2-effects-leaf-photosynthesis.html
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (cycle_type/vernalization_min_days-Korrektur) -->
+17. [RHS — Brassica oleracea (Capitata Group), diverse Sorten (z.B. 'Candisa', 'April', 'Elisa')](https://www.rhs.org.uk/plants/139301/brassica-oleracea-capitata-group/details) — Lebenszyklus-Kategorie "Annual Biennial"; botanisch biennial, in Kultur ueberwiegend einjaehrig genutzt
+18. [Michigan State University Extension — Bolting in spring vegetables](https://www.canr.msu.edu/news/bolting-in-spring-vegetables) — Standard-Kohlsorten benoetigen 6–10 Wochen bei 2–10°C (35–50°F) zur Bluehkompetenz; sortenabhaengig 1–20 Wochen; Devernalisation ueber 16°C (61°F)
+19. [Oregon State University Extension Service — Ask Extension: cabbage bolting](https://extension.oregonstate.edu/ask-extension/featured/my-cabbage-bolting-heat-anything-i-can-do) — starke Biennen (inkl. Kohl) benoetigen bis 6–8 Wochen unter 10°C (50°F) fuer vollstaendige Vernalisation
+20. [Non-vernalization Flowering and Seed Set of Cabbage Induced by Grafting Onto Radish Rootstocks, Frontiers in Plant Science / PMC6335391](https://pmc.ncbi.nlm.nih.gov/articles/PMC6335391/) — konventionelles Vernalisationsprotokoll fuer Kopfkohl: 4–9°C ueber 6–7 Wochen zur Bluetenknospen-Differenzierung
+<!-- /Quelle: growing-phase-auditor 2026-07 (cycle_type/vernalization_min_days-Korrektur) -->

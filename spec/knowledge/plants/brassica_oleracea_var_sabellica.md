@@ -47,7 +47,7 @@
 | Direktsaat nach letztem Frost (Tage) | 14 | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 5, 6, 7 | `species.direct_sow_months` |
 | Erntemonate | 11, 12, 1, 2, 3 (nach dem ersten Frost am besten) | `species.harvest_months` |
-| Blütemonate | 4, 5 (zweites Jahr) | `species.bloom_months` |
+| Blütemonate | 4, 5, 6 (zweites Jahr) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -357,3 +357,13 @@ Brassica oleracea var. sabellica,"Grünkohl;Braunkohl;Krauskohl;Kale;Curly Kale"
 17. [Savvy Gardening — Growing Kale in Winter](https://savvygardening.com/growing-kale-in-winter/) — Freiland-Überwinterung, Mulch/Vlies, Winterhärte −15 °C
 18. [RusticWise — Growing Kale in Winter](https://rusticwise.com/growing-kale-in-winter/) — Überwinterung, Wurzelschutz, Winterernte
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+19. [Plantura — Grünkohl pflanzen & erfolgreich anbauen](https://www.plantura.garden/gemuese/gruenkohl/gruenkohl-pflanzen) — Blüte im 2. Jahr "gegen Juni", wenn im Winter nicht geerntet
+20. [NaturaDB — Brassica oleracea](https://www.naturadb.de/pflanzen/brassica-oleracea/) — Blüte Mai bis September
+21. [PFAF — Brassica oleracea](https://pfaf.org/user/Plant.aspx?LatinName=Brassica+oleracea) — Blüte Mai bis August, Samenreife Juli–September; überwiegend zweijährig in Kultur
+22. [LWK Niedersachsen — Grünkohl, voller Geschmack erst nach dem ersten Frost](https://www.lwk-niedersachsen.de/lwk/news/42207_Gruenkohl_-_voller_Geschmack_erst_nach_dem_ersten_Frost) — Haupternte ab Mitte November, Handernte bis ins Frühjahr
+23. [Gartensaatgut.de — Aussaat und Anbau von Grünkohl](https://www.gartensaatgut.de/so-bauen-sie-gemuese-an/aussaat-und-anbau-von-grunkohl/) — Vorkultur/Direktsaat Ende Mai–Juli, Ernte optimal nach Frost Nov–Jan
+24. [MSU Extension — Bolting in spring vegetables](https://www.canr.msu.edu/news/bolting-in-spring-vegetables) — Vernalisation Brassica 4–10 Wochen bei 2–10 °C (Kale), bestätigt vernalization_min_days
+25. [RHS — Brassica oleracea Acephala Group (kale)](https://www.rhs.org.uk/plants/106079/brassica-oleracea-acephala-group-kale-borecole/details) — Winterhärte H7 (< −20 °C), Annual/Biennial
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

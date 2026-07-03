@@ -44,9 +44,9 @@
 |------|------|---------|
 | Vorkultur (Wochen vor letztem Frost) | 10–12 (Aussaat in Wärme ab Januar/Februar) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat nach letztem Frost (Tage) | 0 (verträgt leichten Frost) | `species.sowing_outdoor_after_last_frost_days` |
-| Direktsaat-Monate | 3, 4 (Steckzwiebeln auch 3–4 und 9–10) | `species.direct_sow_months` |
-| Erntemonate | 7, 8, 9 (Steckzwiebel Juli, Saatzwiebel August–September) | `species.harvest_months` |
-| Blütemonate | 6, 7 | `species.bloom_months` |
+| Direktsaat-Monate | 3, 4, 9, 10 (Frühjahrs-Steckzwiebeln/Saatzwiebeln März–April; Wintersteckzwiebeln September–Oktober, siehe §4.3 Überwinterung) <!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '3;4' auf '3;4;9;10'; Herbststeckung war bereits in §4.3 dokumentiert, fehlte aber im KA-Feld; siehe Quellen 16, 18, 19 --> | `species.direct_sow_months` |
+| Erntemonate | 6, 7, 8, 9 (Wintersteckzwiebeln Ernte ab Juni, siehe §4.3; Frühzwiebeln/Steckzwiebel Juli, Saatzwiebel August–September) <!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '7;8;9' auf '6;7;8;9'; Juni-Ernte der Wintersteckzwiebeln ergänzt; siehe Quellen 16, 18, 19 --> | `species.harvest_months` |
+| Blütemonate | 6, 7 (nur im 2. Kulturjahr nach Vernalisation -- Saatzwiebel-/Samenproduktion; im gängigen Gemüseanbau durch Ernte bereits im 1. Jahr üblicherweise vermieden) <!-- Quelle: growing-phase-auditor 2026-07 -- Klarstellung ergänzt, Zahlenwert unverändert bestätigt; siehe Quellen 17, 20 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -381,3 +381,10 @@ Sturon,Allium cepa,–,–,"long_storage;classic_round",120,,open_pollinated
 14. [Wintersteckzwiebeln: Anbau & Pflege (beetfreunde.de)](https://www.beetfreunde.de/magazin/wintersteckzwiebeln/) — Überwinterung im Beet bis −10 °C, Mulch/Vlies-Schutz, Steck-/Erntefenster
 15. [Wintersteckzwiebeln — ÖKO-TEST](https://www.oekotest.de/freizeit-technik/Wintersteckzwiebeln-Jetzt-pflanzen-im-Fruehjahr-ernten_15838_1.html) — Bestätigung Überwinterungspraxis und Frosttoleranz
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+16. [Autumn Planting Onions — gardenfocused.co.uk](https://gardenfocused.co.uk/vegetable/onions/autumn-plant.php) — Pflanzung Sept.–Okt., Haupternte Juni–Juli des Folgejahres (Überwinterungs-/Wintersteckzwiebeln)
+17. [Allium cepa — PFAF (Plants For A Future)](https://pfaf.org/user/plant.aspx?LatinName=Allium+cepa) — "in flower from June to July"; kultivierte Formen sterben nach der Blüte im 2. Jahr ab (biennial in der Kultur)
+18. [Overwintering Onions in the UK — mygardeningjourney.com](https://mygardeningjourney.com/2025/09/08/overwintering-onions-uk/) — Steckung Sept.–Okt., Ernte Juni–Juli
+19. [Planting onions in the fall — savvygardening.com](https://savvygardening.com/planting-onions-in-the-fall/) — Bestätigung Herbststeckung 4–6 Wochen vor erstem Frost, Frühsommerernte
+20. [Allium cepa — pflanzen-lexikon.com](https://www.pflanzen-lexikon.com/index.php?a=allium-cepa&l=de) — "Blütezeit: meist Juni–Juli"; zweijähriger Kulturzyklus (Jahr 1 nur Laub, Überwinterung, Jahr 2 Blütenstand + Spätsommerernte)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

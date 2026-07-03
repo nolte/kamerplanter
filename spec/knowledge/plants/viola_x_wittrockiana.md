@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-01
-> **Quellen:** University of Florida IFAS, Missouri Botanical Garden, NC State Extension, Hortipendium, ASPCA, Kamerplanter Spec REQ-001 v3.1 (Seed-Daten Zierpflanzen, AB-007, AB-012)
+> **Quellen:** University of Florida IFAS, Missouri Botanical Garden, NC State Extension, Hortipendium, ASPCA, Kamerplanter Spec REQ-001 v3.1 (Seed-Daten Zierpflanzen, AB-007, AB-012), RHS, UC ANR Master Gardener Program, Plantura <!-- Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -23,13 +23,18 @@
 | GDD-Basistemperatur (°C) | 4.1 (Wuchs-/Blühentwicklung; aus Blanchard & Runkle 2011 für Viola, kältetolerante Bedding-Plant-Kategorie ≤ 3.9–4.4 °C. NICHT die Keim-Basistemperatur — diese liegt höher) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | `fibrous` (flaches, feinfaseriges Wurzelsystem) | `species.root_type` |
-| Lebenszyklus | `biennial` (botanisch kurzlebig biennial/perennial, kulturell oft als Einjaehrige behandelt -- in Zone 7+ Ueberwinterung mit Fruehjahrsblute moeglich) | `lifecycle_configs.cycle_type` |
-| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Lebenszyklus (botanisch) | `perennial` (botanisch kurzlebige Staude / short-lived perennial -- siehe Quellen 17-19; in Zone 7+ Ueberwinterung mit Fruehjahrsblute moeglich) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von `biennial` auf botanisch korrektes `perennial` (kurzlebig): Missouri Botanical Garden ("Herbaceous perennial" / "short-lived evergreen perennials"), RHS ("a vigorous, spreading, short-lived perennial"), UC ANR Master Gardener Program Riverside County ("Pansies are annuals or short-lived perennials") stimmen unabhaengig ueberein (3/3 Quellen). Die vorherige Kombination `cycle_type=biennial` + `vernalization_required=false` verletzte ausserdem die Pydantic-Modell-Invariante `LifecycleConfig.validate_biennial_vernalization` (`src/backend/app/domain/models/lifecycle.py`), die bei `biennial` zwingend `vernalization_required=true` verlangt -- die Kombination waere beim Laden garantiert mit ValueError gescheitert. Siehe Quellen 17-19. -->
+| Anbau-Zyklustyp (cultivation cycle type) | `annual` (Standard-Kulturpraxis als einjaehrige Beet-/Kuebelpflanze, siehe Phasensequenz "Annuelle Zierpflanze" §2.1 und CareProfile "einjaehrig kultiviert" §4.1; Herbstaussaat mit Ueberwinterung als zweijaehrige Alternative bleibt in §4.2/§4.3 dokumentiert -- UF/IFAS ("a biennial grown as an annual") und RHS ("normally grown as an annual or biennial") bestaetigen beide Kulturpraxen als ueblich) | `lifecycle_configs.cultivation_cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrfache Bluehperioden pro Saison -- Fruehjahr UND Herbst, siehe `bloom_months`/AB-010 -- sowie Wiederbluete im Fruehjahr des Folgejahres nach Ueberwinterung moeglich; regelmaessiges Ausputzen verbluehter Bluten foerdert zusaetzlich die Nachbluete, siehe §1.5) | `lifecycle_configs.flowering_strategy` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von monocarpic auf polycarpic: `bloom_months` [3,4,5,6,9,10] dokumentiert bereits zwei getrennte Bluehperioden (AB-010) und das Ueberwinterungsprofil §4.3 dokumentiert Wiederbluete im Fruehjahr des Folgejahres -- beides widerspricht "bluet einmal, dann Absterben". Mehrere gaertnerische Fachquellen bestaetigen zudem, dass regelmaessiges Deadheading wiederholte Bluete ueber Fruehjahr und Herbst foerdert (Quelle 20). Konsistent mit der Reklassifizierung auf `cycle_type=perennial` (s.o.). -->
 | Photoperiode | `day_neutral` (moderne Bedding-Cultivars blühen temperaturgesteuert unabhängig von der Tageslänge; Thermoinhibition ab 22 °C hemmt sowohl Keimung als auch Blüte) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Lebensdauer (Jahre) | 1–2 (botanisch kurzlebig biennial; kulturell als Einjährige geführt) | `lifecycle_configs.typical_lifespan_years` |
+| Lebensdauer (Jahre) | 1–2 (botanisch kurzlebige Staude/short-lived perennial; kulturell meist einjährig geführt, bei Herbstaussaat mit Überwinterung auch zweijährig möglich) | `lifecycle_configs.typical_lifespan_years` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Formulierung an cycle_type=perennial (kurzlebig) angepasst, siehe Quellen 17-19 -->
 | Dormanz erforderlich | false (kontinuierlicher Wuchs in der kühlen Saison; keine echte Ruhephase erforderlich) | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | false (moderne Bedding-Cultivars wie 'Starry Night' blühen ohne Kältereiz; Kälte beschleunigt nur die Keimung, ist für die Blüte aber nicht obligat) | `lifecycle_configs.vernalization_required` |
+| Vernalisation erforderlich | false (kein obligater Kältereiz für die Blütenbildung; der Blühzeitpunkt wird primär durch den Aussaattermin und die Temperatur bestimmt, nicht durch eine vorgeschaltete Winterkälteperiode -- siehe Quellen 18/19. Seit Korrektur von `cycle_type` auf `perennial` [s.o.] entfällt zudem die Loader-Invariante, die bei `biennial` `vernalization_required=true` erzwingen würde) | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Präzisierung: Die zuvor zitierte Quelle 16 (GPN "Implications of Base Temperature") behandelt ausschliesslich die GDD-Basistemperatur, NICHT die Vernalisation von Viola -- vorheriges Fehlzitat korrigiert. Neue Belege: Plantura (Blühzeitpunkt wird durch Aussaattermin bestimmt, kein Kältereiz erwähnt) und RHS ("can be in flower at almost any time of year depending on sowing date") stützen eine tag-/temperaturgesteuerte Blüte ohne obligate Vernalisation. Die Photoperiode-Quellen 9/10 (Adams et al. 1997, Blanchard & Runkle 2011) behandeln Photoperiode bzw. Basistemperatur, nicht Vernalisation, und werden hier nicht mehr als Vernalisations-Beleg herangezogen. -->
 | Vernalisation Mindest-Tage | null (kein obligater Kältereiz) | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (h) | <!-- DATEN FEHLEN: kein obligater Photoperioden-Schwellenwert. Ältere Literatur (Adams et al. 1997, cv. Universal Violet) beschreibt eine quantitative (fakultative) Langtag-Reaktion — Langtag beschleunigt die Blüte, ist aber nicht erforderlich; daher day_neutral und kein numerischer Stunden-Schwellenwert. --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -510,7 +515,7 @@ Hinweis: Einige Cultivar-Serien (z.B. Matrix) zeigen erhöhte Hitzetoleranz, abe
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,bloom_months,sowing_indoor_weeks_before_last_frost,traits
-Viola x wittrockiana,Stiefmütterchen;Gartenstiefmütterchen;Garden Pansy;Pansy,Violaceae,Viola,biennial,day_neutral,herb,fibrous,6a;6b;7a;7b;8a;8b;9a;9b;10a;10b,0.0,Europa/Westasien (Hybride),hardy,light_feeder,3;4;5;6;9;10,12,ornamental;edible;bee_friendly
+Viola x wittrockiana,Stiefmütterchen;Gartenstiefmütterchen;Garden Pansy;Pansy,Violaceae,Viola,perennial,day_neutral,herb,fibrous,6a;6b;7a;7b;8a;8b;9a;9b;10a;10b,0.0,Europa/Westasien (Hybride),hardy,light_feeder,3;4;5;6;9;10,12,ornamental;edible;bee_friendly
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -544,5 +549,11 @@ Cats Mix,Viola x wittrockiana,--,--,whisker_markings;compact;early_flowering,f1_
 13. UF/IFAS Gardening Solutions — Pansies: Vollsonne bis Halbschatten, Nachmittagsschatten bei Hitze: https://gardeningsolutions.ifas.ufl.edu/plants/ornamentals/pansies/
 14. Master Plant-Prod Inc. — Pansy Fertilizer Tips & Program: pH 5.4–5.7 (soilless), Eisen/Bor-Bedarf, EC 0.75–1.5 mS: https://www.plantprod.com/crop/pansy-fertilizer/
 15. University of Tennessee Extension PB1616 / Greenhouse-Production-Quellen — Standard-Mikronährstoff-Zielkonzentrationen vollständiger Zierpflanzen-Nährlösungen (Fe ~1, Mn ~0.5, Zn ~0.25, Cu ~0.05, Mo ~0.05 ppm): https://eastern.tennessee.edu/wp-content/uploads/sites/62/2020/02/UT-pb1616-plant-nutrition-and-fertilizers-for-greenhouse-production.pdf
-16. Greenhouse Product News (GPN) — Implications of Base Temperature / Viola 'Starry Night': kältetolerante Bedding-Plant-Kategorie, moderne Cultivars day-neutral ohne Vernalisationsbedarf: https://gpnmag.com/article/implications-base-temperature/
+16. Greenhouse Product News (GPN) — Implications of Base Temperature / Viola 'Starry Night': kältetolerante Bedding-Plant-Kategorie (Basistemperatur-Einordnung für GDD-Modelle); behandelt AUSSCHLIESSLICH die Basistemperatur, NICHT die Vernalisation (Fehlzitat bzgl. Vernalisation in vorheriger Fassung korrigiert, siehe #17-19 unten): https://gpnmag.com/article/implications-base-temperature/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur cycle_type (perennial statt biennial), cultivation_cycle_type (annual), flowering_strategy (polycarpic statt monocarpic), Praezisierung vernalization_required=false -->
+17. RHS — Viola × wittrockiana Cool Wave Series (P) Details: "a vigorous, spreading, short-lived perennial" das "normally grown as an annual or biennial" ist; "can be in flower at almost any time of year depending on sowing date": https://www.rhs.org.uk/plants/360339/viola-wittrockiana-cool-wave-series-(p)/details
+18. University of California Agriculture and Natural Resources (UC ANR) — UC Master Gardener Program, Riverside County — "Pansy Growing Information: Annual/Biennial/Perennial": "Pansies are annuals or short-lived perennials.": https://ucanr.edu/sites/default/files/2025-04/FactSheet_Flower_Pansy_2021.02.14.pdf
+19. Plantura — Stiefmütterchen Pflanzenportrait: Aussaatzeitpunkt bestimmt den Blühzeitpunkt (z.B. Aussaat Februar → Blüte März–Juli ohne vorherigen Winterkälte-Durchgang); kein Kältereiz für die Blühinduktion erwähnt: https://www.plantura.garden/blumen-stauden/stiefmuetterchen/stiefmuetterchen-pflanzenportrait
+20. Gaertnerische Fachquellen zu Deadheading (konvergierend): Epic Gardening, Gardening in Steps, Homes & Gardens, Ideal Home — regelmässiges Ausputzen verlängert die Blühsaison durch wiederholte Blüte von Frühjahr bis Herbst: https://www.epicgardening.com/pansy-blooming-tips/ ; https://www.gardeninginsteps.com/article/how-to-deadhead-pansies-to-keep-them-blooming-4-simple-tips ; https://www.homesandgardens.com/gardens/how-to-deadhead-pansies
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

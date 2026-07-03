@@ -2605,7 +2605,7 @@ lifecycle_overrides:
   Brassica oleracea var. capitata: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Capsicum annuum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Daucus carota: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
-  Foeniculum vulgare: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
+  Foeniculum vulgare: { cultivation_cycle_type: annual, flowering_strategy: monocarpic }
   Ocimum basilicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Pelargonium zonale: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Petroselinum crispum: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
@@ -2724,9 +2724,11 @@ lifecycle_overrides:
   Syngonium podophyllum: { flowering_strategy: polycarpic }
   Thymus vulgaris: { flowering_strategy: polycarpic }
   Tigridia pavonia: { flowering_strategy: polycarpic }
-  Tillandsia usneoides: { flowering_strategy: monocarpic }
+  # Tillandsia usneoides: flowering_strategy left unset — the genus monocarpy rule
+  # is not species-specifically verifiable for Spanish moss (growing-phase-auditor
+  # 2026-07; sources silent, one hint at repeat-flowering) → null, not a guess.
   Tradescantia zebrina: { flowering_strategy: polycarpic }
-  Viola x wittrockiana: { flowering_strategy: monocarpic }
+  Viola x wittrockiana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Vriesea splendens: { flowering_strategy: monocarpic }
   Yucca elephantipes: { flowering_strategy: polycarpic }
   Zamioculcas zamiifolia: { flowering_strategy: polycarpic }
