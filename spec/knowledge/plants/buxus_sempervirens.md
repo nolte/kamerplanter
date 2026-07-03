@@ -60,7 +60,7 @@
 | Vermehrungsmethoden | cutting_stem | `species.propagation_methods` |
 | Schwierigkeit | moderate | `species.propagation_difficulty` |
 
-**Hinweis:** Stecklinge (10–15 cm, halbverholzt) im August/September in Anzuchterde; bewurzeln in 4–8 Wochen unter Folie. Aussaat aus Samen sehr langsam (2 Jahre bis pflanzfähige Pflanze).
+**Hinweis:** Stecklinge (10–15 cm, halbverholzt) im August/September in Anzuchterde; bewurzeln in 6–8 Wochen unter Folie (temperiert); unbeheizt/kalt deutlich länger (bis zu mehreren Monaten). Aussaat aus Samen sehr langsam (2 Jahre bis pflanzfähige Pflanze).
 
 ### 1.4 Toxizität & Allergene
 
@@ -84,7 +84,7 @@
 | Rückschnitt-Typ | summer_pruning | `species.pruning_type` |
 | Rückschnitt-Monate | 5, 6, 8 | `species.pruning_months` |
 
-**Hinweis:** Formschnitt am besten im Juni (nach dem Johannistag, 24. Juni — traditionelle Regel); zweiter leichter Schnitt möglich Ende August. Nicht nach Ende August schneiden — frischer Austrieb erfriert im Winter. Bis zu 3× jährlich möglich.
+**Hinweis:** Erster (leichter) Formschnitt bereits ab Mai möglich; Hauptschnitt am besten im Juni (nach dem Johannistag, 24. Juni — traditionelle Regel); zweiter leichter Schnitt möglich Ende August. Nicht nach Ende August schneiden — frischer Austrieb erfriert im Winter. Bis zu 3× jährlich möglich (Mai, Juni, August — deckungsgleich mit Rückschnitt-Monaten oben).
 
 ### 1.6 Anbaubedingungen
 
@@ -403,3 +403,11 @@ Buxus sempervirens,"Buchsbaum;Gemeiner Buchsbaum;Common Box",Buxaceae,Buxus,pere
 13. [Woodland Trust — Common Box (Buxus sempervirens)](https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/box/) — Langlebigkeit/Lebensdauer
 14. [PictureThis — Optimal Temperature for Common boxwood](https://www.picturethisai.com/care/temperature/Buxus_sempervirens.html) — Optimal-Temperaturband 15–24 °C (Grundlage Photosynthese-T_opt)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [Missouri Botanical Garden — Plant Finder Buxus sempervirens](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=243283) — Blütezeit April–Mai (Bestätigung `bloom_months`)
+16. [gartenjournal.net — Buchsbaum-Blüte: Wann & wie blüht er?](https://www.gartenjournal.net/buchsbaum-blueht) — Blütezeit März–Mai
+17. [guterboden.de — Blüte vom Buchsbaum](https://guterboden.de/en/boxwood-blooming) — Blütezeit März–Mai
+18. [STIHL — Buchsbaum-Formschnitt: Anleitung und Tipps](https://www.stihl.de/de/ratgeber-projekte/gartenpflege/heckenpflege/buchsbaum-formschnitt) — Schnitttermine Mai/Ende Juni/August (Bestätigung `pruning_months`)
+19. [gartenjournal.net — Buchsbaum vermehren: So klappt es mit Stecklingen](https://www.gartenjournal.net/buchsbaum-vermehren) — Bewurzelungsdauer ca. 8 Wochen
+20. [RHS — How to grow box (Growing Guide)](https://www.rhs.org.uk/plants/box/growing-guide) — Stecklinge: ca. 8 Wochen (beheizter Vermehrungskasten) bzw. ca. 8 Monate (unbeheizt)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

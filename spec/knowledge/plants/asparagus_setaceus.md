@@ -23,8 +23,8 @@
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 9a–11b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhärte-Detail | Leichten Frost (bis -3°C) kurz tolerierend; Wurzeln frostempfindlich | `species.hardiness_detail` |
+| Frostempfindlichkeit | tender <!-- Quelle: growing-phase-auditor 2026-07: Korrektur von half_hardy → tender; NC State Extension taggt die Art explizit "frost tender", Missouri Botanical Garden: "Intolerant of frost, with plants dying to the ground in light freezes", Plantura: "meist nicht winterhart", Schadschwelle bereits knapp über 10 °C (healthyhouseplants.com: Schäden unter 13 °C/55 °F) --> | `species.frost_sensitivity` |
+| Winterhärte-Detail | Frostintolerant — stirbt bereits bei leichten Frösten oberirdisch ab; Kälteschäden treten schon knapp über 10 °C auf, kein belastbarer Frosttoleranz-Nachweis für kurze Fröste <!-- Quelle: growing-phase-auditor 2026-07: Korrektur — vormalige Angabe "bis -3°C kurz tolerierend" widersprach 3 unabhängigen Quellen (s.o.) --> | `species.hardiness_detail` |
 | Heimat | Südafrika (Ost-Kap, KwaZulu-Natal) | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
@@ -33,7 +33,7 @@
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
 | Lebensdauer (Jahre) | 10–15 (bei optimaler Pflege bis zu mehreren Jahrzehnten) | `lifecycle_configs.typical_lifespan_years` |
-| Dormanz erforderlich (dormancy required) | true | `lifecycle_configs.dormancy_required` |
+| Dormanz erforderlich (dormancy required) | false <!-- Quelle: growing-phase-auditor 2026-07: Korrektur von true → false; NC State Extension/healthyhouseplants.com: "does not have a true dormancy period, may slow growth in winter", Missouri Botanical Garden: Pflanze "appreciates a resting period" (fakultativ, nicht obligat), Plantura: "keine vollständige Dormanz" — nur reduzierte Aktivität, keine erzwungene Ruhephase --> | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich (vernalization) | false | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | — (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (h) | — (day_neutral, kein Photoperiodismus der Blüte) | `lifecycle_configs.critical_day_length_hours` |
@@ -42,7 +42,7 @@
 **Hinweis:** Trotz des Namens "Farn" ist Asparagus setaceus kein echter Farn, sondern ein Verwandter des Speisespargels (Asparagus officinalis). Die federartigen Blätter sind reduzierte Phyllokladien (umgewandelte Stängel).
 
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-**Hinweis (Physiologie):** Die Gattung *Asparagus* betreibt C3-Photosynthese — der CO₂-Kompensationspunkt der Phyllokladien-/Kladophyll-Mesophyllzellen reagiert klassisch C3-typisch auf O₂ und Temperatur (Photorespiration vorhanden), belegt für *A. officinalis* und *A. sprengeri* (kongenerisch zu *A. setaceus*); die CAM-Evolution innerhalb der Asparagaceae beschränkt sich auf die Unterfamilie Agavoideae, nicht auf *Asparagus*. Die GDD-Basistemperatur von ~10 °C spiegelt die wärmeliebende, subtropisch-tropische Herkunft (Optimum 15–24 °C, Wachstumsstopp unter ~10 °C) wider und ist bewusst höher als die ~4,5 °C des kühlliebenden Speisespargels. Die "Winterruhe" ist eine fakultative, durch sinkende Temperatur/Licht ausgelöste Quieszenz (dormancy_required=true), KEIN obligater Kältebedarf (daher vernalization_required=false; tropische Pflanze ohne Chilling-Anspruch).
+**Hinweis (Physiologie):** Die Gattung *Asparagus* betreibt C3-Photosynthese — der CO₂-Kompensationspunkt der Phyllokladien-/Kladophyll-Mesophyllzellen reagiert klassisch C3-typisch auf O₂ und Temperatur (Photorespiration vorhanden), belegt für *A. officinalis* und *A. sprengeri* (kongenerisch zu *A. setaceus*); die CAM-Evolution innerhalb der Asparagaceae beschränkt sich auf die Unterfamilie Agavoideae, nicht auf *Asparagus*. Die GDD-Basistemperatur von ~10 °C spiegelt die wärmeliebende, subtropisch-tropische Herkunft (Optimum 15–24 °C, Wachstumsstopp unter ~10 °C) wider und ist bewusst höher als die ~4,5 °C des kühlliebenden Speisespargels. Die "Winterruhe" ist eine fakultative, durch sinkende Temperatur/Licht ausgelöste Quieszenz OHNE echte, obligate Dormanzphase (daher dormancy_required=false — Korrektur 2026-07, s. §1.1-Tabelle; ebenso vernalization_required=false; tropische Pflanze ohne Chilling-Anspruch). Die Pflanze verlangsamt lediglich ihr Wachstum bei sinkenden Temperaturen/Licht, benötigt aber keine erzwungene Ruhephase zum Wiederaustrieb.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten
@@ -369,3 +369,9 @@ Asparagus setaceus,Federspargel;Plumosa-Farn;Asparagus Fern,Asparagaceae,Asparag
 13. [Wikipedia – Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) und [Dickson 2018, NEGC – Managing nutrient solutions for hydroponic crops](https://www.negreenhouse.org/uploads/9/4/8/2/94821076/dickson_2018_negc_nutrient_and_ph_for_hydroponics.pdf) — Mikronährstoff-Zielkonzentrationen Mn/Zn/Cu/Mo
 14. [New Phytologist (Zhen et al. 2022) – Photosynthesis in sun and shade: far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) und [Greenhouse Product News – The R:FR Ratio](https://gpnmag.com/article/r-fr-ratio/) — Tageslicht-FR-Fraktion ≈ 0,5; niedrigeres R:FR im Schatten/Unterwuchs
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor Audit 2026-07 -->
+15. [Missouri Botanical Garden – Plant Finder: Asparagus setaceus](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b629) — Frostintoleranz ("dying to the ground in light freezes"), Blütezeit Sommer, USDA 9–12
+16. [NC State Extension – Asparagus setaceus (Taxonomy Tags)](https://plants.ces.ncsu.edu/plants/asparagus-setaceus/) — Tag "frost tender"; Blüte unscheinbar, Sommer
+17. [Healthy Houseplants – Asparagus Fern Complete Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/asparagus-fern-a-complete-care-guide/) — keine echte Dormanz, nur Wachstumsverlangsamung; Kälteschäden unter 13 °C (55 °F)
+18. [Plantura – Zierspargel Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/zierspargel/zierspargel-pflanzenportait) — "meist nicht winterhart", keine vollständige Dormanz, Umzugsschwelle ~15 °C
+<!-- /Quelle: growing-phase-auditor Audit 2026-07 -->

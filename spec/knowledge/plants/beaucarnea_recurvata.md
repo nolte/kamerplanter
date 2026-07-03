@@ -30,9 +30,9 @@
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
-| USDA Zonen | 9a, 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhaerte-Detail | Halbfrosthart — toleriert kurze Fröste bis -5°C. Mindesttemperatur 5°C, optimal 15–29°C. Verträgt Kälte und Trockenheit sehr gut. | `species.hardiness_detail` |
+| USDA Zonen | 10a, 10b, 11a, 11b <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war 9a-11b) --> | `species.hardiness_zones` |
+| Frostempfindlichkeit | tender <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war half_hardy) --> | `species.frost_sensitivity` |
+| Winterhaerte-Detail | Frostempfindlich (tender) — nicht winterhart, verträgt keine dauerhaften Fröste; laut UF/IFAS und NC State Extension nur bis USDA Zone 10 (praktische Kälteschwelle ca. 10°C/50°F) kultivierbar. Ausgewachsene Exemplare können kurzzeitig Temperaturen bis etwa -5 bis -9°C ohne Absterben überstehen, jedoch mit Frostschäden (braune/schwarze Blattspitzen, Stammfäule) — dies ist keine geeignete Überwinterungsstrategie. Mindesttemperatur im Kübel 5°C, optimal 15–29°C. Verträgt Trockenheit sehr gut. <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war "Halbfrosthart... bis -5°C") --> | `species.hardiness_detail` |
 | Heimat | Östliches Mexiko (Tamaulipas, San Luis Potosí) — trockene Halbwüste, Felsspalten | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -316,3 +316,10 @@ Beaucarnea recurvata,"Elefantenfuß;Pferdeschwanzpalme;Flaschenpalme;Ponytail Pa
 12. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate, Innenraumeignung
 13. [Cornell NYSIPM Biocontrol Fact Sheet — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringrate, Temperatur-/Feuchteansprüche
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 (Korrektur USDA-Zonen & Frostempfindlichkeit) -->
+14. [UF/IFAS — Beaucarnea recurvata: Ponytail Palm (ENH252/ST093)](https://ask.ifas.ufl.edu/publication/ST093) — USDA Zone 10A–11 (bestätigt erneut, kein Zonen-9-Beleg)
+15. [NC State Extension Gardener Plant Toolbox — Beaucarnea recurvata](https://plants.ces.ncsu.edu/plants/beaucarnea-recurvata/) — USDA Zone 10a–11b, "hardy to 50 degrees F" (10°C) — keine Frosttoleranz im Normalfall, Kübelhaltung mit Winterquartier nötig
+16. [Missouri Botanical Garden — Beaucarnea recurvata Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282253) — Zone 10 bis 11, außerhalb dieser Zonen ausschließlich als Zimmerpflanze kultiviert
+17. [Epic Gardening — 5 Tips to Grow a Ponytail Palm Outdoors](https://www.epicgardening.com/growing-ponytail-palm-outdoors/) — USDA Zone 10–11; kurzzeitige Toleranz bis -9°C (15°F) mit Frostschäden, Umzug ins Winterquartier ab unter 7°C (45°F) erforderlich
+<!-- /Quelle: growing-phase-auditor 2026-07 (Korrektur USDA-Zonen & Frostempfindlichkeit) -->

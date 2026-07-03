@@ -31,6 +31,9 @@
 | Vernalisation Mindest-Tage (chilling, min days) | 30–45 (≈ 2 °C/30 d oder 5 °C/45 d) | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (h) | — (tagneutral; keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 (R4/R1-Finding, 3-Quellen-Regel s. Quellenverzeichnis 16-20) -->
+| Erster Ertrag (first bearing year) | 3 (erste Ernte erst im 3. Standjahr; Jahr 1–2 keine Ernte zur Rhizom-Etablierung) | `lifecycle_configs.first_bearing_year` |
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
 | Winterhärte-Detail | Rhizome winterhart bis −25 °C; in Norddeutschland problemlos; junge Triebe frostempfindlich | `species.hardiness_detail` |
@@ -47,7 +50,7 @@
 | Direktsaat nach letztem Frost (Tage) | — | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | 4, 5, 6 (nicht vor dem 3. Jahr; traditionell bis Johannistag 24. Juni) | `species.harvest_months` |
-| Blütemonate | 6, 7, 8 (Farnwedel-Phase nach Ernte) | `species.bloom_months` |
+| Blütemonate | 6, 7 (Farnwedel-Phase nach Ernte; unscheinbare gelblich-grüne Blüten) <!-- KORRIGIERT growing-phase-auditor 2026-07-03: war 6,7,8 — August nicht durch Quellen gedeckt (Berry-Set ≠ Blüte), s. Quellenverzeichnis 16-20 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -327,3 +330,10 @@ Asparagus officinalis,"Spargel;Gemüsespargel;Asparagus;Garden Asparagus",Aspara
 14. [ScienceDirect — Compensation Point (overview)](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/compensation-point) — C3-Lichtkompensationspunkt 20–50 µmol/m²/s, Temperaturabhängigkeit
 15. [ResearchGate — Temperature effects on dormancy, bud break and spear growth in Asparagus](https://www.researchgate.net/publication/288593161_Temperature_effects_on_dormancy_bud_break_and_spear_growth_i_Asparagus_Asparagus_officinalis_L) — Chilling-Bedarf Endodormanz (2 °C/30 d, 5 °C/45 d), Dormanz erforderlich
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 (§1.1 first_bearing_year, §1.2 bloom_months) -->
+16. [RHS — How to grow Asparagus](https://www.rhs.org.uk/vegetables/asparagus/grow-your-own) — Keine Ernte in Jahr 1–2; ab 3. Standjahr Ernte ab Mitte April, ~8 Wochen
+17. [Landwirtschaftskammer Niedersachsen — Anbau von Grünspargel im Hausgarten](https://lwk-niedersachsen.de/index.cfm/article/19263.html) — Erster Schnitt erst im 3. Standjahr; Ernte traditionell bis Johannistag (24. Juni)
+18. [NC State Extension Gardener Plant Toolbox — Asparagus officinalis](https://plants.ces.ncsu.edu/plants/asparagus-officinalis/) — Blüte Juni/Juli (male/female tepals), Beeren spätsommerlich rot
+19. [Stauden-Ratgeber.de — Asparagus officinalis (Gemüse-Spargel)](https://stauden-ratgeber.de/stauden/112-asparagus/1168-asparagus-officinalis-gemuese-spargel) — Blütezeit Juni
+20. [Missouri Botanical Garden — Plant Finder Asparagus officinalis](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282227&isprofile=0) — 2–3 Jahre bis erntereif, Ernte April–Mai, unscheinbare weiße Blüten, rote Beeren spätsommerlich
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
