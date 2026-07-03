@@ -32,7 +32,10 @@
 | Kritische Tageslänge (h) | — (tagneutral / day_neutral, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 9b–11b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
+<!-- Quelle: growing-phase-auditor 2026-07 — Korrektur half_hardy → tender: RHS-Einstufung H1c (5–10°C Minimum, "kann im Sommer draußen stehen"), gemäß projektinterner Zuordnung tender = RHS H1a–H2 (PFLANZEN-EIGENSCHAFTEN-REFERENZ.md §1.3); Gardeners World "frost-tender house plant"; Wisconsin Horticulture Extension "hardy only in zones 9 and 10... must bring in before freezing weather"; Missouri Botanical Garden Zone 9–11. 4/4 Quellen stimmen überein (✅ GESICHERT). -->
+| Frostempfindlichkeit | tender | `species.frost_sensitivity` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- OFFENER BEFUND (nicht korrigiert, ⚠ WAHRSCHEINLICH 2/3): "-3°C"-Angabe steht in Spannung zur RHS-H1c-Einstufung (Minimum 5–10°C, kein Frost) und zur Wisconsin-Extension-Aussage ("must bring in before freezing weather", Toleranz nur bis ~2°C); Missouri Botanical Garden nennt hingegen "tolerates only light frosts" am Naturstandort. Da 2 Quellen (RHS, Wisconsin) gegen 1 abweichende Quelle (MOBOT) stehen, keine 3/3-Bestätigung — Originalwert gemäß Konfidenzregel beibehalten, manuelle Prüfung empfohlen. -->
 | Winterhärte-Detail | Übersteht kurzzeitig leichten Frost (bis -3°C); Wurzeln frostempfindlich | `species.hardiness_detail` |
 | Heimat | Südafrika (KwaZulu-Natal, Ostkap) | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
@@ -360,3 +363,7 @@ Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day
 11. [ISHS Acta Horticulturae – Scheduling flowering in Clivia miniata](https://www.ishs.org/ishs-article/1171_6) / [ScienceDirect – Crassulacean Acid Metabolism overview](https://www.sciencedirect.com/topics/biochemistry-genetics-and-molecular-biology/crassulacean-acid-metabolism) — Kälte-Blühinduktion (Vernalisation) bzw. CAM-Familien-Abgrenzung (Amaryllidaceae-Geophyten = C3, kein CAM)
 12. [Gardener's Path – Grow Clivia](https://gardenerspath.com/plants/flowers/grow-clivia/) — Salzempfindlichkeit (Düngersalz-Anreicherung, braune Blattspitzen), Staunässe-/Überwässerungsempfindlichkeit
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Lebenszyklus-Audit) -->
+13. [RHS Plant Finder – Clivia miniata (Natal lily)](https://www.rhs.org.uk/plants/4036/clivia-miniata/details) — RHS-Hardiness-Rating H1c (5–10°C Minimum) → Basis der `frost_sensitivity: tender`-Korrektur
+14. [Missouri Botanical Garden – Clivia miniata Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b549) — Blühzeit Dez–Apr, USDA-Zone 9–11, "tolerates only light frosts" (Naturstandort)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

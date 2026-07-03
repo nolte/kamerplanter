@@ -51,7 +51,11 @@
 | Direktsaat nach letztem Frost (Tage) | Entfaellt | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | Entfaellt | `species.direct_sow_months` |
 | Erntemonate | Entfaellt (Zierpflanze, keine Ernte) | `species.harvest_months` |
-| Bluetemonate | 5, 6, 7, 8 (Indoor bei ausreichend Licht und leichtem Stress, ab 1+ Jahr) | `species.bloom_months` |
+| Bluetemonate | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 (ganzjaehrig moeglich Indoor, ab 1+ Jahr) | `species.bloom_months` |
+
+<!-- Quelle: Audit growing-phase-auditor 2026-07 -->
+**Korrektur (Bluetemonate, GESICHERT):** War zuvor auf 5, 6, 7, 8 (Mai-Aug) eingeschraenkt -- korrigiert auf ganzjaehrig, da (a) Abschnitt 1.1 die Bluete selbst bereits als tagneutral (`day_neutral`, keine `critical_day_length_hours`) dokumentiert und ausdruecklich von der kurztags-ausgeloesten Stolonen-/Kindelbildung abgrenzt (interner Widerspruch zur bisherigen 4-Monats-Einschraenkung) und (b) vier unabhaengige Quellen ganzjaehriges Indoor-Bluehen unabhaengig von der Jahreszeit belegen, ausgeloest durch Photoperiode/Reife statt durch feste Kalendermonate. Konvention konsistent mit anderen tagneutralen Dauerbluehern im Steckbrief-Bestand (z.B. Saintpaulia ionantha, Anthurium andraeanum: ebenfalls 1-12 "ganzjaehrig moeglich").
+<!-- /Quelle: Audit growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -515,3 +519,9 @@ Hawaiian,Chlorophytum comosum,--,--,variegated;champagne_tint,clone
 15. Clemson HGIC -- Spider Plant (Salt/fluoride sensitivity, brown leaf tips): https://hgic.clemson.edu/factsheet/spider-plant/
 16. PictureThis Plant Care -- Optimal Temperature for Chlorophytum comosum (Day 24-27 C, range 13-27 C): https://www.picturethisai.com/care/temperature/Chlorophytum_comosum.html
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Audit growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->
+17. NC State Extension Gardener Plant Toolbox -- Chlorophytum comosum (Bloom Time: Fall, Spring, Summer, Winter): https://plants.ces.ncsu.edu/plants/chlorophytum-comosum/
+18. Missouri Botanical Garden Plant Finder -- Chlorophytum comosum (Bloom Time: "Flowers freely", keine Saisonbeschraenkung; Plantlets/Kindel durch Kurztag ausgeloest): https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b547
+19. Wisconsin Horticulture Extension -- Spider plant (Bluete durch Kurztag ausgeloest, "when grown indoors they may appear at any time of year"): https://hort.extension.wisc.edu/articles/spider-plant-chlorophytum-comosum/
+20. Gardener's Path -- Do Spider Plants Bloom? ("Spider plants don't have a fixed blooming season indoors -- they'll flower year-round given adequate light, warmth, and maturity"): https://gardenerspath.com/plants/houseplants/spider-plant-flowers/
+<!-- /Quelle: Audit growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->

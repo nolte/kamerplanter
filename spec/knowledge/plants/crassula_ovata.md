@@ -30,8 +30,11 @@
 | Kritische Tageslänge (h) | ~10 (Blüteninduktion bei ≥14 h ununterbrochener Dunkelheit / Kurztag) | `lifecycle_configs.critical_day_length_hours` |
 | GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> kein publizierter Wuchs-/Phänologie-Basiswert (nur Kardinaltemperaturen; nicht als GDD-Basis verwendbar) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
-| Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
+<!-- Quelle: growing-phase-auditor 2026-07-03 (R4-Korrektur, ✅ GESICHERT 3/3 Quellen) -->
+| Dormanz erforderlich | true (herbstlich-winterliche Ruheperiode mit stark reduziertem Wuchs und Gießen — natürlicher Bestandteil des Jahreszyklus, siehe §2.1 „Winterruhe" und §4.3) | `lifecycle_configs.dormancy_required` |
+| Vernalisation erforderlich | true (Anmerkung: kühl-induzierter Blühreiz — Nachttemperaturen 10–15 °C über mehrere Wochen kombiniert mit Kurztag/langen ununterbrochenen Dunkelphasen und Trockenheit im Herbst sind Voraussetzung für zuverlässige Blüte in Zimmerkultur; kein klassischer Vernalisationsbedarf im engeren Sinn biennaler Pflanzen) | `lifecycle_configs.vernalization_required` |
+| Vernalisation Mindestdauer (Tage) | 28–42 (4–6 Wochen kühle Nächte 10–15 °C in Kombination mit Kurztag und reduziertem Gießen) | `lifecycle_configs.vernalization_min_days` |
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
 | USDA Zonen | 10a, 10b, 11a, 11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 5°C (Kältestress unter 10°C), optimal 15–29°C. Im Winter kühler Standort (10–15°C) fördert Blütenbildung. | `species.hardiness_detail` |
@@ -337,3 +340,7 @@ Tricolor,Crassula ovata,"ornamental;variegated;green_white_pink",clone
 20. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Schmierlaus-Zerstörer, Ausbringrate 5–10/m², Optimalbedingungen
 21. [Dragonfli — Mealybug Predator Cryptolaemus montrouzieri](https://dragonfli.co.uk/products/mealybug-predator-adults-cryptolaemus-montrouzieri) — Ausbringrate gegen Schmierläuse (Bestätigung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 -->
+22. [Greeny Gardener — Crassula Ovata Flowering](https://greenygardener.com/crassula-ovata-flowering/) — Kühlperiode 10–15 °C für 4–6 Wochen zur Blüteninduktion (Vernalisation Mindestdauer)
+23. [Growli — Jade Plant Watering](https://www.getgrowli.app/water/jade-plant) — Wuchsverlangsamung im Herbst, stark reduziertes Gießen im Winter (Dormanz-Bestätigung)
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
