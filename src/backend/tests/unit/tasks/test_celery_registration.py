@@ -31,3 +31,16 @@ def test_acquire_all_reference_images_task_is_registered():
     from app.tasks import reference_image_tasks  # noqa: F401  (import triggers registration)
 
     assert "app.tasks.reference_image_tasks.acquire_all_reference_images_task" in celery_app.tasks
+
+
+def test_redispatch_stale_pending_exports_task_is_registered():
+    """NFR-011 GAP-B5 safety-net task must be registered (else its .delay is a no-op)."""
+    from app.tasks import retention_tasks  # noqa: F401  (import triggers registration)
+
+    assert "retention.redispatch_stale_pending_exports" in celery_app.tasks
+
+
+def test_redispatch_stale_exports_beat_entry_present():
+    """The hourly re-dispatch safety net must be on the beat schedule."""
+    entry = celery_app.conf.beat_schedule["retention-redispatch-stale-exports-hourly"]
+    assert entry["task"] == "retention.redispatch_stale_pending_exports"

@@ -68,10 +68,10 @@ _ENCRYPTION_ENGINE_REUSE_HINT = EncryptionEngine
 class PrivacyService:
     """Orchestrates GDPR rights (Art. 15/16/17/18/20/21) for a user.
 
-    Heavy work that belongs to a Celery task (export-file generation,
-    hard-delete after 90 days) is wired up here only up to the point where
-    the dispatch would happen; the actual ``celery.send_task`` calls are
-    intentionally left out and tracked under NFR-011.
+    Heavy work runs in Celery (``app.tasks.retention_tasks``): export
+    processing is dispatched by :meth:`request_data_export`, hard-delete
+    after the 90-day grace period runs via the daily
+    ``retention.execute_scheduled_erasures`` beat task (NFR-011).
     """
 
     PRIVACY_POLICY_VERSION = "1.0"
@@ -167,8 +167,30 @@ class PrivacyService:
             user_key=user_key,
             export_key=created.key,
         )
-        # TODO(NFR-011): celery dispatch_async("process_data_export", export_key=created.key)
+        if created.key:
+            self._dispatch_export_processing(created.key)
         return created
+
+    def _dispatch_export_processing(self, export_key: str) -> None:
+        """Enqueue the export worker (NFR-011).
+
+        Lazy import avoids a hard import cycle (tasks import dependencies
+        which import services) and keeps Celery optional at
+        service-construction time. A broker outage must not fail the API
+        request — the record stays ``pending`` and is re-dispatched by the
+        hourly ``retention.redispatch_stale_pending_exports`` beat task.
+        """
+        try:
+            from app.tasks.retention_tasks import process_data_export
+
+            process_data_export.delay(export_key)
+            logger.info("privacy_export_dispatch", export_key=export_key)
+        except Exception as exc:  # noqa: BLE001 — broker outage is survivable
+            logger.error(
+                "privacy_export_dispatch_failed",
+                export_key=export_key,
+                error=str(exc),
+            )
 
     def get_export_status(
         self,
@@ -355,8 +377,8 @@ class PrivacyService:
             erasure_key=created.key,
             hard_delete_at=erasure.hard_delete_scheduled_at,
         )
-        # TODO(NFR-011): celery beat task `execute_scheduled_erasures`
-        # picks up scheduled items and performs hard-delete.
+        # Hard-delete is performed by the daily beat task
+        # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
 
     def get_erasure_status(self, erasure_key: str) -> ErasureRequest:

@@ -97,3 +97,23 @@ class TestExpireOld:
 
         assert repo.expire_old("2026-06-14T00:00:00Z") == 1
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
+
+
+class TestListStalePending:
+    def test_returns_models(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([_doc(), _doc(_key="de2")])
+
+        result = repo.list_stale_pending("2026-06-14T00:00:00Z")
+
+        assert len(result) == 2
+        assert all(isinstance(r, DataExportRequest) for r in result)
+
+    def test_filters_pending_before_cutoff(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.list_stale_pending("2026-06-14T00:00:00Z")
+
+        query = mock_db.aql.execute.call_args.args[0]
+        assert 'doc.status == "pending"' in query
+        assert "doc.requested_at < @cutoff" in query
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["cutoff"] == "2026-06-14T00:00:00Z"

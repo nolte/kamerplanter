@@ -90,3 +90,27 @@ class ArangoDataExportRepository(IDataExportRepository, BaseArangoRepository):
             },
         )
         return sum(1 for _ in cursor)
+
+    def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:
+        """Return pending exports requested before ``cutoff_iso``.
+
+        Re-dispatch candidates for ``retention.redispatch_stale_pending_exports``.
+        ``LIMIT 100`` caps the batch against a pathological backlog — the task
+        runs hourly and drains the rest on the next tick.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status == "pending"
+          FILTER doc.requested_at != null AND doc.requested_at < @cutoff
+          SORT doc.requested_at ASC
+          LIMIT 100
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.DATA_EXPORT_REQUESTS,
+                "cutoff": cutoff_iso,
+            },
+        )
+        return [DataExportRequest(**self._from_doc(doc)) for doc in cursor]

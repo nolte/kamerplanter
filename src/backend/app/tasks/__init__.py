@@ -123,6 +123,10 @@ celery_app.conf.update(
             "task": "retention.expire_data_exports",
             "schedule": crontab(minute=20),  # every hour at :20
         },
+        "retention-redispatch-stale-exports-hourly": {
+            "task": "retention.redispatch_stale_pending_exports",
+            "schedule": crontab(minute=25),  # every hour at :25
+        },
     },
 )
 
