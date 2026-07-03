@@ -10,8 +10,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 
+from app.auth import check_insecure_config, require_service_token
 from app.confidence import cosine_to_confidence
 from app.config import settings
 from app.embedder import Embedder, ModelNotReadyError
@@ -70,6 +71,18 @@ async def lifespan(app: FastAPI):
     """Connect to pgvector, start non-blocking model load, cleanup on shutdown."""
     global _embedder, _repo, _pest_repo, _vec_conn, _model_checksum
 
+    # Fail-fast on default/missing secrets before touching any dependency (AP-4,
+    # INF-S4). Skipped in debug mode for local development / tests.
+    if not settings.debug:
+        insecure = check_insecure_config()
+        if insecure:
+            logger.critical("insecure_defaults", fields=insecure)
+            raise SystemExit(
+                "FATAL: Default or missing secrets detected for: "
+                f"{', '.join(insecure)}. Set proper values via environment "
+                "variables before running in production."
+            )
+
     _vec_conn = VectorDbConnection(settings)
     pool = _vec_conn.connect()
     ensure_vectordb_schema(pool)
@@ -99,6 +112,9 @@ app = FastAPI(
     description="DINOv2 embedding extraction and pgvector species matching",
     version="1.0.0",
     lifespan=lifespan,
+    # Service-token auth on every route; the dependency exempts probe paths
+    # (/health, /ready) so kubelet checks keep working (AP-4, INF-S2).
+    dependencies=[Depends(require_service_token)],
 )
 
 

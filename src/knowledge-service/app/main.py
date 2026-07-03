@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 import structlog
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 
+from app.auth import check_insecure_config, require_service_token
 from app.config import settings
 from app.embedding import EmbeddingEngine
 from app.ingestor import KnowledgeIngestor
@@ -36,6 +37,18 @@ _vec_conn: VectorDbConnection | None = None
 async def lifespan(app: FastAPI):
     """Application lifespan: connect to vectordb, build components, and cleanup on shutdown."""
     global _service, _ingestor, _vec_conn
+
+    # Fail-fast on default/missing secrets before touching any dependency (AP-4,
+    # INF-S4). Skipped in debug mode for local development / tests.
+    if not settings.debug:
+        insecure = check_insecure_config()
+        if insecure:
+            logger.critical("insecure_defaults", fields=insecure)
+            raise SystemExit(
+                "FATAL: Default or missing secrets detected for: "
+                f"{', '.join(insecure)}. Set proper values via environment "
+                "variables before running in production."
+            )
 
     # Connect to VectorDB
     _vec_conn = VectorDbConnection(settings)
@@ -100,6 +113,9 @@ app = FastAPI(
     description="RAG-based plant knowledge assistant",
     version="1.0.0",
     lifespan=lifespan,
+    # Service-token auth on every route; the dependency exempts probe paths
+    # (/health, /ready) so kubelet checks keep working (AP-4, INF-S1).
+    dependencies=[Depends(require_service_token)],
 )
 
 

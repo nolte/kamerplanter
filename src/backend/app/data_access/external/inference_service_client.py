@@ -17,6 +17,8 @@ from typing import Any
 import httpx
 import structlog
 
+from app.config.settings import settings
+
 logger = structlog.get_logger(__name__)
 
 _MATCH_TIMEOUT_SECONDS = 30.0
@@ -25,10 +27,23 @@ _READY_TIMEOUT_SECONDS = 5.0
 
 
 class InferenceServiceClient:
-    """Calls the standalone inference-service via HTTP."""
+    """Calls the standalone inference-service via HTTP.
 
-    def __init__(self, base_url: str) -> None:
+    Every request carries the shared service token as an
+    ``Authorization: Bearer <token>`` header (AP-4, INF-S2). The token defaults
+    to ``settings.internal_service_token`` so all call sites are authenticated
+    without threading it through; it can be overridden per instance (tests).
+    """
+
+    def __init__(self, base_url: str, *, service_token: str | None = None) -> None:
         self._base_url = base_url.rstrip("/")
+        self._service_token = service_token if service_token is not None else settings.internal_service_token
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Build the service-token auth header (empty when no token is set)."""
+        if not self._service_token:
+            return {}
+        return {"Authorization": f"Bearer {self._service_token}"}
 
     # ── Identification path ────────────────────────────────────────────
     # Synchronous to match the REQ-029 PlantIdentificationAdapter interface
@@ -45,6 +60,7 @@ class InferenceServiceClient:
             f"{self._base_url}/match",
             params={"k": k},
             files={"image": ("query.jpg", image_data, "image/jpeg")},
+            headers=self._auth_headers(),
             timeout=_MATCH_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -53,7 +69,11 @@ class InferenceServiceClient:
     def is_ready(self) -> bool:
         """Check whether the model is loaded and the index is reachable."""
         try:
-            response = httpx.get(f"{self._base_url}/ready", timeout=_READY_TIMEOUT_SECONDS)
+            response = httpx.get(
+                f"{self._base_url}/ready",
+                headers=self._auth_headers(),
+                timeout=_READY_TIMEOUT_SECONDS,
+            )
             return response.status_code == 200
         except Exception:  # noqa: BLE001 — readiness must never raise
             return False
@@ -65,7 +85,11 @@ class InferenceServiceClient:
         status view degrades gracefully.
         """
         try:
-            response = httpx.get(f"{self._base_url}/modelinfo", timeout=_READY_TIMEOUT_SECONDS)
+            response = httpx.get(
+                f"{self._base_url}/modelinfo",
+                headers=self._auth_headers(),
+                timeout=_READY_TIMEOUT_SECONDS,
+            )
             response.raise_for_status()
             return response.json()
         except Exception:  # noqa: BLE001 — status must never raise
@@ -91,6 +115,7 @@ class InferenceServiceClient:
             response = httpx.get(
                 f"{self._base_url}/reference/{species_key}",
                 params={"limit": limit, "active_only": active_only},
+                headers=self._auth_headers(),
                 timeout=_MATCH_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
@@ -116,6 +141,7 @@ class InferenceServiceClient:
         response = httpx.patch(
             f"{self._base_url}/reference/{species_key}/{embedding_id}",
             json={"is_active": is_active, "reason": reason},
+            headers=self._auth_headers(),
             timeout=_MATCH_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -128,6 +154,7 @@ class InferenceServiceClient:
         response = httpx.post(
             f"{self._base_url}/embed",
             files={"image": ("ref.jpg", image_data, "image/jpeg")},
+            headers=self._auth_headers(),
             timeout=_EMBED_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -139,6 +166,7 @@ class InferenceServiceClient:
         response = httpx.post(
             f"{self._base_url}/embed/batch",
             files=files,
+            headers=self._auth_headers(),
             timeout=_EMBED_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -184,6 +212,7 @@ class InferenceServiceClient:
             f"{self._base_url}/reference",
             data=data,
             files=files,
+            headers=self._auth_headers(),
             timeout=_EMBED_TIMEOUT_SECONDS,
         )
         response.raise_for_status()

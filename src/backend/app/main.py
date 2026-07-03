@@ -34,6 +34,39 @@ from app.data_access.arango.collections import ensure_collections
 
 logger = structlog.get_logger()
 
+# NFR-011 §4: the erasure tombstone salt must be a high-entropy secret; a value
+# shorter than this is treated as unset/insecure.
+_MIN_TOMBSTONE_SALT_LENGTH = 32
+
+
+def insecure_default_secrets() -> list[str]:
+    """Return the names of default/missing secrets that block a secure startup.
+
+    Empty list => safe to start. Extracted from the lifespan so it can be
+    unit-tested directly (AP-4, INF-S5). Evaluated against the module-level
+    ``settings`` singleton.
+    """
+    insecure: list[str] = []
+    if settings.jwt_secret_key == "change-me-in-production-use-openssl-rand-hex-32":
+        insecure.append("jwt_secret_key")
+    if settings.arangodb_password == "rootpassword":
+        insecure.append("arangodb_password")
+    if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
+        insecure.append("timescaledb_password")
+    # INF-S5: OIDC provider-secret encryption key (Fernet). Must be provisioned.
+    if not settings.fernet_key:
+        insecure.append("fernet_key")
+    # NFR-011 §4: GDPR erasure tombstone salt (>= 32 chars).
+    if len(settings.erasure_tombstone_salt) < _MIN_TOMBSTONE_SALT_LENGTH:
+        insecure.append("erasure_tombstone_salt")
+    # AP-4: shared secret for the internal M2M services — required only when the
+    # backend actually calls them.
+    if (
+        settings.knowledge_service_enabled or settings.inference_service_enabled
+    ) and not settings.internal_service_token:
+        insecure.append("internal_service_token")
+    return insecure
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -42,13 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Check for default secrets in production
     if not settings.debug:
-        _insecure: list[str] = []
-        if settings.jwt_secret_key == "change-me-in-production-use-openssl-rand-hex-32":
-            _insecure.append("jwt_secret_key")
-        if settings.arangodb_password == "rootpassword":
-            _insecure.append("arangodb_password")
-        if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
-            _insecure.append("timescaledb_password")
+        _insecure = insecure_default_secrets()
         if _insecure:
             msg = (
                 "FATAL: Default secrets detected for: "

@@ -52,6 +52,10 @@ controllers:
           VECTORDB_DATABASE: kamerplanter_vectors
           VECTORDB_USERNAME: postgres
           VECTORDB_PASSWORD: devpassword
+          # AP-4 (INF-S2): shared M2M service token. Dev-only inline value — in
+          # production this is provisioned from kamerplanter-secrets via
+          # secretKeyRef. Must match the backend's INTERNAL_SERVICE_TOKEN.
+          INTERNAL_SERVICE_TOKEN: dev-internal-service-token
           MODEL_PATH: /app/models/dinov2
           MODEL_NAME: dinov2_vits14
           MODEL_DIM: "384"
