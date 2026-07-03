@@ -51,7 +51,9 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 5, 6, 7, 8 (kleine weiß-violette Blüten; in Zimmerkultur selten) | `species.bloom_months` |
+<!-- Quelle: Wachstumsphasen-Audit 2026-07 (growing-phase-auditor) -->
+| Blütemonate | 5, 6 (kleine weiß-violette Blüten; in Zimmerkultur selten) | `species.bloom_months` |
+<!-- /Quelle: Wachstumsphasen-Audit 2026-07 (growing-phase-auditor) -->
 
 ### 1.3 Vermehrung
 
@@ -346,3 +348,9 @@ Massangeana,Maranta leuconeura,"ornamental;dark_green;silver_midrib",clone
 14. [Planet Natural — Cryptolaemus montrouzieri](https://www.planetnatural.com/beneficial-insects-101/cryptolaemus-montrouzieri/) — Ausbringrate Mealybug Destroyer gegen Schmierläuse
 15. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Ausbringrate Raubmilbe gegen Thrips
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Wachstumsphasen-Audit 2026-07 (growing-phase-auditor) -->
+16. [Floragard — Maranta leuconeura](https://www.floragard.de/de-de/pflanzeninfothek/pflanze/gruenpflanzen/maranta-leuconeura) — Blütezeit April–Juni
+17. [Missouri Botanical Garden — Maranta leuconeura Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b604) — Blütezeit "late spring to early summer", Blüte in Zimmerkultur selten
+18. [Missouri Botanical Garden — Maranta leuconeura var. erythroneura Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=249588&isprofile=0) — Blütezeit "May to July"
+19. [NC State Extension — Maranta leuconeura Plant Toolbox](https://plants.ces.ncsu.edu/plants/maranta-leuconeura/) — Blütezeit "late spring to early summer", Vermehrung (root cutting, rhizomatous division), Blüte in Zimmerkultur selten
+<!-- /Quelle: Wachstumsphasen-Audit 2026-07 (growing-phase-auditor) -->

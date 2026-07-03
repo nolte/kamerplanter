@@ -2687,7 +2687,7 @@ lifecycle_overrides:
   Humulus lupulus: { flowering_strategy: polycarpic }
   Jasminum polyanthum: { flowering_strategy: polycarpic }
   Kalanchoe blossfeldiana: { flowering_strategy: polycarpic }
-  Kalanchoe daigremontiana: { flowering_strategy: polycarpic }
+  Kalanchoe daigremontiana: { flowering_strategy: monocarpic }
   Lavandula angustifolia: { flowering_strategy: polycarpic }
   Lithops spp.: { flowering_strategy: polycarpic }
   Livistona chinensis: { flowering_strategy: polycarpic }

@@ -49,7 +49,9 @@
 | Direktsaat nach letztem Frost (Tage) | — (keine Direktsaat; Ableger/Topf ab April) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | 5, 6, 7, 8, 9, 10 (Blätter vor Blüte aromatischsten) | `species.harvest_months` |
-| Blütemonate | 6, 7, 8 | `species.bloom_months` |
+| Blütemonate | 7, 8, 9 | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07-04 — Korrektur von [6,7,8] auf [7,8,9]; 4 unabhängige Quellen bestätigen Blühbeginn nicht vor Juli (kein valider Beleg für Juni-Blüte); siehe Quellenverzeichnis Nr. 15-18 -->
+<!-- /Quelle: growing-phase-auditor 2026-07-04 -->
 
 ### 1.3 Vermehrung
 
@@ -308,7 +310,7 @@ Pfefferminze ist mittelstark zehrend und braucht etwas mehr Nährstoffe als medi
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months
-Mentha × piperita,"Pfefferminze;Minze;Peppermint",Lamiaceae,Mentha,perennial,long_day,herb,rhizomatous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.2,"Europa (Hybride)",yes,8,20,80,60,35,yes,yes,false,false,medium_feeder,hardy,"5;6;7;8;9;10","6;7;8"
+Mentha × piperita,"Pfefferminze;Minze;Peppermint",Lamiaceae,Mentha,perennial,long_day,herb,rhizomatous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.2,"Europa (Hybride)",yes,8,20,80,60,35,yes,yes,false,false,medium_feeder,hardy,"5;6;7;8;9;10","7;8;9"
 ```
 
 ---
@@ -331,3 +333,10 @@ Mentha × piperita,"Pfefferminze;Minze;Peppermint",Lamiaceae,Mentha,perennial,lo
 13. [Sound Horticulture — Phytoseiulus persimilis Tech Sheet](https://soundhorticulture.com/pages/phytoseiulus-persimilis-spider-mite-predator) — Ausbringrate 0,5/sq ft (≈5–6/m²), 20/befallenem Blatt
 14. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate 0,25–4/m², Mumien/Etablierungszeit
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-04 -->
+15. [Missouri Botanical Garden — Mentha × piperita Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=281400) — Blütezeit "July to August"
+16. [Kiepenkerl — Kulturanleitung Pfefferminze](https://www.kiepenkerl.de/kulturanleitungen/pfefferminze/) — Blütezeit "von Juli bis in den Oktober"; Blatternte "ab dem Frühjahr bis in den Herbst"
+17. [PFAF — Mentha x piperita](https://pfaf.org/user/Plant.aspx?LatinName=Mentha+x+piperita) — Blütezeit "August to October"; Vermehrung vorrangig durch Teilung (Samen nicht sortenecht, da Kreuzungsprodukt)
+18. [RHS — Mentha × piperita](https://www.rhs.org.uk/plants/11050/mentha-piperita/details) — Blütezeit "late summer" (bestätigend, kein Beleg für Juni-Blüte)
+<!-- Korrektur `species.bloom_months`: [6,7,8] → [7,8,9] — Konfidenz ✅ GESICHERT (4/4 unabhängige Quellen Nr. 15–18 bestätigen Blühbeginn nicht vor Juli; kein valider Beleg für Juni-Blüte außerhalb der als Quelle ausgeschlossenen Wikipedia) -->
+<!-- /Quelle: growing-phase-auditor 2026-07-04 -->

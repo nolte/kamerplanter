@@ -26,22 +26,22 @@
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
-| Dormanz erforderlich | true (sporadische Dormanz alle 2–7 Jahre) | `lifecycle_configs.dormancy_required` |
+| Dormanz erforderlich | true (jährliche Dormanz nach der Wachstumsperiode, ausgelöst durch Hitzestress/Kürzertag im Herbst; Dauer typischerweise mehrere Wochen bis wenige Monate) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur Wuchsphase (base temp, °C) | <!-- DATEN FEHLEN — keine belegte Wuchs-/Phänologie-GDD-Basis für diese Zierpflanze auffindbar; tropische Waldbodenstaude, Hauptwuchs bei 15–24 °C --> | `species.base_temp` |
 | Kritische Tageslänge (h) | <!-- DATEN FEHLEN — tagneutral (day_neutral), kein Kurztag-/Langtagblüher; daher kein numerischer Stunden-Schwellwert anwendbar --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| USDA Zonen | 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a | `species.hardiness_zones` |
+| USDA Zonen | 8a, 8b, 9a, 9b, 10a, 10b, 11a | `species.hardiness_zones` |
 | Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhaerte-Detail | Halbfrosthart — Zwiebeln im Boden überwintern in Zone 6+. Mindesttemperatur -15°C für kurze Fröste. Als Zimmerpflanze optimal bei 15–21°C. | `species.hardiness_detail` |
+| Winterhaerte-Detail | Halbfrosthart — Knollen im Boden überwintern nur in Zone 8+. Mindesttemperatur ca. -3 bis -5°C für kurze Fröste (RHS-Härtegrad H3). Als Zimmerpflanze optimal bei 15–21°C. | `species.hardiness_detail` |
 | Heimat | Brasilien, Argentinien — tropische und subtropische Wälder | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | ornamental | `species.traits` |
 
-**Hinweis:** Oxalis triangularis ist bekannt für ihre photoperiodische Blattbewegung (Nyktinastie) — die lila Dreiblätter öffnen und schließen sich je nach Lichtverhältnissen. Die sporadische Dormanz kann den Besitzer erschrecken: die Pflanze zieht scheinbar vollständig ein und "stirbt" — tatsächlich erholen sich die Zwiebeln nach 2–4 Wochen Trockenheit vollständig. Oxalsäure (daher Oxalidaceae) macht die Pflanze für Haustiere leicht giftig.
+**Hinweis:** Oxalis triangularis ist bekannt für ihre photoperiodische Blattbewegung (Nyktinastie) — die lila Dreiblätter öffnen und schließen sich je nach Lichtverhältnissen. Die jährliche Dormanz (typischerweise im Herbst nach der Wachstumsperiode bzw. nach Hitzestress) kann den Besitzer erschrecken: die Pflanze zieht scheinbar vollständig ein und "stirbt" — tatsächlich erholen sich die Knollen nach mehreren Wochen Trockenruhe vollständig. Oxalsäure (daher Oxalidaceae) macht die Pflanze für Haustiere leicht giftig.
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -125,7 +125,7 @@
 | Phase | Dauer (Tage) | Reihenfolge | Terminal | Ernte erlaubt | Stresstoleranz |
 |-------|-------------|-------------|----------|---------------|----------------|
 | Aktives Wachstum | 180–365 (bis Dormanz) | 1 | false | false | medium |
-| Dormanz (sporadisch) | 14–28 | 2 | false | false | high |
+| Dormanz (jährlich) | 14–28 | 2 | false | false | high |
 
 ### 2.2 Phasen-Anforderungsprofile
 
@@ -295,7 +295,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",Oxalidaceae,Oxalis,perennial,day_neutral,herb,bulbous,"6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a","Brasilien, Argentinien",yes,0.5-3,10,15-30,20-40,yes,yes,false,light_feeder
+Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",Oxalidaceae,Oxalis,perennial,day_neutral,herb,bulbous,"8a;8b;9a;9b;10a;10b;11a","Brasilien, Argentinien",yes,0.5-3,10,15-30,20-40,yes,yes,false,light_feeder
 ```
 
 ---
@@ -320,3 +320,9 @@ Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",
 15. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate 0,25–4/m², mehrfache Ausbringung
 16. [Natural Enemies — Entonem (Steinernema feltiae) Commercial Guide](https://naturalenemies.com/news-and-information/entonem-steinernema-feltiae-commercial-guide-for-soilstage-pest-control/) — Trauermücken-Nematode, 0,5 Mio. IJ/m² Substrat-Drench
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07: Lebenszyklus-Audit (Dormanz-Frequenz, USDA-Zonen) -->
+17. [Missouri Botanical Garden — Plant Finder: Oxalis triangularis subsp. triangularis](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=291690) — Hardiness Zone 8–11, Lebenszyklus (cormous herbaceous perennial), Blühverhalten
+18. [PFAF — Oxalis triangularis](https://pfaf.org/user/Plant.aspx?LatinName=Oxalis+triangularis) — USDA 10–11, frostempfindlich, toleriert kurzfristig bis ca. -3°C, Vermehrung (Teilung/Knollen)
+19. [RHS — Oxalis triangularis subsp. papilionacea](https://www.rhs.org.uk/plants/63222/i-oxalis-triangularis-i-subsp-i-papilionacea-i/details) — Härtegrad H3 (-5 bis 1°C), Dormanz winters
+20. [Epic Gardening — Oxalis Triangularis](https://www.epicgardening.com/oxalis-triangularis/) — Zonen 8–11 (optimal 8–9), Dormanz-Häufigkeit (jährlich, ggf. 2× bei Hitzestress), Dauer ca. 2–3 Monate
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

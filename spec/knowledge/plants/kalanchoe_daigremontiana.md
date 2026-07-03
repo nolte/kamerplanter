@@ -21,7 +21,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
-| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Blühstrategie (flowering strategy) | monocarpic (Einzelrosette/Haupttrieb blüht einmalig und stirbt danach ab; Art selbst bleibt perennierend, da sie sich vor/während der Blüte bereits klonal über Bulbillen fortgesetzt hat — korrigiert 2026-07, war zuvor fälschlich "polycarpic" trotz widersprechender Fließtext-Aussagen in §1.1/§1.2/§2.1/§7 desselben Dokuments) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 9b–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -344,3 +344,6 @@ Kalanchoe daigremontiana,Brutblatt;Teufelsrückgrat;Mother of Thousands,Crassula
 15. [Cornell NYSIPM — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Nützling Spinnmilben, Ausbringrate
 16. [UConn IPM — Biological Control of Aphids (Aphidius colemani / Aphidoletes aphidimyza)](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Nützlinge Blattläuse, Ausbringraten
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (§1.1 flowering_strategy) -->
+17. [LLIFLE Encyclopedia of Succulents — Kalanchoe daigremontiana](https://www.llifle.com/Encyclopedia/SUCCULENTS/Family/Crassulaceae/14430/Kalanchoe_daigremontiana) — Bestätigt Monokarpie: "slender monocarpic, perennials, glabrous, succulent herb"; Blüte sporadisch, meist zu Beginn der warmen Saison
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

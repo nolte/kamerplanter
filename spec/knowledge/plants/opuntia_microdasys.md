@@ -42,7 +42,7 @@
 | Gründüngung geeignet | false | `species.green_manure_suitable` |
 | Traits | ornamental | `species.traits` |
 
-**Hinweis:** Der Hasenohren-Kaktus ist einer der beliebtesten Feigenkakteen für die Zimmerpflanzenpflege. Die runden, abgeflachten Kaktuspaddes haben statt langer Stacheln kleine Büschel aus winzigen Widerhaken (Glochiden). ACHTUNG: Diese Glochiden sind besonders tückisch — sie sind mikroskopisch klein, brechen leicht ab und verursachen extremen Juckreiz in Haut und Augen. Die Pflanze IMMER mit Handschuhen anfassen. Im Sommer können gelbe Blüten erscheinen.
+**Hinweis:** Der Hasenohren-Kaktus ist einer der beliebtesten Feigenkakteen für die Zimmerpflanzenpflege. Die runden, abgeflachten Kaktuspaddes haben statt langer Stacheln kleine Büschel aus winzigen Widerhaken (Glochiden). ACHTUNG: Diese Glochiden sind besonders tückisch — sie sind mikroskopisch klein, brechen leicht ab und verursachen extremen Juckreiz in Haut und Augen. Die Pflanze IMMER mit Handschuhen anfassen. Im Frühjahr bis Sommer können bei ausreichend alten, sonnenreich stehenden Pflanzen nach kühler Winterruhe gelbe Blüten erscheinen — in Zimmerkultur ist eine Blüte allerdings selten.
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -51,16 +51,24 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 6, 7, 8 (gelbe Blüten bei älteren Pflanzen und genügend Sonne) | `species.bloom_months` |
+| Blütemonate | 4, 5, 6, 7, 8 (Frühjahr bis Sommer; gelbe Blüten bei älteren, ausreichend besonnten Pflanzen nach kühler Winterruhe — in Zimmerkultur selten blühend) | `species.bloom_months` |
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+**Korrektur 2026-07 (growing-phase-auditor):** Blütemonate von `6, 7, 8` auf `4, 5, 6, 7, 8` erweitert. Der bisherige Wert beschränkte die Blüte auf den Sommer; mehrere unabhängige Quellen belegen übereinstimmend einen Blühbeginn bereits im Frühjahr: (1) NC State Extension — "The flowers bloom in the spring... from April to mid-May", während die essbaren Früchte erst im Sommer (Juni–August) reifen — der bisherige Wert deckte offenbar die Fruchtreife statt der eigentlichen Blütezeit ab; (2) Succulent Alley — Blüte "from April to May"; (3) cactusmania.shop — Blüte "in spring and summer". Die Sommerkomponente (Juni–August) bleibt zusätzlich durch World of Succulents (Hauptartikel: Blüten "appear in summer") sowie die ursprünglich zitierten Quellen (Gardenia.net, Epic Gardening, Plant Care Today) bestätigt, sodass die Gesamtspanne Frühjahr–Sommer (April–August) alle Quellen abdeckt. Ergänzend bestätigen NC State/Botanico Hub ("this plant rarely blooms indoors") sowie Succulent Alley ("a rare sight in cultivation") übereinstimmend die Seltenheit der Blüte in Zimmerkultur — im Freitext ergänzt. Konfidenz: ✅ GESICHERT (≥3 Quellen je Teilaussage).
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | cutting_stem, offset | `species.propagation_methods` |
+| Vermehrungsmethoden | cutting_stem, offset, seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
-**Hinweis:** Kaktuspadde mit Pinzette (niemals mit bloßen Händen!) abbrechen, 1–2 Wochen trocknen lassen (Wundverschluss), dann in Kakteenerde stecken. Bewurzelung in 3–6 Wochen.
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+**Korrektur 2026-07 (growing-phase-auditor):** Vermehrungsmethoden um `seed` ergänzt (`cutting_stem, offset` → `cutting_stem, offset, seed`). Drei unabhängige Quellen belegen Samenvermehrung als zusätzliche, langsamere aber gangbare Methode: (1) NC State Extension — "Recommended Propagation Strategy: Seed, Stem Cutting"; (2) Lubera.com (Gartenbuch-Fachredaktion) — ausführliche Aussaat-Anleitung speziell für Opuntia microdasys (Lichtkeimer, ca. 25 °C, feuchtes Substrat unter Folie); (3) mehrere unabhängige Sukkulenten-Pflegeportale übereinstimmend: "Opuntia microdasys can be propagated from seeds, offsets, or cuttings", zusätzlich gattungsweit bestätigt (z. B. Epic Gardening — "Prickly Pear Cactus Propagation From Cuttings and Seeds"). Konfidenz: ✅ GESICHERT (3/3 Quellen).
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
+
+**Hinweis:** Kaktuspadde mit Pinzette (niemals mit bloßen Händen!) abbrechen, 1–2 Wochen trocknen lassen (Wundverschluss), dann in Kakteenerde stecken. Bewurzelung in 3–6 Wochen. Alternativ ist Aussaat möglich (Lichtkeimer, ca. 25 °C, feuchtes Substrat, Anzuchtdauer deutlich länger als bei Stecklingen) — für sortenechte Vermehrung ist der Steckling jedoch weiterhin die schnellere und zuverlässigere Methode.
 
 ### 1.4 Toxizität & Allergene
 
@@ -323,3 +331,9 @@ Opuntia microdasys,"Hasenohren-Kaktus;Bunny Ears;Polka-Dot-Kaktus;Bunny Ears Cac
 19. [ScienceDirect Topics — Cryptolaemus montrouzieri overview](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/cryptolaemus-montrouzieri) — Ausbringrate ~1 Käfer/m², Kombination mit Leptomastix dactylopii
 20. [The Cactus Expert — Fertilizer / Cultivation of Cacti](https://www.cactusexpert.org/cultivation-of-cacti/fertilizer.html) — Mikronährstoffe (Mn/Zn/Cu/Mo) als Spurenelemente für Kakteen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+21. [NC State Extension — Opuntia microdasys](https://plants.ces.ncsu.edu/plants/opuntia-microdasys/) — Blüte "spring, April to mid-May", Fruchtreife Sommer (Juni–August); Vermehrung "Seed, Stem Cutting"; Hinweis "rarely blooms indoors"
+22. [Succulent Alley — Opuntia microdasys: The Golden-Haired Beauty of the Cactus World](https://succulentalley.com/opuntia-microdasys-care/) — Blüte "from April to May", "a rare sight in cultivation"
+23. [Cactusmania.shop — Opuntia microdasys: characteristics and cultivation notes](https://www.cactusmania.shop/2025/06/19/opuntia-microdasys/) — Blüte "spring and summer"; Vermehrung Pad-Stecklinge
+24. [Lubera.com — Opuntia microdasys: Pflege, Blüte & Vermehrung des Kaktus](https://www.lubera.com/de/gartenbuch/opuntia-microdasys-pflege-bluete-vermehrung-des-kaktus-p3237) — Vermehrung via Stecklinge UND Aussaat (Lichtkeimer, ca. 25 °C); Winterruhe 8–10 °C
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
