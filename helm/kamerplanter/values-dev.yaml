@@ -38,6 +38,12 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          # AP-4 (INF-S1/S2): shared M2M token the backend sends to the
+          # knowledge-/inference-service. Dev-only inline value; must match the
+          # INTERNAL_SERVICE_TOKEN set on those services (values-dev-ki.yaml /
+          # values-dev-recognition.yaml). Production supplies it via
+          # kamerplanter-secrets (envFrom).
+          INTERNAL_SERVICE_TOKEN: dev-internal-service-token
           # KI stack (separate Helm release kamerplanter-ki)
           KNOWLEDGE_SERVICE_ENABLED: "true"
           KNOWLEDGE_SERVICE_URL: "http://kamerplanter-ki-knowledge-service:8000"

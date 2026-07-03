@@ -16,6 +16,8 @@ from typing import Any
 import httpx
 import structlog
 
+from app.config.settings import settings
+
 logger = structlog.get_logger()
 
 _DETECT_TIMEOUT_SECONDS = 30.0
@@ -26,15 +28,32 @@ _READY_TIMEOUT_SECONDS = 6.0
 
 
 class PestDetectionInferenceClient:
-    """Calls the self-hosted pest-inference service over HTTP."""
+    """Calls the self-hosted pest-inference service over HTTP.
 
-    def __init__(self, base_url: str) -> None:
+    Every request carries the shared service token as an
+    ``Authorization: Bearer <token>`` header (AP-4, INF-S2). The token defaults
+    to ``settings.internal_service_token`` so all call sites are authenticated
+    without threading it through; it can be overridden per instance (tests).
+    """
+
+    def __init__(self, base_url: str, *, service_token: str | None = None) -> None:
         self._base_url = base_url.rstrip("/")
+        self._service_token = service_token if service_token is not None else settings.internal_service_token
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Build the service-token auth header (empty when no token is set)."""
+        if not self._service_token:
+            return {}
+        return {"Authorization": f"Bearer {self._service_token}"}
 
     def is_ready(self) -> bool:
         """Whether the pest model is loaded and the index is reachable."""
         try:
-            response = httpx.get(f"{self._base_url}/pest/ready", timeout=_READY_TIMEOUT_SECONDS)
+            response = httpx.get(
+                f"{self._base_url}/pest/ready",
+                headers=self._auth_headers(),
+                timeout=_READY_TIMEOUT_SECONDS,
+            )
         except httpx.HTTPError:
             return False
         return response.status_code == 200
@@ -49,6 +68,7 @@ class PestDetectionInferenceClient:
             f"{self._base_url}/pest/detect",
             params={"mode": mode, "language": language},
             files={"image": ("tile.jpg", tile, "image/jpeg")},
+            headers=self._auth_headers(),
             timeout=_DETECT_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -57,14 +77,22 @@ class PestDetectionInferenceClient:
 
     def status(self) -> dict[str, Any]:
         """Return the few-shot index availability ({ready, index_count, model})."""
-        response = httpx.get(f"{self._base_url}/pest/status", timeout=_READY_TIMEOUT_SECONDS)
+        response = httpx.get(
+            f"{self._base_url}/pest/status",
+            headers=self._auth_headers(),
+            timeout=_READY_TIMEOUT_SECONDS,
+        )
         response.raise_for_status()
         return response.json()
 
     def coverage(self) -> list[dict[str, Any]]:
         """Per-class prototype counts. Returns [] when the service is unreachable."""
         try:
-            response = httpx.get(f"{self._base_url}/pest/coverage", timeout=_DETECT_TIMEOUT_SECONDS)
+            response = httpx.get(
+                f"{self._base_url}/pest/coverage",
+                headers=self._auth_headers(),
+                timeout=_DETECT_TIMEOUT_SECONDS,
+            )
             response.raise_for_status()
         except httpx.HTTPError:
             return []
@@ -76,6 +104,7 @@ class PestDetectionInferenceClient:
             response = httpx.get(
                 f"{self._base_url}/pest/reference/{label}",
                 params={"limit": limit, "active_only": active_only},
+                headers=self._auth_headers(),
                 timeout=_DETECT_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
@@ -90,6 +119,7 @@ class PestDetectionInferenceClient:
         response = httpx.patch(
             f"{self._base_url}/pest/reference/{label}/{prototype_id}",
             json={"is_active": is_active, "reason": reason},
+            headers=self._auth_headers(),
             timeout=_DETECT_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -130,6 +160,7 @@ class PestDetectionInferenceClient:
             f"{self._base_url}/pest/reference",
             data=data,
             files={"image": ("ref.jpg", image, "image/jpeg")},
+            headers=self._auth_headers(),
             timeout=_DETECT_TIMEOUT_SECONDS,
         )
         response.raise_for_status()

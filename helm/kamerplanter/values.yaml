@@ -84,6 +84,10 @@ controllers:
           capabilities:
             drop: ["ALL"]
         envFrom:
+          # kamerplanter-secrets also carries INTERNAL_SERVICE_TOKEN (AP-4,
+          # INF-S1/S2): the shared M2M secret sent to the knowledge-/inference-
+          # service. It arrives automatically via envFrom, so no explicit env
+          # entry is needed here.
           - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
@@ -320,6 +324,10 @@ controllers:
           capabilities:
             drop: ["ALL"]
         envFrom:
+          # kamerplanter-secrets also carries INTERNAL_SERVICE_TOKEN (AP-4,
+          # INF-S1/S2): the shared M2M secret sent to the knowledge-/inference-
+          # service. It arrives automatically via envFrom, so no explicit env
+          # entry is needed here.
           - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
@@ -381,6 +389,10 @@ controllers:
           capabilities:
             drop: ["ALL"]
         envFrom:
+          # kamerplanter-secrets also carries INTERNAL_SERVICE_TOKEN (AP-4,
+          # INF-S1/S2): the shared M2M secret sent to the knowledge-/inference-
+          # service. It arrives automatically via envFrom, so no explicit env
+          # entry is needed here.
           - secret: kamerplanter-secrets
         env:
           ARANGODB_HOST: kamerplanter-arangodb
@@ -525,6 +537,16 @@ controllers:
               secretKeyRef:
                 name: kamerplanter-secrets
                 key: POSTGRES_PASSWORD
+          # AP-4 (INF-S2): shared M2M service token. The backend/celery pods
+          # receive the same key via envFrom of kamerplanter-secrets; here it is
+          # pulled by scoped secretKeyRef (never inlined). The operator sets
+          # INTERNAL_SERVICE_TOKEN once in kamerplanter-secrets (openssl rand
+          # -hex 32). Without it the service refuses to start (fail-fast).
+          INTERNAL_SERVICE_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: INTERNAL_SERVICE_TOKEN
           MODEL_PATH: /app/models/dinov2
           MODEL_NAME: dinov2_vits14
           MODEL_DIM: "384"

@@ -199,6 +199,13 @@ class Settings(BaseSettings):
     knowledge_service_enabled: bool = False
     knowledge_service_url: str = "http://knowledge-service:8000"
 
+    # Shared secret for the cluster-internal M2M services (knowledge-service,
+    # inference-service). Sent as ``Authorization: Bearer <token>`` on every
+    # call. Must match the token those services expect (same key in
+    # ``kamerplanter-secrets``). Required in production once either service is
+    # enabled — the startup gate refuses to boot without it (AP-4, INF-S1/S2).
+    internal_service_token: str = ""
+
     # mDNS / Zeroconf Discovery
     mdns_enabled: bool = False  # Enable only for local/on-premise deployments (opt-in)
     # Auto-generated UUID prefix if empty; alphanumeric + hyphens only, max 64 chars

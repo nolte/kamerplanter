@@ -183,3 +183,52 @@ class TestBaseUrlStripping:
     def test_trailing_slash_stripped(self):
         c = KnowledgeServiceClient(base_url="http://service:8000/")
         assert c._base_url == "http://service:8000"
+
+
+class TestServiceTokenHeader:
+    """AP-4: every call carries the shared service token (INF-S1)."""
+
+    @patch("app.data_access.external.knowledge_service_client.httpx.get")
+    def test_search_sends_bearer_header(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"query": "q", "results": [], "total": 0}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        client = KnowledgeServiceClient(base_url="http://ks:8000", service_token="secret-token")
+        client.search("q")
+
+        headers = mock_get.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer secret-token"
+
+    @patch("app.data_access.external.knowledge_service_client.httpx.post")
+    def test_ask_sends_bearer_header(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"answer": "a", "model": "m", "usage": {}, "sources": []}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        client = KnowledgeServiceClient(base_url="http://ks:8000", service_token="secret-token")
+        client.ask("q")
+
+        headers = mock_post.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer secret-token"
+
+    @patch("app.data_access.external.knowledge_service_client.httpx.get")
+    def test_no_header_when_token_empty(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"query": "q", "results": [], "total": 0}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        client = KnowledgeServiceClient(base_url="http://ks:8000", service_token="")
+        client.search("q")
+
+        assert mock_get.call_args[1]["headers"] == {}
+
+    def test_token_defaults_from_settings(self, monkeypatch):
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "internal_service_token", "from-settings")
+        client = KnowledgeServiceClient(base_url="http://ks:8000")
+        assert client._auth_headers() == {"Authorization": "Bearer from-settings"}

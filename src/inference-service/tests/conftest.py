@@ -204,16 +204,12 @@ class _FakeConn:
         return True
 
 
-@pytest.fixture
-def client(fake_embedder, fake_repo, fake_pest_repo, monkeypatch):
-    """A TestClient with the app singletons patched to fakes.
+# Shared service token used across the auth tests (AP-4, INF-S2).
+TEST_SERVICE_TOKEN = "test-service-token"
 
-    The TestClient is used WITHOUT its context-manager form, so the real
-    lifespan (pgvector connect + ONNX load) never runs. We inject the fakes
-    directly into the module-level singletons the endpoints read.
-    """
-    from fastapi.testclient import TestClient
 
+def _patch_singletons(monkeypatch, fake_embedder, fake_repo, fake_pest_repo) -> None:
+    """Inject fakes into the app module singletons (skips the real lifespan)."""
     from app import main
 
     monkeypatch.setattr(main, "_embedder", fake_embedder)
@@ -221,6 +217,39 @@ def client(fake_embedder, fake_repo, fake_pest_repo, monkeypatch):
     monkeypatch.setattr(main, "_pest_repo", fake_pest_repo)
     monkeypatch.setattr(main, "_vec_conn", _FakeConn())
     monkeypatch.setattr(main, "_model_checksum", "test-checksum")
+    # Configure the shared service token so the app-level auth dependency has a
+    # secret to compare against.
+    monkeypatch.setattr(main.settings, "internal_service_token", TEST_SERVICE_TOKEN)
 
-    # No `with` block -> lifespan is not invoked.
+
+@pytest.fixture
+def client(fake_embedder, fake_repo, fake_pest_repo, monkeypatch):
+    """A TestClient with the app singletons patched to fakes.
+
+    The TestClient is used WITHOUT its context-manager form, so the real
+    lifespan (pgvector connect + ONNX load) never runs. We inject the fakes
+    directly into the module-level singletons the endpoints read. The valid
+    service token is sent by default so the business-endpoint tests are
+    authenticated (AP-4).
+    """
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    _patch_singletons(monkeypatch, fake_embedder, fake_repo, fake_pest_repo)
+    return TestClient(main.app, headers={"Authorization": f"Bearer {TEST_SERVICE_TOKEN}"})
+
+
+@pytest.fixture
+def unauth_client(fake_embedder, fake_repo, fake_pest_repo, monkeypatch):
+    """A TestClient with fakes patched but NO Authorization header.
+
+    Used by the auth negative tests to assert protected endpoints reject
+    unauthenticated callers while probes stay reachable.
+    """
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    _patch_singletons(monkeypatch, fake_embedder, fake_repo, fake_pest_repo)
     return TestClient(main.app)
