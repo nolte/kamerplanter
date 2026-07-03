@@ -2640,7 +2640,8 @@ lifecycle_overrides:
   Chamaedorea elegans: { flowering_strategy: polycarpic }
   Chlorophytum comosum: { flowering_strategy: polycarpic }
   Cichorium intybus: { flowering_strategy: polycarpic }
-  Citrullus lanatus: { flowering_strategy: polycarpic }
+  # Citrullus lanatus: flowering_strategy unset — annual crop, not polycarpic
+  # (the growth_habit=vine rule over-reached; corrected 2026-07).
   Clematis spp.: { flowering_strategy: polycarpic }
   Clivia miniata: { flowering_strategy: polycarpic }
   Codiaeum variegatum: { flowering_strategy: polycarpic }
@@ -2648,7 +2649,7 @@ lifecycle_overrides:
   Cornus mas: { flowering_strategy: polycarpic }
   Crassula ovata: { flowering_strategy: polycarpic }
   Ctenanthe burle-marxii: { flowering_strategy: polycarpic }
-  Cucumis melo: { flowering_strategy: polycarpic }
+  # Cucumis melo: flowering_strategy unset — annual crop, not polycarpic (2026-07).
   Curio rowleyanus: { flowering_strategy: polycarpic }
   Cyclamen persicum: { flowering_strategy: polycarpic }
   Dahlia pinnata: { flowering_strategy: polycarpic }
@@ -2690,7 +2691,7 @@ lifecycle_overrides:
   Lavandula angustifolia: { flowering_strategy: polycarpic }
   Lithops spp.: { flowering_strategy: polycarpic }
   Livistona chinensis: { flowering_strategy: polycarpic }
-  Luffa aegyptiaca: { flowering_strategy: polycarpic }
+  # Luffa aegyptiaca: flowering_strategy unset — annual crop, not polycarpic (2026-07).
   Mammillaria spp.: { flowering_strategy: polycarpic }
   Maranta leuconeura: { flowering_strategy: polycarpic }
   Mentha piperita: { flowering_strategy: polycarpic }
@@ -2705,7 +2706,7 @@ lifecycle_overrides:
   Phalaenopsis hybrida: { flowering_strategy: polycarpic }
   Philodendron hederaceum: { flowering_strategy: polycarpic }
   Pilea peperomioides: { flowering_strategy: polycarpic }
-  Pisum sativum: { flowering_strategy: polycarpic }
+  # Pisum sativum: flowering_strategy unset — annual crop, not polycarpic (2026-07).
   Plectranthus verticillatus: { flowering_strategy: polycarpic }
   Rhipsalis baccifera: { flowering_strategy: polycarpic }
   Rhododendron simsii: { flowering_strategy: polycarpic }

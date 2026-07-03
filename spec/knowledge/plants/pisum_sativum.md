@@ -20,7 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Blühstrategie (flowering strategy) | — (einjährig; keine mehrjährige Blühstrategie) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral (tagneutral -- moderne Garten-/Fruehsorten wie 'Kelvedon Wonder', 'Norli', 'Alaska' tragen das rezessive sn-Allel und sind photoperioden-insensitiv; die Blueteninduktion ist temperatur-, nicht tageslaengengesteuert. Die Wildform Pisum sativum ssp. elatius/humile ist obligater Langtag, doch dieser Bezug wurde bei den hier gefuehrten Kultursorten herausgezuechtet.) | `lifecycle_configs.photoperiod_type` |
 | Photosynthese-Typ (photosynthesis type) | c3 (C3-Leguminose) | `species.photosynthesis_type` |

@@ -20,7 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
-| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Blühstrategie (flowering strategy) | — (einjährig; keine mehrjährige Blühstrategie) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, degC) | 10 (Wuchs-/Phaenologie-Basis fuer Blattentwicklung; bestaetigt durch USDA-ARS und Annals of Botany) | `species.base_temp` |
