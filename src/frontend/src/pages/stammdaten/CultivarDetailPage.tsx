@@ -23,8 +23,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
-import { useOriginProtection } from '@/hooks/useOriginProtection';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -84,7 +84,7 @@ export default function CultivarDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // TODO: REQ-001 v5.0 origin field — backend pending; cultivars currently have no origin field.
-  const cultivarOrigin = (cultivar as unknown as { origin?: DataOrigin } | null)?.origin;
+  const cultivarOrigin = resolveOrigin(cultivar);
   const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: cultivarOrigin });
 
   const {

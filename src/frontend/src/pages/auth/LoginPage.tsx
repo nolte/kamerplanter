@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -17,7 +17,7 @@ import Tooltip from '@mui/material/Tooltip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginLocal, clearError } from '@/store/slices/authSlice';
 import { getOAuthProviders } from '@/api/endpoints/auth';
-import type { OAuthProviderListItem } from '@/api/types';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -28,11 +28,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [oauthProviders, setOauthProviders] = useState<OAuthProviderListItem[]>([]);
+
+  // AP-12 (FE-L3): load the optional OAuth providers with explicit error state
+  // instead of a silent `.catch(() => {})`, so a failed load surfaces a hint
+  // rather than looking identical to "no providers configured".
+  const loadOAuthProviders = useCallback(() => getOAuthProviders(), []);
+  const { options: oauthProviders, error: oauthError } = useAsyncOptions(loadOAuthProviders);
 
   useEffect(() => {
     dispatch(clearError());
-    getOAuthProviders().then(setOauthProviders).catch(() => {});
   }, [dispatch]);
 
   useEffect(() => {
@@ -122,13 +126,19 @@ export default function LoginPage() {
                   fullWidth
                   sx={{ mb: 1 }}
                   onClick={() => {
-                    window.location.href = `/api/v1/auth/oauth/${p.slug}`;
+                    window.location.href = `/api/v1/auth/oauth/${encodeURIComponent(p.slug)}`;
                   }}
                 >
                   {t('pages.auth.loginWith', { provider: p.display_name })}
                 </Button>
               ))}
             </>
+          )}
+
+          {oauthError && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {t('pages.auth.oauthProvidersLoadFailed')}
+            </Alert>
           )}
         </CardContent>
       </Card>

@@ -33,8 +33,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
-import { useOriginProtection } from '@/hooks/useOriginProtection';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -606,7 +606,7 @@ export default function NutrientPlanDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // TODO: REQ-001 v5.0 origin field — backend pending; nutrient plans currently have no origin field.
-  const planOrigin = (plan as unknown as { origin?: DataOrigin } | null)?.origin;
+  const planOrigin = resolveOrigin(plan);
   const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({ origin: planOrigin });
 
   // Phase entry dialog state
@@ -1049,18 +1049,22 @@ export default function NutrientPlanDetailPage() {
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {/* UI-NFR-018 R-001: Origin chip in meta row */}
           <OriginChip origin={planOrigin} />
-          {/* UI-NFR-018 R-015: copy-as-template for system plans */}
+          {/* UI-NFR-018 R-015: copy-as-template for system plans.
+              AP-12 (FE-L1): the copy endpoint is not implemented yet, so this is an
+              honestly disabled button with an explanatory tooltip — never a dummy
+              button whose only effect is an info toast (user deception). */}
           {canCopyAsTemplate && (
-            <Button
-              variant="outlined"
-              onClick={() => {
-                // TODO: implement plan copy endpoint; placeholder until backend ready
-                notification.info(t('common.origin.copyAsTemplate'));
-              }}
-              data-testid="copy-as-template-button"
-            >
-              {t('common.origin.copyAsTemplate')}
-            </Button>
+            <Tooltip title={t('common.origin.copyAsTemplateUnavailable')}>
+              <span>
+                <Button
+                  variant="outlined"
+                  disabled
+                  data-testid="copy-as-template-button"
+                >
+                  {t('common.origin.copyAsTemplate')}
+                </Button>
+              </span>
+            </Tooltip>
           )}
           {/* UI-NFR-018 R-012: hide delete button for system data */}
           {!isDeletionProtected && (

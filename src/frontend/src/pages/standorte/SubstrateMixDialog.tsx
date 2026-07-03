@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -23,6 +23,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import DialogActions from '@mui/material/DialogActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as api from '@/api/endpoints/substrates';
 import type { Substrate, MixComponent } from '@/api/types';
 
@@ -45,7 +46,11 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
   const { handleError } = useApiError();
   const lang = i18n.language?.startsWith('en') ? 'en' : 'de';
 
-  const [substrates, setSubstrates] = useState<Substrate[]>([]);
+  // AP-12 (FE-L3): load substrates with explicit error state instead of a silent catch.
+  const loadSubstrates = useCallback(() => api.listSubstrates(0, 200), []);
+  const { options: substrates, error: substratesError } = useAsyncOptions(loadSubstrates, {
+    enabled: open,
+  });
   const [nameDe, setNameDe] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [rows, setRows] = useState<MixRow[]>([
@@ -58,7 +63,6 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
 
   useEffect(() => {
     if (open) {
-      api.listSubstrates(0, 200).then(setSubstrates).catch(() => {});
       setNameDe('');
       setNameEn('');
       setRows([
@@ -179,6 +183,12 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
             </Button>
           </Box>
         </Box>
+
+        {substratesError && (
+          <Alert severity="warning" sx={{ mb: 1 }}>
+            {t('errors.optionsLoadFailed')}
+          </Alert>
+        )}
 
         {rows.map((row, index) => (
           <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>

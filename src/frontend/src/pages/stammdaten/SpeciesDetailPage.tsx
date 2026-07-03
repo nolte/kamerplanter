@@ -44,8 +44,8 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
-import { useOriginProtection } from '@/hooks/useOriginProtection';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -311,7 +311,7 @@ export default function SpeciesDetailPage() {
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
   // TODO: REQ-001 v5.0 origin field — backend pending; treat tenant as default until implemented.
-  const speciesOrigin = (current as unknown as { origin?: DataOrigin } | null)?.origin;
+  const speciesOrigin = resolveOrigin(current);
   const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: speciesOrigin });
 
   const {

@@ -564,18 +564,22 @@ export default function WorkflowDetailPage() {
         meta={<OriginChip isSystem={workflow.is_system} />}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {/* UI-NFR-018 R-015: copy-as-template for system workflows */}
+            {/* UI-NFR-018 R-015: copy-as-template for system workflows.
+                AP-12 (FE-L1): the copy endpoint is not implemented yet, so this
+                is an honestly disabled button with an explanatory tooltip — never
+                a dummy button whose only effect is an info toast (user deception). */}
             {canCopyAsTemplate && (
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  // TODO: implement workflow copy endpoint; placeholder until backend ready
-                  notification.info(t('common.origin.copyAsTemplate'));
-                }}
-                data-testid="copy-workflow-as-template-button"
-              >
-                {t('common.origin.copyAsTemplate')}
-              </Button>
+              <Tooltip title={t('common.origin.copyAsTemplateUnavailable')}>
+                <span>
+                  <Button
+                    variant="outlined"
+                    disabled
+                    data-testid="copy-workflow-as-template-button"
+                  >
+                    {t('common.origin.copyAsTemplate')}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </Box>
         }

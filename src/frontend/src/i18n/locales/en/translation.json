@@ -297,6 +297,7 @@
       "tooltipImport": "Added via CSV import. Can be edited and deleted.",
       "filterLabel": "Origin",
       "copyAsTemplate": "Copy as template",
+      "copyAsTemplateUnavailable": "Copying as a template is coming soon.",
       "readOnlyHint": "System data cannot be edited."
     },
     "glossary": {
@@ -378,7 +379,8 @@
     "validation": "Please check your input.",
     "validationWithDetail": "Validation error: {{detail}}",
     "duplicate": "An entry with this name already exists.",
-    "unknown": "An unknown error occurred."
+    "unknown": "An unknown error occurred.",
+    "optionsLoadFailed": "Selection options could not be loaded."
   },
   "entities": {
     "botanicalFamily": "Botanical Family",
@@ -842,6 +844,7 @@
       "forgotPassword": "Forgot password?",
       "or": "or",
       "loginWith": "Log in with {{provider}}",
+      "oauthProvidersLoadFailed": "Alternative sign-in options (e.g. Google) could not be loaded. You can still sign in with email and password.",
       "passwordHelp": "At least 10 characters",
       "passwordMismatch": "Passwords do not match",
       "registrationSuccess": "Registration successful! Please check your email.",
@@ -988,6 +991,16 @@
       "oauthNoToken": "No access token received.",
       "oauthProfileError": "Could not load user profile.",
       "oauthProcessing": "Processing login…",
+      "oauthErrorTitle": "Sign-in failed",
+      "backToLogin": "Back to login",
+      "oauthErrors": {
+        "accessDenied": "Sign-in was cancelled at the provider.",
+        "invalidState": "The sign-in session has expired. Please try again.",
+        "providerError": "The provider reported an error. Please try again later.",
+        "accountDisabled": "This account is disabled.",
+        "sessionFailed": "Sign-in could not be completed. Please sign in again.",
+        "generic": "An error occurred during sign-in."
+      },
       "profileSection": "Personal Details",
       "profileSectionDesc": "Display name and email address of your account.",
       "regionSection": "Language & Region",

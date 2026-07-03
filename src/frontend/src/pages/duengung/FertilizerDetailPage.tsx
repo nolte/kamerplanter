@@ -37,8 +37,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
-import { useOriginProtection } from '@/hooks/useOriginProtection';
+import OriginChip from '@/components/common/OriginChip';
+import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -214,7 +214,7 @@ export default function FertilizerDetailPage() {
   const [stockSaving, setStockSaving] = useState(false);
   const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
   // TODO: REQ-001 v5.0 origin field — backend pending; fertilizers currently have no origin field.
-  const fertilizerOrigin = (fertilizer as unknown as { origin?: DataOrigin } | null)?.origin;
+  const fertilizerOrigin = resolveOrigin(fertilizer);
   const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: fertilizerOrigin });
 
   const stocksTableState = useTableLocalState({ defaultSort: { column: 'purchase_date', direction: 'desc' } });

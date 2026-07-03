@@ -140,6 +140,18 @@ describe('SubstrateMixDialog', () => {
     });
   });
 
+  it('shows a warning when the substrate options fail to load (FE-L3)', async () => {
+    server.use(
+      http.get('/api/v1/substrates', () => HttpResponse.json({ detail: 'boom' }, { status: 500 })),
+    );
+    renderWithProviders(<SubstrateMixDialog open onClose={() => {}} onCreated={() => {}} />);
+
+    await screen.findByTestId('substrate-mix-dialog');
+    await waitFor(() => {
+      expect(screen.getByText('Auswahloptionen konnten nicht geladen werden.')).toBeTruthy();
+    });
+  });
+
   it('keeps preview disabled when the same substrate is chosen twice', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SubstrateMixDialog open onClose={() => {}} onCreated={() => {}} />);
