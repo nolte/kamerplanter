@@ -49,7 +49,9 @@
 | Direktsaat nach letztem Frost (Tage) | — | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | — | `species.harvest_months` |
-| Blütemonate | 6, 7, 8, 9 | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07-03 — Hauptblütezeit Spätsommer-Herbst (nicht Jun-Sep), siehe Quellen 15-18 -->
+| Blütemonate | 8, 9, 10 (Hauptblüte Spätsommer–Herbst; sporadische Blüte ganzjährig bei viel Licht möglich, War: 6, 7, 8, 9) | `species.bloom_months` |
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
 
 ### 1.3 Vermehrung
 
@@ -445,3 +447,9 @@ Silver Glory,Ceropegia woodii,—,—,silver_leaf;compact,—,—,open_pollinate
 13. [Planet Desert – String of Hearts Care Guide](https://planetdesert.com/blogs/news/string-of-hearts-plant-care-growing-guide-types-ceropegia-woodii) — helles indirektes Licht, keine direkte Sonne, Schattenverträglichkeit
 14. [Healthy Houseplants – String of Hearts Plant Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/string-of-hearts-plant-care-guide/) — Salz-/Überdüngungsempfindlichkeit (Blattbräunung), Schwachzehrer, pH
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor Audit 2026-07-03 (Lebenszyklus/Phasen-Verifikation §1.1/§1.2) -->
+15. [Succupedia – Ceropegia woodii Pflanzenportrait](https://succupedia.com/ceropegia-woodii/) — Hauptblütezeit Spätsommer bis Herbst; Ruhezeit Okt–Mär sehr sparsam gießen
+16. [PlantCareToday – Ceropegia Woodii](https://plantcaretoday.com/ceropegia-woodii.html) — Blüte "most likely ... during the summer months and into the autumn"; Winterruhe Nov–Frühjahr kühl halten; Vermehrung Stecklinge + Brutknöllchen
+17. [UK Houseplants – Chain of Hearts Ceropegia woodii](https://www.ukhouseplants.com/plants/chain-of-hearts-ceropegia-woodii) — Winterruhe "vital for flower growth in the following season"; Blüte Sommer bis Frühwinter; Hardiness H1b (Zone 12), frostempfindlich
+18. [Zimmerpflanzenlexikon.info – Ceropegia woodii](https://www.zimmerpflanzenlexikon.info/pflanzen/ceropegia-woodii) — Ruhezeit November–März wenig gießen/nicht düngen; Vermehrung Stecklinge + Brutknöllchen
+<!-- /Quelle: growing-phase-auditor Audit 2026-07-03 -->
