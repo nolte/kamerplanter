@@ -193,6 +193,9 @@
 | Akklimatisierung → Vegetativ | time_based | 14–21 Tage | Neue Blätter sichtbar |
 | Vegetativ → Blüteinduktion | event_based | — | Tageslänge unter 10 Stunden (Anfang Oktober) |
 | Blüteinduktion → Blüte | time_based | 42–63 Tage | Hochblätter färben sich |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Blüte/Hochblätter → Vegetativ | event_based | — | Rückschnitt nach Verblühen (Feb–März, auf ~15 cm; siehe §1.5/§4.3); Neuaustrieb ab April (Umtopfen, Düngung startet) — schließt den mehrjährig-polykarpen Blühzyklus für die nächste Saison |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -373,3 +376,7 @@ Euphorbia pulcherrima,Weihnachtsstern;Poinsettie;Christmas Star,Euphorbiaceae,Eu
 13. [HGTV – Poinsettia Care Through Winter and Beyond](https://www.hgtv.com/gardening/flowers-and-plants/poinsettia-care-through-winter-and-beyond) — Überwinterungstemperatur, frostfrei
 14. [Oklahoma State University Extension – Poinsettia Care](https://extension.okstate.edu/fact-sheets/poinsettia-care) — Überwinterung, Rückschnitt, Standort
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [Purdue University Extension – Reflowering Poinsettias](https://www.purdue.edu/hla/sites/yardandgarden/reflowering-poinsettias/) — Jährlicher Rückschnitt-/Wiederaustrieb-/Kurztag-Zyklus (Phasenrücksprung Blüte → Vegetativ)
+16. [University of Maryland Extension – Poinsettias](https://extension.umd.edu/resource/poinsettias) — Rückschnitt April/Mai, Neuaustrieb, Pinzieren Juli, Kurztag-Induktion ab Oktober
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -240,20 +240,21 @@ Schwachzehrer. Überdüngung führt zu Blattrandnekrosen und Salzakkumulation. N
 | Ganzjährig | Blätter reinigen | Staub mit feuchtem Tuch abwischen | niedrig |
 
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- growing-phase-auditor 2026-07-03: winter_action/spring_action korrigiert (move_indoors/move_outdoors -> none/entfaellt), da Pflanze laut species.balcony_suitable=no und Hinweistext nie ins Freie kommt (Konvention curio_rowleyanus.md, drachenpalmen.md); Konfidenz GESICHERT (interne Konsistenz + Bestandsquellen Almanac/Patch Plants/Smart Garden Guide) -->
 ### 4.3 Überwinterung
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Winterhärte-Bewertung (hardiness rating) | frost_free | `overwintering_profiles.hardiness_rating` |
-| Winter-Maßnahme (winter action) | move_indoors | `overwintering_profiles.winter_action` |
-| Winter-Maßnahme Monat | 10 (Okt; bzw. ganzjährig drinnen) | `overwintering_profiles.winter_action_month` |
-| Frühlings-Maßnahme (spring action) | move_outdoors | `overwintering_profiles.spring_action` |
-| Frühlings-Maßnahme Monat | — (nicht für Außenstellung empfohlen; ganzjährig Zimmerkultur) | `overwintering_profiles.spring_action_month` |
+| Winter-Maßnahme (winter action) | none (Pflanze bleibt ganzjährig drinnen; keine Umstellung von draußen nach drinnen, da nie im Freien) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Okt; Merker für Pflegeumstellung auf Winterregime) | `overwintering_profiles.winter_action_month` |
+| Frühlings-Maßnahme (spring action) | Entfällt (keine Umstellung, da ganzjährig Zimmerkultur ohne Freiland-/Balkonstellung) | `overwintering_profiles.spring_action` |
+| Frühlings-Maßnahme Monat | Entfällt | `overwintering_profiles.spring_action_month` |
 | Winterquartier Temperatur (°C) | 15–22 (nie unter 15 °C; optimal 18–24 °C) | `overwintering_profiles.winter_quarter_temp_c` |
 | Winterquartier Licht | hell, indirekt; kein Direktsonnenlicht; ggf. Pflanzenlicht bei kurzen Tagen | `overwintering_profiles.winter_quarter_light` |
 | Winterquartier Gießen | reduziert (Intervall 10–14 Tage); Substrat leicht antrocknen lassen, nie austrocknen | `overwintering_profiles.winter_quarter_watering` |
 
-**Hinweis Überwinterung:** *G. makoyana* ist nicht frosthart (frost-tender) und wird ganzjährig frostfrei (frost_free) als Zimmerpflanze kultiviert — keine Freiland-/Kübel-Auslagerung im Sommer empfohlen, da Zugluft, direkte Sonne und Temperaturschwankungen schädlich sind. Mindesttemperatur 15 °C; unter ~16 °C drohen Blattschäden/Blattverlust. Im Winter weiterhin hohe Luftfeuchte (≥ 60 %) sicherstellen, besonders bei trockener Heizungsluft.
+**Hinweis Überwinterung:** *G. makoyana* ist nicht frosthart (frost-tender) und wird ganzjährig frostfrei (frost_free) als reine Zimmerpflanze kultiviert — keine Freiland-/Kübel-/Balkon-Auslagerung im Sommer empfohlen (`species.balcony_suitable: no`), da Zugluft, direkte Sonne und Temperaturschwankungen schädlich sind. Da die Pflanze nie ins Freie kommt, entfällt sowohl eine "Einräum"- als auch eine "Rausstell"-Aktion; `winter_action` ist daher `none` (analog zur Konvention bei anderen reinen Zimmerpflanzen wie *Curio rowleyanus* und *Dracaena* spp. in diesem Steckbrief-Bestand) und `spring_action` bleibt leer. Mindesttemperatur 15 °C; unter ~16 °C drohen Blattschäden/Blattverlust. Im Winter weiterhin hohe Luftfeuchte (≥ 60 %) sicherstellen, besonders bei trockener Heizungsluft.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
