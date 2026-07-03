@@ -42,15 +42,15 @@
 |------|------|---------|
 | Vorkultur (Wochen vor letztem Frost) | 8–10 (Vorkultur Feb–Mär; Kältebehandlung (Stratifikation) 2–3 Wochen bei 5°C fördert Keimung) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat nach letztem Frost (Tage) | 14 | `species.sowing_outdoor_after_last_frost_days` |
-| Direktsaat-Monate | 5, 6 (März bis Juli im Freiland möglich) | `species.direct_sow_months` |
-| Erntemonate | 7, 8, 9, 10 (Blüten; Wurzeln erst ab 3. Jahr ernten) | `species.harvest_months` |
-| Blütemonate | 7, 8, 9, 10 | `species.bloom_months` |
+| Direktsaat-Monate | 5, 6 (Direktsaat ab Mai nach Frostende; keine Stratifikation zwingend erforderlich, fördert aber die Keimung — Korrektur des früheren, unbelegten Zusatzes „März bis Juli", der weder mit dem Zahlenwert noch mit den Quellen übereinstimmte) <!-- Quelle: growing-phase-auditor 2026-07 --><!-- /Quelle: growing-phase-auditor 2026-07 --> | `species.direct_sow_months` |
+| Erntemonate | 6, 7, 8, 9, 10 (Blüten; Wurzeln erst ab 3. Jahr ernten) <!-- Quelle: growing-phase-auditor 2026-07 --> (Korrektur: Blühbeginn und damit Blütenernte bereits ab Juni, nicht erst Juli — siehe Blütemonate) <!-- /Quelle: growing-phase-auditor 2026-07 --> | `species.harvest_months` |
+| Blütemonate | 6, 7, 8, 9, 10 <!-- Quelle: growing-phase-auditor 2026-07 --> (Korrektur: War zuvor "7,8,9,10"; Blühbeginn liegt bei etablierten Pflanzen (ab 2. Standjahr) bereits im Juni, nicht erst im Juli — Missouri Botanical Garden „June to August", NC State Extension „June to August / early summer through mid-fall", Kiepenkerl „durchgehend ab Juni bis Herbst", hausgarten.net „Juni bis September" stimmen überein. RHS „midsummer to autumn" und Compo „Juli bis September" sind damit vereinbar (midsummer ≈ Ende Juni). Hinweis: Die Direktsaat (Mai/Juni, Jahr 1) überschneidet sich kalendarisch mit dem Junibeginn der Blüte etablierter Pflanzen — das ist bei dieser mehrjährigen Staude kein Widerspruch (Regel-3-Ausnahme): frisch gesäte Jungpflanzen blühen i. d. R. erst im 2. Jahr, während im selben Kalendermonat bereits ältere Bestandspflanzen blühen.) <!-- /Quelle: growing-phase-auditor 2026-07 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | seed, division | `species.propagation_methods` |
+| Vermehrungsmethoden | seed, division, cutting (Wurzelschnittlinge, Spätherbst–Frühwinter bzw. ab Ende Februar; Teilung Frühjahr/Herbst alle 3–4 Jahre) <!-- Quelle: growing-phase-auditor 2026-07 --> (Korrektur: Ergänzung von „cutting" (Wurzelschnittlinge) — fehlte zuvor, obwohl neben Aussaat und Teilung die dritte gängige Vermehrungsmethode für E. purpurea. Kein eigener `root_cutting`-Enum-Wert im KA-Modell vorhanden, daher generisches `cutting` gemäß `PropagationMethod`-Enum.) <!-- /Quelle: growing-phase-auditor 2026-07 --> | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
 ### 1.4 Toxizität & Allergene
@@ -278,7 +278,7 @@ Quellen: RHS Aphid Predators; Koppert / UC IPM (Cryptolaemus montrouzieri); Ever
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months,pruning_type,pruning_months
-Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asteraceae,Echinacea,perennial,day_neutral,herb,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Nordamerika, Prärie",limited,25,30,120,60,45,no,limited,false,false,light_feeder,hardy,"7;8;9;10","7;8;9;10",spring_pruning,"3"
+Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asteraceae,Echinacea,perennial,day_neutral,herb,fibrous,"3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Nordamerika, Prärie",limited,25,30,120,60,45,no,limited,false,false,light_feeder,hardy,"6;7;8;9;10","6;7;8;9;10",spring_pruning,"3"
 ```
 
 ---
@@ -301,4 +301,11 @@ Echinacea purpurea,"Purpur-Sonnenhut;Roter Sonnenhut;Purple Coneflower",Asterace
 13. [Old Farmer's Almanac — Coneflowers](https://www.almanac.com/plant/coneflowers) — Lebensdauer, Pflege, Wurzeltiefe
 14. [RHS — Aphid Predators](https://www.rhs.org.uk/biodiversity/aphid-predators) — Nützlinge gegen Blattläuse
 15. [Koppert / UC IPM — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Mehlkäfer-Destroyer, Ausbringrate gegen Schmierläuse
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+16. [Kiepenkerl — Purpur-Sonnenhut Kulturanleitung](https://www.kiepenkerl.de/kulturanleitungen/purpur-sonnenhut/) — Aussaat, Blühbeginn ab Juni durchgehend bis Herbst
+17. [Hausgarten.net — Roter Sonnenhut Pflege](https://www.hausgarten.net/pflanzen/staudenlexikon/roter-sonnenhut-pflege.html) — Blütezeit Juni–September, Vermehrung (Teilung, Aussaat, Wurzelschnittlinge)
+18. [RHS — Echinacea purpurea Vermehrungshinweis](https://www.rhs.org.uk/plants/41568/echinacea-purpurea/details) — „Propagate by division in spring or autumn or by root cuttings from late autumn to early winter" (Wurzelschnittlinge)
+19. [NC State Extension — Echinacea purpurea Plant Toolbox, Vermehrungsabschnitt](https://plants.ces.ncsu.edu/plants/echinacea-purpurea/) — Root Cutting als anerkannte Vermehrungsmethode
+20. [Compo Purpur-Sonnenhut](https://www.compo.de/ratgeber/pflanzen/balkon-kuebelpflanzen/purpur-sonnenhut) — Direktsaat April–Mai (bereits als Quelle 2 gelistet, hier für Direktsaat-Zeitfenster referenziert)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

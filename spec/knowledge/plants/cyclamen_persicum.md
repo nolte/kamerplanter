@@ -30,8 +30,8 @@
 | Dormanz erforderlich | true (Sommerdormanz) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 9a, 9b, 10a, 10b, 11a | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhaerte-Detail | Halbfrosthart — Knollen überstehen kurze leichte Fröste bis -5°C. Mindesttemperatur 5°C. Bevorzugt kühle Temperaturen (10–18°C) in der Blütezeit. | `species.hardiness_detail` |
+| Frostempfindlichkeit | tender <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war half_hardy) --> | `species.frost_sensitivity` |
+| Winterhaerte-Detail | Frostempfindlich (tender) — nicht winterhart, verträgt keinen dauerhaften Frost; laut NC State Extension und Missouri Botanical Garden nur bis USDA Zone 9 kultivierbar (schwere Fröste töten die Pflanze). Kältestress setzt bereits unter 4°C (40°F) ein (verlangsamtes Wachstum, Blütenausfall, welkes Laub). Mindesttemperatur im Kübel 5°C. Bevorzugt kühle Temperaturen (10–18°C) in der Blütezeit. <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war "Halbfrosthart... bis -5°C") --> | `species.hardiness_detail` |
 | Heimat | Mittelmeerraum, Naher Osten (Türkei, Israel) — felsige Hänge | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -329,3 +329,9 @@ Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen
 19. [Grokipedia — Compensation point](https://grokipedia.com/page/Compensation_point) — Lichtkompensationspunkt schattentoleranter Unterholz-Kräuter (10–50 µmol/m²/s)
 20. [The Practical Planter — Soil and Fertilizer for Cyclamen](https://thepracticalplanter.com/soil-and-fertilizer-for-cyclamen/) — Boden-pH-Vorzug 5.5–6.5
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+21. [NC State Extension Gardener Plant Toolbox — Cyclamen persicum (species-specific)](https://plants.ces.ncsu.edu/plants/cyclamen-persicum/) — "frost tender", nur winterhart USDA Zone 9–11, Basis der `frost_sensitivity: tender`-Korrektur
+22. [Cafe Planta — Cyclamen Cold Tolerance: What Temperature Is Too Cold?](https://cafeplanta.com/blogs/resources/cyclamen-cold-tolerance) — Kältestress ab < 4 °C (40 °F), Frost besonders schädlich
+23. [Cyclamen Society — FAQs](https://www.cyclamen.org/faqs/) — C. persicum "not completely frost hardy", muss bei hartem Winter ins Haus geholt werden
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
