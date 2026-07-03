@@ -19,9 +19,11 @@
 | Ordnung | Solanales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
-| Lebenszyklus | annual (in Mitteleuropa); perennial (Tropen) | `lifecycle_configs.cycle_type` |
-| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Lebenszyklus (botanisch) | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual (in Mitteleuropa); perennial (Tropen)' auf botanisch korrektes 'perennial'; siehe Quellen 19-22 -->
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Aubergine ist botanisch eine kurzlebige/zaertliche Staude (tender perennial) in frostfreien Klimazonen, wird in Mitteleuropa aber wegen Frostempfindlichkeit einjaehrig kultiviert. cultivation_cycle_type ueberschreibt die botanische cycle_type fuer Ueberwinterungs- und Saisonende-Logik (grown_as_annual = true). Siehe Quellen 19-22. -->
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -526,3 +528,9 @@ Diamond F1,Solanum melongena,65–75,dark_purple;hybrid;disease_tolerant,hybrid 
 17. UF/IFAS EDIS HS796/CV216 — Nutrient Solution Formulation for Hydroponic Tomatoes (Mikronaehrstoff-Richtwerte Mn/Zn/Cu/Mo; auf Solanaceae-Fruchtgemuese uebertragbar) — https://edis.ifas.ufl.edu/publication/CV216
 18. Gardener's Path — Tips for Pollinating Eggplant by Hand (selbstfruchtbar, zwittrige Blueten; Vibrationsbestaeubung) — https://gardenerspath.com/plants/vegetables/hand-pollinate-eggplant/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+19. NC State Extension Gardener Plant Toolbox — Solanum melongena (Aubergine, Brinjal, Eggplant): "Annual or short-lived perennial plant that is very sensitive to cold temperatures"; "In North Carolina, eggplant is considered an annual" — https://plants.ces.ncsu.edu/plants/solanum-melongena/
+20. PFAF — Solanum melongena (ergaenzender Zitatbeleg zu Quelle 2): "a PERENNIAL growing to 1m... usually cultivated as an annual... A short-lived perennial plant"; "is not frost-hardy, though it can be grown as an annual in temperate zones" — https://pfaf.org/user/Plant.aspx?LatinName=Solanum+melongena
+21. Missouri Botanical Garden — Eggplant Factsheet: Eggplants "though perennial in warm areas, typically ... grown as warm-season annuals" in temperate climates — https://www.missouribotanicalgarden.org/Portals/0/Gardening/Gardening%20Help/Factsheets/Eggplant15.pdf
+22. RHS — Solanum melongena (ergaenzender Zitatbeleg zu Quelle 1): "In the wild it is perennial, but in the UK it is treated as an annual as it isn't hardy" — https://www.rhs.org.uk/plants/105486/solanum-melongena/details
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

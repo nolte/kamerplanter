@@ -50,7 +50,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt (Ableger-Vermehrung standard) | `species.direct_sow_months` |
 | Erntemonate | Ganzjährig (Blätter nach Bedarf) | `species.harvest_months` |
-| Blütemonate | 4, 5, 6, 7 (selten Indoor, nur bei sehr hellen Standorten) | `species.bloom_months` |
+| Blütemonate | 3, 4, 5 (selten Indoor, nur bei sehr hellen Standorten; vereinzelt bereits ab Februar oder bis Juni) <!-- Quelle: growing-phase-auditor 2026-07 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -359,3 +359,10 @@ Aloe vera,"Echte Aloe;Aloe vera;True Aloe;Barbados Aloe",Asphodelaceae,Aloe,pere
 15. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Nützling gegen Spinnmilben, Ausbringrate
 16. [Cornell NYS IPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Etablierung/Einsatz Raubmilbe gegen Spinnmilben
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 (Korrektur Blütemonate) -->
+17. [gartenjournal.net — Aloe Vera Blütezeit](https://www.gartenjournal.net/aloe-vera-bluetezeit-2) — Blüte meist zeitiges Frühjahr März–Mai, selten bereits Februar
+18. [florage.de — Aloe Vera Blüten](https://florage.de/blogs/pflanzenblog/aloe-vera-bluten) — Blütezeit März bis Juni
+19. [gartengemeinschaft.de — Aloe Vera Blütezeit](https://www.gartengemeinschaft.de/aloe-vera-wann-ist-die-bluetezeit/) — Blüte ab März bis April, selten bereits Februar
+20. [aloeveraland.at — Blüten & Blütenstände der Aloen](https://www.aloeveraland.at/de/blueten-bluetenstaende-aloen) — Blütezeit März bis Juni
+<!-- /Quelle: growing-phase-auditor 2026-07 (Korrektur Blütemonate) -->

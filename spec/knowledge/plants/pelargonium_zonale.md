@@ -54,7 +54,7 @@
 | Vorkultur (Wochen vor letztem Frost) | 10–14 (Aussaat im Januar/Februar für Balkon-Saison) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 4, 5, 6, 7, 8, 9, 10 (als Zimmerpflanze ganzjährig möglich) | `species.bloom_months` |
+| Blütemonate | 5, 6, 7, 8, 9, 10 <!-- Quelle: growing-phase-auditor 2026-07 — korrigiert von "4, 5, 6, 7, 8, 9, 10 (als Zimmerpflanze ganzjährig möglich)": 4/4 Quellen bestätigen Blüte Mai–Oktober für Balkon-/Beetkultur (primärer Anbaukontext, cultivation_cycle_type: annual); die pauschale "ganzjährig"-Angabe für Zimmerkultur war durch keine der Quellen belegt und widersprach ihnen --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -132,7 +132,9 @@
 
 ### 2.2 Phasen-Anforderungsprofile
 
-#### Phase: Blüte/Wachstum (März–Oktober)
+#### Phase: Blüte/Wachstum (Mai–Oktober)
+<!-- Quelle: growing-phase-auditor 2026-07 — korrigiert von "März–Oktober": Phasenüberschrift an korrigierte Blütemonate (§1.2, Mai–Okt) angeglichen; deckt sich mit angegebener Phasendauer 180–210 Tage (Mai–Okt ≈ 184–214 Tage, März–Okt ≈ 245 Tage passte nicht) -->
+
 
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
@@ -330,3 +332,7 @@ Pelargonium zonale,"Zimmerpelargonie;Zonale Geranie;Stehende Geranie;Zonal Geran
 17. [Koppert — Aphidius colemani Ausbringrate (0.25–4/m²)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling Blattläuse
 18. [Phytoseiulus persimilis biological control on ivy geranium (ScienceDirect S104996440300183X) + Sound Horticulture (10–32/m²)](https://soundhorticulture.com/products/phytoseiulus-persimilis) — Nützling Spinnmilbe
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+19. [Garten-Land Wohlhüter — Pelargonium zonale](https://www.garten-land.de/pflanzen/beet-balkon/pelargonium-zonale) — Blütezeit Mai–Oktober
+20. [Hauenstein AG — Geranie/Pelargonium](https://www.hauenstein-rafz.ch/de/pflanzenwelt/pflanzenportrait/sommerflor/Geranie-Pelargonium.php) — Blütezeit Mai–Oktober, Überwinterung ~10 °C
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -124,7 +124,7 @@
 |-------|-------------|-------------|----------|---------------|----------------|
 | Aktives Wachstum (Frühling/Sommer) | 150–180 | 1 | false | false | medium |
 | Kühlphase / Knospenruhe (Herbst) | 45–60 | 2 | false | false | medium |
-| Blüte (Winter/Frühjahr) | 60–90 | 3 | true | false | medium |
+| Blüte (Frühjahr/Sommer) | 60–90 | 3 | true | false | medium |
 
 ### 2.2 Phasen-Anforderungsprofile
 

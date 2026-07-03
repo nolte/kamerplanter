@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-03
-> **Quellen:** ASPCA, Haifa Group, ICL, Gardenia.net, Plantura, fryd.app, Hortipendium, NCSU Extension, Old Farmer's Almanac, Mein schoener Garten, Gartenjournal, FAO 56/29, ScienceDirect, BMC Plant Biology, PMC, Clemson HGIC, PSU Extension, ASHS (Erweiterung 2026-06)
+> **Quellen:** ASPCA, Haifa Group, ICL, Gardenia.net, Plantura, fryd.app, Hortipendium, NCSU Extension, Old Farmer's Almanac, Mein schoener Garten, Gartenjournal, FAO 56/29, ScienceDirect, BMC Plant Biology, PMC, Clemson HGIC, PSU Extension, ASHS (Erweiterung 2026-06), RHS <!-- Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -19,9 +19,11 @@
 | Ordnung | Solanales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
-| Lebenszyklus | annual (in Mitteleuropa; in Tropen kurzlebig perennial) | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial (zaertliche/kurzlebige, z.T. verholzende Staude -- "tender/woody perennial"; in Mitteleuropa wegen Frostempfindlichkeit einjaehrig kultiviert, siehe cultivation_cycle_type) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual' auf botanisch korrektes 'perennial'; 3/3 Quellen (RHS, NCSU Extension, Clemson HGIC) bestaetigen "tender/woody perennial, grown as annual"; siehe Quellen 9, 16, 23. -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- cultivation_cycle_type ueberschreibt die botanische cycle_type fuer Ueberwinterungs-/Saisonende-Logik (grown_as_annual = true); harmonisiert mit §4.3 (Ueberwinterung), das die kurzlebig-mehrjaehrige Natur bereits korrekt beschrieb. -->
 | Photoperiode | day_neutral (fakultativ; Fruchtansatz nicht streng taglaengenabhaengig, aber kurze Tage koennen Bluete beschleunigen) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 (Calvin-Zyklus, kein C4-/CAM-Mechanismus; typisch fuer Solanaceae) | `species.photosynthesis_type` |
@@ -563,3 +565,5 @@ Snackpaprika (Mini),Capsicum annuum,,,compact;high_yield;early_maturing,60,,f1_h
 21. Forwardplant / Pepper Geek -- Sunlight requirement peppers (full_sun, 6--8 h): https://peppergeek.com/how-much-sun-do-peppers-need/
 22. ASHS -- Far-red Fraction metric / daylight FR/(R+FR) ~0.5: https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+23. RHS -- Capsicum annuum (sweet pepper): "a woody perennial but is almost always grown as an annual"; H1C-Einstufung (frostempfindlich, nur Sommer im Freien): https://www.rhs.org.uk/plants/71018/capsicum-annuum/details

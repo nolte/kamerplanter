@@ -22,15 +22,18 @@
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Lebenszyklus | annual (in Mitteleuropa); perennial in USDA 9–11 | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von gemischtem/ungueltigem Wert ("annual (in Mitteleuropa); perennial in USDA 9-11", kein gueltiger Literal-Wert gemaess REQ-001 `cycle_type: Literal['annual','biennial','perennial']`) auf botanisch korrektes 'perennial'. Siehe Quellen 35-37. -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Petunia x hybrida ist botanisch eine zaertliche (kurzlebige) Staude / tender perennial (winterhart nur USDA 10a-11b), wird in Mitteleuropa wegen Frostempfindlichkeit (frost_sensitivity=tender) jedoch einjaehrig kultiviert. `cultivation_cycle_type` ueberschreibt die botanische `cycle_type` fuer Ueberwinterungs- und Saisonende-Logik (grown_as_annual = true). Siehe Quellen 35-37. -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | long_day (fakultative Langtagpflanze / facultative long-day plant — blüht unter allen Tageslängen, beschleunigt aber unter Langtag; bei kühler Kultur < ~17 °C tendenziell tagneutrales Verhalten) | `lifecycle_configs.photoperiod_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur Wuchs/Blüte (base temp, °C) | 3–6 (sortenabhängig; Blanchard & Runkle 2011: 'Dreams Neon Rose' 2.8, 'Wave Purple' 5.5 — Blüh-Entwicklungsbasis, NICHT Keim-Basistemperatur) | `species.base_temp` |
-| Lebensdauer (Jahre, nur perennial) | nicht relevant (in Mitteleuropa annuell kultiviert) | `lifecycle_configs.typical_lifespan_years` |
+| Lebensdauer (Jahre, nur perennial) | 2–3 (botanisch, in frostfreiem Klima USDA 10b–11b; in Mitteleuropa nicht relevant — einjährig kultiviert, siehe `cultivation_cycle_type`) | `lifecycle_configs.typical_lifespan_years` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Lebensdauer-Angabe (2-3 Jahre in frostfreiem Klima) aus Quelle 36 (Missouri Botanical Garden / botanische Einordnung); siehe Quellen 35-37 -->
 | Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich (vernalization required) | false (kein Kältebedarf zur Blühinduktion) | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | nicht relevant | `lifecycle_configs.vernalization_min_days` |
@@ -603,3 +606,8 @@ SUCCESS! 360 Deep Rose,Petunia × hybrida,Benary,2018,"trailing;rain_tolerant;vi
 33. [AHDB Horticulture — How to prevent or treat iron deficiency in petunia and primula](https://horticulture.ahdb.org.uk/knowledge-library/how-to-prevent-or-treat-for-iron-deficiency-in-petunia-and-primula) — Petunia eiseninnefizient, Boden-pH-Vorzug 5.5–6.2
 34. [Biology Insights — Petunia Temperature Tolerance: From Optimal to Extreme](https://biologyinsights.com/petunia-temperature-tolerance-from-optimal-to-extreme/) — Optimaltemperatur Photosynthese/Wachstum 21–27 °C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+35. NC State Extension Gardener Plant Toolbox — Petunia x hybrida (bereits als Quelle 4 gefuehrt): "tender perennial in the nightshade family"; perennial in USDA-Zonen 10a–11b, "results in it being an annual in North Carolina gardens": https://plants.ces.ncsu.edu/plants/petunia-x-hybrida/
+36. Missouri Botanical Garden Plant Finder — Petunia (bereits als Quelle 5 gefuehrt): "tender perennial that is winter hardy to USDA Zones 10-11"; "in St. Louis, it is grown as an annual"; Bluete "May through frost"; in frostfreien Zonen (10b–11) uebliche Lebensdauer 2–3 Jahre: https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=a601
+37. Plantura — Petunien Pflanzenportrait (bereits als Quelle 16 gefuehrt): "Petunien sind mehrjaehrig und koennen frostfrei und hell ueberwintert werden"; "Die meisten Petunien, die hier bei uns im Handel erhaeltlich sind, sind einjaehrige Pflanzen": https://www.plantura.garden/blumen-stauden/petunien/petunien-pflanzenportrait
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

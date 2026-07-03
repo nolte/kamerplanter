@@ -19,14 +19,14 @@
 | Ordnung | Lamiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus | perennial (botanisch kurzlebige/frostzarte Staude); in Mitteleuropa einjährig kultiviert | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur Wuchs (base temp, °C) | 5 (MSU-Blüh-/Entwicklungsmodell: 41–44 °F ≈ 5–7 °C für zwei V.-×-hybrida-Sorten; unterer Wert als kältetolerante Einordnung) | `species.base_temp` |
-| Lebensdauer (Jahre) | — (einjährig kultiviert; kein perennial-Wert) | `lifecycle_configs.typical_lifespan_years` |
+| Lebensdauer (Jahre) | — (botanisch kurzlebige Staude, ca. 2–4 Jahre in frostfreiem Klima/USDA 9–10; in Mitteleuropa einjährig kultiviert, kein belastbarer Jahres-Einzelwert für Mitteleuropa) | `lifecycle_configs.typical_lifespan_years` |
 | Dormanz erforderlich (dormancy required) | false (keine echte Winterruhe; frostbedingtes Absterben, kein Kältebedarf) | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich (vernalization required) | false (tagneutral; Blüte temperatur-/lichtgesteuert, kein Kältereiz nötig) | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | — (entfällt) | `lifecycle_configs.vernalization_min_days` |
@@ -400,8 +400,12 @@ Superbena Coral Red,Verbena × hybrida,"trailing;large_flower;vegetative;heat_to
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 6. [MSU Extension / Greenhouse Grower — Energy-Efficient Annuals: Pentas & Verbena (Blanchard, Vaid, Runkle)](https://www.canr.msu.edu/uploads/resources/pdfs/energy-efficient-annuals-pentas-and-verbena.pdf) — Basistemperatur Verbena × hybrida 41–44 °F (≈5–7 °C), Temperatur-/DLI-Blühmodell
 7. [MSU Floriculture — Light and Temperature Responses of Bedding Plants (Runkle, Blanchard)](https://www.canr.msu.edu/floriculture/uploads/files/Light%20and%20temp%20on%20bedding.pdf) — Basistemperatur-Einordnung (kältetolerant/-sensitiv), Verbena im kältetoleranten Bereich
-8. [RHS — How to grow verbena (Growing Guide)](https://www.rhs.org.uk/plants/verbena/growing-guide) — Vollsonne-Bedarf, dränierender Boden, Staunässe-Empfindlichkeit
+8. [RHS — How to grow verbena (Growing Guide)](https://www.rhs.org.uk/plants/verbena/growing-guide) — Vollsonne-Bedarf, dränierender Boden, Staunässe-Empfindlichkeit; bedding verbenas als "tender perennials", frostbedingtes Absterben, Aussaat Jan–Mär bei 21 °C, Stecklinge Frühjahr/Spätsommer
 9. [Clemson HGIC — Verbena](https://hgic.clemson.edu/factsheet/verbena/) — Standort (full sun, keine Schattentoleranz), Drainageansprüche
 10. [Gardenia.net — Verbena Growing Guide](https://www.gardenia.net/guide/verbena-plant-care-and-growing-guide) — Boden-pH-Vorzug, well-drained Substrat
 11. [Oxford JXB / PMC — Canopy light, red:far-red ratio](https://pmc.ncbi.nlm.nih.gov/articles/PMC11805590/) — Tageslicht-Anker R:FR ≈ 1.1–1.3 → FR/(R+FR) ≈ 0.5; Anstieg unter Laubdach
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+12. [Proven Winners — Growing Verbena](https://www.provenwinners.com/learn/how-plant/verbena) — Verbena x hybrida als "long-blooming, heat-tolerant tender perennial", in kalten Zonen als Einjährige kultiviert
+13. [Texas A&M AgriLife Extension / Henderson County Master Gardeners — Verbena Hybrid Mix](https://txmg.org/hendersonmg/plant-library/verbena-hybrid-mix/) — "short-lived perennial hardy only to USDA Zones 9 or 10", außerhalb dieser Zonen einjährig kultiviert
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

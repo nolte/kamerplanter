@@ -19,9 +19,11 @@
 | Ordnung | Solanales | `botanical_families.order` |
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
-| Lebenszyklus | perennial (in Heimat); annual (in Mitteleuropa) | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- cycle_type ist strikt enum-wertig (Literal['annual','biennial','perennial'], REQ-001 SS LifecycleConfig) und darf keinen gemischten Text ("perennial (in Heimat); annual...") enthalten. Botanisch ist Physalis peruviana ein zaertlicher, halb-ausdauernder Kleinstrauch / tender perennial subshrub (PFAF, CABI Compendium, Purdue NewCrop, Fischer & Melgarejo 2020 -- bereits Quelle 8 dieses Dokuments), in Mitteleuropa jedoch wegen Frostempfindlichkeit einjaehrig kultiviert. Siehe cultivation_cycle_type unten fuer die Kulturpraxis-Ueberschreibung. -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- cultivation_cycle_type ueberschreibt die botanische cycle_type fuer Ueberwinterungs- und Saisonende-Logik (grown_as_annual = cultivation_cycle_type=='annual' and cycle_type!='annual' = true). Konsistent mit dem bereits im Repo etablierten Muster fuer Solanum lycopersicum (gleiche Familie, gleiche Kultur-vs-Botanik-Situation). -->
 | Photoperiode | short_day (fakultativer/quantitativer Kurztagspflanze (facultative short-day plant); Bluetinduktion bei Tageslaengen < 12 h gefoerdert, 8-h-Photoperiode verkuerzt Juvenilphase ggue. 16 h) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -52,8 +54,10 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 | Vorkultur (Wochen vor letztem Frost) | 10–12 (Aussaat Feb.–Mär.; laengere Kulturzeit noetig) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat nach letztem Frost (Tage) | — (nur Vorkultur; Kulturdauer zu lang) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — (nur Vorkultur) | `species.direct_sow_months` |
-| Erntemonate | 8; 9; 10; 11 (Fruechte fallen wenn reif ab; Lese vom Boden moeglich) | `species.harvest_months` |
+| Erntemonate | 8; 9; 10 (Fruechte fallen wenn reif ab; Lese vom Boden moeglich; Ernte endet regulaer mit erstem Frost, ~Mitte Oktober in Mitteleuropa) | `species.harvest_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von [8,9,10,11] auf [8,9,10]: 4 unabhaengige Quellen (samen.de, beetfreunde.de, Purdue NewCrop "fruit in August ... until there is a strong frost", Lubera "fruehestens Ende August") beschreiben die Ernte fuer Mitteleuropa/temperierte Klimazonen uebereinstimmend als Aug-Okt, endend mit dem ersten Frost; November passt nicht zur eigenen Frost-Schutz-Angabe in SS4.2 (Okt: "Vor erstem Frost abernten"). Siehe Quellenverzeichnis Punkte 16-19 unten. -->
 | Bluetemonate | 6; 7; 8; 9 | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Verifiziert, unveraendert: Lubera bestaetigt woertlich "Bluetezeit: Juni - September" (deckungsgleich); PFAF nennt "in flower from July to October" (leicht abweichend); samen.de-Rechnung (Ernte ab Ende August minus 8-9 Wochen Fruchtreifezeit) stuetzt Bluetebeginn im Juni/Juli. 2/3 Quellen bestaetigen den bestehenden Wert exakt, daher keine Aenderung (Konfidenz Original-Wert: GESICHERT). -->
 
 ### 1.3 Vermehrung
 
@@ -271,7 +275,7 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 |------------|---------|------|-------------|
 | Keimung -> Saemling | time_based | 14–20 Tage | Keimblätter entfaltet |
 | Saemling -> Vegetativ | time_based | 28–42 Tage | 4–6 echte Blaetter; Auspflanzen nach Eisheiligen |
-| Vegetativ -> Bluete | event_based | — | Taglaenge < 12 Stunden (Kurztagschwelle; ab Ende August/September in DE); erste Knospen <!-- Quelle: Steckbrief-Erweiterung 2026-06: Kurztagschwelle auf belegte 12 h harmonisiert --> |
+| Vegetativ -> Bluete | event_based | — | Erste Knospen/Bluete moeglich bereits ab Juni unter Langtagbedingungen (fakultative Kurztagpflanze, kein obligater Kurztagzwang); Bluetenbildung und Fruchtansatz verstaerken/beschleunigen sich deutlich sobald die Taglaenge < 12 Stunden faellt (Kurztagschwelle; ab Ende August/September in DE) <!-- Quelle: growing-phase-auditor 2026-07 -- Praezisierung: die urspruengliche Formulierung suggerierte einen obligaten Kurztag-Trigger, was der eigenen photoperiod_type=short_day-Einstufung als "fakultative/quantitative" Kurztagpflanze (SS1.1) und Bluetemonate=[6,7,8,9] (Lubera: "Juni-September") widersprach. Siehe Quellen 8 (Fischer & Melgarejo 2020) und 11 (Heinze & Midasch 1991), die beide eine foerdernde (nicht obligate) Kurztagwirkung belegen. --> |
 | Bluete -> Fruchtbildung | event_based | — | Bestaeubing erfolgt; Fruchtansatz sichtbar unter Kelch |
 | Fruchtbildung -> Spaetreife | event_based | — | Kelch trocknet; Frucht faellt ab oder leicht loesbar |
 
@@ -513,3 +517,9 @@ Aunt Molly's Ground Cherry,Physalis pruinosa (nahverw.),90–110,small_fruit;ver
 14. Hoagland-Standardnaehrloesung (Mikronaehrstoff-Endkonzentrationen Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.011 ppm) — Richtwert fuer Solanaceae-Fruchtgemuese — https://en.wikipedia.org/wiki/Hoagland_solution
 15. en.jardineriaon.com — Cape gooseberry cultivation guide — effektive Durchwurzelungstiefe >60 cm, Boden-pH 5.5–6.8, Vollsonne — https://en.jardineriaon.com/physalis-peruviana.html
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+16. PFAF (Plants For A Future) — Physalis peruviana — "a PERENNIAL ... usually grown as an annual" in UK-Klima; "in flower from July to October"; "seeds ripen from August to November"; frost tender, USDA 10-12 — https://pfaf.org/user/plant.aspx?LatinName=Physalis+peruviana
+17. Lubera.com — Physalis pflanzen: Tipps fuer Anbau, Pflege und Ernte — Bluetezeit "Juni - September"; Erntereife "etwa acht bis neun Wochen nach der Bluetenbildung", "fruehestens Ende August"; mehrjaehrige Kuebelkultur moeglich, im Beet nicht winterhart — https://www.lubera.com/de/gartenbuch/physalis-pflanzen-p2879
+18. samen.de — Physalis-Pflege: Von Aussaat bis Ernte — Erntezeit "August bis September", "zieht sich bis in den Oktober hinein"; Aussaat Mitte Februar bis Ende Maerz — https://samen.de/blog/die-richtige-pflege-fuer-physalis-pflanzen-von-anbau-bis-ernte.html
+19. beetfreunde.de — Physalis anbauen, pflegen und ernten — "von August bis zum Frost ernten"; nicht frosthart, Auspflanzung erst nach den Eisheiligen — https://www.beetfreunde.de/physalis/
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
