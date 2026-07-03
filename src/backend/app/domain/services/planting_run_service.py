@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 
 from app.common.enums import PlantingRunStatus
-from app.common.exceptions import InvalidRunStateError, NotFoundError
+from app.common.exceptions import InvalidRunStateError, NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
@@ -160,19 +160,36 @@ class PlantingRunService:
         self._repo.update(run_key, run)
         return created
 
+    ENTRY_UPDATABLE_FIELDS = {"species_key", "cultivar_key", "quantity", "id_prefix", "spacing_cm", "notes"}
+    ENTRY_REQUIRED_FIELDS = {"species_key", "quantity", "id_prefix"}
+
     def update_entry(
         self,
         run_key: PlantingRunKey,
         entry_key: str,
-        entry: PlantingRunEntry,
+        data: dict,
     ) -> PlantingRunEntry:
+        """Partially update a run entry (REQ-013).
+
+        Only keys present in ``data`` are applied; required fields
+        (``species_key``, ``quantity``, ``id_prefix``) must not be nulled. The
+        merged entry is re-validated against the model so field constraints
+        (``quantity >= 1``, ``id_prefix`` pattern) keep applying.
+        """
         run = self.get_run(run_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("update_entry", run.status.value)
         existing = self._repo.get_entry_by_key(entry_key)
         if existing is None:
             raise NotFoundError("PlantingRunEntry", entry_key)
-        updated = self._repo.update_entry(entry_key, entry)
+
+        patch = {k: v for k, v in data.items() if k in self.ENTRY_UPDATABLE_FIELDS}
+        nulled_required = self.ENTRY_REQUIRED_FIELDS & {k for k, v in patch.items() if v is None}
+        if nulled_required:
+            raise ValidationError(f"Fields cannot be null: {', '.join(sorted(nulled_required))}")
+
+        merged = PlantingRunEntry.model_validate({**existing.model_dump(by_alias=False), **patch})
+        updated = self._repo.update_entry(entry_key, merged)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
         run.planned_quantity = sum(e.quantity for e in entries)

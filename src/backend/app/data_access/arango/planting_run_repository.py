@@ -113,13 +113,25 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         return PlantingRunEntry(**self._from_doc(doc))
 
     def update_entry(self, entry_key: PlantingRunEntryKey, entry: PlantingRunEntry) -> PlantingRunEntry:
-        data = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
+        # No exclude_none: the service passes a fully merged entry, and
+        # explicitly cleared nullable fields (notes, cultivar_key, spacing_cm)
+        # must be written as null — Arango's update() (keepNull=True) would
+        # otherwise keep the previous value.
+        data = entry.model_dump(by_alias=True, mode="json")
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
+
+        old = self._db.collection(col.PLANTING_RUN_ENTRIES).get(entry_key)
         result = self._db.collection(col.PLANTING_RUN_ENTRIES).update(
             {"_key": entry_key, **data},
             return_new=True,
         )
+        # Keep the entry_for_species edge in sync when the species changed
+        # (create_entry links it, delete_entry drops it — update must re-point it).
+        if old is not None and old.get("species_key") != entry.species_key:
+            entry_id = f"{col.PLANTING_RUN_ENTRIES}/{entry_key}"
+            self.delete_edges(col.ENTRY_FOR_SPECIES, from_id=entry_id)
+            self.link_entry_to_species(entry_key, entry.species_key)
         return PlantingRunEntry(**self._from_doc(result["new"]))
 
     def delete_entry(self, entry_key: PlantingRunEntryKey) -> bool:

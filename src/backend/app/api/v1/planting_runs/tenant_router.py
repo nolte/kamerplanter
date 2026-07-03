@@ -165,14 +165,12 @@ def update_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
-    data = body.model_dump(exclude_none=True)
-    entry = PlantingRunEntry(
-        species_key=data.get("species_key", "placeholder"),
-        quantity=data.get("quantity", 1),
-        id_prefix=data.get("id_prefix", "XX"),
-        **{k: v for k, v in data.items() if k not in ("species_key", "quantity", "id_prefix")},
-    )
-    updated = service.update_entry(key, entry_key, entry)
+    # Partial update: only fields explicitly sent by the client are applied.
+    # ``exclude_unset`` (not ``exclude_none``) keeps an explicit ``null`` for a
+    # nullable field distinguishable from "not sent" — the service merges the
+    # patch onto the persisted entry and re-validates required fields.
+    data = body.model_dump(exclude_unset=True)
+    updated = service.update_entry(key, entry_key, data)
     return _entry_response(updated)
 
 
