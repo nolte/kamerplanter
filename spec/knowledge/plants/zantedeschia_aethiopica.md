@@ -124,7 +124,7 @@
 | Winterruhe / Einzug (Oktober–Februar) | 90–120 | 1 | false | false | medium |
 | Austrieb / Vorblüte (Februar–März) | 30–45 | 2 | false | false | low |
 | Hauptblüte (März–Juni) | 60–90 | 3 | false | false | medium |
-| Nach der Blüte / Sommer (Juli–September) | 60–90 | 4 | true | false | medium |
+| Nach der Blüte / Sommer (Juli–September) | 60–90 | 4 | false | false | medium |
 
 ### 2.2 Phasen-Anforderungsprofile
 

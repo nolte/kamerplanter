@@ -50,7 +50,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 2, 3, 4, 5, 9, 10 (Orange-blaue Blüten; bei guten Bedingungen fast ganzjährig) | `species.bloom_months` |
+| Blütemonate | 12, 1, 2, 3, 4, 5, 9, 10 (Hauptblüte Winter–Frühjahr; bei warmem/hellem Winterstandort Blühbeginn bereits Dezember; Orange-blaue Blüten; bei guten Bedingungen fast ganzjährig) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -318,3 +318,9 @@ Strelitzia reginae,"Paradiesvogelblume;Königin-Strelitzie;Bird of Paradise;Cran
 12. [Wikipedia — Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Zielschädlinge (Coccidae), Temperaturansprüche
 13. [Gardenia.net — Strelitzia reginae](https://www.gardenia.net/plant/strelitzia-reginae-bird-of-paradise) — moderate Salzwasser-/Salzwind-Toleranz, Standortansprüche
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-04 (§1.2 bloom_months Verifikation, 3-Quellen-Regel) -->
+14. [RHS — How to grow strelitzia](https://www.rhs.org.uk/plants/strelitzia/how-to-grow-strelitzia) — Blüte "in winter and spring", sukzessive Öffnung "from late winter to spring"
+15. [Clemson HGIC — Bird of Paradise](https://hgic.clemson.edu/factsheet/bird-of-paradise/) — "Beginning in late winter or early spring, the flowers will open in succession"; Vermehrung Teilung (2–3 Jahre bis Wiederblüte) vs. Samen (4–10+ Jahre)
+16. [Wisconsin Horticulture Extension — Bird of Paradise, Strelitzia reginae](https://hort.extension.wisc.edu/articles/bird-of-paradise-strelitzia-reginae/) — Blüte "autumn, winter and spring"; Kältetoleranz kurzzeitig bis ≈28 °F (≈−2 °C); Samen 4–7 Jahre bis Erstblüte
+17. [samen.de — Strelitzie: Blütezeit und Pflege](https://samen.de/blog/strelitzie-bluetezeit-und-pflege-fuer-exotische-pracht.html) — "blüht hauptsächlich von Winter bis Frühjahr"; bei warmem/hellem Winterstandort bereits ab Dezember
+<!-- /Quelle: growing-phase-auditor 2026-07-04 -->
