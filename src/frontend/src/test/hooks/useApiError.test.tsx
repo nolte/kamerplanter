@@ -166,4 +166,14 @@ describe('useApiError', () => {
     result.current.handleError(makeAxiosError());
     expect(mockEnqueue).toHaveBeenCalled();
   });
+
+  it('returns a referentially stable object across rerenders', () => {
+    const { result, rerender } = renderHook(() => useApiError(), { wrapper });
+    const first = result.current;
+    rerender();
+    // FRONTEND.md §6.1: the returned object MUST be useMemo-stabilised so that
+    // consumers placing it in dependency arrays do not re-run effects on every render.
+    expect(result.current).toBe(first);
+    expect(result.current.handleError).toBe(first.handleError);
+  });
 });

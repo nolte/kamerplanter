@@ -20,6 +20,22 @@ export function getActiveTenantSlug(): string | null {
   return _activeTenantSlug;
 }
 
+/**
+ * Shared response-interceptor rejection handler: converts a backend error
+ * envelope ({ error_id, error_code, ... }) into a typed {@link ApiError} and
+ * re-throws everything else unchanged. Used by both `client` and `tenantClient`
+ * so the envelope-detection logic lives in exactly one place.
+ */
+function rethrowApiError(error: unknown): never {
+  if (axios.isAxiosError(error) && error.response) {
+    const data = error.response.data as ApiErrorResponse;
+    if (data?.error_id && data?.error_code) {
+      throw new ApiError(data, error.response.status);
+    }
+  }
+  throw error;
+}
+
 const client = axios.create({
   baseURL: '/api/v1',
   headers: {
@@ -27,18 +43,7 @@ const client = axios.create({
   },
 });
 
-client.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (axios.isAxiosError(error) && error.response) {
-      const data = error.response.data as ApiErrorResponse;
-      if (data?.error_id && data?.error_code) {
-        throw new ApiError(data, error.response.status);
-      }
-    }
-    throw error;
-  },
-);
+client.interceptors.response.use((response) => response, rethrowApiError);
 
 /**
  * Axios client for tenant-scoped API endpoints.
@@ -60,18 +65,7 @@ tenantClient.interceptors.request.use((config) => {
   return config;
 });
 
-tenantClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (axios.isAxiosError(error) && error.response) {
-      const data = error.response.data as ApiErrorResponse;
-      if (data?.error_id && data?.error_code) {
-        throw new ApiError(data, error.response.status);
-      }
-    }
-    throw error;
-  },
-);
+tenantClient.interceptors.response.use((response) => response, rethrowApiError);
 
 export { tenantClient };
 export default client;
