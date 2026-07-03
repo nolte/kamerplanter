@@ -1,11 +1,22 @@
 """Tests for async methods on HomeAssistantClient."""
 
+import ipaddress
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from app.data_access.external.ha_client import HomeAssistantClient
+
+
+@pytest.fixture(autouse=True)
+def _mock_dns_public():
+    """SEC-B3: mock DNS so the SSRF guard in the client constructor passes."""
+    with patch(
+        "app.common.url_safety._resolved_addresses",
+        return_value=[ipaddress.ip_address("93.184.216.34")],
+    ):
+        yield
 
 
 @pytest.fixture

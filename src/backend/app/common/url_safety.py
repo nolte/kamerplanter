@@ -266,6 +266,99 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
     return url
 
 
+def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_url") -> str:
+    """Validate a tenant/admin-supplied Home Assistant base URL against SSRF (SEC-B3).
+
+    The HA ``base_url`` is dialed server-side with the long-lived bearer token
+    attached, so an attacker who can set it (admin, or a mis-scoped lower-privilege
+    user) could otherwise point it at ``169.254.169.254`` or internal cluster
+    addresses to leak the token and exfiltrate internal responses. Unlike
+    :func:`validate_server_side_url` this is tailored to Home Assistant, which in
+    many setups runs in the LAN over plain http:
+
+    * ``http`` **and** ``https`` are accepted — LAN HA (``homeassistant.local``,
+      ``192.168.x.x:8123``) legitimately speaks http.
+    * Link-local / cloud-metadata / reserved / multicast / unspecified addresses
+      (incl. ``169.254.169.254`` IMDS) are **always** rejected — never opt-in-able.
+    * Private (RFC1918) and loopback addresses are rejected **unless**
+      ``allow_private`` is set (operator opt-in via ``HA_ALLOW_PRIVATE_ENDPOINT``
+      for LAN Home Assistant).
+
+    Args:
+        url: The HA base URL the server will dial.
+        allow_private: When True, private / loopback addresses are permitted
+            (still never link-local / metadata).
+        field: Field name surfaced in the raised ``ValidationError`` details.
+
+    Returns:
+        The (unchanged) URL when it passes all checks.
+
+    Raises:
+        ValidationError: if the URL is empty/too long, not http(s), malformed,
+            unresolvable, or resolves to a blocked address.
+    """
+    if not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        raise ValidationError(
+            "Invalid Home Assistant URL.",
+            details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
+        )
+
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise ValidationError(
+            "Home Assistant URL must use http or https.",
+            details=[{"field": field, "reason": "Only http(s) URLs are accepted.", "code": "INVALID_URL_SCHEME"}],
+        )
+
+    host = parts.hostname
+    if not host:
+        raise ValidationError(
+            "Home Assistant URL has no host.",
+            details=[{"field": field, "reason": "URL has no host.", "code": "INVALID_URL"}],
+        )
+
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            "Home Assistant URL host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+
+    for address in addresses:
+        # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
+        if _is_metadata_or_link_local(address):
+            logger.warning("ha_url_rejected_ssrf", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "Home Assistant URL resolves to a blocked address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to a link-local / metadata address.",
+                        "code": "URL_METADATA_ADDRESS",
+                    }
+                ],
+            )
+        # Private / loopback — blocked unless the operator opted in.
+        if _is_blocked_address(address) and not allow_private:
+            logger.warning("ha_url_rejected_private", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "Home Assistant URL resolves to a private address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": (
+                            "Host resolves to a private/loopback IP. Set "
+                            "HA_ALLOW_PRIVATE_ENDPOINT=true to allow LAN Home Assistant."
+                        ),
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+
+    return url
+
+
 def validate_push_endpoint(endpoint: str) -> str:
     """Validate a user-supplied Web Push endpoint against SSRF.
 

@@ -7,6 +7,7 @@ import pytest
 from app.common.exceptions import ValidationError
 from app.common.url_safety import (
     is_safe_push_endpoint,
+    validate_ha_url,
     validate_push_endpoint,
 )
 
@@ -113,3 +114,74 @@ class TestIsSafePushEndpoint:
 
     def test_predicate_never_raises_on_garbage(self) -> None:
         assert is_safe_push_endpoint("not a url") is False
+
+
+class TestValidateHaUrl:
+    """SEC-B3: HA base_url SSRF guard — http+LAN allowed opt-in, metadata hard-blocked."""
+
+    def test_accepts_public_http(self) -> None:
+        with patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("93.184.216.34")):
+            result = validate_ha_url("http://ha.example.com:8123")
+        assert result == "http://ha.example.com:8123"
+
+    def test_accepts_public_https(self) -> None:
+        with patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("93.184.216.34")):
+            result = validate_ha_url("https://ha.example.com:8123")
+        assert result == "https://ha.example.com:8123"
+
+    def test_accepts_lan_rfc1918_when_allow_private(self) -> None:
+        with patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("192.168.1.50")):
+            result = validate_ha_url("http://homeassistant.local:8123", allow_private=True)
+        assert result == "http://homeassistant.local:8123"
+
+    def test_accepts_loopback_when_allow_private(self) -> None:
+        with patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("127.0.0.1")):
+            result = validate_ha_url("http://localhost:8123", allow_private=True)
+        assert result == "http://localhost:8123"
+
+    def test_rejects_rfc1918_by_default(self) -> None:
+        with (
+            patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("192.168.1.50")),
+            pytest.raises(ValidationError) as exc,
+        ):
+            validate_ha_url("http://homeassistant.local:8123")
+        assert exc.value.details[0]["code"] == "URL_PRIVATE_ADDRESS"
+
+    def test_rejects_metadata_even_with_allow_private(self) -> None:
+        """The cloud-metadata / link-local range is ALWAYS blocked, opt-in or not."""
+        with (
+            patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("169.254.169.254")),
+            pytest.raises(ValidationError) as exc,
+        ):
+            validate_ha_url("http://169.254.169.254/latest/meta-data", allow_private=True)
+        assert exc.value.details[0]["code"] == "URL_METADATA_ADDRESS"
+
+    def test_rejects_non_http_scheme(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            validate_ha_url("ftp://ha.example.com")
+        assert exc.value.details[0]["code"] == "INVALID_URL_SCHEME"
+
+    def test_rejects_empty(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            validate_ha_url("")
+        assert exc.value.details[0]["code"] == "INVALID_URL"
+
+    def test_rejects_unresolvable_host(self) -> None:
+        def _boom(*_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise OSError("no such host")
+
+        with (
+            patch("app.common.url_safety.socket.getaddrinfo", _boom),
+            pytest.raises(ValidationError) as exc,
+        ):
+            validate_ha_url("http://does-not-resolve.invalid:8123", allow_private=True)
+        assert exc.value.details[0]["code"] == "URL_UNRESOLVABLE"
+
+    def test_rejects_public_redirect_to_internal(self) -> None:
+        """A public hostname that resolves to an internal address is rejected (DNS rebinding)."""
+        with (
+            patch("app.common.url_safety.socket.getaddrinfo", _fake_getaddrinfo("10.0.0.5")),
+            pytest.raises(ValidationError) as exc,
+        ):
+            validate_ha_url("http://evil.example.com:8123")
+        assert exc.value.details[0]["code"] == "URL_PRIVATE_ADDRESS"
