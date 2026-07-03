@@ -177,6 +177,13 @@ class Settings(BaseSettings):
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
     ha_access_token: str = ""  # Long-Lived Access Token
     ha_timeout: int = 10  # HTTP timeout in seconds
+    # SSRF opt-in (SEC-B3): the HA base_url is tenant/admin-configurable and is
+    # dialed server-side with the bearer token attached. By default only public
+    # addresses are allowed; the cloud-metadata / link-local range
+    # (169.254.0.0/16) is ALWAYS blocked regardless of this flag. Home Assistant
+    # commonly runs in the LAN over http (homeassistant.local, 192.168.x.x), so
+    # operators who run it on an RFC1918/loopback address must opt in explicitly.
+    ha_allow_private_endpoint: bool = False
 
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False

@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from authlib.jose import JsonWebToken
 
 from app.domain.engines.token_engine import TokenEngine
 
@@ -77,6 +78,73 @@ class TestDecodeAccessToken:
         pair = engine1.create_access_token("user123")
         with pytest.raises(ValueError):
             engine2.decode_access_token(pair.access_token)
+
+    def test_decode_rejects_alg_none(self, engine):
+        """SEC-B1: a token with ``alg=none`` must be rejected (alg-confusion)."""
+        now = int(time.time())
+        claims = {
+            "sub": "user123",
+            "tenant_roles": {},
+            "is_platform_admin": False,
+            "exp": now + 900,
+            "iat": now,
+            "jti": "attacker-supplied-jti",
+            "type": "access",
+        }
+        # Mint an unsigned ``alg=none`` token with a permissive encoder.
+        forged = JsonWebToken(["none"]).encode({"alg": "none"}, claims, key="")
+        with pytest.raises(ValueError, match="Invalid"):
+            engine.decode_access_token(forged)
+
+    def test_decode_rejects_foreign_algorithm(self, engine):
+        """SEC-B1: a token signed with a different alg (HS512) is rejected."""
+        secret = "test-secret-key-for-unit-tests-32chars!"
+        now = int(time.time())
+        claims = {
+            "sub": "user123",
+            "exp": now + 900,
+            "iat": now,
+            "jti": "x",
+            "type": "access",
+        }
+        forged = JsonWebToken(["HS512"]).encode({"alg": "HS512"}, claims, secret)
+        with pytest.raises(ValueError, match="Invalid"):
+            engine.decode_access_token(forged)
+
+    def test_decode_rejects_refresh_type(self, engine):
+        """SEC-B2: a validly-signed non-``access`` token must be rejected."""
+        secret = "test-secret-key-for-unit-tests-32chars!"
+        now = int(time.time())
+        claims = {
+            "sub": "user123",
+            "tenant_roles": {},
+            "is_platform_admin": False,
+            "exp": now + 900,
+            "iat": now,
+            "jti": "refresh-jti",
+            "type": "refresh",
+        }
+        forged = JsonWebToken(["HS256"]).encode({"alg": "HS256"}, claims, secret)
+        with pytest.raises(ValueError, match="Invalid token type"):
+            engine.decode_access_token(forged)
+
+    def test_decode_rejects_missing_type(self, engine):
+        """SEC-B2: a token without a ``type`` claim must be rejected."""
+        secret = "test-secret-key-for-unit-tests-32chars!"
+        now = int(time.time())
+        claims = {"sub": "user123", "exp": now + 900, "iat": now, "jti": "no-type"}
+        forged = JsonWebToken(["HS256"]).encode({"alg": "HS256"}, claims, secret)
+        with pytest.raises(ValueError, match="Invalid token type"):
+            engine.decode_access_token(forged)
+
+    def test_decode_rejects_tampered_signature(self, engine):
+        """A token whose payload is altered fails signature verification."""
+        pair = engine.create_access_token("user123")
+        header, payload, signature = pair.access_token.split(".")
+        tampered_payload = payload[:-1] + ("A" if payload[-1] != "A" else "B")
+        tampered = f"{header}.{tampered_payload}.{signature}"
+        with pytest.raises(ValueError, match="Invalid"):
+            engine.decode_access_token(tampered)
 
 
 class TestCreateRefreshToken:

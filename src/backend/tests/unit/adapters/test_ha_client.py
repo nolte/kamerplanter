@@ -1,8 +1,21 @@
+import ipaddress
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.data_access.external.ha_client import HomeAssistantClient
+
+
+@pytest.fixture(autouse=True)
+def _mock_dns_public():
+    """SEC-B3: the client now validates its base_url against SSRF, which resolves
+    the host. Mock DNS so ``ha.local`` resolves to a public address and the SSRF
+    guard passes without touching the network."""
+    with patch(
+        "app.common.url_safety._resolved_addresses",
+        return_value=[ipaddress.ip_address("93.184.216.34")],
+    ):
+        yield
 
 
 @pytest.fixture
@@ -96,6 +109,44 @@ class TestGetState:
         call_url = mock_get.call_args[0][0]
         assert "//" not in call_url.replace("http://", "")
 
+
+class TestConstructorSsrfGuard:
+    """SEC-B3: the base_url is validated against SSRF at construction time."""
+
+    def test_rejects_metadata_url(self):
+        from app.common.exceptions import ValidationError
+
+        with (
+            patch(
+                "app.common.url_safety._resolved_addresses",
+                return_value=[ipaddress.ip_address("169.254.169.254")],
+            ),
+            pytest.raises(ValidationError),
+        ):
+            HomeAssistantClient("http://169.254.169.254/", "token", allow_private=True)
+
+    def test_rejects_private_url_without_opt_in(self):
+        from app.common.exceptions import ValidationError
+
+        with (
+            patch(
+                "app.common.url_safety._resolved_addresses",
+                return_value=[ipaddress.ip_address("192.168.1.50")],
+            ),
+            pytest.raises(ValidationError),
+        ):
+            HomeAssistantClient("http://homeassistant.local:8123", "token")
+
+    def test_accepts_private_url_with_opt_in(self):
+        with patch(
+            "app.common.url_safety._resolved_addresses",
+            return_value=[ipaddress.ip_address("192.168.1.50")],
+        ):
+            client = HomeAssistantClient("http://homeassistant.local:8123", "token", allow_private=True)
+        assert client._base_url == "http://homeassistant.local:8123"
+
+
+class TestGetStateExtra:
     @patch("app.data_access.external.ha_client.httpx.get")
     def test_non_numeric_state(self, mock_get, client):
         mock_response = MagicMock()

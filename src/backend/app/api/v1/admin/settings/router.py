@@ -20,7 +20,7 @@ from app.api.v1.admin.settings.schemas import (
 from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_ha_client, get_system_settings_service
 from app.common.exceptions import ValidationError
-from app.common.url_safety import validate_storage_endpoint_url
+from app.common.url_safety import validate_ha_url, validate_storage_endpoint_url
 from app.config.settings import settings
 from app.data_access.storage.registry import build_storage_test_adapter
 from app.domain.models.user import User
@@ -129,6 +129,11 @@ def test_ha_connection(
 
     if not url:
         return HATestResponse(success=False, message="No Home Assistant URL configured.")
+
+    # SEC-B3: this is the most dangerous path — the URL is taken straight from the
+    # request body and dialed with the bearer token attached. Validate against SSRF
+    # BEFORE any request so the token is never sent to an internal/metadata address.
+    validate_ha_url(str(url), allow_private=settings.ha_allow_private_endpoint)
 
     try:
         resp = httpx.get(

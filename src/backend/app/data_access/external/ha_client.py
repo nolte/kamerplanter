@@ -1,14 +1,20 @@
 import httpx
 import structlog
 
+from app.common.url_safety import validate_ha_url
+
 logger = structlog.get_logger(__name__)
 
 
 class HomeAssistantClient:
     """Synchronous HTTP client for Home Assistant REST API."""
 
-    def __init__(self, base_url: str, token: str, timeout: int = 10) -> None:
-        self._base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str, token: str, timeout: int = 10, *, allow_private: bool = False) -> None:
+        # SEC-B3: the base_url is tenant/admin-configurable and every method dials
+        # it with the bearer token attached — validate it once at construction so
+        # a URL pointing at cloud-metadata / internal addresses is rejected before
+        # any request is made. ``allow_private`` gates LAN Home Assistant (opt-in).
+        self._base_url = validate_ha_url(base_url, allow_private=allow_private).rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"}
         self._timeout = timeout
 

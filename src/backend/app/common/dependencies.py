@@ -689,7 +689,12 @@ def get_ha_client():
     url = effective["ha_url"]
     if not url:
         return None
-    return HomeAssistantClient(str(url), str(effective["ha_access_token"]), int(effective["ha_timeout"]))
+    return HomeAssistantClient(
+        str(url),
+        str(effective["ha_access_token"]),
+        int(effective["ha_timeout"]),
+        allow_private=settings.ha_allow_private_endpoint,
+    )
 
 
 def get_observation_repo():
