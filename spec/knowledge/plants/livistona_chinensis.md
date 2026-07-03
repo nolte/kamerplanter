@@ -46,7 +46,11 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant (Zimmerpalme) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | 6, 7 (nur bei ausgewachsenen Freilandexemplaren; Zimmerpalmen blühen selten) | `species.bloom_months` |
+| Blütemonate | Entfällt (blüht nicht zuverlässig in Zimmerkultur) | `species.bloom_months` |
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+**Hinweis (Blüte):** Als Zimmerpalme blüht *Livistona chinensis* praktisch nie — Topfexemplare erreichen die für die Blüte nötige Reifegröße/Freiland-Etablierung unter Innenraumbedingungen kaum, daher `bloom_months` konsequent leer (analog Howea forsteriana, §1.2). Ausgewachsene Freilandexemplare in subtropischem/mediterranem Klima blühen im Frühjahr bis Frühsommer (Quellenspanne Februar–Juli je nach Region); die zuvor eingetragenen Monate 6–7 ("Juni/Juli") stammten aus einer Einzelquelle (RHS: "flowers in summer") und deckten die naturstandort-typische Bandbreite nicht vollständig ab. Da es sich um eine reine Habitat-/Freiland-Angabe ohne Praxisrelevanz für die Zimmerkultur handelt, bleibt das KA-Feld leer statt einen unsicheren Einzelmonat zu erfinden.
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -325,3 +329,10 @@ Livistona chinensis,Chinesische Fächerpalme;Fächerpalme;Chinese Fan Palm,Areca
 10. [UF/IFAS ENH1010/EP262 — Nutrition and Fertilization of Palms in Containers](https://ask.ifas.ufl.edu/publication/EP262) — 3N-1P₂O₅-2K₂O-Volldünger mit Mg + Mikronährstoffen (Mn/Zn/Cu/Fe in Sulfat-/Chelatform) für Containerpalmen
 11. [Grossiord et al. — Plant responses to rising vapour pressure deficit, New Phytologist 2020](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16485) — VPD-Stomata-Sensitivität tropischer (isohydrischer) Arten als Grundlage der VPD-Einstufung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Lebenszyklus-/Phasen-Audit) -->
+12. [Houseplant101 — Chinese Fan Palm](https://houseplant101.com/plants/chinese-fan-palm/) — "Rarely blooms indoors" / "Rarely flowers indoors"
+13. [Facts.net — 20 Surprising Facts About Chinese Fan Palm](https://facts.net/nature/plants/20-surprising-facts-about-chinese-fan-palm/) — "indoor palms rarely flower, as they require specific conditions to do so"
+14. [Gardener's Path — Fan Palms 101](https://gardenerspath.com/plants/landscape-trees/grow-fan-palms/) — Chinese fan palm blüht im Freiland (Sommer-Cremefarbene Blüten), Zimmerblüte unüblich
+15. [RHS — Livistona chinensis, Details](https://www.rhs.org.uk/plants/10385/livistona-chinensis/details) — "Panicles of cream flowers in summer"; Propagation "by seed sown in containers at 23C (73F) in the spring"
+16. [Flower-DB — Livistona chinensis](https://www.flower-db.com/en/flowers/livistona-chinensis) — Blühzeitraum April–Juni (Freiland), Fruchtreife September–Dezember
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

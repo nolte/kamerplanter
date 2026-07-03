@@ -55,8 +55,10 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | offset, division | `species.propagation_methods` |
+| Vermehrungsmethoden | offset, division, seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
+<!-- Quelle: growing-phase-auditor 2026-07 — `seed` ergänzt (Brutzwiebeln/offset weiterhin Standardmethode für Hobbygärtner, `easy`); Samenvermehrung als botanisch belegte Zusatzmethode (3/3 Quellen: RHS, Univ. Wisconsin Extension, Gardener's Path), jedoch mehrjährig (3–6 Jahre bis Blüte) und daher nicht schwierigkeitsrelevant für `propagation_difficulty` -->
+
 
 ### 1.4 Toxizität & Allergene
 
@@ -380,3 +382,7 @@ Hippeastrum hybridum,Amaryllis;Ritterstern;Knight's Star Lily,Amaryllidaceae,Hip
 13. [RHS – Hippeastrum Growing Guide](https://www.rhs.org.uk/plants/hippeastrum/growing-guide) — Topftiefe ≥ 30 cm, Wurzelraum, Pflege
 14. [Gardener's Path – What Type of Soil Does Amaryllis Need?](https://gardenerspath.com/plants/flowers/amaryllis-soil/) — Boden-pH 6.0–7.0, Drainage, Substratmischung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor Audit 2026-07 -->
+15. [RHS – Hippeastrum Growing Guide](https://www.rhs.org.uk/plants/hippeastrum/growing-guide) — Vermehrung durch Samen (Aussaat Frühjahr, 21°C, bis 6 Jahre bis Blüte) und Brutzwiebeln (offsets, 3–4 Jahre bis Blüte); Blüte „winter to spring", Pflanzung Okt–Jan
+16. [University of Wisconsin Horticulture – Amaryllis, Hippeastrum](https://hort.extension.wisc.edu/articles/amaryllis-hippeastrum/) — Drei Vermehrungswege bestätigt: „separating offsets, dividing bulbs, and growing from seed"; Dormanz optional (nicht obligat), nur zur Blühterminsteuerung
+17. [Gardener's Path – How to Grow Amaryllis (Hippeastrum) from Seed](https://gardenerspath.com/plants/flowers/propagate-amaryllis-seed/) — Samenvermehrung möglich, 3–5 Jahre bis zur ersten Blüte, Handbestäubung/Samenernte beschrieben

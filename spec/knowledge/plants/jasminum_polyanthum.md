@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-11
-> **Aktualisiert:** 2026-06-12 (Steckbrief-Erweiterung: §1.1, §1.7, §2.2, §2.3, §4.3, §5.3)
+> **Aktualisiert:** 2026-07-03 (growing-phase-auditor: §1.2 Blütemonate-Korrektur 2,3,4,5 → 2,3,4); 2026-07-03 (growing-phase-auditor: §1.1 Frostempfindlichkeit-Korrektur half_hardy → tender); 2026-06-12 (Steckbrief-Erweiterung: §1.1, §1.7, §2.2, §2.3, §4.3, §5.3)
 > **Quellen:** [Gardenia.net – Jasminum polyanthum](https://www.gardenia.net/plant/jasminum-polyanthum-pink-jasmine), [Guide to Houseplants – Jasmine](https://www.guide-to-houseplants.com/jasmine-plant.html), [Forward Plant – Jasminum polyanthum](https://www.forwardplant.com/plant-info/jasminum-polyanthum/), [Wikipedia – Jasminum polyanthum](https://en.wikipedia.org/wiki/Jasminum_polyanthum), [OurHouseplants – Jasmine](https://www.ourhouseplants.com/plants/jasmine), [RHS – Jasminum polyanthum](https://www.rhs.org.uk/plants/9457/jasminum-polyanthum/details)
 
 ---
@@ -33,8 +33,8 @@
 | Vernalisation Mindest-Tage (chilling, ≈6–8 Wochen kühle Nächte ~10–13°C) | 42 | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (h) | <!-- leer: kein echter Kurztag-/Langtagblüher, day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhärte-Detail | Kurze Fröste bis -5°C tolerierend; in Mitteleuropa Überwinterung bei 5–10°C | `species.hardiness_detail` |
+| Frostempfindlichkeit | tender <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: war half_hardy; RHS-Rating H2 = "tender", übersteht kein Einfrieren) --> | `species.frost_sensitivity` |
+| Winterhärte-Detail | Frostempfindlich (RHS-Rating H2); übersteht kein Einfrieren, kein belegter Frosttoleranzbereich unter 0°C; in Mitteleuropa frostfrei bei 5–10°C überwintern <!-- Quelle: growing-phase-auditor 2026-07 (Korrektur: entfernte unbelegte "-5°C"-Toleranzangabe) --> | `species.hardiness_detail` |
 | Heimat | China (Yunnan), Myanmar | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | medium_feeder | `species.nutrient_demand_level` |
@@ -48,7 +48,7 @@
 | Direktsaat nach letztem Frost (Tage) | — | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | — | `species.harvest_months` |
-| Blütemonate | 2, 3, 4, 5 (intensiver Duft, rosa-weiße Blüten) | `species.bloom_months` |
+| Blütemonate | 2, 3, 4 (intensiver Duft, rosa-weiße Blüten) <!-- Quelle: growing-phase-auditor 2026-07-03 (Korrektur: war 2,3,4,5; Mai entfernt — konvergente Quellen benennen "Spätwinter bis Frühjahr"/Feb-Apr ohne Mai; internes §4.2/§1.5 stimmte bereits mit Feb-Apr überein, §2.1 Phasendauer 60-90 Tage passt besser zu 3 als zu 4 Kalendermonaten) --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -345,4 +345,16 @@ Jasminum polyanthum,Pink Jasmin;Vielblütiger Jasmin;Chinese Jasmine,Oleaceae,Ja
 11. [Wikipedia – C3 carbon fixation](https://en.wikipedia.org/wiki/C3_carbon_fixation) — C3 als dominanter Photosynthese-Pfad (Oleaceae/Jasminum, mesophytisch)
 12. [Hoagland solution – Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.01 ppm
 13. [Wikipedia – Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Parasitoid gegen Weichschildläuse (Coccus hesperidum), Ausbringung ~5/m², 14-tägig
+<!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Lebenszyklus-Audit §1.1/§1.2/§4.3) -->
+14. [Gartenschlumpf – Jasmin (Jasminum polyanthum)](https://www.gartenschlumpf.de/jasmin/) — nicht winterhart, vor erstem Frost ins Haus holen; Vermehrung durch Stecklinge im Frühjahr/Sommer
+15. [Lubera – Jasminum polyanthum Zimmerjasmin](https://www.lubera.com/de/gartenbuch/jasminum-polyanthum-zimmerjasmin-p1545) — mehrjährige Kübelpflanze, nicht vollständig winterhart, Blütezeit Dez–Apr je nach Überwinterungstemperatur, kühle Nächte Voraussetzung für Blütenbildung
+16. [Joy Us Garden – How to Grow Pink Jasmine](https://www.joyusgarden.com/how-to-grow-pink-jasmine-vine/) — blüht einmal jährlich Spätwinter bis Spätfrühling, mehrjährig-immergrün (semi-laubabwerfend in kälteren Zonen), kühle Nachttemperaturen für Knospenbildung erforderlich
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 (§1.2 Blütemonate-Korrektur) -->
+17. [Wikipedia – Jasminum polyanthum](https://en.wikipedia.org/wiki/Jasminum_polyanthum) — Blüte "late winter and early spring" (kein Mai)
+18. [Lubera – Jasminum polyanthum Zimmerjasmin](https://www.lubera.com/de/gartenbuch/jasminum-polyanthum-zimmerjasmin-p1545) — Blütezeit Dez–Apr je nach Überwinterungstemperatur (kein Mai)
+19. [PlantCareToday – Jasminum polyanthum](https://plantcaretoday.com/jasminum-polyanthum.html) — Blüte "late winter/early spring"; Stecklingsvermehrung im März/April nach Blütenende (bestätigt Blütenende vor Mai)
+20. [Urbane Eight – Pink Jasmine Care Guide](https://urbaneeight.com/blogs/news/pink-jasmine-care-guide-for-jasminum-polyanthum-indoors) — Blüte "late winter or early spring"
+<!-- /Quelle: growing-phase-auditor 2026-07-03 (§1.2 Blütemonate-Korrektur) -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
