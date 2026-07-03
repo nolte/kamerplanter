@@ -1,6 +1,6 @@
 """Unit tests for the resistance engine."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -96,6 +96,33 @@ class TestValidateTreatment:
         is_safe, msg = engine.validate_treatment(apps, "Pyrethrin")
         assert is_safe is False
 
+    def test_tz_aware_applications_no_crash(self, engine):
+        """Regression DOM-2: tz-aware ISO applied_at (as stored by the DB) must not
+        crash against the internally computed cutoff, and must count correctly."""
+        apps = [
+            {
+                "active_ingredient": "AzaMax",
+                "applied_at": (datetime.now(UTC) - timedelta(days=5)).isoformat(),
+            }
+            for _ in range(MAX_CONSECUTIVE)
+        ]
+        is_safe, msg = engine.validate_treatment(apps, "AzaMax")
+        assert is_safe is False
+        assert "Resistance risk" in msg
+
+    def test_applied_at_none_is_skipped(self, engine):
+        """Regression DOM-2 edge case: applied_at=None must be skipped, not crash."""
+        apps = [
+            {"active_ingredient": "AzaMax", "applied_at": None},
+            {
+                "active_ingredient": "AzaMax",
+                "applied_at": (datetime.now(UTC) - timedelta(days=3)).isoformat(),
+            },
+        ]
+        is_safe, msg = engine.validate_treatment(apps, "AzaMax")
+        # Only one valid, recent application -> still safe.
+        assert is_safe is True
+
 
 class TestSuggestAlternatives:
     """Tests for the suggest_alternatives method."""
@@ -151,3 +178,19 @@ class TestSuggestAlternatives:
         result = engine.suggest_alternatives(apps, treatments)
         assert result[0]["name"] == "T2"
         assert result[1]["name"] == "T1"
+
+    def test_tz_aware_and_none_applications_no_crash(self, engine):
+        """Regression DOM-2: mix of tz-aware ISO and None applied_at must not crash."""
+        apps = [
+            {
+                "active_ingredient": "A",
+                "applied_at": (datetime.now(UTC) - timedelta(days=5)).isoformat(),
+            },
+            {"active_ingredient": "A", "applied_at": None},
+        ]
+        treatments = [
+            {"name": "T1", "treatment_type": "chemical", "active_ingredient": "A"},
+            {"name": "T2", "treatment_type": "chemical", "active_ingredient": "B"},
+        ]
+        result = engine.suggest_alternatives(apps, treatments)
+        assert {t["name"] for t in result} == {"T1", "T2"}

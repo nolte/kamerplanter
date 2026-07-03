@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from app.common.datetimes import ensure_aware_utc, now_utc
 
 MAX_CONSECUTIVE = 3
 ROTATION_WINDOW_DAYS = 90
@@ -29,13 +31,11 @@ class ResistanceManager:
         if not proposed_ingredient:
             return True, ""
 
-        cutoff = datetime.now() - timedelta(days=ROTATION_WINDOW_DAYS)
+        cutoff = now_utc() - timedelta(days=ROTATION_WINDOW_DAYS)
         consecutive = 0
         for app in recent_applications:
-            applied_at = app["applied_at"]
-            if isinstance(applied_at, str):
-                applied_at = datetime.fromisoformat(applied_at)
-            if applied_at < cutoff:
+            applied_at = ensure_aware_utc(app["applied_at"])
+            if applied_at is None or applied_at < cutoff:
                 continue
             if app.get("active_ingredient") == proposed_ingredient:
                 consecutive += 1
@@ -71,13 +71,11 @@ class ResistanceManager:
             Sorted list of treatments, preferring IPM hierarchy and
             excluding overused ingredients.
         """
-        cutoff = datetime.now() - timedelta(days=ROTATION_WINDOW_DAYS)
+        cutoff = now_utc() - timedelta(days=ROTATION_WINDOW_DAYS)
         ingredient_counts: dict[str, int] = {}
         for app in recent_applications:
-            applied_at = app["applied_at"]
-            if isinstance(applied_at, str):
-                applied_at = datetime.fromisoformat(applied_at)
-            if applied_at < cutoff:
+            applied_at = ensure_aware_utc(app["applied_at"])
+            if applied_at is None or applied_at < cutoff:
                 continue
             ingredient = app.get("active_ingredient")
             if ingredient:

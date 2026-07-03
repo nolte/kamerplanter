@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from app.common.datetimes import ensure_aware_utc, now_utc
 from app.domain.models.activity import Activity
 
 # HST (High Stress Training) tasks forbidden in all flowering sub-phases
@@ -208,16 +209,14 @@ class HSTValidator:
         if not recent_hst_tasks:
             return None
 
-        now = datetime.now()
+        now = now_utc()
         latest = None
         latest_name = ""
 
         for task in recent_hst_tasks:
-            completed_at = task.get("completed_at")
+            completed_at = ensure_aware_utc(task.get("completed_at"))
             if completed_at is None:
                 continue
-            if isinstance(completed_at, str):
-                completed_at = datetime.fromisoformat(completed_at)
             if latest is None or completed_at > latest:
                 latest = completed_at
                 latest_name = task.get("name", "unknown")
