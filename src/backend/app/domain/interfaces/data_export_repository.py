@@ -25,3 +25,8 @@ class IDataExportRepository(ABC):
 
     @abstractmethod
     def expire_old(self, now_iso: str) -> int: ...
+
+    @abstractmethod
+    def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:
+        """Return pending exports requested before ``cutoff_iso`` (re-dispatch candidates)."""
+        ...

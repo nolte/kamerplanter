@@ -1,7 +1,7 @@
 """Smoke tests for PrivacyService (REQ-025)."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -189,12 +189,31 @@ def service(
 
 class TestDataExport:
     def test_request_export_creates_pending_record(self, service, export_repo):
-        export = service.request_data_export(USER_KEY)
+        with patch("app.tasks.retention_tasks.process_data_export.delay"):
+            export = service.request_data_export(USER_KEY)
 
         assert export.status == "pending"
         assert export.user_key == USER_KEY
         assert export.requested_at is not None
         export_repo.create.assert_called_once()
+
+    def test_request_data_export_dispatches_task(self, service):
+        with patch("app.tasks.retention_tasks.process_data_export.delay") as delay:
+            created = service.request_data_export(USER_KEY)
+
+        delay.assert_called_once_with(created.key)
+
+    def test_request_data_export_survives_dispatch_failure(self, service):
+        # A broker outage must not fail the API request — GDPR Art. 15 acceptance
+        # of the request takes precedence over immediate processing.
+        with patch(
+            "app.tasks.retention_tasks.process_data_export.delay",
+            side_effect=ConnectionError("broker down"),
+        ):
+            created = service.request_data_export(USER_KEY)
+
+        assert created.status == "pending"
+        assert created.key == "export-1"
 
     def test_request_export_blocked_when_active_exists(
         self,

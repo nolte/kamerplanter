@@ -16,6 +16,7 @@ import pytest
 def _mock_dependencies(monkeypatch):
     mock_deps = ModuleType("app.common.dependencies")
     mock_deps.get_privacy_service = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_data_export_repo = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     yield mock_deps
@@ -102,3 +103,82 @@ class TestExpireDataExports:
             result = expire_data_exports()
 
         assert result == {"expired": 1}
+
+
+class TestRedispatchStalePendingExports:
+    def test_redispatches_each_stale_export(self, _mock_dependencies):
+        repo = MagicMock()
+        repo.list_stale_pending.return_value = [
+            SimpleNamespace(key="export_1"),
+            SimpleNamespace(key="export_2"),
+        ]
+        _mock_dependencies.get_data_export_repo.return_value = repo
+
+        from app.tasks.retention_tasks import redispatch_stale_pending_exports
+
+        with patch("app.tasks.retention_tasks.process_data_export.delay") as delay:
+            result = redispatch_stale_pending_exports()
+
+        assert result == {"redispatched": 2}
+        assert delay.call_count == 2
+        delay.assert_any_call("export_1")
+        delay.assert_any_call("export_2")
+
+    def test_empty_returns_zero(self, _mock_dependencies):
+        repo = MagicMock()
+        repo.list_stale_pending.return_value = []
+        _mock_dependencies.get_data_export_repo.return_value = repo
+
+        from app.tasks.retention_tasks import redispatch_stale_pending_exports
+
+        with patch("app.tasks.retention_tasks.process_data_export.delay") as delay:
+            result = redispatch_stale_pending_exports()
+
+        assert result == {"redispatched": 0}
+        delay.assert_not_called()
+
+    def test_skips_exports_without_key(self, _mock_dependencies):
+        repo = MagicMock()
+        repo.list_stale_pending.return_value = [
+            SimpleNamespace(key=None),
+            SimpleNamespace(key="export_2"),
+        ]
+        _mock_dependencies.get_data_export_repo.return_value = repo
+
+        from app.tasks.retention_tasks import redispatch_stale_pending_exports
+
+        with patch("app.tasks.retention_tasks.process_data_export.delay") as delay:
+            result = redispatch_stale_pending_exports()
+
+        assert result == {"redispatched": 2}  # count is the query result length
+        delay.assert_called_once_with("export_2")
+
+
+class TestRetryHardening:
+    """INF-L3 — every retention task must carry retry configuration."""
+
+    def test_process_data_export_has_retry_config(self):
+        from app.tasks.retention_tasks import process_data_export
+
+        assert process_data_export.max_retries == 5
+        assert Exception in process_data_export.autoretry_for
+        assert process_data_export.retry_backoff is True
+        assert process_data_export.retry_backoff_max == 600
+
+    @pytest.mark.parametrize(
+        "task_name",
+        [
+            "execute_scheduled_erasures",
+            "expire_email_change_requests",
+            "expire_data_exports",
+            "redispatch_stale_pending_exports",
+        ],
+    )
+    def test_beat_tasks_retry_on_transient_transport_errors(self, task_name):
+        import app.tasks.retention_tasks as mod
+
+        task = getattr(mod, task_name)
+        assert task.max_retries == 3
+        assert ConnectionError in task.autoretry_for
+        assert TimeoutError in task.autoretry_for
+        assert task.default_retry_delay == 300

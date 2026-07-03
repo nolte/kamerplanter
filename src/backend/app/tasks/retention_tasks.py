@@ -14,6 +14,9 @@ Three concerns are bundled here, all backed by REQ-025 PrivacyService:
 - ``expire_data_exports`` — hourly beat task that flips completed
   exports past their ``expires_at`` to ``status=expired`` and removes
   the underlying download.
+- ``redispatch_stale_pending_exports`` — hourly safety-net beat task
+  that re-enqueues ``process_data_export`` for exports whose original
+  dispatch was lost (broker outage or legacy ``pending`` records).
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
@@ -21,7 +24,7 @@ that bridge Celery to the async service layer.
 """
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
@@ -29,13 +32,25 @@ from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
 
+STALE_EXPORT_REDISPATCH_AFTER_MINUTES = 15
 
-@celery_app.task(name="retention.process_data_export")
-def process_data_export(export_key: str) -> dict:
+
+@celery_app.task(  # type: ignore[misc]
+    name="retention.process_data_export",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    max_retries=5,
+)
+def process_data_export(self, export_key: str) -> dict:  # type: ignore[no-untyped-def]
     """Build the export bundle and flip the request to completed.
 
-    Triggered by ``PrivacyService.request_data_export`` via
-    ``celery_app.send_task`` once the request record exists.
+    Triggered by ``PrivacyService.request_data_export`` via ``.delay`` once the
+    request record exists. Idempotent — the service skips non-``pending``
+    exports — so ``autoretry_for=(Exception,)`` may retry broadly (bounded by
+    ``max_retries`` + backoff).
     """
 
     from app.common.dependencies import get_privacy_service
@@ -61,8 +76,14 @@ def process_data_export(export_key: str) -> dict:
         raise
 
 
-@celery_app.task(name="retention.execute_scheduled_erasures")
-def execute_scheduled_erasures() -> dict:
+@celery_app.task(  # type: ignore[misc]
+    name="retention.execute_scheduled_erasures",
+    bind=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def execute_scheduled_erasures(self) -> dict:  # type: ignore[no-untyped-def]
     """Hard-delete users past their 90-day soft-delete grace period.
 
     Runs daily. Picks up every ``ErasureRequest`` with
@@ -88,8 +109,14 @@ def execute_scheduled_erasures() -> dict:
         raise
 
 
-@celery_app.task(name="retention.expire_email_change_requests")
-def expire_email_change_requests() -> dict:
+@celery_app.task(  # type: ignore[misc]
+    name="retention.expire_email_change_requests",
+    bind=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def expire_email_change_requests(self) -> dict:  # type: ignore[no-untyped-def]
     """Flip stale email-change requests (>24 h) to ``status=expired``."""
 
     from app.common.dependencies import get_privacy_service
@@ -110,8 +137,14 @@ def expire_email_change_requests() -> dict:
         raise
 
 
-@celery_app.task(name="retention.expire_data_exports")
-def expire_data_exports() -> dict:
+@celery_app.task(  # type: ignore[misc]
+    name="retention.expire_data_exports",
+    bind=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def expire_data_exports(self) -> dict:  # type: ignore[no-untyped-def]
     """Flip completed exports past their 72-hour expiry to ``status=expired``."""
 
     from app.common.dependencies import get_privacy_service
@@ -130,3 +163,30 @@ def expire_data_exports() -> dict:
             error=str(exc),
         )
         raise
+
+
+@celery_app.task(  # type: ignore[misc]
+    name="retention.redispatch_stale_pending_exports",
+    bind=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def redispatch_stale_pending_exports(self) -> dict:  # type: ignore[no-untyped-def]
+    """Re-enqueue pending exports whose original dispatch was lost.
+
+    Safety net for broker outages during ``PrivacyService.request_data_export``
+    and for legacy ``pending`` records created before the dispatch existed.
+    Idempotent: the worker skips non-``pending`` exports.
+    """
+    from app.common.dependencies import get_data_export_repo
+
+    repo = get_data_export_repo()
+    cutoff = datetime.now(UTC) - timedelta(minutes=STALE_EXPORT_REDISPATCH_AFTER_MINUTES)
+    stale = repo.list_stale_pending(cutoff.isoformat())
+    for export in stale:
+        if export.key:
+            process_data_export.delay(export.key)
+    if stale:
+        logger.info("retention.redispatch_stale_pending_exports", redispatched=len(stale))
+    return {"redispatched": len(stale)}
