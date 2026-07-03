@@ -24,6 +24,7 @@
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN — kein belegter Wuchs-/Phänologie-GDD-Basiswert auffindbar; vorhandene Studien (ISHS 'Madisto') modellieren temperaturabhängige Blühinitiation zwischen 12–24°C, liefern aber keine umetikettierbare GDD-Wuchsbasis --> | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 20–100+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (Ruheperiode nach der Blüte wichtig für nächste Blütenbildung) | `lifecycle_configs.dormancy_required` |

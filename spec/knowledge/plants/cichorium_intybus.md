@@ -23,6 +23,7 @@
 | Photosynthese-Typ (photosynthesis type) | c3 (Asteraceae-Blattkultur ohne C4-/CAM-Anatomie; eng verwandt mit Salat, der gesichert C3 ist) | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial (Wildform mehrjaehrig; Kulturformen wie Chicoree/Radicchio oft als biennial oder annual kultiviert) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebensdauer (Jahre, perennial) | 3--7 (Wildform am Standort haeufig laenger; Kultur-/Futterzichorie produktiv 3--7 Jahre) | `lifecycle_configs.typical_lifespan_years` |
 | Dormanz erforderlich (dormancy required) | true (oberirdische Teile sterben im Herbst ab, Wurzel ueberwintert, Neuaustrieb im Fruehjahr) | `lifecycle_configs.dormancy_required` |

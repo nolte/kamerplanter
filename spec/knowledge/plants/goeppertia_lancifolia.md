@@ -24,6 +24,7 @@
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> keine belegte Wuchs-GDD-Basis für diese tropische Zierstaude; Art wird nicht über Wärmesummen (Growing Degree Days) kultiviert | `species.base_temp` |

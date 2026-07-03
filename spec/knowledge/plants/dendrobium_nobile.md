@@ -25,6 +25,7 @@
 | GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter phänologischer Wuchs-/GDD-Basiswert für diese tropisch-subtropische Epiphytenart auffindbar; Blühsteuerung erfolgt nicht über Wärmesummen, sondern über Kühlphase (Vernalisation/Chilling) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–30+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |

@@ -24,6 +24,7 @@
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Wurzeltyp | `fibrous` (flaches, feinfaseriges Wurzelsystem) | `species.root_type` |
 | Lebenszyklus | `biennial` (botanisch kurzlebig biennial/perennial, kulturell oft als Einjaehrige behandelt -- in Zone 7+ Ueberwinterung mit Fruehjahrsblute moeglich) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | `day_neutral` (moderne Bedding-Cultivars blühen temperaturgesteuert unabhängig von der Tageslänge; Thermoinhibition ab 22 °C hemmt sowohl Keimung als auch Blüte) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebensdauer (Jahre) | 1–2 (botanisch kurzlebig biennial; kulturell als Einjährige geführt) | `lifecycle_configs.typical_lifespan_years` |

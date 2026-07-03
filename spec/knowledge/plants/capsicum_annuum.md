@@ -20,6 +20,8 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual (in Mitteleuropa; in Tropen kurzlebig perennial) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | day_neutral (fakultativ; Fruchtansatz nicht streng taglaengenabhaengig, aber kurze Tage koennen Bluete beschleunigen) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 (Calvin-Zyklus, kein C4-/CAM-Mechanismus; typisch fuer Solanaceae) | `species.photosynthesis_type` |

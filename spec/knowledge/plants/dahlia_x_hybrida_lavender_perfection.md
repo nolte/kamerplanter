@@ -20,6 +20,7 @@
 | Wuchsform | `herb` (krautige Staude mit aufrechtem Stängel) | `species.growth_habit` |
 | Wurzeltyp | `tuberous` (Knollenbildung als Speicherorgan; Fiberwurzeln zusätzlich an der Knolle) | `species.root_type` |
 | Lebenszyklus | `perennial` (botanisch mehrjährig; in Mitteleuropa Zone 6–7 als Sommerknollen-Pflanze kultiviert — Knollen müssen frostfrei überwintert werden) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | `short_day` (fakultativ; Blüteninitiierung bei Nachtlänge > 12 h gefördert, Dahlien blühen jedoch auch unter Langtagbedingungen; Tuberisierung eindeutig kurztaggesteuert bei Nacht > 12 h; in Mitteleuropa natürlicher Blühbeginn ab Mitte/Ende Juli) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 8a, 8b, 9a, 9b, 10a, 10b, 11a (winterhart in Boden); Zonen 3a–7b: Knollen ausgraben | `species.hardiness_zones` |
 | Frostempfindlichkeit | `tender` (Knollen erfrieren bereits bei leichtem Bodenfrost; oberirdische Triebe bei 0 °C) | `species.frost_sensitivity` |

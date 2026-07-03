@@ -21,6 +21,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 (Blüteninduktion temperatur-/kältegesteuert, nicht photoperiodisch) --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 8a–10b | `species.hardiness_zones` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->

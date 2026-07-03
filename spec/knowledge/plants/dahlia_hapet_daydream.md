@@ -20,6 +20,7 @@
 | Wuchsform | `herb` (krautig, aufrecht; Knollenstaude) | `species.growth_habit` |
 | Wurzeltyp | `tuberous` (speichernde Knollenwurzeln; bilden jährlich neue Tochterknolle) | `species.root_type` |
 | Lebenszyklus | `perennial` (botanisch mehrjährig durch Knollen; in Zone 7 und kälter als frostempfindliche Pflanze behandelt — Knollen jährlich ausgraben) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | `short_day` (fakultativ; Blüteninitiierung bei Nachtlänge > 12 h gefördert, Dahlien blühen jedoch auch unter Langtagbedingungen; Tuberisierung eindeutig kurztaggesteuert bei Nacht > 12 h) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 8a, 8b, 9a, 9b, 10a, 10b, 11a (Freiland-Überwinterung der Knollen; in Zone 7 mit dichter Mulchschicht grenzwertig möglich) | `species.hardiness_zones` |
 | Frostempfindlichkeit | `tender` (oberirdische Teile sterben bei leichtem Frost; Knollen überstehen kurze Bodenfröste bis ca. -5 °C — in Zone 7 und kälter ausgraben) | `species.frost_sensitivity` |

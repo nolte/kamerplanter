@@ -20,6 +20,8 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial (in Heimat); annual (in Mitteleuropa) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | short_day (fakultativer/quantitativer Kurztagspflanze (facultative short-day plant); Bluetinduktion bei Tageslaengen < 12 h gefoerdert, 8-h-Photoperiode verkuerzt Juvenilphase ggue. 16 h) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |

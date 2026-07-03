@@ -23,6 +23,8 @@
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual (in Mitteleuropa); perennial in USDA 9–11 | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | long_day (fakultative Langtagpflanze / facultative long-day plant — blüht unter allen Tageslängen, beschleunigt aber unter Langtag; bei kühler Kultur < ~17 °C tendenziell tagneutrales Verhalten) | `lifecycle_configs.photoperiod_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

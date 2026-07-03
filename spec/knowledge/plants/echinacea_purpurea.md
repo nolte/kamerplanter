@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (Korrektur: E. purpurea ist botanisch ein Zwischentagspflanze/intermediate-day plant — Blüte ist bei 13–15 h am vollständigsten und wird bei langen Tagen (LD, ≥16 h, rot-defizitär) gehemmt; die Blühinduktion ist primär vernalisationsgesteuert, nicht photoperiodisch. Da das KA-Enum kein `intermediate_day` kennt, ist `day_neutral` der korrekte konservative Wert; der frühere Wert `long_day` widerspricht der Quellenlage [Runkle et al. 2001].) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–9b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |

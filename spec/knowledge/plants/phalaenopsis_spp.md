@@ -21,6 +21,7 @@
 | Wurzeltyp | aerial | `species.root_type` |
 | Wurzelanpassungen | aerial, epiphytic | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 15–25+ | `lifecycle_configs.typical_lifespan_years` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | cam (obligater CAM-Stoffwechsel / crassulacean acid metabolism; nächtliche CO₂-Fixierung via PEPC, tagsüber Refixierung durch Rubisco — epiphytische Wasserspar-Anpassung) | `species.photosynthesis_type` |

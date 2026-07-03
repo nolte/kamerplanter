@@ -21,6 +21,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 KORREKTUR: war long_day; Usambaraveilchen ist tagneutral (day-neutral plant regarding flower development), nicht photoperiodisch --> | `lifecycle_configs.photoperiod_type` |
 | Photosynthese-Typ | c3 <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> | `species.photosynthesis_type` |
 | GDD-Basistemperatur (°C) | DATEN FEHLEN <!-- Quelle: Steckbrief-Erweiterung 2026-06 — kein belegter Wuchs-/Phänologie-GDD-Basiswert für Saintpaulia auffindbar; Keim-/Kardinalwerte nicht als Wuchsbasis umetikettiert --> | `species.base_temp` |

@@ -20,6 +20,8 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial (im Anbau meist als annual kultiviert -- Knollenbildung im 1. Jahr) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | biennial | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | long_day (Schoessung im 2. Jahr durch lange Tage und Kaeltereiz ausgeloest) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 (Apiaceae; typisches C3-Temperaturverhalten der Netto-Assimilation) | `species.photosynthesis_type` |
