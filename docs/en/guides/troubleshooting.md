@@ -158,7 +158,7 @@ Solutions to common problems when installing, operating, and using Kamerplanter.
     3. The system shows the earliest possible harvest date.
 
     !!! danger "Do not bypass the pre-harvest interval"
-        The PHI is a legal requirement (CanG, PflSchG). The system intentionally prevents the harvest — manual bypass is not provided.
+        The PHI is a legal requirement (CanG — the German Cannabis Act; PflSchG — the German Plant Protection Act). The system intentionally prevents the harvest — manual bypass is not provided.
 
 ??? question "Observation cannot be marked as harvest-ready"
     Check whether harvest indicators are configured for the plant species. Navigate to **Master Data > [Species] > Harvest Indicators** and add at least one indicator.
@@ -233,6 +233,19 @@ Solutions to common problems when installing, operating, and using Kamerplanter.
     curl http://localhost:8000/api/v1/health/live
     # Expected response: {"status": "ok"}
     ```
+
+---
+
+## Kubernetes: Pod Won't Start
+
+??? question "Pod is in 'CrashLoopBackOff' status"
+    `CrashLoopBackOff` (a Kubernetes error meaning the container repeatedly starts and fails) indicates the container crashes shortly after starting. Retrieve the logs from the last crash:
+
+    ```bash
+    kubectl logs deployment/kamerplanter-backend --previous
+    ```
+
+    Common causes: missing environment variables, an unreachable database connection, or an invalid configuration file. The error message in the log usually indicates the exact cause.
 
 ---
 

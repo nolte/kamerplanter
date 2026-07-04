@@ -104,7 +104,7 @@ Identical to NFR-014 §5.1 — repeated here for quick lookup:
 
 ## Rotating security owner
 
-The on-call rotation is tracked in `docs/security/rotation.md` (Phase 4 — TBD). Until that file lands, the `MAINTAINERS` field in this repository serves as the default escalation list.
+A dedicated on-call rotation page is planned but not yet written (no `docs/security/rotation.md` exists yet). Until then, the `MAINTAINERS` field in this repository serves as the default escalation list.
 
 ## See also
 

@@ -10,4 +10,4 @@ This section is for developers contributing to Kamerplanter or running the syste
 - [Debugging](debugging.md) — debugpy, browser DevTools
 - [MCP Tools](mcp-tools.md) — Browser, cluster and docs MCP servers for Claude Code
 - [Agent and Skill Workflows](workflows.md) — Usage decision guide and typical scenarios
-- [Agent Catalog](agent-catalog.md) — Claude Code agents in the project
+- [Agent Catalog](../../agents/) — automatically generated overview of all Claude Code agents

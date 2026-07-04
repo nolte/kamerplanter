@@ -5,7 +5,7 @@ site_author: Kamerplanter Development Team
 
 repo_url: https://github.com/nolte/kamerplanter
 repo_name: nolte/kamerplanter
-edit_uri: edit/main/docs/
+edit_uri: edit/develop/docs/
 
 copyright: Copyright &copy; 2026 Kamerplanter
 
@@ -109,6 +109,7 @@ plugins:
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
+            Module & Funktionen: Modules & Features
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
             Druckansichten & Export: Print & Export
@@ -145,7 +146,6 @@ plugins:
             ArgoCD: ArgoCD
             CI/CD: CI/CD
             Bilderkennung (Inferenz-Service): Setting Up Plant Identification
-            Object Storage — Helm: Object Storage — Helm
             Guides: Guides
             GDD-Berechnung: GDD Calculation
             VPD-Optimierung: VPD Optimization

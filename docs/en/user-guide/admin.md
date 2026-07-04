@@ -392,7 +392,7 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
     As a platform admin you can also curate images **directly on the [pest detail page](pest-detail.md)**: the **"Show deselected"** switch reveals deactivated images too, and per image you can **deselect** it (deactivate instead of delete) or **re-include** it. This applies to recognition reference images and to contributed images. Regular users only ever see active images. Deselecting is reversible; a pure gallery deselection leaves the recognition index untouched.
 
 !!! note "Effect on AI recognition"
-    When [pest recognition](#enabling-pest-recognition) is active (`PEST_DETECTION_ENABLED=true`), a promoted image is additionally fed into the recognition index as a few-shot reference (`source=user_contributed`) — provided the pest has a recognition class (`detection_slug`). Only the embedding and its provenance are stored, **never the original image**. Demoting retracts the reference.
+    When [pest recognition](#enabling-pest-detection) is active (`PEST_DETECTION_ENABLED=true`), a promoted image is additionally fed into the recognition index as a few-shot reference (`source=user_contributed`) — provided the pest has a recognition class (`detection_slug`). Only the embedding and its provenance are stored, **never the original image**. Demoting retracts the reference.
 
 !!! warning "Data protection"
     Contributed images are removed completely when a user or tenant is deleted (document **and** image file). Location data (EXIF) is stripped on upload.
