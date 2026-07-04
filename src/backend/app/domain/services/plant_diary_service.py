@@ -44,9 +44,7 @@ class PlantDiaryService:
 
     def get_entry(self, key: str) -> PlantDiaryEntry:
         """Get a single diary entry by key."""
-        entry = self._repo.get_by_key(key)
-        if entry is None:
-            raise NotFoundError("PlantDiaryEntry", key)
+        entry = self._repo.get_or_raise(key)
         return entry
 
     def update_entry(self, key: str, data: dict) -> PlantDiaryEntry:

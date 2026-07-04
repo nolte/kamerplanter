@@ -6,40 +6,32 @@ from app.domain.interfaces.plant_diary_repository import IPlantDiaryRepository
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 
 
-class ArangoPlantDiaryRepository(IPlantDiaryRepository, BaseArangoRepository):
+class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDiaryRepository):
     """ArangoDB implementation for plant diary entries."""
 
+    _model_cls = PlantDiaryEntry
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PLANT_DIARY_ENTRIES)
+        super().__init__(db, col.PLANT_DIARY_ENTRIES)
 
     # ── CRUD ─────────────────────────────────────────────────────────
 
     def create(self, entry: PlantDiaryEntry) -> PlantDiaryEntry:
-        doc = BaseArangoRepository.create(self, entry)
-        created = PlantDiaryEntry(**doc)
+        created = super().create(entry)
 
         # Create has_diary_entry edge: plant → diary entry
         if entry.plant_key:
             plant_id = f"{col.PLANT_INSTANCES}/{entry.plant_key}"
-            entry_id = f"{col.PLANT_DIARY_ENTRIES}/{doc['_key']}"
+            entry_id = f"{col.PLANT_DIARY_ENTRIES}/{created.key}"
             self.create_edge(col.HAS_DIARY_ENTRY, plant_id, entry_id)
 
         return created
 
-    def get_by_key(self, key: str) -> PlantDiaryEntry | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return PlantDiaryEntry(**doc) if doc else None
-
-    def update(self, key: str, entry: PlantDiaryEntry) -> PlantDiaryEntry:
-        doc = BaseArangoRepository.update(self, key, entry)
-        return PlantDiaryEntry(**doc)
-
     def delete(self, key: str) -> bool:
         # Remove has_diary_entry edges pointing to this entry
         entry_id = f"{col.PLANT_DIARY_ENTRIES}/{key}"
-        query = f"FOR e IN {col.HAS_DIARY_ENTRY} FILTER e._to == @entry_id REMOVE e IN {col.HAS_DIARY_ENTRY}"
-        self._db.aql.execute(query, bind_vars={"entry_id": entry_id})
-        return BaseArangoRepository.delete(self, key)
+        self.delete_edges(col.HAS_DIARY_ENTRY, entry_id, direction="inbound")
+        return super().delete(key)
 
     # ── Queries ──────────────────────────────────────────────────────
 

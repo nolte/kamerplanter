@@ -6,11 +6,12 @@ import pytest
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.calendar import CalendarFeed
 from app.domain.services.calendar_service import CalendarService
+from tests.conftest import wire_get_or_raise
 
 
 @pytest.fixture
 def mock_repo():
-    return MagicMock()
+    return wire_get_or_raise(MagicMock(), "CalendarFeed")
 
 
 @pytest.fixture

@@ -83,7 +83,10 @@ class TestDelete:
         mock_db.collection.return_value.delete.return_value = True
 
         assert repo.delete("d1") is True
-        assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"entry_id": "plant_diary_entries/d1"}
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {
+            "@edge": "has_diary_entry",
+            "vertex": "plant_diary_entries/d1",
+        }
         mock_db.collection.return_value.delete.assert_called_once_with("d1")
 
 

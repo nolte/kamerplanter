@@ -13,6 +13,7 @@ from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import InvalidRunStateError, ValidationError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.planting_run_service import PlantingRunService
+from tests.conftest import wire_get_or_raise
 
 RUN_KEY = "r1"
 ENTRY_KEY = "e1"
@@ -39,6 +40,7 @@ def _service(existing: PlantingRunEntry, run: PlantingRun | None = None):
     run = run or _run()
     repo = MagicMock()
     repo.get_by_key.return_value = run
+    wire_get_or_raise(repo, "PlantingRun")
     repo.get_entry_by_key.return_value = existing
 
     captured: dict[str, PlantingRunEntry] = {}

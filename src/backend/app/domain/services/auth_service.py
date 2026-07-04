@@ -388,9 +388,7 @@ class AuthService:
         current_password: str | None,
         new_password: str,
     ) -> None:
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
 
         # SSO-only users (no password_hash) can set initial password without current_password
         if user.password_hash and (
@@ -690,9 +688,7 @@ class AuthService:
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
 
-        api_key = self._api_key_repo.get_by_key(key_id)
-        if api_key is None:
-            raise NotFoundError("ApiKey", key_id)
+        api_key = self._api_key_repo.get_or_raise(key_id)
         if api_key.user_key != user_key:
             raise ValidationError("API key does not belong to this user.")
         self._api_key_repo.revoke(key_id)

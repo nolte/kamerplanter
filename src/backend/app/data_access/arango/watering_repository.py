@@ -2,22 +2,25 @@ from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
-from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
+from app.common.types import LocationKey, PlantInstanceKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.watering_event import WateringEvent
 
 
-class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
+class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRepository):
     is_tenant_scoped = True
+    _model_cls = WateringEvent
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.WATERING_EVENTS)
+        super().__init__(db, col.WATERING_EVENTS)
 
     # ── Create & Read ──────────────────────────────────────────────────
 
     def create(self, event: WateringEvent) -> WateringEvent:
+        # NOTE: unlike the base ``create`` this intentionally sets only
+        # ``created_at`` (no ``updated_at``) for a watering event; keep custom.
         data = event.model_dump(by_alias=True, exclude_none=True, mode="json")
         data.pop("_key", None)
         now = datetime.now(UTC).isoformat()
@@ -35,21 +38,6 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
             self.create_edge(col.WATERED_PLANT, event_id, plant_id)
 
         return created
-
-    def get_by_key(self, key: WateringEventKey) -> WateringEvent | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return WateringEvent(**doc) if doc else None
-
-    def get_all(
-        self,
-        offset: int = 0,
-        limit: int = 50,
-        tenant_key: str | None = None,
-        *,
-        all_tenants: bool = False,
-    ) -> tuple[list[WateringEvent], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [WateringEvent(**doc) for doc in docs], total
 
     # ── Queries ────────────────────────────────────────────────────────
 

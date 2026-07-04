@@ -1,4 +1,4 @@
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.domain.interfaces.location_type_repository import ILocationTypeRepository
 from app.domain.models.location_type import LocationType
 
@@ -11,9 +11,7 @@ class LocationTypeService:
         return self._repo.get_all()
 
     def get(self, key: str) -> LocationType:
-        lt = self._repo.get_by_key(key)
-        if lt is None:
-            raise NotFoundError("LocationType", key)
+        lt = self._repo.get_or_raise(key)
         return lt
 
     def create(self, location_type: LocationType) -> LocationType:

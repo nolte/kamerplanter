@@ -9,11 +9,12 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.models.plant_instance import PlantInstance
 
 
-class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoRepository):
+class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
     is_tenant_scoped = True
+    _model_cls = PlantInstance
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PLANT_INSTANCES)
+        super().__init__(db, col.PLANT_INSTANCES)
 
     def _resolve_phase_name(self, doc: dict) -> dict:
         """Strip legacy current_phase string; the key is the single source of truth."""
@@ -22,30 +23,13 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_all(
-        self,
-        offset: int = 0,
-        limit: int = 50,
-        tenant_key: str | None = None,
-        *,
-        all_tenants: bool = False,
-    ) -> tuple[list[PlantInstance], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs], total
-
-    def get_by_key(self, key: PlantID) -> PlantInstance | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return PlantInstance(**self._resolve_phase_name(doc)) if doc else None
-
     def get_by_instance_id(self, instance_id: str) -> PlantInstance | None:
-        docs = self.find_by_field("instance_id", instance_id)
-        return PlantInstance(**self._resolve_phase_name(docs[0])) if docs else None
+        return self.find_one_by_field("instance_id", instance_id)
 
     def create(self, plant: PlantInstance) -> PlantInstance:
-        doc = BaseArangoRepository.create(self, plant)
-        created = PlantInstance(**self._resolve_phase_name(doc))
+        created = super().create(plant)
         if plant.slot_key:
-            plant_id = f"{col.PLANT_INSTANCES}/{doc['_key']}"
+            plant_id = f"{col.PLANT_INSTANCES}/{created.key}"
             slot_id = f"{col.SLOTS}/{plant.slot_key}"
             self.create_edge(col.PLACED_IN, plant_id, slot_id)
         return created
@@ -60,14 +44,14 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
         data.pop("updated_at", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=False)
-        return PlantInstance(**self._resolve_phase_name(self._from_doc(result["new"])))
+        return PlantInstance(**self._from_doc(result["new"]))
 
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
         self.delete_edges(col.PLACED_IN, from_id=plant_id)
         self.delete_edges(col.PHASE_HISTORY_EDGE, from_id=plant_id)
         self.delete_edges(col.CURRENT_PHASE, from_id=plant_id)
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     # ── Slot-based queries ────────────────────────────────────────────
 
@@ -111,8 +95,7 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
     # ── Species-based query ───────────────────────────────────────────
 
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
-        docs = self.find_by_field("species_key", species_key)
-        return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs]
+        return self.find_by_field("species_key", species_key)
 
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name."""

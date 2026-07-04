@@ -1,4 +1,3 @@
-from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FeedingEventKey
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
@@ -22,9 +21,7 @@ class FeedingService:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
     def get_event(self, key: FeedingEventKey, tenant_key: str = "") -> FeedingEvent:
-        event = self._repo.get_by_key(key)
-        if event is None:
-            raise NotFoundError("FeedingEvent", key)
+        event = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(event, tenant_key, "FeedingEvent")
         return event

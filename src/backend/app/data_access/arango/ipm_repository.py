@@ -16,137 +16,85 @@ from app.domain.models.ipm import (
 )
 
 
-class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
+class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
+    _model_cls = Pest
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PESTS)
+        super().__init__(db, col.PESTS)
+        self._diseases = BaseArangoRepository[Disease](db, col.DISEASES, Disease)
+        self._treatments = BaseArangoRepository[Treatment](db, col.TREATMENTS, Treatment)
+        self._inspections = BaseArangoRepository[Inspection](db, col.INSPECTIONS, Inspection)
+        self._applications = BaseArangoRepository[TreatmentApplication](
+            db, col.TREATMENT_APPLICATIONS, TreatmentApplication
+        )
 
     # ── Pest CRUD ──
 
     def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
-        return [Pest(**doc) for doc in docs], total
+        return super().get_all(offset, limit)
 
     def get_pest_by_key(self, key: PestKey) -> Pest | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Pest(**doc) if doc else None
+        return super().get_by_key(key)
 
     def get_pest_by_scientific_name(self, scientific_name: str) -> Pest | None:
-        query = f"FOR p IN {col.PESTS} FILTER p.scientific_name == @name LIMIT 1 RETURN p"
-        cursor = self._db.aql.execute(query, bind_vars={"name": scientific_name})
-        doc = next(cursor, None)
-        return Pest(**self._from_doc(doc)) if doc else None
+        return self.find_one_by_field("scientific_name", scientific_name)
 
     def create_pest(self, pest: Pest) -> Pest:
-        doc = BaseArangoRepository.create(self, pest)
-        return Pest(**doc)
+        return super().create(pest)
 
     def update_pest(self, key: PestKey, pest: Pest) -> Pest:
-        doc = BaseArangoRepository.update(self, key, pest)
-        return Pest(**doc)
+        return super().update(key, pest)
 
     def delete_pest(self, key: PestKey) -> bool:
         pest_id = f"{col.PESTS}/{key}"
         for edge_col in [col.TARGETS_PEST, col.DETECTED_PEST]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"id": pest_id})
-        return BaseArangoRepository.delete(self, key)
+            self.delete_edges(edge_col, pest_id, direction="inbound")
+        return super().delete(key)
 
     # ── Disease CRUD ──
 
     def get_all_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
-        query = f"FOR doc IN {col.DISEASES} SORT doc._key LIMIT @offset, @limit RETURN doc"
-        count_query = f"FOR doc IN {col.DISEASES} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
-        items = [Disease(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query)
-        total = next(count_cursor, 0)
-        return items, total
+        return self._diseases.get_all(offset, limit)
 
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None:
-        coll = self._db.collection(col.DISEASES)
-        doc = coll.get(key)
-        return Disease(**self._from_doc(doc)) if doc else None
+        return self._diseases.get_by_key(key)
 
     def create_disease(self, disease: Disease) -> Disease:
-        coll = self._db.collection(col.DISEASES)
-        data = self._to_doc(disease)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = coll.insert(data, return_new=True)
-        return Disease(**self._from_doc(result["new"]))
+        return self._diseases.create(disease)
 
     def update_disease(self, key: DiseaseKey, disease: Disease) -> Disease:
-        coll = self._db.collection(col.DISEASES)
-        data = self._to_doc(disease)
-        data["updated_at"] = self._now()
-        data["_key"] = key
-        result = coll.update(data, return_new=True)
-        return Disease(**self._from_doc(result["new"]))
+        return self._diseases.update(key, disease)
 
     def delete_disease(self, key: DiseaseKey) -> bool:
         disease_id = f"{col.DISEASES}/{key}"
         for edge_col in [col.TARGETS_DISEASE, col.DETECTED_DISEASE]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"id": disease_id})
-        coll = self._db.collection(col.DISEASES)
-        coll.delete(key)
-        return True
+            self.delete_edges(edge_col, disease_id, direction="inbound")
+        return self._diseases.delete(key)
 
     # ── Treatment CRUD ──
 
     def get_all_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
-        query = f"FOR doc IN {col.TREATMENTS} SORT doc._key LIMIT @offset, @limit RETURN doc"
-        count_query = f"FOR doc IN {col.TREATMENTS} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
-        items = [Treatment(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query)
-        total = next(count_cursor, 0)
-        return items, total
+        return self._treatments.get_all(offset, limit)
 
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None:
-        coll = self._db.collection(col.TREATMENTS)
-        doc = coll.get(key)
-        return Treatment(**self._from_doc(doc)) if doc else None
+        return self._treatments.get_by_key(key)
 
     def create_treatment(self, treatment: Treatment) -> Treatment:
-        coll = self._db.collection(col.TREATMENTS)
-        data = self._to_doc(treatment)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = coll.insert(data, return_new=True)
-        return Treatment(**self._from_doc(result["new"]))
+        return self._treatments.create(treatment)
 
     def update_treatment(self, key: TreatmentKey, treatment: Treatment) -> Treatment:
-        coll = self._db.collection(col.TREATMENTS)
-        data = self._to_doc(treatment)
-        data["updated_at"] = self._now()
-        data["_key"] = key
-        result = coll.update(data, return_new=True)
-        return Treatment(**self._from_doc(result["new"]))
+        return self._treatments.update(key, treatment)
 
     def delete_treatment(self, key: TreatmentKey) -> bool:
         treatment_id = f"{col.TREATMENTS}/{key}"
         for edge_col in [col.TARGETS_PEST, col.TARGETS_DISEASE, col.CONTRAINDICATED_WITH, col.TREATMENT_USES]:
-            query = f"FOR e IN {edge_col} FILTER e._from == @id OR e._to == @id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"id": treatment_id})
-        coll = self._db.collection(col.TREATMENTS)
-        coll.delete(key)
-        return True
+            self.delete_edges(edge_col, treatment_id, direction="any")
+        return self._treatments.delete(key)
 
     # ── Inspection ──
 
     def create_inspection(self, inspection: Inspection) -> Inspection:
-        coll = self._db.collection(col.INSPECTIONS)
-        data = self._to_doc(inspection)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if not data.get("inspected_at"):
-            data["inspected_at"] = now
-        result = coll.insert(data, return_new=True)
-        insp = Inspection(**self._from_doc(result["new"]))
+        insp = self._inspections.create(inspection, default_now_fields=("inspected_at",))
 
         # Create edges
         plant_id = f"{col.PLANT_INSTANCES}/{inspection.plant_key}"
@@ -167,22 +115,13 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[Inspection], int]:
-        query = (
-            f"FOR doc IN {col.INSPECTIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"SORT doc.inspected_at DESC "
-            f"LIMIT @offset, @limit RETURN doc"
+        return self._inspections.get_page(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="inspected_at",
+            sort_direction="DESC",
         )
-        count_query = (
-            f"FOR doc IN {col.INSPECTIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"COLLECT WITH COUNT INTO total RETURN total"
-        )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
-        items = [Inspection(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
-        total = next(count_cursor, 0)
-        return items, total
 
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
         # Strict tenant isolation: only the calling tenant's inspections are
@@ -209,15 +148,7 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
     # ── TreatmentApplication ──
 
     def create_treatment_application(self, app: TreatmentApplication) -> TreatmentApplication:
-        coll = self._db.collection(col.TREATMENT_APPLICATIONS)
-        data = self._to_doc(app)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if not data.get("applied_at"):
-            data["applied_at"] = now
-        result = coll.insert(data, return_new=True)
-        ta = TreatmentApplication(**self._from_doc(result["new"]))
+        ta = self._applications.create(app, default_now_fields=("applied_at",))
 
         # Create edges
         ta_id = f"{col.TREATMENT_APPLICATIONS}/{ta.key}"
@@ -232,22 +163,13 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]:
-        query = (
-            f"FOR doc IN {col.TREATMENT_APPLICATIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"SORT doc.applied_at DESC "
-            f"LIMIT @offset, @limit RETURN doc"
+        return self._applications.get_page(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="applied_at",
+            sort_direction="DESC",
         )
-        count_query = (
-            f"FOR doc IN {col.TREATMENT_APPLICATIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"COLLECT WITH COUNT INTO total RETURN total"
-        )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
-        items = [TreatmentApplication(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
-        total = next(count_cursor, 0)
-        return items, total
 
     # ── Edge creation ──
 

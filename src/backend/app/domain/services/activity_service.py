@@ -1,6 +1,6 @@
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, ValidationError
 from app.common.types import ActivityKey
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
@@ -19,9 +19,7 @@ class ActivityService:
         return self._repo.get_all(offset, limit, filters)
 
     def get_activity(self, key: ActivityKey) -> Activity:
-        activity = self._repo.get_by_key(key)
-        if activity is None:
-            raise NotFoundError("Activity", key)
+        activity = self._repo.get_or_raise(key)
         return activity
 
     def create_activity(self, activity: Activity) -> Activity:

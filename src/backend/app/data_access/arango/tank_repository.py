@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -14,11 +13,16 @@ from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
 
-class ArangoTankRepository(ITankRepository, BaseArangoRepository):
+class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     is_tenant_scoped = True
+    _model_cls = Tank
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.TANKS)
+        super().__init__(db, col.TANKS)
+        self._states = BaseArangoRepository[TankState](db, col.TANK_STATES, TankState)
+        self._logs = BaseArangoRepository[MaintenanceLog](db, col.MAINTENANCE_LOGS, MaintenanceLog)
+        self._schedules = BaseArangoRepository[MaintenanceSchedule](db, col.MAINTENANCE_SCHEDULES, MaintenanceSchedule)
+        self._fill_events = BaseArangoRepository[TankFillEvent](db, col.TANK_FILL_EVENTS, TankFillEvent)
 
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
@@ -53,23 +57,13 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
             count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [Tank(**doc) for doc in docs], total
-
-    def get_by_key(self, key: TankKey) -> Tank | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Tank(**doc) if doc else None
+        return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
 
     def create(self, tank: Tank) -> Tank:
-        doc = BaseArangoRepository.create(self, tank)
-        created = Tank(**doc)
+        created = super().create(tank)
         if tank.location_key:
-            self.link_to_location(doc["_key"], tank.location_key)
+            self.link_to_location(created.key, tank.location_key)
         return created
-
-    def update(self, key: TankKey, tank: Tank) -> Tank:
-        doc = BaseArangoRepository.update(self, key, tank)
-        return Tank(**doc)
 
     def delete(self, key: TankKey) -> bool:
         tank_id = f"{col.TANKS}/{key}"
@@ -81,15 +75,14 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         self.delete_edges(col.HAS_SCHEDULE, tank_id)
         # Delete inbound edges (has_tank, feeds_from targeting this tank)
         for edge_col in [col.HAS_TANK, col.FEEDS_FROM]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @tank_id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"tank_id": tank_id})
+            self.delete_edges(edge_col, tank_id, direction="inbound")
         # Delete fill event edges
         self.delete_edges(col.HAS_FILL_EVENT, tank_id)
         # Delete child documents
         for child_col in [col.TANK_STATES, col.MAINTENANCE_LOGS, col.MAINTENANCE_SCHEDULES, col.TANK_FILL_EVENTS]:
             query = f"FOR doc IN {child_col} FILTER doc.tank_key == @key REMOVE doc IN {child_col}"
             self._db.aql.execute(query, bind_vars={"key": key})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     # ── Edge operations ────────────────────────────────────────────────
 
@@ -107,8 +100,7 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         tank_id = f"{col.TANKS}/{tank_key}"
         # Remove old edge
         if old_location_key:
-            query = f"FOR e IN {col.HAS_TANK} FILTER e._to == @tank_id REMOVE e IN {col.HAS_TANK}"
-            self._db.aql.execute(query, bind_vars={"tank_id": tank_id})
+            self.delete_edges(col.HAS_TANK, tank_id, direction="inbound")
         # Create new edge
         if new_location_key:
             self.link_to_location(tank_key, new_location_key)
@@ -126,20 +118,11 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
     # ── State CRUD ─────────────────────────────────────────────────────
 
     def create_state(self, state: TankState) -> TankState:
-        data = state.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if "recorded_at" not in data or data["recorded_at"] is None:
-            data["recorded_at"] = now
-        result = self._db.collection(col.TANK_STATES).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = TankState(**doc)
+        created = self._states.create(state, default_now_fields=("recorded_at",))
         # Create edge
         if state.tank_key:
             from_id = f"{col.TANKS}/{state.tank_key}"
-            to_id = f"{col.TANK_STATES}/{doc['_key']}"
+            to_id = f"{col.TANK_STATES}/{created.key}"
             self.create_edge(col.HAS_STATE, from_id, to_id)
         return created
 
@@ -149,23 +132,9 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> list[TankState]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key
-          SORT doc.recorded_at DESC
-          LIMIT @offset, @limit
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.TANK_STATES,
-                "tank_key": tank_key,
-                "offset": offset,
-                "limit": limit,
-            },
+        return self._states.find_by_field(
+            "tank_key", tank_key, sort="recorded_at", sort_direction="DESC", offset=offset, limit=limit
         )
-        return [TankState(**self._from_doc(doc)) for doc in cursor]
 
     def get_latest_state(self, tank_key: TankKey) -> TankState | None:
         states = self.get_states(tank_key, offset=0, limit=1)
@@ -174,19 +143,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
     # ── MaintenanceLog CRUD ────────────────────────────────────────────
 
     def create_maintenance_log(self, log: MaintenanceLog) -> MaintenanceLog:
-        data = log.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if "performed_at" not in data or data["performed_at"] is None:
-            data["performed_at"] = now
-        result = self._db.collection(col.MAINTENANCE_LOGS).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = MaintenanceLog(**doc)
+        created = self._logs.create(log, default_now_fields=("performed_at",))
         if log.tank_key:
             from_id = f"{col.TANKS}/{log.tank_key}"
-            to_id = f"{col.MAINTENANCE_LOGS}/{doc['_key']}"
+            to_id = f"{col.MAINTENANCE_LOGS}/{created.key}"
             self.create_edge(col.HAS_MAINTENANCE, from_id, to_id)
         return created
 
@@ -196,133 +156,67 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> list[MaintenanceLog]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key
-          SORT doc.performed_at DESC
-          LIMIT @offset, @limit
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.MAINTENANCE_LOGS,
-                "tank_key": tank_key,
-                "offset": offset,
-                "limit": limit,
-            },
+        return self._logs.find_by_field(
+            "tank_key", tank_key, sort="performed_at", sort_direction="DESC", offset=offset, limit=limit
         )
-        return [MaintenanceLog(**self._from_doc(doc)) for doc in cursor]
 
     def get_last_maintenance_by_type(
         self,
         tank_key: TankKey,
         maintenance_type: str,
     ) -> MaintenanceLog | None:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key AND doc.maintenance_type == @mtype
-          SORT doc.performed_at DESC
-          LIMIT 1
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.MAINTENANCE_LOGS,
-                "tank_key": tank_key,
-                "mtype": maintenance_type,
-            },
+        results = self._logs.find_by_field(
+            "tank_key",
+            tank_key,
+            sort="performed_at",
+            sort_direction="DESC",
+            offset=0,
+            limit=1,
+            extra_filters=[("maintenance_type", "==", maintenance_type)],
         )
-        docs = list(cursor)
-        if not docs:
-            return None
-        return MaintenanceLog(**self._from_doc(docs[0]))
+        return results[0] if results else None
 
     # ── Schedule CRUD ──────────────────────────────────────────────────
 
     def create_schedule(self, schedule: MaintenanceSchedule) -> MaintenanceSchedule:
-        data = schedule.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = self._db.collection(col.MAINTENANCE_SCHEDULES).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = MaintenanceSchedule(**doc)
+        created = self._schedules.create(schedule)
         if schedule.tank_key:
             from_id = f"{col.TANKS}/{schedule.tank_key}"
-            to_id = f"{col.MAINTENANCE_SCHEDULES}/{doc['_key']}"
+            to_id = f"{col.MAINTENANCE_SCHEDULES}/{created.key}"
             self.create_edge(col.HAS_SCHEDULE, from_id, to_id)
         return created
 
     def get_schedules(self, tank_key: TankKey) -> list[MaintenanceSchedule]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.MAINTENANCE_SCHEDULES,
-                "tank_key": tank_key,
-            },
-        )
-        return [MaintenanceSchedule(**self._from_doc(doc)) for doc in cursor]
+        return self._schedules.find_by_field("tank_key", tank_key)
 
     def get_schedule_by_key(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule | None:
-        doc = self._db.collection(col.MAINTENANCE_SCHEDULES).get(key)
-        if doc is None:
-            return None
-        return MaintenanceSchedule(**self._from_doc(doc))
+        return self._schedules.get_by_key(key)
 
     def update_schedule(
         self,
         key: MaintenanceScheduleKey,
         schedule: MaintenanceSchedule,
     ) -> MaintenanceSchedule:
-        data = schedule.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        result = self._db.collection(col.MAINTENANCE_SCHEDULES).update(
-            {"_key": key, **data},
-            return_new=True,
-        )
-        return MaintenanceSchedule(**self._from_doc(result["new"]))
+        return self._schedules.update(key, schedule)
 
     def delete_schedule(self, key: MaintenanceScheduleKey) -> bool:
         schedule_id = f"{col.MAINTENANCE_SCHEDULES}/{key}"
-        query = f"FOR e IN {col.HAS_SCHEDULE} FILTER e._to == @sid REMOVE e IN {col.HAS_SCHEDULE}"
-        self._db.aql.execute(query, bind_vars={"sid": schedule_id})
-        try:
-            self._db.collection(col.MAINTENANCE_SCHEDULES).delete(key)
-            return True
-        except Exception:
-            return False
+        self.delete_edges(col.HAS_SCHEDULE, schedule_id, direction="inbound")
+        return self._schedules.delete(key)
 
     # ── Fill Events ──────────────────────────────────────────────────────
 
     def create_fill_event(self, event: TankFillEvent) -> TankFillEvent:
-        data = event.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if "filled_at" not in data or data["filled_at"] is None:
-            data["filled_at"] = now
-        result = self._db.collection(col.TANK_FILL_EVENTS).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = TankFillEvent(**doc)
+        created = self._fill_events.create(event, default_now_fields=("filled_at",))
         # Create has_fill_event edge
         if event.tank_key:
             from_id = f"{col.TANKS}/{event.tank_key}"
-            to_id = f"{col.TANK_FILL_EVENTS}/{doc['_key']}"
+            to_id = f"{col.TANK_FILL_EVENTS}/{created.key}"
             self.create_edge(col.HAS_FILL_EVENT, from_id, to_id)
         # Create mixed_into edge if mixing_result_key provided
         if event.mixing_result_key:
             from_id = f"{col.NUTRIENT_PLANS}/{event.mixing_result_key}"
-            to_id = f"{col.TANK_FILL_EVENTS}/{doc['_key']}"
+            to_id = f"{col.TANK_FILL_EVENTS}/{created.key}"
             self.create_edge(col.MIXED_INTO, from_id, to_id)
         return created
 
@@ -332,47 +226,25 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> list[TankFillEvent]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key
-          SORT doc.filled_at DESC
-          LIMIT @offset, @limit
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.TANK_FILL_EVENTS,
-                "tank_key": tank_key,
-                "offset": offset,
-                "limit": limit,
-            },
+        return self._fill_events.find_by_field(
+            "tank_key", tank_key, sort="filled_at", sort_direction="DESC", offset=offset, limit=limit
         )
-        return [TankFillEvent(**self._from_doc(doc)) for doc in cursor]
 
     def get_latest_fill_event(self, tank_key: TankKey) -> TankFillEvent | None:
         events = self.get_fill_events(tank_key, offset=0, limit=1)
         return events[0] if events else None
 
     def get_latest_full_change(self, tank_key: TankKey) -> TankFillEvent | None:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tank_key == @tank_key AND doc.fill_type == "full_change"
-          SORT doc.filled_at DESC
-          LIMIT 1
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.TANK_FILL_EVENTS,
-                "tank_key": tank_key,
-            },
+        results = self._fill_events.find_by_field(
+            "tank_key",
+            tank_key,
+            sort="filled_at",
+            sort_direction="DESC",
+            offset=0,
+            limit=1,
+            extra_filters=[("fill_type", "==", "full_change")],
         )
-        docs = list(cursor)
-        if not docs:
-            return None
-        return TankFillEvent(**self._from_doc(docs[0]))
+        return results[0] if results else None
 
     def get_fill_event_stats(
         self,
@@ -428,33 +300,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
     # ── Queries ────────────────────────────────────────────────────────
 
     def get_active_auto_create_schedules(self) -> list[MaintenanceSchedule]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.auto_create_task == true AND doc.is_active == true
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.MAINTENANCE_SCHEDULES,
-            },
-        )
-        return [MaintenanceSchedule(**self._from_doc(doc)) for doc in cursor]
+        return self._schedules.find_by_field("auto_create_task", True, extra_filters=[("is_active", "==", True)])
 
     def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.location_key == @location_key
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.TANKS,
-                "location_key": location_key,
-            },
-        )
-        return [Tank(**self._from_doc(doc)) for doc in cursor]
+        return self.find_by_field("location_key", location_key)
 
     def get_active_nutrient_plans(self, tank_key: TankKey) -> list[dict]:
         query = """

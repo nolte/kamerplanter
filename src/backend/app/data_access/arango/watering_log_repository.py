@@ -8,11 +8,12 @@ from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.watering_log import WateringLog
 
 
-class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
+class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLogRepository):
     is_tenant_scoped = True
+    _model_cls = WateringLog
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.WATERING_LOGS)
+        super().__init__(db, col.WATERING_LOGS)
 
     # ── Mapping helper ──────────────────────────────────────────────────
 
@@ -22,18 +23,9 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
     # ── Create ──────────────────────────────────────────────────────────
 
     def create(self, log: WateringLog) -> WateringLog:
-        data = log.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if "logged_at" not in data or data["logged_at"] is None:
-            data["logged_at"] = now
-        result = self._db.collection(col.WATERING_LOGS).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = WateringLog(**doc)
+        created = super().create(log, default_now_fields=("logged_at",))
 
-        log_id = f"{col.WATERING_LOGS}/{doc['_key']}"
+        log_id = f"{col.WATERING_LOGS}/{created.key}"
 
         # Create LOG_SLOT edges (WateringLog -> Slot)
         for slot_key in log.slot_keys:
@@ -56,23 +48,6 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
             )
 
         return created
-
-    # ── Read ────────────────────────────────────────────────────────────
-
-    def get_by_key(self, key: str) -> WateringLog | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return WateringLog(**doc) if doc else None
-
-    def get_all(
-        self,
-        offset: int = 0,
-        limit: int = 50,
-        tenant_key: str | None = None,
-        *,
-        all_tenants: bool = False,
-    ) -> tuple[list[WateringLog], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [WateringLog(**doc) for doc in docs], total
 
     def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:
         """Batch-resolve plant keys to display names."""
@@ -114,16 +89,6 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
 
     # ── Update ──────────────────────────────────────────────────────────
 
-    def update(self, key: str, log: WateringLog) -> WateringLog:
-        data = log.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        result = self._db.collection(col.WATERING_LOGS).update(
-            {"_key": key, **data},
-            return_new=True,
-        )
-        return WateringLog(**self._from_doc(result["new"]))
-
     def update_fields(self, key: str, fields: dict) -> WateringLog:
         fields["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.WATERING_LOGS).update(
@@ -140,7 +105,7 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         self.delete_edges(col.LOG_SLOT, log_id)
         self.delete_edges(col.LOG_PLANT, log_id)
         self.delete_edges(col.LOG_FERTILIZER, log_id)
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     # ── Queries ─────────────────────────────────────────────────────────
 

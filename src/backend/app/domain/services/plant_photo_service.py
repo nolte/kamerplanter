@@ -79,9 +79,7 @@ class PlantPhotoService:
     # ── Internal helpers ──────────────────────────────────────────────
 
     def _get_instance(self, key: str, tenant_key: str) -> PlantInstance:
-        plant = self._plants.get_by_key(key)
-        if plant is None:
-            raise NotFoundError("PlantInstance", key)
+        plant = self._plants.get_or_raise(key)
         verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 

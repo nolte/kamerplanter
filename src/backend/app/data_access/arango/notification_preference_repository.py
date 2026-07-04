@@ -14,14 +14,18 @@ from app.domain.models.notification import NotificationPreferences
 NOTIFICATION_PREFERENCES = "notification_preferences"
 
 
-class ArangoNotificationPreferenceRepository(INotificationPreferenceRepository, BaseArangoRepository):
+class ArangoNotificationPreferenceRepository(
+    BaseArangoRepository[NotificationPreferences], INotificationPreferenceRepository
+):
     """ArangoDB-backed notification preference repository.
 
     Uses deterministic _key = 'notifpref_{user_key}' for upsert semantics.
     """
 
+    _model_cls = NotificationPreferences
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, NOTIFICATION_PREFERENCES)
+        super().__init__(db, NOTIFICATION_PREFERENCES)
 
     @staticmethod
     def _make_key(user_key: str) -> str:

@@ -24,9 +24,7 @@ class TankService:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
     def get_tank(self, key: TankKey, tenant_key: str = "") -> Tank:
-        tank = self._repo.get_by_key(key)
-        if tank is None:
-            raise NotFoundError("Tank", key)
+        tank = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(tank, tenant_key, "Tank")
         return tank

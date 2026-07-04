@@ -10,11 +10,15 @@ from app.domain.interfaces.nutrient_plan_repository import INutrientPlanReposito
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 
 
-class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository):
+class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrientPlanRepository):
     is_tenant_scoped = True
+    _model_cls = NutrientPlan
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.NUTRIENT_PLANS)
+        super().__init__(db, col.NUTRIENT_PLANS)
+        self._phase_entries = BaseArangoRepository[NutrientPlanPhaseEntry](
+            db, col.NUTRIENT_PLAN_PHASE_ENTRIES, NutrientPlanPhaseEntry
+        )
 
     # ── Plan CRUD ────────────────────────────────────────────────────
 
@@ -49,20 +53,7 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
             count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [NutrientPlan(**doc) for doc in docs], total
-
-    def get_by_key(self, key: NutrientPlanKey) -> NutrientPlan | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return NutrientPlan(**doc) if doc else None
-
-    def create(self, plan: NutrientPlan) -> NutrientPlan:
-        doc = BaseArangoRepository.create(self, plan)
-        return NutrientPlan(**doc)
-
-    def update(self, key: NutrientPlanKey, plan: NutrientPlan) -> NutrientPlan:
-        doc = BaseArangoRepository.update(self, key, plan)
-        return NutrientPlan(**doc)
+        return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
 
     def delete(self, key: NutrientPlanKey) -> bool:
         plan_id = f"{col.NUTRIENT_PLANS}/{key}"
@@ -76,75 +67,39 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
             self.delete_edges(edge_col, plan_id)
         # Delete inbound edges
         for edge_col in [col.FOLLOWS_PLAN, col.CLONED_FROM]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @pid REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"pid": plan_id})
-        return BaseArangoRepository.delete(self, key)
+            self.delete_edges(edge_col, plan_id, direction="inbound")
+        return super().delete(key)
 
     # ── Phase entries ────────────────────────────────────────────────
 
     def create_phase_entry(self, entry: NutrientPlanPhaseEntry) -> NutrientPlanPhaseEntry:
-        data = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = self._db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = NutrientPlanPhaseEntry(**doc)
+        created = self._phase_entries.create(entry)
         # Create edge
         from_id = f"{col.NUTRIENT_PLANS}/{entry.plan_key}"
-        to_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{doc['_key']}"
+        to_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{created.key}"
         self.create_edge(col.HAS_PHASE_ENTRY, from_id, to_id)
         return created
 
     def get_phase_entries(self, plan_key: NutrientPlanKey) -> list[NutrientPlanPhaseEntry]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.plan_key == @plan_key
-          SORT doc.sequence_order ASC
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-                "plan_key": plan_key,
-            },
-        )
-        return [NutrientPlanPhaseEntry(**self._from_doc(doc)) for doc in cursor]
+        return self._phase_entries.find_by_field("plan_key", plan_key, sort="sequence_order")
 
     def get_phase_entry_by_key(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry | None:
-        doc = self._db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).get(key)
-        if doc is None:
-            return None
-        return NutrientPlanPhaseEntry(**self._from_doc(doc))
+        return self._phase_entries.get_by_key(key)
 
     def update_phase_entry(
         self,
         key: NutrientPlanPhaseEntryKey,
         entry: NutrientPlanPhaseEntry,
     ) -> NutrientPlanPhaseEntry:
-        data = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        result = self._db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).update(
-            {"_key": key, **data},
-            return_new=True,
-        )
-        return NutrientPlanPhaseEntry(**self._from_doc(result["new"]))
+        return self._phase_entries.update(key, entry)
 
     def delete_phase_entry(self, key: NutrientPlanPhaseEntryKey) -> bool:
         entry_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{key}"
         # Delete fertilizer edges
         self.delete_edges(col.PLAN_USES_FERTILIZER, entry_id)
         # Delete parent edge
-        query = f"FOR e IN {col.HAS_PHASE_ENTRY} FILTER e._to == @eid REMOVE e IN {col.HAS_PHASE_ENTRY}"
-        self._db.aql.execute(query, bind_vars={"eid": entry_id})
-        try:
-            self._db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).delete(key)
-            return True
-        except Exception:
-            return False
+        self.delete_edges(col.HAS_PHASE_ENTRY, entry_id, direction="inbound")
+        return self._phase_entries.delete(key)
 
     # ── Plant assignment ─────────────────────────────────────────────
 

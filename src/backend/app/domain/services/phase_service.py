@@ -194,9 +194,7 @@ class PhaseService:
     # --- Phase Transitions ---
 
     def get_current_phase(self, plant_key: PlantID) -> dict:
-        plant = self._plant_repo.get_by_key(plant_key)
-        if plant is None:
-            raise NotFoundError("PlantInstance", plant_key)
+        plant = self._plant_repo.get_or_raise(plant_key)
 
         # Phase history is the source of truth for phase key and start time
         history = self._repo.get_phase_history(plant_key)
@@ -286,9 +284,7 @@ class PhaseService:
         return self._repo.get_phase_history(plant_key)
 
     def delete_phase_history(self, plant_key: PlantID, history_key: str) -> None:
-        plant = self._plant_repo.get_by_key(plant_key)
-        if plant is None:
-            raise NotFoundError("PlantInstance", plant_key)
+        plant = self._plant_repo.get_or_raise(plant_key)
 
         all_history = self._repo.get_phase_history(plant_key)
         history = None
@@ -326,9 +322,7 @@ class PhaseService:
         entered_at: datetime | None = None,
         exited_at: datetime | None = None,
     ) -> PhaseHistory:
-        plant = self._plant_repo.get_by_key(plant_key)
-        if plant is None:
-            raise NotFoundError("PlantInstance", plant_key)
+        plant = self._plant_repo.get_or_raise(plant_key)
 
         # Find the history entry
         all_history = self._repo.get_phase_history(plant_key)

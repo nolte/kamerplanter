@@ -198,9 +198,7 @@ class PrivacyService:
         export_key: str,
     ) -> DataExportRequest:
         """Return an export job, enforcing ownership."""
-        export = self._export_repo.get_by_key(export_key)
-        if export is None:
-            raise NotFoundError("DataExportRequest", export_key)
+        export = self._export_repo.get_or_raise(export_key)
         if export.user_key != user_key:
             raise NotFoundError("DataExportRequest", export_key)
         return export
@@ -242,9 +240,7 @@ class PrivacyService:
         new_email: str,
     ) -> EmailChangeRequest:
         """Initiate a two-step email-change flow with token verification."""
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
         if user.email == new_email:
             raise ValidationError("New email must differ from the current address.")
 
@@ -298,9 +294,7 @@ class PrivacyService:
                 self._email_change_repo.update(change.key, change)
             raise InvalidTokenError("email-change token")
 
-        user = self._user_repo.get_by_key(change.user_key)
-        if user is None:
-            raise NotFoundError("User", change.user_key)
+        user = self._user_repo.get_or_raise(change.user_key)
 
         old_email = user.email
         user.email = change.new_email
@@ -334,9 +328,7 @@ class PrivacyService:
         Hard-delete is scheduled 90 days into the future. The actual deletion
         runs in a Celery task (NFR-011 R-01).
         """
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
 
         existing = self._erasure_repo.find_active_for_user(user_key)
         if existing is not None:
@@ -382,9 +374,7 @@ class PrivacyService:
         return created
 
     def get_erasure_status(self, erasure_key: str) -> ErasureRequest:
-        erasure = self._erasure_repo.get_by_key(erasure_key)
-        if erasure is None:
-            raise NotFoundError("ErasureRequest", erasure_key)
+        erasure = self._erasure_repo.get_or_raise(erasure_key)
         return erasure
 
     # ── Art. 18: processing restriction ────────────────────────────

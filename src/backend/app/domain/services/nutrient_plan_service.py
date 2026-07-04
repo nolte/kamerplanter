@@ -44,9 +44,7 @@ class NutrientPlanService:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
     def get_plan(self, key: NutrientPlanKey, tenant_key: str = "") -> NutrientPlan:
-        plan = self._repo.get_by_key(key)
-        if plan is None:
-            raise NotFoundError("NutrientPlan", key)
+        plan = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
         return plan
@@ -140,9 +138,7 @@ class NutrientPlanService:
         channel_ids = [ch.channel_id for ch in entry.delivery_channels]
         if channel_id not in channel_ids:
             raise NotFoundError("DeliveryChannel", channel_id)
-        fert = self._fert_repo.get_by_key(fertilizer_key)
-        if fert is None:
-            raise NotFoundError("Fertilizer", fertilizer_key)
+        self._fert_repo.get_or_raise(fertilizer_key)
         return self._repo.add_fertilizer_to_channel(
             entry_key,
             channel_id,

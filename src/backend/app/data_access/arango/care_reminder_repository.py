@@ -8,43 +8,38 @@ from app.domain.interfaces.care_reminder_repository import ICareReminderReposito
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
 
-class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository):
+class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareReminderRepository):
+    _model_cls = CareProfile
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.CARE_PROFILES)
+        super().__init__(db, col.CARE_PROFILES)
+        self._confirmations = BaseArangoRepository[CareConfirmation](db, col.CARE_CONFIRMATIONS, CareConfirmation)
 
     # ── CareProfile ────────────────────────────────────────────────────
 
     def get_profile_by_key(self, key: CareProfileKey) -> CareProfile | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return CareProfile(**doc) if doc else None
+        return super().get_by_key(key)
 
     def get_profile_by_plant_key(self, plant_key: str) -> CareProfile | None:
-        docs = self.find_by_field("plant_key", plant_key)
-        if docs:
-            return CareProfile(**docs[0])
-        return None
+        return self.find_one_by_field("plant_key", plant_key)
 
     def create_profile(self, profile: CareProfile) -> CareProfile:
-        doc = BaseArangoRepository.create(self, profile)
-        return CareProfile(**doc)
+        return super().create(profile)
 
     def update_profile(self, key: CareProfileKey, profile: CareProfile) -> CareProfile:
-        doc = BaseArangoRepository.update(self, key, profile)
-        return CareProfile(**doc)
+        return super().update(key, profile)
 
     def delete_profile(self, key: CareProfileKey) -> bool:
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def get_all_profiles(self) -> list[CareProfile]:
-        docs, _ = BaseArangoRepository.get_all(self, offset=0, limit=10000)
-        return [CareProfile(**doc) for doc in docs]
+        profiles, _ = super().get_all(offset=0, limit=10000)
+        return profiles
 
     # ── CareConfirmation ───────────────────────────────────────────────
 
     def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation:
-        repo = BaseArangoRepository(self._db, col.CARE_CONFIRMATIONS)
-        doc = repo.create(confirmation)
-        return CareConfirmation(**doc)
+        return self._confirmations.create(confirmation)
 
     def get_confirmations_by_plant(
         self,
@@ -52,28 +47,16 @@ class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository
         reminder_type: ReminderType | None = None,
         limit: int = 50,
     ) -> list[CareConfirmation]:
-        repo = BaseArangoRepository(self._db, col.CARE_CONFIRMATIONS)
-        if reminder_type:
-            query = (
-                f"FOR doc IN {col.CARE_CONFIRMATIONS} "
-                f"FILTER doc.plant_key == @plant_key AND doc.reminder_type == @type "
-                f"SORT doc.confirmed_at DESC LIMIT @limit RETURN doc"
-            )
-            cursor = self._db.aql.execute(
-                query,
-                bind_vars={"plant_key": plant_key, "type": reminder_type.value, "limit": limit},
-            )
-        else:
-            query = (
-                f"FOR doc IN {col.CARE_CONFIRMATIONS} "
-                f"FILTER doc.plant_key == @plant_key "
-                f"SORT doc.confirmed_at DESC LIMIT @limit RETURN doc"
-            )
-            cursor = self._db.aql.execute(
-                query,
-                bind_vars={"plant_key": plant_key, "limit": limit},
-            )
-        return [CareConfirmation(**repo._from_doc(doc)) for doc in cursor]
+        extra_filters = [("reminder_type", "==", reminder_type.value)] if reminder_type else None
+        return self._confirmations.find_by_field(
+            "plant_key",
+            plant_key,
+            sort="confirmed_at",
+            sort_direction="DESC",
+            offset=0,
+            limit=limit,
+            extra_filters=extra_filters,
+        )
 
     def get_last_confirmation(
         self,

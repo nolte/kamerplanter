@@ -39,6 +39,12 @@ class _FakePlantRepo:
     def get_by_key(self, key):
         return self._plant if self._plant.key == key else None
 
+    def get_or_raise(self, key):
+        plant = self.get_by_key(key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", key)
+        return plant
+
     def update(self, key, plant):
         self._plant = plant
         return plant

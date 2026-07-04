@@ -79,9 +79,7 @@ class PlantingRunService:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
     def get_run(self, key: PlantingRunKey, tenant_key: str = "") -> PlantingRun:
-        run = self._repo.get_by_key(key)
-        if run is None:
-            raise NotFoundError("PlantingRun", key)
+        run = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(run, tenant_key, "PlantingRun")
         return run

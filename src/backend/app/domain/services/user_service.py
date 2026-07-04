@@ -1,6 +1,5 @@
 import structlog
 
-from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
@@ -19,15 +18,11 @@ class UserService:
         self._refresh_token_repo = refresh_token_repo
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
         return self._to_profile(user)
 
     def update_profile(self, user_key: UserKey, update: UserProfileUpdate) -> UserProfile:
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
 
         if update.display_name is not None:
             user.display_name = update.display_name
@@ -40,9 +35,7 @@ class UserService:
         return self._to_profile(updated)
 
     def delete_account(self, user_key: UserKey) -> None:
-        user = self._user_repo.get_by_key(user_key)
-        if user is None:
-            raise NotFoundError("User", user_key)
+        user = self._user_repo.get_or_raise(user_key)
 
         # Revoke all sessions
         self._refresh_token_repo.revoke_all_for_user(user_key)

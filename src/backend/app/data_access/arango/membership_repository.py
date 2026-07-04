@@ -7,13 +7,11 @@ from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.models.membership import MemberInfo, Membership
 
 
-class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.MEMBERSHIPS)
+class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRepository):
+    _model_cls = Membership
 
-    def get_by_key(self, key: str) -> Membership | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Membership(**doc) if doc else None
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.MEMBERSHIPS)
 
     def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> Membership | None:
         query = """
@@ -36,39 +34,27 @@ class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
         return Membership(**self._from_doc(docs[0]))
 
     def create(self, membership: Membership) -> Membership:
-        doc = BaseArangoRepository.create(self, membership)
-        m = Membership(**doc)
+        created = super().create(membership)
         # Create edges: user -> membership, membership -> tenant
         user_id = f"{col.USERS}/{membership.user_key}"
-        membership_id = f"{col.MEMBERSHIPS}/{m.key}"
+        membership_id = f"{col.MEMBERSHIPS}/{created.key}"
         tenant_id = f"{col.TENANTS}/{membership.tenant_key}"
         self.create_edge(col.HAS_MEMBERSHIP, user_id, membership_id)
         self.create_edge(col.MEMBERSHIP_IN, membership_id, tenant_id)
-        return m
+        return created
 
     def update(self, key: str, data: dict) -> Membership | None:
         existing = self.get_by_key(key)
         if not existing:
             return None
         update_data = existing.model_copy(update=data)
-        doc = BaseArangoRepository.update(self, key, update_data)
-        return Membership(**doc)
+        return super().update(key, update_data)
 
     def delete(self, key: str) -> bool:
         membership_id = f"{col.MEMBERSHIPS}/{key}"
         # Clean up edges
-        query = f"""
-        FOR e IN {col.HAS_MEMBERSHIP}
-          FILTER e._to == @mid
-          REMOVE e IN {col.HAS_MEMBERSHIP}
-        """
-        self._db.aql.execute(query, bind_vars={"mid": membership_id})
-        query = f"""
-        FOR e IN {col.MEMBERSHIP_IN}
-          FILTER e._from == @mid
-          REMOVE e IN {col.MEMBERSHIP_IN}
-        """
-        self._db.aql.execute(query, bind_vars={"mid": membership_id})
+        self.delete_edges(col.HAS_MEMBERSHIP, membership_id, direction="inbound")
+        self.delete_edges(col.MEMBERSHIP_IN, membership_id)
         # Delete location assignments for this membership
         query = f"""
         FOR doc IN {col.LOCATION_ASSIGNMENTS}
@@ -76,7 +62,7 @@ class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
           REMOVE doc IN {col.LOCATION_ASSIGNMENTS}
         """
         self._db.aql.execute(query, bind_vars={"key": key})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
         query = """
@@ -104,17 +90,7 @@ class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
         return [MemberInfo(**doc) for doc in cursor]
 
     def list_by_user(self, user_key: str) -> list[Membership]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.user_key == @user_key
-          SORT doc.created_at ASC
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={"@collection": col.MEMBERSHIPS, "user_key": user_key},
-        )
-        return [Membership(**self._from_doc(doc)) for doc in cursor]
+        return self.find_by_field("user_key", user_key, sort="created_at")
 
     def count_admins(self, tenant_key: str) -> int:
         query = """

@@ -8,21 +8,19 @@ from app.domain.interfaces.identification_repository import IIdentificationRepos
 from app.domain.models.identification import IdentificationRequest
 
 
-class ArangoIdentificationRepository(IIdentificationRepository, BaseArangoRepository):
+class ArangoIdentificationRepository(BaseArangoRepository[IdentificationRequest], IIdentificationRepository):
     """ArangoDB-backed repository for ``identification_requests``."""
 
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.IDENTIFICATION_REQUESTS)
+    _model_cls = IdentificationRequest
 
-    def create(self, request: IdentificationRequest) -> IdentificationRequest:
-        doc = BaseArangoRepository.create(self, request)
-        return IdentificationRequest(**doc)
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.IDENTIFICATION_REQUESTS)
 
     def get(self, key: str, tenant_key: str) -> IdentificationRequest | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None or doc.get("tenant_key") != tenant_key:
+        request = super().get_by_key(key)
+        if request is None or request.tenant_key != tenant_key:
             return None
-        return IdentificationRequest(**doc)
+        return request
 
     def set_selected_rank(
         self,

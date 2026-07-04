@@ -1,5 +1,26 @@
 import pytest
 
+from app.common.exceptions import NotFoundError
+
+
+def wire_get_or_raise(mock, entity: str = "Entity"):
+    """Make a ``MagicMock`` repository's ``get_or_raise`` mirror ``get_by_key``.
+
+    AP-15 replaced the copied ``get_by_key`` + ``None`` check + ``NotFoundError``
+    service blocks with the repository's ``get_or_raise``. Solitary service tests
+    stub ``get_by_key``; this helper lets those existing stubs keep driving both
+    the found and not-found paths without touching every assertion.
+    """
+
+    def _get_or_raise(key):
+        value = mock.get_by_key(key)
+        if value is None:
+            raise NotFoundError(entity, key)
+        return value
+
+    mock.get_or_raise.side_effect = _get_or_raise
+    return mock
+
 
 @pytest.fixture
 def sample_species_data():

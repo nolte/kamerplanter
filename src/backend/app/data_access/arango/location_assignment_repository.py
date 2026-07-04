@@ -8,34 +8,30 @@ from app.domain.interfaces.location_assignment_repository import (
 from app.domain.models.location_assignment import LocationAssignment
 
 
-class ArangoLocationAssignmentRepository(ILocationAssignmentRepository, BaseArangoRepository):
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.LOCATION_ASSIGNMENTS)
+class ArangoLocationAssignmentRepository(BaseArangoRepository[LocationAssignment], ILocationAssignmentRepository):
+    _model_cls = LocationAssignment
 
-    def get_by_key(self, key: str) -> LocationAssignment | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return LocationAssignment(**doc) if doc else None
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.LOCATION_ASSIGNMENTS)
 
     def create(self, assignment: LocationAssignment) -> LocationAssignment:
-        doc = BaseArangoRepository.create(self, assignment)
-        la = LocationAssignment(**doc)
+        created = super().create(assignment)
         # Create edges
         membership_id = f"{col.MEMBERSHIPS}/{assignment.membership_key}"
         location_id = f"locations/{assignment.location_key}"
         tenant_id = f"{col.TENANTS}/{assignment.tenant_key}"
-        assignment_id = f"{col.LOCATION_ASSIGNMENTS}/{la.key}"
+        assignment_id = f"{col.LOCATION_ASSIGNMENTS}/{created.key}"
         self.create_edge(col.ASSIGNED_TO_LOCATION, assignment_id, location_id)
         self.create_edge(col.ASSIGNMENT_FOR, assignment_id, membership_id)
         self.create_edge(col.ASSIGNMENT_IN_TENANT, assignment_id, tenant_id)
-        return la
+        return created
 
     def update(self, key: str, data: dict) -> LocationAssignment | None:
         existing = self.get_by_key(key)
         if not existing:
             return None
         update_data = existing.model_copy(update=data)
-        doc = BaseArangoRepository.update(self, key, update_data)
-        return LocationAssignment(**doc)
+        return super().update(key, update_data)
 
     def delete(self, key: str) -> bool:
         assignment_id = f"{col.LOCATION_ASSIGNMENTS}/{key}"
@@ -45,45 +41,14 @@ class ArangoLocationAssignmentRepository(ILocationAssignmentRepository, BaseAran
             col.ASSIGNMENT_FOR,
             col.ASSIGNMENT_IN_TENANT,
         ):
-            query = f"""
-            FOR e IN {edge_col}
-              FILTER e._from == @aid
-              REMOVE e IN {edge_col}
-            """
-            self._db.aql.execute(query, bind_vars={"aid": assignment_id})
-        return BaseArangoRepository.delete(self, key)
+            self.delete_edges(edge_col, assignment_id)
+        return super().delete(key)
 
     def list_by_tenant(self, tenant_key: str) -> list[LocationAssignment]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.tenant_key == @tenant_key
-          SORT doc.created_at ASC
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.LOCATION_ASSIGNMENTS,
-                "tenant_key": tenant_key,
-            },
-        )
-        return [LocationAssignment(**self._from_doc(doc)) for doc in cursor]
+        return self.find_by_field("tenant_key", tenant_key, sort="created_at")
 
     def list_by_membership(self, membership_key: str) -> list[LocationAssignment]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.membership_key == @membership_key
-          SORT doc.created_at ASC
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.LOCATION_ASSIGNMENTS,
-                "membership_key": membership_key,
-            },
-        )
-        return [LocationAssignment(**self._from_doc(doc)) for doc in cursor]
+        return self.find_by_field("membership_key", membership_key, sort="created_at")
 
     def get_by_membership_and_location(self, membership_key: str, location_key: str) -> LocationAssignment | None:
         query = """

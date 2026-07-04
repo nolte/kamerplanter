@@ -15,33 +15,26 @@ from app.domain.models.harvest import (
 )
 
 
-class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
+class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestRepository):
     # Base collection HARVEST_BATCHES is tenant-scoped; harvest indicators are a
     # global catalog queried through dedicated raw-AQL methods, not get_all.
     is_tenant_scoped = True
+    _model_cls = HarvestBatch
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.HARVEST_BATCHES)
+        super().__init__(db, col.HARVEST_BATCHES)
+        self._indicators = BaseArangoRepository[HarvestIndicator](db, col.HARVEST_INDICATORS, HarvestIndicator)
+        self._observations = BaseArangoRepository[HarvestObservation](db, col.HARVEST_OBSERVATIONS, HarvestObservation)
+        self._quality = BaseArangoRepository[QualityAssessment](db, col.QUALITY_ASSESSMENTS, QualityAssessment)
+        self._yield = BaseArangoRepository[YieldMetric](db, col.YIELD_METRICS, YieldMetric)
 
     # ── Indicators ──
 
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
-        query = f"FOR doc IN {col.HARVEST_INDICATORS} SORT doc._key LIMIT @offset, @limit RETURN doc"
-        count_query = f"FOR doc IN {col.HARVEST_INDICATORS} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
-        items = [HarvestIndicator(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query)
-        total = next(count_cursor, 0)
-        return items, total
+        return self._indicators.get_all(offset, limit)
 
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator:
-        coll = self._db.collection(col.HARVEST_INDICATORS)
-        data = self._to_doc(indicator)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = coll.insert(data, return_new=True)
-        ind = HarvestIndicator(**self._from_doc(result["new"]))
+        ind = self._indicators.create(indicator)
 
         if indicator.species_key:
             self.create_edge(
@@ -52,22 +45,12 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return ind
 
     def get_indicators_for_species(self, species_key: str) -> list[HarvestIndicator]:
-        query = f"FOR doc IN {col.HARVEST_INDICATORS} FILTER doc.species_key == @species_key RETURN doc"
-        cursor = self._db.aql.execute(query, bind_vars={"species_key": species_key})
-        return [HarvestIndicator(**self._from_doc(doc)) for doc in cursor]
+        return self._indicators.find_by_field("species_key", species_key)
 
     # ── Observations ──
 
     def create_observation(self, observation: HarvestObservation) -> HarvestObservation:
-        coll = self._db.collection(col.HARVEST_OBSERVATIONS)
-        data = self._to_doc(observation)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if not data.get("observed_at"):
-            data["observed_at"] = now
-        result = coll.insert(data, return_new=True)
-        obs = HarvestObservation(**self._from_doc(result["new"]))
+        obs = self._observations.create(observation, default_now_fields=("observed_at",))
 
         obs_id = f"{col.HARVEST_OBSERVATIONS}/{obs.key}"
         self.create_edge(col.OBSERVED_FOR_HARVEST, f"{col.PLANT_INSTANCES}/{observation.plant_key}", obs_id)
@@ -82,22 +65,13 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[HarvestObservation], int]:
-        query = (
-            f"FOR doc IN {col.HARVEST_OBSERVATIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"SORT doc.observed_at DESC "
-            f"LIMIT @offset, @limit RETURN doc"
+        return self._observations.get_page(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="observed_at",
+            sort_direction="DESC",
         )
-        count_query = (
-            f"FOR doc IN {col.HARVEST_OBSERVATIONS} "
-            f"FILTER doc.plant_key == @plant_key "
-            f"COLLECT WITH COUNT INTO total RETURN total"
-        )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
-        items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
-        total = next(count_cursor, 0)
-        return items, total
 
     def get_latest_observations_by_indicator(self, plant_key: str) -> list[HarvestObservation]:
         query = """
@@ -123,16 +97,13 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         limit: int = 50,
         tenant_key: str | None = None,
     ) -> tuple[list[HarvestBatch], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
-        return [HarvestBatch(**doc) for doc in docs], total
+        return super().get_all(offset, limit, tenant_key=tenant_key)
 
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return HarvestBatch(**doc) if doc else None
+        return super().get_by_key(key)
 
     def create_batch(self, batch: HarvestBatch) -> HarvestBatch:
-        doc = BaseArangoRepository.create(self, batch)
-        hb = HarvestBatch(**doc)
+        hb = super().create(batch)
         if batch.plant_key:
             plant_id = f"{col.PLANT_INSTANCES}/{batch.plant_key}"
             batch_id = f"{col.HARVEST_BATCHES}/{hb.key}"
@@ -140,21 +111,12 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return hb
 
     def update_batch(self, key: HarvestBatchKey, batch: HarvestBatch) -> HarvestBatch:
-        doc = BaseArangoRepository.update(self, key, batch)
-        return HarvestBatch(**doc)
+        return super().update(key, batch)
 
     # ── Quality ──
 
     def create_quality_assessment(self, assessment: QualityAssessment) -> QualityAssessment:
-        coll = self._db.collection(col.QUALITY_ASSESSMENTS)
-        data = self._to_doc(assessment)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        if not data.get("assessed_at"):
-            data["assessed_at"] = now
-        result = coll.insert(data, return_new=True)
-        qa = QualityAssessment(**self._from_doc(result["new"]))
+        qa = self._quality.create(assessment, default_now_fields=("assessed_at",))
 
         self.create_edge(
             col.ASSESSED_BY_QUALITY,
@@ -164,25 +126,15 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return qa
 
     def get_quality_for_batch(self, batch_key: HarvestBatchKey) -> QualityAssessment | None:
-        query = (
-            f"FOR doc IN {col.QUALITY_ASSESSMENTS} "
-            f"FILTER doc.batch_key == @batch_key "
-            f"SORT doc.assessed_at DESC LIMIT 1 RETURN doc"
+        results = self._quality.find_by_field(
+            "batch_key", batch_key, sort="assessed_at", sort_direction="DESC", offset=0, limit=1
         )
-        cursor = self._db.aql.execute(query, bind_vars={"batch_key": batch_key})
-        doc = next(cursor, None)
-        return QualityAssessment(**self._from_doc(doc)) if doc else None
+        return results[0] if results else None
 
     # ── Yield ──
 
     def create_yield_metric(self, metric: YieldMetric) -> YieldMetric:
-        coll = self._db.collection(col.YIELD_METRICS)
-        data = self._to_doc(metric)
-        now = self._now()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = coll.insert(data, return_new=True)
-        ym = YieldMetric(**self._from_doc(result["new"]))
+        ym = self._yield.create(metric)
 
         self.create_edge(
             col.HAS_YIELD_METRIC,
@@ -192,10 +144,7 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return ym
 
     def get_yield_for_batch(self, batch_key: HarvestBatchKey) -> YieldMetric | None:
-        query = f"FOR doc IN {col.YIELD_METRICS} FILTER doc.batch_key == @batch_key LIMIT 1 RETURN doc"
-        cursor = self._db.aql.execute(query, bind_vars={"batch_key": batch_key})
-        doc = next(cursor, None)
-        return YieldMetric(**self._from_doc(doc)) if doc else None
+        return self._yield.find_one_by_field("batch_key", batch_key)
 
     def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365) -> dict:
         cutoff = (datetime.now(UTC) - timedelta(days=days_back)).isoformat()

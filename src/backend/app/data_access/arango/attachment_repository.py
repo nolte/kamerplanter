@@ -17,27 +17,25 @@ from app.domain.models.attachment import Attachment, QualityAssessment
 ANONYMIZED_MARKER = "_anonymized"
 
 
-class ArangoAttachmentRepository(IAttachmentRepository, BaseArangoRepository):
+class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRepository):
     """ArangoDB-backed repository for ``attachments``."""
 
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.ATTACHMENTS)
+    _model_cls = Attachment
 
-    def create(self, attachment: Attachment) -> Attachment:
-        doc = BaseArangoRepository.create(self, attachment)
-        return Attachment(**doc)
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.ATTACHMENTS)
 
     def get(self, key: str, tenant_key: str) -> Attachment | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None or doc.get("tenant_key") != tenant_key:
+        attachment = super().get_by_key(key)
+        if attachment is None or attachment.tenant_key != tenant_key:
             return None
-        return Attachment(**doc)
+        return attachment
 
     def delete(self, key: str, tenant_key: str) -> bool:
         existing = self.get(key, tenant_key)
         if existing is None:
             return False
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def update_metadata(
         self,

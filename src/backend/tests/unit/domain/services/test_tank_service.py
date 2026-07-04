@@ -4,11 +4,12 @@ import pytest
 
 from app.common.exceptions import NotFoundError
 from app.domain.services.tank_service import TankService
+from tests.conftest import wire_get_or_raise
 
 
 @pytest.fixture
 def mock_repo():
-    return MagicMock()
+    return wire_get_or_raise(MagicMock(), "Tank")
 
 
 @pytest.fixture

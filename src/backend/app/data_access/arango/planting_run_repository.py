@@ -10,11 +10,13 @@ from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
 
-class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
+class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRunRepository):
     is_tenant_scoped = True
+    _model_cls = PlantingRun
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PLANTING_RUNS)
+        super().__init__(db, col.PLANTING_RUNS)
+        self._entries = BaseArangoRepository[PlantingRunEntry](db, col.PLANTING_RUN_ENTRIES, PlantingRunEntry)
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -49,25 +51,15 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
             count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
-        return [PlantingRun(**doc) for doc in docs], total
-
-    def get_by_key(self, key: PlantingRunKey) -> PlantingRun | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return PlantingRun(**doc) if doc else None
+        return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
 
     def create(self, run: PlantingRun) -> PlantingRun:
-        doc = BaseArangoRepository.create(self, run)
-        created = PlantingRun(**doc)
+        created = super().create(run)
         if run.location_key:
-            self.link_run_to_location(doc["_key"], run.location_key)
+            self.link_run_to_location(created.key, run.location_key)
         if run.substrate_batch_key:
-            self.link_run_to_substrate(doc["_key"], run.substrate_batch_key)
+            self.link_run_to_substrate(created.key, run.substrate_batch_key)
         return created
-
-    def update(self, key: PlantingRunKey, run: PlantingRun) -> PlantingRun:
-        doc = BaseArangoRepository.update(self, key, run)
-        return PlantingRun(**doc)
 
     def delete(self, key: PlantingRunKey) -> bool:
         run_id = f"{col.PLANTING_RUNS}/{key}"
@@ -81,44 +73,24 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
             if entry.key:
                 entry_id = f"{col.PLANTING_RUN_ENTRIES}/{entry.key}"
                 self.delete_edges(col.ENTRY_FOR_SPECIES, from_id=entry_id)
-                self._db.collection(col.PLANTING_RUN_ENTRIES).delete(entry.key)
-        return BaseArangoRepository.delete(self, key)
+                self._entries.delete(entry.key)
+        return super().delete(key)
 
     # ── Entry CRUD ────────────────────────────────────────────────────
 
     def create_entry(self, entry: PlantingRunEntry) -> PlantingRunEntry:
-        data = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = self._db.collection(col.PLANTING_RUN_ENTRIES).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = PlantingRunEntry(**doc)
+        created = self._entries.create(entry)
         # Create edges
         if entry.run_key:
-            self.link_run_to_entry(entry.run_key, doc["_key"])
-        self.link_entry_to_species(doc["_key"], entry.species_key)
+            self.link_run_to_entry(entry.run_key, created.key)
+        self.link_entry_to_species(created.key, entry.species_key)
         return created
 
     def get_entries(self, run_key: PlantingRunKey) -> list[PlantingRunEntry]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.run_key == @run_key
-          RETURN doc
-        """
-        bind_vars = {
-            "@collection": col.PLANTING_RUN_ENTRIES,
-            "run_key": run_key,
-        }
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [PlantingRunEntry(**self._from_doc(doc)) for doc in cursor]
+        return self._entries.find_by_field("run_key", run_key)
 
     def get_entry_by_key(self, entry_key: PlantingRunEntryKey) -> PlantingRunEntry | None:
-        doc = self._db.collection(col.PLANTING_RUN_ENTRIES).get(entry_key)
-        if doc is None:
-            return None
-        return PlantingRunEntry(**self._from_doc(doc))
+        return self._entries.get_by_key(entry_key)
 
     def update_entry(self, entry_key: PlantingRunEntryKey, entry: PlantingRunEntry) -> PlantingRunEntry:
         # No exclude_none: the service passes a fully merged entry, and
@@ -146,13 +118,8 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         entry_id = f"{col.PLANTING_RUN_ENTRIES}/{entry_key}"
         self.delete_edges(col.ENTRY_FOR_SPECIES, from_id=entry_id)
         # Remove has_entry edges pointing to this entry
-        query = f"FOR e IN {col.HAS_ENTRY} FILTER e._to == @entry_id REMOVE e IN {col.HAS_ENTRY}"
-        self._db.aql.execute(query, bind_vars={"entry_id": entry_id})
-        try:
-            self._db.collection(col.PLANTING_RUN_ENTRIES).delete(entry_key)
-            return True
-        except Exception:
-            return False
+        self.delete_edges(col.HAS_ENTRY, entry_id, direction="inbound")
+        return self._entries.delete(entry_key)
 
     # ── Edge operations ───────────────────────────────────────────────
 

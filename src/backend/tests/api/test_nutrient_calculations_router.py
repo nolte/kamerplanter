@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import FertilizerType, TenantRole
+from app.common.exceptions import NotFoundError
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
@@ -26,6 +27,12 @@ class _FakeFertRepo:
 
     def get_by_key(self, key: str) -> Fertilizer | None:
         return self._ferts.get(key)
+
+    def get_or_raise(self, key: str) -> Fertilizer:
+        fert = self._ferts.get(key)
+        if fert is None:
+            raise NotFoundError("Fertilizer", key)
+        return fert
 
 
 class _FakeSiteRepo:

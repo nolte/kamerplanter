@@ -18,11 +18,13 @@ def _job_key(species_key: str) -> str:
     return f"refjob_{species_key}"
 
 
-class ArangoReferenceImageRepository(BaseArangoRepository):
+class ArangoReferenceImageRepository(BaseArangoRepository[ReferenceImageJob]):
     """ArangoDB persistence for reference-image acquisition coverage reports."""
 
+    _model_cls = ReferenceImageJob
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.REFERENCE_IMAGE_JOBS)
+        super().__init__(db, col.REFERENCE_IMAGE_JOBS)
 
     def upsert(self, job: ReferenceImageJob) -> ReferenceImageJob:
         """Insert or replace the coverage report for a species (idempotent)."""

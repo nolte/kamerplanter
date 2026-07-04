@@ -16,28 +16,19 @@ from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.models.pest_image import PestImageContribution
 
 
-class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
+class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPestImageRepository):
     """ArangoDB-backed repository for ``pest_image_contributions``."""
 
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PEST_IMAGE_CONTRIBUTIONS)
+    _model_cls = PestImageContribution
 
-    def create(self, contribution: PestImageContribution) -> PestImageContribution:
-        doc = BaseArangoRepository.create(self, contribution)
-        return PestImageContribution(**doc)
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.PEST_IMAGE_CONTRIBUTIONS)
 
     def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None or doc.get("tenant_key") != tenant_key:
+        contribution = super().get_by_key(key)
+        if contribution is None or contribution.tenant_key != tenant_key:
             return None
-        return PestImageContribution(**doc)
-
-    def get_by_key(self, key: str) -> PestImageContribution | None:  # type: ignore[override]
-        """Resolve a contribution irrespective of tenant (moderation / global content)."""
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None:
-            return None
-        return PestImageContribution(**doc)
+        return contribution
 
     def list_for_pest(
         self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
@@ -130,22 +121,20 @@ class ArangoPestImageRepository(IPestImageRepository, BaseArangoRepository):
             promoted_at = None
             promoted_by = None
         updated = existing.model_copy(update={"status": status, "promoted_at": promoted_at, "promoted_by": promoted_by})
-        doc = BaseArangoRepository.update(self, key, updated)
-        return PestImageContribution(**doc)
+        return super().update(key, updated)
 
     def set_active(self, key: str, is_active: bool) -> PestImageContribution | None:
         existing = self.get_by_key(key)
         if existing is None:
             return None
         updated = existing.model_copy(update={"is_active": is_active})
-        doc = BaseArangoRepository.update(self, key, updated)
-        return PestImageContribution(**doc)
+        return super().update(key, updated)
 
     def delete(self, key: str, tenant_key: str) -> bool:
         existing = self.get(key, tenant_key)
         if existing is None:
             return False
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def delete_for_tenant(self, tenant_key: str) -> int:
         query = """

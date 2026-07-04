@@ -26,6 +26,7 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
+from tests.conftest import wire_get_or_raise
 
 USER_KEY = "u1"
 USER_EMAIL = "user@example.com"
@@ -60,6 +61,7 @@ def export_repo():
         return export
 
     repo.create.side_effect = _create
+    wire_get_or_raise(repo, "DataExportRequest")
     return repo
 
 
@@ -112,6 +114,7 @@ def erasure_repo():
         return erasure
 
     repo.create.side_effect = _create
+    wire_get_or_raise(repo, "ErasureRequest")
     return repo
 
 
@@ -139,6 +142,7 @@ def user_repo(user):
     repo.get_by_key.return_value = user
     repo.get_by_email.return_value = None
     repo.update.side_effect = lambda _k, u: u
+    wire_get_or_raise(repo, "User")
     return repo
 
 

@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -10,11 +9,13 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
 
-class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
+class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRepository):
     is_tenant_scoped = True
+    _model_cls = Fertilizer
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.FERTILIZERS)
+        super().__init__(db, col.FERTILIZERS)
+        self._stocks = BaseArangoRepository[FertilizerStock](db, col.FERTILIZER_STOCKS, FertilizerStock)
 
     # ── Fertilizer CRUD ──────────────────────────────────────────────
 
@@ -59,18 +60,6 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         total = next(count_cursor, 0)
         return items, total
 
-    def get_by_key(self, key: FertilizerKey) -> Fertilizer | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Fertilizer(**doc) if doc else None
-
-    def create(self, fertilizer: Fertilizer) -> Fertilizer:
-        doc = BaseArangoRepository.create(self, fertilizer)
-        return Fertilizer(**doc)
-
-    def update(self, key: FertilizerKey, fertilizer: Fertilizer) -> Fertilizer:
-        doc = BaseArangoRepository.update(self, key, fertilizer)
-        return Fertilizer(**doc)
-
     def delete(self, key: FertilizerKey) -> bool:
         fert_id = f"{col.FERTILIZERS}/{key}"
         # Delete outbound edges
@@ -78,68 +67,35 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
             self.delete_edges(edge_col, fert_id)
         # Delete inbound edges
         for edge_col in [col.FERT_INCOMPATIBLE, col.FEEDING_USED, col.PLAN_USES_FERTILIZER]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @fid REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"fid": fert_id})
+            self.delete_edges(edge_col, fert_id, direction="inbound")
         # Delete child stocks
         query = (
             f"FOR doc IN {col.FERTILIZER_STOCKS} "
             f"FILTER doc.fertilizer_key == @key REMOVE doc IN {col.FERTILIZER_STOCKS}"
         )
         self._db.aql.execute(query, bind_vars={"key": key})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     # ── Stock CRUD ───────────────────────────────────────────────────
 
     def create_stock(self, stock: FertilizerStock) -> FertilizerStock:
-        data = stock.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        now = datetime.now(UTC).isoformat()
-        data["created_at"] = now
-        data["updated_at"] = now
-        result = self._db.collection(col.FERTILIZER_STOCKS).insert(data, return_new=True)
-        doc = self._from_doc(result["new"])
-        created = FertilizerStock(**doc)
+        created = self._stocks.create(stock)
         # Create edge
         from_id = f"{col.FERTILIZERS}/{stock.fertilizer_key}"
-        to_id = f"{col.FERTILIZER_STOCKS}/{doc['_key']}"
+        to_id = f"{col.FERTILIZER_STOCKS}/{created.key}"
         self.create_edge(col.HAS_STOCK, from_id, to_id)
         return created
 
     def get_stocks(self, fertilizer_key: FertilizerKey) -> list[FertilizerStock]:
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.fertilizer_key == @fert_key
-          SORT doc.purchase_date DESC
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.FERTILIZER_STOCKS,
-                "fert_key": fertilizer_key,
-            },
-        )
-        return [FertilizerStock(**self._from_doc(doc)) for doc in cursor]
+        return self._stocks.find_by_field("fertilizer_key", fertilizer_key, sort="purchase_date", sort_direction="DESC")
 
     def update_stock(self, key: FertilizerStockKey, stock: FertilizerStock) -> FertilizerStock:
-        data = stock.model_dump(by_alias=True, exclude_none=True, mode="json")
-        data.pop("_key", None)
-        data["updated_at"] = datetime.now(UTC).isoformat()
-        result = self._db.collection(col.FERTILIZER_STOCKS).update(
-            {"_key": key, **data},
-            return_new=True,
-        )
-        return FertilizerStock(**self._from_doc(result["new"]))
+        return self._stocks.update(key, stock)
 
     def delete_stock(self, key: FertilizerStockKey) -> bool:
         stock_id = f"{col.FERTILIZER_STOCKS}/{key}"
-        query = f"FOR e IN {col.HAS_STOCK} FILTER e._to == @sid REMOVE e IN {col.HAS_STOCK}"
-        self._db.aql.execute(query, bind_vars={"sid": stock_id})
-        try:
-            self._db.collection(col.FERTILIZER_STOCKS).delete(key)
-            return True
-        except Exception:
-            return False
+        self.delete_edges(col.HAS_STOCK, stock_id, direction="inbound")
+        return self._stocks.delete(key)
 
     # ── Incompatibility ──────────────────────────────────────────────
 

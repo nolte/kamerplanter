@@ -1,5 +1,5 @@
 from app.common.enums import DuplicateStrategy, EntityType, ImportJobStatus
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.domain.engines.csv_parser import CsvParser
 from app.domain.engines.import_engine import ImportEngine
 from app.domain.engines.row_validator import RowValidator
@@ -41,9 +41,7 @@ class ImportService:
         return self._repo.save(job)
 
     def get_job(self, key: str) -> ImportJob:
-        job = self._repo.get_by_key(key)
-        if job is None:
-            raise NotFoundError("ImportJob", key)
+        job = self._repo.get_or_raise(key)
         return job
 
     def list_jobs(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]:
