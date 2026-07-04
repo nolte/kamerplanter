@@ -23,67 +23,58 @@ logic lives in ``PrivacyService``; these tasks are thin schedulers
 that bridge Celery to the async service layer.
 """
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 
 import structlog
 
 from app.tasks import celery_app
+from app.tasks.task_bridge import run_async_task
 
 logger = structlog.get_logger(__name__)
 
 STALE_EXPORT_REDISPATCH_AFTER_MINUTES = 15
 
 
-@celery_app.task(  # type: ignore[misc]
+@run_async_task(  # type: ignore[misc]
     name="retention.process_data_export",
-    bind=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_backoff_max=600,
     retry_jitter=True,
     max_retries=5,
 )
-def process_data_export(self, export_key: str) -> dict:  # type: ignore[no-untyped-def]
+async def process_data_export(export_key: str) -> dict:
     """Build the export bundle and flip the request to completed.
 
     Triggered by ``PrivacyService.request_data_export`` via ``.delay`` once the
     request record exists. Idempotent — the service skips non-``pending``
     exports — so ``autoretry_for=(Exception,)`` may retry broadly (bounded by
-    ``max_retries`` + backoff).
+    ``max_retries`` + backoff). The ``run_async_task`` decorator bridges the
+    coroutine to Celery and logs/re-raises failures.
     """
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    try:
-        result = asyncio.run(service.process_data_export(export_key))
-        logger.info(
-            "retention.process_data_export.completed",
-            export_key=export_key,
-            file_size_bytes=result.file_size_bytes if result else None,
-        )
-        return {
-            "export_key": export_key,
-            "status": result.status if result else "unknown",
-        }
-    except Exception as exc:  # pragma: no cover - logged + re-raised
-        logger.exception(
-            "retention.process_data_export.failed",
-            export_key=export_key,
-            error=str(exc),
-        )
-        raise
+    result = await service.process_data_export(export_key)
+    logger.info(
+        "retention.process_data_export.completed",
+        export_key=export_key,
+        file_size_bytes=result.file_size_bytes if result else None,
+    )
+    return {
+        "export_key": export_key,
+        "status": result.status if result else "unknown",
+    }
 
 
-@celery_app.task(  # type: ignore[misc]
+@run_async_task(  # type: ignore[misc]
     name="retention.execute_scheduled_erasures",
-    bind=True,
     autoretry_for=(ConnectionError, TimeoutError),
     max_retries=3,
     default_retry_delay=300,
 )
-def execute_scheduled_erasures(self) -> dict:  # type: ignore[no-untyped-def]
+async def execute_scheduled_erasures() -> dict:
     """Hard-delete users past their 90-day soft-delete grace period.
 
     Runs daily. Picks up every ``ErasureRequest`` with
@@ -94,75 +85,52 @@ def execute_scheduled_erasures(self) -> dict:  # type: ignore[no-untyped-def]
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    try:
-        processed = asyncio.run(service.execute_scheduled_erasures(now=datetime.now(UTC)))
-        logger.info(
-            "retention.execute_scheduled_erasures.completed",
-            processed=processed,
-        )
-        return {"processed": processed}
-    except Exception as exc:  # pragma: no cover
-        logger.exception(
-            "retention.execute_scheduled_erasures.failed",
-            error=str(exc),
-        )
-        raise
+    processed = await service.execute_scheduled_erasures(now=datetime.now(UTC))
+    logger.info(
+        "retention.execute_scheduled_erasures.completed",
+        processed=processed,
+    )
+    return {"processed": processed}
 
 
-@celery_app.task(  # type: ignore[misc]
+@run_async_task(  # type: ignore[misc]
     name="retention.expire_email_change_requests",
-    bind=True,
     autoretry_for=(ConnectionError, TimeoutError),
     max_retries=3,
     default_retry_delay=300,
 )
-def expire_email_change_requests(self) -> dict:  # type: ignore[no-untyped-def]
+async def expire_email_change_requests() -> dict:
     """Flip stale email-change requests (>24 h) to ``status=expired``."""
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    try:
-        expired = asyncio.run(service.expire_email_change_requests(now=datetime.now(UTC)))
-        logger.info(
-            "retention.expire_email_change_requests.completed",
-            expired=expired,
-        )
-        return {"expired": expired}
-    except Exception as exc:  # pragma: no cover
-        logger.exception(
-            "retention.expire_email_change_requests.failed",
-            error=str(exc),
-        )
-        raise
+    expired = await service.expire_email_change_requests(now=datetime.now(UTC))
+    logger.info(
+        "retention.expire_email_change_requests.completed",
+        expired=expired,
+    )
+    return {"expired": expired}
 
 
-@celery_app.task(  # type: ignore[misc]
+@run_async_task(  # type: ignore[misc]
     name="retention.expire_data_exports",
-    bind=True,
     autoretry_for=(ConnectionError, TimeoutError),
     max_retries=3,
     default_retry_delay=300,
 )
-def expire_data_exports(self) -> dict:  # type: ignore[no-untyped-def]
+async def expire_data_exports() -> dict:
     """Flip completed exports past their 72-hour expiry to ``status=expired``."""
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    try:
-        expired = asyncio.run(service.expire_data_exports(now=datetime.now(UTC)))
-        logger.info(
-            "retention.expire_data_exports.completed",
-            expired=expired,
-        )
-        return {"expired": expired}
-    except Exception as exc:  # pragma: no cover
-        logger.exception(
-            "retention.expire_data_exports.failed",
-            error=str(exc),
-        )
-        raise
+    expired = await service.expire_data_exports(now=datetime.now(UTC))
+    logger.info(
+        "retention.expire_data_exports.completed",
+        expired=expired,
+    )
+    return {"expired": expired}
 
 
 @celery_app.task(  # type: ignore[misc]

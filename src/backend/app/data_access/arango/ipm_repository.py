@@ -54,9 +54,9 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
     # ── Disease CRUD ──
 
     def get_all_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
-        query = f"FOR doc IN {col.DISEASES} SORT doc._key LIMIT {offset}, {limit} RETURN doc"
+        query = f"FOR doc IN {col.DISEASES} SORT doc._key LIMIT @offset, @limit RETURN doc"
         count_query = f"FOR doc IN {col.DISEASES} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query)
+        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
         items = [Disease(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query)
         total = next(count_cursor, 0)
@@ -96,9 +96,9 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
     # ── Treatment CRUD ──
 
     def get_all_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
-        query = f"FOR doc IN {col.TREATMENTS} SORT doc._key LIMIT {offset}, {limit} RETURN doc"
+        query = f"FOR doc IN {col.TREATMENTS} SORT doc._key LIMIT @offset, @limit RETURN doc"
         count_query = f"FOR doc IN {col.TREATMENTS} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query)
+        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
         items = [Treatment(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query)
         total = next(count_cursor, 0)
@@ -171,14 +171,14 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
             f"FOR doc IN {col.INSPECTIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"SORT doc.inspected_at DESC "
-            f"LIMIT {offset}, {limit} RETURN doc"
+            f"LIMIT @offset, @limit RETURN doc"
         )
         count_query = (
             f"FOR doc IN {col.INSPECTIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"COLLECT WITH COUNT INTO total RETURN total"
         )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key})
+        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
         items = [Inspection(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
         total = next(count_cursor, 0)
@@ -236,14 +236,14 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
             f"FOR doc IN {col.TREATMENT_APPLICATIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"SORT doc.applied_at DESC "
-            f"LIMIT {offset}, {limit} RETURN doc"
+            f"LIMIT @offset, @limit RETURN doc"
         )
         count_query = (
             f"FOR doc IN {col.TREATMENT_APPLICATIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"COLLECT WITH COUNT INTO total RETURN total"
         )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key})
+        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
         items = [TreatmentApplication(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
         total = next(count_cursor, 0)

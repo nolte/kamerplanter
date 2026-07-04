@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.botanical_families.schemas import FamilyCreate, FamilyResponse
 from app.api.v1.species.schemas import SpeciesResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo
+from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.models.botanical_family import BotanicalFamily
 
@@ -17,11 +18,10 @@ def _family_response(f: BotanicalFamily, repo: ArangoBotanicalFamilyRepository) 
 
 @router.get("", response_model=list[FamilyResponse])
 def list_families(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
-    families, total = repo.get_all_families(offset, limit)
+    families, total = repo.get_all_families(pagination.offset, pagination.limit)
     return [_family_response(f, repo) for f in families]
 
 

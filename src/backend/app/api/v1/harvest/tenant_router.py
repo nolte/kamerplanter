@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.harvest.schemas import (
     HarvestBatchCreate,
     HarvestBatchResponse,
@@ -15,6 +16,7 @@ from app.api.v1.harvest.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_harvest_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.harvest import (
     HarvestBatch,
     HarvestIndicator,
@@ -29,33 +31,32 @@ router = APIRouter(prefix="/harvest", tags=["harvest"])
 
 
 def _indicator_response(i: HarvestIndicator) -> HarvestIndicatorResponse:
-    return HarvestIndicatorResponse(key=i.key or "", **i.model_dump(exclude={"key"}))
+    return to_response(i, HarvestIndicatorResponse)
 
 
 def _observation_response(o: HarvestObservation) -> ObservationResponse:
-    return ObservationResponse(key=o.key or "", **o.model_dump(exclude={"key"}))
+    return to_response(o, ObservationResponse)
 
 
 def _batch_response(b: HarvestBatch) -> HarvestBatchResponse:
-    return HarvestBatchResponse(key=b.key or "", **b.model_dump(exclude={"key"}))
+    return to_response(b, HarvestBatchResponse)
 
 
 def _quality_response(q: QualityAssessment) -> QualityAssessmentResponse:
-    return QualityAssessmentResponse(key=q.key or "", **q.model_dump(exclude={"key"}))
+    return to_response(q, QualityAssessmentResponse)
 
 
 def _yield_response(y: YieldMetric) -> YieldMetricResponse:
-    return YieldMetricResponse(key=y.key or "", **y.model_dump(exclude={"key"}))
+    return to_response(y, YieldMetricResponse)
 
 
 @router.get("/indicators", response_model=list[HarvestIndicatorResponse])
 def list_indicators(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    indicators, _ = service.list_indicators(offset, limit)
+    indicators, _ = service.list_indicators(pagination.offset, pagination.limit)
     return [_indicator_response(i) for i in indicators]
 
 
@@ -95,12 +96,11 @@ def create_observation(
 @router.get("/plants/{plant_key}/observations", response_model=list[ObservationResponse])
 def list_observations(
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    observations, _ = service.get_observations(plant_key, offset, limit)
+    observations, _ = service.get_observations(plant_key, pagination.offset, pagination.limit)
     return [_observation_response(o) for o in observations]
 
 
@@ -115,12 +115,11 @@ def assess_readiness(
 
 @router.get("/batches", response_model=list[HarvestBatchResponse])
 def list_batches(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    batches, _ = service.list_batches(offset, limit, tenant_key=ctx.tenant_key)
+    batches, _ = service.list_batches(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_batch_response(b) for b in batches]
 
 

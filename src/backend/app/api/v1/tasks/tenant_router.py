@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Response
 
+from app.api.mapping import to_response
 from app.api.v1.tasks.schemas import (
     BatchAssignRequest,
     BatchDeleteRequest,
@@ -34,6 +35,7 @@ from app.api.v1.tasks.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_task_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
@@ -42,23 +44,23 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 def _wf_response(wt: WorkflowTemplate) -> WorkflowTemplateResponse:
-    return WorkflowTemplateResponse(key=wt.key or "", **wt.model_dump(exclude={"key"}))
+    return to_response(wt, WorkflowTemplateResponse)
 
 
 def _tt_response(tt: TaskTemplate) -> TaskTemplateResponse:
-    return TaskTemplateResponse(key=tt.key or "", **tt.model_dump(exclude={"key"}))
+    return to_response(tt, TaskTemplateResponse)
 
 
 def _phase_response(p: WorkflowPhase) -> WorkflowPhaseResponse:
-    return WorkflowPhaseResponse(key=p.key or "", **p.model_dump(exclude={"key"}))
+    return to_response(p, WorkflowPhaseResponse)
 
 
 def _task_response(t: Task) -> TaskResponse:
-    return TaskResponse(key=t.key or "", **t.model_dump(exclude={"key"}))
+    return to_response(t, TaskResponse)
 
 
 def _we_response(we) -> WorkflowExecutionResponse:
-    return WorkflowExecutionResponse(key=we.key or "", **we.model_dump(exclude={"key"}))
+    return to_response(we, WorkflowExecutionResponse)
 
 
 _ACTIVITY_TO_TASK_CATEGORY: dict[str, str] = {
@@ -79,16 +81,15 @@ _ACTIVITY_TO_TASK_CATEGORY: dict[str, str] = {
 
 @router.get("/workflows", response_model=list[WorkflowTemplateResponse])
 def list_workflows(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     species_key: str | None = Query(None),
     target_entity_type: str | None = Query(None),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
     templates, _ = service.list_workflow_templates(
-        offset,
-        limit,
+        pagination.offset,
+        pagination.limit,
         species_key=species_key,
         tenant_key=ctx.tenant_key,
         target_entity_type=target_entity_type,
@@ -318,8 +319,7 @@ def delete_task_template(
 
 @router.get("", response_model=list[TaskResponse])
 def list_tasks(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     status: str | None = None,
     category: str | None = None,
     entity_type: str | None = None,
@@ -336,7 +336,7 @@ def list_tasks(
         filters["entity_type"] = entity_type
     if entity_key:
         filters["entity_key"] = entity_key
-    tasks, _ = service.list_tasks(offset, limit, filters or None, tenant_key=ctx.tenant_key)
+    tasks, _ = service.list_tasks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_task_response(t) for t in tasks]
 
 

@@ -37,10 +37,16 @@ class AQLBuilder:
             parts.append(f"  FILTER {f}")
         if self._sort:
             parts.append(f"  SORT {self._sort}")
+        bind_vars = dict(self._bind_vars)
         if self._offset is not None and self._limit is not None:
-            parts.append(f"  LIMIT {self._offset}, {self._limit}")
+            # SEC-B5: never interpolate offset/limit into the query text; bind
+            # them instead. Reserved ``__``-prefixed names cannot collide with
+            # the ``v0..vN`` filter placeholders.
+            parts.append("  LIMIT @__offset, @__limit")
+            bind_vars["__offset"] = self._offset
+            bind_vars["__limit"] = self._limit
         parts.append("  RETURN doc")
-        return "\n".join(parts), self._bind_vars
+        return "\n".join(parts), bind_vars
 
     def build_count(self) -> tuple[str, dict[str, Any]]:
         parts = [f"FOR doc IN {self._collection}"]

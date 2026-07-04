@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.fertilizers.schemas import (
     FertilizerCreate,
     FertilizerResponse,
@@ -13,6 +14,7 @@ from app.api.v1.fertilizers.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
@@ -21,13 +23,12 @@ router = APIRouter(prefix="/fertilizers", tags=["fertilizers"])
 
 
 def _fert_response(f: Fertilizer) -> FertilizerResponse:
-    return FertilizerResponse(key=f.key or "", **f.model_dump(exclude={"key"}))
+    return to_response(f, FertilizerResponse)
 
 
 @router.get("", response_model=list[FertilizerResponse])
 def list_fertilizers(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     fertilizer_type: str | None = None,
     brand: str | None = None,
     is_organic: bool | None = None,
@@ -44,7 +45,9 @@ def list_fertilizers(
         filters["is_organic"] = is_organic
     if tank_safe is not None:
         filters["tank_safe"] = tank_safe
-    items, _total = service.list_fertilizers(offset, limit, filters or None, tenant_key=ctx.tenant_key)
+    items, _total = service.list_fertilizers(
+        pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key
+    )
     return [_fert_response(f) for f in items]
 
 
@@ -100,7 +103,7 @@ def list_stocks(
 ):
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     stocks = service.get_stocks(key)
-    return [StockResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in stocks]
+    return [to_response(s, StockResponse) for s in stocks]
 
 
 @router.post("/{key}/stocks", response_model=StockResponse, status_code=201)
@@ -113,7 +116,7 @@ def create_stock(
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     stock = FertilizerStock(fertilizer_key=key, **body.model_dump())
     created = service.create_stock(key, stock)
-    return StockResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, StockResponse)
 
 
 @router.put("/{key}/stocks/{sk}", response_model=StockResponse)
@@ -127,7 +130,7 @@ def update_stock(
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_stock(sk, data)
-    return StockResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, StockResponse)
 
 
 @router.delete("/{key}/stocks/{sk}", status_code=204)

@@ -1,22 +1,19 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.activities.schemas import ActivityCreate, ActivityResponse, ActivityUpdate
 from app.common.auth import get_current_user
 from app.common.dependencies import get_activity_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.activity import Activity
 from app.domain.services.activity_service import ActivityService
 
 router = APIRouter(prefix="/activities", tags=["activities"], dependencies=[Depends(get_current_user)])
 
 
-def _to_response(a: Activity) -> ActivityResponse:
-    return ActivityResponse(key=a.key or "", **a.model_dump(exclude={"key"}))
-
-
 @router.get("", response_model=list[ActivityResponse])
 def list_activities(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     category: str | None = None,
     scope: str | None = Query(None, pattern="^(universal|restricted)$"),
     species: str | None = Query(None, description="Filter by species name (substring match in species_compatible)"),
@@ -29,8 +26,8 @@ def list_activities(
         filters["scope"] = scope
     if species:
         filters["species"] = species
-    items, _ = service.list_activities(offset, limit, filters or None)
-    return [_to_response(a) for a in items]
+    items, _ = service.list_activities(pagination.offset, pagination.limit, filters or None)
+    return [to_response(a, ActivityResponse) for a in items]
 
 
 @router.post("", response_model=ActivityResponse, status_code=201)
@@ -40,7 +37,7 @@ def create_activity(
 ) -> ActivityResponse:
     activity = Activity(**body.model_dump())
     created = service.create_activity(activity)
-    return _to_response(created)
+    return to_response(created, ActivityResponse)
 
 
 @router.get("/{key}", response_model=ActivityResponse)
@@ -48,7 +45,7 @@ def get_activity(
     key: str,
     service: ActivityService = Depends(get_activity_service),
 ) -> ActivityResponse:
-    return _to_response(service.get_activity(key))
+    return to_response(service.get_activity(key), ActivityResponse)
 
 
 @router.put("/{key}", response_model=ActivityResponse)
@@ -59,7 +56,7 @@ def update_activity(
 ) -> ActivityResponse:
     data = body.model_dump(exclude_none=True)
     updated = service.update_activity(key, data)
-    return _to_response(updated)
+    return to_response(updated, ActivityResponse)
 
 
 @router.delete("/{key}", status_code=204)

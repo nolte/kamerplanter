@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_plant_instance_service, get_sensor_service, get_site_service, get_tank_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site
 from app.domain.models.tenant_context import TenantContext
@@ -61,12 +62,11 @@ def _build_tree(
 
 @router.get("", response_model=list[SiteResponse])
 def list_sites(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
-    items, _total = service.list_sites(offset, limit, tenant_key=ctx.tenant_key)
+    items, _total = service.list_sites(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 
 

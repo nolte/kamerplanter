@@ -55,11 +55,14 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
             filter_parts.append("(@target_entity_type IN doc.target_entity_types)")
             bind_vars["target_entity_type"] = target_entity_type
         filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
-        query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT {offset}, {limit} RETURN doc"
+        query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"
         count_query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
+        count_vars = dict(bind_vars)
+        bind_vars["offset"] = offset
+        bind_vars["limit"] = limit
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
         return items, total
 
@@ -290,11 +293,14 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         )
 
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-        query += f" SORT doc.due_date ASC LIMIT {offset}, {limit} RETURN doc"
+        count_vars = dict(bind_vars)
+        bind_vars["offset"] = offset
+        bind_vars["limit"] = limit
+        query += " SORT doc.due_date ASC LIMIT @offset, @limit RETURN doc"
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [Task(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
         return items, total
 

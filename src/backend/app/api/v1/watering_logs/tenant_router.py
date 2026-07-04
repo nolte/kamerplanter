@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.watering_logs.schemas import (
     ResolvedFertilizer,
@@ -14,6 +14,7 @@ from app.api.v1.watering_logs.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_watering_log_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_log import WateringLog
 from app.domain.services.watering_log_service import WateringLogService
@@ -61,12 +62,11 @@ def create_log(
 
 @router.get("/watering-logs", response_model=list[WateringLogResponse])
 def list_logs(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    items, _total = service.list_logs(offset, limit, tenant_key=ctx.tenant_key)
+    items, _total = service.list_logs(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_plant_keys = list({pk for log in items for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_plant_keys) if all_plant_keys else {}
     all_fert_keys = list({fu.fertilizer_key for log in items for fu in log.fertilizers_used})
@@ -125,12 +125,11 @@ def get_runoff_analysis(
 @router.get("/watering-logs/plant/{plant_key}", response_model=list[WateringLogResponse])
 def get_plant_logs(
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    logs = service.get_by_plant(plant_key, offset, limit)
+    logs = service.get_by_plant(plant_key, pagination.offset, pagination.limit)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
@@ -141,12 +140,11 @@ def get_plant_logs(
 @router.get("/slots/{slot_key}/watering-logs", response_model=list[WateringLogResponse])
 def get_slot_logs(
     slot_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    logs = service.get_by_slot(slot_key, offset, limit)
+    logs = service.get_by_slot(slot_key, pagination.offset, pagination.limit)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
@@ -157,12 +155,11 @@ def get_slot_logs(
 @router.get("/locations/{location_key}/watering-logs", response_model=list[WateringLogResponse])
 def get_location_logs(
     location_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    logs = service.get_by_location(location_key, offset, limit)
+    logs = service.get_by_location(location_key, pagination.offset, pagination.limit)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})

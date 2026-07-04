@@ -36,6 +36,7 @@ from app.api.v1.attachments.schemas import (
 from app.common.dependencies import get_attachment_service
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
+from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.models.attachment import Attachment
@@ -173,19 +174,18 @@ def presign_upload(
 @router.get("", response_model=AttachmentListResponse)
 def list_attachments(
     category: str | None = Query(default=None),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> AttachmentListResponse:
     """List the tenant's attachments, newest first, optionally filtered by category."""
     parsed_category = _parse_category(category) if category else None
-    items, total = service.list(ctx.tenant_key, parsed_category, offset, limit)
+    items, total = service.list(ctx.tenant_key, parsed_category, pagination.offset, pagination.limit)
     return AttachmentListResponse(
         items=[_to_response(a, ctx.tenant_slug) for a in items],
         total=total,
-        offset=offset,
-        limit=limit,
+        offset=pagination.offset,
+        limit=pagination.limit,
     )
 
 

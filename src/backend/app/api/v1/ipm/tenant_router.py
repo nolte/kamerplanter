@@ -23,6 +23,7 @@ from app.api.v1.ipm.schemas import (
 from app.common.auth import get_current_tenant, is_platform_admin
 from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
+from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
@@ -174,12 +175,11 @@ def create_inspection(
 @router.get("/plants/{plant_key}/inspections", response_model=list[InspectionResponse])
 def list_inspections(
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
-    inspections, _ = service.get_inspections(plant_key, offset, limit)
+    inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit)
     return [_inspection_response(i) for i in inspections]
 
 
@@ -202,12 +202,11 @@ def create_treatment_application(
 @router.get("/plants/{plant_key}/treatment-applications", response_model=list[TreatmentApplicationResponse])
 def list_treatment_applications(
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
-    apps, _ = service.get_applications(plant_key, offset, limit)
+    apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit)
     return [_application_response(a) for a in apps]
 
 

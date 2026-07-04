@@ -41,6 +41,7 @@ from app.common.dependencies import (
     get_species_repo,
 )
 from app.common.enums import PlantingRunStatus
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -63,8 +64,7 @@ def _entry_response(e: PlantingRunEntry) -> EntryResponse:
 
 @router.get("", response_model=list[PlantingRunResponse])
 def list_runs(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     status: str | None = None,
     run_type: str | None = None,
     location_key: str | None = None,
@@ -78,7 +78,7 @@ def list_runs(
         filters["run_type"] = run_type
     if location_key:
         filters["location_key"] = location_key
-    items, _total = service.list_runs(offset, limit, filters or None, tenant_key=ctx.tenant_key)
+    items, _total = service.list_runs(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     active_keys = [r.key for r in items if r.key and r.status != PlantingRunStatus.PLANNED]
     summaries = service.get_batch_phase_summaries(active_keys) if active_keys else {}
     return [_run_response(r, summaries.get(r.key)) for r in items]
@@ -437,14 +437,13 @@ def _diary_response(entry: PlantDiaryEntry) -> DiaryEntryResponse:
 def list_plant_diary_entries(
     key: str,
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(plant_key, offset, limit)
+    entries, _total = diary_service.list_entries_for_plant(plant_key, pagination.offset, pagination.limit)
     return [_diary_response(e) for e in entries]
 
 
@@ -529,14 +528,13 @@ def delete_plant_diary_entry(
 )
 def list_run_diary_entries(
     key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_run(key, offset, limit)
+    entries, _total = diary_service.list_entries_for_run(key, pagination.offset, pagination.limit)
     results = []
     for item in entries:
         diary_data = item.get("diary_entry", {})
