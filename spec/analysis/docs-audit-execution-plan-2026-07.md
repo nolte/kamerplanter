@@ -14,9 +14,10 @@
 **DE ist kanonisch, EN wird gespiegelt.** Jede inhaltliche Änderung erfolgt paarweise `docs/de/…` + `docs/en/…`. Alle Sachfehler sind aktuell in beide Sprachen gespiegelt — Korrekturen ebenso.
 
 **Verbindliche Admonition-Konvention (behebt Muster M-1/M-2).** Bevor die Korrektur-Wellen starten, wird eine Konvention im Backend-/Doku-Style-Guide verankert und durchgängig angewandt:
-- Feature vollständig fehlend/Scaffold → `!!! warning "Noch nicht implementiert (REQ-XXX)"` **am Seitenanfang** + alle Handlungsanweisungen im **Futur** („wird … bieten").
+- Feature vollständig fehlend/Scaffold → `!!! warning "Noch nicht implementiert"` **am Seitenanfang** + alle Handlungsanweisungen im **Futur** („wird … bieten").
 - Feature teilweise implementiert → `!!! note "Teilweise verfügbar"` + betroffene Abschnitte einzeln markiert.
 - Feature nur per API/Env-Var (keine UI) → `!!! info "Nur über API / Betreiber-Konfiguration"`.
+- **Keine internen REQ-/Issue-IDs im nutzer-sichtbaren Admonition-Titel** (Lektorat-Erkenntnis aus Welle 1): der Titel bleibt laienverständlich; die Referenz wandert glossiert in den ersten Callout-Satz („… ist geplant, intern verfolgt als REQ-031").
 
 **Tabellen aus Code/Seed generieren (behebt M-3).** Care-Presets, `FAMILY_CARE_MAP`, Starter-Kits, Substrat-Typen, Workflow-Templates, Enum-Listen werden nicht mehr handgepflegt (siehe WP-P1).
 
@@ -25,7 +26,8 @@
 2. DE/EN-Parität: identische Gliederung, beide Sprachen geändert.
 3. Inhaltliche Gegenprobe: jede belegte Aussage per `grep`/Code-Stelle verifiziert (kein „Doku eilt voraus" mehr).
 4. Bei Frontend-Bezug: Nav-Label/Button-Text = i18n-Key (nicht Modellname).
-5. 3-Agent-Kette bzw. `mkdocs-documentation`-Agent-Review vor PR.
+5. **Lektorat**: `lektorat-apply` (Audit) über alle geänderten `docs/`-Seiten (DE + EN); Findings oberhalb der Severity-Schwelle eingearbeitet, bevor committet wird.
+6. 3-Agent-Kette bzw. `mkdocs-documentation`-Agent-Review vor PR.
 
 **Ausführende Rolle:** `mkdocs-documentation`-Agent (Doku-Arbeit). Code-Verifikation via `grep`/`Read`. Reine Code-Fixes (§0c) laufen **nicht** über diesen Plan.
 
