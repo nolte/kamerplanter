@@ -19,6 +19,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Calendar](calendar.md) | Calendar view and sowing calendar | REQ-015 |
 | [Dashboard](dashboard.md) | Overview and key metrics | REQ-009 |
 | [Onboarding Wizard](onboarding.md) | Guided initial setup with starter kits and favourites | REQ-020 |
+| [Account & Sign-In](account.md) | Registration, login, profile and session management | — |
 | [Modules & Features](module-visibility.md) | Show or hide functional areas individually | REQ-042 |
 | [Care Reminders](care-reminders.md) | Automatic watering and care schedules | REQ-022 |
 | [Tenant Management](tenants.md) | Manage personal and community gardens | REQ-024 |

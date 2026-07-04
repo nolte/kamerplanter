@@ -83,6 +83,10 @@ plugins:
           build: true
           nav_translations:
             Startseite: Home
+            Stammdaten-Import: Master Data Import
+            Konto & Anmeldung: Account & Sign-In
+            Benachrichtigungen: Notifications
+            Externe Datenanreicherung: External Data Enrichment
             Erste Schritte: Getting Started
             Deine erste Pflanze: Your First Plant
             Funktionen entdecken: Discover Features
@@ -256,6 +260,7 @@ nav:
   - Benutzerhandbuch:
       - de/user-guide/index.md
       - Stammdaten: de/user-guide/plant-management.md
+      - Stammdaten-Import: de/user-guide/import.md
       - Standorte & Substrate: de/user-guide/locations-substrates.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
       - Dünge-Logik: de/user-guide/fertilization.md
@@ -269,6 +274,7 @@ nav:
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
       - Onboarding-Wizard: de/user-guide/onboarding.md
+      - Konto & Anmeldung: de/user-guide/account.md
       - Module & Funktionen: de/user-guide/module-visibility.md
       - Light-Modus: de/user-guide/light-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
@@ -276,6 +282,7 @@ nav:
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
+      - Benachrichtigungen: de/user-guide/notifications.md
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
@@ -334,6 +341,7 @@ nav:
       - Datenaufbewahrung: de/guides/data-retention.md
       - Mischkultur: de/guides/companion-planting.md
       - Nachernte: de/guides/post-harvest.md
+      - Externe Datenanreicherung: de/guides/data-enrichment.md
   - Referenz:
       - de/reference/index.md
       - API-Referenz: de/reference/api-reference.md

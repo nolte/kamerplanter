@@ -110,6 +110,9 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im Backend-Log ausgegeben.
 
+!!! note "Wird auch vom Benachrichtigungssystem genutzt"
+    Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
+
 ---
 
 ## Externe Datenanreicherung (REQ-011)
@@ -183,6 +186,11 @@ Im Helm-Chart ist `MDNS_ENABLED` standardmaessig auf `false` gesetzt. Der manuel
 | `HA_URL` | — | Nein | Home-Assistant-Basis-URL, z. B. `http://homeassistant.local:8123` |
 | `HA_ACCESS_TOKEN` | — | Nein | Long-Lived Access Token aus Home Assistant |
 | `HA_TIMEOUT` | `10` | Nein | HTTP-Timeout für HA-Anfragen (Sekunden) |
+
+Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assistant-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#home-assistant) (persistente Notifications, Mobile Push, TTS).
+
+!!! warning "Apprise-Kanal erfordert zusätzliches Python-Paket"
+    Der `apprise`-Benachrichtigungskanal ist unabhängig von den Home-Assistant-Variablen immer aktiv, benötigt aber das optionale Python-Paket `apprise` im Backend-Image (`pip install apprise`) — dafür gibt es keine eigene Umgebungsvariable. Details siehe [Benachrichtigungen — Apprise](../user-guide/notifications.md#apprise).
 
 ---
 

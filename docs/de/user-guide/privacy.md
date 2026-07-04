@@ -339,5 +339,5 @@ Bestimmte Sensor-Daten können Rückschlüsse auf Anwesenheitsmuster erlauben (C
 
 ## Siehe auch
 
-- [Konto-Einstellungen](../api/authentication.md)
+- [Konto & Anmeldung](account.md)
 - [Mandanten & Gärten](tenants.md)

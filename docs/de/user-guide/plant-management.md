@@ -238,50 +238,19 @@ Klicke auf **Tätigkeit anlegen** und fülle die Abschnitte aus:
 
 ## Stammdaten per CSV importieren
 
-Für die Erstbefüllung oder Batch-Aktualisierungen können Stammdaten per CSV-Datei importiert werden. Der Import folgt einem sicheren **Zwei-Phasen-Prozess**:
-
-<!-- diagram-source: user-described — two-phase CSV master-data import flow with a validation-and-fix loop before confirmation -->
-```mermaid
-flowchart LR
-    A["Upload CSV"] --> B["Preview & Validation"]
-    B --> C["Fix errors"]
-    C --> B
-    B --> D["Confirm import"]
-```
-
-### Unterstützte Entitäten
-
-| Entität | Identifikation | Anwendungsfall |
-|----------|---------------|----------------|
-| Species | `scientific_name` | Erstbefüllung botanischer Arten |
-| Cultivar | `name` + `parent_species` | Sortenkatalogeinführ |
-| BotanicalFamily | `name` | Pflanzenfamilien |
-| NutrientPlan | `name` + `source_chart` | Hersteller-Feeding-Charts |
-
-### Import durchführen
-
-1. Navigiere zu **Stammdaten** > **Import**
-2. Wähle die **Entität** (Art, Sorte, Familie oder Nährstoffplan)
-3. Lade deine **CSV-Datei** hoch — Encoding und Trennzeichen werden automatisch erkannt
-4. Prüfe die **Vorschau**: Jede Zeile wird einzeln validiert, Fehler werden pro Feld angezeigt
-5. Wähle die **Duplikatstrategie** (Überspringen, Aktualisieren oder Abbrechen)
-6. Klicke auf **Import bestätigen**
-
-!!! tip "CSV-Vorlagen herunterladen"
-    Unter **Import** > **Vorlagen** stehen CSV-Templates für jede Entität bereit. Diese enthalten alle unterstützten Spalten mit Beispielwerten.
-
-!!! tip "KI-generierte CSV-Daten nutzen"
-    Die [KI-Pipeline](../guides/ai-plant-data-pipeline.md) liefert im Abschnitt 8 jedes Pflanzendokuments fertige CSV-Zeilen, die sich direkt importieren lassen.
+Für die Erstbefüllung oder Batch-Anlage kannst du Arten, Sorten und botanische Familien auch per CSV-Datei importieren, statt sie einzeln anzulegen. Der Import läuft über einen sicheren Zwei-Phasen-Prozess (Validierungsbericht vor der eigentlichen Übernahme) und wird ausführlich auf der eigenen Seite [Stammdaten-Import](import.md) beschrieben — dort findest du auch die unterstützten Spalten je Datentyp und den Umgang mit Duplikaten und Validierungsfehlern.
 
 ---
 
 ## Voraussetzungen
 
 - Kamerplanter-Instanz gestartet und zugänglich
-- Für den CSV-Import: CSV-Datei im UTF-8-Format
+- Für den CSV-Import: siehe die Voraussetzungen auf der Seite [Stammdaten-Import](import.md)
 
 ## Siehe auch
 
+- [Stammdaten-Import](import.md) — Arten, Sorten und Familien per CSV-Datei importieren
+- [Externe Datenanreicherung](../guides/data-enrichment.md) — fehlende Artdaten automatisch aus GBIF und Perenual ergänzen
 - [Pflanzendaten per KI aufbereiten](../guides/ai-plant-data-pipeline.md) — Ausführliche Anleitung zur KI-Pipeline
 - [Pflanzen-Bilderkennung verwenden](plant-identification.md) — Art per Foto identifizieren
 - [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md) — Referenzbild-Beschaffungslauf starten (für Administratoren)

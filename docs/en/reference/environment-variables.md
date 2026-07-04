@@ -110,6 +110,9 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 In development mode (`EMAIL_ADAPTER=console`), emails are not sent but printed to the backend log.
 
+!!! note "Also used by the notification system"
+    These variables also configure the email channel of the [notification system](../user-guide/notifications.md#email) — there is no separate SMTP configuration for notifications.
+
 ---
 
 ## External Data Enrichment (REQ-011)
@@ -183,6 +186,11 @@ The Helm chart sets `MDNS_ENABLED` to `false` by default. The manual config flow
 | `HA_URL` | — | No | Home Assistant base URL, e.g. `http://homeassistant.local:8123` |
 | `HA_ACCESS_TOKEN` | — | No | Long-Lived Access Token from Home Assistant |
 | `HA_TIMEOUT` | `10` | No | HTTP timeout for HA requests (seconds) |
+
+When both variables are set, the backend also enables the Home Assistant channel of the [notification system](../user-guide/notifications.md#home-assistant) (persistent notifications, mobile push, TTS).
+
+!!! warning "Apprise channel requires an additional Python package"
+    The `apprise` notification channel is always active regardless of the Home Assistant variables, but requires the optional `apprise` Python package in the backend image (`pip install apprise`) — there is no dedicated environment variable for it. See [Notifications — Apprise](../user-guide/notifications.md#apprise) for details.
 
 ---
 
