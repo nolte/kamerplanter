@@ -10,11 +10,21 @@ Kamerplanter manages both structured entity data (plants, nutrient plans, tasks)
 
 ## Decision
 
-ArangoDB 3.11+ is used as the primary database. It natively supports document storage and graph traversals in a single query language (AQL — ArangoDB Query Language).
+ArangoDB 3.11+ is used as the primary database. It natively supports both document storage and graph traversals. Both use a single query language: AQL — ArangoDB Query Language.
 
 ## Rationale
 
-ArangoDB offers the best balance of document storage and native graph support without enterprise license costs.
+### Evaluated Alternatives
+
+| Criterion | PostgreSQL + pgvector | Neo4j | ArangoDB |
+|-----------|----------------------|-------|----------|
+| Document storage | Good (JSONB) | Poor (properties only) | Very good |
+| Graph traversal | Medium (recursive CTEs) | Very good (Cypher) | Very good (AQL) |
+| Operational complexity | Low | High (enterprise costs) | Medium |
+| Python client | Very good (psycopg3) | Good | Good (python-arango) |
+| License | PostgreSQL (open) | Community/Enterprise | Apache 2.0 |
+
+ArangoDB offers the best balance of document storage and native graph support. It does so without enterprise license costs.
 
 ## Consequences
 
@@ -26,3 +36,11 @@ ArangoDB offers the best balance of document storage and native graph support wi
 ### Negative
 - AQL is less widespread than SQL or Cypher — smaller talent pool
 - TimescaleDB is additionally required for time-series sensor data
+
+### Risks
+- ArangoDB Community Edition has limitations for cluster features. This is sufficient for single-node operation.
+
+## References
+
+- [ArangoDB Documentation](https://docs.arangodb.com/)
+- NFR-001: 5-Layer Architecture

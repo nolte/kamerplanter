@@ -1,0 +1,28 @@
+{
+  "note": "Triage decisions for the Welle-1 lektorat audit. Findings not listed here were addressed in the follow-up patch pass.",
+  "dismissed": [
+    {
+      "ids": ["d4-de-ai-assistant-l6", "d4-de-ai-providers-l127", "d4-de-planting-runs-l3", "d4-de-privacy-l6"],
+      "reason": "Site-wide informal 'du' address is a deliberate, pre-existing project convention that matches the hobby-grower target audiences and is consistent across the entire docs/de tree. Flipping only these four Welle-1 pages to 'Sie'/impersonal would introduce inconsistency, not remove it. A register change, if desired, is a separate site-wide editorial decision — not a Welle-1 regression.",
+      "decision": "skip-and-record"
+    },
+    {
+      "ids": ["d1-de-ai-assistant-l4", "d1-de-ai-providers-l4", "d1-de-planting-runs-l31", "d1-de-privacy-l4", "d1-en-privacy-l4", "d1-en-ai-assistant-l39", "d1-en-troubleshooting-l115"],
+      "reason": "Marginally over the warn corridor (not critical); the dominant lever is long-word ratio driven by unavoidable domain compounds (Umgebungsvariablen, Knowledge-Service, pre-harvest interval). The two critical D1 findings (adr-001 l13, ai-providers EN l4) are being fixed; the densest sentences on the warn pages are softened opportunistically where trivial, but forced sentence-splitting of technical compounds is not pursued.",
+      "decision": "skip-and-record"
+    },
+    {
+      "ids": ["d4-en-troubleshooting-l289"],
+      "reason": "The mixed-case Diagnostic-Tools subsections are pre-existing content, not introduced by Welle 1 (Welle 1 only appended the Kubernetes section). Out of scope for this remediation; queue for a later troubleshooting-page pass (WP-S1).",
+      "decision": "skip-and-record"
+    }
+  ],
+  "patched": [
+    "d2-de-ai-assistant-l3", "d2-en-ai-assistant-l3", "d2-de-privacy-l4", "d2-en-privacy-l4",
+    "d2-en-troubleshooting-l161", "d2-de-planting-runs-l124", "d2-en-planting-runs-l124",
+    "d1-en-adr-001-l13", "d1-en-ai-providers-l4",
+    "d5-de-ai-assistant-l10", "d5-en-ai-assistant-l10", "d5-de-privacy-l10", "d5-en-privacy-l10",
+    "d4-en-ai-assistant-l10", "d3-de-privacy-l101",
+    "d6-en-ai-providers-l4", "d6-en-privacy-l4", "d6-en-privacy-l242"
+  ]
+}
